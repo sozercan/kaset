@@ -1,0 +1,75 @@
+name: Dev Build
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.swift"
+      - "**.xcodeproj/**"
+      - "**.xcworkspace/**"
+      - "Assets.xcassets/**"
+      - ".github/workflows/dev-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build app
+        run: |
+          xcodebuild -project Kaset.xcodeproj \
+            -scheme Kaset \
+            -configuration Release \
+            -derivedDataPath ./build \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create DMG
+        run: |
+          # Find the built app
+          APP_PATH=$(find ./build/Build/Products/Release -name "*.app" -type d | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: Could not find built app"
+            exit 1
+          fi
+
+          echo "Found app at: $APP_PATH"
+
+          # Create a temporary directory for DMG contents
+          mkdir -p dmg_contents
+          cp -R "$APP_PATH" dmg_contents/
+
+          # Create DMG
+          hdiutil create -volname "Kaset-dev" \
+            -srcfolder dmg_contents \
+            -ov -format UDZO \
+            kaset-dev.dmg
+
+      - name: Get short SHA
+        id: slug
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
+        with:
+          name: kaset-dev-${{ steps.slug.outputs.sha_short }}
+          path: kaset-dev.dmg
+          retention-days: 30

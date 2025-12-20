@@ -1,0 +1,35 @@
+name: SwiftLint
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.swift"
+      - ".swiftlint.yml"
+      - ".github/workflows/lint.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.swift"
+      - ".swiftlint.yml"
+      - ".github/workflows/lint.yml"
+
+jobs:
+  lint:
+    runs-on: macos-26
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: |
+          swiftlint lint --strict --reporter github-actions-logging
