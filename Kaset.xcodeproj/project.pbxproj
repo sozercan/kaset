@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
 		3BF2AFA5B956EFD5403CD66D /* MiniPlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B735BB57DD2ACF165D683F /* MiniPlayerWebView.swift */; };
+		57F360B44102B28C4B273F9C /* ArtistDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1A78D6AA4AB654E9663E2D /* ArtistDetail.swift */; };
+		69379B5363A7AFFDD1A0B9AE /* ArtistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */; };
 		E50000010000000000000000 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000000 /* AppDelegate.swift */; };
 		E50000010000000000000001 /* KasetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000001 /* KasetApp.swift */; };
 		E50000010000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000002 /* Assets.xcassets */; };
@@ -58,6 +61,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2D1A78D6AA4AB654E9663E2D /* ArtistDetail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetail.swift; sourceTree = "<group>"; };
+		ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetailView.swift; sourceTree = "<group>"; };
 		B5B735BB57DD2ACF165D683F /* MiniPlayerWebView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MiniPlayerWebView.swift; sourceTree = "<group>"; };
 		E50000020000000000000000 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E50000020000000000000001 /* KasetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KasetApp.swift; sourceTree = "<group>"; };
@@ -99,6 +104,7 @@
 		E50000020000000000000102 /* AuthServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000103 /* YTMusicClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTMusicClientTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000104 /* PlayerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerServiceTests.swift; sourceTree = "<group>"; };
+		F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetailViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -188,6 +194,7 @@
 				E50000020000000000000015 /* YTMusicError.swift */,
 				E50000020000000000000016 /* SearchResponse.swift */,
 				E50000020000000000000017 /* HomeResponse.swift */,
+				2D1A78D6AA4AB654E9663E2D /* ArtistDetail.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -244,6 +251,7 @@
 				E50000020000000000000061 /* LibraryViewModel.swift */,
 				E50000020000000000000062 /* SearchViewModel.swift */,
 				E50000020000000000000063 /* PlaylistDetailViewModel.swift */,
+				F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -266,6 +274,7 @@
 				E50000020000000000000083 /* HomeView.swift */,
 				E50000020000000000000084 /* LibraryView.swift */,
 				E50000020000000000000085 /* PlaylistDetailView.swift */,
+				ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */,
 				E50000020000000000000086 /* SearchView.swift */,
 				E50000020000000000000087 /* LoginWebView.swift */,
 				E50000020000000000000088 /* LoginSheet.swift */,
@@ -409,6 +418,9 @@
 				E50000010000000000000087 /* LoginWebView.swift in Sources */,
 				E50000010000000000000088 /* LoginSheet.swift in Sources */,
 				3BF2AFA5B956EFD5403CD66D /* MiniPlayerWebView.swift in Sources */,
+				57F360B44102B28C4B273F9C /* ArtistDetail.swift in Sources */,
+				69379B5363A7AFFDD1A0B9AE /* ArtistDetailView.swift in Sources */,
+				0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,7 +500,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -547,7 +559,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -619,7 +631,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.KasetTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -637,7 +649,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.KasetTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

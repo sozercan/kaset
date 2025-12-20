@@ -61,7 +61,7 @@ final class SearchViewModel {
         }
     }
 
-    private let client: YTMusicClient
+    let client: YTMusicClient
     private let logger = DiagnosticsLogger.api
     private var searchTask: Task<Void, Never>?
 

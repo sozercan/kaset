@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - MainWindow
 
 /// Main application window with sidebar navigation and player bar.
+@available(macOS 26.0, *)
 struct MainWindow: View {
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
@@ -74,6 +75,12 @@ struct MainWindow: View {
                 showLoginSheet = true
             }
         }
+        .onChange(of: playerService.isPlaying) { _, isPlaying in
+            // Auto-hide the WebView once playback starts
+            if isPlaying && playerService.showMiniPlayer {
+                playerService.confirmPlaybackStarted()
+            }
+        }
         .task {
             setupClient()
             setupNowPlaying()
@@ -94,9 +101,6 @@ struct MainWindow: View {
                 Sidebar(selection: $selectedNavigation)
             } detail: {
                 detailView(for: selectedNavigation, client: client)
-            }
-            .safeAreaInset(edge: .bottom) {
-                PlayerBar()
             }
             .frame(minWidth: 900, minHeight: 600)
         } else {
@@ -177,6 +181,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
+@available(macOS 26.0, *)
 #Preview {
     let authService = AuthService()
     MainWindow()

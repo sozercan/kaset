@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Library view displaying user's playlists.
+@available(macOS 26.0, *)
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -30,6 +31,9 @@ struct LibraryView: View {
                     )
                 )
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
         }
         .task {
             if viewModel.loadingState == .idle {

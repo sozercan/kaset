@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Main entry point for the Kaset macOS application.
+@available(macOS 26.0, *)
 @main
 struct KasetApp: App {
     /// App delegate for lifecycle management (background playback).

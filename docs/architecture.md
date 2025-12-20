@@ -308,3 +308,91 @@ DiagnosticsLogger.auth.error("Cookie extraction failed")
 **Categories**: `.player`, `.auth`, `.api`, `.webKit`
 
 **Levels**: `.debug`, `.info`, `.warning`, `.error`
+
+## UI Design (macOS 26+)
+
+The app uses Apple's **Liquid Glass** design language introduced in macOS 26.
+
+### PlayerBar
+
+**File**: `Views/macOS/PlayerBar.swift`
+
+A floating capsule-shaped player bar at the bottom of the content area:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ◀◀  ▶  ▶▶  │  🎵 [Thumbnail] Song Title - Artist  │  🔊━━━ │
+└─────────────────────────────────────────────────────────────┘
+         ↑                      ↑                        ↑
+    Playback              Now Playing              Volume
+    Controls               Info                   Control
+```
+
+**Implementation**:
+```swift
+GlassEffectContainer(spacing: 0) {
+    HStack {
+        playbackControls
+        Spacer()
+        centerSection  // thumbnail + track info
+        Spacer()
+        volumeControl
+    }
+    .glassEffect(.regular.interactive(), in: .capsule)
+}
+```
+
+**Key Points**:
+- Uses `GlassEffectContainer` to wrap glass elements
+- `.glassEffect(.regular.interactive(), in: .capsule)` for the liquid glass look
+- Only shows functional buttons (no placeholder buttons)
+- Thumbnail and track info in center section
+
+### PlayerBar Integration
+
+The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`:
+
+```swift
+// In HomeView, LibraryView, SearchView, PlaylistDetailView
+.safeAreaInset(edge: .bottom, spacing: 0) {
+    PlayerBar()
+}
+```
+
+**Why not in MainWindow?**
+- `NavigationSplitView` detail views have their own navigation stacks
+- Views pushed onto a `NavigationStack` don't inherit parent's `safeAreaInset`
+- Each view must explicitly include the `PlayerBar`
+
+### Sidebar
+
+**File**: `Views/macOS/Sidebar.swift`
+
+Clean, minimal sidebar with only functional navigation:
+
+```
+┌──────────────────┐
+│ 🔍 Search        │  ← Main navigation
+│ 🏠 Home          │
+├──────────────────┤
+│ Library          │  ← Section header
+│ 🎵 Playlists     │  ← Functional items only
+└──────────────────┘
+```
+
+**Design Principles**:
+- Only show items that have implemented functionality
+- Remove placeholder items (Artists, Albums, Songs, Liked Songs, etc.)
+- Use standard SwiftUI `List` with `.listStyle(.sidebar)`
+
+### @available Attributes
+
+All UI components require macOS 26.0+ for Liquid Glass:
+
+```swift
+@available(macOS 26.0, *)
+struct PlayerBar: View { ... }
+
+@available(macOS 26.0, *)
+struct MainWindow: View { ... }
+```

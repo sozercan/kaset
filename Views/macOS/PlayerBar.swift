@@ -1,170 +1,143 @@
 import SwiftUI
 
-/// Player bar shown at the bottom of the main window.
+/// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
+@available(macOS 26.0, *)
 struct PlayerBar: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
 
     var body: some View {
-        VStack(spacing: 0) {
-            Divider()
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 0) {
+                // Left section: Playback controls
+                playbackControls
 
-            ZStack {
-                HStack(spacing: 16) {
-                    // Track info
-                    trackInfo
+                Spacer()
 
-                    Spacer()
+                // Center section: Thumbnail + Now playing info
+                centerSection
 
-                    // Playback controls
-                    playbackControls
+                Spacer()
 
-                    Spacer()
-
-                    // Progress and volume
-                    progressAndVolume
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                // Right section: Volume control
+                volumeControl
             }
-            .background(.ultraThinMaterial)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .frame(height: 52)
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
-    }
-
-    // MARK: - Track Info
-
-    @ViewBuilder
-    private var trackInfo: some View {
-        HStack(spacing: 12) {
-            // Thumbnail
-            AsyncImage(url: playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .foregroundStyle(.secondary)
-                    }
-            }
-            .frame(width: 48, height: 48)
-            .clipShape(.rect(cornerRadius: 6))
-
-            // Title and artist
-            if let track = playerService.currentTrack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .lineLimit(1)
-
-                    Text(track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: 200, alignment: .leading)
-            } else {
-                Text("Not Playing")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(minWidth: 200)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Playback Controls
 
     private var playbackControls: some View {
         HStack(spacing: 20) {
+            // Previous
             Button {
                 Task {
                     await playerService.previous()
                 }
             } label: {
                 Image(systemName: "backward.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Previous track")
 
+            // Play/Pause
             Button {
                 Task {
                     await playerService.playPause()
                 }
             } label: {
                 Image(systemName: playerService.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(playerService.isPlaying ? "Pause" : "Play")
 
+            // Next
             Button {
                 Task {
                     await playerService.next()
                 }
             } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Next track")
         }
     }
 
-    // MARK: - Progress and Volume
+    // MARK: - Center Section
 
-    private var progressAndVolume: some View {
-        HStack(spacing: 16) {
-            // Progress
-            HStack(spacing: 8) {
-                Text(playerService.progress.formattedDuration)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 40, alignment: .trailing)
-
-                Slider(
-                    value: Binding(
-                        get: { playerService.progress },
-                        set: { newValue in
-                            Task {
-                                await playerService.seek(to: newValue)
-                            }
-                        }
-                    ),
-                    in: 0 ... max(1, playerService.duration)
-                )
-                .frame(width: 200)
-
-                Text(playerService.duration.formattedDuration)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 40, alignment: .leading)
+    private var centerSection: some View {
+        HStack(spacing: 10) {
+            // Thumbnail
+            AsyncImage(url: playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
             }
+            .frame(width: 36, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
 
-            // Volume
-            HStack(spacing: 4) {
-                Image(systemName: volumeIcon)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 16)
+            // Track info
+            if let track = playerService.currentTrack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(track.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
 
-                Slider(
-                    value: Binding(
-                        get: { playerService.volume },
-                        set: { newValue in
-                            Task {
-                                await playerService.setVolume(newValue)
-                            }
-                        }
-                    ),
-                    in: 0 ... 1
-                )
-                .frame(width: 80)
+                    Text(track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 200, alignment: .leading)
             }
         }
-        .frame(minWidth: 350)
+    }
+
+    // MARK: - Volume Control
+
+    private var volumeControl: some View {
+        HStack(spacing: 6) {
+            Image(systemName: volumeIcon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.6))
+                .frame(width: 16)
+
+            Slider(
+                value: Binding(
+                    get: { playerService.volume },
+                    set: { newValue in
+                        Task {
+                            await playerService.setVolume(newValue)
+                        }
+                    }
+                ),
+                in: 0 ... 1
+            )
+            .frame(width: 80)
+            .controlSize(.small)
+        }
     }
 
     private var volumeIcon: String {
@@ -176,4 +149,14 @@ struct PlayerBar: View {
             "speaker.wave.2.fill"
         }
     }
+}
+
+@available(macOS 26.0, *)
+#Preview {
+    PlayerBar()
+        .environment(PlayerService())
+        .environment(WebKitManager.shared)
+        .frame(width: 600)
+        .padding()
+        .background(.black)
 }

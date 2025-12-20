@@ -3,23 +3,48 @@ import SwiftUI
 // MARK: - SearchView
 
 /// Search view for finding music.
+@available(macOS 26.0, *)
 struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
+    @State private var navigationPath = NavigationPath()
 
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Search bar
-            searchBar
+        NavigationStack(path: $navigationPath) {
+            VStack(spacing: 0) {
+                // Search bar
+                searchBar
 
-            Divider()
+                Divider()
 
-            // Content
-            contentView
+                // Content
+                contentView
+            }
+            .navigationTitle("Search")
+            .navigationDestination(for: Playlist.self) { playlist in
+                PlaylistDetailView(
+                    playlist: playlist,
+                    viewModel: PlaylistDetailViewModel(
+                        playlist: playlist,
+                        client: viewModel.client
+                    )
+                )
+            }
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailView(
+                    artist: artist,
+                    viewModel: ArtistDetailViewModel(
+                        artist: artist,
+                        client: viewModel.client
+                    )
+                )
+            }
         }
-        .navigationTitle("Search")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
+        }
         .onAppear {
             isSearchFieldFocused = true
         }
@@ -266,10 +291,26 @@ struct SearchView: View {
     }
 
     private func handleItemTap(_ item: SearchResultItem) {
-        if let videoId = item.videoId {
+        switch item {
+        case let .song(song):
             Task {
-                await playerService.play(videoId: videoId)
+                await playerService.play(videoId: song.videoId)
             }
+        case let .artist(artist):
+            navigationPath.append(artist)
+        case let .album(album):
+            // Navigate as playlist for now
+            let playlist = Playlist(
+                id: album.id,
+                title: album.title,
+                description: nil,
+                thumbnailURL: album.thumbnailURL,
+                trackCount: album.trackCount,
+                author: album.artistsDisplay
+            )
+            navigationPath.append(playlist)
+        case let .playlist(playlist):
+            navigationPath.append(playlist)
         }
     }
 }

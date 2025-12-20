@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Home view displaying personalized content sections.
+@available(macOS 26.0, *)
 struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
@@ -29,6 +30,18 @@ struct HomeView: View {
                     )
                 )
             }
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailView(
+                    artist: artist,
+                    viewModel: ArtistDetailViewModel(
+                        artist: artist,
+                        client: viewModel.client
+                    )
+                )
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
         }
         .task {
             if viewModel.loadingState == .idle {
@@ -170,9 +183,9 @@ struct HomeView: View {
                 author: album.artistsDisplay
             )
             navigationPath.append(playlist)
-        case .artist:
-            // Artist navigation not implemented in MVP
-            break
+        case let .artist(artist):
+            // Navigate to artist detail
+            navigationPath.append(artist)
         }
     }
 }

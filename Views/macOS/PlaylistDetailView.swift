@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Detail view for a playlist showing its tracks.
+@available(macOS 26.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
@@ -22,6 +23,9 @@ struct PlaylistDetailView: View {
             }
         }
         .navigationTitle(playlist.title)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
+        }
         .task {
             if viewModel.loadingState == .idle {
                 await viewModel.load()

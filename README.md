@@ -2,60 +2,63 @@
 
 A native macOS YouTube Music client built with Swift and SwiftUI.
 
+<img src="docs/screenshot.png" alt="Kaset Screenshot" width="800">
+
 ## Features
 
-- 🎵 **Native macOS Experience**: Built with SwiftUI for a seamless macOS experience
-- 🔐 **Browser Cookie Authentication**: Auto-extracts cookies from an in-app login WebView
-- 🎧 **YouTube Music Premium Support**: Hidden WebView playback supports DRM content
-- 🎛️ **System Integration**: Now Playing in Control Center, media key support, Dock menu
-- 📚 **Library Access**: Browse your playlists, search for music
+- 🎵 **Native macOS Experience** — Apple Music-style UI with Liquid Glass player bar and clean sidebar navigation
+- 🎧 **YouTube Music Premium Support** — Full playback of DRM-protected content via your existing subscription
+- 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
+- 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
+- 📚 **Library Access** — Browse your playlists, liked songs, albums, and artists
+- 🔍 **Search** — Find songs, albums, artists, and playlists
 
 ## Requirements
 
-- macOS 14.0 or later
-- Xcode 15.0 or later
-- Swift 6.0
+- macOS 26.0 or later
+- YouTube Music Premium subscription (for playback)
 
-## Building
+## Installation
+
+### Download
+
+Download the latest release from the [Releases](https://github.com/sozercan/kaset/releases) page.
+
+### Build from Source
 
 1. Clone the repository
-2. Open `Kaset.xcodeproj` in Xcode
+2. Open `Kaset.xcodeproj` in Xcode 16.0+
 3. Build and run (⌘R)
 
-```bash
-# Build from command line
-xcodebuild -scheme Kaset -destination 'platform=macOS' build
+## Usage
 
-# Run tests
-xcodebuild -scheme Kaset -destination 'platform=macOS' test
-```
+### Sign In
 
-## Project Structure
+When you first launch Kaset, you'll be prompted to sign in to your YouTube Music account. This is done through an in-app browser that securely captures your session cookies.
 
-```
-App/                → App entry point (KasetApp.swift)
-Core/
-  ├── Models/       → Data models (Song, Playlist, Album, Artist, etc.)
-  ├── Services/
-  │   ├── API/      → YTMusicClient (YouTube Music API calls)
-  │   ├── Auth/     → AuthService (login state machine)
-  │   ├── Player/   → PlayerService, NowPlayingManager (playback control)
-  │   └── WebKit/   → WebKitManager (cookie store, persistent login)
-  ├── ViewModels/   → HomeViewModel, LibraryViewModel, SearchViewModel
-  └── Utilities/    → DiagnosticsLogger, extensions
-Views/
-  └── macOS/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
-Tests/              → Unit tests (KasetTests/)
-```
+### Playback
 
-## Architecture
+- Click any song to start playback
+- Use the player bar at the bottom to control playback
+- Use media keys (play/pause, next, previous) to control playback from anywhere
 
-The app uses a clean architecture with:
+### Background Listening
 
-- **Observable Pattern**: `@Observable` classes for reactive state management
-- **MainActor Isolation**: All UI and service classes are `@MainActor` for thread safety
-- **WebKit Integration**: Persistent `WKWebsiteDataStore` for cookie management
-- **Swift Concurrency**: `async`/`await` throughout, no `DispatchQueue`
+- Close the window (⌘W) to continue listening in the background
+- Click the Dock icon to bring the window back
+- Quit the app (⌘Q) to stop playback
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Space | Play/Pause |
+| ⌘W | Close window (audio continues) |
+| ⌘Q | Quit (audio stops) |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and coding guidelines.
 
 ## License
 

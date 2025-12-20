@@ -98,6 +98,22 @@ final class YTMusicClient {
         return try parsePlaylistDetail(data, playlistId: id)
     }
 
+    /// Fetches artist details including their songs and albums.
+    func getArtist(id: String) async throws -> ArtistDetail {
+        logger.info("Fetching artist: \(id)")
+
+        let body: [String: Any] = [
+            "browseId": id,
+        ]
+
+        let data = try await request("browse", body: body)
+
+        let topKeys = Array(data.keys)
+        logger.debug("Artist response top-level keys: \(topKeys)")
+
+        return parseArtistDetail(data, artistId: id)
+    }
+
     // MARK: - Private Methods
 
     /// Builds authentication headers for API requests.
@@ -842,6 +858,141 @@ final class YTMusicClient {
 
         logger.info("Parsed playlist '\(title)' with \(tracks.count) tracks")
         return PlaylistDetail(playlist: playlist, tracks: tracks, duration: duration)
+    }
+
+    /// Parses artist detail from browse response.
+    private func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail {
+        var name = "Unknown Artist"
+        var description: String?
+        var thumbnailURL: URL?
+        var songs: [Song] = []
+        var albums: [Album] = []
+
+        // Try musicImmersiveHeaderRenderer (common for artist pages)
+        if let header = data["header"] as? [String: Any],
+           let immersiveHeader = header["musicImmersiveHeaderRenderer"] as? [String: Any]
+        {
+            // Name
+            if let titleData = immersiveHeader["title"] as? [String: Any],
+               let runs = titleData["runs"] as? [[String: Any]],
+               let firstRun = runs.first,
+               let text = firstRun["text"] as? String
+            {
+                name = text
+            }
+
+            // Description
+            if let descData = immersiveHeader["description"] as? [String: Any],
+               let runs = descData["runs"] as? [[String: Any]]
+            {
+                description = runs.compactMap { $0["text"] as? String }.joined()
+            }
+
+            // Thumbnail
+            let thumbnails = extractThumbnails(from: immersiveHeader)
+            thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        }
+
+        // Try musicVisualHeaderRenderer (alternative header format)
+        if name == "Unknown Artist",
+           let header = data["header"] as? [String: Any],
+           let visualHeader = header["musicVisualHeaderRenderer"] as? [String: Any]
+        {
+            if let titleData = visualHeader["title"] as? [String: Any],
+               let runs = titleData["runs"] as? [[String: Any]],
+               let firstRun = runs.first,
+               let text = firstRun["text"] as? String
+            {
+                name = text
+            }
+
+            let thumbnails = extractThumbnails(from: visualHeader)
+            thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        }
+
+        // Parse content sections for songs and albums
+        if let contents = data["contents"] as? [String: Any],
+           let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+           let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+           let firstTab = tabs.first,
+           let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+           let tabContent = tabRenderer["content"] as? [String: Any],
+           let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+           let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        {
+            for sectionData in sectionContents {
+                // Parse songs from musicShelfRenderer (typically "Songs" section)
+                if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
+                    if let shelfContents = shelfRenderer["contents"] as? [[String: Any]] {
+                        songs.append(contentsOf: parseTracksFromItems(shelfContents))
+                    }
+                }
+
+                // Parse albums from musicCarouselShelfRenderer
+                if let carouselRenderer = sectionData["musicCarouselShelfRenderer"] as? [String: Any],
+                   let carouselContents = carouselRenderer["contents"] as? [[String: Any]]
+                {
+                    for itemData in carouselContents {
+                        if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any],
+                           let album = parseAlbumFromTwoRowRenderer(twoRowRenderer)
+                        {
+                            albums.append(album)
+                        }
+                    }
+                }
+            }
+        }
+
+        let artist = Artist(id: artistId, name: name, thumbnailURL: thumbnailURL)
+        logger.info("Parsed artist '\(name)' with \(songs.count) songs and \(albums.count) albums")
+
+        return ArtistDetail(
+            artist: artist,
+            description: description,
+            songs: songs,
+            albums: albums,
+            thumbnailURL: thumbnailURL
+        )
+    }
+
+    /// Parses an album from musicTwoRowItemRenderer.
+    private func parseAlbumFromTwoRowRenderer(_ data: [String: Any]) -> Album? {
+        guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
+              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+              let browseId = browseEndpoint["browseId"] as? String,
+              browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK")
+        else {
+            return nil
+        }
+
+        let thumbnails = extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+
+        var title = "Unknown Album"
+        if let titleData = data["title"] as? [String: Any],
+           let runs = titleData["runs"] as? [[String: Any]],
+           let firstRun = runs.first,
+           let text = firstRun["text"] as? String
+        {
+            title = text
+        }
+
+        var year: String?
+        if let subtitleData = data["subtitle"] as? [String: Any],
+           let runs = subtitleData["runs"] as? [[String: Any]]
+        {
+            // Year is typically the last item in subtitle
+            year = runs.last?["text"] as? String
+        }
+
+        return Album(
+            id: browseId,
+            title: title,
+            artists: nil,
+            thumbnailURL: thumbnailURL,
+            year: year,
+            trackCount: nil
+        )
     }
 
     /// Parses tracks from section contents.
