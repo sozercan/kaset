@@ -8,12 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
-		E50000010000000000000064 /* ExploreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000064 /* ExploreViewModel.swift */; };
-		E50000010000000000000091 /* ExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000091 /* ExploreView.swift */; };
 		3BF2AFA5B956EFD5403CD66D /* MiniPlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B735BB57DD2ACF165D683F /* MiniPlayerWebView.swift */; };
 		57F360B44102B28C4B273F9C /* ArtistDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1A78D6AA4AB654E9663E2D /* ArtistDetail.swift */; };
 		69379B5363A7AFFDD1A0B9AE /* ArtistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */; };
-		E50000010000000000000090 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000090 /* NotificationService.swift */; };
 		E50000010000000000000000 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000000 /* AppDelegate.swift */; };
 		E50000010000000000000001 /* KasetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000001 /* KasetApp.swift */; };
 		E50000010000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000002 /* Assets.xcassets */; };
@@ -26,6 +23,7 @@
 		E50000010000000000000016 /* SearchResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000016 /* SearchResponse.swift */; };
 		E50000010000000000000017 /* HomeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000017 /* HomeResponse.swift */; };
 		E50000010000000000000020 /* YTMusicClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000020 /* YTMusicClient.swift */; };
+		E50000010000000000000022 /* APICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000022 /* APICache.swift */; };
 		E50000010000000000000030 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000030 /* AuthService.swift */; };
 		E50000010000000000000040 /* PlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000040 /* PlayerService.swift */; };
 		E50000010000000000000041 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000041 /* NowPlayingManager.swift */; };
@@ -35,8 +33,11 @@
 		E50000010000000000000061 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000061 /* LibraryViewModel.swift */; };
 		E50000010000000000000062 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000062 /* SearchViewModel.swift */; };
 		E50000010000000000000063 /* PlaylistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000063 /* PlaylistDetailViewModel.swift */; };
+		E50000010000000000000064 /* ExploreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000064 /* ExploreViewModel.swift */; };
 		E50000010000000000000070 /* DiagnosticsLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000070 /* DiagnosticsLogger.swift */; };
 		E50000010000000000000071 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000071 /* Extensions.swift */; };
+		E50000010000000000000074 /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000074 /* RetryPolicy.swift */; };
+		E50000010000000000000075 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000075 /* ImageCache.swift */; };
 		E50000010000000000000080 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000080 /* MainWindow.swift */; };
 		E50000010000000000000081 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000081 /* Sidebar.swift */; };
 		E50000010000000000000082 /* PlayerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000082 /* PlayerBar.swift */; };
@@ -46,15 +47,14 @@
 		E50000010000000000000086 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000086 /* SearchView.swift */; };
 		E50000010000000000000087 /* LoginWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000087 /* LoginWebView.swift */; };
 		E50000010000000000000088 /* LoginSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000088 /* LoginSheet.swift */; };
+		E50000010000000000000089 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000089 /* CachedAsyncImage.swift */; };
+		E50000010000000000000090 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000090 /* NotificationService.swift */; };
+		E50000010000000000000091 /* ExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000091 /* ExploreView.swift */; };
 		E50000010000000000000100 /* KasetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000100 /* KasetTests.swift */; };
 		E50000010000000000000101 /* WebKitManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000101 /* WebKitManagerTests.swift */; };
 		E50000010000000000000102 /* AuthServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000102 /* AuthServiceTests.swift */; };
 		E50000010000000000000103 /* YTMusicClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000103 /* YTMusicClientTests.swift */; };
 		E50000010000000000000104 /* PlayerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000104 /* PlayerServiceTests.swift */; };
-		E50000010000000000000022 /* APICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000022 /* APICache.swift */; };
-		E50000010000000000000074 /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000074 /* RetryPolicy.swift */; };
-		E50000010000000000000075 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000075 /* ImageCache.swift */; };
-		E50000010000000000000089 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000089 /* CachedAsyncImage.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,18 +85,21 @@
 		E50000020000000000000016 /* SearchResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResponse.swift; sourceTree = "<group>"; };
 		E50000020000000000000017 /* HomeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeResponse.swift; sourceTree = "<group>"; };
 		E50000020000000000000020 /* YTMusicClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTMusicClient.swift; sourceTree = "<group>"; };
+		E50000020000000000000022 /* APICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICache.swift; sourceTree = "<group>"; };
 		E50000020000000000000030 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		E50000020000000000000040 /* PlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerService.swift; sourceTree = "<group>"; };
 		E50000020000000000000041 /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
 		E50000020000000000000042 /* PlayerWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebView.swift; sourceTree = "<group>"; };
 		E50000020000000000000050 /* WebKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebKitManager.swift; sourceTree = "<group>"; };
-		E50000020000000000000090 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		E50000020000000000000060 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		E50000020000000000000061 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
 		E50000020000000000000062 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		E50000020000000000000063 /* PlaylistDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistDetailViewModel.swift; sourceTree = "<group>"; };
+		E50000020000000000000064 /* ExploreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreViewModel.swift; sourceTree = "<group>"; };
 		E50000020000000000000070 /* DiagnosticsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogger.swift; sourceTree = "<group>"; };
 		E50000020000000000000071 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		E50000020000000000000074 /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
+		E50000020000000000000075 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		E50000020000000000000080 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
 		E50000020000000000000081 /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 		E50000020000000000000082 /* PlayerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBar.swift; sourceTree = "<group>"; };
@@ -106,6 +109,9 @@
 		E50000020000000000000086 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		E50000020000000000000087 /* LoginWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginWebView.swift; sourceTree = "<group>"; };
 		E50000020000000000000088 /* LoginSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSheet.swift; sourceTree = "<group>"; };
+		E50000020000000000000089 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
+		E50000020000000000000090 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		E50000020000000000000091 /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 		E50000020000000000000099 /* KasetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KasetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E50000020000000000000100 /* KasetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KasetTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000101 /* WebKitManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebKitManagerTests.swift; sourceTree = "<group>"; };
@@ -113,12 +119,6 @@
 		E50000020000000000000103 /* YTMusicClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTMusicClientTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000104 /* PlayerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerServiceTests.swift; sourceTree = "<group>"; };
 		F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetailViewModel.swift; sourceTree = "<group>"; };
-		E50000020000000000000022 /* APICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICache.swift; sourceTree = "<group>"; };
-		E50000020000000000000074 /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
-		E50000020000000000000075 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
-		E50000020000000000000089 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
-		E50000020000000000000064 /* ExploreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreViewModel.swift; sourceTree = "<group>"; };
-		E50000020000000000000091 /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -242,14 +242,6 @@
 			path = Auth;
 			sourceTree = "<group>";
 		};
-		E50000060000000000000025 /* Notification */ = {
-			isa = PBXGroup;
-			children = (
-				E50000020000000000000090 /* NotificationService.swift */,
-			);
-			path = Notification;
-			sourceTree = "<group>";
-		};
 		E50000060000000000000023 /* Player */ = {
 			isa = PBXGroup;
 			children = (
@@ -266,6 +258,14 @@
 				E50000020000000000000050 /* WebKitManager.swift */,
 			);
 			path = WebKit;
+			sourceTree = "<group>";
+		};
+		E50000060000000000000025 /* Notification */ = {
+			isa = PBXGroup;
+			children = (
+				E50000020000000000000090 /* NotificationService.swift */,
+			);
+			path = Notification;
 			sourceTree = "<group>";
 		};
 		E50000060000000000000030 /* ViewModels */ = {
@@ -369,7 +369,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					E50000040000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
@@ -517,6 +517,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -541,6 +542,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -582,6 +584,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -599,6 +602,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -614,8 +618,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Kaset;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
@@ -641,8 +648,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Kaset;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
@@ -665,6 +675,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
@@ -683,6 +694,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
