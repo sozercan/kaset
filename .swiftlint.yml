@@ -1,0 +1,100 @@
+# SwiftLint configuration for YouTube Music
+# Matches AGENTS.md coding style requirements
+
+disabled_rules:
+  - trailing_comma
+  - line_length
+  - opening_brace # Allow SwiftFormat's multi-line condition style
+
+opt_in_rules:
+  - closure_spacing
+  - contains_over_first_not_nil
+  - empty_count
+  - empty_string
+  - first_where
+  - implicit_return
+  - last_where
+  - modifier_order
+  - overridden_super_call
+  - private_action
+  - private_outlet
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unused_import
+  - vertical_whitespace_closing_braces
+  - yoda_condition
+
+included:
+  - App
+  - Core
+  - Views
+  - Tests
+
+excluded:
+  - .build
+  - DerivedData
+  - Packages
+
+# Rules configuration
+identifier_name:
+  min_length: 1
+  max_length: 60
+  allowed_symbols:
+    - _
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+file_length:
+  warning: 900
+  error: 1500
+
+function_body_length:
+  warning: 100
+  error: 150
+
+type_body_length:
+  warning: 700
+  error: 1000
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+nesting:
+  type_level: 3
+  function_level: 3
+
+# Custom rules to match AGENTS.md requirements
+custom_rules:
+  no_navigation_view:
+    name: "No NavigationView"
+    regex: "NavigationView"
+    message: "Use NavigationSplitView or NavigationStack instead of NavigationView"
+    severity: error
+
+  no_dispatch_queue:
+    name: "No DispatchQueue"
+    regex: "DispatchQueue"
+    message: "Use Swift concurrency (async/await, MainActor) instead of DispatchQueue"
+    severity: error
+
+  no_print:
+    name: "No print statements"
+    regex: "\\bprint\\("
+    message: "Use DiagnosticsLogger instead of print()"
+    severity: warning
+
+  no_foreground_color:
+    name: "No foregroundColor"
+    regex: "\\.foregroundColor\\("
+    message: "Use .foregroundStyle() instead of .foregroundColor()"
+    severity: warning
+
+  no_corner_radius:
+    name: "No cornerRadius"
+    regex: "\\.cornerRadius\\("
+    message: "Use .clipShape(.rect(cornerRadius:)) instead of .cornerRadius()"
+    severity: warning

@@ -1,0 +1,70 @@
+# SwiftFormat configuration for YouTube Music
+# Matches AGENTS.md coding style requirements
+
+# File options
+--swiftversion 6.0
+--exclude .build,DerivedData,Packages
+
+# Format options
+--allman false
+--binarygrouping 4,8
+--closingparen balanced
+--commas always
+--decimalgrouping 3,6
+--elseposition same-line
+--empty void
+--exponentcase lowercase
+--exponentgrouping disabled
+--fractiongrouping disabled
+--header ignore
+--hexgrouping 4,8
+--hexliteralcase uppercase
+--ifdef indent
+--importgrouping testable-bottom
+--indent 4
+--indentcase false
+--lifecycle
+--linebreaks lf
+--maxwidth none
+--modifierorder
+--nospaceoperators
+--nowrapoperators
+--octalgrouping 4,8
+--operatorfunc spaced
+--patternlet hoist
+--ranges spaced
+--self remove
+--selfrequired
+--semicolons never
+--shortoptionals always
+--smarttabs enabled
+--stripunusedargs always
+--tabwidth 4
+--trailingclosures
+--trimwhitespace always
+--typeattributes prev-line
+--varattributes same-line
+--voidtype void
+--wraparguments preserve
+--wrapcollections preserve
+--wrapparameters preserve
+--wrapreturntype preserve
+--wrapconditions after-first
+--xcodeindentation disabled
+--yodaswap always
+
+# Rules
+--enable isEmpty
+--enable redundantSelf
+--enable trailingSpace
+--enable consecutiveSpaces
+--enable duplicateImports
+--enable sortImports
+--enable unusedArguments
+--enable wrapMultilineStatementBraces
+--enable markTypes
+--enable extensionAccessControl
+--enable redundantParens
+--enable redundantReturn
+--enable redundantFileprivate
+--enable braces
