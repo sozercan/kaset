@@ -181,7 +181,12 @@ jobs:
           \`\`\`
 
           ### Manual Download
-          Download \`${{ steps.artifact.outputs.filename }}\` and drag Kaset to Applications.
+          1. Download \`${{ steps.artifact.outputs.filename }}\`
+          2. Open the DMG and drag Kaset to Applications
+          3. Remove the quarantine attribute (required for unsigned apps):
+             \`\`\`bash
+             xattr -d com.apple.quarantine /Applications/Kaset.app
+             \`\`\`
 
           ## Verification
 
