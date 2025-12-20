@@ -10,14 +10,14 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - 🎧 **YouTube Music Premium Support** — Full playback of DRM-protected content via your existing subscription
 - 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
 - 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
-- � **Explore** — Discover new releases, charts, and moods & genres
-- �📚 **Library Access** — Browse your playlists, liked songs, albums, and artists
+- 🧭 **Explore** — Discover new releases, charts, and moods & genres
+- 📚 **Library Access** — Browse your playlists, liked songs, albums, and artists
 - 🔍 **Search** — Find songs, albums, artists, and playlists
 
 ## Requirements
 
 - macOS 26.0 or later
-- YouTube Music Premium subscription (for playback)
+- [YouTube Music Premium](https://www.youtube.com/musicpremium) subscription
 
 ## Installation
 

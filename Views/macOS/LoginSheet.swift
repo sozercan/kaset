@@ -36,14 +36,8 @@ struct LoginSheet: View {
 
     private var headerView: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Sign in to YouTube Music")
-                    .font(.headline)
-
-                Text("Use your Google account to access your library and personalized recommendations.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Sign in to YouTube Music")
+                .font(.headline)
 
             Spacer()
 

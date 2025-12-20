@@ -27,7 +27,7 @@ struct MainWindow: View {
                 if authService.state.isLoggedIn {
                     mainContent
                 } else {
-                    loadingView
+                    OnboardingView()
                 }
             }
 
@@ -84,11 +84,6 @@ struct MainWindow: View {
         .task {
             setupClient()
             setupNowPlaying()
-
-            // Show login sheet if not logged in
-            if !authService.state.isLoggedIn {
-                showLoginSheet = true
-            }
         }
     }
 
@@ -151,9 +146,8 @@ struct MainWindow: View {
     private func handleAuthStateChange(_ state: AuthService.State) {
         switch state {
         case .loggedOut:
-            if !showLoginSheet {
-                showLoginSheet = true
-            }
+            // Onboarding view handles login, no need to auto-show sheet
+            break
         case .loggingIn:
             showLoginSheet = true
         case .loggedIn:
