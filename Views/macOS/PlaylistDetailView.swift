@@ -24,15 +24,19 @@ struct PlaylistDetailView: View {
         Group {
             switch viewModel.loadingState {
             case .idle, .loading:
-                loadingView
-            case .loaded:
+                LoadingView("Loading playlist...")
+            case .loaded, .loadingMore:
                 if let detail = viewModel.playlistDetail {
                     contentView(detail)
                 } else {
-                    errorView(message: "Playlist not found")
+                    ErrorView(title: "Unable to load playlist", message: "Playlist not found") {
+                        Task { await viewModel.load() }
+                    }
                 }
             case let .error(message):
-                errorView(message: message)
+                ErrorView(title: "Unable to load playlist", message: message) {
+                    Task { await viewModel.load() }
+                }
             }
         }
         .accentBackground(from: viewModel.playlistDetail?.thumbnailURL?.highQualityThumbnailURL)
@@ -52,15 +56,6 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Views
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading playlist...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private func contentView(_ detail: PlaylistDetail) -> some View {
         ScrollView {
@@ -233,13 +228,13 @@ struct PlaylistDetailView: View {
             Divider()
 
             Button {
-                likeSong(track)
+                SongActionsHelper.likeSong(track, playerService: playerService)
             } label: {
                 Label("Like", systemImage: "hand.thumbsup")
             }
 
             Button {
-                dislikeSong(track)
+                SongActionsHelper.dislikeSong(track, playerService: playerService)
             } label: {
                 Label("Dislike", systemImage: "hand.thumbsdown")
             }
@@ -247,34 +242,11 @@ struct PlaylistDetailView: View {
             Divider()
 
             Button {
-                addToLibrary(track)
+                SongActionsHelper.addToLibrary(track, playerService: playerService)
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
         }
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Unable to load playlist")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.load()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Actions
@@ -292,52 +264,16 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func likeSong(_ song: Song) {
-        // Play the song first so it becomes current, then like it
-        Task {
-            await playerService.play(song: song)
-            // Small delay to ensure track is set
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.likeCurrentTrack()
-        }
-    }
-
-    private func dislikeSong(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.dislikeCurrentTrack()
-        }
-    }
-
     private func toggleLibrary() {
         let currentlyInLibrary = isInLibrary || isAddedToLibrary
         Task {
-            do {
-                if currentlyInLibrary {
-                    try await viewModel.client.unsubscribeFromPlaylist(playlistId: playlist.id)
-                    isAddedToLibrary = false
-                    LibraryViewModel.shared?.removeFromLibrarySet(playlistId: playlist.id)
-                    await LibraryViewModel.shared?.refresh()
-                    DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
-                } else {
-                    try await viewModel.client.subscribeToPlaylist(playlistId: playlist.id)
-                    isAddedToLibrary = true
-                    LibraryViewModel.shared?.addToLibrarySet(playlistId: playlist.id)
-                    await LibraryViewModel.shared?.refresh()
-                    DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
-                }
-            } catch {
-                DiagnosticsLogger.api.error("Failed to toggle library status: \(error.localizedDescription)")
+            if currentlyInLibrary {
+                await SongActionsHelper.removePlaylistFromLibrary(playlist, client: viewModel.client)
+                isAddedToLibrary = false
+            } else {
+                await SongActionsHelper.addPlaylistToLibrary(playlist, client: viewModel.client)
+                isAddedToLibrary = true
             }
-        }
-    }
-
-    private func addToLibrary(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.toggleLibraryStatus()
         }
     }
 }

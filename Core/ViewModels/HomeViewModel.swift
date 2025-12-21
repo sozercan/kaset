@@ -6,15 +6,6 @@ import os
 @MainActor
 @Observable
 final class HomeViewModel {
-    /// Loading states for the view.
-    enum LoadingState: Equatable, Sendable {
-        case idle
-        case loading
-        case loaded
-        case loadingMore
-        case error(String)
-    }
-
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 

@@ -32,30 +32,7 @@ struct SearchView: View {
                 contentView
             }
             .navigationTitle("Search")
-            .navigationDestination(for: Playlist.self) { playlist in
-                PlaylistDetailView(
-                    playlist: playlist,
-                    viewModel: PlaylistDetailViewModel(
-                        playlist: playlist,
-                        client: viewModel.client
-                    )
-                )
-            }
-            .navigationDestination(for: Artist.self) { artist in
-                ArtistDetailView(
-                    artist: artist,
-                    viewModel: ArtistDetailViewModel(
-                        artist: artist,
-                        client: viewModel.client
-                    )
-                )
-            }
-            .navigationDestination(for: TopSongsDestination.self) { destination in
-                TopSongsView(viewModel: TopSongsViewModel(
-                    destination: destination,
-                    client: viewModel.client
-                ))
-            }
+            .navigationDestinations(client: viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
@@ -145,8 +122,8 @@ struct SearchView: View {
         switch viewModel.loadingState {
         case .idle:
             emptyStateView
-        case .loading:
-            loadingView
+        case .loading, .loadingMore:
+            LoadingView("Searching...")
         case .loaded:
             if viewModel.filteredItems.isEmpty {
                 noResultsView
@@ -154,7 +131,9 @@ struct SearchView: View {
                 resultsView
             }
         case let .error(message):
-            errorView(message: message)
+            ErrorView(title: "Search failed", message: message) {
+                viewModel.search()
+            }
         }
     }
 
@@ -171,15 +150,6 @@ struct SearchView: View {
             Text("Find songs, albums, artists, and playlists")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Searching...")
-                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -291,13 +261,13 @@ struct SearchView: View {
             Divider()
 
             Button {
-                likeSong(song)
+                SongActionsHelper.likeSong(song, playerService: playerService)
             } label: {
                 Label("Like", systemImage: "hand.thumbsup")
             }
 
             Button {
-                dislikeSong(song)
+                SongActionsHelper.dislikeSong(song, playerService: playerService)
             } label: {
                 Label("Dislike", systemImage: "hand.thumbsdown")
             }
@@ -305,7 +275,7 @@ struct SearchView: View {
             Divider()
 
             Button {
-                addToLibrary(song)
+                SongActionsHelper.addToLibrary(song, playerService: playerService)
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
@@ -334,7 +304,9 @@ struct SearchView: View {
 
         case let .playlist(playlist):
             Button {
-                addPlaylistToLibrary(playlist)
+                Task {
+                    await SongActionsHelper.addPlaylistToLibrary(playlist, client: viewModel.client)
+                }
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
@@ -345,68 +317,6 @@ struct SearchView: View {
                 Label("View Playlist", systemImage: "music.note.list")
             }
         }
-    }
-
-    // MARK: - Song Actions
-
-    private func likeSong(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.likeCurrentTrack()
-        }
-    }
-
-    private func dislikeSong(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.dislikeCurrentTrack()
-        }
-    }
-
-    private func addPlaylistToLibrary(_ playlist: Playlist) {
-        Task {
-            do {
-                try await viewModel.client.subscribeToPlaylist(playlistId: playlist.id)
-                // Update the shared library set so other views know this playlist is now in library
-                LibraryViewModel.shared?.addToLibrarySet(playlistId: playlist.id)
-                // Trigger a refresh of the library view
-                await LibraryViewModel.shared?.refresh()
-                DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
-            } catch {
-                DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func addToLibrary(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.toggleLibraryStatus()
-        }
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Search failed")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Button("Try Again") {
-                viewModel.search()
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Helpers

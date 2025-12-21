@@ -11,7 +11,7 @@ struct TopSongsView: View {
             switch viewModel.loadingState {
             case .idle, .loading:
                 if viewModel.songs.isEmpty {
-                    loadingView
+                    LoadingView("Loading songs...")
                 } else {
                     // Show existing songs while loading more
                     songsListView
@@ -22,7 +22,7 @@ struct TopSongsView: View {
                             }
                         }
                 }
-            case .loaded, .error:
+            case .loaded, .loadingMore, .error:
                 songsListView
             }
         }
@@ -39,15 +39,6 @@ struct TopSongsView: View {
     }
 
     // MARK: - Views
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading songs...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var songsListView: some View {
         ScrollView {

@@ -6,7 +6,6 @@ struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
 
-    @State private var selectedPlaylist: Playlist?
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
@@ -14,11 +13,13 @@ struct LibraryView: View {
             Group {
                 switch viewModel.loadingState {
                 case .idle, .loading:
-                    loadingView
-                case .loaded:
+                    LoadingView("Loading your library...")
+                case .loaded, .loadingMore:
                     contentView
                 case let .error(message):
-                    errorView(message: message)
+                    ErrorView(title: "Unable to load library", message: message) {
+                        Task { await viewModel.refresh() }
+                    }
                 }
             }
             .navigationTitle("Library")
@@ -46,15 +47,6 @@ struct LibraryView: View {
     }
 
     // MARK: - Views
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading your library...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var contentView: some View {
         ScrollView {
@@ -144,31 +136,6 @@ struct LibraryView: View {
             }
         }
         .buttonStyle(.plain)
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Unable to load library")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.refresh()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

@@ -13,11 +13,13 @@ struct LikedMusicView: View {
             Group {
                 switch viewModel.loadingState {
                 case .idle, .loading:
-                    loadingView
-                case .loaded:
+                    LoadingView("Loading liked songs...")
+                case .loaded, .loadingMore:
                     contentView
                 case let .error(message):
-                    errorView(message: message)
+                    ErrorView(title: "Unable to load liked songs", message: message) {
+                        Task { await viewModel.refresh() }
+                    }
                 }
             }
             .navigationTitle("Liked Music")
@@ -51,15 +53,6 @@ struct LikedMusicView: View {
     }
 
     // MARK: - Views
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading liked songs...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var contentView: some View {
         ScrollView {
@@ -202,11 +195,9 @@ struct LikedMusicView: View {
                 Spacer()
 
                 // Duration
-                if let duration = song.duration {
-                    Text(formatDuration(duration))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
+                Text(song.durationDisplay)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
 
                 // Play indicator
                 Image(systemName: "play.circle")
@@ -228,50 +219,11 @@ struct LikedMusicView: View {
             Divider()
 
             Button {
-                likeSong(song)
+                SongActionsHelper.likeSong(song, playerService: playerService)
             } label: {
                 Label("Unlike", systemImage: "heart.slash")
             }
         }
-    }
-
-    private func formatDuration(_ seconds: TimeInterval) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%d:%02d", mins, secs)
-    }
-
-    private func likeSong(_ song: Song) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
-            playerService.likeCurrentTrack()
-        }
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Unable to load liked songs")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.refresh()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

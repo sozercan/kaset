@@ -165,11 +165,11 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Makes a continuation request.
-    private func requestContinuation(_ token: String) async throws -> [String: Any] {
+    private func requestContinuation(_ token: String, ttl: TimeInterval? = APICache.TTL.home) async throws -> [String: Any] {
         let body: [String: Any] = [
             "continuation": token,
         ]
-        return try await request("browse", body: body)
+        return try await request("browse", body: body, ttl: ttl)
     }
 
     /// Searches for content.

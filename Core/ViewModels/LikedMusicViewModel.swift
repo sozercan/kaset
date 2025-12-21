@@ -5,14 +5,6 @@ import Observation
 @MainActor
 @Observable
 final class LikedMusicViewModel {
-    /// Loading states for the view.
-    enum LoadingState: Equatable, Sendable {
-        case idle
-        case loading
-        case loaded
-        case error(String)
-    }
-
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 

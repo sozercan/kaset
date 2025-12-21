@@ -11,15 +11,19 @@ struct ArtistDetailView: View {
         Group {
             switch viewModel.loadingState {
             case .idle, .loading:
-                loadingView
-            case .loaded:
+                LoadingView("Loading artist...")
+            case .loaded, .loadingMore:
                 if let detail = viewModel.artistDetail {
                     contentView(detail)
                 } else {
-                    errorView(message: "Artist not found")
+                    ErrorView(title: "Unable to load artist", message: "Artist not found") {
+                        Task { await viewModel.load() }
+                    }
                 }
             case let .error(message):
-                errorView(message: message)
+                ErrorView(title: "Unable to load artist", message: message) {
+                    Task { await viewModel.load() }
+                }
             }
         }
         .accentBackground(from: viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
@@ -39,15 +43,6 @@ struct ArtistDetailView: View {
     }
 
     // MARK: - Views
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading artist...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private func contentView(_ detail: ArtistDetail) -> some View {
         ScrollView {
@@ -360,29 +355,6 @@ struct ArtistDetailView: View {
                     .frame(width: 140, alignment: .leading)
             }
         }
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Unable to load artist")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.load()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Actions

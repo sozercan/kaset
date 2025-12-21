@@ -6,45 +6,23 @@ struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
     @State private var navigationPath = NavigationPath()
-    @State private var selectedPlaylist: Playlist?
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
             Group {
                 switch viewModel.loadingState {
                 case .idle, .loading:
-                    loadingView
+                    LoadingView("Loading your music...")
                 case .loaded, .loadingMore:
                     contentView
                 case let .error(message):
-                    errorView(message: message)
+                    ErrorView(message: message) {
+                        Task { await viewModel.refresh() }
+                    }
                 }
             }
             .navigationTitle("Home")
-            .navigationDestination(for: Playlist.self) { playlist in
-                PlaylistDetailView(
-                    playlist: playlist,
-                    viewModel: PlaylistDetailViewModel(
-                        playlist: playlist,
-                        client: viewModel.client
-                    )
-                )
-            }
-            .navigationDestination(for: Artist.self) { artist in
-                ArtistDetailView(
-                    artist: artist,
-                    viewModel: ArtistDetailViewModel(
-                        artist: artist,
-                        client: viewModel.client
-                    )
-                )
-            }
-            .navigationDestination(for: TopSongsDestination.self) { destination in
-                TopSongsView(viewModel: TopSongsViewModel(
-                    destination: destination,
-                    client: viewModel.client
-                ))
-            }
+            .navigationDestinations(client: viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
@@ -61,22 +39,12 @@ struct HomeView: View {
 
     // MARK: - Views
 
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading your music...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
                 ForEach(viewModel.sections) { section in
                     sectionView(section)
                         .task {
-                            // Prefetch images when section becomes visible
                             await prefetchImagesAsync(for: section)
                         }
                 }
@@ -92,134 +60,30 @@ struct HomeView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            if section.isChart {
-                // Chart sections: vertical numbered list
-                chartListView(section)
-            } else {
-                // Regular sections: horizontal carousel
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 16) {
-                        ForEach(section.items) { item in
-                            itemCard(item)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Renders a chart section as a vertical numbered list.
-    private func chartListView(_ section: HomeSection) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 16) {
-                ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                    chartCard(item, rank: index + 1)
-                }
-            }
-        }
-    }
-
-    /// Renders a chart item with a rank badge.
-    private func chartCard(_ item: HomeSectionItem, rank: Int) -> some View {
-        Button {
-            playItem(item)
-        } label: {
-            ZStack(alignment: .bottomLeading) {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Thumbnail
-                    CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(.quaternary)
-                            .overlay {
-                                Image(systemName: "music.note")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    if section.isChart {
+                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
+                            HomeSectionItemCard(item: item, rank: index + 1) {
+                                playItem(item)
                             }
-                    }
-                    .frame(width: 160, height: 160)
-                    .clipShape(.rect(cornerRadius: 8))
-
-                    // Title
-                    Text(item.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .frame(width: 160, alignment: .leading)
-
-                    // Subtitle
-                    if let subtitle = item.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .frame(width: 160, alignment: .leading)
-                    }
-                }
-
-                // Rank badge overlay
-                Text("\(rank)")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-                    .padding(.leading, 8)
-                    .padding(.bottom, 60)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func itemCard(_ item: HomeSectionItem) -> some View {
-        Button {
-            playItem(item)
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
-                CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "music.note")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
                         }
-                }
-                .frame(width: 160, height: 160)
-                .clipShape(.rect(cornerRadius: 8))
-
-                // Title
-                Text(item.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: 160, alignment: .leading)
-
-                // Subtitle
-                if let subtitle = item.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .frame(width: 160, alignment: .leading)
+                    } else {
+                        ForEach(section.items) { item in
+                            HomeSectionItemCard(item: item) {
+                                playItem(item)
+                            }
+                        }
+                    }
                 }
             }
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Image Prefetching
 
-    /// Thumbnail display size used throughout the app.
     private static let thumbnailDisplaySize = CGSize(width: 160, height: 160)
 
-    /// Prefetches images for items in a section with controlled concurrency and downsampling.
     private func prefetchImagesAsync(for section: HomeSection) async {
         let urls = section.items.prefix(10).compactMap { $0.thumbnailURL?.highQualityThumbnailURL }
         guard !urls.isEmpty else { return }
@@ -229,31 +93,6 @@ struct HomeView: View {
             targetSize: Self.thumbnailDisplaySize,
             maxConcurrent: 4
         )
-    }
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Unable to load content")
-                .font(.headline)
-
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.refresh()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Actions
