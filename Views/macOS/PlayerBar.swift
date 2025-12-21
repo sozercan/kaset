@@ -387,5 +387,5 @@ struct AirPlayButton: NSViewRepresentable {
         .environment(WebKitManager.shared)
         .frame(width: 600)
         .padding()
-        .background(.black)
+        .background(Color(nsColor: .windowBackgroundColor))
 }

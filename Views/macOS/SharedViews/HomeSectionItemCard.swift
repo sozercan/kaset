@@ -48,11 +48,11 @@ struct HomeSectionItemCard: View {
                 titleAndSubtitle
             }
 
-            // Rank badge overlay
+            // Rank badge overlay with adaptive styling
             Text("\(rank)")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                .foregroundStyle(.primary)
+                .shadow(color: Color(nsColor: .windowBackgroundColor).opacity(0.8), radius: 4, x: 0, y: 1)
                 .padding(.leading, 8)
                 .padding(.bottom, 60)
         }
