@@ -13,7 +13,7 @@ struct MainWindow: View {
     @Binding var navigationSelection: NavigationItem?
 
     @State private var showLoginSheet = false
-    @State private var ytMusicClient: YTMusicClient?
+    @State private var ytMusicClient: (any YTMusicClientProtocol)?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -132,7 +132,7 @@ struct MainWindow: View {
     }
 
     @ViewBuilder
-    private func detailView(for item: NavigationItem?, client _: YTMusicClient) -> some View {
+    private func detailView(for item: NavigationItem?, client _: any YTMusicClientProtocol) -> some View {
         Group {
             switch item {
             case .home:
@@ -186,10 +186,16 @@ struct MainWindow: View {
     // MARK: - Setup
 
     private func setupClient() {
-        let client = YTMusicClient(
-            authService: authService,
-            webKitManager: webKitManager
-        )
+        // Use mock client in UI test mode, real client otherwise
+        let client: any YTMusicClientProtocol = if UITestConfig.isUITestMode {
+            MockUITestYTMusicClient()
+        } else {
+            YTMusicClient(
+                authService: authService,
+                webKitManager: webKitManager
+            )
+        }
+
         ytMusicClient = client
 
         // Create view models once and cache them

@@ -53,11 +53,8 @@ final class LibraryViewUITests: KasetUITestCase {
     func testLibraryNavigationFromSidebar() throws {
         launchDefault()
 
-        // Navigate to Library via sidebar "Playlists" item
-        let playlistsItem = app.outlineRows.staticTexts["Playlists"]
-        XCTAssertTrue(waitForHittable(playlistsItem))
-
-        playlistsItem.click()
+        // Navigate to Library via sidebar using accessibility identifier
+        navigateToLibrary()
 
         let title = app.staticTexts["Playlists"]
         XCTAssertTrue(waitForElement(title))

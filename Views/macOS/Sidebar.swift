@@ -12,14 +12,17 @@ struct Sidebar: View {
                 NavigationLink(value: NavigationItem.search) {
                     Label("Search", systemImage: "magnifyingglass")
                 }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
 
                 NavigationLink(value: NavigationItem.home) {
                     Label("Home", systemImage: "house")
                 }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.homeItem)
 
                 NavigationLink(value: NavigationItem.explore) {
                     Label("Explore", systemImage: "globe")
                 }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
             }
 
             // Library section
@@ -27,14 +30,17 @@ struct Sidebar: View {
                 NavigationLink(value: NavigationItem.likedMusic) {
                     Label("Liked Music", systemImage: "heart.fill")
                 }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
 
                 NavigationLink(value: NavigationItem.library) {
                     Label("Playlists", systemImage: "music.note.list")
                 }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
             }
         }
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
+        .accessibilityIdentifier(AccessibilityID.Sidebar.container)
     }
 }
 

@@ -39,10 +39,7 @@ final class ExploreViewUITests: KasetUITestCase {
     func testExploreNavigationFromSidebar() throws {
         launchDefault()
 
-        let exploreItem = app.outlineRows.staticTexts["Explore"]
-        XCTAssertTrue(waitForHittable(exploreItem))
-
-        exploreItem.click()
+        navigateToExplore()
 
         let title = app.staticTexts["Explore"]
         XCTAssertTrue(waitForElement(title))

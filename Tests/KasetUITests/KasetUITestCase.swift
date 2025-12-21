@@ -1,5 +1,22 @@
 import XCTest
 
+/// Accessibility identifiers matching those in AccessibilityID enum.
+/// Duplicated here to avoid import issues with the app target.
+enum TestAccessibilityID {
+    enum Sidebar {
+        static let container = "sidebar"
+        static let searchItem = "sidebar.search"
+        static let homeItem = "sidebar.home"
+        static let exploreItem = "sidebar.explore"
+        static let likedMusicItem = "sidebar.likedMusic"
+        static let libraryItem = "sidebar.library"
+    }
+
+    enum Home {
+        static let container = "homeView"
+    }
+}
+
 /// Base class for Kaset UI tests.
 /// Provides common setup, launch configuration, and helper methods.
 class KasetUITestCase: XCTestCase {
@@ -189,36 +206,74 @@ class KasetUITestCase: XCTestCase {
 
     // MARK: - Navigation Helpers
 
-    /// Navigates to a sidebar item by label.
-    func navigateToSidebarItem(_ label: String) {
-        let sidebarItem = app.outlineRows.staticTexts[label].firstMatch
-        if waitForHittable(sidebarItem) {
+    /// Navigates to a sidebar item by accessibility identifier.
+    func navigateToSidebarItem(_ accessibilityID: String) {
+        // Find by accessibility identifier first, fall back to label
+        var sidebarItem = app.buttons[accessibilityID].firstMatch
+        if !sidebarItem.exists {
+            // Try other element types
+            sidebarItem = app.cells[accessibilityID].firstMatch
+        }
+        
+        // First wait for element to exist
+        let existsPredicate = NSPredicate(format: "exists == true")
+        let existsExpectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: sidebarItem)
+        let existsResult = XCTWaiter().wait(for: [existsExpectation], timeout: 15)
+        
+        guard existsResult == .completed else {
+            XCTFail("Sidebar item '\(accessibilityID)' never appeared")
+            return
+        }
+        
+        // Then wait for it to be hittable (may need time for layout)
+        if waitForHittable(sidebarItem, timeout: 10) {
+            sidebarItem.click()
+        }
+    }
+
+    /// Navigates to a sidebar item by label text.
+    func navigateToSidebarItemByLabel(_ label: String) {
+        // Wait for sidebar to be ready with extended timeout for UI test startup
+        let sidebarItem = app.staticTexts[label].firstMatch
+        
+        // First wait for element to exist
+        let existsPredicate = NSPredicate(format: "exists == true")
+        let existsExpectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: sidebarItem)
+        let existsResult = XCTWaiter().wait(for: [existsExpectation], timeout: 15)
+        
+        guard existsResult == .completed else {
+            XCTFail("Sidebar item '\(label)' never appeared")
+            return
+        }
+        
+        // Then wait for it to be hittable (may need time for layout)
+        if waitForHittable(sidebarItem, timeout: 10) {
             sidebarItem.click()
         }
     }
 
     /// Navigates to Home via sidebar.
     func navigateToHome() {
-        navigateToSidebarItem("Home")
+        navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
     }
 
     /// Navigates to Search via sidebar.
     func navigateToSearch() {
-        navigateToSidebarItem("Search")
+        navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
     }
 
     /// Navigates to Explore via sidebar.
     func navigateToExplore() {
-        navigateToSidebarItem("Explore")
+        navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
     }
 
     /// Navigates to Library via sidebar.
     func navigateToLibrary() {
-        navigateToSidebarItem("Playlists")
+        navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
     }
 
     /// Navigates to Liked Music via sidebar.
     func navigateToLikedMusic() {
-        navigateToSidebarItem("Liked Music")
+        navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
     }
 }

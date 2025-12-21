@@ -24,7 +24,7 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Current authentication state.
-    private(set) var state: State = .initializing
+    private(set) var state: State
 
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool = false
@@ -34,6 +34,17 @@ final class AuthService: AuthServiceProtocol {
 
     init(webKitManager: WebKitManagerProtocol = WebKitManager.shared) {
         self.webKitManager = webKitManager
+        // In UI test mode with skip auth, start in logged-in state immediately
+        // This avoids async delays that can cause UI test flakiness
+        let isUITest = UITestConfig.isUITestMode
+        let skipAuth = UITestConfig.shouldSkipAuth
+        logger.debug("AuthService init: isUITestMode=\(isUITest), shouldSkipAuth=\(skipAuth)")
+        if isUITest, skipAuth {
+            logger.info("UI Test mode with SkipAuth: starting in logged-in state")
+            self.state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
+        } else {
+            self.state = .initializing
+        }
     }
 
     /// Starts the login flow by presenting the login sheet.

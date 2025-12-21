@@ -28,10 +28,7 @@ final class LikedMusicViewUITests: KasetUITestCase {
     func testLikedMusicNavigationFromSidebar() throws {
         launchDefault()
 
-        let likedMusicItem = app.outlineRows.staticTexts["Liked Music"]
-        XCTAssertTrue(waitForHittable(likedMusicItem))
-
-        likedMusicItem.click()
+        navigateToLikedMusic()
 
         let title = app.staticTexts["Liked Music"]
         XCTAssertTrue(waitForElement(title))

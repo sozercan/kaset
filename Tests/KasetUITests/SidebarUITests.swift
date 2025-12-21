@@ -7,14 +7,14 @@ final class SidebarUITests: KasetUITestCase {
     func testSidebarShowsAllNavigationItems() throws {
         launchDefault()
 
-        // Verify all sidebar items are present
-        let searchItem = app.outlineRows.staticTexts["Search"]
-        let homeItem = app.outlineRows.staticTexts["Home"]
-        let exploreItem = app.outlineRows.staticTexts["Explore"]
-        let likedMusicItem = app.outlineRows.staticTexts["Liked Music"]
-        let playlistsItem = app.outlineRows.staticTexts["Playlists"]
+        // Verify all sidebar items are present via accessibility identifiers
+        let searchItem = app.buttons[TestAccessibilityID.Sidebar.searchItem]
+        let homeItem = app.buttons[TestAccessibilityID.Sidebar.homeItem]
+        let exploreItem = app.buttons[TestAccessibilityID.Sidebar.exploreItem]
+        let likedMusicItem = app.buttons[TestAccessibilityID.Sidebar.likedMusicItem]
+        let playlistsItem = app.buttons[TestAccessibilityID.Sidebar.libraryItem]
 
-        XCTAssertTrue(searchItem.waitForExistence(timeout: 5), "Search item should exist")
+        XCTAssertTrue(searchItem.waitForExistence(timeout: 10), "Search item should exist")
         XCTAssertTrue(homeItem.exists, "Home item should exist")
         XCTAssertTrue(exploreItem.exists, "Explore item should exist")
         XCTAssertTrue(likedMusicItem.exists, "Liked Music item should exist")

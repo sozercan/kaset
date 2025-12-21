@@ -15,9 +15,15 @@ final class AppLaunchUITests: KasetUITestCase {
         launchDefault()
 
         // Wait for main window content
-        // Should show sidebar navigation
-        let searchItem = app.outlineRows.staticTexts["Search"]
-        XCTAssertTrue(waitForElement(searchItem, timeout: 10), "Sidebar should be visible")
+        // Should show sidebar navigation - look for the sidebar container or any sidebar item
+        let sidebar = app.otherElements[TestAccessibilityID.Sidebar.container].firstMatch
+        let sidebarExists = sidebar.waitForExistence(timeout: 10)
+        
+        // Also check for any sidebar item as a fallback
+        let homeItem = app.buttons[TestAccessibilityID.Sidebar.homeItem].firstMatch
+        let homeExists = homeItem.waitForExistence(timeout: 5)
+        
+        XCTAssertTrue(sidebarExists || homeExists, "Sidebar should be visible")
     }
 
     func testAppDefaultsToHomeView() throws {

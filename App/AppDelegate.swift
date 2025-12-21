@@ -11,6 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Set up notification center delegate to show notifications in foreground
         UNUserNotificationCenter.current().delegate = self
 
+        // In UI test mode, activate the app to bring window to foreground
+        if UITestConfig.isUITestMode {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+
         // Set up window delegate to intercept close and hide instead
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
@@ -70,8 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Keep app running when the window is closed (for background audio).
     /// Use Cmd+Q to fully quit.
+    /// In UI test mode, terminate normally to avoid process conflicts.
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        false
+        UITestConfig.isUITestMode
     }
 
     /// Handle reopen (clicking dock icon) when all windows are closed.
@@ -91,7 +97,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: NSWindowDelegate {
     /// Intercept window close and hide instead, keeping WebView alive for background audio.
+    /// In UI test mode, close normally to avoid process conflicts.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // In UI test mode, allow normal close behavior
+        if UITestConfig.isUITestMode {
+            return true
+        }
+        
         // Hide the window instead of closing it
         sender.orderOut(nil)
         return false // Don't actually close
