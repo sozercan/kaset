@@ -8,11 +8,13 @@ struct MainWindow: View {
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
+    @Environment(\.showCommandBar) private var showCommandBar
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
     @State private var showLoginSheet = false
+    @State private var showCommandBarSheet = false
     @State private var ytMusicClient: (any YTMusicClientProtocol)?
 
     // MARK: - Cached ViewModels (persist across tab switches)
@@ -79,6 +81,17 @@ struct MainWindow: View {
         .animation(.easeInOut(duration: 0.2), value: self.playerService.showMiniPlayer)
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
+        }
+        .sheet(isPresented: self.$showCommandBarSheet) {
+            if let client = ytMusicClient {
+                CommandBarView(client: client)
+            }
+        }
+        .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
+            if newValue {
+                self.showCommandBarSheet = true
+                self.showCommandBar.wrappedValue = false
+            }
         }
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)

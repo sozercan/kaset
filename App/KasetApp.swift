@@ -29,6 +29,20 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - CommandBarVisibilityKey
+
+/// Environment key for command bar visibility.
+struct CommandBarVisibilityKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(false)
+}
+
+extension EnvironmentValues {
+    var showCommandBar: Binding<Bool> {
+        get { self[CommandBarVisibilityKey.self] }
+        set { self[CommandBarVisibilityKey.self] = newValue }
+    }
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.
@@ -49,6 +63,9 @@ struct KasetApp: App {
 
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = .home
+
+    /// Whether the command bar is visible.
+    @State private var showCommandBar = false
 
     init() {
         let auth = AuthService()
@@ -90,11 +107,19 @@ struct KasetApp: App {
                     .environment(self.playerService)
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                     .environment(\.navigationSelection, self.$navigationSelection)
+                    .environment(\.showCommandBar, self.$showCommandBar)
                     .task {
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
+
+                        // Warm up Foundation Models in background
+                        await FoundationModelsService.shared.warmup()
                     }
             }
+        }
+
+        Settings {
+            SettingsView()
         }
         .commands {
             // App commands
@@ -219,6 +244,12 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut("f", modifiers: .command)
+
+                // Command Bar - ⌘K
+                Button("Command Bar") {
+                    self.showCommandBar = true
+                }
+                .keyboardShortcut("k", modifiers: .command)
             }
         }
     }
@@ -233,5 +264,21 @@ struct KasetApp: App {
         case .one:
             "Repeat Off"
         }
+    }
+}
+
+// MARK: - SettingsView
+
+/// Main settings view with tabbed navigation.
+@available(macOS 26.0, *)
+struct SettingsView: View {
+    var body: some View {
+        TabView {
+            IntelligenceSettingsView()
+                .tabItem {
+                    Label("Intelligence", systemImage: "sparkles")
+                }
+        }
+        .frame(width: 450, height: 350)
     }
 }

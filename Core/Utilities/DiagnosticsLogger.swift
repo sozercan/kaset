@@ -20,4 +20,7 @@ enum DiagnosticsLogger {
 
     /// Logger for notification-related events.
     static let notification = Logger(subsystem: "com.sertacozercan.Kaset", category: "Notification")
+
+    /// Logger for AI/Foundation Models-related events.
+    static let ai = Logger(subsystem: "com.sertacozercan.Kaset", category: "AI")
 }
