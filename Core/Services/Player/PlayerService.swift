@@ -563,12 +563,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
                 // Update service state
                 if let likeStatus = songData.likeStatus {
-                    currentTrackLikeStatus = likeStatus
+                    self.currentTrackLikeStatus = likeStatus
                 }
-                currentTrackInLibrary = songData.isInLibrary ?? false
-                currentTrackFeedbackTokens = songData.feedbackTokens
+                self.currentTrackInLibrary = songData.isInLibrary ?? false
+                self.currentTrackFeedbackTokens = songData.feedbackTokens
 
-                logger.info("Updated track metadata - inLibrary: \(currentTrackInLibrary), hasTokens: \(currentTrackFeedbackTokens != nil)")
+                logger.info("Updated track metadata - inLibrary: \(self.currentTrackInLibrary), hasTokens: \(self.currentTrackFeedbackTokens != nil)")
             }
         } catch {
             logger.warning("Failed to fetch song metadata: \(error.localizedDescription)")
