@@ -10,7 +10,7 @@ struct RetryPolicy: Sendable {
 
     /// Calculates the delay for a given attempt using exponential backoff.
     func delay(for attempt: Int) -> TimeInterval {
-        min(baseDelay * pow(2.0, Double(attempt)), maxDelay)
+        min(self.baseDelay * pow(2.0, Double(attempt)), self.maxDelay)
     }
 
     /// Executes an operation with retry logic.
@@ -18,7 +18,7 @@ struct RetryPolicy: Sendable {
     func execute<T>(_ operation: @MainActor () async throws -> T) async throws -> T {
         var lastError: Error?
 
-        for attempt in 0 ..< maxAttempts {
+        for attempt in 0 ..< self.maxAttempts {
             do {
                 return try await operation()
             } catch {
@@ -29,8 +29,8 @@ struct RetryPolicy: Sendable {
                 if case YTMusicError.notAuthenticated = error { throw error }
 
                 // Don't retry on last attempt
-                if attempt < maxAttempts - 1 {
-                    let delayTime = delay(for: attempt)
+                if attempt < self.maxAttempts - 1 {
+                    let delayTime = self.delay(for: attempt)
                     try await Task.sleep(for: .seconds(delayTime))
                 }
             }

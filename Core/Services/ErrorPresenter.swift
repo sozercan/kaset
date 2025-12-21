@@ -81,7 +81,7 @@ struct PresentableError: Identifiable, Sendable {
     /// Creates a PresentableError from any Error.
     static func from(_ error: Error, retryAction: (@Sendable () async -> Void)? = nil) -> PresentableError {
         if let ytError = error as? YTMusicError {
-            return from(ytError, retryAction: retryAction)
+            return self.from(ytError, retryAction: retryAction)
         }
 
         if (error as NSError).domain == NSURLErrorDomain {
@@ -114,7 +114,7 @@ final class ErrorPresenter {
 
     /// Whether an error is currently being shown.
     var isShowingError: Bool {
-        currentError != nil
+        self.currentError != nil
     }
 
     private let logger = DiagnosticsLogger.ui
@@ -123,35 +123,35 @@ final class ErrorPresenter {
 
     /// Presents an error to the user.
     func present(_ error: PresentableError) {
-        logger.warning("Presenting error: \(error.title) - \(error.message)")
-        currentError = error
+        self.logger.warning("Presenting error: \(error.title) - \(error.message)")
+        self.currentError = error
     }
 
     /// Presents a YTMusicError to the user.
     func present(_ error: YTMusicError, retryAction: (@Sendable () async -> Void)? = nil) {
-        present(.from(error, retryAction: retryAction))
+        self.present(.from(error, retryAction: retryAction))
     }
 
     /// Presents any Error to the user.
     func present(_ error: Error, retryAction: (@Sendable () async -> Void)? = nil) {
-        present(.from(error, retryAction: retryAction))
+        self.present(.from(error, retryAction: retryAction))
     }
 
     /// Dismisses the current error.
     func dismiss() {
-        let action = currentError?.dismissAction
-        currentError = nil
+        let action = self.currentError?.dismissAction
+        self.currentError = nil
         action?()
     }
 
     /// Retries the current error's action and dismisses the error.
     func retry() async {
         guard let retryAction = currentError?.retryAction else {
-            dismiss()
+            self.dismiss()
             return
         }
 
-        dismiss()
+        self.dismiss()
         await retryAction()
     }
 }

@@ -29,15 +29,15 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        @Bindable var player = playerService
+        @Bindable var player = self.playerService
 
         ZStack(alignment: .bottomTrailing) {
             Group {
-                if authService.state.isInitializing {
+                if self.authService.state.isInitializing {
                     // Show loading while checking login status to avoid onboarding flash
-                    initializingView
-                } else if authService.state.isLoggedIn {
-                    mainContent
+                    self.initializingView
+                } else if self.authService.state.isLoggedIn {
+                    self.mainContent
                 } else {
                     OnboardingView()
                 }
@@ -48,17 +48,17 @@ struct MainWindow: View {
             // Compact size (120x68) for first-time interaction, then hidden (1x1)
             if let videoId = playerService.pendingPlayVideoId {
                 ZStack(alignment: .topTrailing) {
-                    PersistentPlayerView(videoId: videoId, isExpanded: playerService.showMiniPlayer)
+                    PersistentPlayerView(videoId: videoId, isExpanded: self.playerService.showMiniPlayer)
                         .frame(
-                            width: playerService.showMiniPlayer ? 120 : 1,
-                            height: playerService.showMiniPlayer ? 68 : 1
+                            width: self.playerService.showMiniPlayer ? 120 : 1,
+                            height: self.playerService.showMiniPlayer ? 68 : 1
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .opacity(playerService.showMiniPlayer ? 0.95 : 0)
+                        .opacity(self.playerService.showMiniPlayer ? 0.95 : 0)
 
-                    if playerService.showMiniPlayer {
+                    if self.playerService.showMiniPlayer {
                         Button {
-                            playerService.confirmPlaybackStarted()
+                            self.playerService.confirmPlaybackStarted()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 14))
@@ -70,33 +70,33 @@ struct MainWindow: View {
                         .padding(3)
                     }
                 }
-                .shadow(color: playerService.showMiniPlayer ? .black.opacity(0.2) : .clear, radius: 6, y: 3)
-                .padding(.trailing, playerService.showMiniPlayer ? 12 : 0)
-                .padding(.bottom, playerService.showMiniPlayer ? 76 : 0)
-                .allowsHitTesting(playerService.showMiniPlayer)
+                .shadow(color: self.playerService.showMiniPlayer ? .black.opacity(0.2) : .clear, radius: 6, y: 3)
+                .padding(.trailing, self.playerService.showMiniPlayer ? 12 : 0)
+                .padding(.bottom, self.playerService.showMiniPlayer ? 76 : 0)
+                .allowsHitTesting(self.playerService.showMiniPlayer)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: playerService.showMiniPlayer)
-        .sheet(isPresented: $showLoginSheet) {
+        .animation(.easeInOut(duration: 0.2), value: self.playerService.showMiniPlayer)
+        .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
-        .onChange(of: authService.state) { oldState, newState in
-            handleAuthStateChange(oldState: oldState, newState: newState)
+        .onChange(of: self.authService.state) { oldState, newState in
+            self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
-        .onChange(of: authService.needsReauth) { _, needsReauth in
+        .onChange(of: self.authService.needsReauth) { _, needsReauth in
             if needsReauth {
-                showLoginSheet = true
+                self.showLoginSheet = true
             }
         }
-        .onChange(of: playerService.isPlaying) { _, isPlaying in
+        .onChange(of: self.playerService.isPlaying) { _, isPlaying in
             // Auto-hide the WebView once playback starts
-            if isPlaying, playerService.showMiniPlayer {
-                playerService.confirmPlaybackStarted()
+            if isPlaying, self.playerService.showMiniPlayer {
+                self.playerService.confirmPlaybackStarted()
             }
         }
         .task {
-            setupClient()
-            NowPlayingManager.shared.configure(playerService: playerService)
+            self.setupClient()
+            NowPlayingManager.shared.configure(playerService: self.playerService)
         }
     }
 
@@ -108,26 +108,26 @@ struct MainWindow: View {
             HStack(spacing: 0) {
                 // Main navigation content
                 NavigationSplitView {
-                    Sidebar(selection: $navigationSelection)
+                    Sidebar(selection: self.$navigationSelection)
                 } detail: {
-                    detailView(for: navigationSelection, client: client)
+                    self.detailView(for: self.navigationSelection, client: client)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Global lyrics sidebar - outside NavigationSplitView so it persists across all navigation
                 Divider()
-                    .opacity(playerService.showLyrics ? 1 : 0)
-                    .frame(width: playerService.showLyrics ? 1 : 0)
+                    .opacity(self.playerService.showLyrics ? 1 : 0)
+                    .frame(width: self.playerService.showLyrics ? 1 : 0)
 
                 LyricsView(client: client)
-                    .frame(width: playerService.showLyrics ? 280 : 0)
-                    .opacity(playerService.showLyrics ? 1 : 0)
+                    .frame(width: self.playerService.showLyrics ? 280 : 0)
+                    .opacity(self.playerService.showLyrics ? 1 : 0)
                     .clipped()
             }
-            .animation(.easeInOut(duration: 0.2), value: playerService.showLyrics)
+            .animation(.easeInOut(duration: 0.2), value: self.playerService.showLyrics)
             .frame(minWidth: 900, minHeight: 600)
         } else {
-            loadingView
+            self.loadingView
         }
     }
 
@@ -191,19 +191,19 @@ struct MainWindow: View {
             MockUITestYTMusicClient()
         } else {
             YTMusicClient(
-                authService: authService,
-                webKitManager: webKitManager
+                authService: self.authService,
+                webKitManager: self.webKitManager
             )
         }
 
-        ytMusicClient = client
+        self.ytMusicClient = client
 
         // Create view models once and cache them
-        homeViewModel = HomeViewModel(client: client)
-        exploreViewModel = ExploreViewModel(client: client)
-        searchViewModel = SearchViewModel(client: client)
-        likedMusicViewModel = LikedMusicViewModel(client: client)
-        libraryViewModel = LibraryViewModel(client: client)
+        self.homeViewModel = HomeViewModel(client: client)
+        self.exploreViewModel = ExploreViewModel(client: client)
+        self.searchViewModel = SearchViewModel(client: client)
+        self.likedMusicViewModel = LikedMusicViewModel(client: client)
+        self.libraryViewModel = LibraryViewModel(client: client)
 
         // Don't start loading here - let each view's onAppear handle it
         // This avoids race conditions after login where cookies may not be fully ready
@@ -218,17 +218,17 @@ struct MainWindow: View {
             // Onboarding view handles login, no need to auto-show sheet
             break
         case .loggingIn:
-            showLoginSheet = true
+            self.showLoginSheet = true
         case .loggedIn:
-            showLoginSheet = false
+            self.showLoginSheet = false
             // If we just completed login (transitioning from loggingIn), refresh content
             // This handles the case where cookies weren't ready during initial load
             if case .loggingIn = oldState {
                 Task {
                     // Brief delay to ensure cookies are fully propagated in WebKit
                     try? await Task.sleep(for: .milliseconds(500))
-                    await homeViewModel?.refresh()
-                    await exploreViewModel?.refresh()
+                    await self.homeViewModel?.refresh()
+                    await self.exploreViewModel?.refresh()
                 }
             }
         }

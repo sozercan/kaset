@@ -6,7 +6,7 @@ struct HomeResponse: Sendable {
 
     /// Whether the home response is empty.
     var isEmpty: Bool {
-        sections.isEmpty || sections.allSatisfy(\.items.isEmpty)
+        self.sections.isEmpty || self.sections.allSatisfy(\.items.isEmpty)
     }
 
     static let empty = HomeResponse(sections: [])

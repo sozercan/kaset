@@ -34,36 +34,36 @@ final class HomeViewModel {
 
     /// Loads home content with fast initial load.
     func load() async {
-        guard loadingState != .loading else { return }
+        guard self.loadingState != .loading else { return }
 
-        loadingState = .loading
-        logger.info("Loading home content")
+        self.loadingState = .loading
+        self.logger.info("Loading home content")
 
         do {
             let response = try await client.getHome()
-            sections = response.sections
-            hasMoreSections = client.hasMoreHomeSections
-            loadingState = .loaded
-            continuationsLoaded = 0
-            let sectionCount = sections.count
-            logger.info("Home content loaded: \(sectionCount) sections")
+            self.sections = response.sections
+            self.hasMoreSections = self.client.hasMoreHomeSections
+            self.loadingState = .loaded
+            self.continuationsLoaded = 0
+            let sectionCount = self.sections.count
+            self.logger.info("Home content loaded: \(sectionCount) sections")
 
             // Start background loading of additional sections
-            startBackgroundLoading()
+            self.startBackgroundLoading()
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            logger.debug("Home load cancelled")
-            loadingState = .idle
+            self.logger.debug("Home load cancelled")
+            self.loadingState = .idle
         } catch {
-            logger.error("Failed to load home: \(error.localizedDescription)")
-            loadingState = .error(error.localizedDescription)
+            self.logger.error("Failed to load home: \(error.localizedDescription)")
+            self.loadingState = .error(error.localizedDescription)
         }
     }
 
     /// Loads more sections in the background progressively.
     private func startBackgroundLoading() {
-        backgroundLoadTask?.cancel()
-        backgroundLoadTask = Task { [weak self] in
+        self.backgroundLoadTask?.cancel()
+        self.backgroundLoadTask = Task { [weak self] in
             guard let self else { return }
 
             // Brief delay to let the UI settle
@@ -71,45 +71,45 @@ final class HomeViewModel {
 
             guard !Task.isCancelled else { return }
 
-            await loadMoreSections()
+            await self.loadMoreSections()
         }
     }
 
     /// Loads additional sections from continuations progressively.
     private func loadMoreSections() async {
-        while hasMoreSections, continuationsLoaded < Self.maxContinuations {
-            guard loadingState == .loaded else { break }
+        while self.hasMoreSections, self.continuationsLoaded < Self.maxContinuations {
+            guard self.loadingState == .loaded else { break }
 
             do {
                 if let additionalSections = try await client.getHomeContinuation() {
-                    sections.append(contentsOf: additionalSections)
-                    continuationsLoaded += 1
-                    hasMoreSections = client.hasMoreHomeSections
-                    let continuationNum = continuationsLoaded
-                    logger.info("Background loaded \(additionalSections.count) more sections (continuation \(continuationNum))")
+                    self.sections.append(contentsOf: additionalSections)
+                    self.continuationsLoaded += 1
+                    self.hasMoreSections = self.client.hasMoreHomeSections
+                    let continuationNum = self.continuationsLoaded
+                    self.logger.info("Background loaded \(additionalSections.count) more sections (continuation \(continuationNum))")
                 } else {
-                    hasMoreSections = false
+                    self.hasMoreSections = false
                     break
                 }
             } catch is CancellationError {
-                logger.debug("Background loading cancelled")
+                self.logger.debug("Background loading cancelled")
                 break
             } catch {
-                logger.warning("Background section load failed: \(error.localizedDescription)")
+                self.logger.warning("Background section load failed: \(error.localizedDescription)")
                 break
             }
         }
 
-        let totalCount = sections.count
-        logger.info("Background section loading completed, total sections: \(totalCount)")
+        let totalCount = self.sections.count
+        self.logger.info("Background section loading completed, total sections: \(totalCount)")
     }
 
     /// Refreshes home content.
     func refresh() async {
-        backgroundLoadTask?.cancel()
-        sections = []
-        hasMoreSections = true
-        continuationsLoaded = 0
-        await load()
+        self.backgroundLoadTask?.cancel()
+        self.sections = []
+        self.hasMoreSections = true
+        self.continuationsLoaded = 0
+        await self.load()
     }
 }

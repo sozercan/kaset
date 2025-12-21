@@ -62,7 +62,7 @@ struct OnboardingView: View {
             // Sign in button
             VStack(spacing: 12) {
                 Button {
-                    showLoginSheet = true
+                    self.showLoginSheet = true
                 } label: {
                     Text("Sign in with Google")
                         .font(.headline)
@@ -80,7 +80,7 @@ struct OnboardingView: View {
                 .frame(height: 40)
         }
         .frame(minWidth: 500, minHeight: 500)
-        .sheet(isPresented: $showLoginSheet) {
+        .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
     }
@@ -97,16 +97,16 @@ private struct FeatureRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: icon)
+            Image(systemName: self.icon)
                 .font(.title2)
                 .foregroundStyle(.tint)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(self.title)
                     .font(.headline)
 
-                Text(description)
+                Text(self.description)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

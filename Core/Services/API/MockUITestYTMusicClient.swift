@@ -19,11 +19,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     init() {
         // Parse mock data from environment variables, or use defaults
-        homeSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
-        exploreSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
-        searchResults = Self.parseSearchResults() ?? Self.defaultSearchResults()
-        playlists = Self.parsePlaylists() ?? Self.defaultPlaylists()
-        likedSongs = Self.defaultLikedSongs()
+        self.homeSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
+        self.exploreSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
+        self.searchResults = Self.parseSearchResults() ?? Self.defaultSearchResults()
+        self.playlists = Self.parsePlaylists() ?? Self.defaultPlaylists()
+        self.likedSongs = Self.defaultLikedSongs()
     }
 
     // MARK: - Protocol Implementation
@@ -31,7 +31,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     func getHome() async throws -> HomeResponse {
         // Simulate network delay
         try? await Task.sleep(for: .milliseconds(100))
-        return HomeResponse(sections: homeSections)
+        return HomeResponse(sections: self.homeSections)
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
@@ -40,7 +40,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getExplore() async throws -> HomeResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return HomeResponse(sections: exploreSections)
+        return HomeResponse(sections: self.exploreSections)
     }
 
     func getExploreContinuation() async throws -> [HomeSection]? {
@@ -49,7 +49,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func search(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return searchResults
+        return self.searchResults
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
@@ -63,17 +63,17 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getLibraryPlaylists() async throws -> [Playlist] {
         try? await Task.sleep(for: .milliseconds(100))
-        return playlists
+        return self.playlists
     }
 
     func getLikedSongs() async throws -> [Song] {
         try? await Task.sleep(for: .milliseconds(100))
-        return likedSongs
+        return self.likedSongs
     }
 
     func getPlaylist(id: String) async throws -> PlaylistDetail {
         try? await Task.sleep(for: .milliseconds(100))
-        let playlist = playlists.first { $0.id == id } ?? Playlist(
+        let playlist = self.playlists.first { $0.id == id } ?? Playlist(
             id: id,
             title: "Test Playlist",
             description: "A test playlist",
@@ -244,30 +244,30 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             HomeSection(
                 id: "quick-picks",
                 title: "Quick picks",
-                items: defaultSongs(count: 8).map { .song($0) }
+                items: self.defaultSongs(count: 8).map { .song($0) }
             ),
             HomeSection(
                 id: "listen-again",
                 title: "Listen again",
-                items: defaultSongs(count: 6).map { .song($0) }
+                items: self.defaultSongs(count: 6).map { .song($0) }
             ),
             HomeSection(
                 id: "recommended",
                 title: "Recommended",
-                items: defaultSongs(count: 10).map { .song($0) }
+                items: self.defaultSongs(count: 10).map { .song($0) }
             ),
         ]
     }
 
     private static func defaultSearchResults() -> SearchResponse {
         SearchResponse(
-            songs: defaultSongs(count: 5),
-            albums: defaultAlbums(count: 2),
+            songs: self.defaultSongs(count: 5),
+            albums: self.defaultAlbums(count: 2),
             artists: [
                 Artist(id: "artist-1", name: "Search Artist 1", thumbnailURL: nil),
                 Artist(id: "artist-2", name: "Search Artist 2", thumbnailURL: nil),
             ],
-            playlists: defaultPlaylists()
+            playlists: self.defaultPlaylists()
         )
     }
 
@@ -285,7 +285,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     private static func defaultLikedSongs() -> [Song] {
-        defaultSongs(count: 20)
+        self.defaultSongs(count: 20)
     }
 
     private static func defaultSongs(count: Int) -> [Song] {

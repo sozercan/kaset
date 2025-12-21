@@ -52,7 +52,7 @@ final class MockURLProtocol: URLProtocol {
 
     /// Resets the request handler.
     static func reset() {
-        requestHandler = nil
+        self.requestHandler = nil
     }
 
     /// Sets up a successful JSON response.
@@ -63,7 +63,7 @@ final class MockURLProtocol: URLProtocol {
         // Pre-serialize the JSON to Data to avoid capturing non-Sendable type
         // swiftlint:disable:next force_try
         let data = try! JSONSerialization.data(withJSONObject: json)
-        requestHandler = { request in
+        self.requestHandler = { request in
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: statusCode,
@@ -77,7 +77,7 @@ final class MockURLProtocol: URLProtocol {
     /// Sets up an error response.
     /// - Parameter error: The error to throw.
     static func setMockError(_ error: any Error & Sendable) {
-        requestHandler = { _ in
+        self.requestHandler = { _ in
             throw error
         }
     }

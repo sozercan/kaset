@@ -19,7 +19,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testParseSongResults() {
         // Given
-        let data = makeSearchResponseData(songs: 3, albums: 0, artists: 0, playlists: 0)
+        let data = self.makeSearchResponseData(songs: 3, albums: 0, artists: 0, playlists: 0)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -33,7 +33,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testParseAlbumResults() {
         // Given
-        let data = makeSearchResponseData(songs: 0, albums: 2, artists: 0, playlists: 0)
+        let data = self.makeSearchResponseData(songs: 0, albums: 2, artists: 0, playlists: 0)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -45,7 +45,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testParseArtistResults() {
         // Given
-        let data = makeSearchResponseData(songs: 0, albums: 0, artists: 2, playlists: 0)
+        let data = self.makeSearchResponseData(songs: 0, albums: 0, artists: 2, playlists: 0)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -57,7 +57,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testParsePlaylistResults() {
         // Given
-        let data = makeSearchResponseData(songs: 0, albums: 0, artists: 0, playlists: 2)
+        let data = self.makeSearchResponseData(songs: 0, albums: 0, artists: 0, playlists: 2)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -69,7 +69,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testParseMixedResults() {
         // Given
-        let data = makeSearchResponseData(songs: 2, albums: 1, artists: 1, playlists: 1)
+        let data = self.makeSearchResponseData(songs: 2, albums: 1, artists: 1, playlists: 1)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -83,7 +83,7 @@ final class SearchResponseParserTests: XCTestCase {
 
     func testSongHasVideoId() {
         // Given
-        let data = makeSearchResponseData(songs: 1, albums: 0, artists: 0, playlists: 0)
+        let data = self.makeSearchResponseData(songs: 1, albums: 0, artists: 0, playlists: 0)
 
         // When
         let response = SearchResponseParser.parse(data)
@@ -98,16 +98,16 @@ final class SearchResponseParserTests: XCTestCase {
         var contents: [[String: Any]] = []
 
         if songs > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeSongItems(count: songs)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeSongItems(count: songs)]])
         }
         if albums > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeAlbumItems(count: albums)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeAlbumItems(count: albums)]])
         }
         if artists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeArtistItems(count: artists)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeArtistItems(count: artists)]])
         }
         if playlists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makePlaylistItems(count: playlists)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makePlaylistItems(count: playlists)]])
         }
 
         return [

@@ -32,28 +32,28 @@ final class ArtistDetailViewModel {
 
     /// Loads the artist details including songs and albums.
     func load() async {
-        guard loadingState != .loading else { return }
+        guard self.loadingState != .loading else { return }
 
-        loadingState = .loading
-        let artistName = artist.name
-        logger.info("Loading artist: \(artistName)")
+        self.loadingState = .loading
+        let artistName = self.artist.name
+        self.logger.info("Loading artist: \(artistName)")
 
         do {
-            var detail = try await client.getArtist(id: artist.id)
+            var detail = try await client.getArtist(id: self.artist.id)
 
             // Use original artist info as fallback if API returned unknown/empty values
-            if detail.name == "Unknown Artist", artist.name != "Unknown Artist" {
+            if detail.name == "Unknown Artist", self.artist.name != "Unknown Artist" {
                 let mergedArtist = Artist(
                     id: artist.id,
-                    name: artist.name,
-                    thumbnailURL: detail.thumbnailURL ?? artist.thumbnailURL
+                    name: self.artist.name,
+                    thumbnailURL: detail.thumbnailURL ?? self.artist.thumbnailURL
                 )
                 detail = ArtistDetail(
                     artist: mergedArtist,
                     description: detail.description,
                     songs: detail.songs,
                     albums: detail.albums,
-                    thumbnailURL: detail.thumbnailURL ?? artist.thumbnailURL,
+                    thumbnailURL: detail.thumbnailURL ?? self.artist.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
@@ -63,26 +63,26 @@ final class ArtistDetailViewModel {
                 )
             }
 
-            artistDetail = detail
-            loadingState = .loaded
+            self.artistDetail = detail
+            self.loadingState = .loaded
             let songCount = detail.songs.count
-            logger.info("Artist loaded: \(songCount) songs")
+            self.logger.info("Artist loaded: \(songCount) songs")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            logger.debug("Artist detail load cancelled")
-            loadingState = .idle
+            self.logger.debug("Artist detail load cancelled")
+            self.loadingState = .idle
         } catch {
             let errorMessage = error.localizedDescription
-            logger.error("Failed to load artist: \(errorMessage)")
-            loadingState = .error(errorMessage)
+            self.logger.error("Failed to load artist: \(errorMessage)")
+            self.loadingState = .error(errorMessage)
         }
     }
 
     /// Refreshes the artist details.
     func refresh() async {
-        artistDetail = nil
-        showAllSongs = false
-        await load()
+        self.artistDetail = nil
+        self.showAllSongs = false
+        await self.load()
     }
 
     /// Toggles subscription status for the artist.
@@ -90,32 +90,32 @@ final class ArtistDetailViewModel {
         guard let detail = artistDetail,
               let channelId = detail.channelId
         else {
-            logger.warning("Cannot toggle subscription: missing channel ID")
+            self.logger.warning("Cannot toggle subscription: missing channel ID")
             return
         }
 
-        isSubscribing = true
+        self.isSubscribing = true
         defer { isSubscribing = false }
 
         do {
             if detail.isSubscribed {
-                try await client.unsubscribeFromArtist(channelId: channelId)
-                artistDetail?.isSubscribed = false
-                logger.info("Unsubscribed from artist: \(detail.name)")
+                try await self.client.unsubscribeFromArtist(channelId: channelId)
+                self.artistDetail?.isSubscribed = false
+                self.logger.info("Unsubscribed from artist: \(detail.name)")
             } else {
-                try await client.subscribeToArtist(channelId: channelId)
-                artistDetail?.isSubscribed = true
-                logger.info("Subscribed to artist: \(detail.name)")
+                try await self.client.subscribeToArtist(channelId: channelId)
+                self.artistDetail?.isSubscribed = true
+                self.logger.info("Subscribed to artist: \(detail.name)")
             }
         } catch {
-            logger.error("Failed to toggle subscription: \(error.localizedDescription)")
+            self.logger.error("Failed to toggle subscription: \(error.localizedDescription)")
         }
     }
 
     /// The songs to display based on showAllSongs state.
     var displayedSongs: [Song] {
         guard let songs = artistDetail?.songs else { return [] }
-        if showAllSongs {
+        if self.showAllSongs {
             return songs
         }
         return Array(songs.prefix(Self.previewSongCount))

@@ -9,16 +9,16 @@ struct LibraryView: View {
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: self.$navigationPath) {
             Group {
-                switch viewModel.loadingState {
+                switch self.viewModel.loadingState {
                 case .idle, .loading:
                     LoadingView("Loading your library...")
                 case .loaded, .loadingMore:
-                    contentView
+                    self.contentView
                 case let .error(message):
                     ErrorView(title: "Unable to load library", message: message) {
-                        Task { await viewModel.refresh() }
+                        Task { await self.viewModel.refresh() }
                     }
                 }
             }
@@ -28,7 +28,7 @@ struct LibraryView: View {
                     playlist: playlist,
                     viewModel: PlaylistDetailViewModel(
                         playlist: playlist,
-                        client: viewModel.client
+                        client: self.viewModel.client
                     )
                 )
             }
@@ -37,12 +37,12 @@ struct LibraryView: View {
             PlayerBar()
         }
         .task {
-            if viewModel.loadingState == .idle {
-                await viewModel.load()
+            if self.viewModel.loadingState == .idle {
+                await self.viewModel.load()
             }
         }
         .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.refresh()
         }
     }
 
@@ -52,7 +52,7 @@ struct LibraryView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 // Playlists section
-                playlistsSection
+                self.playlistsSection
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
@@ -65,14 +65,14 @@ struct LibraryView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            if viewModel.playlists.isEmpty {
-                emptyPlaylistsView
+            if self.viewModel.playlists.isEmpty {
+                self.emptyPlaylistsView
             } else {
                 LazyVGrid(columns: [
                     GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16),
                 ], spacing: 16) {
-                    ForEach(viewModel.playlists) { playlist in
-                        playlistCard(playlist)
+                    ForEach(self.viewModel.playlists) { playlist in
+                        self.playlistCard(playlist)
                     }
                 }
             }
@@ -100,7 +100,7 @@ struct LibraryView: View {
 
     private func playlistCard(_ playlist: Playlist) -> some View {
         Button {
-            navigationPath.append(playlist)
+            self.navigationPath.append(playlist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 // Thumbnail

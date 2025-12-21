@@ -18,7 +18,7 @@ enum ParsingHelpers {
     /// Checks if a section title indicates a chart section.
     static func isChartSection(_ title: String) -> Bool {
         let lowercased = title.lowercased()
-        return chartKeywords.contains { lowercased.contains($0) }
+        return self.chartKeywords.contains { lowercased.contains($0) }
     }
 
     /// Normalizes a URL string by adding https: prefix to protocol-relative URLs.
@@ -37,7 +37,7 @@ enum ParsingHelpers {
                let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
                let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
             {
-                return thumbnails.compactMap { $0["url"] as? String }.map(normalizeURL)
+                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
             }
 
             // Try croppedSquareThumbnailRenderer (used in library playlists)
@@ -45,12 +45,12 @@ enum ParsingHelpers {
                let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
                let thumbList = thumbnails["thumbnails"] as? [[String: Any]]
             {
-                return thumbList.compactMap { $0["url"] as? String }.map(normalizeURL)
+                return thumbList.compactMap { $0["url"] as? String }.map(self.normalizeURL)
             }
 
             // Direct thumbnails array
             if let thumbnails = thumbnail["thumbnails"] as? [[String: Any]] {
-                return thumbnails.compactMap { $0["url"] as? String }.map(normalizeURL)
+                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
             }
         }
 
@@ -60,14 +60,14 @@ enum ParsingHelpers {
                let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
                let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
             {
-                return thumbnails.compactMap { $0["url"] as? String }.map(normalizeURL)
+                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
             }
 
             if let croppedRenderer = thumbnailRenderer["croppedSquareThumbnailRenderer"] as? [String: Any],
                let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
                let thumbList = thumbnails["thumbnails"] as? [[String: Any]]
             {
-                return thumbList.compactMap { $0["url"] as? String }.map(normalizeURL)
+                return thumbList.compactMap { $0["url"] as? String }.map(self.normalizeURL)
             }
         }
 
@@ -177,7 +177,7 @@ enum ParsingHelpers {
                    let firstRun = runs.first,
                    let durationText = firstRun["text"] as? String
                 {
-                    return parseDuration(durationText)
+                    return self.parseDuration(durationText)
                 }
             }
         }

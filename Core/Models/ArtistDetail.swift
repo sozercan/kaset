@@ -22,8 +22,8 @@ struct ArtistDetail: Sendable {
     /// Params for loading all songs.
     let songsParams: String?
 
-    var id: String { artist.id }
-    var name: String { artist.name }
+    var id: String { self.artist.id }
+    var name: String { self.artist.name }
 
     init(
         artist: Artist,

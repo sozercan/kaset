@@ -20,7 +20,7 @@ final class SearchSuggestionsParserTests: XCTestCase {
     // MARK: - Valid Response Tests
 
     func testParseSingleSuggestion() {
-        let data = makeSuggestionsResponse(queries: ["test query"])
+        let data = self.makeSuggestionsResponse(queries: ["test query"])
         let suggestions = SearchSuggestionsParser.parse(data)
 
         XCTAssertEqual(suggestions.count, 1)
@@ -28,7 +28,7 @@ final class SearchSuggestionsParserTests: XCTestCase {
     }
 
     func testParseMultipleSuggestions() {
-        let data = makeSuggestionsResponse(queries: [
+        let data = self.makeSuggestionsResponse(queries: [
             "taylor swift",
             "taylor swift anti hero",
             "taylor swift shake it off",

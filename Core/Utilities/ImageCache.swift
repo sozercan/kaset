@@ -17,13 +17,13 @@ actor ImageCache {
     private let diskCacheURL: URL
 
     private init() {
-        memoryCache.countLimit = 200
-        memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
+        self.memoryCache.countLimit = 200
+        self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
 
         // Set up disk cache directory
-        let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        diskCacheURL = cacheDir.appendingPathComponent("com.kaset.imagecache", isDirectory: true)
-        try? fileManager.createDirectory(at: diskCacheURL, withIntermediateDirectories: true)
+        let cacheDir = self.fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        self.diskCacheURL = cacheDir.appendingPathComponent("com.kaset.imagecache", isDirectory: true)
+        try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
     }
 
     /// Fetches an image from cache or network.
@@ -39,7 +39,7 @@ actor ImageCache {
 
         // Check disk cache
         if let diskImage = loadFromDisk(url: url, targetSize: targetSize) {
-            memoryCache.setObject(diskImage, forKey: url as NSURL)
+            self.memoryCache.setObject(diskImage, forKey: url as NSURL)
             return diskImage
         }
 
@@ -54,17 +54,17 @@ actor ImageCache {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
                 let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
-                saveToDisk(url: url, data: data)
+                self.memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
+                self.saveToDisk(url: url, data: data)
                 return image
             } catch {
                 return nil
             }
         }
 
-        inFlight[url] = task
+        self.inFlight[url] = task
         let result = await task.value
-        inFlight.removeValue(forKey: url)
+        self.inFlight.removeValue(forKey: url)
         return result
     }
 
@@ -139,15 +139,15 @@ actor ImageCache {
 
     /// Clears the memory cache.
     func clearMemoryCache() {
-        memoryCache.removeAllObjects()
-        inFlight.removeAll()
+        self.memoryCache.removeAllObjects()
+        self.inFlight.removeAll()
     }
 
     /// Clears both memory and disk caches.
     func clearAllCaches() {
-        clearMemoryCache()
-        try? fileManager.removeItem(at: diskCacheURL)
-        try? fileManager.createDirectory(at: diskCacheURL, withIntermediateDirectories: true)
+        self.clearMemoryCache()
+        try? self.fileManager.removeItem(at: self.diskCacheURL)
+        try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
     }
 
     // MARK: - Disk Cache Helpers
@@ -159,11 +159,11 @@ actor ImageCache {
     }
 
     private func diskCachePath(for url: URL) -> URL {
-        diskCacheURL.appendingPathComponent(cacheKey(for: url))
+        self.diskCacheURL.appendingPathComponent(self.cacheKey(for: url))
     }
 
     private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
-        let path = diskCachePath(for: url)
+        let path = self.diskCachePath(for: url)
         guard let data = try? Data(contentsOf: path) else {
             return nil
         }
@@ -171,7 +171,7 @@ actor ImageCache {
     }
 
     private func saveToDisk(url: URL, data: Data) {
-        let path = diskCachePath(for: url)
+        let path = self.diskCachePath(for: url)
         try? data.write(to: path, options: .atomic)
     }
 }

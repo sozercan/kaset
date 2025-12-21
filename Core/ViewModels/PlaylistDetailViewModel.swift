@@ -24,25 +24,25 @@ final class PlaylistDetailViewModel {
 
     /// Loads the playlist details including tracks.
     func load() async {
-        guard loadingState != .loading else { return }
+        guard self.loadingState != .loading else { return }
 
-        loadingState = .loading
-        let playlistTitle = playlist.title
-        logger.info("Loading playlist: \(playlistTitle)")
+        self.loadingState = .loading
+        let playlistTitle = self.playlist.title
+        self.logger.info("Loading playlist: \(playlistTitle)")
 
         do {
-            var detail = try await client.getPlaylist(id: playlist.id)
+            var detail = try await client.getPlaylist(id: self.playlist.id)
 
             // Use original playlist info as fallback if API returned unknown/empty values
-            if detail.title == "Unknown Playlist", playlist.title != "Unknown Playlist" {
+            if detail.title == "Unknown Playlist", self.playlist.title != "Unknown Playlist" {
                 // Merge with original playlist info
                 let mergedPlaylist = Playlist(
                     id: playlist.id,
-                    title: playlist.title,
-                    description: detail.description ?? playlist.description,
-                    thumbnailURL: detail.thumbnailURL ?? playlist.thumbnailURL,
+                    title: self.playlist.title,
+                    description: detail.description ?? self.playlist.description,
+                    thumbnailURL: detail.thumbnailURL ?? self.playlist.thumbnailURL,
                     trackCount: detail.tracks.count,
-                    author: detail.author ?? playlist.author
+                    author: detail.author ?? self.playlist.author
                 )
                 detail = PlaylistDetail(
                     playlist: mergedPlaylist,
@@ -51,24 +51,24 @@ final class PlaylistDetailViewModel {
                 )
             }
 
-            playlistDetail = detail
-            loadingState = .loaded
+            self.playlistDetail = detail
+            self.loadingState = .loaded
             let trackCount = detail.tracks.count
-            logger.info("Playlist loaded: \(trackCount) tracks")
+            self.logger.info("Playlist loaded: \(trackCount) tracks")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            logger.debug("Playlist detail load cancelled")
-            loadingState = .idle
+            self.logger.debug("Playlist detail load cancelled")
+            self.loadingState = .idle
         } catch {
             let errorMessage = error.localizedDescription
-            logger.error("Failed to load playlist: \(errorMessage)")
-            loadingState = .error(errorMessage)
+            self.logger.error("Failed to load playlist: \(errorMessage)")
+            self.loadingState = .error(errorMessage)
         }
     }
 
     /// Refreshes the playlist.
     func refresh() async {
-        playlistDetail = nil
-        await load()
+        self.playlistDetail = nil
+        await self.load()
     }
 }

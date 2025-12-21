@@ -84,15 +84,15 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
-                MainWindow(navigationSelection: $navigationSelection)
-                    .environment(authService)
-                    .environment(webKitManager)
-                    .environment(playerService)
-                    .environment(\.searchFocusTrigger, $searchFocusTrigger)
-                    .environment(\.navigationSelection, $navigationSelection)
+                MainWindow(navigationSelection: self.$navigationSelection)
+                    .environment(self.authService)
+                    .environment(self.webKitManager)
+                    .environment(self.playerService)
+                    .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
+                    .environment(\.navigationSelection, self.$navigationSelection)
                     .task {
                         // Check if user is already logged in from previous session
-                        await authService.checkLoginStatus()
+                        await self.authService.checkLoginStatus()
                     }
             }
         }
@@ -101,29 +101,29 @@ struct KasetApp: App {
             CommandGroup(after: .appInfo) {
                 Button("Sign Out") {
                     Task {
-                        await authService.signOut()
+                        await self.authService.signOut()
                     }
                 }
-                .disabled(authService.state == .loggedOut)
+                .disabled(self.authService.state == .loggedOut)
             }
 
             // Playback commands
             CommandMenu("Playback") {
                 // Play/Pause - Space
-                Button(playerService.isPlaying ? "Pause" : "Play") {
+                Button(self.playerService.isPlaying ? "Pause" : "Play") {
                     Task {
-                        await playerService.playPause()
+                        await self.playerService.playPause()
                     }
                 }
                 .keyboardShortcut(.space, modifiers: [])
-                .disabled(playerService.currentTrack == nil && playerService.pendingPlayVideoId == nil)
+                .disabled(self.playerService.currentTrack == nil && self.playerService.pendingPlayVideoId == nil)
 
                 Divider()
 
                 // Next Track - ⌘→
                 Button("Next") {
                     Task {
-                        await playerService.next()
+                        await self.playerService.next()
                     }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
@@ -131,7 +131,7 @@ struct KasetApp: App {
                 // Previous Track - ⌘←
                 Button("Previous") {
                     Task {
-                        await playerService.previous()
+                        await self.playerService.previous()
                     }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
@@ -141,7 +141,7 @@ struct KasetApp: App {
                 // Volume Up - ⌘↑
                 Button("Volume Up") {
                     Task {
-                        await playerService.setVolume(min(1.0, playerService.volume + 0.1))
+                        await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
                     }
                 }
                 .keyboardShortcut(.upArrow, modifiers: .command)
@@ -149,15 +149,15 @@ struct KasetApp: App {
                 // Volume Down - ⌘↓
                 Button("Volume Down") {
                     Task {
-                        await playerService.setVolume(max(0.0, playerService.volume - 0.1))
+                        await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
                     }
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
 
                 // Mute - ⌘⇧M
-                Button(playerService.isMuted ? "Unmute" : "Mute") {
+                Button(self.playerService.isMuted ? "Unmute" : "Mute") {
                     Task {
-                        await playerService.toggleMute()
+                        await self.playerService.toggleMute()
                     }
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
@@ -165,23 +165,23 @@ struct KasetApp: App {
                 Divider()
 
                 // Shuffle - ⌘S
-                Button(playerService.shuffleEnabled ? "Shuffle Off" : "Shuffle On") {
-                    playerService.toggleShuffle()
+                Button(self.playerService.shuffleEnabled ? "Shuffle Off" : "Shuffle On") {
+                    self.playerService.toggleShuffle()
                 }
                 .keyboardShortcut("s", modifiers: .command)
 
                 // Repeat - ⌘R
-                Button(repeatModeLabel) {
-                    playerService.cycleRepeatMode()
+                Button(self.repeatModeLabel) {
+                    self.playerService.cycleRepeatMode()
                 }
                 .keyboardShortcut("r", modifiers: .command)
 
                 Divider()
 
                 // Lyrics - ⌘L
-                Button(playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
+                Button(self.playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        playerService.showLyrics.toggle()
+                        self.playerService.showLyrics.toggle()
                     }
                 }
                 .keyboardShortcut("l", modifiers: .command)
@@ -191,19 +191,19 @@ struct KasetApp: App {
             CommandGroup(replacing: .sidebar) {
                 // Home - ⌘1
                 Button("Home") {
-                    navigationSelection = .home
+                    self.navigationSelection = .home
                 }
                 .keyboardShortcut("1", modifiers: .command)
 
                 // Explore - ⌘2
                 Button("Explore") {
-                    navigationSelection = .explore
+                    self.navigationSelection = .explore
                 }
                 .keyboardShortcut("2", modifiers: .command)
 
                 // Library - ⌘3
                 Button("Library") {
-                    navigationSelection = .library
+                    self.navigationSelection = .library
                 }
                 .keyboardShortcut("3", modifiers: .command)
 
@@ -211,11 +211,11 @@ struct KasetApp: App {
 
                 // Search - ⌘F
                 Button("Search") {
-                    navigationSelection = .search
+                    self.navigationSelection = .search
                     // Trigger focus after a brief delay to allow view to appear
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(100))
-                        searchFocusTrigger = true
+                        self.searchFocusTrigger = true
                     }
                 }
                 .keyboardShortcut("f", modifiers: .command)
@@ -225,7 +225,7 @@ struct KasetApp: App {
 
     /// Label for repeat mode menu item.
     private var repeatModeLabel: String {
-        switch playerService.repeatMode {
+        switch self.playerService.repeatMode {
         case .off:
             "Repeat All"
         case .all:

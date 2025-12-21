@@ -8,101 +8,101 @@ final class LibraryViewModelTests: XCTestCase {
     private var viewModel: LibraryViewModel!
 
     override func setUp() async throws {
-        mockClient = MockYTMusicClient()
-        viewModel = LibraryViewModel(client: mockClient)
+        self.mockClient = MockYTMusicClient()
+        self.viewModel = LibraryViewModel(client: self.mockClient)
     }
 
     override func tearDown() async throws {
-        mockClient = nil
-        viewModel = nil
+        self.mockClient = nil
+        self.viewModel = nil
     }
 
     func testInitialState() {
-        XCTAssertEqual(viewModel.loadingState, .idle)
-        XCTAssertTrue(viewModel.playlists.isEmpty)
-        XCTAssertNil(viewModel.selectedPlaylistDetail)
+        XCTAssertEqual(self.viewModel.loadingState, .idle)
+        XCTAssertTrue(self.viewModel.playlists.isEmpty)
+        XCTAssertNil(self.viewModel.selectedPlaylistDetail)
     }
 
     func testLoadSuccess() async {
         // Given
-        mockClient.libraryPlaylists = [
+        self.mockClient.libraryPlaylists = [
             TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1"),
             TestFixtures.makePlaylist(id: "VL2", title: "Playlist 2"),
         ]
 
         // When
-        await viewModel.load()
+        await self.viewModel.load()
 
         // Then
-        XCTAssertTrue(mockClient.getLibraryPlaylistsCalled)
-        XCTAssertEqual(viewModel.loadingState, .loaded)
-        XCTAssertEqual(viewModel.playlists.count, 2)
-        XCTAssertEqual(viewModel.playlists[0].title, "Playlist 1")
+        XCTAssertTrue(self.mockClient.getLibraryPlaylistsCalled)
+        XCTAssertEqual(self.viewModel.loadingState, .loaded)
+        XCTAssertEqual(self.viewModel.playlists.count, 2)
+        XCTAssertEqual(self.viewModel.playlists[0].title, "Playlist 1")
     }
 
     func testLoadError() async {
         // Given
-        mockClient.shouldThrowError = YTMusicError.authExpired
+        self.mockClient.shouldThrowError = YTMusicError.authExpired
 
         // When
-        await viewModel.load()
+        await self.viewModel.load()
 
         // Then
-        XCTAssertTrue(mockClient.getLibraryPlaylistsCalled)
-        if case .error = viewModel.loadingState {
+        XCTAssertTrue(self.mockClient.getLibraryPlaylistsCalled)
+        if case .error = self.viewModel.loadingState {
             // Expected
         } else {
             XCTFail("Expected error state")
         }
-        XCTAssertTrue(viewModel.playlists.isEmpty)
+        XCTAssertTrue(self.viewModel.playlists.isEmpty)
     }
 
     func testLoadPlaylistSuccess() async {
         // Given
         let playlist = TestFixtures.makePlaylist(id: "VL-test")
         let playlistDetail = TestFixtures.makePlaylistDetail(playlist: playlist, trackCount: 5)
-        mockClient.playlistDetails["VL-test"] = playlistDetail
+        self.mockClient.playlistDetails["VL-test"] = playlistDetail
 
         // When
-        await viewModel.loadPlaylist(id: "VL-test")
+        await self.viewModel.loadPlaylist(id: "VL-test")
 
         // Then
-        XCTAssertTrue(mockClient.getPlaylistCalled)
-        XCTAssertEqual(mockClient.getPlaylistIds.first, "VL-test")
-        XCTAssertEqual(viewModel.playlistDetailLoadingState, .loaded)
-        XCTAssertNotNil(viewModel.selectedPlaylistDetail)
-        XCTAssertEqual(viewModel.selectedPlaylistDetail?.tracks.count, 5)
+        XCTAssertTrue(self.mockClient.getPlaylistCalled)
+        XCTAssertEqual(self.mockClient.getPlaylistIds.first, "VL-test")
+        XCTAssertEqual(self.viewModel.playlistDetailLoadingState, .loaded)
+        XCTAssertNotNil(self.viewModel.selectedPlaylistDetail)
+        XCTAssertEqual(self.viewModel.selectedPlaylistDetail?.tracks.count, 5)
     }
 
     func testClearSelectedPlaylist() async {
         // Given - load a playlist
         let playlist = TestFixtures.makePlaylist(id: "VL-test")
-        mockClient.playlistDetails["VL-test"] = TestFixtures.makePlaylistDetail(playlist: playlist)
-        await viewModel.loadPlaylist(id: "VL-test")
-        XCTAssertNotNil(viewModel.selectedPlaylistDetail)
+        self.mockClient.playlistDetails["VL-test"] = TestFixtures.makePlaylistDetail(playlist: playlist)
+        await self.viewModel.loadPlaylist(id: "VL-test")
+        XCTAssertNotNil(self.viewModel.selectedPlaylistDetail)
 
         // When
-        viewModel.clearSelectedPlaylist()
+        self.viewModel.clearSelectedPlaylist()
 
         // Then
-        XCTAssertNil(viewModel.selectedPlaylistDetail)
-        XCTAssertEqual(viewModel.playlistDetailLoadingState, .idle)
+        XCTAssertNil(self.viewModel.selectedPlaylistDetail)
+        XCTAssertEqual(self.viewModel.playlistDetailLoadingState, .idle)
     }
 
     func testRefreshClearsAndReloads() async {
         // Given - load initial data
-        mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1")]
-        await viewModel.load()
-        XCTAssertEqual(viewModel.playlists.count, 1)
+        self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1")]
+        await self.viewModel.load()
+        XCTAssertEqual(self.viewModel.playlists.count, 1)
 
         // When - refresh with different data
-        mockClient.libraryPlaylists = [
+        self.mockClient.libraryPlaylists = [
             TestFixtures.makePlaylist(id: "VL2"),
             TestFixtures.makePlaylist(id: "VL3"),
         ]
-        await viewModel.refresh()
+        await self.viewModel.refresh()
 
         // Then
-        XCTAssertEqual(viewModel.playlists.count, 2)
+        XCTAssertEqual(self.viewModel.playlists.count, 2)
     }
 }

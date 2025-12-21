@@ -11,8 +11,8 @@ final class NotificationService {
 
     init(playerService: PlayerService) {
         self.playerService = playerService
-        requestAuthorization()
-        startObserving()
+        self.requestAuthorization()
+        self.startObserving()
     }
 
     deinit {
@@ -26,9 +26,9 @@ final class NotificationService {
             do {
                 let granted = try await UNUserNotificationCenter.current()
                     .requestAuthorization(options: [.alert])
-                logger.info("Notification authorization: \(granted)")
+                self.logger.info("Notification authorization: \(granted)")
             } catch {
-                logger.error("Notification authorization failed: \(error.localizedDescription)")
+                self.logger.error("Notification authorization failed: \(error.localizedDescription)")
             }
         }
     }
@@ -36,12 +36,12 @@ final class NotificationService {
     // MARK: - Observation
 
     private func startObserving() {
-        observationTask = Task { [weak self] in
+        self.observationTask = Task { [weak self] in
             guard let self else { return }
             var previousTrack: Song?
 
             while !Task.isCancelled {
-                let currentTrack = playerService.currentTrack
+                let currentTrack = self.playerService.currentTrack
 
                 // Only notify on actual track changes with valid title
                 if let track = currentTrack,
@@ -49,8 +49,8 @@ final class NotificationService {
                    track.id != self.lastNotifiedTrackId,
                    track.title != "Loading..."
                 {
-                    await postTrackNotification(track)
-                    lastNotifiedTrackId = track.id
+                    await self.postTrackNotification(track)
+                    self.lastNotifiedTrackId = track.id
                 }
 
                 previousTrack = currentTrack
@@ -75,14 +75,14 @@ final class NotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            logger.debug("Posted notification for: \(track.title)")
+            self.logger.debug("Posted notification for: \(track.title)")
         } catch {
-            logger.error("Failed to post notification: \(error.localizedDescription)")
+            self.logger.error("Failed to post notification: \(error.localizedDescription)")
         }
     }
 
     func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
+        self.observationTask?.cancel()
+        self.observationTask = nil
     }
 }

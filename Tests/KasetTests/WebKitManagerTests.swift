@@ -7,11 +7,11 @@ final class WebKitManagerTests: XCTestCase {
     var webKitManager: WebKitManager!
 
     override func setUp() async throws {
-        webKitManager = WebKitManager.shared
+        self.webKitManager = WebKitManager.shared
     }
 
     override func tearDown() async throws {
-        webKitManager = nil
+        self.webKitManager = nil
     }
 
     func testSharedInstanceExists() {
@@ -19,13 +19,13 @@ final class WebKitManagerTests: XCTestCase {
     }
 
     func testDataStoreExists() {
-        XCTAssertNotNil(webKitManager.dataStore)
+        XCTAssertNotNil(self.webKitManager.dataStore)
     }
 
     func testCreateWebViewConfiguration() {
-        let configuration = webKitManager.createWebViewConfiguration()
+        let configuration = self.webKitManager.createWebViewConfiguration()
         XCTAssertNotNil(configuration)
-        XCTAssertEqual(configuration.websiteDataStore, webKitManager.dataStore)
+        XCTAssertEqual(configuration.websiteDataStore, self.webKitManager.dataStore)
     }
 
     func testOriginConstant() {

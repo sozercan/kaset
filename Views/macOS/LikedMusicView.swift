@@ -9,16 +9,16 @@ struct LikedMusicView: View {
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: self.$navigationPath) {
             Group {
-                switch viewModel.loadingState {
+                switch self.viewModel.loadingState {
                 case .idle, .loading:
                     LoadingView("Loading liked songs...")
                 case .loaded, .loadingMore:
-                    contentView
+                    self.contentView
                 case let .error(message):
                     ErrorView(title: "Unable to load liked songs", message: message) {
-                        Task { await viewModel.refresh() }
+                        Task { await self.viewModel.refresh() }
                     }
                 }
             }
@@ -28,7 +28,7 @@ struct LikedMusicView: View {
                     artist: artist,
                     viewModel: ArtistDetailViewModel(
                         artist: artist,
-                        client: viewModel.client
+                        client: self.viewModel.client
                     )
                 )
             }
@@ -36,7 +36,7 @@ struct LikedMusicView: View {
                 TopSongsView(
                     viewModel: TopSongsViewModel(
                         destination: destination,
-                        client: viewModel.client
+                        client: self.viewModel.client
                     ))
             }
         }
@@ -44,12 +44,12 @@ struct LikedMusicView: View {
             PlayerBar()
         }
         .task {
-            if viewModel.loadingState == .idle {
-                await viewModel.load()
+            if self.viewModel.loadingState == .idle {
+                await self.viewModel.load()
             }
         }
         .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.refresh()
         }
     }
 
@@ -59,17 +59,17 @@ struct LikedMusicView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 // Header with play all button
-                headerView
+                self.headerView
                     .padding(.horizontal, 24)
                     .padding(.bottom, 16)
 
                 // Songs list
-                if viewModel.songs.isEmpty {
-                    emptyStateView
+                if self.viewModel.songs.isEmpty {
+                    self.emptyStateView
                 } else {
-                    ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
-                        songRow(song, index: index)
-                        if index < viewModel.songs.count - 1 {
+                    ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                        self.songRow(song, index: index)
+                        if index < self.viewModel.songs.count - 1 {
                             Divider()
                                 .padding(.leading, 72)
                         }
@@ -104,7 +104,7 @@ struct LikedMusicView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("\(viewModel.songs.count) songs")
+                Text("\(self.viewModel.songs.count) songs")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -112,10 +112,10 @@ struct LikedMusicView: View {
             Spacer()
 
             // Play all button
-            if !viewModel.songs.isEmpty {
+            if !self.viewModel.songs.isEmpty {
                 Button {
                     Task {
-                        await playerService.playQueue(viewModel.songs, startingAt: 0)
+                        await self.playerService.playQueue(self.viewModel.songs, startingAt: 0)
                     }
                 } label: {
                     Label("Play All", systemImage: "play.fill")
@@ -127,8 +127,8 @@ struct LikedMusicView: View {
                 // Shuffle button
                 Button {
                     Task {
-                        let shuffled = viewModel.songs.shuffled()
-                        await playerService.playQueue(shuffled, startingAt: 0)
+                        let shuffled = self.viewModel.songs.shuffled()
+                        await self.playerService.playQueue(shuffled, startingAt: 0)
                     }
                 } label: {
                     Image(systemName: "shuffle")
@@ -161,7 +161,7 @@ struct LikedMusicView: View {
     private func songRow(_ song: Song, index: Int) -> some View {
         Button {
             Task {
-                await playerService.playQueue(viewModel.songs, startingAt: index)
+                await self.playerService.playQueue(self.viewModel.songs, startingAt: index)
             }
         } label: {
             HStack(spacing: 12) {
@@ -212,7 +212,7 @@ struct LikedMusicView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button {
-                Task { await playerService.play(song: song) }
+                Task { await self.playerService.play(song: song) }
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -220,7 +220,7 @@ struct LikedMusicView: View {
             Divider()
 
             Button {
-                SongActionsHelper.likeSong(song, playerService: playerService)
+                SongActionsHelper.likeSong(song, playerService: self.playerService)
             } label: {
                 Label("Unlike", systemImage: "heart.slash")
             }

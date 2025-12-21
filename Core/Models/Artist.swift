@@ -23,7 +23,7 @@ extension Artist {
         // Artist ID is optional for inline references
         let artistId = (data["id"] as? String) ?? (data["browseId"] as? String) ?? UUID().uuidString
 
-        id = artistId
+        self.id = artistId
         self.name = name
 
         // Parse thumbnail
@@ -31,9 +31,9 @@ extension Artist {
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String
         {
-            thumbnailURL = URL(string: urlString)
+            self.thumbnailURL = URL(string: urlString)
         } else {
-            thumbnailURL = nil
+            self.thumbnailURL = nil
         }
     }
 }

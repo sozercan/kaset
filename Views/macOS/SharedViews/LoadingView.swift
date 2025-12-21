@@ -24,10 +24,10 @@ struct LoadingView: View {
     }
 
     var body: some View {
-        if showSkeleton {
-            skeletonContent
+        if self.showSkeleton {
+            self.skeletonContent
         } else {
-            spinnerContent
+            self.spinnerContent
         }
     }
 
@@ -35,7 +35,7 @@ struct LoadingView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .pulse(minScale: 0.95, maxScale: 1.05, duration: 1.2)
-            Text(message)
+            Text(self.message)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -44,7 +44,7 @@ struct LoadingView: View {
     private var skeletonContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
-                ForEach(0 ..< skeletonSectionCount, id: \.self) { _ in
+                ForEach(0 ..< self.skeletonSectionCount, id: \.self) { _ in
                     SkeletonSectionView()
                 }
             }
@@ -86,7 +86,7 @@ struct ListLoadingView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(0 ..< rowCount, id: \.self) { _ in
+                ForEach(0 ..< self.rowCount, id: \.self) { _ in
                     SkeletonRowView()
                     Divider()
                         .padding(.leading, 72)

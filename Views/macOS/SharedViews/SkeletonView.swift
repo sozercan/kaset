@@ -24,34 +24,34 @@ struct SkeletonView: View {
                 .primary.opacity(0.15),
                 .primary.opacity(0.08),
             ],
-            startPoint: isAnimating ? .trailing : .leading,
-            endPoint: isAnimating ? .init(x: 2, y: 0) : .trailing
+            startPoint: self.isAnimating ? .trailing : .leading,
+            endPoint: self.isAnimating ? .init(x: 2, y: 0) : .trailing
         )
     }
 
     var body: some View {
         Group {
-            switch shape {
+            switch self.shape {
             case let .rectangle(cornerRadius):
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.quaternary)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .fill(shimmerGradient)
+                            .fill(self.shimmerGradient)
                     )
             case .circle:
                 Circle()
                     .fill(.quaternary)
                     .overlay(
                         Circle()
-                            .fill(shimmerGradient)
+                            .fill(self.shimmerGradient)
                     )
             case .capsule:
                 Capsule()
                     .fill(.quaternary)
                     .overlay(
                         Capsule()
-                            .fill(shimmerGradient)
+                            .fill(self.shimmerGradient)
                     )
             }
         }
@@ -61,7 +61,7 @@ struct SkeletonView: View {
                 .easeInOut(duration: 1.5)
                     .repeatForever(autoreverses: false)
             ) {
-                isAnimating = true
+                self.isAnimating = true
             }
         }
     }
@@ -102,15 +102,15 @@ struct SkeletonCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Thumbnail skeleton
             SkeletonView.rectangle(cornerRadius: 8)
-                .frame(width: width, height: height)
+                .frame(width: self.width, height: self.height)
 
             // Title skeleton
             SkeletonView.rectangle(cornerRadius: 4)
-                .frame(width: width * 0.8, height: 14)
+                .frame(width: self.width * 0.8, height: 14)
 
             // Subtitle skeleton
             SkeletonView.rectangle(cornerRadius: 4)
-                .frame(width: width * 0.5, height: 12)
+                .frame(width: self.width * 0.5, height: 12)
         }
     }
 }
@@ -124,9 +124,9 @@ struct SkeletonRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            if showThumbnail {
+            if self.showThumbnail {
                 SkeletonView.rectangle(cornerRadius: 6)
-                    .frame(width: thumbnailSize, height: thumbnailSize)
+                    .frame(width: self.thumbnailSize, height: self.thumbnailSize)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -170,8 +170,8 @@ struct SkeletonSectionView: View {
             // Cards
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(0 ..< cardCount, id: \.self) { _ in
-                        SkeletonCardView(width: cardWidth, height: cardHeight)
+                    ForEach(0 ..< self.cardCount, id: \.self) { _ in
+                        SkeletonCardView(width: self.cardWidth, height: self.cardHeight)
                     }
                 }
             }

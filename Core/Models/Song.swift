@@ -48,7 +48,7 @@ struct Song: Identifiable, Codable, Hashable, Sendable {
 
     /// Display string for artists (comma-separated).
     var artistsDisplay: String {
-        artists.map(\.name).joined(separator: ", ")
+        self.artists.map(\.name).joined(separator: ", ")
     }
 
     /// Formatted duration string (e.g., "3:45").
@@ -65,31 +65,31 @@ extension Song {
     init?(from data: [String: Any]) {
         guard let videoId = data["videoId"] as? String else { return nil }
 
-        id = videoId
+        self.id = videoId
         self.videoId = videoId
-        title = (data["title"] as? String) ?? "Unknown Title"
+        self.title = (data["title"] as? String) ?? "Unknown Title"
 
         // Parse artists
         if let artistsData = data["artists"] as? [[String: Any]] {
-            artists = artistsData.compactMap { Artist(from: $0) }
+            self.artists = artistsData.compactMap { Artist(from: $0) }
         } else {
-            artists = []
+            self.artists = []
         }
 
         // Parse album
         if let albumData = data["album"] as? [String: Any] {
-            album = Album(from: albumData)
+            self.album = Album(from: albumData)
         } else {
-            album = nil
+            self.album = nil
         }
 
         // Parse duration (in seconds)
         if let durationSeconds = data["duration_seconds"] as? Double {
-            duration = durationSeconds
+            self.duration = durationSeconds
         } else if let durationString = data["duration"] as? String {
-            duration = Song.parseDuration(durationString)
+            self.duration = Song.parseDuration(durationString)
         } else {
-            duration = nil
+            self.duration = nil
         }
 
         // Parse thumbnail
@@ -97,9 +97,9 @@ extension Song {
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String
         {
-            thumbnailURL = URL(string: urlString)
+            self.thumbnailURL = URL(string: urlString)
         } else {
-            thumbnailURL = nil
+            self.thumbnailURL = nil
         }
     }
 
@@ -126,6 +126,6 @@ extension Song {
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(videoId)
+        hasher.combine(self.videoId)
     }
 }

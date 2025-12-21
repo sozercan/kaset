@@ -25,11 +25,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private var _exploreContinuationIndex = 0
 
     var hasMoreHomeSections: Bool {
-        _homeContinuationIndex < homeContinuationSections.count
+        self._homeContinuationIndex < self.homeContinuationSections.count
     }
 
     var hasMoreExploreSections: Bool {
-        _exploreContinuationIndex < exploreContinuationSections.count
+        self._exploreContinuationIndex < self.exploreContinuationSections.count
     }
 
     // MARK: - Call Tracking
@@ -77,74 +77,74 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     // MARK: - Protocol Implementation
 
     func getHome() async throws -> HomeResponse {
-        getHomeCalled = true
-        getHomeCallCount += 1
-        _homeContinuationIndex = 0
+        self.getHomeCalled = true
+        self.getHomeCallCount += 1
+        self._homeContinuationIndex = 0
         if let error = shouldThrowError { throw error }
-        return homeResponse
+        return self.homeResponse
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
-        getHomeContinuationCalled = true
-        getHomeContinuationCallCount += 1
+        self.getHomeContinuationCalled = true
+        self.getHomeContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
-        guard _homeContinuationIndex < homeContinuationSections.count else {
+        guard self._homeContinuationIndex < self.homeContinuationSections.count else {
             return nil
         }
-        let sections = homeContinuationSections[_homeContinuationIndex]
-        _homeContinuationIndex += 1
+        let sections = self.homeContinuationSections[self._homeContinuationIndex]
+        self._homeContinuationIndex += 1
         return sections
     }
 
     func getExplore() async throws -> HomeResponse {
-        getExploreCalled = true
-        getExploreCallCount += 1
-        _exploreContinuationIndex = 0
+        self.getExploreCalled = true
+        self.getExploreCallCount += 1
+        self._exploreContinuationIndex = 0
         if let error = shouldThrowError { throw error }
-        return exploreResponse
+        return self.exploreResponse
     }
 
     func getExploreContinuation() async throws -> [HomeSection]? {
-        getExploreContinuationCalled = true
-        getExploreContinuationCallCount += 1
+        self.getExploreContinuationCalled = true
+        self.getExploreContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
-        guard _exploreContinuationIndex < exploreContinuationSections.count else {
+        guard self._exploreContinuationIndex < self.exploreContinuationSections.count else {
             return nil
         }
-        let sections = exploreContinuationSections[_exploreContinuationIndex]
-        _exploreContinuationIndex += 1
+        let sections = self.exploreContinuationSections[self._exploreContinuationIndex]
+        self._exploreContinuationIndex += 1
         return sections
     }
 
     func search(query: String) async throws -> SearchResponse {
-        searchCalled = true
-        searchQueries.append(query)
+        self.searchCalled = true
+        self.searchQueries.append(query)
         if let error = shouldThrowError { throw error }
-        return searchResponse
+        return self.searchResponse
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
-        getSearchSuggestionsCalled = true
-        getSearchSuggestionsQueries.append(query)
+        self.getSearchSuggestionsCalled = true
+        self.getSearchSuggestionsQueries.append(query)
         if let error = shouldThrowError { throw error }
-        return searchSuggestions
+        return self.searchSuggestions
     }
 
     func getLibraryPlaylists() async throws -> [Playlist] {
-        getLibraryPlaylistsCalled = true
+        self.getLibraryPlaylistsCalled = true
         if let error = shouldThrowError { throw error }
-        return libraryPlaylists
+        return self.libraryPlaylists
     }
 
     func getLikedSongs() async throws -> [Song] {
-        getLikedSongsCalled = true
+        self.getLikedSongsCalled = true
         if let error = shouldThrowError { throw error }
-        return likedSongs
+        return self.likedSongs
     }
 
     func getPlaylist(id: String) async throws -> PlaylistDetail {
-        getPlaylistCalled = true
-        getPlaylistIds.append(id)
+        self.getPlaylistCalled = true
+        self.getPlaylistIds.append(id)
         if let error = shouldThrowError { throw error }
         guard let detail = playlistDetails[id] else {
             throw YTMusicError.parseError(message: "Playlist not found: \(id)")
@@ -153,8 +153,8 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     func getArtist(id: String) async throws -> ArtistDetail {
-        getArtistCalled = true
-        getArtistIds.append(id)
+        self.getArtistCalled = true
+        self.getArtistIds.append(id)
         if let error = shouldThrowError { throw error }
         guard let detail = artistDetails[id] else {
             throw YTMusicError.parseError(message: "Artist not found: \(id)")
@@ -163,54 +163,54 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     func getArtistSongs(browseId: String, params _: String?) async throws -> [Song] {
-        getArtistSongsCalled = true
-        getArtistSongsBrowseIds.append(browseId)
+        self.getArtistSongsCalled = true
+        self.getArtistSongsBrowseIds.append(browseId)
         if let error = shouldThrowError { throw error }
-        return artistSongs[browseId] ?? []
+        return self.artistSongs[browseId] ?? []
     }
 
     func rateSong(videoId: String, rating: LikeStatus) async throws {
-        rateSongCalled = true
-        rateSongVideoIds.append(videoId)
-        rateSongRatings.append(rating)
+        self.rateSongCalled = true
+        self.rateSongVideoIds.append(videoId)
+        self.rateSongRatings.append(rating)
         if let error = shouldThrowError { throw error }
     }
 
     func editSongLibraryStatus(feedbackTokens: [String]) async throws {
-        editSongLibraryStatusCalled = true
-        editSongLibraryStatusTokens.append(feedbackTokens)
+        self.editSongLibraryStatusCalled = true
+        self.editSongLibraryStatusTokens.append(feedbackTokens)
         if let error = shouldThrowError { throw error }
     }
 
     func subscribeToPlaylist(playlistId: String) async throws {
-        subscribeToPlaylistCalled = true
-        subscribeToPlaylistIds.append(playlistId)
+        self.subscribeToPlaylistCalled = true
+        self.subscribeToPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
     }
 
     func unsubscribeFromPlaylist(playlistId: String) async throws {
-        unsubscribeFromPlaylistCalled = true
-        unsubscribeFromPlaylistIds.append(playlistId)
+        self.unsubscribeFromPlaylistCalled = true
+        self.unsubscribeFromPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
     }
 
     func subscribeToArtist(channelId: String) async throws {
-        subscribeToArtistCalled = true
-        subscribeToArtistIds.append(channelId)
+        self.subscribeToArtistCalled = true
+        self.subscribeToArtistIds.append(channelId)
         if let error = shouldThrowError { throw error }
     }
 
     func unsubscribeFromArtist(channelId: String) async throws {
-        unsubscribeFromArtistCalled = true
-        unsubscribeFromArtistIds.append(channelId)
+        self.unsubscribeFromArtistCalled = true
+        self.unsubscribeFromArtistIds.append(channelId)
         if let error = shouldThrowError { throw error }
     }
 
     func getLyrics(videoId: String) async throws -> Lyrics {
-        getLyricsCalled = true
-        getLyricsVideoIds.append(videoId)
+        self.getLyricsCalled = true
+        self.getLyricsVideoIds.append(videoId)
         if let error = shouldThrowError { throw error }
-        return lyricsResponses[videoId] ?? .unavailable
+        return self.lyricsResponses[videoId] ?? .unavailable
     }
 
     func getSong(videoId: String) async throws -> Song {
@@ -227,43 +227,43 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     /// Resets all call tracking.
     func reset() {
-        getHomeCalled = false
-        getHomeCallCount = 0
-        getHomeContinuationCalled = false
-        getHomeContinuationCallCount = 0
-        _homeContinuationIndex = 0
-        getExploreCalled = false
-        getExploreCallCount = 0
-        getExploreContinuationCalled = false
-        getExploreContinuationCallCount = 0
-        _exploreContinuationIndex = 0
-        searchCalled = false
-        searchQueries = []
-        getSearchSuggestionsCalled = false
-        getSearchSuggestionsQueries = []
-        getLibraryPlaylistsCalled = false
-        getLikedSongsCalled = false
-        getPlaylistCalled = false
-        getPlaylistIds = []
-        getArtistCalled = false
-        getArtistIds = []
-        getArtistSongsCalled = false
-        getArtistSongsBrowseIds = []
-        rateSongCalled = false
-        rateSongVideoIds = []
-        rateSongRatings = []
-        editSongLibraryStatusCalled = false
-        editSongLibraryStatusTokens = []
-        subscribeToPlaylistCalled = false
-        subscribeToPlaylistIds = []
-        unsubscribeFromPlaylistCalled = false
-        unsubscribeFromPlaylistIds = []
-        subscribeToArtistCalled = false
-        subscribeToArtistIds = []
-        unsubscribeFromArtistCalled = false
-        unsubscribeFromArtistIds = []
-        getLyricsCalled = false
-        getLyricsVideoIds = []
-        shouldThrowError = nil
+        self.getHomeCalled = false
+        self.getHomeCallCount = 0
+        self.getHomeContinuationCalled = false
+        self.getHomeContinuationCallCount = 0
+        self._homeContinuationIndex = 0
+        self.getExploreCalled = false
+        self.getExploreCallCount = 0
+        self.getExploreContinuationCalled = false
+        self.getExploreContinuationCallCount = 0
+        self._exploreContinuationIndex = 0
+        self.searchCalled = false
+        self.searchQueries = []
+        self.getSearchSuggestionsCalled = false
+        self.getSearchSuggestionsQueries = []
+        self.getLibraryPlaylistsCalled = false
+        self.getLikedSongsCalled = false
+        self.getPlaylistCalled = false
+        self.getPlaylistIds = []
+        self.getArtistCalled = false
+        self.getArtistIds = []
+        self.getArtistSongsCalled = false
+        self.getArtistSongsBrowseIds = []
+        self.rateSongCalled = false
+        self.rateSongVideoIds = []
+        self.rateSongRatings = []
+        self.editSongLibraryStatusCalled = false
+        self.editSongLibraryStatusTokens = []
+        self.subscribeToPlaylistCalled = false
+        self.subscribeToPlaylistIds = []
+        self.unsubscribeFromPlaylistCalled = false
+        self.unsubscribeFromPlaylistIds = []
+        self.subscribeToArtistCalled = false
+        self.subscribeToArtistIds = []
+        self.unsubscribeFromArtistCalled = false
+        self.unsubscribeFromArtistIds = []
+        self.getLyricsCalled = false
+        self.getLyricsVideoIds = []
+        self.shouldThrowError = nil
     }
 }

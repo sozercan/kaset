@@ -14,7 +14,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testHomeParsingPerformance() {
         // Given: A realistic home response with multiple sections
-        let data = makeHomeResponseData(sectionCount: 10, itemsPerSection: 20)
+        let data = self.makeHomeResponseData(sectionCount: 10, itemsPerSection: 20)
 
         // When/Then: Measure parsing time
         measure {
@@ -24,7 +24,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testHomeSectionParsingPerformance() {
         // Given: A single complex section
-        let sectionData = makeCarouselSectionData(itemCount: 50)
+        let sectionData = self.makeCarouselSectionData(itemCount: 50)
 
         // When/Then: Measure single section parsing
         measure {
@@ -36,7 +36,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testSearchParsingPerformance() {
         // Given: A mixed search response
-        let data = makeSearchResponseData(songs: 20, albums: 10, artists: 10, playlists: 10)
+        let data = self.makeSearchResponseData(songs: 20, albums: 10, artists: 10, playlists: 10)
 
         // When/Then: Measure parsing time
         measure {
@@ -46,7 +46,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testSearchSongsOnlyPerformance() {
         // Given: Search results with many songs
-        let data = makeSearchResponseData(songs: 100, albums: 0, artists: 0, playlists: 0)
+        let data = self.makeSearchResponseData(songs: 100, albums: 0, artists: 0, playlists: 0)
 
         // When/Then: Measure song-heavy parsing
         measure {
@@ -58,7 +58,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testPlaylistDetailParsingPerformance() {
         // Given: A playlist with many tracks
-        let data = makePlaylistDetailData(trackCount: 100)
+        let data = self.makePlaylistDetailData(trackCount: 100)
 
         // When/Then: Measure parsing time
         measure {
@@ -68,7 +68,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testLibraryPlaylistsParsingPerformance() {
         // Given: Library with many playlists
-        let data = makeLibraryResponseData(playlistCount: 50)
+        let data = self.makeLibraryResponseData(playlistCount: 50)
 
         // When/Then: Measure parsing time
         measure {
@@ -80,7 +80,7 @@ final class ParserPerformanceTests: XCTestCase {
 
     func testArtistDetailParsingPerformance() {
         // Given: An artist with many songs and albums
-        let data = makeArtistDetailData(songCount: 50, albumCount: 20)
+        let data = self.makeArtistDetailData(songCount: 50, albumCount: 20)
 
         // When/Then: Measure parsing time
         measure {
@@ -198,16 +198,16 @@ final class ParserPerformanceTests: XCTestCase {
         var contents: [[String: Any]] = []
 
         if songs > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeSongItems(count: songs)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeSongItems(count: songs)]])
         }
         if albums > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeAlbumItems(count: albums)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeAlbumItems(count: albums)]])
         }
         if artists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makeArtistItems(count: artists)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makeArtistItems(count: artists)]])
         }
         if playlists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": makePlaylistItems(count: playlists)]])
+            contents.append(["musicShelfRenderer": ["contents": self.makePlaylistItems(count: playlists)]])
         }
 
         return [

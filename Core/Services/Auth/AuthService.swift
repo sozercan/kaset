@@ -38,19 +38,19 @@ final class AuthService: AuthServiceProtocol {
         // This avoids async delays that can cause UI test flakiness
         let isUITest = UITestConfig.isUITestMode
         let skipAuth = UITestConfig.shouldSkipAuth
-        logger.debug("AuthService init: isUITestMode=\(isUITest), shouldSkipAuth=\(skipAuth)")
+        self.logger.debug("AuthService init: isUITestMode=\(isUITest), shouldSkipAuth=\(skipAuth)")
         if isUITest, skipAuth {
-            logger.info("UI Test mode with SkipAuth: starting in logged-in state")
-            state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
+            self.logger.info("UI Test mode with SkipAuth: starting in logged-in state")
+            self.state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
         } else {
-            state = .initializing
+            self.state = .initializing
         }
     }
 
     /// Starts the login flow by presenting the login sheet.
     func startLogin() {
-        logger.info("Starting login flow")
-        state = .loggingIn
+        self.logger.info("Starting login flow")
+        self.state = .loggingIn
     }
 
     /// Checks if the user is logged in based on existing cookies.
@@ -58,12 +58,12 @@ final class AuthService: AuthServiceProtocol {
     func checkLoginStatus() async {
         // In UI test mode with skip auth, immediately set logged in state
         if UITestConfig.isUITestMode, UITestConfig.shouldSkipAuth {
-            logger.info("UI Test mode: skipping auth check, assuming logged in")
-            state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
+            self.logger.info("UI Test mode: skipping auth check, assuming logged in")
+            self.state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
             return
         }
 
-        logger.debug("Checking login status from cookies")
+        self.logger.debug("Checking login status from cookies")
 
         // Wait for WebKitManager to finish restoring cookies from Keychain
         // This is important because restoration happens async in init()
@@ -71,7 +71,7 @@ final class AuthService: AuthServiceProtocol {
 
         // Log detailed cookie info for debugging
         #if DEBUG
-            await webKitManager.logAuthCookies()
+            await self.webKitManager.logAuthCookies()
         #endif
 
         // Retry a few times to handle WebKit cookie store lazy loading
@@ -81,48 +81,48 @@ final class AuthService: AuthServiceProtocol {
         let delayBetweenAttempts: Duration = .milliseconds(800)
 
         for attempt in 1 ... maxAttempts {
-            logger.debug("Login check attempt \(attempt) of \(maxAttempts)")
+            self.logger.debug("Login check attempt \(attempt) of \(maxAttempts)")
 
             if let sapisid = await webKitManager.getSAPISID() {
-                logger.info("Found SAPISID cookie on attempt \(attempt), user is logged in")
-                state = .loggedIn(sapisid: sapisid)
-                needsReauth = false
+                self.logger.info("Found SAPISID cookie on attempt \(attempt), user is logged in")
+                self.state = .loggedIn(sapisid: sapisid)
+                self.needsReauth = false
                 return
             }
 
             if attempt < maxAttempts {
-                logger.debug("No cookies found, waiting before retry...")
+                self.logger.debug("No cookies found, waiting before retry...")
                 try? await Task.sleep(for: delayBetweenAttempts)
             }
         }
 
-        logger.info("No SAPISID cookie found after \(maxAttempts) attempts, user is logged out")
-        state = .loggedOut
+        self.logger.info("No SAPISID cookie found after \(maxAttempts) attempts, user is logged out")
+        self.state = .loggedOut
     }
 
     /// Called when a session expires (e.g., 401/403 from API).
     func sessionExpired() {
-        logger.warning("Session expired, requiring re-authentication")
-        state = .loggedOut
-        needsReauth = true
+        self.logger.warning("Session expired, requiring re-authentication")
+        self.state = .loggedOut
+        self.needsReauth = true
     }
 
     /// Signs out the user by clearing all cookies and data.
     func signOut() async {
-        logger.info("Signing out user")
+        self.logger.info("Signing out user")
 
-        await webKitManager.clearAllData()
+        await self.webKitManager.clearAllData()
 
-        state = .loggedOut
-        needsReauth = false
+        self.state = .loggedOut
+        self.needsReauth = false
 
-        logger.info("User signed out successfully")
+        self.logger.info("User signed out successfully")
     }
 
     /// Called when login completes successfully (from LoginSheet observation).
     func completeLogin(sapisid: String) {
-        logger.info("Login completed successfully")
-        state = .loggedIn(sapisid: sapisid)
-        needsReauth = false
+        self.logger.info("Login completed successfully")
+        self.state = .loggedIn(sapisid: sapisid)
+        self.needsReauth = false
     }
 }

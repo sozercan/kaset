@@ -8,22 +8,22 @@ struct TopSongsView: View {
 
     var body: some View {
         Group {
-            switch viewModel.loadingState {
+            switch self.viewModel.loadingState {
             case .idle, .loading:
-                if viewModel.songs.isEmpty {
+                if self.viewModel.songs.isEmpty {
                     LoadingView("Loading songs...")
                 } else {
                     // Show existing songs while loading more
-                    songsListView
+                    self.songsListView
                         .overlay(alignment: .top) {
-                            if viewModel.loadingState == .loading {
+                            if self.viewModel.loadingState == .loading {
                                 ProgressView()
                                     .padding()
                             }
                         }
                 }
             case .loaded, .loadingMore, .error:
-                songsListView
+                self.songsListView
             }
         }
         .navigationTitle("Top songs")
@@ -32,8 +32,8 @@ struct TopSongsView: View {
             PlayerBar()
         }
         .task {
-            if viewModel.loadingState == .idle {
-                await viewModel.load()
+            if self.viewModel.loadingState == .idle {
+                await self.viewModel.load()
             }
         }
     }
@@ -43,10 +43,10 @@ struct TopSongsView: View {
     private var songsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(viewModel.songs.enumerated()), id: \.element.id) { index, song in
-                    songRow(song, index: index)
+                ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                    self.songRow(song, index: index)
 
-                    if index < viewModel.songs.count - 1 {
+                    if index < self.viewModel.songs.count - 1 {
                         Divider()
                             .padding(.leading, 56)
                     }
@@ -61,7 +61,7 @@ struct TopSongsView: View {
 
     private func songRow(_ song: Song, index: Int) -> some View {
         Button {
-            playSongInQueue(startingAt: index)
+            self.playSongInQueue(startingAt: index)
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
@@ -119,7 +119,7 @@ struct TopSongsView: View {
 
     private func playSongInQueue(startingAt index: Int) {
         Task {
-            await playerService.playQueue(viewModel.songs, startingAt: index)
+            await self.playerService.playQueue(self.viewModel.songs, startingAt: index)
         }
     }
 }

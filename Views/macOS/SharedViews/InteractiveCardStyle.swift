@@ -19,17 +19,17 @@ struct InteractiveCardStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? pressScale : (isHovering ? hoverScale : 1.0))
+            .scaleEffect(configuration.isPressed ? self.pressScale : (self.isHovering ? self.hoverScale : 1.0))
             .shadow(
-                color: showShadow && isHovering ? .black.opacity(0.15) : .clear,
-                radius: isHovering ? 12 : 0,
+                color: self.showShadow && self.isHovering ? .black.opacity(0.15) : .clear,
+                radius: self.isHovering ? 12 : 0,
                 x: 0,
-                y: isHovering ? 4 : 0
+                y: self.isHovering ? 4 : 0
             )
             .animation(AppAnimation.spring, value: configuration.isPressed)
-            .animation(AppAnimation.spring, value: isHovering)
+            .animation(AppAnimation.spring, value: self.isHovering)
             .onHover { hovering in
-                isHovering = hovering
+                self.isHovering = hovering
             }
     }
 }
@@ -50,14 +50,14 @@ struct InteractiveRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(isHovering || configuration.isPressed ? hoverColor : .clear)
+                RoundedRectangle(cornerRadius: self.cornerRadius)
+                    .fill(self.isHovering || configuration.isPressed ? self.hoverColor : .clear)
             )
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .animation(AppAnimation.quick, value: configuration.isPressed)
-            .animation(AppAnimation.quick, value: isHovering)
+            .animation(AppAnimation.quick, value: self.isHovering)
             .onHover { hovering in
-                isHovering = hovering
+                self.isHovering = hovering
             }
     }
 }
@@ -72,7 +72,7 @@ struct PressableButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? pressScale : 1.0)
+            .scaleEffect(configuration.isPressed ? self.pressScale : 1.0)
             .opacity(configuration.isPressed ? 0.7 : 1.0)
             .animation(AppAnimation.quick, value: configuration.isPressed)
     }
@@ -89,11 +89,11 @@ struct ChipButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : (isHovering ? 1.03 : 1.0))
+            .scaleEffect(configuration.isPressed ? 0.95 : (self.isHovering ? 1.03 : 1.0))
             .animation(AppAnimation.spring, value: configuration.isPressed)
-            .animation(AppAnimation.spring, value: isHovering)
+            .animation(AppAnimation.spring, value: self.isHovering)
             .onHover { hovering in
-                isHovering = hovering
+                self.isHovering = hovering
             }
     }
 }

@@ -6,7 +6,7 @@ struct Sidebar: View {
     @Binding var selection: NavigationItem?
 
     var body: some View {
-        List(selection: $selection) {
+        List(selection: self.$selection) {
             // Main navigation
             Section {
                 NavigationLink(value: NavigationItem.search) {

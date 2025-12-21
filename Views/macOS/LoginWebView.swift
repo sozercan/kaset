@@ -9,11 +9,11 @@ struct LoginWebView: NSViewRepresentable {
     var onNavigationToYouTubeMusic: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onNavigationToYouTubeMusic: onNavigationToYouTubeMusic)
+        Coordinator(onNavigationToYouTubeMusic: self.onNavigationToYouTubeMusic)
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        let configuration = webKitManager.createWebViewConfiguration()
+        let configuration = self.webKitManager.createWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.customUserAgent = WebKitManager.userAgent
@@ -44,7 +44,7 @@ struct LoginWebView: NSViewRepresentable {
             if let url = webView.url,
                url.host?.contains("music.youtube.com") == true
             {
-                onNavigationToYouTubeMusic?()
+                self.onNavigationToYouTubeMusic?()
             }
         }
     }

@@ -14,7 +14,7 @@ struct Playlist: Identifiable, Codable, Hashable, Sendable {
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
     var isAlbum: Bool {
-        id.hasPrefix("OLAK") || id.hasPrefix("MPRE")
+        self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
     }
 
     /// Display string for track count.
@@ -31,38 +31,38 @@ extension Playlist {
             return nil
         }
 
-        id = playlistId
-        title = (data["title"] as? String) ?? "Unknown Playlist"
-        description = data["description"] as? String
+        self.id = playlistId
+        self.title = (data["title"] as? String) ?? "Unknown Playlist"
+        self.description = data["description"] as? String
 
         // Parse thumbnail
         if let thumbnails = data["thumbnails"] as? [[String: Any]],
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String
         {
-            thumbnailURL = URL(string: urlString)
+            self.thumbnailURL = URL(string: urlString)
         } else {
-            thumbnailURL = nil
+            self.thumbnailURL = nil
         }
 
         // Parse track count
         if let count = data["trackCount"] as? Int {
-            trackCount = count
+            self.trackCount = count
         } else if let countString = data["trackCount"] as? String,
                   let count = Int(countString.replacingOccurrences(of: ",", with: ""))
         {
-            trackCount = count
+            self.trackCount = count
         } else {
-            trackCount = nil
+            self.trackCount = nil
         }
 
         // Parse author
         if let authors = data["authors"] as? [[String: Any]],
            let firstAuthor = authors.first
         {
-            author = firstAuthor["name"] as? String
+            self.author = firstAuthor["name"] as? String
         } else {
-            author = data["author"] as? String
+            self.author = data["author"] as? String
         }
     }
 }
@@ -82,15 +82,15 @@ struct PlaylistDetail: Identifiable, Sendable {
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
     var isAlbum: Bool {
-        id.hasPrefix("OLAK") || id.hasPrefix("MPRE")
+        self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
     }
 
     init(playlist: Playlist, tracks: [Song], duration: String? = nil) {
-        id = playlist.id
-        title = playlist.title
-        description = playlist.description
-        thumbnailURL = playlist.thumbnailURL
-        author = playlist.author
+        self.id = playlist.id
+        self.title = playlist.title
+        self.description = playlist.description
+        self.thumbnailURL = playlist.thumbnailURL
+        self.author = playlist.author
         self.tracks = tracks
         self.duration = duration
     }

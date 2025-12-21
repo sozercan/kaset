@@ -14,25 +14,25 @@ struct LyricsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            headerView
+            self.headerView
 
             Divider()
 
             // Content
-            contentView
+            self.contentView
         }
         .frame(minWidth: 280, maxWidth: 280)
         .background(.background.opacity(0.95))
-        .onChange(of: playerService.currentTrack?.videoId) { _, newVideoId in
+        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
                 Task {
-                    await loadLyrics(for: videoId)
+                    await self.loadLyrics(for: videoId)
                 }
             }
         }
         .task {
             if let videoId = playerService.currentTrack?.videoId {
-                await loadLyrics(for: videoId)
+                await self.loadLyrics(for: videoId)
             }
         }
     }
@@ -54,12 +54,12 @@ struct LyricsView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if isLoading {
-            loadingView
+        if self.isLoading {
+            self.loadingView
         } else if let lyrics, lyrics.isAvailable {
-            lyricsContentView(lyrics)
+            self.lyricsContentView(lyrics)
         } else {
-            noLyricsView
+            self.noLyricsView
         }
     }
 
@@ -122,21 +122,21 @@ struct LyricsView: View {
     // MARK: - Data Loading
 
     private func loadLyrics(for videoId: String) async {
-        isLoading = true
-        lastLoadedVideoId = videoId
+        self.isLoading = true
+        self.lastLoadedVideoId = videoId
 
         do {
             let fetchedLyrics = try await client.getLyrics(videoId: videoId)
             // Only update if still relevant (user hasn't changed tracks)
-            if playerService.currentTrack?.videoId == videoId {
-                lyrics = fetchedLyrics
+            if self.playerService.currentTrack?.videoId == videoId {
+                self.lyrics = fetchedLyrics
             }
         } catch {
             DiagnosticsLogger.api.error("Failed to load lyrics: \(error.localizedDescription)")
-            lyrics = .unavailable
+            self.lyrics = .unavailable
         }
 
-        isLoading = false
+        self.isLoading = false
     }
 }
 

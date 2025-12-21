@@ -21,14 +21,14 @@ final class NowPlayingManager {
 
     /// Configures the singleton with a player service. Only configures once; subsequent calls are ignored.
     func configure(playerService: PlayerService) {
-        guard !isConfigured else {
-            logger.debug("NowPlayingManager already configured, skipping")
+        guard !self.isConfigured else {
+            self.logger.debug("NowPlayingManager already configured, skipping")
             return
         }
-        isConfigured = true
+        self.isConfigured = true
         self.playerService = playerService
-        setupRemoteCommands()
-        logger.info("NowPlayingManager configured (remote commands only)")
+        self.setupRemoteCommands()
+        self.logger.info("NowPlayingManager configured (remote commands only)")
     }
 
     // MARK: - Remote Commands
@@ -103,6 +103,6 @@ final class NowPlayingManager {
             return .success
         }
 
-        logger.info("Remote commands configured")
+        self.logger.info("Remote commands configured")
     }
 }

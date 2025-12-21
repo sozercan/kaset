@@ -40,7 +40,7 @@ enum AppAnimation {
 
     /// Calculate stagger delay for a given index
     static func stagger(for index: Int, base: Double = staggerDelay) -> Double {
-        min(Double(index) * base, maxStaggerDelay)
+        min(Double(index) * base, self.maxStaggerDelay)
     }
 }
 
@@ -99,7 +99,7 @@ private struct ConditionalAnimationModifier<V: Equatable>: ViewModifier {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             content
         } else {
-            content.animation(animation, value: value)
+            content.animation(self.animation, value: self.value)
         }
     }
 }

@@ -8,34 +8,34 @@ struct ExploreView: View {
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: self.$navigationPath) {
             Group {
-                switch viewModel.loadingState {
+                switch self.viewModel.loadingState {
                 case .idle, .loading:
                     LoadingView("Loading explore content...")
                 case .loaded, .loadingMore:
-                    contentView
+                    self.contentView
                 case let .error(message):
                     ErrorView(message: message) {
-                        Task { await viewModel.refresh() }
+                        Task { await self.viewModel.refresh() }
                     }
                 }
             }
             .navigationTitle("Explore")
-            .navigationDestinations(client: viewModel.client)
+            .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
         .onAppear {
-            if viewModel.loadingState == .idle {
+            if self.viewModel.loadingState == .idle {
                 Task {
-                    await viewModel.load()
+                    await self.viewModel.load()
                 }
             }
         }
         .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.refresh()
         }
     }
 
@@ -44,8 +44,8 @@ struct ExploreView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
-                ForEach(viewModel.sections) { section in
-                    sectionView(section)
+                ForEach(self.viewModel.sections) { section in
+                    self.sectionView(section)
                 }
             }
             .padding(.horizontal, 24)
@@ -64,13 +64,13 @@ struct ExploreView: View {
                     if section.isChart {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item, rank: index + 1) {
-                                playItem(item)
+                                self.playItem(item)
                             }
                         }
                     } else {
                         ForEach(section.items) { item in
                             HomeSectionItemCard(item: item) {
-                                playItem(item)
+                                self.playItem(item)
                             }
                         }
                     }
@@ -85,10 +85,10 @@ struct ExploreView: View {
         switch item {
         case let .song(song):
             Task {
-                await playerService.play(videoId: song.videoId)
+                await self.playerService.play(videoId: song.videoId)
             }
         case let .playlist(playlist):
-            navigationPath.append(playlist)
+            self.navigationPath.append(playlist)
         case let .album(album):
             let playlist = Playlist(
                 id: album.id,
@@ -98,9 +98,9 @@ struct ExploreView: View {
                 trackCount: album.trackCount,
                 author: album.artistsDisplay
             )
-            navigationPath.append(playlist)
+            self.navigationPath.append(playlist)
         case let .artist(artist):
-            navigationPath.append(artist)
+            self.navigationPath.append(artist)
         }
     }
 }

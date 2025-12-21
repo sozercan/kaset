@@ -10,7 +10,7 @@ struct SearchSuggestion: Identifiable, Hashable, Sendable {
 
     /// Creates a suggestion with auto-generated ID.
     init(query: String) {
-        id = UUID().uuidString
+        self.id = UUID().uuidString
         self.query = query
     }
 

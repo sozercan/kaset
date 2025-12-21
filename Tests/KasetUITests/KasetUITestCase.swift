@@ -36,18 +36,18 @@ class KasetUITestCase: XCTestCase {
         continueAfterFailure = false
 
         // Create new app instance
-        app = XCUIApplication()
+        self.app = XCUIApplication()
 
         // Add UI test mode arguments
-        app.launchArguments.append("-UITestMode")
-        app.launchArguments.append("-SkipAuth")
+        self.app.launchArguments.append("-UITestMode")
+        self.app.launchArguments.append("-SkipAuth")
 
         // Disable animations for faster, more reliable tests
-        app.launchArguments.append("-UIAnimationsDisabled")
+        self.app.launchArguments.append("-UIAnimationsDisabled")
     }
 
     override func tearDownWithError() throws {
-        app = nil
+        self.app = nil
         try super.tearDownWithError()
     }
 
@@ -74,10 +74,10 @@ class KasetUITestCase: XCTestCase {
         if let jsonData = try? JSONSerialization.data(withJSONObject: sections),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
-            app.launchEnvironment["MOCK_HOME_SECTIONS"] = jsonString
+            self.app.launchEnvironment["MOCK_HOME_SECTIONS"] = jsonString
         }
 
-        app.launch()
+        self.app.launch()
     }
 
     /// Launches the app with mock search results.
@@ -94,10 +94,10 @@ class KasetUITestCase: XCTestCase {
         if let jsonData = try? JSONSerialization.data(withJSONObject: ["songs": songs]),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
-            app.launchEnvironment["MOCK_SEARCH_RESULTS"] = jsonString
+            self.app.launchEnvironment["MOCK_SEARCH_RESULTS"] = jsonString
         }
 
-        app.launch()
+        self.app.launch()
     }
 
     /// Launches the app with mock library playlists.
@@ -113,10 +113,10 @@ class KasetUITestCase: XCTestCase {
         if let jsonData = try? JSONSerialization.data(withJSONObject: playlists),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
-            app.launchEnvironment["MOCK_PLAYLISTS"] = jsonString
+            self.app.launchEnvironment["MOCK_PLAYLISTS"] = jsonString
         }
 
-        app.launch()
+        self.app.launch()
     }
 
     /// Launches the app with a mock current track (player has something playing).
@@ -132,16 +132,16 @@ class KasetUITestCase: XCTestCase {
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
-            app.launchEnvironment["MOCK_CURRENT_TRACK"] = jsonString
+            self.app.launchEnvironment["MOCK_CURRENT_TRACK"] = jsonString
         }
-        app.launchEnvironment["MOCK_IS_PLAYING"] = isPlaying ? "true" : "false"
+        self.app.launchEnvironment["MOCK_IS_PLAYING"] = isPlaying ? "true" : "false"
 
-        app.launch()
+        self.app.launch()
     }
 
     /// Launches the app with default configuration (logged in, no specific mock data).
     func launchDefault() {
-        app.launch()
+        self.app.launch()
     }
 
     // MARK: - Wait Helpers
@@ -213,10 +213,10 @@ class KasetUITestCase: XCTestCase {
     /// Navigates to a sidebar item by accessibility identifier.
     func navigateToSidebarItem(_ accessibilityID: String) {
         // Find by accessibility identifier first, fall back to label
-        var sidebarItem = app.buttons[accessibilityID].firstMatch
+        var sidebarItem = self.app.buttons[accessibilityID].firstMatch
         if !sidebarItem.exists {
             // Try other element types
-            sidebarItem = app.cells[accessibilityID].firstMatch
+            sidebarItem = self.app.cells[accessibilityID].firstMatch
         }
 
         // First wait for element to exist
@@ -230,7 +230,7 @@ class KasetUITestCase: XCTestCase {
         }
 
         // Then wait for it to be hittable (may need time for layout)
-        if waitForHittable(sidebarItem, timeout: 10) {
+        if self.waitForHittable(sidebarItem, timeout: 10) {
             sidebarItem.click()
         }
     }
@@ -238,7 +238,7 @@ class KasetUITestCase: XCTestCase {
     /// Navigates to a sidebar item by label text.
     func navigateToSidebarItemByLabel(_ label: String) {
         // Wait for sidebar to be ready with extended timeout for UI test startup
-        let sidebarItem = app.staticTexts[label].firstMatch
+        let sidebarItem = self.app.staticTexts[label].firstMatch
 
         // First wait for element to exist
         let existsPredicate = NSPredicate(format: "exists == true")
@@ -251,33 +251,33 @@ class KasetUITestCase: XCTestCase {
         }
 
         // Then wait for it to be hittable (may need time for layout)
-        if waitForHittable(sidebarItem, timeout: 10) {
+        if self.waitForHittable(sidebarItem, timeout: 10) {
             sidebarItem.click()
         }
     }
 
     /// Navigates to Home via sidebar.
     func navigateToHome() {
-        navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
+        self.navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
     }
 
     /// Navigates to Search via sidebar.
     func navigateToSearch() {
-        navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
+        self.navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
     }
 
     /// Navigates to Explore via sidebar.
     func navigateToExplore() {
-        navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
+        self.navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
     }
 
     /// Navigates to Library via sidebar.
     func navigateToLibrary() {
-        navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
+        self.navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
     }
 
     /// Navigates to Liked Music via sidebar.
     func navigateToLikedMusic() {
-        navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
+        self.navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
     }
 }

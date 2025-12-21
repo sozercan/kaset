@@ -18,7 +18,7 @@ final class PlaylistParserTests: XCTestCase {
 
     func testParseLibraryPlaylistsFromGrid() {
         // Given
-        let data = makeLibraryResponseData(playlistCount: 3)
+        let data = self.makeLibraryResponseData(playlistCount: 3)
 
         // When
         let playlists = PlaylistParser.parseLibraryPlaylists(data)
@@ -31,7 +31,7 @@ final class PlaylistParserTests: XCTestCase {
 
     func testParsePlaylistDetailWithMusicDetailHeader() {
         // Given
-        let data = makePlaylistDetailData(
+        let data = self.makePlaylistDetailData(
             title: "My Playlist",
             description: "A great playlist",
             author: "Test User",
@@ -51,7 +51,7 @@ final class PlaylistParserTests: XCTestCase {
 
     func testParsePlaylistDetailWithTracks() {
         // Given
-        let data = makePlaylistDetailData(
+        let data = self.makePlaylistDetailData(
             title: "Track Test",
             description: nil,
             author: nil,
@@ -84,7 +84,7 @@ final class PlaylistParserTests: XCTestCase {
 
     func testIsAlbumForAlbumId() {
         // Given
-        let data = makePlaylistDetailData(title: "Album", description: nil, author: nil, trackCount: 10)
+        let data = self.makePlaylistDetailData(title: "Album", description: nil, author: nil, trackCount: 10)
 
         // When
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE12345")
@@ -95,7 +95,7 @@ final class PlaylistParserTests: XCTestCase {
 
     func testIsAlbumForPlaylistId() {
         // Given
-        let data = makePlaylistDetailData(title: "Playlist", description: nil, author: nil, trackCount: 10)
+        let data = self.makePlaylistDetailData(title: "Playlist", description: nil, author: nil, trackCount: 10)
 
         // When
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL12345")

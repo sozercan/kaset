@@ -14,14 +14,14 @@ final class APICache {
         var lastAccessed: Date
 
         var isExpired: Bool {
-            Date().timeIntervalSince(timestamp) > ttl
+            Date().timeIntervalSince(self.timestamp) > self.ttl
         }
 
         init(data: [String: Any], timestamp: Date, ttl: TimeInterval) {
             self.data = data
             self.timestamp = timestamp
             self.ttl = ttl
-            lastAccessed = timestamp
+            self.lastAccessed = timestamp
         }
     }
 
@@ -48,13 +48,13 @@ final class APICache {
         guard var entry = cache[key] else { return nil }
 
         if entry.isExpired {
-            cache.removeValue(forKey: key)
+            self.cache.removeValue(forKey: key)
             return nil
         }
 
         // Update last accessed time for LRU tracking
         entry.lastAccessed = Date()
-        cache[key] = entry
+        self.cache[key] = entry
         return entry.data
     }
 
@@ -62,20 +62,20 @@ final class APICache {
     /// Evicts least recently used entries if cache is at capacity.
     func set(key: String, data: [String: Any], ttl: TimeInterval) {
         // Evict expired entries first
-        evictExpiredEntries()
+        self.evictExpiredEntries()
 
         // Evict LRU entries if still at capacity
-        while cache.count >= Self.maxEntries {
-            evictLeastRecentlyUsed()
+        while self.cache.count >= Self.maxEntries {
+            self.evictLeastRecentlyUsed()
         }
 
-        cache[key] = CacheEntry(data: data, timestamp: Date(), ttl: ttl)
+        self.cache[key] = CacheEntry(data: data, timestamp: Date(), ttl: ttl)
     }
 
     /// Generates a stable, deterministic cache key from endpoint and request body.
     /// Uses SHA256 hash of sorted JSON to ensure consistency.
     static func stableCacheKey(endpoint: String, body: [String: Any]) -> String {
-        let sortedJSON = sortedJSONString(body)
+        let sortedJSON = self.sortedJSONString(body)
         let hash = SHA256.hash(data: Data(sortedJSON.utf8))
         let hashString = hash.prefix(16).compactMap { String(format: "%02x", $0) }.joined()
         return "\(endpoint):\(hashString)"
@@ -83,25 +83,25 @@ final class APICache {
 
     /// Invalidates all cached entries.
     func invalidateAll() {
-        cache.removeAll()
+        self.cache.removeAll()
     }
 
     /// Invalidates entries matching the given prefix.
     func invalidate(matching prefix: String) {
-        cache = cache.filter { !$0.key.hasPrefix(prefix) }
+        self.cache = self.cache.filter { !$0.key.hasPrefix(prefix) }
     }
 
     /// Returns current cache statistics for debugging.
     var stats: (count: Int, expired: Int) {
-        let expired = cache.values.filter(\.isExpired).count
-        return (cache.count, expired)
+        let expired = self.cache.values.filter(\.isExpired).count
+        return (self.cache.count, expired)
     }
 
     // MARK: - Private Helpers
 
     /// Evicts all expired entries from the cache.
     private func evictExpiredEntries() {
-        cache = cache.filter { !$0.value.isExpired }
+        self.cache = self.cache.filter { !$0.value.isExpired }
     }
 
     /// Evicts the least recently used entry from the cache.
@@ -109,7 +109,7 @@ final class APICache {
         guard let lruKey = cache.min(by: { $0.value.lastAccessed < $1.value.lastAccessed })?.key else {
             return
         }
-        cache.removeValue(forKey: lruKey)
+        self.cache.removeValue(forKey: lruKey)
     }
 
     /// Creates a sorted, deterministic JSON string from a dictionary.
@@ -120,7 +120,7 @@ final class APICache {
             var result = "{"
             for (index, (key, value)) in sortedDict.enumerated() {
                 if index > 0 { result += "," }
-                result += "\"\(key)\":\(stringValue(value))"
+                result += "\"\(key)\":\(self.stringValue(value))"
             }
             result += "}"
             return result
@@ -137,9 +137,9 @@ final class APICache {
         case let bool as Bool:
             return bool ? "true" : "false"
         case let dict as [String: Any]:
-            return sortedJSONString(dict)
+            return self.sortedJSONString(dict)
         case let array as [Any]:
-            let items = array.map { stringValue($0) }.joined(separator: ",")
+            let items = array.map { self.stringValue($0) }.joined(separator: ",")
             return "[\(items)]"
         default:
             return "\"\(value)\""

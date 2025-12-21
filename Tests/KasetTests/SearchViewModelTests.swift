@@ -8,68 +8,68 @@ final class SearchViewModelTests: XCTestCase {
     private var viewModel: SearchViewModel!
 
     override func setUp() async throws {
-        mockClient = MockYTMusicClient()
-        viewModel = SearchViewModel(client: mockClient)
+        self.mockClient = MockYTMusicClient()
+        self.viewModel = SearchViewModel(client: self.mockClient)
     }
 
     override func tearDown() async throws {
-        mockClient = nil
-        viewModel = nil
+        self.mockClient = nil
+        self.viewModel = nil
     }
 
     func testInitialState() {
-        XCTAssertEqual(viewModel.loadingState, .idle)
-        XCTAssertTrue(viewModel.query.isEmpty)
-        XCTAssertTrue(viewModel.results.allItems.isEmpty)
-        XCTAssertEqual(viewModel.selectedFilter, .all)
+        XCTAssertEqual(self.viewModel.loadingState, .idle)
+        XCTAssertTrue(self.viewModel.query.isEmpty)
+        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
+        XCTAssertEqual(self.viewModel.selectedFilter, .all)
     }
 
     func testQueryChangeClearsResultsWhenEmpty() {
         // Given
-        viewModel.query = "test"
+        self.viewModel.query = "test"
 
         // When
-        viewModel.query = ""
+        self.viewModel.query = ""
 
         // Then
-        XCTAssertEqual(viewModel.loadingState, .idle)
-        XCTAssertTrue(viewModel.results.allItems.isEmpty)
+        XCTAssertEqual(self.viewModel.loadingState, .idle)
+        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
     }
 
     func testSearchWithEmptyQueryDoesNotCallAPI() {
         // Given
-        viewModel.query = ""
+        self.viewModel.query = ""
 
         // When
-        viewModel.search()
+        self.viewModel.search()
 
         // Then
-        XCTAssertFalse(mockClient.searchCalled)
+        XCTAssertFalse(self.mockClient.searchCalled)
     }
 
     func testClearResetsState() {
         // Given
-        viewModel.query = "test query"
-        viewModel.selectedFilter = .songs
+        self.viewModel.query = "test query"
+        self.viewModel.selectedFilter = .songs
 
         // When
-        viewModel.clear()
+        self.viewModel.clear()
 
         // Then
-        XCTAssertTrue(viewModel.query.isEmpty)
-        XCTAssertEqual(viewModel.loadingState, .idle)
-        XCTAssertTrue(viewModel.results.allItems.isEmpty)
+        XCTAssertTrue(self.viewModel.query.isEmpty)
+        XCTAssertEqual(self.viewModel.loadingState, .idle)
+        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
     }
 
     func testFilteredItemsReturnsAllWhenAllSelected() {
         // Given
-        mockClient.searchResponse = TestFixtures.makeSearchResponse(
+        self.mockClient.searchResponse = TestFixtures.makeSearchResponse(
             songCount: 2,
             albumCount: 1,
             artistCount: 1,
             playlistCount: 1
         )
-        viewModel.selectedFilter = .all
+        self.viewModel.selectedFilter = .all
 
         // Manually set results for testing
         let response = TestFixtures.makeSearchResponse(

@@ -25,20 +25,20 @@ final class MockWebKitManager: WebKitManagerProtocol {
     // MARK: - Protocol Implementation
 
     func getAllCookies() async -> [HTTPCookie] {
-        getAllCookiesCalled = true
-        return allCookies
+        self.getAllCookiesCalled = true
+        return self.allCookies
     }
 
     func getCookies(for domain: String) async -> [HTTPCookie] {
-        getCookiesForDomainCalled = true
-        getCookiesForDomains.append(domain)
-        return allCookies.filter { cookie in
+        self.getCookiesForDomainCalled = true
+        self.getCookiesForDomains.append(domain)
+        return self.allCookies.filter { cookie in
             domain.hasSuffix(cookie.domain) || cookie.domain.hasSuffix(domain)
         }
     }
 
     func cookieHeader(for domain: String) async -> String? {
-        cookieHeaderCalled = true
+        self.cookieHeaderCalled = true
         let cookies = await getCookies(for: domain)
         guard !cookies.isEmpty else { return nil }
         let headerFields = HTTPCookie.requestHeaderFields(with: cookies)
@@ -46,29 +46,29 @@ final class MockWebKitManager: WebKitManagerProtocol {
     }
 
     func getSAPISID() async -> String? {
-        getSAPISIDCalled = true
-        return sapisidValue
+        self.getSAPISIDCalled = true
+        return self.sapisidValue
     }
 
     func hasAuthCookies() async -> Bool {
-        hasAuthCookiesCalled = true
-        return sapisidValue != nil
+        self.hasAuthCookiesCalled = true
+        return self.sapisidValue != nil
     }
 
     func clearAllData() async {
-        clearAllDataCalled = true
+        self.clearAllDataCalled = true
         // Does NOT clear real data - this is a mock
-        allCookies = []
-        sapisidValue = nil
+        self.allCookies = []
+        self.sapisidValue = nil
     }
 
     func forceBackupCookies() async {
-        forceBackupCookiesCalled = true
+        self.forceBackupCookiesCalled = true
         // Does NOT interact with real Keychain
     }
 
     func logAuthCookies() async {
-        logAuthCookiesCalled = true
+        self.logAuthCookiesCalled = true
         // No-op in mock
     }
 
@@ -76,16 +76,16 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     /// Resets all call tracking.
     func reset() {
-        getAllCookiesCalled = false
-        getCookiesForDomainCalled = false
-        getCookiesForDomains = []
-        cookieHeaderCalled = false
-        getSAPISIDCalled = false
-        hasAuthCookiesCalled = false
-        clearAllDataCalled = false
-        forceBackupCookiesCalled = false
-        logAuthCookiesCalled = false
-        allCookies = []
-        sapisidValue = nil
+        self.getAllCookiesCalled = false
+        self.getCookiesForDomainCalled = false
+        self.getCookiesForDomains = []
+        self.cookieHeaderCalled = false
+        self.getSAPISIDCalled = false
+        self.hasAuthCookiesCalled = false
+        self.clearAllDataCalled = false
+        self.forceBackupCookiesCalled = false
+        self.logAuthCookiesCalled = false
+        self.allCookies = []
+        self.sapisidValue = nil
     }
 }

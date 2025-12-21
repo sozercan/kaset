@@ -14,15 +14,15 @@ struct PersistentPlayerView: NSViewRepresentable {
     private let logger = DiagnosticsLogger.player
 
     func makeNSView(context _: Context) -> NSView {
-        logger.info("PersistentPlayerView.makeNSView for videoId: \(videoId)")
+        self.logger.info("PersistentPlayerView.makeNSView for videoId: \(self.videoId)")
 
         let container = NSView(frame: .zero)
         container.wantsLayer = true
 
         // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
-            webKitManager: webKitManager,
-            playerService: playerService
+            webKitManager: self.webKitManager,
+            playerService: self.playerService
         )
 
         // Remove from any previous superview and add to this container
@@ -32,27 +32,27 @@ struct PersistentPlayerView: NSViewRepresentable {
         container.addSubview(webView)
 
         // Load the video if needed
-        if SingletonPlayerWebView.shared.currentVideoId != videoId {
+        if SingletonPlayerWebView.shared.currentVideoId != self.videoId {
             let url = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
-            logger.info("Initial load: \(url.absoluteString)")
+            self.logger.info("Initial load: \(url.absoluteString)")
             webView.load(URLRequest(url: url))
-            SingletonPlayerWebView.shared.currentVideoId = videoId
+            SingletonPlayerWebView.shared.currentVideoId = self.videoId
         }
 
         return container
     }
 
     func updateNSView(_ container: NSView, context _: Context) {
-        logger.info("PersistentPlayerView.updateNSView for videoId: \(videoId)")
+        self.logger.info("PersistentPlayerView.updateNSView for videoId: \(self.videoId)")
 
         // Ensure WebView is in this container
         let webView = SingletonPlayerWebView.shared.getWebView(
-            webKitManager: webKitManager,
-            playerService: playerService
+            webKitManager: self.webKitManager,
+            playerService: self.playerService
         )
 
         if webView.superview !== container {
-            logger.info("Re-parenting WebView to current container")
+            self.logger.info("Re-parenting WebView to current container")
             webView.removeFromSuperview()
             webView.frame = container.bounds
             webView.autoresizingMask = [.width, .height]
@@ -62,6 +62,6 @@ struct PersistentPlayerView: NSViewRepresentable {
         webView.frame = container.bounds
 
         // Load new video if changed
-        SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
+        SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
     }
 }

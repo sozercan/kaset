@@ -23,17 +23,17 @@ struct PlayerBar: View {
         GlassEffectContainer(spacing: 0) {
             HStack(spacing: 0) {
                 // Left section: Playback controls
-                playbackControls
+                self.playbackControls
 
                 Spacer()
 
                 // Center section: Track info OR seek bar (on hover)
-                centerSection
+                self.centerSection
 
                 Spacer()
 
                 // Right section: Volume control
-                volumeControl
+                self.volumeControl
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -44,19 +44,19 @@ struct PlayerBar: View {
         .padding(.bottom, 12)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
-                isHovering = hovering
+                self.isHovering = hovering
             }
         }
-        .onChange(of: playerService.progress) { _, newValue in
+        .onChange(of: self.playerService.progress) { _, newValue in
             // Sync local seek value when not actively seeking
-            if !isSeeking, playerService.duration > 0 {
-                seekValue = newValue / playerService.duration
+            if !self.isSeeking, self.playerService.duration > 0 {
+                self.seekValue = newValue / self.playerService.duration
             }
         }
-        .onChange(of: playerService.volume) { _, newValue in
+        .onChange(of: self.playerService.volume) { _, newValue in
             // Sync local volume value when not actively adjusting
-            if !isAdjustingVolume {
-                volumeValue = newValue
+            if !self.isAdjustingVolume {
+                self.volumeValue = newValue
             }
         }
     }
@@ -66,13 +66,13 @@ struct PlayerBar: View {
     private var centerSection: some View {
         ZStack {
             // Track info (blurred when hovering and track is playing)
-            trackInfoView
-                .blur(radius: isHovering && playerService.currentTrack != nil ? 8 : 0)
-                .opacity(isHovering && playerService.currentTrack != nil ? 0 : 1)
+            self.trackInfoView
+                .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
+                .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
 
             // Seek bar (shown when hovering and track is playing)
-            if isHovering, playerService.currentTrack != nil {
-                seekBarView
+            if self.isHovering, self.playerService.currentTrack != nil {
+                self.seekBarView
                     .transition(.opacity)
             }
         }
@@ -84,7 +84,7 @@ struct PlayerBar: View {
     private var trackInfoView: some View {
         HStack(spacing: 10) {
             // Thumbnail
-            CachedAsyncImage(url: playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -122,25 +122,25 @@ struct PlayerBar: View {
     private var seekBarView: some View {
         HStack(spacing: 10) {
             // Elapsed time - show seek position while dragging, actual progress otherwise
-            Text(formatTime(isSeeking ? seekValue * playerService.duration : playerService.progress))
+            Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .trailing)
 
             // Seek slider
-            Slider(value: $seekValue, in: 0 ... 1) { editing in
+            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
                 if editing {
                     // User started dragging
-                    isSeeking = true
+                    self.isSeeking = true
                 } else {
                     // User finished dragging - perform seek
-                    performSeek()
+                    self.performSeek()
                 }
             }
             .controlSize(.small)
 
             // Remaining time
-            Text("-\(formatTime(playerService.duration - (isSeeking ? seekValue * playerService.duration : playerService.progress)))")
+            Text("-\(self.formatTime(self.playerService.duration - (self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress)))")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .leading)
@@ -149,11 +149,11 @@ struct PlayerBar: View {
 
     /// Performs the actual seek operation after slider interaction ends.
     private func performSeek() {
-        guard isSeeking else { return }
-        let seekTime = seekValue * playerService.duration
+        guard self.isSeeking else { return }
+        let seekTime = self.seekValue * self.playerService.duration
         Task {
-            await playerService.seek(to: seekTime)
-            isSeeking = false
+            await self.playerService.seek(to: seekTime)
+            self.isSeeking = false
         }
     }
 
@@ -170,21 +170,21 @@ struct PlayerBar: View {
         HStack(spacing: 16) {
             // Shuffle
             Button {
-                playerService.toggleShuffle()
+                self.playerService.toggleShuffle()
             } label: {
                 Image(systemName: "shuffle")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(playerService.shuffleEnabled ? .red : .primary.opacity(0.6))
+                    .foregroundStyle(self.playerService.shuffleEnabled ? .red : .primary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
             .accessibilityLabel("Shuffle")
-            .accessibilityValue(playerService.shuffleEnabled ? "On" : "Off")
+            .accessibilityValue(self.playerService.shuffleEnabled ? "On" : "Off")
 
             // Previous
             Button {
                 Task {
-                    await playerService.previous()
+                    await self.playerService.previous()
                 }
             } label: {
                 Image(systemName: "backward.fill")
@@ -197,21 +197,21 @@ struct PlayerBar: View {
             // Play/Pause
             Button {
                 Task {
-                    await playerService.playPause()
+                    await self.playerService.playPause()
                 }
             } label: {
-                Image(systemName: playerService.isPlaying ? "pause.fill" : "play.fill")
+                Image(systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .accessibilityLabel(playerService.isPlaying ? "Pause" : "Play")
+            .accessibilityLabel(self.playerService.isPlaying ? "Pause" : "Play")
 
             // Next
             Button {
                 Task {
-                    await playerService.next()
+                    await self.playerService.next()
                 }
             } label: {
                 Image(systemName: "forward.fill")
@@ -223,21 +223,21 @@ struct PlayerBar: View {
 
             // Repeat
             Button {
-                playerService.cycleRepeatMode()
+                self.playerService.cycleRepeatMode()
             } label: {
-                Image(systemName: repeatIcon)
+                Image(systemName: self.repeatIcon)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(playerService.repeatMode != .off ? .red : .primary.opacity(0.6))
+                    .foregroundStyle(self.playerService.repeatMode != .off ? .red : .primary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
             .accessibilityLabel("Repeat")
-            .accessibilityValue(repeatAccessibilityValue)
+            .accessibilityValue(self.repeatAccessibilityValue)
         }
     }
 
     private var repeatIcon: String {
-        switch playerService.repeatMode {
+        switch self.playerService.repeatMode {
         case .off, .all:
             "repeat"
         case .one:
@@ -246,7 +246,7 @@ struct PlayerBar: View {
     }
 
     private var repeatAccessibilityValue: String {
-        switch playerService.repeatMode {
+        switch self.playerService.repeatMode {
         case .off:
             "Off"
         case .all:
@@ -261,7 +261,7 @@ struct PlayerBar: View {
     private var volumeControl: some View {
         HStack(spacing: 8) {
             // Like/Dislike/Library actions
-            actionButtons
+            self.actionButtons
 
             // AirPlay button
             AirPlayButton()
@@ -271,28 +271,28 @@ struct PlayerBar: View {
                 .frame(height: 20)
                 .padding(.horizontal, 4)
 
-            Image(systemName: volumeIcon)
+            Image(systemName: self.volumeIcon)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 16)
 
             // Volume slider with immediate updates
-            Slider(value: $volumeValue, in: 0 ... 1) { editing in
+            Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
                 if editing {
                     // User started dragging
-                    isAdjustingVolume = true
+                    self.isAdjustingVolume = true
                 } else {
                     // User finished dragging - apply volume change
-                    performVolumeChange()
+                    self.performVolumeChange()
                 }
             }
             .frame(width: 80)
             .controlSize(.small)
-            .onChange(of: volumeValue) { _, newValue in
+            .onChange(of: self.volumeValue) { _, newValue in
                 // Apply volume changes in real-time during dragging for immediate feedback
-                if isAdjustingVolume {
+                if self.isAdjustingVolume {
                     Task {
-                        await playerService.setVolume(newValue)
+                        await self.playerService.setVolume(newValue)
                     }
                 }
             }
@@ -301,52 +301,52 @@ struct PlayerBar: View {
 
     /// Performs the actual volume change after slider interaction ends.
     private func performVolumeChange() {
-        guard isAdjustingVolume else { return }
+        guard self.isAdjustingVolume else { return }
         Task {
-            await playerService.setVolume(volumeValue)
-            isAdjustingVolume = false
+            await self.playerService.setVolume(self.volumeValue)
+            self.isAdjustingVolume = false
         }
     }
 
     // MARK: - Action Buttons (Like/Dislike/Lyrics)
 
     private var actionButtons: some View {
-        @Bindable var player = playerService
+        @Bindable var player = self.playerService
 
         return HStack(spacing: 12) {
             // Dislike button
             Button {
-                playerService.dislikeCurrentTrack()
+                self.playerService.dislikeCurrentTrack()
             } label: {
-                Image(systemName: playerService.currentTrackLikeStatus == .dislike
+                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
                     ? "hand.thumbsdown.fill"
                     : "hand.thumbsdown")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.6))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: playerService.currentTrackLikeStatus == .dislike)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
             .accessibilityLabel("Dislike")
-            .accessibilityValue(playerService.currentTrackLikeStatus == .dislike ? "Disliked" : "Not disliked")
-            .disabled(playerService.currentTrack == nil)
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? "Disliked" : "Not disliked")
+            .disabled(self.playerService.currentTrack == nil)
 
             // Like button
             Button {
-                playerService.likeCurrentTrack()
+                self.playerService.likeCurrentTrack()
             } label: {
-                Image(systemName: playerService.currentTrackLikeStatus == .like
+                Image(systemName: self.playerService.currentTrackLikeStatus == .like
                     ? "hand.thumbsup.fill"
                     : "hand.thumbsup")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.6))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: playerService.currentTrackLikeStatus == .like)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
             .accessibilityLabel("Like")
-            .accessibilityValue(playerService.currentTrackLikeStatus == .like ? "Liked" : "Not liked")
-            .disabled(playerService.currentTrack == nil)
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? "Liked" : "Not liked")
+            .disabled(self.playerService.currentTrack == nil)
 
             // Lyrics button
             Button {
@@ -356,17 +356,17 @@ struct PlayerBar: View {
             } label: {
                 Image(systemName: "quote.bubble")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(playerService.showLyrics ? .red : .primary.opacity(0.6))
+                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.6))
             }
             .buttonStyle(.pressable)
             .accessibilityLabel("Lyrics")
-            .accessibilityValue(playerService.showLyrics ? "Showing" : "Hidden")
-            .disabled(playerService.currentTrack == nil)
+            .accessibilityValue(self.playerService.showLyrics ? "Showing" : "Hidden")
+            .disabled(self.playerService.currentTrack == nil)
         }
     }
 
     private var volumeIcon: String {
-        let currentVolume = isAdjustingVolume ? volumeValue : playerService.volume
+        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
         if currentVolume == 0 {
             return "speaker.slash.fill"
         } else if currentVolume < 0.5 {

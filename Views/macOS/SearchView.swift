@@ -24,29 +24,29 @@ struct SearchView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: self.$navigationPath) {
             VStack(spacing: 0) {
                 // Search bar
-                searchBar
+                self.searchBar
 
                 Divider()
 
                 // Content
-                contentView
+                self.contentView
             }
             .navigationTitle("Search")
-            .navigationDestinations(client: viewModel.client)
+            .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
         .onAppear {
-            isSearchFieldFocused = true
+            self.isSearchFieldFocused = true
         }
-        .onChange(of: focusTrigger) { _, newValue in
+        .onChange(of: self.focusTrigger) { _, newValue in
             if newValue {
-                isSearchFieldFocused = true
-                focusTrigger = false
+                self.isSearchFieldFocused = true
+                self.focusTrigger = false
             }
         }
     }
@@ -57,28 +57,28 @@ struct SearchView: View {
         VStack(spacing: 12) {
             ZStack(alignment: .top) {
                 // Search field
-                searchField
+                self.searchField
 
                 // Suggestions dropdown
-                if viewModel.showSuggestions {
-                    suggestionsDropdown
+                if self.viewModel.showSuggestions {
+                    self.suggestionsDropdown
                         .padding(.top, 44) // Below search field
                 }
             }
 
             // Filter chips
-            if !viewModel.results.isEmpty {
-                filterChips
+            if !self.viewModel.results.isEmpty {
+                self.filterChips
             }
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
-        .onChange(of: viewModel.query) { _, _ in
-            selectedSuggestionIndex = -1
-            viewModel.fetchSuggestions()
+        .onChange(of: self.viewModel.query) { _, _ in
+            self.selectedSuggestionIndex = -1
+            self.viewModel.fetchSuggestions()
         }
-        .onChange(of: viewModel.suggestions) { _, _ in
-            selectedSuggestionIndex = -1
+        .onChange(of: self.viewModel.suggestions) { _, _ in
+            self.selectedSuggestionIndex = -1
         }
     }
 
@@ -87,46 +87,46 @@ struct SearchView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search songs, albums, artists...", text: $viewModel.query)
+            TextField("Search songs, albums, artists...", text: self.$viewModel.query)
                 .textFieldStyle(.plain)
-                .focused($isSearchFieldFocused)
+                .focused(self.$isSearchFieldFocused)
                 .onSubmit {
-                    if selectedSuggestionIndex >= 0,
-                       selectedSuggestionIndex < viewModel.suggestions.count
+                    if self.selectedSuggestionIndex >= 0,
+                       self.selectedSuggestionIndex < self.viewModel.suggestions.count
                     {
-                        viewModel.selectSuggestion(viewModel.suggestions[selectedSuggestionIndex])
+                        self.viewModel.selectSuggestion(self.viewModel.suggestions[self.selectedSuggestionIndex])
                     } else {
-                        viewModel.search()
+                        self.viewModel.search()
                     }
                 }
                 .onKeyPress(.downArrow) {
-                    if viewModel.showSuggestions {
-                        selectedSuggestionIndex = min(
-                            selectedSuggestionIndex + 1,
-                            viewModel.suggestions.count - 1
+                    if self.viewModel.showSuggestions {
+                        self.selectedSuggestionIndex = min(
+                            self.selectedSuggestionIndex + 1,
+                            self.viewModel.suggestions.count - 1
                         )
                         return .handled
                     }
                     return .ignored
                 }
                 .onKeyPress(.upArrow) {
-                    if viewModel.showSuggestions {
-                        selectedSuggestionIndex = max(selectedSuggestionIndex - 1, -1)
+                    if self.viewModel.showSuggestions {
+                        self.selectedSuggestionIndex = max(self.selectedSuggestionIndex - 1, -1)
                         return .handled
                     }
                     return .ignored
                 }
                 .onKeyPress(.escape) {
-                    if viewModel.showSuggestions {
-                        viewModel.clearSuggestions()
+                    if self.viewModel.showSuggestions {
+                        self.viewModel.clearSuggestions()
                         return .handled
                     }
                     return .ignored
                 }
 
-            if !viewModel.query.isEmpty {
+            if !self.viewModel.query.isEmpty {
                 Button {
-                    viewModel.clear()
+                    self.viewModel.clear()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
@@ -142,9 +142,9 @@ struct SearchView: View {
 
     private var suggestionsDropdown: some View {
         VStack(spacing: 0) {
-            ForEach(Array(viewModel.suggestions.prefix(7).enumerated()), id: \.element.id) { index, suggestion in
-                suggestionRow(suggestion, index: index)
-                if index < min(viewModel.suggestions.count, 7) - 1 {
+            ForEach(Array(self.viewModel.suggestions.prefix(7).enumerated()), id: \.element.id) { index, suggestion in
+                self.suggestionRow(suggestion, index: index)
+                if index < min(self.viewModel.suggestions.count, 7) - 1 {
                     Divider()
                         .padding(.leading, 40)
                 }
@@ -157,7 +157,7 @@ struct SearchView: View {
 
     private func suggestionRow(_ suggestion: SearchSuggestion, index: Int) -> some View {
         Button {
-            viewModel.selectSuggestion(suggestion)
+            self.viewModel.selectSuggestion(suggestion)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
@@ -176,7 +176,7 @@ struct SearchView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(index == selectedSuggestionIndex ? Color.accentColor.opacity(0.15) : Color.clear)
+            .background(index == self.selectedSuggestionIndex ? Color.accentColor.opacity(0.15) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -186,7 +186,7 @@ struct SearchView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(SearchViewModel.SearchFilter.allCases) { filter in
-                    filterChip(filter)
+                    self.filterChip(filter)
                 }
             }
         }
@@ -195,38 +195,38 @@ struct SearchView: View {
     private func filterChip(_ filter: SearchViewModel.SearchFilter) -> some View {
         Button {
             withAnimation(AppAnimation.spring) {
-                viewModel.selectedFilter = filter
+                self.viewModel.selectedFilter = filter
             }
         } label: {
             Text(filter.rawValue)
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(viewModel.selectedFilter == filter ? Color.accentColor : Color.secondary.opacity(0.2))
-                .foregroundStyle(viewModel.selectedFilter == filter ? .white : .primary)
+                .background(self.viewModel.selectedFilter == filter ? Color.accentColor : Color.secondary.opacity(0.2))
+                .foregroundStyle(self.viewModel.selectedFilter == filter ? .white : .primary)
                 .clipShape(.capsule)
         }
-        .buttonStyle(.chip(isSelected: viewModel.selectedFilter == filter))
+        .buttonStyle(.chip(isSelected: self.viewModel.selectedFilter == filter))
     }
 
     // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
-        switch viewModel.loadingState {
+        switch self.viewModel.loadingState {
         case .idle:
-            emptyStateView
+            self.emptyStateView
         case .loading, .loadingMore:
             LoadingView("Searching...")
         case .loaded:
-            if viewModel.filteredItems.isEmpty {
-                noResultsView
+            if self.viewModel.filteredItems.isEmpty {
+                self.noResultsView
             } else {
-                resultsView
+                self.resultsView
             }
         case let .error(message):
             ErrorView(title: "Search failed", message: message) {
-                viewModel.search()
+                self.viewModel.search()
             }
         }
     }
@@ -237,7 +237,7 @@ struct SearchView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.tertiary)
 
-            Text(viewModel.query.isEmpty ? "Search for your favorite music" : "Press Enter to search")
+            Text(self.viewModel.query.isEmpty ? "Search for your favorite music" : "Press Enter to search")
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
@@ -268,8 +268,8 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
-                    resultRow(item, index: index)
+                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
+                    self.resultRow(item, index: index)
                     Divider()
                         .padding(.leading, 72)
                 }
@@ -280,7 +280,7 @@ struct SearchView: View {
 
     private func resultRow(_ item: SearchResultItem, index: Int) -> some View {
         Button {
-            handleItemTap(item)
+            self.handleItemTap(item)
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
@@ -292,7 +292,7 @@ struct SearchView: View {
                     Rectangle()
                         .fill(.quaternary)
                         .overlay {
-                            Image(systemName: iconForItem(item))
+                            Image(systemName: self.iconForItem(item))
                                 .foregroundStyle(.secondary)
                         }
                 }
@@ -339,7 +339,7 @@ struct SearchView: View {
         .buttonStyle(.interactiveRow(cornerRadius: 6))
         .staggeredAppearance(index: min(index, 10))
         .contextMenu {
-            contextMenuItems(for: item)
+            self.contextMenuItems(for: item)
         }
     }
 
@@ -348,7 +348,7 @@ struct SearchView: View {
         switch item {
         case let .song(song):
             Button {
-                Task { await playerService.play(song: song) }
+                Task { await self.playerService.play(song: song) }
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -356,13 +356,13 @@ struct SearchView: View {
             Divider()
 
             Button {
-                SongActionsHelper.likeSong(song, playerService: playerService)
+                SongActionsHelper.likeSong(song, playerService: self.playerService)
             } label: {
                 Label("Like", systemImage: "hand.thumbsup")
             }
 
             Button {
-                SongActionsHelper.dislikeSong(song, playerService: playerService)
+                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
             } label: {
                 Label("Dislike", systemImage: "hand.thumbsdown")
             }
@@ -370,7 +370,7 @@ struct SearchView: View {
             Divider()
 
             Button {
-                SongActionsHelper.addToLibrary(song, playerService: playerService)
+                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
@@ -385,14 +385,14 @@ struct SearchView: View {
                     trackCount: album.trackCount,
                     author: album.artistsDisplay
                 )
-                navigationPath.append(playlist)
+                self.navigationPath.append(playlist)
             } label: {
                 Label("View Album", systemImage: "square.stack")
             }
 
         case let .artist(artist):
             Button {
-                navigationPath.append(artist)
+                self.navigationPath.append(artist)
             } label: {
                 Label("View Artist", systemImage: "person")
             }
@@ -400,14 +400,14 @@ struct SearchView: View {
         case let .playlist(playlist):
             Button {
                 Task {
-                    await SongActionsHelper.addPlaylistToLibrary(playlist, client: viewModel.client)
+                    await SongActionsHelper.addPlaylistToLibrary(playlist, client: self.viewModel.client)
                 }
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
 
             Button {
-                navigationPath.append(playlist)
+                self.navigationPath.append(playlist)
             } label: {
                 Label("View Playlist", systemImage: "music.note.list")
             }
@@ -433,10 +433,10 @@ struct SearchView: View {
         switch item {
         case let .song(song):
             Task {
-                await playerService.play(videoId: song.videoId)
+                await self.playerService.play(videoId: song.videoId)
             }
         case let .artist(artist):
-            navigationPath.append(artist)
+            self.navigationPath.append(artist)
         case let .album(album):
             // Navigate as playlist for now
             let playlist = Playlist(
@@ -447,9 +447,9 @@ struct SearchView: View {
                 trackCount: album.trackCount,
                 author: album.artistsDisplay
             )
-            navigationPath.append(playlist)
+            self.navigationPath.append(playlist)
         case let .playlist(playlist):
-            navigationPath.append(playlist)
+            self.navigationPath.append(playlist)
         }
     }
 }

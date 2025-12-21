@@ -9,36 +9,36 @@ struct ArtistDetailView: View {
 
     var body: some View {
         Group {
-            switch viewModel.loadingState {
+            switch self.viewModel.loadingState {
             case .idle, .loading:
                 LoadingView("Loading artist...")
             case .loaded, .loadingMore:
                 if let detail = viewModel.artistDetail {
-                    contentView(detail)
+                    self.contentView(detail)
                 } else {
                     ErrorView(title: "Unable to load artist", message: "Artist not found") {
-                        Task { await viewModel.load() }
+                        Task { await self.viewModel.load() }
                     }
                 }
             case let .error(message):
                 ErrorView(title: "Unable to load artist", message: message) {
-                    Task { await viewModel.load() }
+                    Task { await self.viewModel.load() }
                 }
             }
         }
-        .accentBackground(from: viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
-        .navigationTitle(artist.name)
+        .accentBackground(from: self.viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
+        .navigationTitle(self.artist.name)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
         .task {
-            if viewModel.loadingState == .idle {
-                await viewModel.load()
+            if self.viewModel.loadingState == .idle {
+                await self.viewModel.load()
             }
         }
         .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.refresh()
         }
     }
 
@@ -48,18 +48,18 @@ struct ArtistDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
-                headerView(detail)
+                self.headerView(detail)
 
                 Divider()
 
                 // Songs section
                 if !detail.songs.isEmpty {
-                    songsSection()
+                    self.songsSection()
                 }
 
                 // Albums section
                 if !detail.albums.isEmpty {
-                    albumsSection(detail.albums)
+                    self.albumsSection(detail.albums)
                 }
             }
             .padding(24)
@@ -115,7 +115,7 @@ struct ArtistDetailView: View {
                 HStack(spacing: 12) {
                     // Shuffle button
                     Button {
-                        shuffleAll(detail.songs)
+                        self.shuffleAll(detail.songs)
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
@@ -125,7 +125,7 @@ struct ArtistDetailView: View {
 
                     // Play all button (Mix)
                     Button {
-                        playAll(detail.songs)
+                        self.playAll(detail.songs)
                     } label: {
                         Label("Mix", systemImage: "play.circle")
                     }
@@ -135,7 +135,7 @@ struct ArtistDetailView: View {
 
                     // Subscribe button
                     if detail.channelId != nil {
-                        subscribeButton(detail)
+                        self.subscribeButton(detail)
                     }
                 }
             }
@@ -164,35 +164,35 @@ struct ArtistDetailView: View {
         if detail.isSubscribed {
             Button {
                 Task {
-                    await viewModel.toggleSubscription()
+                    await self.viewModel.toggleSubscription()
                 }
             } label: {
-                if viewModel.isSubscribing {
+                if self.viewModel.isSubscribing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Text(subscribeButtonText(detail))
+                    Text(self.subscribeButtonText(detail))
                 }
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .disabled(viewModel.isSubscribing)
+            .disabled(self.viewModel.isSubscribing)
         } else {
             Button {
                 Task {
-                    await viewModel.toggleSubscription()
+                    await self.viewModel.toggleSubscription()
                 }
             } label: {
-                if viewModel.isSubscribing {
+                if self.viewModel.isSubscribing {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Text(subscribeButtonText(detail))
+                    Text(self.subscribeButtonText(detail))
                 }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.isSubscribing)
+            .disabled(self.viewModel.isSubscribing)
         }
     }
 
@@ -206,7 +206,7 @@ struct ArtistDetailView: View {
                 Spacer()
 
                 // See all button - navigates to full top songs view
-                if viewModel.hasMoreSongs, let detail = viewModel.artistDetail {
+                if self.viewModel.hasMoreSongs, let detail = viewModel.artistDetail {
                     NavigationLink(value: TopSongsDestination(
                         artistId: detail.id,
                         artistName: detail.name,
@@ -223,10 +223,10 @@ struct ArtistDetailView: View {
             }
 
             VStack(spacing: 0) {
-                ForEach(Array(viewModel.displayedSongs.enumerated()), id: \.element.id) { index, song in
-                    songRow(song, index: index, songs: viewModel.displayedSongs)
+                ForEach(Array(self.viewModel.displayedSongs.enumerated()), id: \.element.id) { index, song in
+                    self.songRow(song, index: index, songs: self.viewModel.displayedSongs)
 
-                    if index < viewModel.displayedSongs.count - 1 {
+                    if index < self.viewModel.displayedSongs.count - 1 {
                         Divider()
                             .padding(.leading, 44)
                     }
@@ -237,7 +237,7 @@ struct ArtistDetailView: View {
 
     private func songRow(_ song: Song, index: Int, songs: [Song]) -> some View {
         Button {
-            playSongInQueue(songs: songs, startingAt: index)
+            self.playSongInQueue(songs: songs, startingAt: index)
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
@@ -300,8 +300,8 @@ struct ArtistDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
                     ForEach(albums) { album in
-                        NavigationLink(value: playlistFromAlbum(album)) {
-                            albumCard(album)
+                        NavigationLink(value: self.playlistFromAlbum(album)) {
+                            self.albumCard(album)
                         }
                         .buttonStyle(.plain)
                     }
@@ -361,14 +361,14 @@ struct ArtistDetailView: View {
 
     private func playSongInQueue(songs: [Song], startingAt index: Int) {
         Task {
-            await playerService.playQueue(songs, startingAt: index)
+            await self.playerService.playQueue(songs, startingAt: index)
         }
     }
 
     private func playAll(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         Task {
-            await playerService.playQueue(songs, startingAt: 0)
+            await self.playerService.playQueue(songs, startingAt: 0)
         }
     }
 
@@ -376,7 +376,7 @@ struct ArtistDetailView: View {
         guard !songs.isEmpty else { return }
         Task {
             let shuffledSongs = songs.shuffled()
-            await playerService.playQueue(shuffledSongs, startingAt: 0)
+            await self.playerService.playQueue(shuffledSongs, startingAt: 0)
         }
     }
 }

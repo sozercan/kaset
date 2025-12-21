@@ -33,7 +33,7 @@
 --operatorfunc spaced
 --patternlet hoist
 --ranges spaced
---self remove
+--self insert
 --selfrequired
 --semicolons never
 --shortoptionals always

@@ -23,17 +23,17 @@ struct HomeSectionItemCard: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button(action: self.action) {
             if let rank {
-                chartContent(rank: rank)
+                self.chartContent(rank: rank)
             } else {
-                regularContent
+                self.regularContent
             }
         }
         .buttonStyle(.interactiveCard)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
-                isHovering = hovering
+                self.isHovering = hovering
             }
         }
     }
@@ -42,8 +42,8 @@ struct HomeSectionItemCard: View {
 
     private var regularContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            thumbnail
-            titleAndSubtitle
+            self.thumbnail
+            self.titleAndSubtitle
         }
     }
 
@@ -52,8 +52,8 @@ struct HomeSectionItemCard: View {
     private func chartContent(rank: Int) -> some View {
         ZStack(alignment: .bottomLeading) {
             VStack(alignment: .leading, spacing: 8) {
-                thumbnail
-                titleAndSubtitle
+                self.thumbnail
+                self.titleAndSubtitle
             }
 
             // Rank badge overlay with adaptive styling
@@ -70,7 +70,7 @@ struct HomeSectionItemCard: View {
 
     private var thumbnail: some View {
         ZStack {
-            CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: self.item.thumbnailURL?.highQualityThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -87,7 +87,7 @@ struct HomeSectionItemCard: View {
             .clipShape(.rect(cornerRadius: 8))
 
             // Play overlay on hover (for songs)
-            if case .song = item, isHovering {
+            if case .song = self.item, self.isHovering {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: 48, height: 48)
@@ -104,7 +104,7 @@ struct HomeSectionItemCard: View {
 
     private var titleAndSubtitle: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.title)
+            Text(self.item.title)
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)

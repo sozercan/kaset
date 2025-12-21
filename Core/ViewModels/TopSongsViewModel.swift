@@ -20,42 +20,42 @@ final class TopSongsViewModel {
         self.destination = destination
         self.client = client
         // Start with the songs we already have
-        songs = destination.songs
+        self.songs = destination.songs
     }
 
     /// Loads all songs if a browse ID is available.
     func load() async {
         // If there's no browse ID, we already have all the songs
         guard let browseId = destination.songsBrowseId else {
-            loadingState = .loaded
+            self.loadingState = .loaded
             return
         }
 
-        guard loadingState != .loading else { return }
+        guard self.loadingState != .loading else { return }
 
-        loadingState = .loading
-        logger.info("Loading all artist songs: \(browseId)")
+        self.loadingState = .loading
+        self.logger.info("Loading all artist songs: \(browseId)")
 
         do {
             let allSongs = try await client.getArtistSongs(
                 browseId: browseId,
-                params: destination.songsParams
+                params: self.destination.songsParams
             )
 
             if !allSongs.isEmpty {
-                songs = allSongs
+                self.songs = allSongs
             }
-            loadingState = .loaded
-            let songCount = songs.count
-            logger.info("Loaded \(songCount) artist songs")
+            self.loadingState = .loaded
+            let songCount = self.songs.count
+            self.logger.info("Loaded \(songCount) artist songs")
         } catch is CancellationError {
-            logger.debug("Artist songs load cancelled")
-            loadingState = .loaded // Keep showing what we have
+            self.logger.debug("Artist songs load cancelled")
+            self.loadingState = .loaded // Keep showing what we have
         } catch {
             let errorMessage = error.localizedDescription
-            logger.error("Failed to load artist songs: \(errorMessage)")
+            self.logger.error("Failed to load artist songs: \(errorMessage)")
             // Keep the songs we already have and just mark as loaded
-            loadingState = .loaded
+            self.loadingState = .loaded
         }
     }
 }

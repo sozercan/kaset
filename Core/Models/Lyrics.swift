@@ -11,11 +11,11 @@ struct Lyrics: Sendable, Equatable {
     let source: String?
 
     /// Whether the song has lyrics available.
-    var isAvailable: Bool { !text.isEmpty }
+    var isAvailable: Bool { !self.text.isEmpty }
 
     /// Lyrics split into individual lines for display.
     var lines: [String] {
-        text.components(separatedBy: "\n")
+        self.text.components(separatedBy: "\n")
     }
 
     /// Creates an empty lyrics instance for songs without lyrics.

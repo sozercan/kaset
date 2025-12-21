@@ -20,17 +20,17 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     var body: some View {
         ZStack {
             if let image {
-                content(Image(nsImage: image))
-                    .opacity(isLoaded ? 1 : 0)
-                    .animation(shouldAnimate ? .easeIn(duration: 0.25) : nil, value: isLoaded)
+                self.content(Image(nsImage: image))
+                    .opacity(self.isLoaded ? 1 : 0)
+                    .animation(self.shouldAnimate ? .easeIn(duration: 0.25) : nil, value: self.isLoaded)
             } else {
-                placeholder()
+                self.placeholder()
             }
         }
-        .task(id: url) {
+        .task(id: self.url) {
             guard let url else { return }
-            image = await ImageCache.shared.image(for: url)
-            isLoaded = true
+            self.image = await ImageCache.shared.image(for: url)
+            self.isLoaded = true
         }
     }
 }
@@ -40,6 +40,6 @@ extension CachedAsyncImage where Placeholder == ProgressView<EmptyView, EmptyVie
     init(url: URL?, @ViewBuilder content: @escaping (Image) -> Content) {
         self.url = url
         self.content = content
-        placeholder = { ProgressView() }
+        self.placeholder = { ProgressView() }
     }
 }

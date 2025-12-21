@@ -94,27 +94,27 @@ enum HomeResponseParser {
     static func parseHomeSection(_ data: [String: Any]) -> HomeSection? {
         // Try musicCarouselShelfRenderer (most common - horizontal carousels)
         if let carouselRenderer = data["musicCarouselShelfRenderer"] as? [String: Any] {
-            return parseMusicCarouselShelf(carouselRenderer)
+            return self.parseMusicCarouselShelf(carouselRenderer)
         }
 
         // Try musicShelfRenderer (vertical song lists)
         if let shelfRenderer = data["musicShelfRenderer"] as? [String: Any] {
-            return parseMusicShelf(shelfRenderer)
+            return self.parseMusicShelf(shelfRenderer)
         }
 
         // Try musicCardShelfRenderer (large featured cards like mixes)
         if let cardShelfRenderer = data["musicCardShelfRenderer"] as? [String: Any] {
-            return parseMusicCardShelf(cardShelfRenderer)
+            return self.parseMusicCardShelf(cardShelfRenderer)
         }
 
         // Try musicImmersiveCarouselShelfRenderer (immersive carousels with backgrounds)
         if let immersiveCarouselRenderer = data["musicImmersiveCarouselShelfRenderer"] as? [String: Any] {
-            return parseMusicImmersiveCarouselShelf(immersiveCarouselRenderer)
+            return self.parseMusicImmersiveCarouselShelf(immersiveCarouselRenderer)
         }
 
         // Try gridRenderer (used for charts and grids)
         if let gridRenderer = data["gridRenderer"] as? [String: Any] {
-            return parseGridRenderer(gridRenderer)
+            return self.parseGridRenderer(gridRenderer)
         }
 
         // Try itemSectionRenderer (wrapper for other renderers)
@@ -132,7 +132,7 @@ enum HomeResponseParser {
     }
 
     private static func parseMusicCarouselShelf(_ data: [String: Any]) -> HomeSection? {
-        let title = extractCarouselTitle(from: data) ?? "Unknown Section"
+        let title = self.extractCarouselTitle(from: data) ?? "Unknown Section"
 
         guard let contents = data["contents"] as? [[String: Any]] else {
             return nil
@@ -211,7 +211,7 @@ enum HomeResponseParser {
     }
 
     private static func parseMusicImmersiveCarouselShelf(_ data: [String: Any]) -> HomeSection? {
-        let title = extractCarouselTitle(from: data) ?? "Featured"
+        let title = self.extractCarouselTitle(from: data) ?? "Featured"
 
         guard let contents = data["contents"] as? [[String: Any]] else {
             return nil
@@ -265,12 +265,12 @@ enum HomeResponseParser {
     static func parseHomeSectionItem(_ data: [String: Any]) -> HomeSectionItem? {
         // Try musicTwoRowItemRenderer (albums, playlists)
         if let twoRowRenderer = data["musicTwoRowItemRenderer"] as? [String: Any] {
-            return parseTwoRowItem(twoRowRenderer)
+            return self.parseTwoRowItem(twoRowRenderer)
         }
 
         // Try musicResponsiveListItemRenderer (songs)
         if let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] {
-            return parseResponsiveListItem(responsiveRenderer)
+            return self.parseResponsiveListItem(responsiveRenderer)
         }
 
         return nil
@@ -308,8 +308,8 @@ enum HomeResponseParser {
         if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
         {
-            let pageType = extractPageType(from: browseEndpoint)
-            return createItemFromBrowseEndpoint(
+            let pageType = self.extractPageType(from: browseEndpoint)
+            return self.createItemFromBrowseEndpoint(
                 browseId: browseId,
                 pageType: pageType,
                 title: title,
@@ -325,7 +325,7 @@ enum HomeResponseParser {
         guard let videoId = ParsingHelpers.extractVideoId(from: data) else {
             // Might be a non-song item
             if let browseId = ParsingHelpers.extractBrowseId(from: data) {
-                return parseResponsiveListItemAsBrowse(data, browseId: browseId)
+                return self.parseResponsiveListItemAsBrowse(data, browseId: browseId)
             }
             return nil
         }

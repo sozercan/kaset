@@ -12,17 +12,17 @@ final class SearchViewModel {
     /// Current search query.
     var query: String = "" {
         didSet {
-            searchTask?.cancel()
-            suggestionsTask?.cancel()
-            if query.isEmpty {
-                results = .empty
-                suggestions = []
-                loadingState = .idle
-                lastSearchedQuery = nil
-            } else if query != lastSearchedQuery {
+            self.searchTask?.cancel()
+            self.suggestionsTask?.cancel()
+            if self.query.isEmpty {
+                self.results = .empty
+                self.suggestions = []
+                self.loadingState = .idle
+                self.lastSearchedQuery = nil
+            } else if self.query != self.lastSearchedQuery {
                 // Clear results when query changes from what was searched
-                results = .empty
-                loadingState = .idle
+                self.results = .empty
+                self.loadingState = .idle
             }
         }
     }
@@ -38,7 +38,7 @@ final class SearchViewModel {
 
     /// Whether suggestions should be shown.
     var showSuggestions: Bool {
-        !query.isEmpty && !suggestions.isEmpty && results.isEmpty
+        !self.query.isEmpty && !self.suggestions.isEmpty && self.results.isEmpty
     }
 
     /// Filter for result types.
@@ -57,17 +57,17 @@ final class SearchViewModel {
 
     /// Filtered results based on selected filter.
     var filteredItems: [SearchResultItem] {
-        switch selectedFilter {
+        switch self.selectedFilter {
         case .all:
-            results.allItems
+            self.results.allItems
         case .songs:
-            results.songs.map { .song($0) }
+            self.results.songs.map { .song($0) }
         case .albums:
-            results.albums.map { .album($0) }
+            self.results.albums.map { .album($0) }
         case .artists:
-            results.artists.map { .artist($0) }
+            self.results.artists.map { .artist($0) }
         case .playlists:
-            results.playlists.map { .playlist($0) }
+            self.results.playlists.map { .playlist($0) }
         }
     }
 
@@ -82,36 +82,36 @@ final class SearchViewModel {
 
     /// Fetches search suggestions with debounce.
     func fetchSuggestions() {
-        suggestionsTask?.cancel()
+        self.suggestionsTask?.cancel()
 
-        guard !query.isEmpty else {
-            suggestions = []
+        guard !self.query.isEmpty else {
+            self.suggestions = []
             return
         }
 
-        suggestionsTask = Task {
+        self.suggestionsTask = Task {
             // Faster debounce for suggestions (150ms vs 300ms for search)
             try? await Task.sleep(for: .milliseconds(150))
 
             guard !Task.isCancelled else { return }
 
-            await performFetchSuggestions()
+            await self.performFetchSuggestions()
         }
     }
 
     /// Performs the actual suggestions fetch.
     private func performFetchSuggestions() async {
-        let currentQuery = query
+        let currentQuery = self.query
 
         do {
             let fetchedSuggestions = try await client.getSearchSuggestions(query: currentQuery)
             // Only update if query hasn't changed
-            if query == currentQuery {
-                suggestions = fetchedSuggestions
+            if self.query == currentQuery {
+                self.suggestions = fetchedSuggestions
             }
         } catch {
             if !Task.isCancelled {
-                logger.debug("Failed to fetch suggestions: \(error.localizedDescription)")
+                self.logger.debug("Failed to fetch suggestions: \(error.localizedDescription)")
                 // Don't show error for suggestions - just silently fail
             }
         }
@@ -119,68 +119,68 @@ final class SearchViewModel {
 
     /// Selects a suggestion and triggers search.
     func selectSuggestion(_ suggestion: SearchSuggestion) {
-        suggestionsTask?.cancel()
-        suggestions = []
-        query = suggestion.query
-        search()
+        self.suggestionsTask?.cancel()
+        self.suggestions = []
+        self.query = suggestion.query
+        self.search()
     }
 
     /// Clears suggestions without affecting search.
     func clearSuggestions() {
-        suggestionsTask?.cancel()
-        suggestions = []
+        self.suggestionsTask?.cancel()
+        self.suggestions = []
     }
 
     /// Performs a search with debounce.
     func search() {
-        searchTask?.cancel()
-        suggestionsTask?.cancel()
-        suggestions = []
+        self.searchTask?.cancel()
+        self.suggestionsTask?.cancel()
+        self.suggestions = []
 
-        guard !query.isEmpty else {
-            results = .empty
-            loadingState = .idle
+        guard !self.query.isEmpty else {
+            self.results = .empty
+            self.loadingState = .idle
             return
         }
 
-        searchTask = Task {
+        self.searchTask = Task {
             // Debounce: wait a bit before searching
             try? await Task.sleep(for: .milliseconds(300))
 
             guard !Task.isCancelled else { return }
 
-            await performSearch()
+            await self.performSearch()
         }
     }
 
     /// Performs the actual search.
     private func performSearch() async {
-        loadingState = .loading
-        let currentQuery = query
-        logger.info("Searching for: \(currentQuery)")
+        self.loadingState = .loading
+        let currentQuery = self.query
+        self.logger.info("Searching for: \(currentQuery)")
 
         do {
             let searchResults = try await client.search(query: currentQuery)
-            results = searchResults
-            lastSearchedQuery = currentQuery
-            loadingState = .loaded
-            logger.info("Search complete: \(searchResults.allItems.count) results")
+            self.results = searchResults
+            self.lastSearchedQuery = currentQuery
+            self.loadingState = .loaded
+            self.logger.info("Search complete: \(searchResults.allItems.count) results")
         } catch {
             if !Task.isCancelled {
-                logger.error("Search failed: \(error.localizedDescription)")
-                loadingState = .error(error.localizedDescription)
+                self.logger.error("Search failed: \(error.localizedDescription)")
+                self.loadingState = .error(error.localizedDescription)
             }
         }
     }
 
     /// Clears search results.
     func clear() {
-        searchTask?.cancel()
-        suggestionsTask?.cancel()
-        query = ""
-        results = .empty
-        suggestions = []
-        lastSearchedQuery = nil
-        loadingState = .idle
+        self.searchTask?.cancel()
+        self.suggestionsTask?.cancel()
+        self.query = ""
+        self.results = .empty
+        self.suggestions = []
+        self.lastSearchedQuery = nil
+        self.loadingState = .idle
     }
 }

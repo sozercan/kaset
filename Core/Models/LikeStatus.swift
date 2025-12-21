@@ -37,6 +37,6 @@ struct FeedbackTokens: Codable, Hashable, Sendable {
 
     /// Returns the appropriate token for the desired action.
     func token(forAdding: Bool) -> String? {
-        forAdding ? add : remove
+        forAdding ? self.add : self.remove
     }
 }

@@ -14,7 +14,7 @@ enum ArtistParser {
         var songsParams: String?
 
         // Parse header
-        let headerResult = parseArtistHeader(data, artistId: artistId)
+        let headerResult = self.parseArtistHeader(data, artistId: artistId)
 
         // Parse content sections for songs and albums
         if let contents = data["contents"] as? [String: Any],
@@ -31,7 +31,7 @@ enum ArtistParser {
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
-                    songs.append(contentsOf: parseTracksFromItems(shelfContents))
+                    songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
 
                     // Check if there are more songs available via bottomEndpoint
                     if let bottomEndpoint = shelfRenderer["bottomEndpoint"] as? [String: Any],
@@ -112,7 +112,7 @@ enum ArtistParser {
             result.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
 
             // Parse subscription button for channel ID and subscription status
-            parseSubscriptionButton(from: immersiveHeader, into: &result)
+            self.parseSubscriptionButton(from: immersiveHeader, into: &result)
         }
 
         // Try musicVisualHeaderRenderer (alternative header format)
@@ -128,7 +128,7 @@ enum ArtistParser {
             result.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
 
             // Parse subscription button for channel ID and subscription status
-            parseSubscriptionButton(from: visualHeader, into: &result)
+            self.parseSubscriptionButton(from: visualHeader, into: &result)
         }
 
         return result
@@ -203,7 +203,7 @@ enum ArtistParser {
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
-                    songs.append(contentsOf: parseTracksFromItems(shelfContents))
+                    songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
                 }
             }
         }
@@ -223,7 +223,7 @@ enum ArtistParser {
                 if let playlistRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
                    let playlistContents = playlistRenderer["contents"] as? [[String: Any]]
                 {
-                    songs.append(contentsOf: parseTracksFromItems(playlistContents))
+                    songs.append(contentsOf: self.parseTracksFromItems(playlistContents))
                 }
             }
         }

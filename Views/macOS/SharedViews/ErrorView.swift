@@ -24,16 +24,16 @@ struct ErrorView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
 
-            Text(title)
+            Text(self.title)
                 .font(.headline)
 
-            Text(message)
+            Text(self.message)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Button("Try Again") {
-                retryAction()
+                self.retryAction()
             }
             .buttonStyle(.borderedProminent)
         }

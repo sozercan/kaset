@@ -7,24 +7,24 @@ final class PlayerServiceTests: XCTestCase {
     var playerService: PlayerService!
 
     override func setUp() async throws {
-        playerService = PlayerService()
+        self.playerService = PlayerService()
     }
 
     override func tearDown() async throws {
-        playerService = nil
+        self.playerService = nil
     }
 
     func testInitialState() {
-        XCTAssertEqual(playerService.state, .idle)
-        XCTAssertNil(playerService.currentTrack)
-        XCTAssertFalse(playerService.isPlaying)
-        XCTAssertEqual(playerService.progress, 0)
-        XCTAssertEqual(playerService.duration, 0)
-        XCTAssertEqual(playerService.volume, 1.0)
+        XCTAssertEqual(self.playerService.state, .idle)
+        XCTAssertNil(self.playerService.currentTrack)
+        XCTAssertFalse(self.playerService.isPlaying)
+        XCTAssertEqual(self.playerService.progress, 0)
+        XCTAssertEqual(self.playerService.duration, 0)
+        XCTAssertEqual(self.playerService.volume, 1.0)
     }
 
     func testIsPlayingProperty() {
-        XCTAssertFalse(playerService.isPlaying)
+        XCTAssertFalse(self.playerService.isPlaying)
         // Note: We can't easily test state changes without mocking the WebView
     }
 
@@ -55,103 +55,103 @@ final class PlayerServiceTests: XCTestCase {
     }
 
     func testQueueInitiallyEmpty() {
-        XCTAssertTrue(playerService.queue.isEmpty)
-        XCTAssertEqual(playerService.currentIndex, 0)
+        XCTAssertTrue(self.playerService.queue.isEmpty)
+        XCTAssertEqual(self.playerService.currentIndex, 0)
     }
 
     func testUpdatePlaybackState() {
-        playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
 
-        XCTAssertEqual(playerService.state, .playing)
-        XCTAssertEqual(playerService.progress, 30.0)
-        XCTAssertEqual(playerService.duration, 180.0)
-        XCTAssertTrue(playerService.isPlaying)
+        XCTAssertEqual(self.playerService.state, .playing)
+        XCTAssertEqual(self.playerService.progress, 30.0)
+        XCTAssertEqual(self.playerService.duration, 180.0)
+        XCTAssertTrue(self.playerService.isPlaying)
     }
 
     func testUpdatePlaybackStatePaused() {
         // First set to playing
-        playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
-        XCTAssertEqual(playerService.state, .playing)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
+        XCTAssertEqual(self.playerService.state, .playing)
 
         // Then pause
-        playerService.updatePlaybackState(isPlaying: false, progress: 30.0, duration: 180.0)
-        XCTAssertEqual(playerService.state, .paused)
-        XCTAssertFalse(playerService.isPlaying)
+        self.playerService.updatePlaybackState(isPlaying: false, progress: 30.0, duration: 180.0)
+        XCTAssertEqual(self.playerService.state, .paused)
+        XCTAssertFalse(self.playerService.isPlaying)
     }
 
     func testUpdateTrackMetadata() {
-        playerService.updateTrackMetadata(
+        self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
             thumbnailUrl: "https://example.com/thumb.jpg"
         )
 
-        XCTAssertNotNil(playerService.currentTrack)
-        XCTAssertEqual(playerService.currentTrack?.title, "Test Song")
-        XCTAssertEqual(playerService.currentTrack?.artistsDisplay, "Test Artist")
-        XCTAssertEqual(playerService.currentTrack?.thumbnailURL?.absoluteString, "https://example.com/thumb.jpg")
+        XCTAssertNotNil(self.playerService.currentTrack)
+        XCTAssertEqual(self.playerService.currentTrack?.title, "Test Song")
+        XCTAssertEqual(self.playerService.currentTrack?.artistsDisplay, "Test Artist")
+        XCTAssertEqual(self.playerService.currentTrack?.thumbnailURL?.absoluteString, "https://example.com/thumb.jpg")
     }
 
     func testUpdateTrackMetadataWithEmptyThumbnail() {
-        playerService.updateTrackMetadata(
+        self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
             thumbnailUrl: ""
         )
 
-        XCTAssertNotNil(playerService.currentTrack)
-        XCTAssertEqual(playerService.currentTrack?.title, "Test Song")
-        XCTAssertNil(playerService.currentTrack?.thumbnailURL)
+        XCTAssertNotNil(self.playerService.currentTrack)
+        XCTAssertEqual(self.playerService.currentTrack?.title, "Test Song")
+        XCTAssertNil(self.playerService.currentTrack?.thumbnailURL)
     }
 
     func testConfirmPlaybackStarted() {
-        playerService.showMiniPlayer = true
-        playerService.confirmPlaybackStarted()
+        self.playerService.showMiniPlayer = true
+        self.playerService.confirmPlaybackStarted()
 
-        XCTAssertFalse(playerService.showMiniPlayer)
-        XCTAssertEqual(playerService.state, .playing)
+        XCTAssertFalse(self.playerService.showMiniPlayer)
+        XCTAssertEqual(self.playerService.state, .playing)
     }
 
     func testMiniPlayerDismissed() {
-        playerService.showMiniPlayer = true
-        playerService.miniPlayerDismissed()
+        self.playerService.showMiniPlayer = true
+        self.playerService.miniPlayerDismissed()
 
-        XCTAssertFalse(playerService.showMiniPlayer)
+        XCTAssertFalse(self.playerService.showMiniPlayer)
     }
 
     // MARK: - Shuffle and Repeat Mode Tests
 
     func testToggleShuffle() {
-        XCTAssertFalse(playerService.shuffleEnabled)
+        XCTAssertFalse(self.playerService.shuffleEnabled)
 
-        playerService.toggleShuffle()
-        XCTAssertTrue(playerService.shuffleEnabled)
+        self.playerService.toggleShuffle()
+        XCTAssertTrue(self.playerService.shuffleEnabled)
 
-        playerService.toggleShuffle()
-        XCTAssertFalse(playerService.shuffleEnabled)
+        self.playerService.toggleShuffle()
+        XCTAssertFalse(self.playerService.shuffleEnabled)
     }
 
     func testCycleRepeatMode() {
-        XCTAssertEqual(playerService.repeatMode, .off)
+        XCTAssertEqual(self.playerService.repeatMode, .off)
 
-        playerService.cycleRepeatMode()
-        XCTAssertEqual(playerService.repeatMode, .all)
+        self.playerService.cycleRepeatMode()
+        XCTAssertEqual(self.playerService.repeatMode, .all)
 
-        playerService.cycleRepeatMode()
-        XCTAssertEqual(playerService.repeatMode, .one)
+        self.playerService.cycleRepeatMode()
+        XCTAssertEqual(self.playerService.repeatMode, .one)
 
-        playerService.cycleRepeatMode()
-        XCTAssertEqual(playerService.repeatMode, .off)
+        self.playerService.cycleRepeatMode()
+        XCTAssertEqual(self.playerService.repeatMode, .off)
     }
 
     // MARK: - Volume Tests
 
     func testIsMuted() {
-        XCTAssertFalse(playerService.isMuted)
+        XCTAssertFalse(self.playerService.isMuted)
     }
 
     func testInitialVolume() {
-        XCTAssertEqual(playerService.volume, 1.0)
+        XCTAssertEqual(self.playerService.volume, 1.0)
     }
 
     // MARK: - Queue Tests
@@ -165,8 +165,8 @@ final class PlayerServiceTests: XCTestCase {
 
         await playerService.playQueue(songs, startingAt: 0)
 
-        XCTAssertEqual(playerService.queue.count, 3)
-        XCTAssertEqual(playerService.currentIndex, 0)
+        XCTAssertEqual(self.playerService.queue.count, 3)
+        XCTAssertEqual(self.playerService.currentIndex, 0)
     }
 
     func testPlayQueueStartingAtIndex() async {
@@ -178,7 +178,7 @@ final class PlayerServiceTests: XCTestCase {
 
         await playerService.playQueue(songs, startingAt: 2)
 
-        XCTAssertEqual(playerService.currentIndex, 2)
+        XCTAssertEqual(self.playerService.currentIndex, 2)
     }
 
     func testPlayQueueWithInvalidIndex() async {
@@ -189,13 +189,13 @@ final class PlayerServiceTests: XCTestCase {
         await playerService.playQueue(songs, startingAt: 10)
 
         // Should clamp to valid range
-        XCTAssertEqual(playerService.currentIndex, 0)
+        XCTAssertEqual(self.playerService.currentIndex, 0)
     }
 
     func testPlayQueueEmptyDoesNothing() async {
-        await playerService.playQueue([], startingAt: 0)
+        await self.playerService.playQueue([], startingAt: 0)
 
-        XCTAssertTrue(playerService.queue.isEmpty)
+        XCTAssertTrue(self.playerService.queue.isEmpty)
     }
 
     // MARK: - PlaybackState State Tests
@@ -233,38 +233,38 @@ final class PlayerServiceTests: XCTestCase {
     // MARK: - hasUserInteractedThisSession Tests
 
     func testHasUserInteractedThisSessionInitiallyFalse() {
-        XCTAssertFalse(playerService.hasUserInteractedThisSession)
+        XCTAssertFalse(self.playerService.hasUserInteractedThisSession)
     }
 
     func testConfirmPlaybackStartedSetsUserInteracted() {
-        XCTAssertFalse(playerService.hasUserInteractedThisSession)
+        XCTAssertFalse(self.playerService.hasUserInteractedThisSession)
 
-        playerService.confirmPlaybackStarted()
+        self.playerService.confirmPlaybackStarted()
 
-        XCTAssertTrue(playerService.hasUserInteractedThisSession)
+        XCTAssertTrue(self.playerService.hasUserInteractedThisSession)
     }
 
     // MARK: - Pending Play Video Tests
 
     func testPendingPlayVideoIdInitiallyNil() {
-        XCTAssertNil(playerService.pendingPlayVideoId)
+        XCTAssertNil(self.playerService.pendingPlayVideoId)
     }
 
     // MARK: - Mini Player State Tests
 
     func testMiniPlayerInitiallyHidden() {
-        XCTAssertFalse(playerService.showMiniPlayer)
+        XCTAssertFalse(self.playerService.showMiniPlayer)
     }
 
     func testMiniPlayerDismissedResetsLoadingState() {
         // First set state to loading
-        playerService.updatePlaybackState(isPlaying: false, progress: 0, duration: 0)
+        self.playerService.updatePlaybackState(isPlaying: false, progress: 0, duration: 0)
 
         // Simulate being in loading state
         // Note: We're testing the idle transition when already idle, which should stay idle
-        playerService.showMiniPlayer = true
-        playerService.miniPlayerDismissed()
+        self.playerService.showMiniPlayer = true
+        self.playerService.miniPlayerDismissed()
 
-        XCTAssertFalse(playerService.showMiniPlayer)
+        XCTAssertFalse(self.playerService.showMiniPlayer)
     }
 }

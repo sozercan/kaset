@@ -13,24 +13,24 @@ struct LoginSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            headerView
+            self.headerView
 
             Divider()
 
             // WebView
             LoginWebView(onNavigationToYouTubeMusic: {
-                checkForSuccessfulLogin()
+                self.checkForSuccessfulLogin()
             })
         }
         .frame(width: 500, height: 650)
-        .onChange(of: webKitManager.cookiesDidChange) { _, _ in
-            checkForSuccessfulLogin()
+        .onChange(of: self.webKitManager.cookiesDidChange) { _, _ in
+            self.checkForSuccessfulLogin()
         }
         .onAppear {
-            startPollingForLogin()
+            self.startPollingForLogin()
         }
         .onDisappear {
-            pollTask?.cancel()
+            self.pollTask?.cancel()
         }
     }
 
@@ -42,7 +42,7 @@ struct LoginSheet: View {
 
                 Spacer()
 
-                if isCheckingLogin {
+                if self.isCheckingLogin {
                     ProgressView()
                         .scaleEffect(0.8)
                 }
@@ -57,29 +57,29 @@ struct LoginSheet: View {
 
     /// Starts a periodic task to check for successful login.
     private func startPollingForLogin() {
-        pollTask = Task {
+        self.pollTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
 
                 if !Task.isCancelled {
-                    await checkForSuccessfulLoginAsync()
+                    await self.checkForSuccessfulLoginAsync()
                 }
             }
         }
     }
 
     private func checkForSuccessfulLogin() {
-        guard !isCheckingLogin else { return }
+        guard !self.isCheckingLogin else { return }
 
         Task {
-            await checkForSuccessfulLoginAsync()
+            await self.checkForSuccessfulLoginAsync()
         }
     }
 
     private func checkForSuccessfulLoginAsync() async {
-        guard !isCheckingLogin else { return }
+        guard !self.isCheckingLogin else { return }
 
-        isCheckingLogin = true
+        self.isCheckingLogin = true
 
         // Small delay to allow cookies to settle
         try? await Task.sleep(for: .milliseconds(300))
@@ -87,18 +87,18 @@ struct LoginSheet: View {
         if let sapisid = await webKitManager.getSAPISID() {
             // Force backup cookies to Keychain immediately after login
             // This ensures persistence across app restarts even if WebKit loses data
-            await webKitManager.forceBackupCookies()
+            await self.webKitManager.forceBackupCookies()
 
             // Wait a moment longer to ensure all cookies are fully propagated
             // This prevents race conditions where API calls happen before cookies are ready
             try? await Task.sleep(for: .milliseconds(200))
 
-            authService.completeLogin(sapisid: sapisid)
-            pollTask?.cancel()
-            dismiss()
+            self.authService.completeLogin(sapisid: sapisid)
+            self.pollTask?.cancel()
+            self.dismiss()
         }
 
-        isCheckingLogin = false
+        self.isCheckingLogin = false
     }
 }
 

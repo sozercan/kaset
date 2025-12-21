@@ -29,7 +29,7 @@ struct MiniPlayerWebView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onStateChange: onStateChange, onMetadataChange: onMetadataChange)
+        Coordinator(onStateChange: self.onStateChange, onMetadataChange: self.onMetadataChange)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -38,8 +38,8 @@ struct MiniPlayerWebView: NSViewRepresentable {
 
         // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
-            webKitManager: webKitManager,
-            playerService: playerService
+            webKitManager: self.webKitManager,
+            playerService: self.playerService
         )
 
         // Add additional message handler for this view's callbacks
@@ -49,7 +49,7 @@ struct MiniPlayerWebView: NSViewRepresentable {
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
 
         // Load the video if needed
-        SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
+        SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
 
         return container
     }
@@ -170,7 +170,7 @@ struct MiniPlayerWebView: NSViewRepresentable {
         }
 
         func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
-            onStateChange?(.error(error.localizedDescription))
+            self.onStateChange?(.error(error.localizedDescription))
         }
 
         func userContentController(
@@ -188,10 +188,10 @@ struct MiniPlayerWebView: NSViewRepresentable {
                 let isPlaying = body["isPlaying"] as? Bool ?? false
 
                 if !title.isEmpty {
-                    onMetadataChange?(title, artist, duration)
+                    self.onMetadataChange?(title, artist, duration)
                 }
 
-                onStateChange?(isPlaying ? .playing : .paused)
+                self.onStateChange?(isPlaying ? .playing : .paused)
             }
         }
     }
@@ -221,15 +221,15 @@ final class SingletonPlayerWebView {
             return existing
         }
 
-        logger.info("Creating singleton WebView")
+        self.logger.info("Creating singleton WebView")
 
         // Create coordinator
-        coordinator = Coordinator(playerService: playerService)
+        self.coordinator = Coordinator(playerService: playerService)
 
         let configuration = webKitManager.createWebViewConfiguration()
 
         // Add script message handler
-        configuration.userContentController.add(coordinator!, name: "singletonPlayer")
+        configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
 
         // Inject observer script
         let script = WKUserScript(
@@ -240,14 +240,14 @@ final class SingletonPlayerWebView {
         configuration.userContentController.addUserScript(script)
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
-        newWebView.navigationDelegate = coordinator
+        newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
 
         #if DEBUG
             newWebView.isInspectable = true
         #endif
 
-        webView = newWebView
+        self.webView = newWebView
         return newWebView
     }
 
@@ -263,20 +263,20 @@ final class SingletonPlayerWebView {
     /// Load a video, stopping any currently playing audio first.
     func loadVideo(videoId: String) {
         guard let webView else {
-            logger.error("loadVideo called but webView is nil")
+            self.logger.error("loadVideo called but webView is nil")
             return
         }
 
-        let previousVideoId = currentVideoId
+        let previousVideoId = self.currentVideoId
         guard videoId != previousVideoId else {
-            logger.info("Video \(videoId) already loaded, skipping")
+            self.logger.info("Video \(videoId) already loaded, skipping")
             return
         }
 
-        logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
 
         // Update currentVideoId immediately to prevent duplicate loads
-        currentVideoId = videoId
+        self.currentVideoId = videoId
 
         // Stop current playback first, then load new video
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
@@ -290,7 +290,7 @@ final class SingletonPlayerWebView {
     /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }
-        logger.debug("playPause() called")
+        self.logger.debug("playPause() called")
 
         let script = """
             (function() {
@@ -316,7 +316,7 @@ final class SingletonPlayerWebView {
     /// Play (resume).
     func play() {
         guard let webView else { return }
-        logger.debug("play() called")
+        self.logger.debug("play() called")
 
         let script = """
             (function() {
@@ -331,7 +331,7 @@ final class SingletonPlayerWebView {
     /// Pause.
     func pause() {
         guard let webView else { return }
-        logger.debug("pause() called")
+        self.logger.debug("pause() called")
 
         let script = """
             (function() {
@@ -346,7 +346,7 @@ final class SingletonPlayerWebView {
     /// Skip to next track.
     func next() {
         guard let webView else { return }
-        logger.debug("next() called")
+        self.logger.debug("next() called")
 
         let script = """
             (function() {
@@ -367,7 +367,7 @@ final class SingletonPlayerWebView {
     /// Go to previous track.
     func previous() {
         guard let webView else { return }
-        logger.debug("previous() called")
+        self.logger.debug("previous() called")
 
         let script = """
             (function() {
@@ -388,7 +388,7 @@ final class SingletonPlayerWebView {
     /// Seek to a specific time in seconds.
     func seek(to time: Double) {
         guard let webView else { return }
-        logger.debug("seek(to: \(time)) called")
+        self.logger.debug("seek(to: \(time)) called")
 
         let script = """
             (function() {
@@ -404,7 +404,7 @@ final class SingletonPlayerWebView {
     func setVolume(_ volume: Double) {
         guard let webView else { return }
         let clampedVolume = max(0, min(1, volume))
-        logger.debug("setVolume(\(clampedVolume)) called")
+        self.logger.debug("setVolume(\(clampedVolume)) called")
 
         let script = """
             (function() {

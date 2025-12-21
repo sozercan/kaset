@@ -57,7 +57,7 @@ enum SearchResponseParser {
         if let playlistItemData = responsiveRenderer["playlistItemData"] as? [String: Any],
            let videoId = playlistItemData["videoId"] as? String
         {
-            return parseSongFromResponsiveRenderer(responsiveRenderer, videoId: videoId)
+            return self.parseSongFromResponsiveRenderer(responsiveRenderer, videoId: videoId)
         }
 
         // Check navigation endpoint for other types

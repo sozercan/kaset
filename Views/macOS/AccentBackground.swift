@@ -14,16 +14,16 @@ struct AccentBackground: View {
 
     var body: some View {
         Group {
-            if colorScheme == .dark {
-                darkModeBackground
+            if self.colorScheme == .dark {
+                self.darkModeBackground
             } else {
-                lightModeBackground
+                self.lightModeBackground
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: isLoaded)
-        .animation(.easeInOut(duration: 0.3), value: colorScheme)
-        .task(id: imageURL) {
-            await loadPalette()
+        .animation(.easeInOut(duration: 0.5), value: self.isLoaded)
+        .animation(.easeInOut(duration: 0.3), value: self.colorScheme)
+        .task(id: self.imageURL) {
+            await self.loadPalette()
         }
     }
 
@@ -32,7 +32,7 @@ struct AccentBackground: View {
         ZStack {
             // Base gradient from extracted colors
             LinearGradient(
-                colors: [palette.primary, palette.secondary, Color(nsColor: .windowBackgroundColor).opacity(0.95)],
+                colors: [self.palette.primary, self.palette.secondary, Color(nsColor: .windowBackgroundColor).opacity(0.95)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -40,7 +40,7 @@ struct AccentBackground: View {
             // Subtle radial overlay for depth
             RadialGradient(
                 colors: [
-                    palette.primary.opacity(0.3),
+                    self.palette.primary.opacity(0.3),
                     Color.clear,
                 ],
                 center: .topLeading,
@@ -59,8 +59,8 @@ struct AccentBackground: View {
             // Very subtle tint at the top from extracted color
             LinearGradient(
                 colors: [
-                    palette.lightTint.opacity(0.4),
-                    palette.lightTint.opacity(0.15),
+                    self.palette.lightTint.opacity(0.4),
+                    self.palette.lightTint.opacity(0.15),
                     Color.clear,
                 ],
                 startPoint: .top,
@@ -71,8 +71,8 @@ struct AccentBackground: View {
 
     private func loadPalette() async {
         guard let url = imageURL else {
-            palette = .default
-            isLoaded = true
+            self.palette = .default
+            self.isLoaded = true
             return
         }
 
@@ -80,12 +80,12 @@ struct AccentBackground: View {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let extracted = await ColorExtractor.extractPalette(from: data)
-            palette = extracted
-            isLoaded = true
+            self.palette = extracted
+            self.isLoaded = true
         } catch {
             DiagnosticsLogger.ui.debug("Failed to extract accent colors: \(error.localizedDescription)")
-            palette = .default
-            isLoaded = true
+            self.palette = .default
+            self.isLoaded = true
         }
     }
 }
@@ -100,7 +100,7 @@ struct AccentBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                AccentBackground(imageURL: imageURL)
+                AccentBackground(imageURL: self.imageURL)
                     .ignoresSafeArea()
             }
     }

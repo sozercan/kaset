@@ -11,20 +11,20 @@ struct StaggeredAppearanceModifier: ViewModifier {
     @State private var isVisible = false
 
     private var delay: Double {
-        AppAnimation.stagger(for: index)
+        AppAnimation.stagger(for: self.index)
     }
 
     func body(content: Content) -> some View {
         content
-            .opacity(isVisible ? 1 : 0)
-            .offset(y: isVisible ? 0 : 20)
+            .opacity(self.isVisible ? 1 : 0)
+            .offset(y: self.isVisible ? 0 : 20)
             .onAppear {
                 guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-                    isVisible = true
+                    self.isVisible = true
                     return
                 }
-                withAnimation(animation.delay(delay)) {
-                    isVisible = true
+                withAnimation(self.animation.delay(self.delay)) {
+                    self.isVisible = true
                 }
             }
     }
@@ -57,15 +57,15 @@ struct HoverHighlightModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(padding)
+            .padding(self.padding)
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                RoundedRectangle(cornerRadius: self.cornerRadius)
+                    .fill(self.isHovering ? Color.primary.opacity(0.08) : Color.clear)
             )
-            .padding(-padding)
-            .animation(AppAnimation.quick, value: isHovering)
+            .padding(-self.padding)
+            .animation(AppAnimation.quick, value: self.isHovering)
             .onHover { hovering in
-                isHovering = hovering
+                self.isHovering = hovering
             }
     }
 }
@@ -94,14 +94,14 @@ struct FadeInModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .opacity(opacity)
+            .opacity(self.opacity)
             .onAppear {
                 guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-                    opacity = 1
+                    self.opacity = 1
                     return
                 }
-                withAnimation(.easeIn(duration: duration).delay(delay)) {
-                    opacity = 1
+                withAnimation(.easeIn(duration: self.duration).delay(self.delay)) {
+                    self.opacity = 1
                 }
             }
     }
@@ -132,14 +132,14 @@ struct PulseModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(isPulsing ? maxScale : minScale)
+            .scaleEffect(self.isPulsing ? self.maxScale : self.minScale)
             .onAppear {
                 guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
                 withAnimation(
-                    .easeInOut(duration: duration)
+                    .easeInOut(duration: self.duration)
                         .repeatForever(autoreverses: true)
                 ) {
-                    isPulsing = true
+                    self.isPulsing = true
                 }
             }
     }
@@ -174,14 +174,14 @@ struct BounceOnChangeModifier<V: Equatable>: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(isBouncing ? scale : 1.0)
-            .animation(AppAnimation.bouncy, value: isBouncing)
-            .onChange(of: value) { _, _ in
+            .scaleEffect(self.isBouncing ? self.scale : 1.0)
+            .animation(AppAnimation.bouncy, value: self.isBouncing)
+            .onChange(of: self.value) { _, _ in
                 guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-                isBouncing = true
+                self.isBouncing = true
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(0.15))
-                    isBouncing = false
+                    self.isBouncing = false
                 }
             }
     }
@@ -210,13 +210,13 @@ struct ShakeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .offset(x: isShaking ? shakeAmount : 0)
+            .offset(x: self.isShaking ? self.shakeAmount : 0)
             .animation(
-                isShaking ?
+                self.isShaking ?
                     .spring(response: 0.1, dampingFraction: 0.2)
                     .repeatCount(3, autoreverses: true) :
                     .default,
-                value: isShaking
+                value: self.isShaking
             )
     }
 }

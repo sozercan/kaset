@@ -38,7 +38,7 @@ final class LibraryViewModel {
     func isInLibrary(playlistId: String) -> Bool {
         // Normalize the ID for comparison (remove VL prefix if present)
         let normalizedId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
-        return libraryPlaylistIds.contains { storedId in
+        return self.libraryPlaylistIds.contains { storedId in
             let normalizedStoredId = storedId.hasPrefix("VL") ? String(storedId.dropFirst(2)) : storedId
             return normalizedId == normalizedStoredId || playlistId == storedId
         }
@@ -46,15 +46,15 @@ final class LibraryViewModel {
 
     /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
-        libraryPlaylistIds.insert(playlistId)
+        self.libraryPlaylistIds.insert(playlistId)
     }
 
     /// Removes a playlist ID from the library set (called after successful remove from library).
     func removeFromLibrarySet(playlistId: String) {
         // Remove both the exact ID and normalized versions
-        libraryPlaylistIds.remove(playlistId)
+        self.libraryPlaylistIds.remove(playlistId)
         let normalizedId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
-        libraryPlaylistIds = libraryPlaylistIds.filter { storedId in
+        self.libraryPlaylistIds = self.libraryPlaylistIds.filter { storedId in
             let normalizedStoredId = storedId.hasPrefix("VL") ? String(storedId.dropFirst(2)) : storedId
             return normalizedId != normalizedStoredId
         }
@@ -62,60 +62,60 @@ final class LibraryViewModel {
 
     /// Loads library playlists.
     func load() async {
-        guard loadingState != .loading else { return }
+        guard self.loadingState != .loading else { return }
 
-        loadingState = .loading
-        logger.info("Loading library playlists")
+        self.loadingState = .loading
+        self.logger.info("Loading library playlists")
 
         do {
             let loadedPlaylists = try await client.getLibraryPlaylists()
-            playlists = loadedPlaylists
+            self.playlists = loadedPlaylists
             // Update the set of library playlist IDs for quick lookup
-            libraryPlaylistIds = Set(loadedPlaylists.map(\.id))
-            loadingState = .loaded
-            logger.info("Loaded \(loadedPlaylists.count) playlists")
+            self.libraryPlaylistIds = Set(loadedPlaylists.map(\.id))
+            self.loadingState = .loaded
+            self.logger.info("Loaded \(loadedPlaylists.count) playlists")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            logger.debug("Library load cancelled")
-            loadingState = .idle
+            self.logger.debug("Library load cancelled")
+            self.loadingState = .idle
         } catch {
-            logger.error("Failed to load library: \(error.localizedDescription)")
-            loadingState = .error(error.localizedDescription)
+            self.logger.error("Failed to load library: \(error.localizedDescription)")
+            self.loadingState = .error(error.localizedDescription)
         }
     }
 
     /// Loads a specific playlist's details.
     func loadPlaylist(id: String) async {
-        guard playlistDetailLoadingState != .loading else { return }
+        guard self.playlistDetailLoadingState != .loading else { return }
 
-        playlistDetailLoadingState = .loading
-        logger.info("Loading playlist: \(id)")
+        self.playlistDetailLoadingState = .loading
+        self.logger.info("Loading playlist: \(id)")
 
         do {
             let detail = try await client.getPlaylist(id: id)
-            selectedPlaylistDetail = detail
-            playlistDetailLoadingState = .loaded
+            self.selectedPlaylistDetail = detail
+            self.playlistDetailLoadingState = .loaded
             let trackCount = detail.tracks.count
-            logger.info("Loaded playlist with \(trackCount) tracks")
+            self.logger.info("Loaded playlist with \(trackCount) tracks")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            logger.debug("Playlist load cancelled")
-            playlistDetailLoadingState = .idle
+            self.logger.debug("Playlist load cancelled")
+            self.playlistDetailLoadingState = .idle
         } catch {
-            logger.error("Failed to load playlist: \(error.localizedDescription)")
-            playlistDetailLoadingState = .error(error.localizedDescription)
+            self.logger.error("Failed to load playlist: \(error.localizedDescription)")
+            self.playlistDetailLoadingState = .error(error.localizedDescription)
         }
     }
 
     /// Clears the selected playlist.
     func clearSelectedPlaylist() {
-        selectedPlaylistDetail = nil
-        playlistDetailLoadingState = .idle
+        self.selectedPlaylistDetail = nil
+        self.playlistDetailLoadingState = .idle
     }
 
     /// Refreshes library content.
     func refresh() async {
-        playlists = []
-        await load()
+        self.playlists = []
+        await self.load()
     }
 }

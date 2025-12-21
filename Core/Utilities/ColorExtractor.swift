@@ -91,13 +91,13 @@ enum ColorExtractor {
         let avgB = colors.reduce(0) { $0 + $1.blue * $1.weight } / totalWeight
 
         // Create primary color (saturated and darker for dark mode background)
-        let primary = adjustColorForDarkMode(r: avgR, g: avgG, b: avgB, darken: 0.4)
+        let primary = self.adjustColorForDarkMode(r: avgR, g: avgG, b: avgB, darken: 0.4)
 
         // Create secondary color (even darker for gradient end)
-        let secondary = adjustColorForDarkMode(r: avgR, g: avgG, b: avgB, darken: 0.7)
+        let secondary = self.adjustColorForDarkMode(r: avgR, g: avgG, b: avgB, darken: 0.7)
 
         // Create light tint (brighter, less saturated for light mode)
-        let lightTint = adjustColorForLightMode(r: avgR, g: avgG, b: avgB)
+        let lightTint = self.adjustColorForLightMode(r: avgR, g: avgG, b: avgB)
 
         return ColorPalette(
             primary: Color(nsColor: primary),
@@ -115,7 +115,7 @@ enum ColorExtractor {
             guard let image = NSImage(data: data) else {
                 return ColorPalette.default
             }
-            return extractPalette(from: image)
+            return self.extractPalette(from: image)
         }.value
     }
 

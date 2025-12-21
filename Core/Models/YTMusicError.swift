@@ -76,7 +76,7 @@ extension YTMusicError: CustomDebugStringConvertible {
         case let .networkError(underlying):
             "YTMusicError.networkError(\(underlying))"
         default:
-            errorDescription ?? String(describing: self)
+            self.errorDescription ?? String(describing: self)
         }
     }
 }

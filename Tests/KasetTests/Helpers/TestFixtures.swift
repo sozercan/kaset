@@ -25,7 +25,7 @@ enum TestFixtures {
 
     static func makeSongs(count: Int) -> [Song] {
         (0 ..< count).map { index in
-            makeSong(
+            self.makeSong(
                 id: "video-\(index)",
                 title: "Song \(index)",
                 artistName: "Artist \(index)",
@@ -86,10 +86,10 @@ enum TestFixtures {
         playlist: Playlist? = nil,
         trackCount: Int = 10
     ) -> PlaylistDetail {
-        let pl = playlist ?? makePlaylist()
+        let pl = playlist ?? self.makePlaylist()
         return PlaylistDetail(
             playlist: pl,
-            tracks: makeSongs(count: trackCount),
+            tracks: self.makeSongs(count: trackCount),
             duration: "\(trackCount * 3) minutes"
         )
     }
@@ -101,13 +101,13 @@ enum TestFixtures {
         songCount: Int = 5,
         albumCount: Int = 3
     ) -> ArtistDetail {
-        let a = artist ?? makeArtist()
+        let a = artist ?? self.makeArtist()
         return ArtistDetail(
             artist: a,
             description: "A test artist description",
-            songs: makeSongs(count: songCount),
+            songs: self.makeSongs(count: songCount),
             albums: (0 ..< albumCount).map { index in
-                makeAlbum(id: "MPRE-\(index)", title: "Album \(index)")
+                self.makeAlbum(id: "MPRE-\(index)", title: "Album \(index)")
             },
             thumbnailURL: a.thumbnailURL
         )
@@ -124,7 +124,7 @@ enum TestFixtures {
         HomeSection(
             id: id,
             title: title,
-            items: makeSongs(count: itemCount).map { .song($0) },
+            items: self.makeSongs(count: itemCount).map { .song($0) },
             isChart: isChart
         )
     }
@@ -132,7 +132,7 @@ enum TestFixtures {
     static func makeHomeResponse(sectionCount: Int = 3) -> HomeResponse {
         HomeResponse(
             sections: (0 ..< sectionCount).map { index in
-                makeHomeSection(
+                self.makeHomeSection(
                     id: "section-\(index)",
                     title: "Section \(index)"
                 )
@@ -149,15 +149,15 @@ enum TestFixtures {
         playlistCount: Int = 2
     ) -> SearchResponse {
         SearchResponse(
-            songs: makeSongs(count: songCount),
+            songs: self.makeSongs(count: songCount),
             albums: (0 ..< albumCount).map { index in
-                makeAlbum(id: "MPRE-search-\(index)", title: "Search Album \(index)")
+                self.makeAlbum(id: "MPRE-search-\(index)", title: "Search Album \(index)")
             },
             artists: (0 ..< artistCount).map { index in
-                makeArtist(id: "UC-search-\(index)", name: "Search Artist \(index)")
+                self.makeArtist(id: "UC-search-\(index)", name: "Search Artist \(index)")
             },
             playlists: (0 ..< playlistCount).map { index in
-                makePlaylist(id: "VL-search-\(index)", title: "Search Playlist \(index)")
+                self.makePlaylist(id: "VL-search-\(index)", title: "Search Playlist \(index)")
             }
         )
     }

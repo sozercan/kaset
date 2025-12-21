@@ -12,16 +12,16 @@ struct SearchResponse: Sendable {
     /// All results as a flat array of items.
     var allItems: [SearchResultItem] {
         var items: [SearchResultItem] = []
-        items.append(contentsOf: songs.map { .song($0) })
-        items.append(contentsOf: albums.map { .album($0) })
-        items.append(contentsOf: artists.map { .artist($0) })
-        items.append(contentsOf: playlists.map { .playlist($0) })
+        items.append(contentsOf: self.songs.map { .song($0) })
+        items.append(contentsOf: self.albums.map { .album($0) })
+        items.append(contentsOf: self.artists.map { .artist($0) })
+        items.append(contentsOf: self.playlists.map { .playlist($0) })
         return items
     }
 
     /// Whether the search returned any results.
     var isEmpty: Bool {
-        songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty
+        self.songs.isEmpty && self.albums.isEmpty && self.artists.isEmpty && self.playlists.isEmpty
     }
 
     static let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [])

@@ -12,7 +12,7 @@ struct PlaylistDetailView: View {
 
     /// Computed property to check if playlist is in library.
     private var isInLibrary: Bool {
-        LibraryViewModel.shared?.isInLibrary(playlistId: playlist.id) ?? false
+        LibraryViewModel.shared?.isInLibrary(playlistId: self.playlist.id) ?? false
     }
 
     init(playlist: Playlist, viewModel: PlaylistDetailViewModel) {
@@ -22,36 +22,36 @@ struct PlaylistDetailView: View {
 
     var body: some View {
         Group {
-            switch viewModel.loadingState {
+            switch self.viewModel.loadingState {
             case .idle, .loading:
                 LoadingView("Loading playlist...")
             case .loaded, .loadingMore:
                 if let detail = viewModel.playlistDetail {
-                    contentView(detail)
+                    self.contentView(detail)
                 } else {
                     ErrorView(title: "Unable to load playlist", message: "Playlist not found") {
-                        Task { await viewModel.load() }
+                        Task { await self.viewModel.load() }
                     }
                 }
             case let .error(message):
                 ErrorView(title: "Unable to load playlist", message: message) {
-                    Task { await viewModel.load() }
+                    Task { await self.viewModel.load() }
                 }
             }
         }
-        .accentBackground(from: viewModel.playlistDetail?.thumbnailURL?.highQualityThumbnailURL)
-        .navigationTitle(playlist.title)
+        .accentBackground(from: self.viewModel.playlistDetail?.thumbnailURL?.highQualityThumbnailURL)
+        .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
         .task {
-            if viewModel.loadingState == .idle {
-                await viewModel.load()
+            if self.viewModel.loadingState == .idle {
+                await self.viewModel.load()
             }
         }
         .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.refresh()
         }
     }
 
@@ -61,12 +61,12 @@ struct PlaylistDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
-                headerView(detail)
+                self.headerView(detail)
 
                 Divider()
 
                 // Tracks
-                tracksView(detail.tracks, isAlbum: detail.isAlbum)
+                self.tracksView(detail.tracks, isAlbum: detail.isAlbum)
             }
             .padding(24)
         }
@@ -114,7 +114,7 @@ struct PlaylistDetailView: View {
                 HStack(spacing: 16) {
                     // Play all button
                     Button {
-                        playAll(detail.tracks)
+                        self.playAll(detail.tracks)
                     } label: {
                         Label("Play", systemImage: "play.fill")
                     }
@@ -123,9 +123,9 @@ struct PlaylistDetailView: View {
                     .disabled(detail.tracks.isEmpty)
 
                     // Add/Remove Library button
-                    let currentlyInLibrary = isInLibrary || isAddedToLibrary
+                    let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
                     Button {
-                        toggleLibrary()
+                        self.toggleLibrary()
                     } label: {
                         Label(
                             currentlyInLibrary ? "Added to Library" : "Add to Library",
@@ -156,7 +156,7 @@ struct PlaylistDetailView: View {
     private func tracksView(_ tracks: [Song], isAlbum: Bool) -> some View {
         LazyVStack(spacing: 0) {
             ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                trackRow(track, index: index, tracks: tracks, isAlbum: isAlbum)
+                self.trackRow(track, index: index, tracks: tracks, isAlbum: isAlbum)
 
                 if index < tracks.count - 1 {
                     Divider()
@@ -170,13 +170,13 @@ struct PlaylistDetailView: View {
 
     private func trackRow(_ track: Song, index: Int, tracks: [Song], isAlbum: Bool) -> some View {
         Button {
-            playTrackInQueue(tracks: tracks, startingAt: index)
+            self.playTrackInQueue(tracks: tracks, startingAt: index)
         } label: {
             HStack(spacing: 12) {
                 // Now playing indicator or index
                 Group {
-                    if playerService.currentTrack?.videoId == track.videoId {
-                        NowPlayingIndicator(isPlaying: playerService.isPlaying, size: 14)
+                    if self.playerService.currentTrack?.videoId == track.videoId {
+                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
                     } else {
                         Text("\(index + 1)")
                             .font(.system(size: 14, design: .monospaced))
@@ -204,7 +204,7 @@ struct PlaylistDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.title)
                         .font(.system(size: 14))
-                        .foregroundStyle(playerService.currentTrack?.videoId == track.videoId ? .red : .primary)
+                        .foregroundStyle(self.playerService.currentTrack?.videoId == track.videoId ? .red : .primary)
                         .lineLimit(1)
 
                     Text(track.artistsDisplay)
@@ -228,7 +228,7 @@ struct PlaylistDetailView: View {
         .staggeredAppearance(index: min(index, 10))
         .contextMenu {
             Button {
-                playTrackInQueue(tracks: tracks, startingAt: index)
+                self.playTrackInQueue(tracks: tracks, startingAt: index)
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -236,13 +236,13 @@ struct PlaylistDetailView: View {
             Divider()
 
             Button {
-                SongActionsHelper.likeSong(track, playerService: playerService)
+                SongActionsHelper.likeSong(track, playerService: self.playerService)
             } label: {
                 Label("Like", systemImage: "hand.thumbsup")
             }
 
             Button {
-                SongActionsHelper.dislikeSong(track, playerService: playerService)
+                SongActionsHelper.dislikeSong(track, playerService: self.playerService)
             } label: {
                 Label("Dislike", systemImage: "hand.thumbsdown")
             }
@@ -250,7 +250,7 @@ struct PlaylistDetailView: View {
             Divider()
 
             Button {
-                SongActionsHelper.addToLibrary(track, playerService: playerService)
+                SongActionsHelper.addToLibrary(track, playerService: self.playerService)
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
@@ -261,26 +261,26 @@ struct PlaylistDetailView: View {
 
     private func playTrackInQueue(tracks: [Song], startingAt index: Int) {
         Task {
-            await playerService.playQueue(tracks, startingAt: index)
+            await self.playerService.playQueue(tracks, startingAt: index)
         }
     }
 
     private func playAll(_ tracks: [Song]) {
         guard !tracks.isEmpty else { return }
         Task {
-            await playerService.playQueue(tracks, startingAt: 0)
+            await self.playerService.playQueue(tracks, startingAt: 0)
         }
     }
 
     private func toggleLibrary() {
-        let currentlyInLibrary = isInLibrary || isAddedToLibrary
+        let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
         Task {
             if currentlyInLibrary {
-                await SongActionsHelper.removePlaylistFromLibrary(playlist, client: viewModel.client)
-                isAddedToLibrary = false
+                await SongActionsHelper.removePlaylistFromLibrary(self.playlist, client: self.viewModel.client)
+                self.isAddedToLibrary = false
             } else {
-                await SongActionsHelper.addPlaylistToLibrary(playlist, client: viewModel.client)
-                isAddedToLibrary = true
+                await SongActionsHelper.addPlaylistToLibrary(self.playlist, client: self.viewModel.client)
+                self.isAddedToLibrary = true
             }
         }
     }

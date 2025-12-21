@@ -16,7 +16,7 @@ final class HomeResponseParserTests: XCTestCase {
 
     func testParseResponseWithSections() {
         // Given
-        let data = makeHomeResponseData(sectionCount: 3)
+        let data = self.makeHomeResponseData(sectionCount: 3)
 
         // When
         let response = HomeResponseParser.parse(data)

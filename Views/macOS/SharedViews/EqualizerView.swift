@@ -25,14 +25,14 @@ struct EqualizerView: View {
     var color: Color = .red
 
     var body: some View {
-        HStack(spacing: spacing) {
-            ForEach(0 ..< barCount, id: \.self) { index in
+        HStack(spacing: self.spacing) {
+            ForEach(0 ..< self.barCount, id: \.self) { index in
                 EqualizerBar(
-                    isAnimating: isAnimating,
+                    isAnimating: self.isAnimating,
                     barIndex: index,
-                    barWidth: barWidth,
-                    cornerRadius: cornerRadius,
-                    color: color
+                    barWidth: self.barWidth,
+                    cornerRadius: self.cornerRadius,
+                    color: self.color
                 )
             }
         }
@@ -52,12 +52,12 @@ private struct EqualizerBar: View {
 
     /// Each bar has different timing for natural look.
     private var animationDelay: Double {
-        Double(barIndex) * 0.15
+        Double(self.barIndex) * 0.15
     }
 
     /// Each bar has different duration for variety.
     private var animationDuration: Double {
-        switch barIndex % 3 {
+        switch self.barIndex % 3 {
         case 0: 0.4
         case 1: 0.5
         default: 0.35
@@ -66,7 +66,7 @@ private struct EqualizerBar: View {
 
     /// Height range for each bar varies.
     private var minHeight: CGFloat {
-        switch barIndex % 3 {
+        switch self.barIndex % 3 {
         case 0: 0.15
         case 1: 0.2
         default: 0.1
@@ -74,7 +74,7 @@ private struct EqualizerBar: View {
     }
 
     private var maxHeight: CGFloat {
-        switch barIndex % 3 {
+        switch self.barIndex % 3 {
         case 0: 0.9
         case 1: 1.0
         default: 0.75
@@ -85,51 +85,51 @@ private struct EqualizerBar: View {
 
     var body: some View {
         GeometryReader { geometry in
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(color)
-                .frame(width: barWidth, height: geometry.size.height * heightFraction)
+            RoundedRectangle(cornerRadius: self.cornerRadius)
+                .fill(self.color)
+                .frame(width: self.barWidth, height: geometry.size.height * self.heightFraction)
                 .frame(maxHeight: .infinity, alignment: .bottom)
         }
-        .frame(width: barWidth)
+        .frame(width: self.barWidth)
         .onAppear {
-            startAnimation()
+            self.startAnimation()
         }
-        .onChange(of: isAnimating) { _, newValue in
+        .onChange(of: self.isAnimating) { _, newValue in
             if newValue {
-                startAnimation()
+                self.startAnimation()
             } else {
-                stopAnimation()
+                self.stopAnimation()
             }
         }
     }
 
     private func startAnimation() {
-        guard isAnimating else {
-            heightFraction = minHeight
+        guard self.isAnimating else {
+            self.heightFraction = self.minHeight
             return
         }
 
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            heightFraction = 0.5
+            self.heightFraction = 0.5
             return
         }
 
         // Initial delay for staggered start
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(animationDelay))
-            guard isAnimating else { return }
+            try? await Task.sleep(for: .seconds(self.animationDelay))
+            guard self.isAnimating else { return }
             withAnimation(
-                .easeInOut(duration: animationDuration)
+                .easeInOut(duration: self.animationDuration)
                     .repeatForever(autoreverses: true)
             ) {
-                heightFraction = maxHeight
+                self.heightFraction = self.maxHeight
             }
         }
     }
 
     private func stopAnimation() {
         withAnimation(.easeOut(duration: 0.3)) {
-            heightFraction = minHeight
+            self.heightFraction = self.minHeight
         }
     }
 }
@@ -144,7 +144,7 @@ struct NowPlayingIndicator: View {
 
     var body: some View {
         Group {
-            if isPlaying {
+            if self.isPlaying {
                 EqualizerView(
                     isAnimating: true,
                     barCount: 3,
@@ -155,11 +155,11 @@ struct NowPlayingIndicator: View {
                 )
             } else {
                 Image(systemName: "speaker.fill")
-                    .font(.system(size: size * 0.7))
+                    .font(.system(size: self.size * 0.7))
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: self.size, height: self.size)
     }
 }
 

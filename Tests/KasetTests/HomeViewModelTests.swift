@@ -8,18 +8,18 @@ final class HomeViewModelTests: XCTestCase {
     private var viewModel: HomeViewModel!
 
     override func setUp() async throws {
-        mockClient = MockYTMusicClient()
-        viewModel = HomeViewModel(client: mockClient)
+        self.mockClient = MockYTMusicClient()
+        self.viewModel = HomeViewModel(client: self.mockClient)
     }
 
     override func tearDown() async throws {
-        mockClient = nil
-        viewModel = nil
+        self.mockClient = nil
+        self.viewModel = nil
     }
 
     func testInitialState() {
-        XCTAssertEqual(viewModel.loadingState, .idle)
-        XCTAssertTrue(viewModel.sections.isEmpty)
+        XCTAssertEqual(self.viewModel.loadingState, .idle)
+        XCTAssertTrue(self.viewModel.sections.isEmpty)
     }
 
     func testLoadSuccess() async {
@@ -28,60 +28,60 @@ final class HomeViewModelTests: XCTestCase {
             TestFixtures.makeHomeSection(title: "Quick picks"),
             TestFixtures.makeHomeSection(title: "Recommended"),
         ]
-        mockClient.homeResponse = HomeResponse(sections: expectedSections)
+        self.mockClient.homeResponse = HomeResponse(sections: expectedSections)
 
         // When
-        await viewModel.load()
+        await self.viewModel.load()
 
         // Then
-        XCTAssertTrue(mockClient.getHomeCalled)
-        XCTAssertEqual(viewModel.loadingState, .loaded)
-        XCTAssertEqual(viewModel.sections.count, 2)
-        XCTAssertEqual(viewModel.sections[0].title, "Quick picks")
-        XCTAssertEqual(viewModel.sections[1].title, "Recommended")
+        XCTAssertTrue(self.mockClient.getHomeCalled)
+        XCTAssertEqual(self.viewModel.loadingState, .loaded)
+        XCTAssertEqual(self.viewModel.sections.count, 2)
+        XCTAssertEqual(self.viewModel.sections[0].title, "Quick picks")
+        XCTAssertEqual(self.viewModel.sections[1].title, "Recommended")
     }
 
     func testLoadError() async {
         // Given
-        mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
         // When
-        await viewModel.load()
+        await self.viewModel.load()
 
         // Then
-        XCTAssertTrue(mockClient.getHomeCalled)
+        XCTAssertTrue(self.mockClient.getHomeCalled)
         if case let .error(message) = viewModel.loadingState {
             XCTAssertFalse(message.isEmpty)
         } else {
             XCTFail("Expected error state")
         }
-        XCTAssertTrue(viewModel.sections.isEmpty)
+        XCTAssertTrue(self.viewModel.sections.isEmpty)
     }
 
     func testLoadDoesNotDuplicateWhenAlreadyLoading() async {
         // Given
-        mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 1)
+        self.mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 1)
 
         // When - load twice sequentially (since we're on MainActor)
-        await viewModel.load()
-        await viewModel.load()
+        await self.viewModel.load()
+        await self.viewModel.load()
 
         // Then - second load should be skipped when already loaded
-        XCTAssertEqual(mockClient.getHomeCallCount, 2)
+        XCTAssertEqual(self.mockClient.getHomeCallCount, 2)
     }
 
     func testRefreshClearsSectionsAndReloads() async {
         // Given - load initial data
-        mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 2)
-        await viewModel.load()
-        XCTAssertEqual(viewModel.sections.count, 2)
+        self.mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 2)
+        await self.viewModel.load()
+        XCTAssertEqual(self.viewModel.sections.count, 2)
 
         // When - refresh with new data
-        mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 3)
-        await viewModel.refresh()
+        self.mockClient.homeResponse = TestFixtures.makeHomeResponse(sectionCount: 3)
+        await self.viewModel.refresh()
 
         // Then
-        XCTAssertEqual(viewModel.sections.count, 3)
-        XCTAssertEqual(mockClient.getHomeCallCount, 2)
+        XCTAssertEqual(self.viewModel.sections.count, 3)
+        XCTAssertEqual(self.mockClient.getHomeCallCount, 2)
     }
 }

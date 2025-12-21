@@ -70,10 +70,10 @@ enum PlaylistParser {
 
     /// Parses playlist detail from browse response.
     static func parsePlaylistDetail(_ data: [String: Any], playlistId: String) -> PlaylistDetail {
-        let header = parsePlaylistHeader(data)
+        let header = self.parsePlaylistHeader(data)
 
         // Parse tracks
-        let tracks = parsePlaylistTracks(data, fallbackThumbnailURL: header.thumbnailURL)
+        let tracks = self.parsePlaylistTracks(data, fallbackThumbnailURL: header.thumbnailURL)
 
         let playlist = Playlist(
             id: playlistId,
@@ -182,7 +182,7 @@ enum PlaylistParser {
                let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
                let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
             {
-                tracks.append(contentsOf: parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
+                tracks.append(contentsOf: self.parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
             }
 
             // Try twoColumnBrowseResultsRenderer path
@@ -193,7 +193,7 @@ enum PlaylistParser {
                    let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any],
                    let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
                 {
-                    tracks.append(contentsOf: parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
+                    tracks.append(contentsOf: self.parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
                 }
 
                 if tracks.isEmpty,
@@ -204,7 +204,7 @@ enum PlaylistParser {
                    let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
                    let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
                 {
-                    tracks.append(contentsOf: parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
+                    tracks.append(contentsOf: self.parseTracksFromSections(sectionContents, fallbackThumbnailURL: fallbackThumbnailURL))
                 }
             }
         }
@@ -214,7 +214,7 @@ enum PlaylistParser {
             if let contents = data["contents"] as? [String: Any] {
                 for (_, value) in contents {
                     if let renderer = value as? [String: Any] {
-                        tracks.append(contentsOf: findTracksRecursively(in: renderer, depth: 0, fallbackThumbnailURL: fallbackThumbnailURL))
+                        tracks.append(contentsOf: self.findTracksRecursively(in: renderer, depth: 0, fallbackThumbnailURL: fallbackThumbnailURL))
                         if !tracks.isEmpty {
                             break
                         }
@@ -296,10 +296,10 @@ enum PlaylistParser {
         if tracks.isEmpty {
             for (_, value) in data {
                 if let dict = value as? [String: Any] {
-                    tracks.append(contentsOf: findTracksRecursively(in: dict, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
+                    tracks.append(contentsOf: self.findTracksRecursively(in: dict, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
                 } else if let array = value as? [[String: Any]] {
                     for item in array {
-                        tracks.append(contentsOf: findTracksRecursively(in: item, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
+                        tracks.append(contentsOf: self.findTracksRecursively(in: item, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
                     }
                 }
                 if !tracks.isEmpty { break }

@@ -33,12 +33,12 @@ enum SearchSuggestionsParser {
     private static func parseSuggestion(from item: [String: Any]) -> SearchSuggestion? {
         // Try searchSuggestionRenderer (text suggestions)
         if let renderer = item["searchSuggestionRenderer"] as? [String: Any] {
-            return parseSuggestionRenderer(renderer)
+            return self.parseSuggestionRenderer(renderer)
         }
 
         // Try historySuggestionRenderer (search history)
         if let renderer = item["historySuggestionRenderer"] as? [String: Any] {
-            return parseSuggestionRenderer(renderer)
+            return self.parseSuggestionRenderer(renderer)
         }
 
         return nil

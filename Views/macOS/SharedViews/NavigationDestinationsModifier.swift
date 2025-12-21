@@ -15,7 +15,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                     playlist: playlist,
                     viewModel: PlaylistDetailViewModel(
                         playlist: playlist,
-                        client: client
+                        client: self.client
                     )
                 )
             }
@@ -24,14 +24,14 @@ struct NavigationDestinationsModifier: ViewModifier {
                     artist: artist,
                     viewModel: ArtistDetailViewModel(
                         artist: artist,
-                        client: client
+                        client: self.client
                     )
                 )
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
                 TopSongsView(viewModel: TopSongsViewModel(
                     destination: destination,
-                    client: client
+                    client: self.client
                 ))
             }
     }
