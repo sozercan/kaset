@@ -16,16 +16,18 @@ struct RequiresIntelligenceModifier: ViewModifier {
     @State private var isAvailable = FoundationModelsService.shared.isAvailable
 
     func body(content: Content) -> some View {
-        if self.hideWhenUnavailable, !self.isAvailable {
-            EmptyView()
-        } else {
-            content
-                .disabled(!self.isAvailable)
-                .opacity(self.isAvailable ? 1.0 : 0.5)
-                .help(self.isAvailable ? "" : self.unavailableMessage)
-                .onReceive(NotificationCenter.default.publisher(for: .intelligenceAvailabilityChanged)) { _ in
-                    self.isAvailable = FoundationModelsService.shared.isAvailable
-                }
+        Group {
+            if self.hideWhenUnavailable, !self.isAvailable {
+                EmptyView()
+            } else {
+                content
+                    .disabled(!self.isAvailable)
+                    .opacity(self.isAvailable ? 1.0 : 0.5)
+                    .help(self.isAvailable ? "" : self.unavailableMessage)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .intelligenceAvailabilityChanged)) { _ in
+            self.isAvailable = FoundationModelsService.shared.isAvailable
         }
     }
 }
@@ -35,13 +37,13 @@ struct RequiresIntelligenceModifier: ViewModifier {
 @available(macOS 26.0, *)
 extension View {
     /// Marks this view as requiring Apple Intelligence.
-    /// When AI is unavailable, the view will be dimmed and disabled with a tooltip.
+    /// When AI is unavailable, the view will be completely hidden by default.
     /// - Parameters:
-    ///   - hideWhenUnavailable: If true, completely hides the view instead of dimming.
+    ///   - hideWhenUnavailable: If true (default), completely hides the view instead of dimming.
     ///   - message: Custom tooltip message shown when hovering over disabled content.
     /// - Returns: A modified view that responds to AI availability.
     func requiresIntelligence(
-        hideWhenUnavailable: Bool = false,
+        hideWhenUnavailable: Bool = true,
         message: String = "Requires Apple Intelligence"
     ) -> some View {
         modifier(RequiresIntelligenceModifier(

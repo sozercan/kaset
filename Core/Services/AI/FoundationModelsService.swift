@@ -96,6 +96,8 @@ final class FoundationModelsService {
     var isDisabledByUser: Bool = false {
         didSet {
             UserDefaults.standard.set(self.isDisabledByUser, forKey: Self.disabledKey)
+            // Notify UI to update immediately
+            NotificationCenter.default.post(name: .intelligenceAvailabilityChanged, object: nil)
         }
     }
 

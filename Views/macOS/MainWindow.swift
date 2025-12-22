@@ -85,9 +85,22 @@ struct MainWindow: View {
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
-        .sheet(isPresented: self.$showCommandBarSheet) {
-            if let client = ytMusicClient {
-                CommandBarView(client: client)
+        .overlay {
+            // Command bar overlay - dismisses when clicking outside
+            if self.showCommandBarSheet, let client = ytMusicClient {
+                ZStack {
+                    // Background tap area to dismiss
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            self.showCommandBarSheet = false
+                        }
+
+                    // Command bar centered
+                    CommandBarView(client: client, isPresented: self.$showCommandBarSheet)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+                .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
             }
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in

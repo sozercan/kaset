@@ -84,4 +84,3 @@ if let final = partialSummary,
 
 - [Apple Foundation Models Documentation](https://developer.apple.com/documentation/FoundationModels)
 - [The Ultimate Guide to Foundation Models Framework](https://azamsharp.com/2025/06/18/the-ultimate-guide-to-the-foundation-models-framework.html)
-- [docs/ai-improvement-plan.md](../ai-improvement-plan.md)

@@ -8,10 +8,12 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct CommandBarView: View {
     @Environment(PlayerService.self) private var playerService
-    @Environment(\.dismiss) private var dismiss
 
     /// The YTMusicClient for search operations.
     let client: any YTMusicClientProtocol
+
+    /// Binding to control visibility (used for dismiss).
+    @Binding var isPresented: Bool
 
     /// The user's input text.
     @State private var inputText = ""
@@ -29,6 +31,11 @@ struct CommandBarView: View {
     @FocusState private var isInputFocused: Bool
 
     private let logger = DiagnosticsLogger.ai
+
+    /// Dismisses the command bar.
+    private func dismissCommandBar() {
+        self.isPresented = false
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,7 +93,7 @@ struct CommandBarView: View {
             self.isInputFocused = true
         }
         .onExitCommand {
-            self.dismiss()
+            self.dismissCommandBar()
         }
     }
 
@@ -134,29 +141,29 @@ struct CommandBarView: View {
 
             HStack(spacing: 8) {
                 SuggestionChip(text: "Play something chill") {
-                    self.inputText = "Play something chill"
+                    self.executeSuggestion("Play something chill")
                 }
 
                 SuggestionChip(text: "Add jazz to queue") {
-                    self.inputText = "Add jazz to queue"
+                    self.executeSuggestion("Add jazz to queue")
                 }
 
                 SuggestionChip(text: "Shuffle my queue") {
-                    self.inputText = "Shuffle my queue"
+                    self.executeSuggestion("Shuffle my queue")
                 }
             }
 
             HStack(spacing: 8) {
                 SuggestionChip(text: "Skip this song") {
-                    self.inputText = "Skip this song"
+                    self.executeSuggestion("Skip this song")
                 }
 
                 SuggestionChip(text: "I like this") {
-                    self.inputText = "I like this"
+                    self.executeSuggestion("I like this")
                 }
 
                 SuggestionChip(text: "Clear queue") {
-                    self.inputText = "Clear queue"
+                    self.executeSuggestion("Clear queue")
                 }
             }
         }
@@ -165,6 +172,14 @@ struct CommandBarView: View {
     }
 
     // MARK: - Actions
+
+    /// Executes a suggestion command immediately.
+    private func executeSuggestion(_ command: String) {
+        self.inputText = command
+        Task {
+            await self.processCommand()
+        }
+    }
 
     /// System instructions for the AI session.
     private var aiSystemInstructions: String {
@@ -244,8 +259,18 @@ struct CommandBarView: View {
             let response = try await session.respond(to: query, generating: MusicIntent.self)
             await self.executeIntent(response.content)
         } catch {
-            // Use centralized error handler for consistent messaging
-            if let message = AIErrorHandler.handleAndMessage(error, context: "command processing") {
+            // Check if this is a deserialization/generation error
+            let errorDescription = String(describing: error)
+            let isDeserializationError = errorDescription.contains("deserialize") ||
+                errorDescription.contains("Generable") ||
+                errorDescription.contains("generation")
+
+            if isDeserializationError {
+                // Fallback: use the query directly as a search
+                self.logger.info("AI generation failed, falling back to direct search for: \(query)")
+                await self.fallbackDirectSearch(query: query)
+            } else if let message = AIErrorHandler.handleAndMessage(error, context: "command processing") {
+                // Use centralized error handler for other errors
                 self.errorMessage = message
             } else {
                 // Cancelled - no message needed
@@ -254,6 +279,64 @@ struct CommandBarView: View {
         }
 
         self.isProcessing = false
+    }
+
+    /// Fallback to direct search when AI parsing fails.
+    private func fallbackDirectSearch(query: String) async {
+        // Extract action keyword and clean query
+        let lowered = query.lowercased()
+        let cleanQuery: String
+
+        if lowered.hasPrefix("play ") {
+            cleanQuery = String(query.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+        } else if lowered.hasPrefix("add ") {
+            cleanQuery = String(query.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+            // Handle "add X to queue" pattern
+            if let range = cleanQuery.lowercased().range(of: " to queue") {
+                let extracted = String(cleanQuery[..<range.lowerBound])
+                await self.queueSearchResult(query: extracted, description: extracted)
+                return
+            }
+        } else if lowered.contains("shuffle") {
+            if lowered.contains("queue") {
+                self.playerService.shuffleQueue()
+                self.resultMessage = "Queue shuffled"
+            } else {
+                self.playerService.toggleShuffle()
+                let status = self.playerService.shuffleEnabled ? "on" : "off"
+                self.resultMessage = "Shuffle is now \(status)"
+            }
+            try? await Task.sleep(for: .seconds(1))
+            self.dismissCommandBar()
+            return
+        } else if lowered.contains("skip") || lowered.contains("next") {
+            await self.playerService.next()
+            self.resultMessage = "Skipped"
+            try? await Task.sleep(for: .seconds(1))
+            self.dismissCommandBar()
+            return
+        } else if lowered.contains("like") {
+            self.playerService.likeCurrentTrack()
+            self.resultMessage = "Liked!"
+            try? await Task.sleep(for: .seconds(1))
+            self.dismissCommandBar()
+            return
+        } else if lowered.contains("clear"), lowered.contains("queue") {
+            self.playerService.clearQueue()
+            self.resultMessage = "Queue cleared"
+            try? await Task.sleep(for: .seconds(1))
+            self.dismissCommandBar()
+            return
+        } else {
+            cleanQuery = query
+        }
+
+        // Default to play action with search
+        await self.playSearchResult(query: cleanQuery, description: cleanQuery)
+        if self.resultMessage != nil {
+            try? await Task.sleep(for: .seconds(1))
+            self.dismissCommandBar()
+        }
     }
 
     private func executeIntent(_ intent: MusicIntent) async {
@@ -328,7 +411,7 @@ struct CommandBarView: View {
         // Auto-dismiss after successful action (except search)
         if intent.action != .search, self.resultMessage != nil {
             try? await Task.sleep(for: .seconds(1))
-            self.dismiss()
+            self.dismissCommandBar()
         }
     }
 
@@ -395,7 +478,7 @@ struct CommandBarView: View {
     private func fallbackToSearch() {
         // Dismiss and trigger search view navigation
         // This would need to be wired up to the navigation system
-        self.dismiss()
+        self.dismissCommandBar()
     }
 
     // MARK: - Content Routing
@@ -608,9 +691,10 @@ private struct SuggestionChip: View {
 }
 
 #Preview {
+    @Previewable @State var isPresented = true
     let authService = AuthService()
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
-    CommandBarView(client: client)
+    CommandBarView(client: client, isPresented: $isPresented)
         .environment(PlayerService())
         .padding(40)
         .frame(width: 600, height: 300)

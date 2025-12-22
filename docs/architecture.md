@@ -398,6 +398,66 @@ DiagnosticsLogger.auth.error("Cookie extraction failed")
 
 The app uses Apple's **Liquid Glass** design language introduced in macOS 26.
 
+## Foundation Models (Apple Intelligence)
+
+Kaset integrates Apple's on-device Foundation Models framework for AI-powered features. See [ADR-0005: Foundation Models Architecture](adr/0005-foundation-models-architecture.md) for detailed design decisions.
+
+### Architecture Overview
+
+```
+User Input (natural language)
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ FoundationModelsService                         │
+│  → Check availability                           │
+│  → Create session with tools                    │
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ LanguageModelSession                            │
+│  → Parse input to @Generable type               │
+│  → Call tools for grounded data                 │
+│  → Return structured response                   │
+└─────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│ Execute Action                                  │
+│  → MusicIntent → PlayerService                  │
+│  → QueueIntent → PlayerService queue methods    │
+│  → LyricsSummary → Display in UI                │
+└─────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `FoundationModelsService` | `Core/Services/AI/` | Singleton managing AI availability and sessions |
+| `@Generable` Models | `Core/Models/AI/` | Type-safe structured outputs (`MusicIntent`, `LyricsSummary`, etc.) |
+| Tools | `Core/Services/AI/Tools/` | Ground AI responses in real catalog data |
+| `AIErrorHandler` | `Core/Services/AI/` | User-friendly error messages |
+| `RequiresIntelligenceModifier` | `Core/Utilities/` | Hide AI features when unavailable |
+
+### AI Features
+
+| Feature | Trigger | Model Used |
+|---------|---------|------------|
+| Command Bar | ⌘K | `MusicIntent`, `MusicQuery` |
+| Lyrics Explanation | "Explain" button in lyrics view | `LyricsSummary` |
+| Queue Management | Natural language in command bar | `QueueIntent` |
+| Queue Refinement | Refine button in queue view | `QueueChanges` |
+
+### Best Practices
+
+1. **Token Limit**: 4,096 tokens per session. Chunk large playlists, truncate long lyrics.
+2. **Streaming**: Use `streamResponse` for long-form content (lyrics explanation).
+3. **Tools**: Always use tools to ground responses in real data—prevents hallucination.
+4. **Graceful Degradation**: Use `.requiresIntelligence()` modifier to hide unavailable features.
+5. **Error Handling**: Use `AIErrorHandler` for user-friendly messages.
+
 ### PlayerBar
 
 **File**: `Views/macOS/PlayerBar.swift`

@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - MoodCategoryDetailView
+
 /// Detail view for a moods/genres category page.
 /// Displays sections of songs and playlists for the selected mood/genre.
 /// Note: This view is pushed onto an existing NavigationStack, so it uses NavigationLink

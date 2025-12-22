@@ -14,6 +14,7 @@
 - [Action Endpoints](#action-endpoints)
   - [Implemented](#implemented-action-endpoints)
   - [Available (Not Implemented)](#available-action-endpoints)
+- [Undocumented Endpoints](#undocumented-endpoints)
 - [Request Patterns](#request-patterns)
 - [Response Parsing](#response-parsing)
 - [Implementation Priorities](#implementation-priorities)
@@ -475,6 +476,52 @@ try await request("playlist/create", body: body)
 
 ---
 
+## Undocumented Endpoints
+
+These endpoints were discovered through API exploration (2024-12-22) but are not part of the documented API surface. Some may be useful for app functionality.
+
+### Potentially Useful Undocumented Endpoints
+
+| Endpoint | Type | Auth | Parameters | Description |
+|----------|------|------|------------|-------------|
+| `FEmusic_radio_builder` | Browse | 🌐 | - | Radio station builder UI data (form fields, artist selection) |
+| `FEmusic_liked_videos` | Browse | 🔐 | - | User's liked videos (alternative to `FEmusic_liked_videos`) |
+
+### Infrastructure/Internal Endpoints
+
+These endpoints exist but are primarily for YouTube's internal use:
+
+| Endpoint | Type | Auth | Parameters | Notes |
+|----------|------|------|------------|-------|
+| `account/account_menu` | Action | 🌐/🔐 | `{}` | Returns account menu structure (settings, premium promo) |
+| `reel/reel_item_watch` | Action | 🌐 | `{}` | Returns status tracking params (YouTube Shorts related) |
+| `log_event` | Action | 🌐 | `{}` | Analytics/telemetry logging endpoint |
+| `att/get` | Action | 🌐 | `{}` | Anti-bot/botguard challenge data |
+| `FEmusic_listening_review` | Browse | 🌐 | - | Returns only responseContext (Year in Review?) |
+
+### Endpoints Requiring Parameters
+
+These endpoints exist but return HTTP 400 without proper parameters:
+
+| Endpoint | Type | Auth | Status | Notes |
+|----------|------|------|--------|-------|
+| `comment/create_comment` | Action | 🔐 | 400 | Needs `videoId`, `commentText` |
+| `comment/perform_comment_action` | Action | 🔐 | 400 | Needs action params |
+| `share/get_share_panel` | Action | 🌐 | 400 | Needs `videoId` |
+| `get_transcript` | Action | 🌐 | 400 | Needs `videoId`, `params` |
+| `live_chat/send_message` | Action | 🔐 | 400 | Needs chat params |
+| `notification/get_unseen_count` | Action | 🔐 | 400 | Needs user context |
+
+### Endpoints Requiring Authentication
+
+| Endpoint | Type | Status | Notes |
+|----------|------|--------|-------|
+| `playlist/delete` | Action | 401 | Requires SAPISIDHASH |
+| `flag/get_form` | Action | 401 | Content flagging (needs auth) |
+| `notification/modify_channel_preference` | Action | 401 | Notification settings |
+
+---
+
 ## Request Patterns
 
 ### Standard Request Structure
@@ -659,8 +706,9 @@ The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 
 | Date | Changes |
 |------|---------|
+| 2024-12-22 | Added Undocumented Endpoints section with discovered endpoints |
+| 2024-12-22 | Unified standalone API Explorer with full endpoint coverage |
 | 2024-12-21 | Initial comprehensive documentation |
-| 2024-12-21 | Added APIExplorer tool documentation |
 | 2024-12-21 | Verified Player and Queue endpoints with detailed response structures |
 | 2024-12-21 | Confirmed Library Albums/Artists/Songs require auth + params |
 | 2024-12-21 | Documented playlist management auth requirements |
