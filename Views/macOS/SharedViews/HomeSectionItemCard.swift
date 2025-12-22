@@ -70,22 +70,21 @@ struct HomeSectionItemCard: View {
 
     private var thumbnail: some View {
         ZStack {
-            CachedAsyncImage(url: self.item.thumbnailURL?.highQualityThumbnailURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                    }
+            if let url = self.item.thumbnailURL?.highQualityThumbnailURL {
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    self.placeholderView
+                }
+            } else {
+                self.placeholderView
             }
-            .frame(width: Self.cardWidth, height: Self.cardHeight)
-            .clipShape(.rect(cornerRadius: 8))
-
+        }
+        .frame(width: Self.cardWidth, height: Self.cardHeight)
+        .clipShape(.rect(cornerRadius: 8))
+        .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
                 Circle()
@@ -100,6 +99,67 @@ struct HomeSectionItemCard: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
+    }
+
+    /// Placeholder view for items without thumbnails.
+    /// Uses the API-provided color for mood/genre cards, or a gradient based on the title.
+    private var placeholderView: some View {
+        let gradient = self.gradientForItem
+        return Rectangle()
+            .fill(gradient)
+            .overlay {
+                // Show a contextual icon based on item type
+                Image(systemName: self.placeholderIcon)
+                    .font(.system(size: 36))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+    }
+
+    /// Returns appropriate icon for the placeholder based on item type.
+    private var placeholderIcon: String {
+        switch self.item {
+        case .song: "music.note"
+        case .album: "square.stack"
+        case .playlist: "music.note.list"
+        case .artist: "person.fill"
+        }
+    }
+
+    /// Generates a gradient for the card.
+    /// Uses API-provided color (from description) for mood cards, or title-based hash.
+    private var gradientForItem: LinearGradient {
+        // Check if this is a mood card with color in description
+        if case let .playlist(playlist) = item,
+           let colorHex = playlist.description,
+           colorHex.hasPrefix("#"),
+           let color = Color(hex: colorHex)
+        {
+            // Create a gradient from the API color
+            return LinearGradient(
+                colors: [color, color.opacity(0.7)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        // Fallback to title-based gradient
+        return Self.gradientForTitle(self.item.title)
+    }
+
+    /// Generates a consistent gradient color based on the title string.
+    private static func gradientForTitle(_ title: String) -> LinearGradient {
+        let hash = abs(title.hashValue)
+        let hue1 = Double(hash % 360) / 360.0
+        let hue2 = (hue1 + 0.1).truncatingRemainder(dividingBy: 1.0)
+
+        let color1 = Color(hue: hue1, saturation: 0.6, brightness: 0.5)
+        let color2 = Color(hue: hue2, saturation: 0.7, brightness: 0.35)
+
+        return LinearGradient(
+            colors: [color1, color2],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     private var titleAndSubtitle: some View {

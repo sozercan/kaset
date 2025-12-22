@@ -113,6 +113,52 @@ struct TopSongsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                self.playSongInQueue(startingAt: index)
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Divider()
+
+            Button {
+                SongActionsHelper.likeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Like", systemImage: "hand.thumbsup")
+            }
+
+            Button {
+                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Dislike", systemImage: "hand.thumbsdown")
+            }
+
+            Divider()
+
+            Button {
+                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
+            }
+
+            // Go to Album - show if album has valid browse ID
+            if let album = song.album, album.hasNavigableId {
+                Divider()
+
+                let playlist = Playlist(
+                    id: album.id,
+                    title: album.title,
+                    description: nil,
+                    thumbnailURL: album.thumbnailURL,
+                    trackCount: album.trackCount,
+                    author: album.artistsDisplay
+                )
+                NavigationLink(value: playlist) {
+                    Label("Go to Album", systemImage: "square.stack")
+                }
+            }
+        }
     }
 
     // MARK: - Actions

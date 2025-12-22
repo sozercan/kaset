@@ -65,7 +65,7 @@ final class AuthServiceTests: XCTestCase {
 
         XCTAssertEqual(self.authService.state, .loggedOut)
         XCTAssertFalse(self.authService.needsReauth)
-        // Verify mock was called (not real WebKit/Keychain)
+        // Verify mock was called (not real WebKit/file storage)
         XCTAssertTrue(self.mockWebKitManager.clearAllDataCalled)
     }
 

@@ -15,6 +15,14 @@ struct Album: Identifiable, Codable, Hashable, Sendable {
     var artistsDisplay: String {
         self.artists?.map(\.name).joined(separator: ", ") ?? ""
     }
+
+    /// Whether the album has a valid browse ID for navigation.
+    /// YouTube Music album IDs start with "MPRE" (e.g., "MPREb_...").
+    /// UUIDs (fallback IDs) contain hyphens and are not navigable.
+    var hasNavigableId: Bool {
+        // Valid YouTube Music IDs start with specific prefixes and don't contain hyphens
+        !self.id.contains("-") && (self.id.hasPrefix("MPRE") || self.id.hasPrefix("OLAK"))
+    }
 }
 
 extension Album {

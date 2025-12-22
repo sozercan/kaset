@@ -296,6 +296,56 @@ struct ArtistDetailView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                Task {
+                    let allSongs = await self.viewModel.getAllSongs()
+                    let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
+                    await self.playerService.playQueue(allSongs, startingAt: startIndex)
+                }
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Divider()
+
+            Button {
+                SongActionsHelper.likeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Like", systemImage: "hand.thumbsup")
+            }
+
+            Button {
+                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Dislike", systemImage: "hand.thumbsdown")
+            }
+
+            Divider()
+
+            Button {
+                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
+            }
+
+            // Go to Album - show if album has valid browse ID
+            if let album = song.album, album.hasNavigableId {
+                Divider()
+
+                let playlist = Playlist(
+                    id: album.id,
+                    title: album.title,
+                    description: nil,
+                    thumbnailURL: album.thumbnailURL,
+                    trackCount: album.trackCount,
+                    author: album.artistsDisplay
+                )
+                NavigationLink(value: playlist) {
+                    Label("Go to Album", systemImage: "square.stack")
+                }
+            }
+        }
     }
 
     private func albumsSection(_ albums: [Album]) -> some View {

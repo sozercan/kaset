@@ -10,6 +10,10 @@ enum AccessibilityID {
         static let searchItem = "sidebar.search"
         static let homeItem = "sidebar.home"
         static let exploreItem = "sidebar.explore"
+        static let chartsItem = "sidebar.charts"
+        static let moodsAndGenresItem = "sidebar.moodsAndGenres"
+        static let newReleasesItem = "sidebar.newReleases"
+        static let podcastsItem = "sidebar.podcasts"
         static let likedMusicItem = "sidebar.likedMusic"
         static let libraryItem = "sidebar.library"
     }

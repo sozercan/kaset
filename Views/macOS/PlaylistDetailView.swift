@@ -301,6 +301,30 @@ struct PlaylistDetailView: View {
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
+
+            Divider()
+
+            // Go to Artist - show first artist with valid ID
+            if let artist = track.artists.first(where: { !$0.id.isEmpty && $0.id != UUID().uuidString }) {
+                NavigationLink(value: artist) {
+                    Label("Go to Artist", systemImage: "person")
+                }
+            }
+
+            // Go to Album - show if album has valid browse ID
+            if let album = track.album, album.hasNavigableId {
+                let playlist = Playlist(
+                    id: album.id,
+                    title: album.title,
+                    description: nil,
+                    thumbnailURL: album.thumbnailURL,
+                    trackCount: album.trackCount,
+                    author: album.artistsDisplay
+                )
+                NavigationLink(value: playlist) {
+                    Label("Go to Album", systemImage: "square.stack")
+                }
+            }
         }
     }
 
@@ -350,7 +374,8 @@ struct PlaylistDetailView: View {
         - When in doubt, keep the song.
         """
 
-        guard let session = FoundationModelsService.shared.createSession(instructions: instructions) else {
+        // Use analysis session for creative playlist curation
+        guard let session = FoundationModelsService.shared.createAnalysisSession(instructions: instructions) else {
             self.refineError = "Apple Intelligence is not available"
             self.isRefining = false
             return
@@ -377,17 +402,11 @@ struct PlaylistDetailView: View {
             let response = try await session.respond(to: userPrompt, generating: PlaylistChanges.self)
             self.playlistChanges = response.content
             self.logger.info("Got playlist changes: \(response.content.removals.count) removals")
-        } catch let error as LanguageModelSession.GenerationError {
-            self.logger.error("Failed to refine playlist: \(error.localizedDescription)")
-            switch error {
-            case .guardrailViolation:
-                self.refineError = "Some content couldn't be processed. Try a smaller selection."
-            default:
-                self.refineError = "Couldn't analyze the playlist. Try again?"
-            }
         } catch {
-            self.logger.error("Failed to refine playlist: \(error.localizedDescription)")
-            self.refineError = "Couldn't analyze the playlist. Try again?"
+            // Use centralized error handler for consistent messaging
+            if let message = AIErrorHandler.handleAndMessage(error, context: "playlist refinement") {
+                self.refineError = message
+            }
         }
 
         self.isRefining = false

@@ -1,17 +1,41 @@
 import Foundation
 import os
-import Security
 import WebKit
 
 // MARK: - CookieBackupManager
 
-/// Manages backup storage of auth cookies in Keychain for resilience against WebKit data loss.
+/// Manages backup storage of auth cookies in Application Support for resilience against WebKit data loss.
+/// Uses file-based storage instead of Keychain to avoid code signing issues during development.
 enum CookieBackupManager {
-    private static let service = "com.sertacozercan.Kaset.cookies"
-    private static let account = "youtube-auth-cookies"
     private static let logger = DiagnosticsLogger.webKit
 
-    /// Saves YouTube auth cookies to Keychain as a backup.
+    /// Returns the URL for the cookie backup file in Application Support.
+    private static var backupFileURL: URL? {
+        guard let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            logger.error("Could not find Application Support directory")
+            return nil
+        }
+
+        let appFolder = appSupport.appendingPathComponent("Kaset", isDirectory: true)
+
+        // Create directory if needed
+        do {
+            try FileManager.default.createDirectory(
+                at: appFolder,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            logger.error("Failed to create Kaset folder: \(error.localizedDescription)")
+            return nil
+        }
+
+        return appFolder.appendingPathComponent("cookies.dat")
+    }
+
+    /// Saves YouTube auth cookies to file as a backup.
     static func backupCookies(_ cookies: [HTTPCookie]) {
         // Filter to only YouTube auth cookies
         let authCookieNames = Set([
@@ -21,6 +45,8 @@ enum CookieBackupManager {
         let authCookies = cookies.filter { authCookieNames.contains($0.name) }
 
         guard !authCookies.isEmpty else { return }
+
+        guard let fileURL = backupFileURL else { return }
 
         // Use NSKeyedArchiver since cookie properties contain Date objects
         // that can't be serialized with JSONSerialization
@@ -45,60 +71,31 @@ enum CookieBackupManager {
             return
         }
 
-        // Delete existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: self.service,
-            kSecAttrAccount as String: self.account,
-            kSecUseDataProtectionKeychain as String: true,
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-
-        // Add new item using the data protection keychain (no password prompts)
-        let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: self.service,
-            kSecAttrAccount as String: self.account,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecUseDataProtectionKeychain as String: true,
-        ]
-
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
-        if status == errSecSuccess {
-            self.logger.info("Backed up \(authCookies.count) auth cookies to Keychain")
-        } else {
-            self.logger.error("Failed to backup cookies to Keychain: \(status)")
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            self.logger.info("Backed up \(authCookies.count) auth cookies to file")
+        } catch {
+            self.logger.error("Failed to backup cookies to file: \(error.localizedDescription)")
         }
     }
 
-    /// Restores YouTube auth cookies from Keychain backup.
+    /// Restores YouTube auth cookies from file backup.
     /// Returns the cookies if found, nil otherwise.
     static func restoreCookies() -> [HTTPCookie]? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: self.service,
-            kSecAttrAccount as String: self.account,
-            kSecReturnData as String: true,
-            kSecUseDataProtectionKeychain as String: true,
-        ]
+        guard let fileURL = backupFileURL else { return nil }
 
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        if status == errSecItemNotFound {
-            self.logger.info("No cookie backup found in Keychain (first run or cleared)")
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            self.logger.info("No cookie backup found (first run or cleared)")
             return nil
         }
 
-        guard status == errSecSuccess,
-              let data = result as? Data,
+        guard let data = try? Data(contentsOf: fileURL),
               let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
                   ofClasses: [NSArray.self, NSData.self],
                   from: data
               ) as? [Data]
         else {
-            self.logger.error("Failed to read cookie backup from Keychain: status=\(status)")
+            self.logger.error("Failed to read cookie backup from file")
             return nil
         }
 
@@ -119,21 +116,23 @@ enum CookieBackupManager {
         }
 
         if !cookies.isEmpty {
-            self.logger.info("Restored \(cookies.count) auth cookies from Keychain backup")
+            self.logger.info("Restored \(cookies.count) auth cookies from file backup")
         }
         return cookies.isEmpty ? nil : cookies
     }
 
-    /// Clears the cookie backup from Keychain.
+    /// Clears the cookie backup file.
     static func clearBackup() {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: self.service,
-            kSecAttrAccount as String: self.account,
-            kSecUseDataProtectionKeychain as String: true,
-        ]
-        SecItemDelete(query as CFDictionary)
-        self.logger.info("Cleared cookie backup from Keychain")
+        guard let fileURL = backupFileURL else { return }
+
+        do {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+            self.logger.info("Cleared cookie backup file")
+        } catch {
+            self.logger.error("Failed to clear cookie backup: \(error.localizedDescription)")
+        }
     }
 }
 
@@ -179,32 +178,32 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Observe cookie changes
         self.dataStore.httpCookieStore.add(self)
 
-        // Always restore auth cookies from Keychain on startup
-        // Keychain is our source of truth since WebKit storage is unreliable
+        // Always restore auth cookies from backup on startup
+        // File backup is our source of truth since WebKit storage is unreliable
         // during development (sandbox container changes with code signing)
         Task {
-            await self.restoreAuthCookiesFromKeychain()
+            await self.restoreAuthCookiesFromBackup()
         }
 
         self.logger.info("WebKitManager initialized with persistent data store")
     }
 
-    /// Restores auth cookies from Keychain to WebKit.
-    /// Keychain is the source of truth - always restore on startup.
-    private func restoreAuthCookiesFromKeychain() async {
+    /// Restores auth cookies from file backup to WebKit.
+    /// File backup is the source of truth - always restore on startup.
+    private func restoreAuthCookiesFromBackup() async {
         // Wait a moment for WebKit to fully initialize
         try? await Task.sleep(for: .milliseconds(100))
 
         let existingCookies = await dataStore.httpCookieStore.allCookies()
         self.logger.info("WebKit has \(existingCookies.count) cookies on startup")
 
-        // Always restore from Keychain if we have a backup
+        // Always restore from backup if we have one
         guard let backupCookies = CookieBackupManager.restoreCookies() else {
-            self.logger.info("No cookie backup in Keychain (first run or signed out)")
+            self.logger.info("No cookie backup found (first run or signed out)")
             return
         }
 
-        self.logger.info("Restoring \(backupCookies.count) auth cookies from Keychain")
+        self.logger.info("Restoring \(backupCookies.count) auth cookies from backup")
 
         // Set each cookie in WebKit
         for cookie in backupCookies {
@@ -216,7 +215,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let hasAuth = cookies.contains { $0.name == "SAPISID" || $0.name == "__Secure-3PAPISID" }
 
         if hasAuth {
-            self.logger.info("✓ Auth cookies restored from Keychain (\(cookies.count) total cookies)")
+            self.logger.info("✓ Auth cookies restored from backup (\(cookies.count) total cookies)")
         } else {
             self.logger.error("✗ Failed to restore auth cookies - backup may be corrupted")
         }

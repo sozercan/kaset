@@ -139,6 +139,218 @@ final class YTMusicClient: YTMusicClientProtocol {
         self._exploreContinuationToken != nil
     }
 
+    // MARK: - Charts
+
+    /// Internal storage for charts continuation token.
+    private var _chartsContinuationToken: String?
+
+    /// Fetches the charts page content (initial sections only for fast display).
+    func getCharts() async throws -> HomeResponse {
+        self.logger.info("Fetching charts page")
+
+        let body: [String: Any] = [
+            "browseId": "FEmusic_charts",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+
+        // Store continuation token for progressive loading
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        self._chartsContinuationToken = token
+
+        self.logger.info("Charts page loaded: \(response.sections.count) initial sections, hasMore: \(token != nil)")
+        return response
+    }
+
+    /// Fetches the next batch of charts sections via continuation.
+    func getChartsContinuation() async throws -> [HomeSection]? {
+        guard let token = _chartsContinuationToken else {
+            self.logger.debug("No charts continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching charts continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self._chartsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self._chartsContinuationToken != nil
+
+            self.logger.info("Charts continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch charts continuation: \(error.localizedDescription)")
+            self._chartsContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more charts sections are available to load.
+    var hasMoreChartsSections: Bool {
+        self._chartsContinuationToken != nil
+    }
+
+    // MARK: - Moods and Genres
+
+    /// Internal storage for moods and genres continuation token.
+    private var _moodsAndGenresContinuationToken: String?
+
+    /// Fetches the moods and genres page content (initial sections only for fast display).
+    func getMoodsAndGenres() async throws -> HomeResponse {
+        self.logger.info("Fetching moods and genres page")
+
+        let body: [String: Any] = [
+            "browseId": "FEmusic_moods_and_genres",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+
+        // Store continuation token for progressive loading
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        self._moodsAndGenresContinuationToken = token
+
+        self.logger.info("Moods and genres page loaded: \(response.sections.count) initial sections, hasMore: \(token != nil)")
+        return response
+    }
+
+    /// Fetches the next batch of moods and genres sections via continuation.
+    func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
+        guard let token = _moodsAndGenresContinuationToken else {
+            self.logger.debug("No moods and genres continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching moods and genres continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self._moodsAndGenresContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self._moodsAndGenresContinuationToken != nil
+
+            self.logger.info("Moods and genres continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch moods and genres continuation: \(error.localizedDescription)")
+            self._moodsAndGenresContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more moods and genres sections are available to load.
+    var hasMoreMoodsAndGenresSections: Bool {
+        self._moodsAndGenresContinuationToken != nil
+    }
+
+    // MARK: - New Releases
+
+    /// Internal storage for new releases continuation token.
+    private var _newReleasesContinuationToken: String?
+
+    /// Fetches the new releases page content (initial sections only for fast display).
+    func getNewReleases() async throws -> HomeResponse {
+        self.logger.info("Fetching new releases page")
+
+        let body: [String: Any] = [
+            "browseId": "FEmusic_new_releases",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+
+        // Store continuation token for progressive loading
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        self._newReleasesContinuationToken = token
+
+        self.logger.info("New releases page loaded: \(response.sections.count) initial sections, hasMore: \(token != nil)")
+        return response
+    }
+
+    /// Fetches the next batch of new releases sections via continuation.
+    func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        guard let token = _newReleasesContinuationToken else {
+            self.logger.debug("No new releases continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching new releases continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self._newReleasesContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self._newReleasesContinuationToken != nil
+
+            self.logger.info("New releases continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch new releases continuation: \(error.localizedDescription)")
+            self._newReleasesContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more new releases sections are available to load.
+    var hasMoreNewReleasesSections: Bool {
+        self._newReleasesContinuationToken != nil
+    }
+
+    // MARK: - Podcasts
+
+    /// Internal storage for podcasts continuation token.
+    private var _podcastsContinuationToken: String?
+
+    /// Fetches the podcasts page content (initial sections only for fast display).
+    func getPodcasts() async throws -> HomeResponse {
+        self.logger.info("Fetching podcasts page")
+
+        let body: [String: Any] = [
+            "browseId": "FEmusic_podcasts",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+
+        // Store continuation token for progressive loading
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        self._podcastsContinuationToken = token
+
+        self.logger.info("Podcasts page loaded: \(response.sections.count) initial sections, hasMore: \(token != nil)")
+        return response
+    }
+
+    /// Fetches the next batch of podcasts sections via continuation.
+    func getPodcastsContinuation() async throws -> [HomeSection]? {
+        guard let token = _podcastsContinuationToken else {
+            self.logger.debug("No podcasts continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching podcasts continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self._podcastsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self._podcastsContinuationToken != nil
+
+            self.logger.info("Podcasts continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch podcasts continuation: \(error.localizedDescription)")
+            self._podcastsContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more podcasts sections are available to load.
+    var hasMorePodcastsSections: Bool {
+        self._podcastsContinuationToken != nil
+    }
+
     /// Makes a continuation request.
     private func requestContinuation(_ token: String, ttl: TimeInterval? = APICache.TTL.home) async throws -> [String: Any] {
         let body: [String: Any] = [
@@ -376,6 +588,31 @@ final class YTMusicClient: YTMusicClientProtocol {
         let song = try SongMetadataParser.parse(data, videoId: videoId)
         self.logger.info("Parsed song '\(song.title)' - inLibrary: \(song.isInLibrary ?? false), hasTokens: \(song.feedbackTokens != nil)")
         return song
+    }
+
+    // MARK: - Mood/Genre Category
+
+    /// Fetches content for a moods/genres category page.
+    /// These are browse pages that return sections of songs/playlists, not playlist tracks.
+    /// - Parameters:
+    ///   - browseId: The browse ID (e.g., "FEmusic_moods_and_genres_category")
+    ///   - params: Optional params for the category (extracted from navigation button)
+    /// - Returns: HomeResponse with sections for the category
+    func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse {
+        self.logger.info("Fetching mood category: \(browseId)")
+
+        var body: [String: Any] = [
+            "browseId": browseId,
+        ]
+
+        if let params {
+            body["params"] = params
+        }
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+        self.logger.info("Mood category loaded: \(response.sections.count) sections")
+        return response
     }
 
     // MARK: - Like/Library Actions

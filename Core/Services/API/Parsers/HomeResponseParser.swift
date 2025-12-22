@@ -2,6 +2,8 @@ import Foundation
 
 /// Parser for home page and explore page responses from YouTube Music API.
 enum HomeResponseParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Parses the main home/explore response.
     static func parse(_ data: [String: Any]) -> HomeResponse {
         var sections: [HomeSection] = []
@@ -16,6 +18,11 @@ enum HomeResponseParser {
               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
+            // Log what top-level keys we have for debugging
+            self.logger.debug("HomeResponseParser: No standard structure found. Top keys: \(data.keys.sorted())")
+            if let contents = data["contents"] as? [String: Any] {
+                self.logger.debug("HomeResponseParser: Contents keys: \(contents.keys.sorted())")
+            }
             return HomeResponse(sections: [])
         }
 
@@ -126,6 +133,12 @@ enum HomeResponseParser {
                     return section
                 }
             }
+        }
+
+        // Log unrecognized renderers for debugging
+        let rendererKeys = data.keys.filter { $0.hasSuffix("Renderer") }
+        if !rendererKeys.isEmpty {
+            self.logger.debug("HomeResponseParser: Unrecognized renderer(s): \(rendererKeys)")
         }
 
         return nil
@@ -257,7 +270,8 @@ enum HomeResponseParser {
 
         guard !sectionItems.isEmpty else { return nil }
 
-        return HomeSection(id: UUID().uuidString, title: title, items: sectionItems, isChart: true)
+        // Check if this is a chart section based on title, not renderer type
+        return HomeSection(id: UUID().uuidString, title: title, items: sectionItems, isChart: ParsingHelpers.isChartSection(title))
     }
 
     // MARK: - Item Parsing
@@ -273,7 +287,68 @@ enum HomeResponseParser {
             return self.parseResponsiveListItem(responsiveRenderer)
         }
 
+        // Try musicNavigationButtonRenderer (moods/genres category buttons)
+        if let buttonRenderer = data["musicNavigationButtonRenderer"] as? [String: Any] {
+            return self.parseNavigationButton(buttonRenderer)
+        }
+
         return nil
+    }
+
+    private static func parseNavigationButton(_ data: [String: Any]) -> HomeSectionItem? {
+        // Extract title from buttonText
+        guard let buttonText = data["buttonText"] as? [String: Any],
+              let runs = buttonText["runs"] as? [[String: Any]],
+              let firstRun = runs.first,
+              let title = firstRun["text"] as? String
+        else {
+            return nil
+        }
+
+        // Extract browse endpoint
+        guard let clickCommand = data["clickCommand"] as? [String: Any],
+              let browseEndpoint = clickCommand["browseEndpoint"] as? [String: Any],
+              let browseId = browseEndpoint["browseId"] as? String
+        else {
+            return nil
+        }
+
+        // Moods/genres browse IDs often start with "FEmusic_moods_and_genres_category"
+        // but the actual content is a playlist. Create a unique ID using browseId + params
+        // to avoid duplicate IDs when the same browseId appears in multiple sections.
+        let params = browseEndpoint["params"] as? String
+        let uniqueId = params != nil ? "\(browseId)_\(params!)" : browseId
+
+        // Try to extract thumbnail URL (some navigation buttons have iconImage)
+        var thumbnailURL: URL?
+        if let iconImage = data["iconImage"] as? [String: Any],
+           let thumbnails = iconImage["thumbnails"] as? [[String: Any]],
+           let lastThumb = thumbnails.last,
+           let urlString = lastThumb["url"] as? String
+        {
+            thumbnailURL = URL(string: ParsingHelpers.normalizeURL(urlString))
+        }
+
+        // Extract the leftStripeColor from solid block (mood/genre card color)
+        // This is a 32-bit ARGB color value from the YouTube Music API
+        var colorHex: String?
+        if let solid = data["solid"] as? [String: Any],
+           let colorValue = solid["leftStripeColor"] as? Int
+        {
+            // Convert to hex string (ARGB format from API, we'll use RGB portion)
+            let rgb = colorValue & 0x00FF_FFFF
+            colorHex = String(format: "#%06X", rgb)
+        }
+
+        let playlist = Playlist(
+            id: uniqueId,
+            title: title,
+            description: colorHex, // Store color hex in description for mood cards
+            thumbnailURL: thumbnailURL,
+            trackCount: nil,
+            author: nil
+        )
+        return .playlist(playlist)
     }
 
     private static func parseTwoRowItem(_ data: [String: Any]) -> HomeSectionItem? {

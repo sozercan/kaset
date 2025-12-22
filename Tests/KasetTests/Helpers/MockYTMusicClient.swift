@@ -10,6 +10,14 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var homeContinuationSections: [[HomeSection]] = []
     var exploreResponse: HomeResponse = .init(sections: [])
     var exploreContinuationSections: [[HomeSection]] = []
+    var chartsResponse: HomeResponse = .init(sections: [])
+    var chartsContinuationSections: [[HomeSection]] = []
+    var moodsAndGenresResponse: HomeResponse = .init(sections: [])
+    var moodsAndGenresContinuationSections: [[HomeSection]] = []
+    var newReleasesResponse: HomeResponse = .init(sections: [])
+    var newReleasesContinuationSections: [[HomeSection]] = []
+    var podcastsResponse: HomeResponse = .init(sections: [])
+    var podcastsContinuationSections: [[HomeSection]] = []
     var searchResponse: SearchResponse = .empty
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
@@ -24,6 +32,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     private var _homeContinuationIndex = 0
     private var _exploreContinuationIndex = 0
+    private var _chartsContinuationIndex = 0
+    private var _moodsAndGenresContinuationIndex = 0
+    private var _newReleasesContinuationIndex = 0
+    private var _podcastsContinuationIndex = 0
 
     var hasMoreHomeSections: Bool {
         self._homeContinuationIndex < self.homeContinuationSections.count
@@ -31,6 +43,22 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     var hasMoreExploreSections: Bool {
         self._exploreContinuationIndex < self.exploreContinuationSections.count
+    }
+
+    var hasMoreChartsSections: Bool {
+        self._chartsContinuationIndex < self.chartsContinuationSections.count
+    }
+
+    var hasMoreMoodsAndGenresSections: Bool {
+        self._moodsAndGenresContinuationIndex < self.moodsAndGenresContinuationSections.count
+    }
+
+    var hasMoreNewReleasesSections: Bool {
+        self._newReleasesContinuationIndex < self.newReleasesContinuationSections.count
+    }
+
+    var hasMorePodcastsSections: Bool {
+        self._podcastsContinuationIndex < self.podcastsContinuationSections.count
     }
 
     // MARK: - Call Tracking
@@ -116,6 +144,70 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         }
         let sections = self.exploreContinuationSections[self._exploreContinuationIndex]
         self._exploreContinuationIndex += 1
+        return sections
+    }
+
+    func getCharts() async throws -> HomeResponse {
+        self._chartsContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        return self.chartsResponse
+    }
+
+    func getChartsContinuation() async throws -> [HomeSection]? {
+        if let error = shouldThrowError { throw error }
+        guard self._chartsContinuationIndex < self.chartsContinuationSections.count else {
+            return nil
+        }
+        let sections = self.chartsContinuationSections[self._chartsContinuationIndex]
+        self._chartsContinuationIndex += 1
+        return sections
+    }
+
+    func getMoodsAndGenres() async throws -> HomeResponse {
+        self._moodsAndGenresContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        return self.moodsAndGenresResponse
+    }
+
+    func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
+        if let error = shouldThrowError { throw error }
+        guard self._moodsAndGenresContinuationIndex < self.moodsAndGenresContinuationSections.count else {
+            return nil
+        }
+        let sections = self.moodsAndGenresContinuationSections[self._moodsAndGenresContinuationIndex]
+        self._moodsAndGenresContinuationIndex += 1
+        return sections
+    }
+
+    func getNewReleases() async throws -> HomeResponse {
+        self._newReleasesContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        return self.newReleasesResponse
+    }
+
+    func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        if let error = shouldThrowError { throw error }
+        guard self._newReleasesContinuationIndex < self.newReleasesContinuationSections.count else {
+            return nil
+        }
+        let sections = self.newReleasesContinuationSections[self._newReleasesContinuationIndex]
+        self._newReleasesContinuationIndex += 1
+        return sections
+    }
+
+    func getPodcasts() async throws -> HomeResponse {
+        self._podcastsContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        return self.podcastsResponse
+    }
+
+    func getPodcastsContinuation() async throws -> [HomeSection]? {
+        if let error = shouldThrowError { throw error }
+        guard self._podcastsContinuationIndex < self.podcastsContinuationSections.count else {
+            return nil
+        }
+        let sections = self.podcastsContinuationSections[self._podcastsContinuationIndex]
+        self._podcastsContinuationIndex += 1
         return sections
     }
 
@@ -240,6 +332,12 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         return self.radioQueueSongs[videoId] ?? []
     }
 
+    func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
+        if let error = shouldThrowError { throw error }
+        // Return empty response by default
+        return HomeResponse(sections: [])
+    }
+
     // MARK: - Helper Methods
 
     /// Resets all call tracking.
@@ -254,6 +352,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.getExploreContinuationCalled = false
         self.getExploreContinuationCallCount = 0
         self._exploreContinuationIndex = 0
+        self._chartsContinuationIndex = 0
+        self._moodsAndGenresContinuationIndex = 0
+        self._newReleasesContinuationIndex = 0
+        self._podcastsContinuationIndex = 0
         self.searchCalled = false
         self.searchQueries = []
         self.getSearchSuggestionsCalled = false

@@ -14,8 +14,10 @@ struct LyricsView: View {
 
     // AI explanation state
     @State private var lyricsSummary: LyricsSummary?
+    @State private var partialSummary: LyricsSummary.PartiallyGenerated?
     @State private var isExplaining = false
     @State private var showExplanation = false
+    @State private var explanationError: String?
 
     private let logger = DiagnosticsLogger.ai
 
@@ -35,7 +37,9 @@ struct LyricsView: View {
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
                 // Reset explanation when track changes
                 self.lyricsSummary = nil
+                self.partialSummary = nil
                 self.showExplanation = false
+                self.explanationError = nil
                 Task {
                     await self.loadLyrics(for: videoId)
                 }
@@ -114,9 +118,17 @@ struct LyricsView: View {
     private func lyricsContentView(_ lyrics: Lyrics) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // AI Explanation section (if available)
-                if self.showExplanation, let summary = lyricsSummary {
+                // AI Explanation section (streaming or complete)
+                if self.isExplaining, let partial = partialSummary {
+                    self.streamingExplanationSection(partial)
+                    Divider()
+                        .padding(.vertical, 12)
+                } else if self.showExplanation, let summary = lyricsSummary {
                     self.explanationSection(summary)
+                    Divider()
+                        .padding(.vertical, 12)
+                } else if let error = explanationError {
+                    self.errorSection(error)
                     Divider()
                         .padding(.vertical, 12)
                 }
@@ -182,6 +194,85 @@ struct LyricsView: View {
         .background(.purple.opacity(0.05))
     }
 
+    /// Shows partial content as it streams in from the AI.
+    private func streamingExplanationSection(_ partial: LyricsSummary.PartiallyGenerated) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Mood (shows when available)
+            HStack(spacing: 8) {
+                Image(systemName: "heart.circle.fill")
+                    .foregroundStyle(.pink)
+                if let mood = partial.mood {
+                    Text(mood.capitalized)
+                        .font(.subheadline.weight(.medium))
+                } else {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+
+            // Themes (shows as they arrive)
+            if let themes = partial.themes, !themes.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(themes, id: \.self) { theme in
+                            Text(theme)
+                                .font(.caption)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(.purple.opacity(0.2))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+
+            // Explanation (shows progressively)
+            if let explanation = partial.explanation {
+                Text(explanation)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Analyzing...")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+        }
+        .background(.purple.opacity(0.05))
+    }
+
+    /// Shows error state for failed AI explanation.
+    private func errorSection(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Retry") {
+                self.explanationError = nil
+                Task {
+                    await self.explainLyrics()
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(16)
+        .background(.orange.opacity(0.05))
+    }
+
     private var noLyricsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "music.note")
@@ -227,6 +318,8 @@ struct LyricsView: View {
         else { return }
 
         self.isExplaining = true
+        self.explanationError = nil
+        self.partialSummary = nil
         self.logger.info("Explaining lyrics for: \(track.title)")
 
         let instructions = """
@@ -235,8 +328,9 @@ struct LyricsView: View {
         Don't be overly academic or pretentious.
         """
 
-        guard let session = FoundationModelsService.shared.createSession(instructions: instructions) else {
+        guard let session = FoundationModelsService.shared.createAnalysisSession(instructions: instructions) else {
             self.logger.warning("Apple Intelligence not available for lyrics explanation")
+            self.explanationError = "Apple Intelligence is not available"
             self.isExplaining = false
             return
         }
@@ -250,14 +344,38 @@ struct LyricsView: View {
         """
 
         do {
-            let response = try await session.respond(to: prompt, generating: LyricsSummary.self)
-            self.lyricsSummary = response.content
-            self.showExplanation = true
-            self.logger.info("Generated lyrics explanation: mood=\(response.content.mood), themes=\(response.content.themes.joined(separator: ", "))")
+            // Use streaming for progressive UI updates
+            let stream = session.streamResponse(
+                to: prompt,
+                generating: LyricsSummary.self
+            )
+
+            for try await snapshot in stream {
+                // Extract partial content from snapshot for streaming UI updates
+                self.partialSummary = snapshot.content
+            }
+
+            // Stream complete - convert final partial to complete summary
+            if let final = self.partialSummary,
+               let mood = final.mood,
+               let themes = final.themes,
+               let explanation = final.explanation
+            {
+                self.lyricsSummary = LyricsSummary(
+                    themes: themes,
+                    mood: mood,
+                    explanation: explanation
+                )
+                self.showExplanation = true
+                self.logger.info("Generated lyrics explanation: mood=\(mood), themes=\(themes.joined(separator: ", "))")
+            }
         } catch {
-            self.logger.error("Failed to explain lyrics: \(error.localizedDescription)")
+            if let message = AIErrorHandler.handleAndMessage(error, context: "lyrics explanation") {
+                self.explanationError = message
+            }
         }
 
+        self.partialSummary = nil
         self.isExplaining = false
     }
 }

@@ -194,6 +194,117 @@ final class HomeResponseParserTests: XCTestCase {
         XCTAssertEqual(token, "next_token_456")
     }
 
+    func testParseNavigationButtonRenderer() {
+        // Given - Moods & Genres style navigation button with params
+        let buttonData: [String: Any] = [
+            "musicNavigationButtonRenderer": [
+                "buttonText": [
+                    "runs": [["text": "Chill"]],
+                ],
+                "clickCommand": [
+                    "browseEndpoint": [
+                        "browseId": "FEmusic_moods_and_genres_category_chill",
+                        "params": "someEncodedParams",
+                    ],
+                ],
+            ],
+        ]
+
+        // When
+        let item = HomeResponseParser.parseHomeSectionItem(buttonData)
+
+        // Then - ID should include params for uniqueness
+        XCTAssertNotNil(item)
+        if case let .playlist(playlist) = item {
+            XCTAssertEqual(playlist.title, "Chill")
+            XCTAssertEqual(playlist.id, "FEmusic_moods_and_genres_category_chill_someEncodedParams")
+        } else {
+            XCTFail("Expected playlist item from navigation button")
+        }
+    }
+
+    func testParseNavigationButtonRendererWithoutParams() {
+        // Given - Moods & Genres style navigation button without params
+        let buttonData: [String: Any] = [
+            "musicNavigationButtonRenderer": [
+                "buttonText": [
+                    "runs": [["text": "Focus"]],
+                ],
+                "clickCommand": [
+                    "browseEndpoint": [
+                        "browseId": "FEmusic_moods_focus",
+                    ],
+                ],
+            ],
+        ]
+
+        // When
+        let item = HomeResponseParser.parseHomeSectionItem(buttonData)
+
+        // Then - ID should be just browseId when no params
+        XCTAssertNotNil(item)
+        if case let .playlist(playlist) = item {
+            XCTAssertEqual(playlist.title, "Focus")
+            XCTAssertEqual(playlist.id, "FEmusic_moods_focus")
+        } else {
+            XCTFail("Expected playlist item from navigation button")
+        }
+    }
+
+    func testParseGridWithNavigationButtons() {
+        // Given - Moods & Genres grid section
+        let gridData: [String: Any] = [
+            "gridRenderer": [
+                "header": [
+                    "gridHeaderRenderer": [
+                        "title": ["runs": [["text": "Moods"]]],
+                    ],
+                ],
+                "items": [
+                    [
+                        "musicNavigationButtonRenderer": [
+                            "buttonText": [
+                                "runs": [["text": "Chill"]],
+                            ],
+                            "clickCommand": [
+                                "browseEndpoint": [
+                                    "browseId": "FEmusic_moods_chill",
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        "musicNavigationButtonRenderer": [
+                            "buttonText": [
+                                "runs": [["text": "Focus"]],
+                            ],
+                            "clickCommand": [
+                                "browseEndpoint": [
+                                    "browseId": "FEmusic_moods_focus",
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        // When
+        let section = HomeResponseParser.parseHomeSection(gridData)
+
+        // Then
+        XCTAssertNotNil(section)
+        XCTAssertEqual(section?.title, "Moods")
+        XCTAssertEqual(section?.items.count, 2)
+        XCTAssertEqual(section?.isChart, false, "Moods section should not be a chart")
+
+        if case let .playlist(firstPlaylist) = section?.items.first {
+            XCTAssertEqual(firstPlaylist.title, "Chill")
+        } else {
+            XCTFail("Expected playlist item from navigation button")
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeHomeResponseData(sectionCount: Int) -> [String: Any] {

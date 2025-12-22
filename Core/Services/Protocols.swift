@@ -24,7 +24,7 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Clears all website data (cookies, cache, etc.).
     func clearAllData() async
 
-    /// Forces an immediate backup of all YouTube/Google cookies to Keychain.
+    /// Forces an immediate backup of all YouTube/Google cookies.
     func forceBackupCookies() async
 
     /// Logs all authentication-related cookies for debugging.
@@ -54,6 +54,42 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Whether more explore sections are available to load.
     var hasMoreExploreSections: Bool { get }
+
+    /// Fetches the charts page content (initial sections only for fast display).
+    func getCharts() async throws -> HomeResponse
+
+    /// Fetches the next batch of charts sections via continuation.
+    func getChartsContinuation() async throws -> [HomeSection]?
+
+    /// Whether more charts sections are available to load.
+    var hasMoreChartsSections: Bool { get }
+
+    /// Fetches the moods and genres page content (initial sections only for fast display).
+    func getMoodsAndGenres() async throws -> HomeResponse
+
+    /// Fetches the next batch of moods and genres sections via continuation.
+    func getMoodsAndGenresContinuation() async throws -> [HomeSection]?
+
+    /// Whether more moods and genres sections are available to load.
+    var hasMoreMoodsAndGenresSections: Bool { get }
+
+    /// Fetches the new releases page content (initial sections only for fast display).
+    func getNewReleases() async throws -> HomeResponse
+
+    /// Fetches the next batch of new releases sections via continuation.
+    func getNewReleasesContinuation() async throws -> [HomeSection]?
+
+    /// Whether more new releases sections are available to load.
+    var hasMoreNewReleasesSections: Bool { get }
+
+    /// Fetches the podcasts page content (initial sections only for fast display).
+    func getPodcasts() async throws -> HomeResponse
+
+    /// Fetches the next batch of podcasts sections via continuation.
+    func getPodcastsContinuation() async throws -> [HomeSection]?
+
+    /// Whether more podcasts sections are available to load.
+    var hasMorePodcastsSections: Bool { get }
 
     /// Searches for content.
     func search(query: String) async throws -> SearchResponse
@@ -106,6 +142,10 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches a radio queue (similar songs) based on a video ID.
     /// Returns an array of songs that form a "radio" playlist based on the seed track.
     func getRadioQueue(videoId: String) async throws -> [Song]
+
+    /// Fetches content for a moods/genres category page.
+    /// Returns sections of songs/playlists for the category.
+    func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse
 }
 
 // MARK: - AuthServiceProtocol

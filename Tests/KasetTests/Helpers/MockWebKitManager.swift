@@ -2,7 +2,7 @@ import Foundation
 @testable import Kaset
 
 /// A mock implementation of WebKitManagerProtocol for testing.
-/// Does not interact with real WebKit or Keychain.
+/// Does not interact with real WebKit or file storage.
 @MainActor
 final class MockWebKitManager: WebKitManagerProtocol {
     // MARK: - Response Stubs
@@ -64,7 +64,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     func forceBackupCookies() async {
         self.forceBackupCookiesCalled = true
-        // Does NOT interact with real Keychain
+        // Does NOT interact with real file storage
     }
 
     func logAuthCookies() async {

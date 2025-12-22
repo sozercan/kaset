@@ -173,8 +173,8 @@ struct PlayerBar: View {
                 self.playerService.toggleShuffle()
             } label: {
                 Image(systemName: "shuffle")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.shuffleEnabled ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.shuffleEnabled ? .red : .primary.opacity(0.85))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
@@ -188,7 +188,7 @@ struct PlayerBar: View {
                 }
             } label: {
                 Image(systemName: "backward.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
@@ -201,7 +201,7 @@ struct PlayerBar: View {
                 }
             } label: {
                 Image(systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 22, weight: .medium))
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
             }
@@ -215,7 +215,7 @@ struct PlayerBar: View {
                 }
             } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
@@ -226,8 +226,8 @@ struct PlayerBar: View {
                 self.playerService.cycleRepeatMode()
             } label: {
                 Image(systemName: self.repeatIcon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.repeatMode != .off ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.repeatMode != .off ? .red : .primary.opacity(0.85))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
@@ -272,9 +272,9 @@ struct PlayerBar: View {
                 .padding(.horizontal, 4)
 
             Image(systemName: self.volumeIcon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.6))
-                .frame(width: 16)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.85))
+                .frame(width: 18)
 
             // Volume slider with immediate updates
             Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
@@ -321,8 +321,8 @@ struct PlayerBar: View {
                 Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
                     ? "hand.thumbsdown.fill"
                     : "hand.thumbsdown")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.85))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
@@ -338,8 +338,8 @@ struct PlayerBar: View {
                 Image(systemName: self.playerService.currentTrackLikeStatus == .like
                     ? "hand.thumbsup.fill"
                     : "hand.thumbsup")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.85))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
@@ -355,8 +355,8 @@ struct PlayerBar: View {
                 }
             } label: {
                 Image(systemName: "quote.bubble")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
@@ -371,8 +371,8 @@ struct PlayerBar: View {
                 }
             } label: {
                 Image(systemName: "list.bullet")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.6))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)

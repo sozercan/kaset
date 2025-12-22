@@ -33,6 +33,7 @@ Core/
 Views/
   └── macOS/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
 Tests/              → Unit tests (KasetTests/)
+Tools/              → Standalone CLI tools (api-explorer.swift)
 docs/               → Detailed documentation
   └── adr/          → Architecture Decision Records
 ```
@@ -51,6 +52,58 @@ For detailed information, see the `docs/` folder:
 1. **Read [PLAN.md](PLAN.md)** — Contains the phased implementation plan
 2. **Understand the playback architecture** — See [docs/playback.md](docs/playback.md)
 3. **Check ADRs for past decisions** — See [docs/adr/](docs/adr/) before proposing architectural changes
+4. **Consult API documentation before implementing API features** — See [docs/api-discovery.md](docs/api-discovery.md) for endpoint reference
+
+### API Discovery Workflow
+
+> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using the API Explorer tool. Do NOT guess or assume API response structures.
+
+#### Step 1: Explore with Standalone Tool (Required)
+
+Use the standalone CLI tool to explore endpoints **before writing any code**:
+
+```bash
+# Check authentication status
+./Tools/api-explorer.swift auth
+
+# List all known endpoints
+./Tools/api-explorer.swift list
+
+# Explore public browse endpoints
+./Tools/api-explorer.swift browse FEmusic_charts
+./Tools/api-explorer.swift browse FEmusic_moods_and_genres
+
+# Explore authenticated endpoints (requires Kaset sign-in)
+./Tools/api-explorer.swift browse FEmusic_liked_playlists
+./Tools/api-explorer.swift browse FEmusic_history
+
+# Explore with verbose output to see raw JSON
+./Tools/api-explorer.swift browse FEmusic_home -v
+
+# Explore action endpoints
+./Tools/api-explorer.swift action search '{"query":"taylor swift"}'
+./Tools/api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+```
+
+The tool automatically uses cookies from the Kaset app for authenticated endpoints.
+
+#### Step 2: Check Documentation
+
+Review [docs/api-discovery.md](docs/api-discovery.md) to see if the endpoint is already documented with its auth requirements and response structure.
+
+#### Step 3: For Authenticated Endpoints (🔐)
+
+If the endpoint requires authentication:
+1. Run `./Tools/api-explorer.swift auth` to check cookie status
+2. If no cookies, run the Kaset app and sign in to YouTube Music
+3. The app saves cookies to `~/Library/Application Support/Kaset/cookies.dat`
+4. Run the API explorer again
+
+#### Step 4: Document Findings
+
+If you discover new response structures or endpoint behaviors, update [docs/api-discovery.md](docs/api-discovery.md) with your findings.
+
+> ⚠️ **Do NOT guess API structures** — Always verify with the API Explorer tool or documentation before writing parsers. Incorrect assumptions lead to runtime failures.
 
 ## Critical Rules
 
@@ -171,6 +224,7 @@ GlassEffectContainer(spacing: 0) {
 
 | File | Purpose |
 |------|---------|
+| `Tools/api-explorer.swift` | **Standalone API explorer CLI** (run before implementing API features) |
 | `App/AppDelegate.swift` | Window lifecycle, background audio support |
 | `Core/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
 | `Core/Services/Auth/AuthService.swift` | Login state machine |

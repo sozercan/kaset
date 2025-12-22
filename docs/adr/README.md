@@ -38,3 +38,4 @@ What becomes easier or more difficult because of this change?
 | [0001](0001-webview-playback.md) | WebView-Based Playback | Accepted |
 | [0002](0002-protocol-based-services.md) | Protocol-Based Service Design | Accepted |
 | [0003](0003-modular-api-parsers.md) | Modular API Response Parsers | Accepted |
+| [0004](0004-streaming-foundation-models.md) | Streaming Responses for Foundation Models | Accepted |

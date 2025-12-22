@@ -8,6 +8,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     var hasMoreHomeSections: Bool { false }
     var hasMoreExploreSections: Bool { false }
+    var hasMoreChartsSections: Bool { false }
+    var hasMoreMoodsAndGenresSections: Bool { false }
+    var hasMoreNewReleasesSections: Bool { false }
+    var hasMorePodcastsSections: Bool { false }
 
     // MARK: - Mock Data
 
@@ -44,6 +48,42 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func getExploreContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getCharts() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getChartsContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getMoodsAndGenres() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getNewReleases() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getPodcasts() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getPodcastsContinuation() async throws -> [HomeSection]? {
         nil
     }
 
@@ -166,6 +206,22 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 videoId: "radio-video-\(videoId)-\(index)"
             )
         }
+    }
+
+    func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        // Return mock mood category content
+        let songs = (0 ..< 10).map { index in
+            Song(
+                id: "mood-song-\(index)",
+                title: "Mood Song \(index + 1)",
+                artists: [Artist(id: "mood-artist-\(index % 3)", name: "Mood Artist \(index % 3 + 1)")],
+                videoId: "mood-video-\(index)"
+            )
+        }
+        let items = songs.map { HomeSectionItem.song($0) }
+        let section = HomeSection(id: "mood-section", title: "Top Songs", items: items)
+        return HomeResponse(sections: [section])
     }
 
     // MARK: - Environment Parsing

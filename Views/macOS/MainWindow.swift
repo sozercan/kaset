@@ -22,6 +22,9 @@ struct MainWindow: View {
     @State private var homeViewModel: HomeViewModel?
     @State private var exploreViewModel: ExploreViewModel?
     @State private var searchViewModel: SearchViewModel?
+    @State private var chartsViewModel: ChartsViewModel?
+    @State private var moodsAndGenresViewModel: MoodsAndGenresViewModel?
+    @State private var newReleasesViewModel: NewReleasesViewModel?
     @State private var likedMusicViewModel: LikedMusicViewModel?
     @State private var libraryViewModel: LibraryViewModel?
 
@@ -177,33 +180,38 @@ struct MainWindow: View {
     @ViewBuilder
     private func detailView(for item: NavigationItem?, client _: any YTMusicClientProtocol) -> some View {
         Group {
-            switch item {
-            case .home:
-                if let vm = homeViewModel {
-                    HomeView(viewModel: vm)
-                }
-            case .explore:
-                if let vm = exploreViewModel {
-                    ExploreView(viewModel: vm)
-                }
-            case .search:
-                if let vm = searchViewModel {
-                    SearchView(viewModel: vm)
-                }
-            case .likedMusic:
-                if let vm = likedMusicViewModel {
-                    LikedMusicView(viewModel: vm)
-                }
-            case .library:
-                if let vm = libraryViewModel {
-                    LibraryView(viewModel: vm)
-                }
-            case .none:
+            if let item {
+                self.viewForNavigationItem(item)
+            } else {
                 Text("Select an item from the sidebar")
                     .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Returns the view for a specific navigation item.
+    @ViewBuilder
+    // swiftlint:disable:next cyclomatic_complexity
+    private func viewForNavigationItem(_ item: NavigationItem) -> some View {
+        switch item {
+        case .home:
+            if let vm = homeViewModel { HomeView(viewModel: vm) }
+        case .explore:
+            if let vm = exploreViewModel { ExploreView(viewModel: vm) }
+        case .search:
+            if let vm = searchViewModel { SearchView(viewModel: vm) }
+        case .charts:
+            if let vm = chartsViewModel { ChartsView(viewModel: vm) }
+        case .moodsAndGenres:
+            if let vm = moodsAndGenresViewModel { MoodsAndGenresView(viewModel: vm) }
+        case .newReleases:
+            if let vm = newReleasesViewModel { NewReleasesView(viewModel: vm) }
+        case .likedMusic:
+            if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
+        case .library:
+            if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+        }
     }
 
     private var loadingView: some View {
@@ -245,6 +253,9 @@ struct MainWindow: View {
         self.homeViewModel = HomeViewModel(client: client)
         self.exploreViewModel = ExploreViewModel(client: client)
         self.searchViewModel = SearchViewModel(client: client)
+        self.chartsViewModel = ChartsViewModel(client: client)
+        self.moodsAndGenresViewModel = MoodsAndGenresViewModel(client: client)
+        self.newReleasesViewModel = NewReleasesViewModel(client: client)
         self.likedMusicViewModel = LikedMusicViewModel(client: client)
         self.libraryViewModel = LibraryViewModel(client: client)
 
@@ -284,6 +295,9 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case home = "Home"
     case explore = "Explore"
     case search = "Search"
+    case charts = "Charts"
+    case moodsAndGenres = "Moods & Genres"
+    case newReleases = "New Releases"
     case likedMusic = "Liked Music"
     case library = "Library"
 
@@ -297,6 +311,12 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "globe"
         case .search:
             "magnifyingglass"
+        case .charts:
+            "chart.line.uptrend.xyaxis"
+        case .moodsAndGenres:
+            "theatermask.and.paintbrush"
+        case .newReleases:
+            "sparkles"
         case .likedMusic:
             "heart.fill"
         case .library:

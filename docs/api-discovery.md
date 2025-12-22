@@ -2,7 +2,7 @@
 
 > **Complete documentation of YouTube Music API endpoints for Kaset development.**
 >
-> This document catalogs all known YouTube Music API endpoints, their authentication requirements, implementation status, and usage patterns. Use the [APIExplorer](../Core/Services/API/APIExplorer.swift) tool for live endpoint testing.
+> This document catalogs all known YouTube Music API endpoints, their authentication requirements, implementation status, and usage patterns. Use the standalone [API Explorer](../Tools/api-explorer.swift) tool for live endpoint testing.
 
 ## Table of Contents
 
@@ -584,58 +584,63 @@ if let watchEndpoint = navEndpoint["watchEndpoint"] as? [String: Any],
 
 ## Using the API Explorer
 
-The [APIExplorer](../Core/Services/API/APIExplorer.swift) tool provides structured exploration of API endpoints.
+The standalone [api-explorer.swift](../Tools/api-explorer.swift) tool provides comprehensive exploration of both public and authenticated API endpoints.
+
+### Setup
+
+```bash
+# Make executable (one time)
+chmod +x Tools/api-explorer.swift
+```
 
 ### Basic Usage
 
-```swift
-// Create explorer instance
-let explorer = APIExplorer(webKitManager: .shared)
+```bash
+# Check authentication status
+./Tools/api-explorer.swift auth
 
-// Explore a browse endpoint
-let result = await explorer.exploreBrowseEndpoint("FEmusic_charts")
-DiagnosticsLogger.api.info("\(result.summary)")
-// Output: ✅ FEmusic_charts: 4 keys, 5 sections [musicCarouselShelfRenderer, gridRenderer]
+# List all known endpoints
+./Tools/api-explorer.swift list
 
-// Explore an action endpoint
-let actionResult = await explorer.exploreActionEndpoint("player", body: ["videoId": "dQw4w9WgXcQ"])
-DiagnosticsLogger.api.info("\(actionResult.summary)")
-// Output: ✅ player: 8 keys, ~42KB response
+# Explore a public browse endpoint
+./Tools/api-explorer.swift browse FEmusic_charts
+# Output: ✅ HTTP 200
+#         📋 Top-level keys (5): contents, frameworkUpdates, header...
+
+# Explore with verbose output (shows raw JSON)
+./Tools/api-explorer.swift browse FEmusic_home -v
+
+# Explore action endpoints
+./Tools/api-explorer.swift action search '{"query":"never gonna give you up"}'
+./Tools/api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
 ```
 
-### Exploring All Endpoints
+### Authenticated Endpoints
 
-```swift
-// Explore all unimplemented browse endpoints
-let results = await explorer.exploreAllBrowseEndpoints(includeImplemented: false)
-for result in results {
-    DiagnosticsLogger.api.info("\(result.summary)")
-}
+For authenticated endpoints (🔐), sign in to the Kaset app first:
 
-// Generate markdown report
-let report = await explorer.generateEndpointReport()
-DiagnosticsLogger.api.info(report)
+```bash
+# Check if cookies are available
+./Tools/api-explorer.swift auth
+
+# If authenticated, explore library endpoints
+./Tools/api-explorer.swift browse FEmusic_liked_playlists
+./Tools/api-explorer.swift browse FEmusic_history
+./Tools/api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
 ```
 
-### Endpoint Registry
+The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 
-The explorer maintains registries of all known endpoints:
+### Commands Reference
 
-```swift
-// Browse endpoints
-APIExplorer.browseEndpoints  // [EndpointConfig]
-
-// Action endpoints  
-APIExplorer.actionEndpoints  // [EndpointConfig]
-```
-
-Each `EndpointConfig` contains:
-- `id`: The endpoint identifier
-- `name`: Human-readable name
-- `description`: What it does
-- `requiresAuth`: Whether auth is needed
-- `isImplemented`: Current implementation status
-- `notes`: Additional context
+| Command | Description |
+|---------|-------------|
+| `browse <id> [params]` | Explore a browse endpoint |
+| `action <endpoint> <json>` | Explore an action endpoint |
+| `list` | List all known endpoints |
+| `auth` | Check authentication status |
+| `help` | Show help message |
+| `-v, --verbose` | Show raw JSON response |
 
 ---
 

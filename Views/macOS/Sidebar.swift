@@ -25,6 +25,24 @@ struct Sidebar: View {
                 .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
             }
 
+            // Discover section
+            Section("Discover") {
+                NavigationLink(value: NavigationItem.charts) {
+                    Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.chartsItem)
+
+                NavigationLink(value: NavigationItem.moodsAndGenres) {
+                    Label("Moods & Genres", systemImage: "theatermask.and.paintbrush")
+                }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.moodsAndGenresItem)
+
+                NavigationLink(value: NavigationItem.newReleases) {
+                    Label("New Releases", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
+            }
+
             // Library section
             Section("Library") {
                 NavigationLink(value: NavigationItem.likedMusic) {

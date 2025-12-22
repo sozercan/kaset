@@ -56,64 +56,127 @@ struct MusicIntent: Sendable {
         }
 
         var parts: [String] = []
+        var hasHits = false
 
-        // ERA-FIRST STRATEGY: When era is specified, lead with it for better YTM results
-        // "90s dance hits" works better than "dance 1990s songs"
-        if !self.era.isEmpty {
-            let shortEra = self.normalizeEra(self.era)
-            parts.append(shortEra)
+        // Check if the original query contains "hits" - preserve user intent
+        let wantsHits = self.queryWantsHits()
 
-            // Combine mood into genre-like descriptor for era queries
-            // "90s dance" or "90s rock" instead of "90s energetic"
-            if !self.mood.isEmpty {
-                let genreFromMood = self.moodToGenre(self.mood)
-                parts.append(genreFromMood)
-            } else if !self.genre.isEmpty {
-                parts.append(self.genre)
-            }
-
-            // Add "hits" for era queries without artist - works better with YTM
-            if self.artist.isEmpty {
-                parts.append("hits")
-            }
-        }
-
-        // Artist (after era if present)
+        // Build query based on primary identifier (artist > era > generic)
         if !self.artist.isEmpty {
-            parts.append(self.artist)
+            (parts, hasHits) = self.buildArtistQuery(wantsHits: wantsHits)
+        } else if !self.era.isEmpty {
+            (parts, hasHits) = self.buildEraQuery()
+        } else {
+            parts = self.buildGenericQuery()
         }
 
-        // Add base query if different from artist
-        if !self.query.isEmpty, self.query.lowercased() != self.artist.lowercased() {
-            parts.append(self.query)
-        }
+        // Add additional components
+        parts = self.appendAdditionalComponents(to: parts)
 
-        // Add genre (if not already added in era block)
-        if !self.genre.isEmpty, self.era.isEmpty {
-            parts.append(self.genre)
-        }
-
-        // Add mood (if not already converted in era block)
-        if !self.mood.isEmpty, self.era.isEmpty {
-            parts.append(self.mood)
-        }
-
-        // Add version type
-        if !self.version.isEmpty {
-            parts.append(self.version)
-        }
-
-        // Add activity for discovery (only if no other terms)
-        if !self.activity.isEmpty, parts.isEmpty {
-            parts.append("\(self.activity) music")
-        }
-
-        // Append "songs" only if we don't have "hits" already
-        if !parts.isEmpty, !parts.contains("hits") {
+        // Append "songs" suffix if we don't have "hits" or "music" already
+        let hasMusic = parts.contains { $0.lowercased() == "music" }
+        if !parts.isEmpty, !hasHits, !hasMusic {
             parts.append("songs")
         }
 
         return parts.joined(separator: " ")
+    }
+
+    /// Checks if the query contains keywords indicating "hits" style request.
+    private func queryWantsHits() -> Bool {
+        let queryLower = self.query.lowercased()
+        return queryLower.contains("hit") || queryLower.contains("best") ||
+            queryLower.contains("greatest") || queryLower.contains("top")
+    }
+
+    /// Builds query parts for artist-centric searches.
+    private func buildArtistQuery(wantsHits: Bool) -> ([String], Bool) {
+        var parts: [String] = [self.artist]
+        var hasHits = false
+
+        // For artist + era queries, add era after artist
+        if !self.era.isEmpty {
+            parts.append(self.normalizeEra(self.era))
+        }
+
+        // Add "greatest hits" for artist queries requesting hits
+        if wantsHits {
+            parts.append("greatest hits")
+            hasHits = true
+        }
+
+        // Add genre and mood for artist queries
+        if !self.genre.isEmpty { parts.append(self.genre) }
+        if !self.mood.isEmpty { parts.append(self.mood) }
+
+        return (parts, hasHits)
+    }
+
+    /// Builds query parts for era-centric searches (without artist).
+    private func buildEraQuery() -> ([String], Bool) {
+        var parts: [String] = [self.normalizeEra(self.era)]
+
+        // Combine mood into genre-like descriptor for era queries
+        if !self.mood.isEmpty {
+            parts.append(self.moodToGenre(self.mood))
+        } else if !self.genre.isEmpty {
+            parts.append(self.genre)
+        }
+
+        // Add "hits" for era-only queries - works better with YTM
+        parts.append("hits")
+        return (parts, true)
+    }
+
+    /// Builds query parts for generic searches (no artist or era).
+    private func buildGenericQuery() -> [String] {
+        var parts: [String] = []
+        if !self.genre.isEmpty { parts.append(self.genre) }
+        if !self.mood.isEmpty { parts.append(self.mood) }
+
+        // For mood-only queries, add "music" suffix for better YTM results
+        // "chill music" returns better playlists than "chill songs"
+        if self.genre.isEmpty, !self.mood.isEmpty, self.artist.isEmpty, self.activity.isEmpty {
+            parts.append("music")
+        }
+
+        return parts
+    }
+
+    /// Appends version and activity components to the query parts.
+    private func appendAdditionalComponents(to parts: [String]) -> [String] {
+        var result = parts
+
+        // Add cleaned base query if contains useful info
+        if !self.query.isEmpty {
+            let cleanQuery = self.cleanQueryForAppending(self.query)
+            if !cleanQuery.isEmpty, cleanQuery.lowercased() != self.artist.lowercased() {
+                result.append(cleanQuery)
+            }
+        }
+
+        // Add version type
+        if !self.version.isEmpty {
+            result.append(self.version)
+        }
+
+        // Add activity for discovery (only if no other terms)
+        if !self.activity.isEmpty, result.isEmpty {
+            result.append("\(self.activity) music")
+        }
+
+        return result
+    }
+
+    /// Removes redundant terms from query for appending.
+    private func cleanQueryForAppending(_ query: String) -> String {
+        let words = query.lowercased().split(separator: " ")
+        let skipWords: Set<String> = [
+            "play", "some", "the", "a", "an", "me", "from", "of",
+            "songs", "music", "tracks", "hits", "hit", "best", "greatest", "top",
+        ]
+        let filtered = words.filter { !skipWords.contains(String($0)) }
+        return filtered.joined(separator: " ")
     }
 
     /// Normalizes era to short format that works better with YTM search.
@@ -162,8 +225,14 @@ struct MusicIntent: Sendable {
     func queryDescription() -> String {
         var parts: [String] = []
 
+        // Check if user asked for hits/best of
+        let queryLower = self.query.lowercased()
+        let wantsHits = queryLower.contains("hit") || queryLower.contains("best") ||
+            queryLower.contains("greatest") || queryLower.contains("top")
+
         if !self.mood.isEmpty { parts.append(self.mood) }
         if !self.genre.isEmpty { parts.append(self.genre) }
+        if wantsHits { parts.append("hits") }
         if !self.artist.isEmpty { parts.append("by \(self.artist)") }
         if !self.era.isEmpty { parts.append("from the \(self.era)") }
         if !self.version.isEmpty { parts.append("(\(self.version))") }
@@ -174,6 +243,59 @@ struct MusicIntent: Sendable {
         }
 
         return parts.joined(separator: " ")
+    }
+
+    /// Suggests the best content source based on the parsed intent.
+    /// - Returns: The recommended content source for this intent.
+    func suggestedContentSource() -> ContentSource {
+        // For artist-specific or era-specific queries, search is better
+        if !self.artist.isEmpty {
+            return .search
+        }
+
+        // For version-specific queries (acoustic, live, cover), search is needed
+        if !self.version.isEmpty {
+            return .search
+        }
+
+        // Keywords suggesting popularity/charts
+        let popularityKeywords = ["top", "popular", "trending", "best", "hits", "charts"]
+        let queryLower = self.query.lowercased()
+        if popularityKeywords.contains(where: { queryLower.contains($0) }) {
+            return .charts
+        }
+
+        // Pure mood requests are great for Moods & Genres
+        let moodMatches = [
+            "chill", "relaxing", "calm", "peaceful", "mellow",
+            "energetic", "workout", "pump", "hype", "party",
+            "focus", "study", "concentration",
+            "sad", "melancholic", "heartbreak",
+            "happy", "feel good", "upbeat", "uplifting",
+            "sleep", "bedtime", "ambient",
+            "romantic", "love",
+        ]
+
+        let moodLower = self.mood.lowercased()
+        let matchesMood = !self.mood.isEmpty && moodMatches.contains { moodLower.contains($0) }
+        let matchesQuery = moodMatches.contains { queryLower.contains($0) }
+
+        if matchesMood || matchesQuery {
+            return .moodsAndGenres
+        }
+
+        // Activity-based requests match well with Moods & Genres
+        if !self.activity.isEmpty {
+            return .moodsAndGenres
+        }
+
+        // Genre-only requests (without artist/era) can use Moods & Genres
+        if !self.genre.isEmpty, self.artist.isEmpty, self.era.isEmpty {
+            return .moodsAndGenres
+        }
+
+        // Default to search
+        return .search
     }
 }
 
@@ -193,4 +315,19 @@ enum MusicAction: String, Sendable, CaseIterable {
     case pause
     case resume
     case search
+}
+
+// MARK: - ContentSource
+
+/// Hints about where to source content for the best results.
+/// Used to route requests to curated endpoints instead of search when appropriate.
+enum ContentSource: String, Sendable, CustomStringConvertible {
+    /// Use search API (default fallback)
+    case search
+    /// Use Moods & Genres curated playlists
+    case moodsAndGenres
+    /// Use Charts for popularity-based requests
+    case charts
+
+    var description: String { rawValue }
 }
