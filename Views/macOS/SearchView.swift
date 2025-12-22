@@ -432,8 +432,9 @@ struct SearchView: View {
     private func handleItemTap(_ item: SearchResultItem) {
         switch item {
         case let .song(song):
+            // Play the song and fetch similar songs (radio queue) in the background
             Task {
-                await self.playerService.play(videoId: song.videoId)
+                await self.playerService.playWithRadio(song: song)
             }
         case let .artist(artist):
             self.navigationPath.append(artist)

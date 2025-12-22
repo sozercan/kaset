@@ -147,6 +147,22 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getRadioQueue(videoId: String) async throws -> [Song] {
+        try? await Task.sleep(for: .milliseconds(100))
+        // Return a radio queue based on the seed song
+        return (0 ..< 25).map { index in
+            Song(
+                id: "radio-\(videoId)-\(index)",
+                title: "Radio Song \(index + 1)",
+                artists: [Artist(id: "radio-artist-\(index % 5)", name: "Radio Artist \(index % 5 + 1)")],
+                album: nil,
+                duration: TimeInterval(180 + index * 5),
+                thumbnailURL: nil,
+                videoId: "radio-video-\(videoId)-\(index)"
+            )
+        }
+    }
+
     // MARK: - Environment Parsing
 
     private static func parseHomeSections() -> [HomeSection]? {

@@ -224,7 +224,7 @@ struct ArtistDetailView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(self.viewModel.displayedSongs.enumerated()), id: \.element.id) { index, song in
-                    self.songRow(song, index: index, songs: self.viewModel.displayedSongs)
+                    self.topSongRow(song, index: index)
 
                     if index < self.viewModel.displayedSongs.count - 1 {
                         Divider()
@@ -235,9 +235,16 @@ struct ArtistDetailView: View {
         }
     }
 
-    private func songRow(_ song: Song, index: Int, songs: [Song]) -> some View {
+    /// Song row for top songs section - fetches all songs and plays as queue.
+    private func topSongRow(_ song: Song, index: Int) -> some View {
         Button {
-            self.playSongInQueue(songs: songs, startingAt: index)
+            // Fetch all songs and play as queue starting from the selected song
+            Task {
+                let allSongs = await self.viewModel.getAllSongs()
+                // Find the index of the selected song in the full list
+                let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
+                await self.playerService.playQueue(allSongs, startingAt: startIndex)
+            }
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
@@ -358,12 +365,6 @@ struct ArtistDetailView: View {
     }
 
     // MARK: - Actions
-
-    private func playSongInQueue(songs: [Song], startingAt index: Int) {
-        Task {
-            await self.playerService.playQueue(songs, startingAt: index)
-        }
-    }
 
     private func playAll(_ songs: [Song]) {
         guard !songs.isEmpty else { return }

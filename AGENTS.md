@@ -54,7 +54,11 @@ For detailed information, see the `docs/` folder:
 
 ## Critical Rules
 
+> 🚨 **NEVER leak secrets, cookies, API keys, or tokens** — Under NO circumstances include real cookies, authentication tokens, API keys, SAPISID values, or any sensitive credentials in code, comments, logs, documentation, test fixtures, or any output. Always use placeholder values like `"REDACTED"`, `"mock-token"`, or `"test-cookie"` in examples and tests. This applies to all files including tests, docs, and ADRs. **Violation of this rule is a critical security incident.**
+
 > ⚠️ **NEVER run `git commit` or `git push`** — Always leave committing and pushing to the human.
+
+> ⚠️ **ALWAYS confirm before running UI tests** — UI tests launch the app and can be disruptive. Ask the human for permission before executing any UI test.
 
 > ⚠️ **No Third-Party Frameworks** — Do not introduce third-party dependencies without asking first.
 

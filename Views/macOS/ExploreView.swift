@@ -64,13 +64,13 @@ struct ExploreView: View {
                     if section.isChart {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item, rank: index + 1) {
-                                self.playItem(item)
+                                self.playItem(item, in: section, at: index)
                             }
                         }
                     } else {
-                        ForEach(section.items) { item in
+                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item) {
-                                self.playItem(item)
+                                self.playItem(item, in: section, at: index)
                             }
                         }
                     }
@@ -81,11 +81,12 @@ struct ExploreView: View {
 
     // MARK: - Actions
 
-    private func playItem(_ item: HomeSectionItem) {
+    private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {
         case let .song(song):
+            // Play the song and fetch similar songs (radio queue) in the background
             Task {
-                await self.playerService.play(videoId: song.videoId)
+                await self.playerService.playWithRadio(song: song)
             }
         case let .playlist(playlist):
             self.navigationPath.append(playlist)

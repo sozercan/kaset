@@ -18,6 +18,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
     var lyricsResponses: [String: Lyrics] = [:]
+    var radioQueueSongs: [String: [Song]] = [:]
 
     // MARK: - Continuation State
 
@@ -69,6 +70,8 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var unsubscribeFromArtistIds: [String] = []
     private(set) var getLyricsCalled = false
     private(set) var getLyricsVideoIds: [String] = []
+    private(set) var getRadioQueueCalled = false
+    private(set) var getRadioQueueVideoIds: [String] = []
 
     // MARK: - Error Simulation
 
@@ -223,6 +226,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getRadioQueue(videoId: String) async throws -> [Song] {
+        self.getRadioQueueCalled = true
+        self.getRadioQueueVideoIds.append(videoId)
+        if let error = shouldThrowError { throw error }
+        return self.radioQueueSongs[videoId] ?? []
+    }
+
     // MARK: - Helper Methods
 
     /// Resets all call tracking.
@@ -264,6 +274,8 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.unsubscribeFromArtistIds = []
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []
+        self.getRadioQueueCalled = false
+        self.getRadioQueueVideoIds = []
         self.shouldThrowError = nil
     }
 }

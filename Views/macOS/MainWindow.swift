@@ -127,21 +127,36 @@ struct MainWindow: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Global lyrics sidebar - outside NavigationSplitView so it persists across all navigation
-                Divider()
-                    .opacity(self.playerService.showLyrics ? 1 : 0)
-                    .frame(width: self.playerService.showLyrics ? 1 : 0)
-
-                LyricsView(client: client)
-                    .frame(width: self.playerService.showLyrics ? 280 : 0)
-                    .opacity(self.playerService.showLyrics ? 1 : 0)
-                    .clipped()
+                // Right sidebar - either lyrics or queue (mutually exclusive)
+                self.rightSidebarView(client: client)
             }
             .animation(.easeInOut(duration: 0.2), value: self.playerService.showLyrics)
+            .animation(.easeInOut(duration: 0.2), value: self.playerService.showQueue)
             .frame(minWidth: 900, minHeight: 600)
         } else {
             self.loadingView
         }
+    }
+
+    /// Right sidebar showing either lyrics or queue (mutually exclusive).
+    @ViewBuilder
+    private func rightSidebarView(client: any YTMusicClientProtocol) -> some View {
+        let showRightSidebar = self.playerService.showLyrics || self.playerService.showQueue
+
+        Divider()
+            .opacity(showRightSidebar ? 1 : 0)
+            .frame(width: showRightSidebar ? 1 : 0)
+
+        Group {
+            if self.playerService.showLyrics {
+                LyricsView(client: client)
+            } else if self.playerService.showQueue {
+                QueueView()
+            }
+        }
+        .frame(width: showRightSidebar ? 280 : 0)
+        .opacity(showRightSidebar ? 1 : 0)
+        .clipped()
     }
 
     @ViewBuilder

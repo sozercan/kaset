@@ -308,7 +308,7 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Action Buttons (Like/Dislike/Lyrics)
+    // MARK: - Action Buttons (Like/Dislike/Lyrics/Queue)
 
     private var actionButtons: some View {
         @Bindable var player = self.playerService
@@ -359,9 +359,25 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.6))
             }
             .buttonStyle(.pressable)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
             .accessibilityLabel("Lyrics")
             .accessibilityValue(self.playerService.showLyrics ? "Showing" : "Hidden")
             .disabled(self.playerService.currentTrack == nil)
+
+            // Queue button
+            Button {
+                withAnimation(AppAnimation.standard) {
+                    player.showQueue.toggle()
+                }
+            } label: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.6))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)
+            .accessibilityLabel("Queue")
+            .accessibilityValue(self.playerService.showQueue ? "Showing" : "Hidden")
         }
     }
 

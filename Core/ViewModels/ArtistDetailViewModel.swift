@@ -128,4 +128,42 @@ final class ArtistDetailViewModel {
         // OR if the API indicates more songs are available
         return detail.songs.count > Self.previewSongCount || detail.hasMoreSongs
     }
+
+    /// All songs for the artist (fetched on demand).
+    private(set) var allSongs: [Song]?
+
+    /// Fetches all songs for the artist if not already loaded.
+    /// Returns all songs for queue playback.
+    func getAllSongs() async -> [Song] {
+        // If we already have all songs cached, return them
+        if let allSongs {
+            return allSongs
+        }
+
+        // If there's no browse ID, we already have all the songs from artistDetail
+        guard let detail = artistDetail,
+              let browseId = detail.songsBrowseId
+        else {
+            return self.artistDetail?.songs ?? []
+        }
+
+        self.logger.info("Fetching all artist songs for queue: \(browseId)")
+
+        do {
+            let songs = try await client.getArtistSongs(
+                browseId: browseId,
+                params: detail.songsParams
+            )
+
+            if !songs.isEmpty {
+                self.allSongs = songs
+                return songs
+            }
+        } catch {
+            self.logger.warning("Failed to fetch all songs: \(error.localizedDescription)")
+        }
+
+        // Fallback to existing songs
+        return self.artistDetail?.songs ?? []
+    }
 }

@@ -99,6 +99,10 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches song metadata by video ID.
     func getSong(videoId: String) async throws -> Song
+
+    /// Fetches a radio queue (similar songs) based on a video ID.
+    /// Returns an array of songs that form a "radio" playlist based on the seed track.
+    func getRadioQueue(videoId: String) async throws -> [Song]
 }
 
 // MARK: - AuthServiceProtocol
@@ -220,6 +224,10 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int) async
+
+    /// Plays a song and fetches similar songs (radio queue) in the background.
+    /// The queue will be populated with similar songs from YouTube Music's radio feature.
+    func playWithRadio(song: Song) async
 
     // MARK: - Like/Library Actions
 

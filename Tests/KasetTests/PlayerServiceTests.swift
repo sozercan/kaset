@@ -267,4 +267,286 @@ final class PlayerServiceTests: XCTestCase {
 
         XCTAssertFalse(self.playerService.showMiniPlayer)
     }
+
+    // MARK: - Queue/Lyrics Mutual Exclusivity Tests
+
+    func testShowQueueInitiallyFalse() {
+        XCTAssertFalse(self.playerService.showQueue)
+    }
+
+    func testShowLyricsInitiallyFalse() {
+        XCTAssertFalse(self.playerService.showLyrics)
+    }
+
+    func testShowQueueClosesLyrics() {
+        // First show lyrics
+        self.playerService.showLyrics = true
+        XCTAssertTrue(self.playerService.showLyrics)
+        XCTAssertFalse(self.playerService.showQueue)
+
+        // Opening queue should close lyrics
+        self.playerService.showQueue = true
+        XCTAssertTrue(self.playerService.showQueue)
+        XCTAssertFalse(self.playerService.showLyrics, "Opening queue should close lyrics")
+    }
+
+    func testShowLyricsClosesQueue() {
+        // First show queue
+        self.playerService.showQueue = true
+        XCTAssertTrue(self.playerService.showQueue)
+        XCTAssertFalse(self.playerService.showLyrics)
+
+        // Opening lyrics should close queue
+        self.playerService.showLyrics = true
+        XCTAssertTrue(self.playerService.showLyrics)
+        XCTAssertFalse(self.playerService.showQueue, "Opening lyrics should close queue")
+    }
+
+    func testBothSidebarsCanBeClosed() {
+        // Show queue then close it
+        self.playerService.showQueue = true
+        XCTAssertTrue(self.playerService.showQueue)
+
+        self.playerService.showQueue = false
+        XCTAssertFalse(self.playerService.showQueue)
+        XCTAssertFalse(self.playerService.showLyrics)
+    }
+
+    // MARK: - Clear Queue Tests
+
+    func testClearQueueWithNoCurrentTrack() {
+        // Add some songs to queue
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        Task {
+            await self.playerService.playQueue(songs, startingAt: 0)
+        }
+
+        // Clear with no current track
+        self.playerService.clearQueue()
+
+        XCTAssertTrue(self.playerService.queue.isEmpty)
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    func testClearQueueKeepsCurrentTrack() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+
+        // Clear queue should keep only the current track
+        self.playerService.clearQueue()
+
+        XCTAssertEqual(self.playerService.queue.count, 1)
+        XCTAssertEqual(self.playerService.queue.first?.videoId, "v2")
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    // MARK: - Play From Queue Tests
+
+    func testPlayFromQueueValidIndex() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+
+        await self.playerService.playFromQueue(at: 2)
+
+        XCTAssertEqual(self.playerService.currentIndex, 2)
+        XCTAssertEqual(self.playerService.currentTrack?.videoId, "v3")
+    }
+
+    func testPlayFromQueueInvalidIndexDoesNothing() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+
+        // Try to play from invalid index
+        await self.playerService.playFromQueue(at: 5)
+
+        // Should stay at original index
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    func testPlayFromQueueNegativeIndexDoesNothing() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+
+        // Try to play from negative index
+        await self.playerService.playFromQueue(at: -1)
+
+        // Should stay at original index
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    // MARK: - Play With Radio Tests
+
+    func testPlayWithRadioStartsPlaybackImmediately() async {
+        let song = Song(
+            id: "radio-seed",
+            title: "Seed Song",
+            artists: [Artist(id: "artist-1", name: "Artist 1")],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "radio-seed-video"
+        )
+
+        await self.playerService.playWithRadio(song: song)
+
+        // Playback should start immediately with the seed song
+        XCTAssertEqual(self.playerService.currentTrack?.videoId, "radio-seed-video")
+        XCTAssertEqual(self.playerService.currentTrack?.title, "Seed Song")
+        // Queue should at minimum have the seed song
+        XCTAssertFalse(self.playerService.queue.isEmpty)
+    }
+
+    func testPlayWithRadioSetsQueueWithSeedSong() async {
+        let song = Song(
+            id: "seed",
+            title: "Seed Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "seed-video"
+        )
+
+        // Without a YTMusicClient, the queue should just have the seed song
+        await self.playerService.playWithRadio(song: song)
+
+        XCTAssertEqual(self.playerService.queue.count, 1)
+        XCTAssertEqual(self.playerService.queue.first?.videoId, "seed-video")
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    func testPlayWithRadioFetchesRadioQueue() async {
+        // Set up mock client with radio queue
+        let mockClient = MockYTMusicClient()
+        let radioSongs = [
+            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
+            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
+            Song(id: "radio-3", title: "Radio Song 3", artists: [], videoId: "radio-video-3"),
+        ]
+        mockClient.radioQueueSongs["seed-video"] = radioSongs
+        self.playerService.setYTMusicClient(mockClient)
+
+        let song = Song(
+            id: "seed",
+            title: "Seed Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "seed-video"
+        )
+
+        await self.playerService.playWithRadio(song: song)
+
+        // Verify radio queue was fetched
+        XCTAssertTrue(mockClient.getRadioQueueCalled)
+        XCTAssertEqual(mockClient.getRadioQueueVideoIds.first, "seed-video")
+
+        // Queue should have seed song at front plus radio songs
+        XCTAssertEqual(self.playerService.queue.count, 4)
+        XCTAssertEqual(self.playerService.queue.first?.videoId, "seed-video", "Seed song should be at front of queue")
+        XCTAssertEqual(self.playerService.currentIndex, 0)
+    }
+
+    func testPlayWithRadioKeepsSeedSongAtFrontWhenNotInRadio() async {
+        // Set up mock client with radio queue that doesn't include the seed song
+        let mockClient = MockYTMusicClient()
+        let radioSongs = [
+            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
+            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
+        ]
+        mockClient.radioQueueSongs["seed-video"] = radioSongs
+        self.playerService.setYTMusicClient(mockClient)
+
+        let song = Song(
+            id: "seed",
+            title: "Seed Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "seed-video"
+        )
+
+        await self.playerService.playWithRadio(song: song)
+
+        // Queue should have seed song prepended to radio songs
+        XCTAssertEqual(self.playerService.queue.count, 3)
+        XCTAssertEqual(self.playerService.queue[0].videoId, "seed-video", "Seed song should be first")
+        XCTAssertEqual(self.playerService.queue[1].videoId, "radio-video-1")
+        XCTAssertEqual(self.playerService.queue[2].videoId, "radio-video-2")
+    }
+
+    func testPlayWithRadioReordersSeedSongToFront() async {
+        // Set up mock client with radio queue that has seed song in the middle
+        let mockClient = MockYTMusicClient()
+        let radioSongs = [
+            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
+            Song(id: "seed", title: "Seed Song", artists: [], videoId: "seed-video"),
+            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
+        ]
+        mockClient.radioQueueSongs["seed-video"] = radioSongs
+        self.playerService.setYTMusicClient(mockClient)
+
+        let song = Song(
+            id: "seed",
+            title: "Seed Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "seed-video"
+        )
+
+        await self.playerService.playWithRadio(song: song)
+
+        // Queue should have seed song moved to front
+        XCTAssertEqual(self.playerService.queue.count, 3)
+        XCTAssertEqual(self.playerService.queue[0].videoId, "seed-video", "Seed song should be first")
+        // Other songs should follow (excluding the duplicate seed song)
+        XCTAssertEqual(self.playerService.queue[1].videoId, "radio-video-1")
+        XCTAssertEqual(self.playerService.queue[2].videoId, "radio-video-2")
+    }
+
+    func testPlayWithRadioHandlesEmptyRadioQueue() async {
+        let mockClient = MockYTMusicClient()
+        // Don't set any radio songs - simulates empty response
+        self.playerService.setYTMusicClient(mockClient)
+
+        let song = Song(
+            id: "lonely",
+            title: "Lonely Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "lonely-video"
+        )
+
+        await self.playerService.playWithRadio(song: song)
+
+        // Queue should still have the original seed song
+        XCTAssertEqual(self.playerService.queue.count, 1)
+        XCTAssertEqual(self.playerService.queue.first?.videoId, "lonely-video")
+    }
 }

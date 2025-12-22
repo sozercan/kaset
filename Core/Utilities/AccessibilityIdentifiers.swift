@@ -26,10 +26,24 @@ enum AccessibilityID {
         static let likeButton = "playerBar.like"
         static let dislikeButton = "playerBar.dislike"
         static let lyricsButton = "playerBar.lyrics"
+        static let queueButton = "playerBar.queue"
         static let volumeSlider = "playerBar.volumeSlider"
         static let trackTitle = "playerBar.trackTitle"
         static let trackArtist = "playerBar.trackArtist"
         static let thumbnail = "playerBar.thumbnail"
+    }
+
+    // MARK: - Queue View
+
+    enum Queue {
+        static let container = "queueView"
+        static let scrollView = "queueView.scrollView"
+        static let clearButton = "queueView.clearButton"
+        static let emptyState = "queueView.emptyState"
+
+        static func row(index: Int) -> String {
+            "queueView.row.\(index)"
+        }
     }
 
     // MARK: - HomeView

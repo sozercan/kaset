@@ -10,6 +10,7 @@
 		027E18189745CEC67E6828A7 /* MusicIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CAC6AE62FD1331D6D7197DE /* MusicIntent.swift */; };
 		03DA3E6574F126D01306B99E /* SearchSuggestionsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */; };
 		0A5EAC082557373484B2690F /* LyricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F870C29ED7A61E4BFD552C1 /* LyricsView.swift */; };
+		E50000010000000000000800 /* QueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000800 /* QueueView.swift */; };
 		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
 		0BF5A9C968BD0D2D9CB057AA /* CassetteIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390C91F55BBE06827FE8EA94 /* CassetteIcon.swift */; };
 		0C310209A7D8DD311A22DCE6 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57FBD1969A60A57AEE99F5D /* EqualizerView.swift */; };
@@ -113,6 +114,9 @@
 		E50000010000000000000302 /* SearchResponseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000302 /* SearchResponseParser.swift */; };
 		E50000010000000000000303 /* PlaylistParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000303 /* PlaylistParser.swift */; };
 		E50000010000000000000304 /* ArtistParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000304 /* ArtistParser.swift */; };
+		E50000010000000000000305 /* LyricsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000305 /* LyricsParser.swift */; };
+		E50000010000000000000306 /* RadioQueueParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000306 /* RadioQueueParser.swift */; };
+		E50000010000000000000307 /* SongMetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000307 /* SongMetadataParser.swift */; };
 		E50000010000000000000400 /* HomeResponseParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000400 /* HomeResponseParserTests.swift */; };
 		E50000010000000000000401 /* SearchResponseParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000401 /* SearchResponseParserTests.swift */; };
 		E50000010000000000000402 /* ParsingHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000402 /* ParsingHelpersTests.swift */; };
@@ -157,6 +161,7 @@
 		1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
 		1E9D7950D7FAE88739595001 /* InteractiveCardStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InteractiveCardStyle.swift; sourceTree = "<group>"; };
 		1F870C29ED7A61E4BFD552C1 /* LyricsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LyricsView.swift; path = Views/macOS/LyricsView.swift; sourceTree = "<group>"; };
+		E50000020000000000000800 /* QueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueView.swift; sourceTree = "<group>"; };
 		2D1A78D6AA4AB654E9663E2D /* ArtistDetail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetail.swift; sourceTree = "<group>"; };
 		37AD7895605C401CE66CF5E0 /* AnimationConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnimationConfiguration.swift; sourceTree = "<group>"; };
 		390C91F55BBE06827FE8EA94 /* CassetteIcon.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CassetteIcon.swift; path = Views/macOS/CassetteIcon.swift; sourceTree = "<group>"; };
@@ -260,6 +265,9 @@
 		E50000020000000000000302 /* SearchResponseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResponseParser.swift; sourceTree = "<group>"; };
 		E50000020000000000000303 /* PlaylistParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistParser.swift; sourceTree = "<group>"; };
 		E50000020000000000000304 /* ArtistParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistParser.swift; sourceTree = "<group>"; };
+		E50000020000000000000305 /* LyricsParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsParser.swift; sourceTree = "<group>"; };
+		E50000020000000000000306 /* RadioQueueParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioQueueParser.swift; sourceTree = "<group>"; };
+		E50000020000000000000307 /* SongMetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongMetadataParser.swift; sourceTree = "<group>"; };
 		E50000020000000000000400 /* HomeResponseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeResponseParserTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000401 /* SearchResponseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResponseParserTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000402 /* ParsingHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsingHelpersTests.swift; sourceTree = "<group>"; };
@@ -561,6 +569,9 @@
 				E50000020000000000000302 /* SearchResponseParser.swift */,
 				E50000020000000000000303 /* PlaylistParser.swift */,
 				E50000020000000000000304 /* ArtistParser.swift */,
+				E50000020000000000000305 /* LyricsParser.swift */,
+				E50000020000000000000306 /* RadioQueueParser.swift */,
+				E50000020000000000000307 /* SongMetadataParser.swift */,
 				954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */,
 			);
 			path = Parsers;
@@ -614,6 +625,7 @@
 				B5B735BB57DD2ACF165D683F /* MiniPlayerWebView.swift */,
 				D2E3F4A5B6C7D8E9F0A1B2C3 /* MiniPlayerViews.swift */,
 				E50000020000000000000093 /* AccentBackground.swift */,
+				E50000020000000000000800 /* QueueView.swift */,
 				01CA5C8085EDDF4F1A4CFE22 /* SharedViews */,
 				ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */,
 				0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */,
@@ -855,6 +867,9 @@
 				E50000010000000000000302 /* SearchResponseParser.swift in Sources */,
 				E50000010000000000000303 /* PlaylistParser.swift in Sources */,
 				E50000010000000000000304 /* ArtistParser.swift in Sources */,
+				E50000010000000000000305 /* LyricsParser.swift in Sources */,
+				E50000010000000000000306 /* RadioQueueParser.swift in Sources */,
+				E50000010000000000000307 /* SongMetadataParser.swift in Sources */,
 				E50000010000000000000500 /* ErrorPresenter.swift in Sources */,
 				E50000010000000000000076 /* ColorExtractor.swift in Sources */,
 				E50000010000000000000093 /* AccentBackground.swift in Sources */,
@@ -865,6 +880,7 @@
 				0BF5A9C968BD0D2D9CB057AA /* CassetteIcon.swift in Sources */,
 				B1A24892B22867B3A96E3116 /* LikedMusicView.swift in Sources */,
 				0A5EAC082557373484B2690F /* LyricsView.swift in Sources */,
+				E50000010000000000000800 /* QueueView.swift in Sources */,
 				9757065D24FEA188EEC1C958 /* TopSongsView.swift in Sources */,
 				40975001FCBE18063AB035FF /* LoadingState.swift in Sources */,
 				50DA263A5F4825558938406A /* LoadingView.swift in Sources */,
