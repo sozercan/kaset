@@ -126,6 +126,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         return self.searchResponse
     }
 
+    func searchSongs(query: String) async throws -> [Song] {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        if let error = shouldThrowError { throw error }
+        return self.searchResponse.songs
+    }
+
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         self.getSearchSuggestionsCalled = true
         self.getSearchSuggestionsQueries.append(query)

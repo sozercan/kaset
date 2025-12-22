@@ -40,6 +40,8 @@ enum AccessibilityID {
         static let scrollView = "queueView.scrollView"
         static let clearButton = "queueView.clearButton"
         static let emptyState = "queueView.emptyState"
+        static let refineButton = "queueView.refineButton"
+        static let suggestionButton = "queueView.suggestionButton"
 
         static func row(index: Int) -> String {
             "queueView.row.\(index)"
@@ -132,6 +134,7 @@ enum AccessibilityID {
     enum MainWindow {
         static let container = "mainWindow"
         static let initializingView = "mainWindow.initializing"
+        static let aiButton = "mainWindow.aiButton"
     }
 
     // MARK: - Explore View

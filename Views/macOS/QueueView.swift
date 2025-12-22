@@ -6,6 +6,7 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(\.showCommandBar) private var showCommandBar
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,6 +32,21 @@ struct QueueView: View {
                 .foregroundStyle(.primary)
 
             Spacer()
+
+            // AI refine button (only show if there are items and AI is available)
+            if self.playerService.queue.count > 2 {
+                Button {
+                    self.showCommandBar.wrappedValue = true
+                } label: {
+                    Image(systemName: "wand.and.stars")
+                        .font(.subheadline)
+                        .foregroundStyle(.tint)
+                }
+                .buttonStyle(.plain)
+                .help("Refine queue with AI")
+                .accessibilityIdentifier(AccessibilityID.Queue.refineButton)
+                .requiresIntelligence()
+            }
 
             // Clear queue button (only show if there are items beyond the current track)
             if self.playerService.queue.count > 1 {
@@ -87,12 +103,16 @@ struct QueueView: View {
                     QueueRowView(
                         song: song,
                         isCurrentTrack: index == self.playerService.currentIndex,
-                        index: index
-                    ) {
-                        Task {
-                            await self.playerService.playFromQueue(at: index)
+                        index: index,
+                        onRemove: {
+                            self.playerService.removeFromQueue(videoIds: [song.videoId])
+                        },
+                        onTap: {
+                            Task {
+                                await self.playerService.playFromQueue(at: index)
+                            }
                         }
-                    }
+                    )
                     .accessibilityIdentifier(AccessibilityID.Queue.row(index: index))
                 }
             }
@@ -109,6 +129,7 @@ private struct QueueRowView: View {
     let song: Song
     let isCurrentTrack: Bool
     let index: Int
+    let onRemove: () -> Void
     let onTap: () -> Void
 
     @State private var isHovering = false
@@ -166,6 +187,15 @@ private struct QueueRowView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             self.isHovering = hovering
+        }
+        .contextMenu {
+            if !self.isCurrentTrack {
+                Button(role: .destructive) {
+                    self.onRemove()
+                } label: {
+                    Label("Remove from Queue", systemImage: "minus.circle")
+                }
+            }
         }
     }
 

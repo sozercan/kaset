@@ -133,6 +133,21 @@ struct MainWindow: View {
             .animation(.easeInOut(duration: 0.2), value: self.playerService.showLyrics)
             .animation(.easeInOut(duration: 0.2), value: self.playerService.showQueue)
             .frame(minWidth: 900, minHeight: 600)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        self.showCommandBarSheet = true
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white)
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .help("Ask AI (⌘K)")
+                    .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+                    .requiresIntelligence()
+                }
+            }
         } else {
             self.loadingView
         }

@@ -137,12 +137,26 @@ struct CommandBarView: View {
                     self.inputText = "Play something chill"
                 }
 
+                SuggestionChip(text: "Add jazz to queue") {
+                    self.inputText = "Add jazz to queue"
+                }
+
+                SuggestionChip(text: "Shuffle my queue") {
+                    self.inputText = "Shuffle my queue"
+                }
+            }
+
+            HStack(spacing: 8) {
                 SuggestionChip(text: "Skip this song") {
                     self.inputText = "Skip this song"
                 }
 
                 SuggestionChip(text: "I like this") {
                     self.inputText = "I like this"
+                }
+
+                SuggestionChip(text: "Clear queue") {
+                    self.inputText = "Clear queue"
                 }
             }
         }
@@ -171,25 +185,62 @@ struct CommandBarView: View {
         // Create session with search tool for grounded responses
         let instructions = """
         You are a music assistant for the Kaset app. Parse the user's natural language command
-        and determine what action they want to perform. Use the searchMusic tool if you need
-        to find specific songs, artists, or albums. Return a MusicIntent with the appropriate action.
+        and determine what action they want to perform. Return a MusicIntent with:
+        1. The action (play, queue, shuffle, like, skip, pause, etc.)
+        2. Parsed query components (artist, genre, mood, era, version, activity)
 
-        Common patterns:
-        - "play X" or "put on X" → action: play, query: X
-        - "queue X" or "add X to queue" → action: queue, query: X
-        - "shuffle my library" → action: shuffle, shuffleScope: library
-        - "like this" or "love this song" → action: like
+        PARSE NATURAL LANGUAGE INTO STRUCTURED COMPONENTS:
+
+        Example: "upbeat rolling stones songs from the 90s"
+        → action: play
+        → artist: "Rolling Stones"
+        → mood: "upbeat"
+        → era: "1990s"
+
+        Example: "chill jazz for studying"
+        → action: play
+        → genre: "jazz"
+        → mood: "chill"
+        → activity: "study"
+
+        Example: "acoustic covers of pop hits"
+        → action: play
+        → genre: "pop"
+        → version: "acoustic cover"
+
+        Example: "80s synthwave"
+        → action: play
+        → genre: "synthwave"
+        → era: "1980s"
+
+        Example: "add some energetic workout music to queue"
+        → action: queue
+        → mood: "energetic"
+        → activity: "workout"
+
+        COMPONENT EXTRACTION RULES:
+        - artist: Extract artist name if mentioned ("Beatles", "Taylor Swift", "Kendrick Lamar")
+        - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop, etc.
+        - mood: upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy, dark
+        - era: Use decade format (1960s, 1970s, 1980s, 1990s, 2000s, 2010s, 2020s) or "classic" for oldies
+        - version: acoustic, live, remix, instrumental, cover, unplugged, remastered
+        - activity: workout, study, sleep, party, driving, cooking, focus, running, yoga, meditation
+
+        For simple commands:
         - "skip" or "next" → action: skip
-        - "go back" or "previous" → action: previous
         - "pause" or "stop" → action: pause
         - "play" or "resume" → action: resume
+        - "shuffle my queue" → action: shuffle, shuffleScope: queue
+        - "like this" → action: like
+        - "clear queue" → action: queue, query: "__clear__"
         """
 
         let searchTool = MusicSearchTool(client: self.client)
+        let queueTool = QueueTool(playerService: self.playerService)
 
         guard let session = FoundationModelsService.shared.createSession(
             instructions: instructions,
-            tools: [searchTool]
+            tools: [searchTool, queueTool]
         ) else {
             self.errorMessage = "Could not create AI session"
             self.isProcessing = false
@@ -211,26 +262,42 @@ struct CommandBarView: View {
     }
 
     private func executeIntent(_ intent: MusicIntent) async {
-        self.logger.info("Executing intent: \(intent.action.rawValue), query: \(intent.query)")
+        // Build the search query from parsed components
+        let searchQuery = intent.buildSearchQuery()
+        let description = intent.queryDescription()
+
+        self.logger.info("Executing intent: \(intent.action.rawValue)")
+        self.logger.info("  Raw query: \(intent.query)")
+        self.logger.info("  Artist: \(intent.artist), Genre: \(intent.genre), Mood: \(intent.mood)")
+        self.logger.info("  Era: \(intent.era), Version: \(intent.version), Activity: \(intent.activity)")
+        self.logger.info("  Built search query: \(searchQuery)")
 
         switch intent.action {
         case .play:
-            if intent.query.isEmpty {
+            if searchQuery.isEmpty, intent.query.isEmpty {
                 await self.playerService.resume()
                 self.resultMessage = "Resuming playback"
             } else {
-                await self.playSearchResult(query: intent.query)
+                await self.playSearchResult(query: searchQuery, description: description)
             }
 
         case .queue:
-            if !intent.query.isEmpty {
-                await self.queueSearchResult(query: intent.query)
+            if intent.query == "__clear__" {
+                self.playerService.clearQueue()
+                self.resultMessage = "Queue cleared"
+            } else if !searchQuery.isEmpty {
+                await self.queueSearchResult(query: searchQuery, description: description)
             }
 
         case .shuffle:
-            self.playerService.toggleShuffle()
-            let status = self.playerService.shuffleEnabled ? "on" : "off"
-            self.resultMessage = "Shuffle is now \(status)"
+            if intent.shuffleScope == "queue" {
+                self.playerService.shuffleQueue()
+                self.resultMessage = "Queue shuffled"
+            } else {
+                self.playerService.toggleShuffle()
+                let status = self.playerService.shuffleEnabled ? "on" : "off"
+                self.resultMessage = "Shuffle is now \(status)"
+            }
 
         case .like:
             self.playerService.likeCurrentTrack()
@@ -268,12 +335,23 @@ struct CommandBarView: View {
         }
     }
 
-    private func playSearchResult(query: String) async {
+    private func playSearchResult(query: String, description: String = "") async {
         do {
-            let response = try await client.search(query: query)
-            if let firstSong = response.songs.first {
-                await self.playerService.play(song: firstSong)
-                self.resultMessage = "Playing \"\(firstSong.title)\""
+            // Use songs-only filtered search to exclude podcasts/videos
+            let allSongs = try await client.searchSongs(query: query)
+            let songs = Array(allSongs.prefix(20))
+
+            self.logger.info("Songs search returned \(allSongs.count), using top \(songs.count) for query: \(query)")
+            if let firstSong = songs.first {
+                // Use playQueue to populate the queue with search results
+                await self.playerService.playQueue(songs, startingAt: 0)
+                self.logger.info("Started queue with \(songs.count) songs, first: \(firstSong.title)")
+                // Use description if available for nicer feedback
+                if !description.isEmpty {
+                    self.resultMessage = "Playing \(description)"
+                } else {
+                    self.resultMessage = "Playing \"\(firstSong.title)\""
+                }
             } else {
                 self.errorMessage = "No songs found for \"\(query)\""
             }
@@ -283,13 +361,31 @@ struct CommandBarView: View {
         }
     }
 
-    private func queueSearchResult(query: String) async {
+    private func queueSearchResult(query: String, description: String = "") async {
         do {
-            let response = try await client.search(query: query)
-            if let firstSong = response.songs.first {
-                // For now, just play it (queue management would need more implementation)
-                await self.playerService.play(song: firstSong)
-                self.resultMessage = "Playing \"\(firstSong.title)\""
+            // Use songs-only filtered search to exclude podcasts/videos
+            let allSongs = try await client.searchSongs(query: query)
+            let songs = Array(allSongs.prefix(10))
+
+            self.logger.info("Queue songs search returned \(allSongs.count), using top \(songs.count) for query: \(query)")
+            if !songs.isEmpty {
+                if self.playerService.queue.isEmpty {
+                    // No queue exists, create one with the search results
+                    await self.playerService.playQueue(songs, startingAt: 0)
+                    if !description.isEmpty {
+                        self.resultMessage = "Playing \(description)"
+                    } else {
+                        self.resultMessage = "Playing \"\(songs.first!.title)\" and \(songs.count - 1) more"
+                    }
+                } else {
+                    // Add all songs to existing queue
+                    self.playerService.appendToQueue(songs)
+                    if !description.isEmpty {
+                        self.resultMessage = "Added \(description) to queue"
+                    } else {
+                        self.resultMessage = "Added \(songs.count) songs to queue"
+                    }
+                }
             } else {
                 self.errorMessage = "No songs found for \"\(query)\""
             }

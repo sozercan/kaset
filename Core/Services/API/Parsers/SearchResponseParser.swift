@@ -46,6 +46,38 @@ enum SearchResponseParser {
         return SearchResponse(songs: songs, albums: albums, artists: artists, playlists: playlists)
     }
 
+    /// Parses a filtered songs-only search response.
+    /// Filtered searches have a simpler structure without tabs.
+    static func parseSongsOnly(_ data: [String: Any]) -> [Song] {
+        var songs: [Song] = []
+
+        // Filtered search has a simpler structure - no tabs
+        guard let contents = data["contents"] as? [String: Any],
+              let sectionListRenderer = contents["sectionListRenderer"] as? [String: Any],
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            // Try tabbed structure as fallback
+            let response = self.parse(data)
+            return response.songs
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let item = parseSearchResultItem(itemData),
+                       case let .song(song) = item
+                    {
+                        songs.append(song)
+                    }
+                }
+            }
+        }
+
+        return songs
+    }
+
     // MARK: - Item Parsing
 
     private static func parseSearchResultItem(_ data: [String: Any]) -> SearchResultItem? {

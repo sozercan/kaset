@@ -161,6 +161,25 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
+    /// Searches for songs only (filtered search).
+    func searchSongs(query: String) async throws -> [Song] {
+        self.logger.info("Searching songs only for: \(query)")
+
+        // YouTube Music API params for songs filter
+        // Derived from: EgWKAQ (filtered) + II (songs) + AWoMEA4QChADEAQQCRAF (no spelling correction)
+        let songsFilterParams = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": songsFilterParams,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let songs = SearchResponseParser.parseSongsOnly(data)
+        self.logger.info("Songs search found \(songs.count) songs")
+        return songs
+    }
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         guard !query.isEmpty else {

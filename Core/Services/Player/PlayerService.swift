@@ -573,6 +573,89 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Inserts songs immediately after the current track.
+    /// - Parameter songs: The songs to insert into the queue.
+    func insertNextInQueue(_ songs: [Song]) {
+        guard !songs.isEmpty else { return }
+        let insertIndex = min(self.currentIndex + 1, self.queue.count)
+        self.queue.insert(contentsOf: songs, at: insertIndex)
+        self.logger.info("Inserted \(songs.count) songs at position \(insertIndex)")
+    }
+
+    /// Removes songs from the queue by video ID.
+    /// - Parameter videoIds: Set of video IDs to remove.
+    func removeFromQueue(videoIds: Set<String>) {
+        let previousCount = self.queue.count
+        self.queue.removeAll { videoIds.contains($0.videoId) }
+
+        // Adjust currentIndex if needed
+        if let current = currentTrack,
+           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
+        {
+            self.currentIndex = newIndex
+        } else if self.currentIndex >= self.queue.count {
+            self.currentIndex = max(0, self.queue.count - 1)
+        }
+
+        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
+    }
+
+    /// Reorders the queue based on a new order of video IDs.
+    /// - Parameter videoIds: The new order of video IDs.
+    func reorderQueue(videoIds: [String]) {
+        var reordered: [Song] = []
+        var videoIdToSong: [String: Song] = [:]
+
+        for song in self.queue {
+            videoIdToSong[song.videoId] = song
+        }
+
+        for videoId in videoIds {
+            if let song = videoIdToSong[videoId] {
+                reordered.append(song)
+            }
+        }
+
+        self.queue = reordered
+
+        // Update currentIndex to match current track's new position
+        if let current = currentTrack,
+           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
+        {
+            self.currentIndex = newIndex
+        }
+
+        self.logger.info("Queue reordered with \(reordered.count) songs")
+    }
+
+    /// Shuffles the queue, keeping the current track in place at the front.
+    func shuffleQueue() {
+        guard self.queue.count > 1 else { return }
+
+        // Remove current track, shuffle the rest, put current track at front
+        if let currentSong = queue[safe: currentIndex] {
+            var shuffled = self.queue
+            shuffled.remove(at: self.currentIndex)
+            shuffled.shuffle()
+            shuffled.insert(currentSong, at: 0)
+            self.queue = shuffled
+            self.currentIndex = 0
+        } else {
+            self.queue.shuffle()
+            self.currentIndex = 0
+        }
+
+        self.logger.info("Queue shuffled")
+    }
+
+    /// Adds songs to the end of the queue.
+    /// - Parameter songs: The songs to append to the queue.
+    func appendToQueue(_ songs: [Song]) {
+        guard !songs.isEmpty else { return }
+        self.queue.append(contentsOf: songs)
+        self.logger.info("Appended \(songs.count) songs to queue")
+    }
+
     // MARK: - Like/Dislike/Library Actions
 
     /// Likes the current track (thumbs up).

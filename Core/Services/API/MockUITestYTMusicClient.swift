@@ -52,6 +52,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return self.searchResults
     }
 
+    func searchSongs(query _: String) async throws -> [Song] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return self.searchResults.songs
+    }
+
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         try? await Task.sleep(for: .milliseconds(50))
         return [
