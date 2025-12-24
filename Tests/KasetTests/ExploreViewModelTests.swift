@@ -1,90 +1,80 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for ExploreViewModel using mock client.
+@Suite(.serialized)
 @MainActor
-final class ExploreViewModelTests: XCTestCase {
-    private var mockClient: MockYTMusicClient!
-    private var viewModel: ExploreViewModel!
+struct ExploreViewModelTests {
+    var mockClient: MockYTMusicClient
+    var viewModel: ExploreViewModel
 
-    override func setUp() async throws {
+    init() {
         self.mockClient = MockYTMusicClient()
         self.viewModel = ExploreViewModel(client: self.mockClient)
     }
 
-    override func tearDown() async throws {
-        self.mockClient = nil
-        self.viewModel = nil
+    @Test("Initial state is idle with empty sections")
+    func initialState() {
+        #expect(viewModel.loadingState == .idle)
+        #expect(viewModel.sections.isEmpty)
     }
 
-    func testInitialState() {
-        XCTAssertEqual(self.viewModel.loadingState, .idle)
-        XCTAssertTrue(self.viewModel.sections.isEmpty)
-    }
-
-    func testLoadSuccess() async {
-        // Given
-        // Note: "Charts" section is filtered out by ExploreViewModel since it's in the sidebar
+    @Test("Load success filters out Charts section")
+    func loadSuccess() async {
+        // "Charts" section is filtered out by ExploreViewModel since it's in the sidebar
         let expectedSections = [
             TestFixtures.makeHomeSection(title: "New releases"),
             TestFixtures.makeHomeSection(title: "Charts"),
             TestFixtures.makeHomeSection(title: "Moods & genres"),
         ]
-        self.mockClient.exploreResponse = HomeResponse(sections: expectedSections)
+        mockClient.exploreResponse = HomeResponse(sections: expectedSections)
 
-        // When
-        await self.viewModel.load()
+        await viewModel.load()
 
-        // Then
-        XCTAssertTrue(self.mockClient.getExploreCalled)
-        XCTAssertEqual(self.viewModel.loadingState, .loaded)
+        #expect(mockClient.getExploreCalled == true)
+        #expect(viewModel.loadingState == .loaded)
         // "Charts" section is filtered out, so we expect 2 sections
-        XCTAssertEqual(self.viewModel.sections.count, 2)
-        XCTAssertEqual(self.viewModel.sections[0].title, "New releases")
-        XCTAssertEqual(self.viewModel.sections[1].title, "Moods & genres")
+        #expect(viewModel.sections.count == 2)
+        #expect(viewModel.sections[0].title == "New releases")
+        #expect(viewModel.sections[1].title == "Moods & genres")
     }
 
-    func testLoadError() async {
-        // Given
-        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+    @Test("Load error sets error state")
+    func loadError() async {
+        mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
 
-        // When
-        await self.viewModel.load()
+        await viewModel.load()
 
-        // Then
-        XCTAssertTrue(self.mockClient.getExploreCalled)
-        if case .error = self.viewModel.loadingState {
+        #expect(mockClient.getExploreCalled == true)
+        if case .error = viewModel.loadingState {
             // Expected
         } else {
-            XCTFail("Expected error state")
+            Issue.record("Expected error state")
         }
-        XCTAssertTrue(self.viewModel.sections.isEmpty)
+        #expect(viewModel.sections.isEmpty)
     }
 
-    func testLoadDoesNotDuplicateWhenAlreadyLoading() async {
-        // Given
-        self.mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 1)
+    @Test("Load does not duplicate when already loading")
+    func loadDoesNotDuplicateWhenAlreadyLoading() async {
+        mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 1)
 
-        // When - load twice sequentially (since we're on MainActor)
-        await self.viewModel.load()
-        await self.viewModel.load()
+        await viewModel.load()
+        await viewModel.load()
 
-        // Then - second load should be called since state is loaded
-        XCTAssertEqual(self.mockClient.getExploreCallCount, 2)
+        #expect(mockClient.getExploreCallCount == 2)
     }
 
-    func testRefreshClearsSectionsAndReloads() async {
-        // Given
-        self.mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 2)
-        await self.viewModel.load()
-        XCTAssertEqual(self.viewModel.sections.count, 2)
+    @Test("Refresh clears sections and reloads")
+    func refreshClearsSectionsAndReloads() async {
+        mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 2)
+        await viewModel.load()
+        #expect(viewModel.sections.count == 2)
 
-        // When
-        self.mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 4)
-        await self.viewModel.refresh()
+        mockClient.exploreResponse = TestFixtures.makeHomeResponse(sectionCount: 4)
+        await viewModel.refresh()
 
-        // Then
-        XCTAssertEqual(self.viewModel.sections.count, 4)
-        XCTAssertEqual(self.mockClient.getExploreCallCount, 2)
+        #expect(viewModel.sections.count == 4)
+        #expect(mockClient.getExploreCallCount == 2)
     }
 }

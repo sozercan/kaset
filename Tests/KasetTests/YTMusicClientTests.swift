@@ -1,13 +1,14 @@
 import CryptoKit
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for YTMusicClient.
-@MainActor
-final class YTMusicClientTests: XCTestCase {
-    func testSAPISIDHASHFormat() {
-        // Test that SAPISIDHASH is computed correctly
-        let timestamp = 1_703_001_600 // Example timestamp
+@Suite
+struct YTMusicClientTests {
+    @Test("SAPISIDHASH format is correct")
+    func sapisidhashFormat() {
+        let timestamp = 1_703_001_600
         let sapisid = "example_sapisid_value"
         let origin = "https://music.youtube.com"
 
@@ -18,16 +19,15 @@ final class YTMusicClientTests: XCTestCase {
 
         let sapisidhash = "\(timestamp)_\(hash)"
 
-        // Verify format: timestamp_hexhash
-        XCTAssertTrue(sapisidhash.contains("_"))
+        #expect(sapisidhash.contains("_"))
         let parts = sapisidhash.split(separator: "_")
-        XCTAssertEqual(parts.count, 2)
-        XCTAssertEqual(String(parts[0]), "\(timestamp)")
-        XCTAssertEqual(parts[1].count, 40) // SHA1 produces 40 hex characters
+        #expect(parts.count == 2)
+        #expect(String(parts[0]) == "\(timestamp)")
+        #expect(parts[1].count == 40, "SHA1 produces 40 hex characters")
     }
 
-    func testSHA1HashConsistency() {
-        // Test that SHA1 hashing is consistent
+    @Test("SHA1 hash consistency")
+    func sha1HashConsistency() {
         let input = "test input string"
         let hash1 = Insecure.SHA1.hash(data: Data(input.utf8))
             .map { String(format: "%02x", $0) }
@@ -36,12 +36,12 @@ final class YTMusicClientTests: XCTestCase {
             .map { String(format: "%02x", $0) }
             .joined()
 
-        XCTAssertEqual(hash1, hash2)
-        XCTAssertEqual(hash1.count, 40)
+        #expect(hash1 == hash2)
+        #expect(hash1.count == 40)
     }
 
-    func testModelParsing() {
-        // Test Song initialization from dictionary
+    @Test("Song model parsing")
+    func modelParsing() throws {
         let songData: [String: Any] = [
             "videoId": "dQw4w9WgXcQ",
             "title": "Never Gonna Give You Up",
@@ -54,25 +54,26 @@ final class YTMusicClientTests: XCTestCase {
             ],
         ]
 
-        let song = Song(from: songData)
-        XCTAssertNotNil(song)
-        XCTAssertEqual(song?.videoId, "dQw4w9WgXcQ")
-        XCTAssertEqual(song?.title, "Never Gonna Give You Up")
-        XCTAssertEqual(song?.artists.count, 1)
-        XCTAssertEqual(song?.artists.first?.name, "Rick Astley")
-        XCTAssertEqual(song?.duration, 213.0)
+        let song = try #require(Song(from: songData))
+        #expect(song.videoId == "dQw4w9WgXcQ")
+        #expect(song.title == "Never Gonna Give You Up")
+        #expect(song.artists.count == 1)
+        #expect(song.artists.first?.name == "Rick Astley")
+        #expect(song.duration == 213.0)
     }
 
-    func testSongParsingWithMissingVideoId() {
+    @Test("Song parsing with missing videoId returns nil")
+    func songParsingWithMissingVideoId() {
         let songData: [String: Any] = [
             "title": "Test Song",
         ]
 
         let song = Song(from: songData)
-        XCTAssertNil(song)
+        #expect(song == nil)
     }
 
-    func testPlaylistParsing() {
+    @Test("Playlist model parsing")
+    func playlistParsing() throws {
         let playlistData: [String: Any] = [
             "playlistId": "PLtest123",
             "title": "My Playlist",
@@ -82,36 +83,35 @@ final class YTMusicClientTests: XCTestCase {
             ],
         ]
 
-        let playlist = Playlist(from: playlistData)
-        XCTAssertNotNil(playlist)
-        XCTAssertEqual(playlist?.id, "PLtest123")
-        XCTAssertEqual(playlist?.title, "My Playlist")
-        XCTAssertEqual(playlist?.trackCount, 25)
+        let playlist = try #require(Playlist(from: playlistData))
+        #expect(playlist.id == "PLtest123")
+        #expect(playlist.title == "My Playlist")
+        #expect(playlist.trackCount == 25)
     }
 
-    func testAlbumParsing() {
+    @Test("Album model parsing")
+    func albumParsing() throws {
         let albumData: [String: Any] = [
             "browseId": "MPREtest",
             "title": "Test Album",
             "year": "2023",
         ]
 
-        let album = Album(from: albumData)
-        XCTAssertNotNil(album)
-        XCTAssertEqual(album?.id, "MPREtest")
-        XCTAssertEqual(album?.title, "Test Album")
-        XCTAssertEqual(album?.year, "2023")
+        let album = try #require(Album(from: albumData))
+        #expect(album.id == "MPREtest")
+        #expect(album.title == "Test Album")
+        #expect(album.year == "2023")
     }
 
-    func testArtistParsing() {
+    @Test("Artist model parsing")
+    func artistParsing() throws {
         let artistData: [String: Any] = [
             "browseId": "UC123456",
             "name": "Test Artist",
         ]
 
-        let artist = Artist(from: artistData)
-        XCTAssertNotNil(artist)
-        XCTAssertEqual(artist?.id, "UC123456")
-        XCTAssertEqual(artist?.name, "Test Artist")
+        let artist = try #require(Artist(from: artistData))
+        #expect(artist.id == "UC123456")
+        #expect(artist.name == "Test Artist")
     }
 }

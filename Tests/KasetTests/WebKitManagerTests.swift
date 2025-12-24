@@ -1,57 +1,62 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for WebKitManager.
+@Suite(.serialized)
 @MainActor
-final class WebKitManagerTests: XCTestCase {
-    var webKitManager: WebKitManager!
+struct WebKitManagerTests {
+    var webKitManager: WebKitManager
 
-    override func setUp() async throws {
+    init() {
         self.webKitManager = WebKitManager.shared
     }
 
-    override func tearDown() async throws {
-        self.webKitManager = nil
+    @Test("Shared instance exists")
+    func sharedInstanceExists() {
+        #expect(WebKitManager.shared != nil)
     }
 
-    func testSharedInstanceExists() {
-        XCTAssertNotNil(WebKitManager.shared)
+    @Test("Data store exists")
+    func dataStoreExists() {
+        #expect(webKitManager.dataStore != nil)
     }
 
-    func testDataStoreExists() {
-        XCTAssertNotNil(self.webKitManager.dataStore)
+    @Test("Create WebView configuration")
+    func createWebViewConfiguration() {
+        let configuration = webKitManager.createWebViewConfiguration()
+        #expect(configuration != nil)
+        #expect(configuration.websiteDataStore === webKitManager.dataStore)
     }
 
-    func testCreateWebViewConfiguration() {
-        let configuration = self.webKitManager.createWebViewConfiguration()
-        XCTAssertNotNil(configuration)
-        XCTAssertEqual(configuration.websiteDataStore, self.webKitManager.dataStore)
+    @Test("Origin constant")
+    func originConstant() {
+        #expect(WebKitManager.origin == "https://music.youtube.com")
     }
 
-    func testOriginConstant() {
-        XCTAssertEqual(WebKitManager.origin, "https://music.youtube.com")
+    @Test("Auth cookie name")
+    func authCookieName() {
+        #expect(WebKitManager.authCookieName == "__Secure-3PAPISID")
     }
 
-    func testAuthCookieName() {
-        XCTAssertEqual(WebKitManager.authCookieName, "__Secure-3PAPISID")
-    }
-
-    func testGetAllCookies() async {
+    @Test("Get all cookies")
+    func getAllCookies() async {
         let cookies = await webKitManager.getAllCookies()
-        XCTAssertNotNil(cookies)
+        #expect(cookies != nil)
         // Cookies array may be empty in test environment
     }
 
-    func testCookieHeaderForDomain() async {
-        let header = await webKitManager.cookieHeader(for: "youtube.com")
+    @Test("Cookie header for domain")
+    func cookieHeaderForDomain() async {
         // May be nil if no cookies are set
         // Just verify it doesn't crash
+        _ = await webKitManager.cookieHeader(for: "youtube.com")
     }
 
-    func testHasAuthCookies() async {
+    @Test("Has auth cookies")
+    func hasAuthCookies() async {
         let hasAuth = await webKitManager.hasAuthCookies()
         // Just verify the method works and returns a Bool
-        // Value depends on whether user has previously logged in
-        XCTAssertNotNil(hasAuth as Bool?)
+        #expect(hasAuth == true || hasAuth == false)
     }
 }

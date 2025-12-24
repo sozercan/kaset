@@ -1,185 +1,222 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for SearchResponse and SearchResultItem.
-final class SearchResponseTests: XCTestCase {
-    // MARK: - SearchResultItem Tests
+@Suite
+struct SearchResponseTests {
+    // MARK: - SearchResultItem ID Tests
 
-    func testSongResultItemId() {
-        let song = Song(id: "s1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "s1")
-        let item = SearchResultItem.song(song)
-        XCTAssertEqual(item.id, "song-s1")
+    @Test(
+        "Result item ID prefix",
+        arguments: [
+            ("song", "s1", "song-s1"),
+            ("album", "a1", "album-a1"),
+            ("artist", "ar1", "artist-ar1"),
+            ("playlist", "p1", "playlist-p1"),
+        ]
+    )
+    func resultItemId(type: String, id: String, expectedId: String) {
+        let item: SearchResultItem
+        switch type {
+        case "song":
+            item = .song(Song(id: id, title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: id))
+        case "album":
+            item = .album(Album(id: id, title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil))
+        case "artist":
+            item = .artist(Artist(id: id, name: "Artist"))
+        case "playlist":
+            item = .playlist(Playlist(id: id, title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil))
+        default:
+            Issue.record("Unknown type")
+            return
+        }
+        #expect(item.id == expectedId)
     }
 
-    func testAlbumResultItemId() {
-        let album = Album(id: "a1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
-        let item = SearchResultItem.album(album)
-        XCTAssertEqual(item.id, "album-a1")
-    }
+    // MARK: - SearchResultItem Title Tests
 
-    func testArtistResultItemId() {
-        let artist = Artist(id: "ar1", name: "Artist")
-        let item = SearchResultItem.artist(artist)
-        XCTAssertEqual(item.id, "artist-ar1")
-    }
-
-    func testPlaylistResultItemId() {
-        let playlist = Playlist(id: "p1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
-        let item = SearchResultItem.playlist(playlist)
-        XCTAssertEqual(item.id, "playlist-p1")
-    }
-
-    func testSongResultItemTitle() {
+    @Test("Song result item title")
+    func songResultItemTitle() {
         let song = Song(id: "1", title: "My Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let item = SearchResultItem.song(song)
-        XCTAssertEqual(item.title, "My Song")
+        #expect(item.title == "My Song")
     }
 
-    func testAlbumResultItemTitle() {
+    @Test("Album result item title")
+    func albumResultItemTitle() {
         let album = Album(id: "1", title: "My Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
         let item = SearchResultItem.album(album)
-        XCTAssertEqual(item.title, "My Album")
+        #expect(item.title == "My Album")
     }
 
-    func testArtistResultItemTitle() {
+    @Test("Artist result item title")
+    func artistResultItemTitle() {
         let artist = Artist(id: "1", name: "My Artist")
         let item = SearchResultItem.artist(artist)
-        XCTAssertEqual(item.title, "My Artist")
+        #expect(item.title == "My Artist")
     }
 
-    func testPlaylistResultItemTitle() {
+    @Test("Playlist result item title")
+    func playlistResultItemTitle() {
         let playlist = Playlist(id: "1", title: "My Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         let item = SearchResultItem.playlist(playlist)
-        XCTAssertEqual(item.title, "My Playlist")
+        #expect(item.title == "My Playlist")
     }
 
-    func testSongResultItemSubtitle() {
+    // MARK: - SearchResultItem Subtitle Tests
+
+    @Test("Song result item subtitle joins artists")
+    func songResultItemSubtitle() {
         let artists = [Artist(id: "a1", name: "Artist A"), Artist(id: "a2", name: "Artist B")]
         let song = Song(id: "1", title: "Song", artists: artists, album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let item = SearchResultItem.song(song)
-        XCTAssertEqual(item.subtitle, "Artist A, Artist B")
+        #expect(item.subtitle == "Artist A, Artist B")
     }
 
-    func testAlbumResultItemSubtitle() {
+    @Test("Album result item subtitle")
+    func albumResultItemSubtitle() {
         let artists = [Artist(id: "a1", name: "Album Artist")]
         let album = Album(id: "1", title: "Album", artists: artists, thumbnailURL: nil, year: nil, trackCount: nil)
         let item = SearchResultItem.album(album)
-        XCTAssertEqual(item.subtitle, "Album Artist")
+        #expect(item.subtitle == "Album Artist")
     }
 
-    func testArtistResultItemSubtitle() {
+    @Test("Artist result item subtitle")
+    func artistResultItemSubtitle() {
         let artist = Artist(id: "1", name: "Artist Name")
         let item = SearchResultItem.artist(artist)
-        XCTAssertEqual(item.subtitle, "Artist")
+        #expect(item.subtitle == "Artist")
     }
 
-    func testPlaylistResultItemSubtitle() {
+    @Test("Playlist result item subtitle")
+    func playlistResultItemSubtitle() {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: "Playlist Author")
         let item = SearchResultItem.playlist(playlist)
-        XCTAssertEqual(item.subtitle, "Playlist Author")
+        #expect(item.subtitle == "Playlist Author")
     }
 
-    func testSongResultItemThumbnailURL() {
+    // MARK: - SearchResultItem ThumbnailURL Tests
+
+    @Test("Song result item thumbnail URL")
+    func songResultItemThumbnailURL() {
         let url = URL(string: "https://example.com/song.jpg")
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: url, videoId: "1")
         let item = SearchResultItem.song(song)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testAlbumResultItemThumbnailURL() {
+    @Test("Album result item thumbnail URL")
+    func albumResultItemThumbnailURL() {
         let url = URL(string: "https://example.com/album.jpg")
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: url, year: nil, trackCount: nil)
         let item = SearchResultItem.album(album)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testArtistResultItemThumbnailURL() {
+    @Test("Artist result item thumbnail URL")
+    func artistResultItemThumbnailURL() {
         let url = URL(string: "https://example.com/artist.jpg")
         let artist = Artist(id: "1", name: "Artist", thumbnailURL: url)
         let item = SearchResultItem.artist(artist)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testPlaylistResultItemThumbnailURL() {
+    @Test("Playlist result item thumbnail URL")
+    func playlistResultItemThumbnailURL() {
         let url = URL(string: "https://example.com/playlist.jpg")
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: url, trackCount: nil, author: nil)
         let item = SearchResultItem.playlist(playlist)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testResultItemResultType() {
+    // MARK: - SearchResultItem ResultType Tests
+
+    @Test("Result item result type")
+    func resultItemResultType() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
-        XCTAssertEqual(SearchResultItem.song(song).resultType, "Song")
+        #expect(SearchResultItem.song(song).resultType == "Song")
 
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
-        XCTAssertEqual(SearchResultItem.album(album).resultType, "Album")
+        #expect(SearchResultItem.album(album).resultType == "Album")
 
         let artist = Artist(id: "1", name: "Artist")
-        XCTAssertEqual(SearchResultItem.artist(artist).resultType, "Artist")
+        #expect(SearchResultItem.artist(artist).resultType == "Artist")
 
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
-        XCTAssertEqual(SearchResultItem.playlist(playlist).resultType, "Playlist")
+        #expect(SearchResultItem.playlist(playlist).resultType == "Playlist")
     }
 
-    func testSongResultItemVideoId() {
+    // MARK: - SearchResultItem VideoId Tests
+
+    @Test("Song result item has video ID")
+    func songResultItemVideoId() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "video123")
         let item = SearchResultItem.song(song)
-        XCTAssertEqual(item.videoId, "video123")
+        #expect(item.videoId == "video123")
     }
 
-    func testNonSongResultItemVideoId() {
+    @Test("Non-song result items have nil video ID")
+    func nonSongResultItemVideoId() {
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
-        XCTAssertNil(SearchResultItem.album(album).videoId)
+        #expect(SearchResultItem.album(album).videoId == nil)
 
         let artist = Artist(id: "1", name: "Artist")
-        XCTAssertNil(SearchResultItem.artist(artist).videoId)
+        #expect(SearchResultItem.artist(artist).videoId == nil)
 
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
-        XCTAssertNil(SearchResultItem.playlist(playlist).videoId)
+        #expect(SearchResultItem.playlist(playlist).videoId == nil)
     }
 
     // MARK: - SearchResponse Tests
 
-    func testSearchResponseEmpty() {
+    @Test("SearchResponse empty")
+    func searchResponseEmpty() {
         let response = SearchResponse.empty
-        XCTAssertTrue(response.isEmpty)
-        XCTAssertTrue(response.songs.isEmpty)
-        XCTAssertTrue(response.albums.isEmpty)
-        XCTAssertTrue(response.artists.isEmpty)
-        XCTAssertTrue(response.playlists.isEmpty)
-        XCTAssertTrue(response.allItems.isEmpty)
+        #expect(response.isEmpty)
+        #expect(response.songs.isEmpty)
+        #expect(response.albums.isEmpty)
+        #expect(response.artists.isEmpty)
+        #expect(response.playlists.isEmpty)
+        #expect(response.allItems.isEmpty)
     }
 
-    func testSearchResponseIsEmpty() {
+    @Test("SearchResponse isEmpty")
+    func searchResponseIsEmpty() {
         let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [])
-        XCTAssertTrue(empty.isEmpty)
+        #expect(empty.isEmpty)
     }
 
-    func testSearchResponseNotEmptyWithSongs() {
+    @Test("SearchResponse not empty with songs")
+    func searchResponseNotEmptyWithSongs() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let response = SearchResponse(songs: [song], albums: [], artists: [], playlists: [])
-        XCTAssertFalse(response.isEmpty)
+        #expect(!response.isEmpty)
     }
 
-    func testSearchResponseNotEmptyWithAlbums() {
+    @Test("SearchResponse not empty with albums")
+    func searchResponseNotEmptyWithAlbums() {
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
         let response = SearchResponse(songs: [], albums: [album], artists: [], playlists: [])
-        XCTAssertFalse(response.isEmpty)
+        #expect(!response.isEmpty)
     }
 
-    func testSearchResponseNotEmptyWithArtists() {
+    @Test("SearchResponse not empty with artists")
+    func searchResponseNotEmptyWithArtists() {
         let artist = Artist(id: "1", name: "Artist")
         let response = SearchResponse(songs: [], albums: [], artists: [artist], playlists: [])
-        XCTAssertFalse(response.isEmpty)
+        #expect(!response.isEmpty)
     }
 
-    func testSearchResponseNotEmptyWithPlaylists() {
+    @Test("SearchResponse not empty with playlists")
+    func searchResponseNotEmptyWithPlaylists() {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         let response = SearchResponse(songs: [], albums: [], artists: [], playlists: [playlist])
-        XCTAssertFalse(response.isEmpty)
+        #expect(!response.isEmpty)
     }
 
-    func testSearchResponseAllItems() {
+    @Test("SearchResponse allItems ordering")
+    func searchResponseAllItems() {
         let song = Song(id: "s1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "s1")
         let album = Album(id: "a1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
         let artist = Artist(id: "ar1", name: "Artist")
@@ -188,22 +225,23 @@ final class SearchResponseTests: XCTestCase {
         let response = SearchResponse(songs: [song], albums: [album], artists: [artist], playlists: [playlist])
 
         let allItems = response.allItems
-        XCTAssertEqual(allItems.count, 4)
+        #expect(allItems.count == 4)
 
         // Check that items are in expected order: songs, albums, artists, playlists
-        XCTAssertEqual(allItems[0].id, "song-s1")
-        XCTAssertEqual(allItems[1].id, "album-a1")
-        XCTAssertEqual(allItems[2].id, "artist-ar1")
-        XCTAssertEqual(allItems[3].id, "playlist-p1")
+        #expect(allItems[0].id == "song-s1")
+        #expect(allItems[1].id == "album-a1")
+        #expect(allItems[2].id == "artist-ar1")
+        #expect(allItems[3].id == "playlist-p1")
     }
 
-    func testSearchResponseAllItemsMultiple() {
+    @Test("SearchResponse allItems with multiple songs")
+    func searchResponseAllItemsMultiple() {
         let song1 = Song(id: "s1", title: "Song 1", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "s1")
         let song2 = Song(id: "s2", title: "Song 2", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "s2")
         let album = Album(id: "a1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
 
         let response = SearchResponse(songs: [song1, song2], albums: [album], artists: [], playlists: [])
 
-        XCTAssertEqual(response.allItems.count, 3)
+        #expect(response.allItems.count == 3)
     }
 }

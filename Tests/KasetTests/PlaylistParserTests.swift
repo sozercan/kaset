@@ -1,107 +1,87 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for the PlaylistParser.
-final class PlaylistParserTests: XCTestCase {
+@Suite
+struct PlaylistParserTests {
     // MARK: - Library Playlists
 
-    func testParseLibraryPlaylistsEmpty() {
-        // Given
+    @Test("Parse empty library playlists response")
+    func parseLibraryPlaylistsEmpty() {
         let data: [String: Any] = [:]
-
-        // When
         let playlists = PlaylistParser.parseLibraryPlaylists(data)
-
-        // Then
-        XCTAssertTrue(playlists.isEmpty)
+        #expect(playlists.isEmpty)
     }
 
-    func testParseLibraryPlaylistsFromGrid() {
-        // Given
-        let data = self.makeLibraryResponseData(playlistCount: 3)
-
-        // When
+    @Test("Parse library playlists from grid")
+    func parseLibraryPlaylistsFromGrid() {
+        let data = makeLibraryResponseData(playlistCount: 3)
         let playlists = PlaylistParser.parseLibraryPlaylists(data)
-
-        // Then
-        XCTAssertEqual(playlists.count, 3)
+        #expect(playlists.count == 3)
     }
 
     // MARK: - Playlist Detail
 
-    func testParsePlaylistDetailWithMusicDetailHeader() {
-        // Given
-        let data = self.makePlaylistDetailData(
+    @Test("Parse playlist detail with header")
+    func parsePlaylistDetailWithMusicDetailHeader() {
+        let data = makePlaylistDetailData(
             title: "My Playlist",
             description: "A great playlist",
             author: "Test User",
             trackCount: 5
         )
 
-        // When
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL123")
 
-        // Then
-        XCTAssertEqual(detail.id, "VL123")
-        XCTAssertEqual(detail.title, "My Playlist")
-        XCTAssertEqual(detail.description, "A great playlist")
-        XCTAssertEqual(detail.author, "Test User")
-        XCTAssertEqual(detail.tracks.count, 5)
+        #expect(detail.id == "VL123")
+        #expect(detail.title == "My Playlist")
+        #expect(detail.description == "A great playlist")
+        #expect(detail.author == "Test User")
+        #expect(detail.tracks.count == 5)
     }
 
-    func testParsePlaylistDetailWithTracks() {
-        // Given
-        let data = self.makePlaylistDetailData(
+    @Test("Parse playlist detail tracks")
+    func parsePlaylistDetailWithTracks() {
+        let data = makePlaylistDetailData(
             title: "Track Test",
             description: nil,
             author: nil,
             trackCount: 3
         )
 
-        // When
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL456")
 
-        // Then
-        XCTAssertEqual(detail.tracks.count, 3)
-        XCTAssertEqual(detail.tracks[0].title, "Track 0")
-        XCTAssertEqual(detail.tracks[0].videoId, "video0")
+        #expect(detail.tracks.count == 3)
+        #expect(detail.tracks[0].title == "Track 0")
+        #expect(detail.tracks[0].videoId == "video0")
     }
 
-    func testParsePlaylistDetailEmpty() {
-        // Given
+    @Test("Parse empty playlist detail")
+    func parsePlaylistDetailEmpty() {
         let data: [String: Any] = [:]
-
-        // When
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL789")
 
-        // Then
-        XCTAssertEqual(detail.id, "VL789")
-        XCTAssertEqual(detail.title, "Unknown Playlist")
-        XCTAssertTrue(detail.tracks.isEmpty)
+        #expect(detail.id == "VL789")
+        #expect(detail.title == "Unknown Playlist")
+        #expect(detail.tracks.isEmpty)
     }
 
     // MARK: - Album Detection
 
-    func testIsAlbumForAlbumId() {
-        // Given
-        let data = self.makePlaylistDetailData(title: "Album", description: nil, author: nil, trackCount: 10)
-
-        // When
-        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE12345")
-
-        // Then
-        XCTAssertTrue(detail.isAlbum)
-    }
-
-    func testIsAlbumForPlaylistId() {
-        // Given
-        let data = self.makePlaylistDetailData(title: "Playlist", description: nil, author: nil, trackCount: 10)
-
-        // When
-        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL12345")
-
-        // Then
-        XCTAssertFalse(detail.isAlbum)
+    @Test(
+        "Album detection based on ID prefix",
+        arguments: [
+            ("MPRE12345", true),   // Album prefix
+            ("VL12345", false),    // Playlist prefix
+            ("OLAK12345", true),   // Another album prefix
+            ("RDCLAK", false),     // Radio prefix
+        ]
+    )
+    func isAlbumDetection(playlistId: String, expectedIsAlbum: Bool) {
+        let data = makePlaylistDetailData(title: "Test", description: nil, author: nil, trackCount: 1)
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: playlistId)
+        #expect(detail.isAlbum == expectedIsAlbum)
     }
 
     // MARK: - Helpers

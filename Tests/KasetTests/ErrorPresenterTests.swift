@@ -1,174 +1,144 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
-/// Tests for the ErrorPresenter service.
-@MainActor
-final class ErrorPresenterTests: XCTestCase {
-    var sut: ErrorPresenter!
+/// Helper class to track action calls in a thread-safe way.
+private final class ActionTracker: @unchecked Sendable {
+    var called = false
+}
 
-    override func setUp() async throws {
+/// Tests for the ErrorPresenter service.
+@Suite(.serialized)
+@MainActor
+struct ErrorPresenterTests {
+    var sut: ErrorPresenter
+
+    init() {
         self.sut = ErrorPresenter.shared
         self.sut.dismiss()
     }
 
-    override func tearDown() async throws {
-        self.sut.dismiss()
-        self.sut = nil
-    }
-
     // MARK: - Presentation Tests
 
-    func testPresentShowsError() {
-        // Given
+    @Test("Present shows error")
+    func presentShowsError() {
         let error = PresentableError(title: "Test", message: "Test message")
 
-        // When
-        self.sut.present(error)
+        sut.present(error)
 
-        // Then
-        XCTAssertTrue(self.sut.isShowingError)
-        XCTAssertEqual(self.sut.currentError?.title, "Test")
-        XCTAssertEqual(self.sut.currentError?.message, "Test message")
+        #expect(sut.isShowingError == true)
+        #expect(sut.currentError?.title == "Test")
+        #expect(sut.currentError?.message == "Test message")
     }
 
-    func testDismissClearsError() {
-        // Given
-        self.sut.present(PresentableError(title: "Test", message: "Test message"))
+    @Test("Dismiss clears error")
+    func dismissClearsError() {
+        sut.present(PresentableError(title: "Test", message: "Test message"))
 
-        // When
-        self.sut.dismiss()
+        sut.dismiss()
 
-        // Then
-        XCTAssertFalse(self.sut.isShowingError)
-        XCTAssertNil(self.sut.currentError)
+        #expect(sut.isShowingError == false)
+        #expect(sut.currentError == nil)
     }
 
     // MARK: - YTMusicError Conversion
 
-    func testPresentNotAuthenticatedError() {
-        // When
-        self.sut.present(YTMusicError.notAuthenticated)
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Not Signed In")
+    @Test("Present notAuthenticated error")
+    func presentNotAuthenticatedError() {
+        sut.present(YTMusicError.notAuthenticated)
+        #expect(sut.currentError?.title == "Not Signed In")
     }
 
-    func testPresentAuthExpiredError() {
-        // When
-        self.sut.present(YTMusicError.authExpired)
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Session Expired")
+    @Test("Present authExpired error")
+    func presentAuthExpiredError() {
+        sut.present(YTMusicError.authExpired)
+        #expect(sut.currentError?.title == "Session Expired")
     }
 
-    func testPresentNetworkError() {
-        // Given
+    @Test("Present network error")
+    func presentNetworkError() {
         let urlError = URLError(.notConnectedToInternet)
-
-        // When
-        self.sut.present(YTMusicError.networkError(underlying: urlError))
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Connection Error")
+        sut.present(YTMusicError.networkError(underlying: urlError))
+        #expect(sut.currentError?.title == "Connection Error")
     }
 
-    func testPresentAPIError() {
-        // When
-        self.sut.present(YTMusicError.apiError(message: "Server error", code: 500))
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Server Error")
+    @Test("Present API error")
+    func presentAPIError() {
+        sut.present(YTMusicError.apiError(message: "Server error", code: 500))
+        #expect(sut.currentError?.title == "Server Error")
     }
 
-    func testPresentParseError() {
-        // When
-        self.sut.present(YTMusicError.parseError(message: "Invalid JSON"))
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Data Error")
+    @Test("Present parse error")
+    func presentParseError() {
+        sut.present(YTMusicError.parseError(message: "Invalid JSON"))
+        #expect(sut.currentError?.title == "Data Error")
     }
 
-    func testPresentUnknownError() {
-        // When
-        self.sut.present(YTMusicError.unknown(message: "Something went wrong"))
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Error")
-        XCTAssertEqual(self.sut.currentError?.message, "Something went wrong")
+    @Test("Present unknown error")
+    func presentUnknownError() {
+        sut.present(YTMusicError.unknown(message: "Something went wrong"))
+        #expect(sut.currentError?.title == "Error")
+        #expect(sut.currentError?.message == "Something went wrong")
     }
 
     // MARK: - Retry Action Tests
 
-    func testRetryInvokesAction() async {
-        // Given
-        let expectation = XCTestExpectation(description: "Retry action called")
+    @Test("Retry invokes action and dismisses")
+    func retryInvokesAction() async {
+        let tracker = ActionTracker()
         let error = PresentableError(
             title: "Test",
             message: "Test",
-            retryAction: { expectation.fulfill() }
+            retryAction: { tracker.called = true }
         )
-        self.sut.present(error)
+        sut.present(error)
 
-        // When
-        await self.sut.retry()
+        await sut.retry()
 
-        // Then
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertFalse(self.sut.isShowingError)
+        #expect(tracker.called == true)
+        #expect(sut.isShowingError == false)
     }
 
-    func testRetryWithoutActionDismisses() async {
-        // Given
+    @Test("Retry without action dismisses")
+    func retryWithoutActionDismisses() async {
         let error = PresentableError(title: "Test", message: "Test", retryAction: nil)
-        self.sut.present(error)
+        sut.present(error)
 
-        // When
-        await self.sut.retry()
+        await sut.retry()
 
-        // Then
-        XCTAssertFalse(self.sut.isShowingError)
+        #expect(sut.isShowingError == false)
     }
 
     // MARK: - Dismiss Action Tests
 
-    func testDismissInvokesAction() {
-        // Given
-        let expectation = XCTestExpectation(description: "Dismiss action called")
+    @Test("Dismiss invokes action")
+    func dismissInvokesAction() {
+        let tracker = ActionTracker()
         let error = PresentableError(
             title: "Test",
             message: "Test",
-            dismissAction: { expectation.fulfill() }
+            dismissAction: { tracker.called = true }
         )
-        self.sut.present(error)
+        sut.present(error)
 
-        // When
-        self.sut.dismiss()
+        sut.dismiss()
 
-        // Then
-        wait(for: [expectation], timeout: 1.0)
+        #expect(tracker.called == true)
     }
 
     // MARK: - Generic Error Conversion
 
-    func testPresentURLError() {
-        // Given
+    @Test("Present URLError")
+    func presentURLError() {
         let urlError = URLError(.notConnectedToInternet) as Error
-
-        // When
-        self.sut.present(urlError)
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Connection Error")
+        sut.present(urlError)
+        #expect(sut.currentError?.title == "Connection Error")
     }
 
-    func testPresentGenericError() {
-        // Given
+    @Test("Present generic error")
+    func presentGenericError() {
         struct CustomError: Error {}
-
-        // When
-        self.sut.present(CustomError())
-
-        // Then
-        XCTAssertEqual(self.sut.currentError?.title, "Error")
+        sut.present(CustomError())
+        #expect(sut.currentError?.title == "Error")
     }
 }

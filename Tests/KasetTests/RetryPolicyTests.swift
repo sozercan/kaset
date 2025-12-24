@@ -1,50 +1,69 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for RetryPolicy.
-final class RetryPolicyTests: XCTestCase {
-    func testDefaultPolicyValues() {
+@Suite("RetryPolicy", .serialized)
+struct RetryPolicyTests {
+    @Test("Default policy has expected values")
+    func defaultPolicyValues() {
         let policy = RetryPolicy.default
-        XCTAssertEqual(policy.maxAttempts, 3)
-        XCTAssertEqual(policy.baseDelay, 1.0)
-        XCTAssertEqual(policy.maxDelay, 8.0)
+        #expect(policy.maxAttempts == 3)
+        #expect(policy.baseDelay == 1.0)
+        #expect(policy.maxDelay == 8.0)
     }
 
-    func testDelayExponentialBackoff() {
+    @Test(
+        "Delay uses exponential backoff",
+        arguments: [
+            (0, 1.0),  // 1 * 2^0 = 1
+            (1, 2.0),  // 1 * 2^1 = 2
+            (2, 4.0),  // 1 * 2^2 = 4
+            (3, 8.0),  // 1 * 2^3 = 8
+            (4, 16.0), // 1 * 2^4 = 16
+        ]
+    )
+    func delayExponentialBackoff(attempt: Int, expectedDelay: Double) {
         let policy = RetryPolicy(maxAttempts: 5, baseDelay: 1.0, maxDelay: 16.0)
-
-        XCTAssertEqual(policy.delay(for: 0), 1.0) // 1 * 2^0 = 1
-        XCTAssertEqual(policy.delay(for: 1), 2.0) // 1 * 2^1 = 2
-        XCTAssertEqual(policy.delay(for: 2), 4.0) // 1 * 2^2 = 4
-        XCTAssertEqual(policy.delay(for: 3), 8.0) // 1 * 2^3 = 8
-        XCTAssertEqual(policy.delay(for: 4), 16.0) // 1 * 2^4 = 16
+        #expect(policy.delay(for: attempt) == expectedDelay)
     }
 
-    func testDelayMaxCap() {
+    @Test(
+        "Delay is capped at maxDelay",
+        arguments: [
+            (5, 8.0),  // Would be 32, but capped at 8
+            (10, 8.0), // Would be 1024, but capped at 8
+        ]
+    )
+    func delayMaxCap(attempt: Int, expectedDelay: Double) {
         let policy = RetryPolicy(maxAttempts: 10, baseDelay: 1.0, maxDelay: 8.0)
-
-        // Should cap at maxDelay
-        XCTAssertEqual(policy.delay(for: 5), 8.0) // Would be 32, but capped at 8
-        XCTAssertEqual(policy.delay(for: 10), 8.0) // Would be 1024, but capped at 8
+        #expect(policy.delay(for: attempt) == expectedDelay)
     }
 
-    func testDelayWithCustomBaseDelay() {
+    @Test(
+        "Delay respects custom baseDelay",
+        arguments: [
+            (0, 0.5), // 0.5 * 2^0 = 0.5
+            (1, 1.0), // 0.5 * 2^1 = 1.0
+            (2, 2.0), // 0.5 * 2^2 = 2.0
+        ]
+    )
+    func delayWithCustomBaseDelay(attempt: Int, expectedDelay: Double) {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.5, maxDelay: 10.0)
-
-        XCTAssertEqual(policy.delay(for: 0), 0.5) // 0.5 * 2^0 = 0.5
-        XCTAssertEqual(policy.delay(for: 1), 1.0) // 0.5 * 2^1 = 1.0
-        XCTAssertEqual(policy.delay(for: 2), 2.0) // 0.5 * 2^2 = 2.0
+        #expect(policy.delay(for: attempt) == expectedDelay)
     }
 
-    func testCustomPolicyInit() {
+    @Test("Custom policy stores values correctly")
+    func customPolicyInit() {
         let policy = RetryPolicy(maxAttempts: 5, baseDelay: 2.0, maxDelay: 30.0)
-        XCTAssertEqual(policy.maxAttempts, 5)
-        XCTAssertEqual(policy.baseDelay, 2.0)
-        XCTAssertEqual(policy.maxDelay, 30.0)
+        #expect(policy.maxAttempts == 5)
+        #expect(policy.baseDelay == 2.0)
+        #expect(policy.maxDelay == 30.0)
     }
 
+    @Test("Execute succeeds on first attempt")
     @MainActor
-    func testExecuteSuccess() async throws {
+    func executeSuccess() async throws {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
 
         var callCount = 0
@@ -53,12 +72,13 @@ final class RetryPolicyTests: XCTestCase {
             return "success"
         }
 
-        XCTAssertEqual(result, "success")
-        XCTAssertEqual(callCount, 1)
+        #expect(result == "success")
+        #expect(callCount == 1)
     }
 
+    @Test("Execute retries and eventually succeeds")
     @MainActor
-    func testExecuteSuccessAfterRetries() async throws {
+    func executeSuccessAfterRetries() async throws {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
 
         var callCount = 0
@@ -70,12 +90,13 @@ final class RetryPolicyTests: XCTestCase {
             return "success"
         }
 
-        XCTAssertEqual(result, "success")
-        XCTAssertEqual(callCount, 3)
+        #expect(result == "success")
+        #expect(callCount == 3)
     }
 
+    @Test("Execute fails after max attempts")
     @MainActor
-    func testExecuteFailsAfterMaxAttempts() async {
+    func executeFailsAfterMaxAttempts() async {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
 
         var callCount = 0
@@ -84,19 +105,20 @@ final class RetryPolicyTests: XCTestCase {
                 callCount += 1
                 throw YTMusicError.networkError(underlying: URLError(.timedOut))
             }
-            XCTFail("Should have thrown")
+            Issue.record("Should have thrown")
         } catch {
-            XCTAssertEqual(callCount, 3)
+            #expect(callCount == 3)
             if case YTMusicError.networkError = error {
                 // Expected
             } else {
-                XCTFail("Wrong error type: \(error)")
+                Issue.record("Wrong error type: \(error)")
             }
         }
     }
 
+    @Test("Execute does not retry authExpired")
     @MainActor
-    func testExecuteDoesNotRetryAuthExpired() async {
+    func executeDoesNotRetryAuthExpired() async {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
 
         var callCount = 0
@@ -105,16 +127,17 @@ final class RetryPolicyTests: XCTestCase {
                 callCount += 1
                 throw YTMusicError.authExpired
             }
-            XCTFail("Should have thrown")
+            Issue.record("Should have thrown")
         } catch YTMusicError.authExpired {
-            XCTAssertEqual(callCount, 1) // Should not retry
+            #expect(callCount == 1) // Should not retry
         } catch {
-            XCTFail("Wrong error type: \(error)")
+            Issue.record("Wrong error type: \(error)")
         }
     }
 
+    @Test("Execute does not retry notAuthenticated")
     @MainActor
-    func testExecuteDoesNotRetryNotAuthenticated() async {
+    func executeDoesNotRetryNotAuthenticated() async {
         let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
 
         var callCount = 0
@@ -123,11 +146,11 @@ final class RetryPolicyTests: XCTestCase {
                 callCount += 1
                 throw YTMusicError.notAuthenticated
             }
-            XCTFail("Should have thrown")
+            Issue.record("Should have thrown")
         } catch YTMusicError.notAuthenticated {
-            XCTAssertEqual(callCount, 1) // Should not retry
+            #expect(callCount == 1) // Should not retry
         } catch {
-            XCTFail("Wrong error type: \(error)")
+            Issue.record("Wrong error type: \(error)")
         }
     }
 }

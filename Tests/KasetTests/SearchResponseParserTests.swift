@@ -1,95 +1,76 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for the SearchResponseParser.
-final class SearchResponseParserTests: XCTestCase {
-    func testParseEmptyResponse() {
-        // Given
+@Suite
+struct SearchResponseParserTests {
+    @Test("Parse empty response returns empty results")
+    func parseEmptyResponse() {
         let data: [String: Any] = [:]
-
-        // When
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertTrue(response.songs.isEmpty)
-        XCTAssertTrue(response.albums.isEmpty)
-        XCTAssertTrue(response.artists.isEmpty)
-        XCTAssertTrue(response.playlists.isEmpty)
+        #expect(response.songs.isEmpty)
+        #expect(response.albums.isEmpty)
+        #expect(response.artists.isEmpty)
+        #expect(response.playlists.isEmpty)
     }
 
-    func testParseSongResults() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 3, albums: 0, artists: 0, playlists: 0)
-
-        // When
+    @Test("Parse response with only songs")
+    func parseSongResults() {
+        let data = makeSearchResponseData(songs: 3, albums: 0, artists: 0, playlists: 0)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertEqual(response.songs.count, 3)
-        XCTAssertTrue(response.albums.isEmpty)
-        XCTAssertTrue(response.artists.isEmpty)
-        XCTAssertTrue(response.playlists.isEmpty)
+        #expect(response.songs.count == 3)
+        #expect(response.albums.isEmpty)
+        #expect(response.artists.isEmpty)
+        #expect(response.playlists.isEmpty)
     }
 
-    func testParseAlbumResults() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 0, albums: 2, artists: 0, playlists: 0)
-
-        // When
+    @Test("Parse response with only albums")
+    func parseAlbumResults() {
+        let data = makeSearchResponseData(songs: 0, albums: 2, artists: 0, playlists: 0)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertTrue(response.songs.isEmpty)
-        XCTAssertEqual(response.albums.count, 2)
+        #expect(response.songs.isEmpty)
+        #expect(response.albums.count == 2)
     }
 
-    func testParseArtistResults() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 0, albums: 0, artists: 2, playlists: 0)
-
-        // When
+    @Test("Parse response with only artists")
+    func parseArtistResults() {
+        let data = makeSearchResponseData(songs: 0, albums: 0, artists: 2, playlists: 0)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertTrue(response.songs.isEmpty)
-        XCTAssertEqual(response.artists.count, 2)
+        #expect(response.songs.isEmpty)
+        #expect(response.artists.count == 2)
     }
 
-    func testParsePlaylistResults() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 0, albums: 0, artists: 0, playlists: 2)
-
-        // When
+    @Test("Parse response with only playlists")
+    func parsePlaylistResults() {
+        let data = makeSearchResponseData(songs: 0, albums: 0, artists: 0, playlists: 2)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertTrue(response.songs.isEmpty)
-        XCTAssertEqual(response.playlists.count, 2)
+        #expect(response.songs.isEmpty)
+        #expect(response.playlists.count == 2)
     }
 
-    func testParseMixedResults() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 2, albums: 1, artists: 1, playlists: 1)
-
-        // When
+    @Test("Parse response with mixed results")
+    func parseMixedResults() {
+        let data = makeSearchResponseData(songs: 2, albums: 1, artists: 1, playlists: 1)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertEqual(response.songs.count, 2)
-        XCTAssertEqual(response.albums.count, 1)
-        XCTAssertEqual(response.artists.count, 1)
-        XCTAssertEqual(response.playlists.count, 1)
+        #expect(response.songs.count == 2)
+        #expect(response.albums.count == 1)
+        #expect(response.artists.count == 1)
+        #expect(response.playlists.count == 1)
     }
 
-    func testSongHasVideoId() {
-        // Given
-        let data = self.makeSearchResponseData(songs: 1, albums: 0, artists: 0, playlists: 0)
-
-        // When
+    @Test("Song has correct video ID")
+    func songHasVideoId() {
+        let data = makeSearchResponseData(songs: 1, albums: 0, artists: 0, playlists: 0)
         let response = SearchResponseParser.parse(data)
 
-        // Then
-        XCTAssertEqual(response.songs.first?.videoId, "video0")
+        #expect(response.songs.first?.videoId == "video0")
     }
 
     // MARK: - Helpers
@@ -98,16 +79,16 @@ final class SearchResponseParserTests: XCTestCase {
         var contents: [[String: Any]] = []
 
         if songs > 0 {
-            contents.append(["musicShelfRenderer": ["contents": self.makeSongItems(count: songs)]])
+            contents.append(["musicShelfRenderer": ["contents": makeSongItems(count: songs)]])
         }
         if albums > 0 {
-            contents.append(["musicShelfRenderer": ["contents": self.makeAlbumItems(count: albums)]])
+            contents.append(["musicShelfRenderer": ["contents": makeAlbumItems(count: albums)]])
         }
         if artists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": self.makeArtistItems(count: artists)]])
+            contents.append(["musicShelfRenderer": ["contents": makeArtistItems(count: artists)]])
         }
         if playlists > 0 {
-            contents.append(["musicShelfRenderer": ["contents": self.makePlaylistItems(count: playlists)]])
+            contents.append(["musicShelfRenderer": ["contents": makePlaylistItems(count: playlists)]])
         }
 
         return [

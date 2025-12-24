@@ -1,102 +1,108 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Unit tests for LikeStatus and FeedbackTokens.
-final class LikeStatusTests: XCTestCase {
+@Suite("LikeStatus and FeedbackTokens")
+struct LikeStatusTests {
     // MARK: - LikeStatus Tests
 
-    func testLikeStatusRawValues() {
-        XCTAssertEqual(LikeStatus.like.rawValue, "LIKE")
-        XCTAssertEqual(LikeStatus.dislike.rawValue, "DISLIKE")
-        XCTAssertEqual(LikeStatus.indifferent.rawValue, "INDIFFERENT")
+    @Test("Raw values are correct")
+    func likeStatusRawValues() {
+        #expect(LikeStatus.like.rawValue == "LIKE")
+        #expect(LikeStatus.dislike.rawValue == "DISLIKE")
+        #expect(LikeStatus.indifferent.rawValue == "INDIFFERENT")
     }
 
-    func testLikeStatusIsLiked() {
-        XCTAssertTrue(LikeStatus.like.isLiked)
-        XCTAssertFalse(LikeStatus.dislike.isLiked)
-        XCTAssertFalse(LikeStatus.indifferent.isLiked)
+    @Test("isLiked returns true only for .like")
+    func likeStatusIsLiked() {
+        #expect(LikeStatus.like.isLiked)
+        #expect(!LikeStatus.dislike.isLiked)
+        #expect(!LikeStatus.indifferent.isLiked)
     }
 
-    func testLikeStatusIsDisliked() {
-        XCTAssertFalse(LikeStatus.like.isDisliked)
-        XCTAssertTrue(LikeStatus.dislike.isDisliked)
-        XCTAssertFalse(LikeStatus.indifferent.isDisliked)
+    @Test("isDisliked returns true only for .dislike")
+    func likeStatusIsDisliked() {
+        #expect(!LikeStatus.like.isDisliked)
+        #expect(LikeStatus.dislike.isDisliked)
+        #expect(!LikeStatus.indifferent.isDisliked)
     }
 
-    func testLikeStatusEncodingDecoding() throws {
+    @Test("Encoding and decoding preserves value", arguments: [LikeStatus.like, .dislike, .indifferent])
+    func likeStatusEncodingDecoding(status: LikeStatus) throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
 
-        for status in [LikeStatus.like, .dislike, .indifferent] {
-            let data = try encoder.encode(status)
-            let decoded = try decoder.decode(LikeStatus.self, from: data)
-            XCTAssertEqual(status, decoded)
-        }
+        let data = try encoder.encode(status)
+        let decoded = try decoder.decode(LikeStatus.self, from: data)
+        #expect(status == decoded)
     }
 
-    func testLikeStatusDecodingFromRawValue() throws {
+    @Test("Decodes from raw value strings", arguments: [
+        ("\"LIKE\"", LikeStatus.like),
+        ("\"DISLIKE\"", LikeStatus.dislike),
+        ("\"INDIFFERENT\"", LikeStatus.indifferent),
+    ])
+    func likeStatusDecodingFromRawValue(jsonString: String, expected: LikeStatus) throws {
         let decoder = JSONDecoder()
-
-        let likeData = Data("\"LIKE\"".utf8)
-        let likeStatus = try decoder.decode(LikeStatus.self, from: likeData)
-        XCTAssertEqual(likeStatus, .like)
-
-        let dislikeData = Data("\"DISLIKE\"".utf8)
-        let dislikeStatus = try decoder.decode(LikeStatus.self, from: dislikeData)
-        XCTAssertEqual(dislikeStatus, .dislike)
-
-        let indifferentData = Data("\"INDIFFERENT\"".utf8)
-        let indifferentStatus = try decoder.decode(LikeStatus.self, from: indifferentData)
-        XCTAssertEqual(indifferentStatus, .indifferent)
+        let data = Data(jsonString.utf8)
+        let decoded = try decoder.decode(LikeStatus.self, from: data)
+        #expect(decoded == expected)
     }
 
-    func testLikeStatusEquality() {
-        XCTAssertEqual(LikeStatus.like, LikeStatus.like)
-        XCTAssertNotEqual(LikeStatus.like, LikeStatus.dislike)
-        XCTAssertNotEqual(LikeStatus.like, LikeStatus.indifferent)
-        XCTAssertNotEqual(LikeStatus.dislike, LikeStatus.indifferent)
+    @Test("Equality comparison works correctly")
+    func likeStatusEquality() {
+        #expect(LikeStatus.like == LikeStatus.like)
+        #expect(LikeStatus.like != LikeStatus.dislike)
+        #expect(LikeStatus.like != LikeStatus.indifferent)
+        #expect(LikeStatus.dislike != LikeStatus.indifferent)
     }
 
     // MARK: - FeedbackTokens Tests
 
-    func testFeedbackTokensInitialization() {
+    @Test("Initialization stores tokens correctly")
+    func feedbackTokensInitialization() {
         let tokens = FeedbackTokens(add: "add_token_123", remove: "remove_token_456")
-        XCTAssertEqual(tokens.add, "add_token_123")
-        XCTAssertEqual(tokens.remove, "remove_token_456")
+        #expect(tokens.add == "add_token_123")
+        #expect(tokens.remove == "remove_token_456")
     }
 
-    func testFeedbackTokensWithNilValues() {
+    @Test("Handles nil values correctly")
+    func feedbackTokensWithNilValues() {
         let tokensNilAdd = FeedbackTokens(add: nil, remove: "remove_token")
-        XCTAssertNil(tokensNilAdd.add)
-        XCTAssertEqual(tokensNilAdd.remove, "remove_token")
+        #expect(tokensNilAdd.add == nil)
+        #expect(tokensNilAdd.remove == "remove_token")
 
         let tokensNilRemove = FeedbackTokens(add: "add_token", remove: nil)
-        XCTAssertEqual(tokensNilRemove.add, "add_token")
-        XCTAssertNil(tokensNilRemove.remove)
+        #expect(tokensNilRemove.add == "add_token")
+        #expect(tokensNilRemove.remove == nil)
 
         let tokensAllNil = FeedbackTokens(add: nil, remove: nil)
-        XCTAssertNil(tokensAllNil.add)
-        XCTAssertNil(tokensAllNil.remove)
+        #expect(tokensAllNil.add == nil)
+        #expect(tokensAllNil.remove == nil)
     }
 
-    func testFeedbackTokensTokenForAdding() {
+    @Test("token(forAdding:) returns correct token")
+    func feedbackTokensTokenForAdding() {
         let tokens = FeedbackTokens(add: "add_token", remove: "remove_token")
 
-        XCTAssertEqual(tokens.token(forAdding: true), "add_token")
-        XCTAssertEqual(tokens.token(forAdding: false), "remove_token")
+        #expect(tokens.token(forAdding: true) == "add_token")
+        #expect(tokens.token(forAdding: false) == "remove_token")
     }
 
-    func testFeedbackTokensTokenForAddingWithNilValues() {
+    @Test("token(forAdding:) handles nil values")
+    func feedbackTokensTokenForAddingWithNilValues() {
         let tokensNilAdd = FeedbackTokens(add: nil, remove: "remove_token")
-        XCTAssertNil(tokensNilAdd.token(forAdding: true))
-        XCTAssertEqual(tokensNilAdd.token(forAdding: false), "remove_token")
+        #expect(tokensNilAdd.token(forAdding: true) == nil)
+        #expect(tokensNilAdd.token(forAdding: false) == "remove_token")
 
         let tokensNilRemove = FeedbackTokens(add: "add_token", remove: nil)
-        XCTAssertEqual(tokensNilRemove.token(forAdding: true), "add_token")
-        XCTAssertNil(tokensNilRemove.token(forAdding: false))
+        #expect(tokensNilRemove.token(forAdding: true) == "add_token")
+        #expect(tokensNilRemove.token(forAdding: false) == nil)
     }
 
-    func testFeedbackTokensEncodingDecoding() throws {
+    @Test("Encoding and decoding preserves FeedbackTokens")
+    func feedbackTokensEncodingDecoding() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
 
@@ -104,20 +110,22 @@ final class LikeStatusTests: XCTestCase {
         let data = try encoder.encode(tokens)
         let decoded = try decoder.decode(FeedbackTokens.self, from: data)
 
-        XCTAssertEqual(tokens.add, decoded.add)
-        XCTAssertEqual(tokens.remove, decoded.remove)
+        #expect(tokens.add == decoded.add)
+        #expect(tokens.remove == decoded.remove)
     }
 
-    func testFeedbackTokensEquality() {
+    @Test("Equality comparison works correctly for FeedbackTokens")
+    func feedbackTokensEquality() {
         let tokens1 = FeedbackTokens(add: "add", remove: "remove")
         let tokens2 = FeedbackTokens(add: "add", remove: "remove")
         let tokens3 = FeedbackTokens(add: "different", remove: "remove")
 
-        XCTAssertEqual(tokens1, tokens2)
-        XCTAssertNotEqual(tokens1, tokens3)
+        #expect(tokens1 == tokens2)
+        #expect(tokens1 != tokens3)
     }
 
-    func testFeedbackTokensHashable() {
+    @Test("FeedbackTokens is Hashable")
+    func feedbackTokensHashable() {
         let tokens1 = FeedbackTokens(add: "add", remove: "remove")
         let tokens2 = FeedbackTokens(add: "add", remove: "remove")
 
@@ -125,6 +133,6 @@ final class LikeStatusTests: XCTestCase {
         set.insert(tokens1)
         set.insert(tokens2)
 
-        XCTAssertEqual(set.count, 1)
+        #expect(set.count == 1)
     }
 }

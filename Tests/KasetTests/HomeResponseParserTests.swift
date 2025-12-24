@@ -1,32 +1,26 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for the HomeResponseParser.
-final class HomeResponseParserTests: XCTestCase {
-    func testParseEmptyResponse() {
-        // Given
+@Suite
+struct HomeResponseParserTests {
+    @Test("Parse empty response returns empty sections")
+    func parseEmptyResponse() {
         let data: [String: Any] = [:]
-
-        // When
         let response = HomeResponseParser.parse(data)
-
-        // Then
-        XCTAssertTrue(response.sections.isEmpty)
+        #expect(response.sections.isEmpty)
     }
 
-    func testParseResponseWithSections() {
-        // Given
-        let data = self.makeHomeResponseData(sectionCount: 3)
-
-        // When
+    @Test("Parse response with multiple sections")
+    func parseResponseWithSections() {
+        let data = makeHomeResponseData(sectionCount: 3)
         let response = HomeResponseParser.parse(data)
-
-        // Then
-        XCTAssertEqual(response.sections.count, 3)
+        #expect(response.sections.count == 3)
     }
 
-    func testParseCarouselSectionWithAlbum() {
-        // Given
+    @Test("Parse carousel section with album")
+    func parseCarouselSectionWithAlbum() throws {
         let albumData: [String: Any] = [
             "musicTwoRowItemRenderer": [
                 "title": ["runs": [["text": "Test Album"]]],
@@ -64,24 +58,21 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
-        let section = HomeResponseParser.parseHomeSection(sectionData)
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
 
-        // Then
-        XCTAssertNotNil(section)
-        XCTAssertEqual(section?.title, "New Albums")
-        XCTAssertEqual(section?.items.count, 1)
+        #expect(section.title == "New Albums")
+        #expect(section.items.count == 1)
 
-        if case let .album(album) = section?.items.first {
-            XCTAssertEqual(album.title, "Test Album")
-            XCTAssertEqual(album.id, "MPRE12345")
+        if case let .album(album) = section.items.first {
+            #expect(album.title == "Test Album")
+            #expect(album.id == "MPRE12345")
         } else {
-            XCTFail("Expected album item")
+            Issue.record("Expected album item")
         }
     }
 
-    func testParseCarouselSectionWithPlaylist() {
-        // Given
+    @Test("Parse carousel section with playlist")
+    func parseCarouselSectionWithPlaylist() throws {
         let playlistData: [String: Any] = [
             "musicTwoRowItemRenderer": [
                 "title": ["runs": [["text": "My Playlist"]]],
@@ -110,21 +101,18 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
-        let section = HomeResponseParser.parseHomeSection(sectionData)
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
 
-        // Then
-        XCTAssertNotNil(section)
-        if case let .playlist(playlist) = section?.items.first {
-            XCTAssertEqual(playlist.title, "My Playlist")
-            XCTAssertEqual(playlist.id, "VL12345")
+        if case let .playlist(playlist) = section.items.first {
+            #expect(playlist.title == "My Playlist")
+            #expect(playlist.id == "VL12345")
         } else {
-            XCTFail("Expected playlist item")
+            Issue.record("Expected playlist item")
         }
     }
 
-    func testParseChartSection() {
-        // Given
+    @Test("Parse chart section with empty contents returns nil")
+    func parseChartSection() {
         let sectionData: [String: Any] = [
             "musicCarouselShelfRenderer": [
                 "header": [
@@ -136,15 +124,12 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When - section should be nil due to empty contents
         let section = HomeResponseParser.parseHomeSection(sectionData)
-
-        // Then - no items, so section is nil
-        XCTAssertNil(section)
+        #expect(section == nil)
     }
 
-    func testExtractContinuationToken() {
-        // Given
+    @Test("Extract continuation token from initial response")
+    func extractContinuationToken() {
         let data: [String: Any] = [
             "contents": [
                 "singleColumnBrowseResultsRenderer": [
@@ -166,15 +151,12 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
         let token = HomeResponseParser.extractContinuationToken(from: data)
-
-        // Then
-        XCTAssertEqual(token, "test_token_123")
+        #expect(token == "test_token_123")
     }
 
-    func testExtractContinuationTokenFromContinuation() {
-        // Given
+    @Test("Extract continuation token from continuation response")
+    func extractContinuationTokenFromContinuation() {
         let data: [String: Any] = [
             "continuationContents": [
                 "sectionListContinuation": [
@@ -187,15 +169,12 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
         let token = HomeResponseParser.extractContinuationTokenFromContinuation(data)
-
-        // Then
-        XCTAssertEqual(token, "next_token_456")
+        #expect(token == "next_token_456")
     }
 
-    func testParseNavigationButtonRenderer() {
-        // Given - Moods & Genres style navigation button with params
+    @Test("Parse navigation button renderer with params")
+    func parseNavigationButtonRenderer() {
         let buttonData: [String: Any] = [
             "musicNavigationButtonRenderer": [
                 "buttonText": [
@@ -210,21 +189,19 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
         let item = HomeResponseParser.parseHomeSectionItem(buttonData)
 
-        // Then - ID should include params for uniqueness
-        XCTAssertNotNil(item)
+        #expect(item != nil)
         if case let .playlist(playlist) = item {
-            XCTAssertEqual(playlist.title, "Chill")
-            XCTAssertEqual(playlist.id, "FEmusic_moods_and_genres_category_chill_someEncodedParams")
+            #expect(playlist.title == "Chill")
+            #expect(playlist.id == "FEmusic_moods_and_genres_category_chill_someEncodedParams")
         } else {
-            XCTFail("Expected playlist item from navigation button")
+            Issue.record("Expected playlist item from navigation button")
         }
     }
 
-    func testParseNavigationButtonRendererWithoutParams() {
-        // Given - Moods & Genres style navigation button without params
+    @Test("Parse navigation button renderer without params")
+    func parseNavigationButtonRendererWithoutParams() {
         let buttonData: [String: Any] = [
             "musicNavigationButtonRenderer": [
                 "buttonText": [
@@ -238,21 +215,19 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
         let item = HomeResponseParser.parseHomeSectionItem(buttonData)
 
-        // Then - ID should be just browseId when no params
-        XCTAssertNotNil(item)
+        #expect(item != nil)
         if case let .playlist(playlist) = item {
-            XCTAssertEqual(playlist.title, "Focus")
-            XCTAssertEqual(playlist.id, "FEmusic_moods_focus")
+            #expect(playlist.title == "Focus")
+            #expect(playlist.id == "FEmusic_moods_focus")
         } else {
-            XCTFail("Expected playlist item from navigation button")
+            Issue.record("Expected playlist item from navigation button")
         }
     }
 
-    func testParseGridWithNavigationButtons() {
-        // Given - Moods & Genres grid section
+    @Test("Parse grid with navigation buttons")
+    func parseGridWithNavigationButtons() throws {
         let gridData: [String: Any] = [
             "gridRenderer": [
                 "header": [
@@ -289,19 +264,16 @@ final class HomeResponseParserTests: XCTestCase {
             ],
         ]
 
-        // When
-        let section = HomeResponseParser.parseHomeSection(gridData)
+        let section = try #require(HomeResponseParser.parseHomeSection(gridData))
 
-        // Then
-        XCTAssertNotNil(section)
-        XCTAssertEqual(section?.title, "Moods")
-        XCTAssertEqual(section?.items.count, 2)
-        XCTAssertEqual(section?.isChart, false, "Moods section should not be a chart")
+        #expect(section.title == "Moods")
+        #expect(section.items.count == 2)
+        #expect(section.isChart == false, "Moods section should not be a chart")
 
-        if case let .playlist(firstPlaylist) = section?.items.first {
-            XCTAssertEqual(firstPlaylist.title, "Chill")
+        if case let .playlist(firstPlaylist) = section.items.first {
+            #expect(firstPlaylist.title == "Chill")
         } else {
-            XCTFail("Expected playlist item from navigation button")
+            Issue.record("Expected playlist item from navigation button")
         }
     }
 

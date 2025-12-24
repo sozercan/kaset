@@ -1,15 +1,17 @@
 import Foundation
-import XCTest
+import Testing
 @testable import Kaset
 
 // MARK: - MusicIntentTests
 
 /// Tests for MusicIntent query building and content source suggestion.
 @available(macOS 26.0, *)
-final class MusicIntentTests: XCTestCase {
+@Suite
+struct MusicIntentTests {
     // MARK: - buildSearchQuery Tests
 
-    func testBuildSearchQuery_artistOnly() {
+    @Test("Build search query with artist only")
+    func buildSearchQueryArtistOnly() {
         let intent = MusicIntent(
             action: .play,
             query: "Beatles songs",
@@ -23,11 +25,12 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertTrue(query.contains("Beatles"), "Query should contain artist name")
-        XCTAssertTrue(query.contains("songs"), "Query should contain 'songs' suffix")
+        #expect(query.contains("Beatles"), "Query should contain artist name")
+        #expect(query.contains("songs"), "Query should contain 'songs' suffix")
     }
 
-    func testBuildSearchQuery_moodAndGenre() {
+    @Test("Build search query with mood and genre")
+    func buildSearchQueryMoodAndGenre() {
         let intent = MusicIntent(
             action: .play,
             query: "",
@@ -41,10 +44,11 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertEqual(query, "jazz chill songs", "Should combine genre, mood, and songs suffix")
+        #expect(query == "jazz chill songs", "Should combine genre, mood, and songs suffix")
     }
 
-    func testBuildSearchQuery_artistWithEra() {
+    @Test("Build search query with artist and era")
+    func buildSearchQueryArtistWithEra() {
         let intent = MusicIntent(
             action: .play,
             query: "rolling stones 90s hits",
@@ -58,12 +62,13 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertTrue(query.contains("Rolling Stones"), "Query should contain artist")
-        XCTAssertTrue(query.contains("90s") || query.contains("1990s"), "Query should contain era")
-        XCTAssertTrue(query.contains("hits"), "Query should preserve 'hits' from original query")
+        #expect(query.contains("Rolling Stones"), "Query should contain artist")
+        #expect(query.contains("90s") || query.contains("1990s"), "Query should contain era")
+        #expect(query.contains("hits"), "Query should preserve 'hits' from original query")
     }
 
-    func testBuildSearchQuery_eraOnly() {
+    @Test("Build search query with era only")
+    func buildSearchQueryEraOnly() {
         let intent = MusicIntent(
             action: .play,
             query: "80s music",
@@ -77,11 +82,12 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertTrue(query.contains("80s") || query.contains("1980s"), "Query should contain era")
-        XCTAssertTrue(query.contains("hits") || query.contains("songs"), "Query should have suffix")
+        #expect(query.contains("80s") || query.contains("1980s"), "Query should contain era")
+        #expect(query.contains("hits") || query.contains("songs"), "Query should have suffix")
     }
 
-    func testBuildSearchQuery_versionType() {
+    @Test("Build search query with version type")
+    func buildSearchQueryVersionType() {
         let intent = MusicIntent(
             action: .play,
             query: "acoustic covers",
@@ -95,10 +101,11 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertTrue(query.contains("acoustic"), "Query should contain version type")
+        #expect(query.contains("acoustic"), "Query should contain version type")
     }
 
-    func testBuildSearchQuery_complexQuery() {
+    @Test("Build search query complex")
+    func buildSearchQueryComplex() {
         let intent = MusicIntent(
             action: .play,
             query: "upbeat rolling stones songs from the 90s",
@@ -112,13 +119,14 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let query = intent.buildSearchQuery()
-        XCTAssertTrue(query.contains("Rolling Stones"), "Should contain artist")
-        XCTAssertTrue(query.contains("upbeat") || query.contains("rock"), "Should contain mood or genre")
+        #expect(query.contains("Rolling Stones"), "Should contain artist")
+        #expect(query.contains("upbeat") || query.contains("rock"), "Should contain mood or genre")
     }
 
     // MARK: - suggestedContentSource Tests
 
-    func testContentSource_artistQuery_returnsSearch() {
+    @Test("Content source for artist query returns search")
+    func contentSourceArtistQueryReturnsSearch() {
         let intent = MusicIntent(
             action: .play,
             query: "Taylor Swift",
@@ -131,10 +139,11 @@ final class MusicIntentTests: XCTestCase {
             activity: ""
         )
 
-        XCTAssertEqual(intent.suggestedContentSource(), .search, "Artist queries should use search")
+        #expect(intent.suggestedContentSource() == .search, "Artist queries should use search")
     }
 
-    func testContentSource_moodQuery_returnsMoodsAndGenres() {
+    @Test("Content source for mood query returns moods and genres")
+    func contentSourceMoodQueryReturnsMoodsAndGenres() {
         let intent = MusicIntent(
             action: .play,
             query: "chill music",
@@ -147,13 +156,11 @@ final class MusicIntentTests: XCTestCase {
             activity: ""
         )
 
-        XCTAssertEqual(
-            intent.suggestedContentSource(), .moodsAndGenres,
-            "Pure mood queries should use Moods & Genres"
-        )
+        #expect(intent.suggestedContentSource() == .moodsAndGenres, "Pure mood queries should use Moods & Genres")
     }
 
-    func testContentSource_activityQuery_returnsMoodsAndGenres() {
+    @Test("Content source for activity query returns moods and genres")
+    func contentSourceActivityQueryReturnsMoodsAndGenres() {
         let intent = MusicIntent(
             action: .play,
             query: "workout music",
@@ -166,13 +173,11 @@ final class MusicIntentTests: XCTestCase {
             activity: "workout"
         )
 
-        XCTAssertEqual(
-            intent.suggestedContentSource(), .moodsAndGenres,
-            "Activity-based queries should use Moods & Genres"
-        )
+        #expect(intent.suggestedContentSource() == .moodsAndGenres, "Activity-based queries should use Moods & Genres")
     }
 
-    func testContentSource_chartsQuery_returnsCharts() {
+    @Test("Content source for charts query returns charts")
+    func contentSourceChartsQueryReturnsCharts() {
         let intent = MusicIntent(
             action: .play,
             query: "top songs",
@@ -185,13 +190,11 @@ final class MusicIntentTests: XCTestCase {
             activity: ""
         )
 
-        XCTAssertEqual(
-            intent.suggestedContentSource(), .charts,
-            "Popularity keywords should use Charts"
-        )
+        #expect(intent.suggestedContentSource() == .charts, "Popularity keywords should use Charts")
     }
 
-    func testContentSource_versionQuery_returnsSearch() {
+    @Test("Content source for version query returns search")
+    func contentSourceVersionQueryReturnsSearch() {
         let intent = MusicIntent(
             action: .play,
             query: "live performances",
@@ -204,15 +207,13 @@ final class MusicIntentTests: XCTestCase {
             activity: ""
         )
 
-        XCTAssertEqual(
-            intent.suggestedContentSource(), .search,
-            "Version-specific queries need search"
-        )
+        #expect(intent.suggestedContentSource() == .search, "Version-specific queries need search")
     }
 
     // MARK: - queryDescription Tests
 
-    func testQueryDescription_allComponents() {
+    @Test("Query description with all components")
+    func queryDescriptionAllComponents() {
         let intent = MusicIntent(
             action: .play,
             query: "upbeat rock by Queen from the 80s (live)",
@@ -226,14 +227,15 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let description = intent.queryDescription()
-        XCTAssertTrue(description.contains("upbeat"), "Should include mood")
-        XCTAssertTrue(description.contains("rock"), "Should include genre")
-        XCTAssertTrue(description.contains("Queen"), "Should include artist")
-        XCTAssertTrue(description.contains("1980s"), "Should include era")
-        XCTAssertTrue(description.contains("live"), "Should include version")
+        #expect(description.contains("upbeat"), "Should include mood")
+        #expect(description.contains("rock"), "Should include genre")
+        #expect(description.contains("Queen"), "Should include artist")
+        #expect(description.contains("1980s"), "Should include era")
+        #expect(description.contains("live"), "Should include version")
     }
 
-    func testQueryDescription_emptyFallsBackToQuery() {
+    @Test("Query description with empty components falls back to query")
+    func queryDescriptionEmptyFallsBackToQuery() {
         let intent = MusicIntent(
             action: .play,
             query: "something random",
@@ -247,15 +249,17 @@ final class MusicIntentTests: XCTestCase {
         )
 
         let description = intent.queryDescription()
-        XCTAssertEqual(description, "something random", "Empty components should fall back to query")
+        #expect(description == "something random", "Empty components should fall back to query")
     }
 }
 
 // MARK: - MusicQueryTests
 
 @available(macOS 26.0, *)
-final class MusicQueryTests: XCTestCase {
-    func testBuildSearchQuery_basicArtist() {
+@Suite
+struct MusicQueryTests {
+    @Test("Build search query basic artist")
+    func buildSearchQueryBasicArtist() {
         let query = MusicQuery(
             searchTerm: "",
             artist: "Coldplay",
@@ -270,11 +274,12 @@ final class MusicQueryTests: XCTestCase {
         )
 
         let result = query.buildSearchQuery()
-        XCTAssertTrue(result.contains("Coldplay"), "Should include artist")
-        XCTAssertTrue(result.contains("songs"), "Should end with 'songs'")
+        #expect(result.contains("Coldplay"), "Should include artist")
+        #expect(result.contains("songs"), "Should end with 'songs'")
     }
 
-    func testBuildSearchQuery_fullQuery() {
+    @Test("Build search query full query")
+    func buildSearchQueryFullQuery() {
         let query = MusicQuery(
             searchTerm: "",
             artist: "Coldplay",
@@ -289,14 +294,15 @@ final class MusicQueryTests: XCTestCase {
         )
 
         let result = query.buildSearchQuery()
-        XCTAssertTrue(result.contains("Coldplay"))
-        XCTAssertTrue(result.contains("rock"))
-        XCTAssertTrue(result.contains("upbeat"))
-        XCTAssertTrue(result.contains("2000s"))
-        XCTAssertTrue(result.contains("live"))
+        #expect(result.contains("Coldplay"))
+        #expect(result.contains("rock"))
+        #expect(result.contains("upbeat"))
+        #expect(result.contains("2000s"))
+        #expect(result.contains("live"))
     }
 
-    func testBuildSearchQuery_activityOnlyWhenEmpty() {
+    @Test("Build search query activity only when empty")
+    func buildSearchQueryActivityOnlyWhenEmpty() {
         let query = MusicQuery(
             searchTerm: "",
             artist: "",
@@ -311,10 +317,11 @@ final class MusicQueryTests: XCTestCase {
         )
 
         let result = query.buildSearchQuery()
-        XCTAssertTrue(result.contains("workout music"), "Activity should be used when nothing else specified")
+        #expect(result.contains("workout music"), "Activity should be used when nothing else specified")
     }
 
-    func testDescription_formatsNicely() {
+    @Test("Description formats nicely")
+    func descriptionFormatsNicely() {
         let query = MusicQuery(
             searchTerm: "",
             artist: "Daft Punk",
@@ -329,53 +336,63 @@ final class MusicQueryTests: XCTestCase {
         )
 
         let desc = query.description()
-        XCTAssertTrue(desc.contains("energetic"))
-        XCTAssertTrue(desc.contains("electronic"))
-        XCTAssertTrue(desc.contains("Daft Punk"))
-        XCTAssertTrue(desc.contains("2000s"))
-        XCTAssertTrue(desc.contains("party"))
+        #expect(desc.contains("energetic"))
+        #expect(desc.contains("electronic"))
+        #expect(desc.contains("Daft Punk"))
+        #expect(desc.contains("2000s"))
+        #expect(desc.contains("party"))
     }
 }
 
 // MARK: - AISessionTypeTests
 
 @available(macOS 26.0, *)
-final class AISessionTypeTests: XCTestCase {
-    func testCommandSessionHasLowerTemperature() {
+@Suite
+struct AISessionTypeTests {
+    @Test("Command session has generation options")
+    func commandSessionHasLowerTemperature() {
         let options = AISessionType.command.generationOptions
-        // Command sessions should use lower temperature for predictable parsing
-        // We can't directly access temperature, but we verify the options are created
-        XCTAssertNotNil(options, "Command session should have generation options")
+        #expect(options != nil, "Command session should have generation options")
     }
 
-    func testAnalysisSessionHasHigherTemperature() {
+    @Test("Analysis session has generation options")
+    func analysisSessionHasHigherTemperature() {
         let options = AISessionType.analysis.generationOptions
-        XCTAssertNotNil(options, "Analysis session should have generation options")
+        #expect(options != nil, "Analysis session should have generation options")
     }
 
-    func testConversationalSessionHasBalancedTemperature() {
+    @Test("Conversational session has generation options")
+    func conversationalSessionHasBalancedTemperature() {
         let options = AISessionType.conversational.generationOptions
-        XCTAssertNotNil(options, "Conversational session should have generation options")
+        #expect(options != nil, "Conversational session should have generation options")
     }
 }
 
 // MARK: - ContentSourceTests
 
-final class ContentSourceTests: XCTestCase {
-    func testContentSourceDescription() {
-        XCTAssertEqual(ContentSource.search.description, "search")
-        XCTAssertEqual(ContentSource.moodsAndGenres.description, "moodsAndGenres")
-        XCTAssertEqual(ContentSource.charts.description, "charts")
+@Suite
+struct ContentSourceTests {
+    @Test(
+        "Content source description",
+        arguments: [
+            (ContentSource.search, "search"),
+            (ContentSource.moodsAndGenres, "moodsAndGenres"),
+            (ContentSource.charts, "charts"),
+        ]
+    )
+    func contentSourceDescription(source: ContentSource, expected: String) {
+        #expect(source.description == expected)
     }
 }
 
 // MARK: - QueueIntentTests
 
 @available(macOS 26.0, *)
-final class QueueIntentTests: XCTestCase {
-    func testQueueActionValues() {
-        // Verify all queue actions are available
+@Suite
+struct QueueIntentTests {
+    @Test("Queue action values")
+    func queueActionValues() {
         let actions: [QueueAction] = [.add, .addNext, .remove, .clear, .shuffle]
-        XCTAssertEqual(actions.count, 5, "Should have 5 queue actions")
+        #expect(actions.count == 5, "Should have 5 queue actions")
     }
 }

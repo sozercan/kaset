@@ -1,11 +1,14 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for HomeSection and HomeSectionItem.
-final class HomeSectionTests: XCTestCase {
-    // MARK: - HomeSectionItem Tests
+@Suite("HomeSection")
+struct HomeSectionTests {
+    // MARK: - HomeSectionItem ID Tests
 
-    func testSongItemId() {
+    @Test("Song item ID has correct prefix")
+    func songItemId() {
         let song = Song(
             id: "video123",
             title: "Test Song",
@@ -17,10 +20,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.song(song)
-        XCTAssertEqual(item.id, "song-video123")
+        #expect(item.id == "song-video123")
     }
 
-    func testAlbumItemId() {
+    @Test("Album item ID has correct prefix")
+    func albumItemId() {
         let album = Album(
             id: "album456",
             title: "Test Album",
@@ -31,10 +35,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.album(album)
-        XCTAssertEqual(item.id, "album-album456")
+        #expect(item.id == "album-album456")
     }
 
-    func testPlaylistItemId() {
+    @Test("Playlist item ID has correct prefix")
+    func playlistItemId() {
         let playlist = Playlist(
             id: "playlist789",
             title: "Test Playlist",
@@ -45,17 +50,21 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertEqual(item.id, "playlist-playlist789")
+        #expect(item.id == "playlist-playlist789")
     }
 
-    func testArtistItemId() {
+    @Test("Artist item ID has correct prefix")
+    func artistItemId() {
         let artist = Artist(id: "artist111", name: "Test Artist")
 
         let item = HomeSectionItem.artist(artist)
-        XCTAssertEqual(item.id, "artist-artist111")
+        #expect(item.id == "artist-artist111")
     }
 
-    func testSongItemTitle() {
+    // MARK: - HomeSectionItem Title Tests
+
+    @Test("Song item returns song title")
+    func songItemTitle() {
         let song = Song(
             id: "1",
             title: "Amazing Song",
@@ -67,10 +76,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.song(song)
-        XCTAssertEqual(item.title, "Amazing Song")
+        #expect(item.title == "Amazing Song")
     }
 
-    func testAlbumItemTitle() {
+    @Test("Album item returns album title")
+    func albumItemTitle() {
         let album = Album(
             id: "1",
             title: "Great Album",
@@ -81,10 +91,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.album(album)
-        XCTAssertEqual(item.title, "Great Album")
+        #expect(item.title == "Great Album")
     }
 
-    func testPlaylistItemTitle() {
+    @Test("Playlist item returns playlist title")
+    func playlistItemTitle() {
         let playlist = Playlist(
             id: "1",
             title: "My Playlist",
@@ -95,17 +106,21 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertEqual(item.title, "My Playlist")
+        #expect(item.title == "My Playlist")
     }
 
-    func testArtistItemTitle() {
+    @Test("Artist item returns artist name")
+    func artistItemTitle() {
         let artist = Artist(id: "1", name: "Famous Artist")
 
         let item = HomeSectionItem.artist(artist)
-        XCTAssertEqual(item.title, "Famous Artist")
+        #expect(item.title == "Famous Artist")
     }
 
-    func testSongItemSubtitle() {
+    // MARK: - HomeSectionItem Subtitle Tests
+
+    @Test("Song item subtitle shows artists")
+    func songItemSubtitle() {
         let artists = [Artist(id: "a1", name: "Artist One"), Artist(id: "a2", name: "Artist Two")]
         let song = Song(
             id: "1",
@@ -118,10 +133,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.song(song)
-        XCTAssertEqual(item.subtitle, "Artist One, Artist Two")
+        #expect(item.subtitle == "Artist One, Artist Two")
     }
 
-    func testAlbumItemSubtitle() {
+    @Test("Album item subtitle shows artists")
+    func albumItemSubtitle() {
         let artists = [Artist(id: "a1", name: "Album Artist")]
         let album = Album(
             id: "1",
@@ -133,10 +149,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.album(album)
-        XCTAssertEqual(item.subtitle, "Album Artist")
+        #expect(item.subtitle == "Album Artist")
     }
 
-    func testPlaylistItemSubtitle() {
+    @Test("Playlist item subtitle shows author")
+    func playlistItemSubtitle() {
         let playlist = Playlist(
             id: "1",
             title: "Playlist",
@@ -147,17 +164,21 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertEqual(item.subtitle, "Playlist Author")
+        #expect(item.subtitle == "Playlist Author")
     }
 
-    func testArtistItemSubtitle() {
+    @Test("Artist item subtitle is 'Artist'")
+    func artistItemSubtitle() {
         let artist = Artist(id: "1", name: "Artist")
 
         let item = HomeSectionItem.artist(artist)
-        XCTAssertEqual(item.subtitle, "Artist")
+        #expect(item.subtitle == "Artist")
     }
 
-    func testSongItemThumbnailURL() {
+    // MARK: - HomeSectionItem ThumbnailURL Tests
+
+    @Test("Song item returns song thumbnail")
+    func songItemThumbnailURL() {
         let url = URL(string: "https://example.com/song.jpg")
         let song = Song(
             id: "1",
@@ -170,10 +191,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.song(song)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testAlbumItemThumbnailURL() {
+    @Test("Album item returns album thumbnail")
+    func albumItemThumbnailURL() {
         let url = URL(string: "https://example.com/album.jpg")
         let album = Album(
             id: "1",
@@ -185,10 +207,11 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.album(album)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testPlaylistItemThumbnailURL() {
+    @Test("Playlist item returns playlist thumbnail")
+    func playlistItemThumbnailURL() {
         let url = URL(string: "https://example.com/playlist.jpg")
         let playlist = Playlist(
             id: "1",
@@ -200,18 +223,22 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testArtistItemThumbnailURL() {
+    @Test("Artist item returns artist thumbnail")
+    func artistItemThumbnailURL() {
         let url = URL(string: "https://example.com/artist.jpg")
         let artist = Artist(id: "1", name: "Artist", thumbnailURL: url)
 
         let item = HomeSectionItem.artist(artist)
-        XCTAssertEqual(item.thumbnailURL, url)
+        #expect(item.thumbnailURL == url)
     }
 
-    func testSongItemVideoId() {
+    // MARK: - HomeSectionItem VideoId Tests
+
+    @Test("Song item returns videoId")
+    func songItemVideoId() {
         let song = Song(
             id: "1",
             title: "Song",
@@ -223,123 +250,144 @@ final class HomeSectionTests: XCTestCase {
         )
 
         let item = HomeSectionItem.song(song)
-        XCTAssertEqual(item.videoId, "playable_video")
+        #expect(item.videoId == "playable_video")
     }
 
-    func testAlbumItemVideoId() {
+    @Test("Album item has no videoId")
+    func albumItemVideoId() {
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
         let item = HomeSectionItem.album(album)
-        XCTAssertNil(item.videoId)
+        #expect(item.videoId == nil)
     }
 
-    func testPlaylistItemVideoId() {
+    @Test("Playlist item has no videoId")
+    func playlistItemVideoId() {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertNil(item.videoId)
+        #expect(item.videoId == nil)
     }
 
-    func testArtistItemVideoId() {
+    @Test("Artist item has no videoId")
+    func artistItemVideoId() {
         let artist = Artist(id: "1", name: "Artist")
         let item = HomeSectionItem.artist(artist)
-        XCTAssertNil(item.videoId)
+        #expect(item.videoId == nil)
     }
 
-    func testSongItemBrowseId() {
+    // MARK: - HomeSectionItem BrowseId Tests
+
+    @Test("Song item has no browseId")
+    func songItemBrowseId() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let item = HomeSectionItem.song(song)
-        XCTAssertNil(item.browseId)
+        #expect(item.browseId == nil)
     }
 
-    func testAlbumItemBrowseId() {
+    @Test("Album item returns album ID as browseId")
+    func albumItemBrowseId() {
         let album = Album(id: "album123", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
         let item = HomeSectionItem.album(album)
-        XCTAssertEqual(item.browseId, "album123")
+        #expect(item.browseId == "album123")
     }
 
-    func testPlaylistItemBrowseId() {
+    @Test("Playlist item returns playlist ID as browseId")
+    func playlistItemBrowseId() {
         let playlist = Playlist(id: "playlist456", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         let item = HomeSectionItem.playlist(playlist)
-        XCTAssertEqual(item.browseId, "playlist456")
+        #expect(item.browseId == "playlist456")
     }
 
-    func testArtistItemBrowseId() {
+    @Test("Artist item returns artist ID as browseId")
+    func artistItemBrowseId() {
         let artist = Artist(id: "artist789", name: "Artist")
         let item = HomeSectionItem.artist(artist)
-        XCTAssertEqual(item.browseId, "artist789")
+        #expect(item.browseId == "artist789")
     }
 
-    func testPlaylistItemExtraction() {
+    // MARK: - HomeSectionItem Extraction Tests
+
+    @Test("Playlist item extracts playlist")
+    func playlistItemExtraction() {
         let playlist = Playlist(id: "PL1", title: "My Playlist", description: nil, thumbnailURL: nil, trackCount: 10, author: "Me")
         let item = HomeSectionItem.playlist(playlist)
 
-        XCTAssertNotNil(item.playlist)
-        XCTAssertEqual(item.playlist?.id, "PL1")
-        XCTAssertEqual(item.playlist?.title, "My Playlist")
+        #expect(item.playlist != nil)
+        #expect(item.playlist?.id == "PL1")
+        #expect(item.playlist?.title == "My Playlist")
     }
 
-    func testAlbumItemExtraction() {
+    @Test("Album item extracts album")
+    func albumItemExtraction() {
         let album = Album(id: "AL1", title: "My Album", artists: nil, thumbnailURL: nil, year: "2024", trackCount: nil)
         let item = HomeSectionItem.album(album)
 
-        XCTAssertNotNil(item.album)
-        XCTAssertEqual(item.album?.id, "AL1")
-        XCTAssertEqual(item.album?.title, "My Album")
+        #expect(item.album != nil)
+        #expect(item.album?.id == "AL1")
+        #expect(item.album?.title == "My Album")
     }
 
-    func testNonPlaylistItemPlaylistExtraction() {
+    @Test("Non-playlist item returns nil for playlist")
+    func nonPlaylistItemPlaylistExtraction() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let item = HomeSectionItem.song(song)
-        XCTAssertNil(item.playlist)
+        #expect(item.playlist == nil)
     }
 
-    func testNonAlbumItemAlbumExtraction() {
+    @Test("Non-album item returns nil for album")
+    func nonAlbumItemAlbumExtraction() {
         let artist = Artist(id: "1", name: "Artist")
         let item = HomeSectionItem.artist(artist)
-        XCTAssertNil(item.album)
+        #expect(item.album == nil)
     }
 
     // MARK: - HomeSection Tests
 
-    func testHomeSectionInit() {
+    @Test("HomeSection initializes correctly")
+    func homeSectionInit() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let items = [HomeSectionItem.song(song)]
 
         let section = HomeSection(id: "section1", title: "My Section", items: items)
 
-        XCTAssertEqual(section.id, "section1")
-        XCTAssertEqual(section.title, "My Section")
-        XCTAssertEqual(section.items.count, 1)
-        XCTAssertFalse(section.isChart)
+        #expect(section.id == "section1")
+        #expect(section.title == "My Section")
+        #expect(section.items.count == 1)
+        #expect(!section.isChart)
     }
 
-    func testHomeSectionIsChart() {
+    @Test("HomeSection isChart flag works")
+    func homeSectionIsChart() {
         let section = HomeSection(id: "charts", title: "Top Charts", items: [], isChart: true)
-        XCTAssertTrue(section.isChart)
+        #expect(section.isChart)
     }
 
     // MARK: - HomeResponse Tests
 
-    func testHomeResponseIsEmptyWithNoSections() {
+    @Test("HomeResponse is empty with no sections")
+    func homeResponseIsEmptyWithNoSections() {
         let response = HomeResponse(sections: [])
-        XCTAssertTrue(response.isEmpty)
+        #expect(response.isEmpty)
     }
 
-    func testHomeResponseIsEmptyWithEmptyItems() {
+    @Test("HomeResponse is empty with empty items")
+    func homeResponseIsEmptyWithEmptyItems() {
         let section = HomeSection(id: "1", title: "Empty Section", items: [])
         let response = HomeResponse(sections: [section])
-        XCTAssertTrue(response.isEmpty)
+        #expect(response.isEmpty)
     }
 
-    func testHomeResponseNotEmpty() {
+    @Test("HomeResponse is not empty with items")
+    func homeResponseNotEmpty() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
         let section = HomeSection(id: "1", title: "Section", items: [.song(song)])
         let response = HomeResponse(sections: [section])
-        XCTAssertFalse(response.isEmpty)
+        #expect(!response.isEmpty)
     }
 
-    func testHomeResponseEmptyStatic() {
+    @Test("HomeResponse.empty returns empty response")
+    func homeResponseEmptyStatic() {
         let empty = HomeResponse.empty
-        XCTAssertTrue(empty.isEmpty)
-        XCTAssertTrue(empty.sections.isEmpty)
+        #expect(empty.isEmpty)
+        #expect(empty.sections.isEmpty)
     }
 }

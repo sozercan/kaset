@@ -1,162 +1,184 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for PlayerService.
+@Suite(.serialized)
 @MainActor
-final class PlayerServiceTests: XCTestCase {
-    var playerService: PlayerService!
+struct PlayerServiceTests {
+    var playerService: PlayerService
 
-    override func setUp() async throws {
+    init() {
         self.playerService = PlayerService()
     }
 
-    override func tearDown() async throws {
-        self.playerService = nil
+    // MARK: - Initial State Tests
+
+    @Test("Initial state is idle")
+    func initialState() {
+        #expect(playerService.state == .idle)
+        #expect(playerService.currentTrack == nil)
+        #expect(playerService.isPlaying == false)
+        #expect(playerService.progress == 0)
+        #expect(playerService.duration == 0)
+        #expect(playerService.volume == 1.0)
     }
 
-    func testInitialState() {
-        XCTAssertEqual(self.playerService.state, .idle)
-        XCTAssertNil(self.playerService.currentTrack)
-        XCTAssertFalse(self.playerService.isPlaying)
-        XCTAssertEqual(self.playerService.progress, 0)
-        XCTAssertEqual(self.playerService.duration, 0)
-        XCTAssertEqual(self.playerService.volume, 1.0)
+    @Test("isPlaying property")
+    func isPlayingProperty() {
+        #expect(playerService.isPlaying == false)
     }
 
-    func testIsPlayingProperty() {
-        XCTAssertFalse(self.playerService.isPlaying)
-        // Note: We can't easily test state changes without mocking the WebView
-    }
+    // MARK: - PlaybackState Tests
 
-    func testPlaybackStateEquatable() {
+    @Test("PlaybackState equality")
+    func playbackStateEquatable() {
         let state1 = PlayerService.PlaybackState.playing
         let state2 = PlayerService.PlaybackState.playing
-        XCTAssertEqual(state1, state2)
+        #expect(state1 == state2)
 
         let state3 = PlayerService.PlaybackState.paused
-        XCTAssertNotEqual(state1, state3)
+        #expect(state1 != state3)
 
         let error1 = PlayerService.PlaybackState.error("Test error")
         let error2 = PlayerService.PlaybackState.error("Test error")
-        XCTAssertEqual(error1, error2)
+        #expect(error1 == error2)
 
         let error3 = PlayerService.PlaybackState.error("Different error")
-        XCTAssertNotEqual(error1, error3)
+        #expect(error1 != error3)
     }
 
-    func testPlaybackStateIsPlaying() {
-        XCTAssertTrue(PlayerService.PlaybackState.playing.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.paused.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.idle.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.loading.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.buffering.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.ended.isPlaying)
-        XCTAssertFalse(PlayerService.PlaybackState.error("test").isPlaying)
+    @Test(
+        "PlaybackState isPlaying returns correct value",
+        arguments: [
+            (PlayerService.PlaybackState.playing, true),
+            (PlayerService.PlaybackState.paused, false),
+            (PlayerService.PlaybackState.idle, false),
+            (PlayerService.PlaybackState.loading, false),
+            (PlayerService.PlaybackState.buffering, false),
+            (PlayerService.PlaybackState.ended, false),
+            (PlayerService.PlaybackState.error("test"), false),
+        ]
+    )
+    func playbackStateIsPlaying(state: PlayerService.PlaybackState, expected: Bool) {
+        #expect(state.isPlaying == expected)
     }
 
-    func testQueueInitiallyEmpty() {
-        XCTAssertTrue(self.playerService.queue.isEmpty)
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+    // MARK: - Queue Tests
+
+    @Test("Queue initially empty")
+    func queueInitiallyEmpty() {
+        #expect(playerService.queue.isEmpty)
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testUpdatePlaybackState() {
-        self.playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
+    @Test("Update playback state to playing")
+    func updatePlaybackState() {
+        playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
 
-        XCTAssertEqual(self.playerService.state, .playing)
-        XCTAssertEqual(self.playerService.progress, 30.0)
-        XCTAssertEqual(self.playerService.duration, 180.0)
-        XCTAssertTrue(self.playerService.isPlaying)
+        #expect(playerService.state == .playing)
+        #expect(playerService.progress == 30.0)
+        #expect(playerService.duration == 180.0)
+        #expect(playerService.isPlaying == true)
     }
 
-    func testUpdatePlaybackStatePaused() {
-        // First set to playing
-        self.playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
-        XCTAssertEqual(self.playerService.state, .playing)
+    @Test("Update playback state to paused")
+    func updatePlaybackStatePaused() {
+        playerService.updatePlaybackState(isPlaying: true, progress: 30.0, duration: 180.0)
+        #expect(playerService.state == .playing)
 
-        // Then pause
-        self.playerService.updatePlaybackState(isPlaying: false, progress: 30.0, duration: 180.0)
-        XCTAssertEqual(self.playerService.state, .paused)
-        XCTAssertFalse(self.playerService.isPlaying)
+        playerService.updatePlaybackState(isPlaying: false, progress: 30.0, duration: 180.0)
+        #expect(playerService.state == .paused)
+        #expect(playerService.isPlaying == false)
     }
 
-    func testUpdateTrackMetadata() {
-        self.playerService.updateTrackMetadata(
+    @Test("Update track metadata")
+    func updateTrackMetadata() {
+        playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
             thumbnailUrl: "https://example.com/thumb.jpg"
         )
 
-        XCTAssertNotNil(self.playerService.currentTrack)
-        XCTAssertEqual(self.playerService.currentTrack?.title, "Test Song")
-        XCTAssertEqual(self.playerService.currentTrack?.artistsDisplay, "Test Artist")
-        XCTAssertEqual(self.playerService.currentTrack?.thumbnailURL?.absoluteString, "https://example.com/thumb.jpg")
+        #expect(playerService.currentTrack != nil)
+        #expect(playerService.currentTrack?.title == "Test Song")
+        #expect(playerService.currentTrack?.artistsDisplay == "Test Artist")
+        #expect(playerService.currentTrack?.thumbnailURL?.absoluteString == "https://example.com/thumb.jpg")
     }
 
-    func testUpdateTrackMetadataWithEmptyThumbnail() {
-        self.playerService.updateTrackMetadata(
+    @Test("Update track metadata with empty thumbnail")
+    func updateTrackMetadataWithEmptyThumbnail() {
+        playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
             thumbnailUrl: ""
         )
 
-        XCTAssertNotNil(self.playerService.currentTrack)
-        XCTAssertEqual(self.playerService.currentTrack?.title, "Test Song")
-        XCTAssertNil(self.playerService.currentTrack?.thumbnailURL)
+        #expect(playerService.currentTrack != nil)
+        #expect(playerService.currentTrack?.title == "Test Song")
+        #expect(playerService.currentTrack?.thumbnailURL == nil)
     }
 
-    func testConfirmPlaybackStarted() {
-        self.playerService.showMiniPlayer = true
-        self.playerService.confirmPlaybackStarted()
+    @Test("Confirm playback started")
+    func confirmPlaybackStarted() {
+        playerService.showMiniPlayer = true
+        playerService.confirmPlaybackStarted()
 
-        XCTAssertFalse(self.playerService.showMiniPlayer)
-        XCTAssertEqual(self.playerService.state, .playing)
+        #expect(playerService.showMiniPlayer == false)
+        #expect(playerService.state == .playing)
     }
 
-    func testMiniPlayerDismissed() {
-        self.playerService.showMiniPlayer = true
-        self.playerService.miniPlayerDismissed()
+    @Test("Mini player dismissed")
+    func miniPlayerDismissed() {
+        playerService.showMiniPlayer = true
+        playerService.miniPlayerDismissed()
 
-        XCTAssertFalse(self.playerService.showMiniPlayer)
+        #expect(playerService.showMiniPlayer == false)
     }
 
     // MARK: - Shuffle and Repeat Mode Tests
 
-    func testToggleShuffle() {
-        XCTAssertFalse(self.playerService.shuffleEnabled)
+    @Test("Toggle shuffle")
+    func toggleShuffle() {
+        #expect(playerService.shuffleEnabled == false)
 
-        self.playerService.toggleShuffle()
-        XCTAssertTrue(self.playerService.shuffleEnabled)
+        playerService.toggleShuffle()
+        #expect(playerService.shuffleEnabled == true)
 
-        self.playerService.toggleShuffle()
-        XCTAssertFalse(self.playerService.shuffleEnabled)
+        playerService.toggleShuffle()
+        #expect(playerService.shuffleEnabled == false)
     }
 
-    func testCycleRepeatMode() {
-        XCTAssertEqual(self.playerService.repeatMode, .off)
+    @Test("Cycle repeat mode")
+    func cycleRepeatMode() {
+        #expect(playerService.repeatMode == .off)
 
-        self.playerService.cycleRepeatMode()
-        XCTAssertEqual(self.playerService.repeatMode, .all)
+        playerService.cycleRepeatMode()
+        #expect(playerService.repeatMode == .all)
 
-        self.playerService.cycleRepeatMode()
-        XCTAssertEqual(self.playerService.repeatMode, .one)
+        playerService.cycleRepeatMode()
+        #expect(playerService.repeatMode == .one)
 
-        self.playerService.cycleRepeatMode()
-        XCTAssertEqual(self.playerService.repeatMode, .off)
+        playerService.cycleRepeatMode()
+        #expect(playerService.repeatMode == .off)
     }
 
     // MARK: - Volume Tests
 
-    func testIsMuted() {
-        XCTAssertFalse(self.playerService.isMuted)
+    @Test("Is muted initially false")
+    func isMuted() {
+        #expect(playerService.isMuted == false)
     }
 
-    func testInitialVolume() {
-        XCTAssertEqual(self.playerService.volume, 1.0)
+    @Test("Initial volume is 1.0")
+    func initialVolume() {
+        #expect(playerService.volume == 1.0)
     }
 
     // MARK: - Queue Tests
 
-    func testPlayQueueSetsQueue() async {
+    @Test("Play queue sets queue")
+    func playQueueSetsQueue() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
@@ -165,11 +187,12 @@ final class PlayerServiceTests: XCTestCase {
 
         await playerService.playQueue(songs, startingAt: 0)
 
-        XCTAssertEqual(self.playerService.queue.count, 3)
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.queue.count == 3)
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testPlayQueueStartingAtIndex() async {
+    @Test("Play queue starting at index")
+    func playQueueStartingAtIndex() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
@@ -178,225 +201,170 @@ final class PlayerServiceTests: XCTestCase {
 
         await playerService.playQueue(songs, startingAt: 2)
 
-        XCTAssertEqual(self.playerService.currentIndex, 2)
+        #expect(playerService.currentIndex == 2)
     }
 
-    func testPlayQueueWithInvalidIndex() async {
+    @Test("Play queue with invalid index clamps to valid range")
+    func playQueueWithInvalidIndex() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
         ]
 
         await playerService.playQueue(songs, startingAt: 10)
 
-        // Should clamp to valid range
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testPlayQueueEmptyDoesNothing() async {
-        await self.playerService.playQueue([], startingAt: 0)
-
-        XCTAssertTrue(self.playerService.queue.isEmpty)
+    @Test("Play empty queue does nothing")
+    func playQueueEmptyDoesNothing() async {
+        await playerService.playQueue([], startingAt: 0)
+        #expect(playerService.queue.isEmpty)
     }
 
-    // MARK: - PlaybackState State Tests
+    // MARK: - User Interaction Tests
 
-    func testAllPlaybackStates() {
-        let states: [PlayerService.PlaybackState] = [
-            .idle,
-            .loading,
-            .playing,
-            .paused,
-            .buffering,
-            .ended,
-            .error("test error"),
-        ]
-
-        // Only playing should return true for isPlaying
-        for state in states {
-            if state == .playing {
-                XCTAssertTrue(state.isPlaying)
-            } else {
-                XCTAssertFalse(state.isPlaying)
-            }
-        }
+    @Test("hasUserInteractedThisSession initially false")
+    func hasUserInteractedThisSessionInitiallyFalse() {
+        #expect(playerService.hasUserInteractedThisSession == false)
     }
 
-    func testPlaybackStateErrorEquality() {
-        let error1 = PlayerService.PlaybackState.error("same message")
-        let error2 = PlayerService.PlaybackState.error("same message")
-        let error3 = PlayerService.PlaybackState.error("different message")
-
-        XCTAssertEqual(error1, error2)
-        XCTAssertNotEqual(error1, error3)
-    }
-
-    // MARK: - hasUserInteractedThisSession Tests
-
-    func testHasUserInteractedThisSessionInitiallyFalse() {
-        XCTAssertFalse(self.playerService.hasUserInteractedThisSession)
-    }
-
-    func testConfirmPlaybackStartedSetsUserInteracted() {
-        XCTAssertFalse(self.playerService.hasUserInteractedThisSession)
-
-        self.playerService.confirmPlaybackStarted()
-
-        XCTAssertTrue(self.playerService.hasUserInteractedThisSession)
+    @Test("confirmPlaybackStarted sets userInteracted")
+    func confirmPlaybackStartedSetsUserInteracted() {
+        #expect(playerService.hasUserInteractedThisSession == false)
+        playerService.confirmPlaybackStarted()
+        #expect(playerService.hasUserInteractedThisSession == true)
     }
 
     // MARK: - Pending Play Video Tests
 
-    func testPendingPlayVideoIdInitiallyNil() {
-        XCTAssertNil(self.playerService.pendingPlayVideoId)
+    @Test("pendingPlayVideoId initially nil")
+    func pendingPlayVideoIdInitiallyNil() {
+        #expect(playerService.pendingPlayVideoId == nil)
     }
 
     // MARK: - Mini Player State Tests
 
-    func testMiniPlayerInitiallyHidden() {
-        XCTAssertFalse(self.playerService.showMiniPlayer)
-    }
-
-    func testMiniPlayerDismissedResetsLoadingState() {
-        // First set state to loading
-        self.playerService.updatePlaybackState(isPlaying: false, progress: 0, duration: 0)
-
-        // Simulate being in loading state
-        // Note: We're testing the idle transition when already idle, which should stay idle
-        self.playerService.showMiniPlayer = true
-        self.playerService.miniPlayerDismissed()
-
-        XCTAssertFalse(self.playerService.showMiniPlayer)
+    @Test("Mini player initially hidden")
+    func miniPlayerInitiallyHidden() {
+        #expect(playerService.showMiniPlayer == false)
     }
 
     // MARK: - Queue/Lyrics Mutual Exclusivity Tests
 
-    func testShowQueueInitiallyFalse() {
-        XCTAssertFalse(self.playerService.showQueue)
+    @Test("showQueue initially false")
+    func showQueueInitiallyFalse() {
+        #expect(playerService.showQueue == false)
     }
 
-    func testShowLyricsInitiallyFalse() {
-        XCTAssertFalse(self.playerService.showLyrics)
+    @Test("showLyrics initially false")
+    func showLyricsInitiallyFalse() {
+        #expect(playerService.showLyrics == false)
     }
 
-    func testShowQueueClosesLyrics() {
-        // First show lyrics
-        self.playerService.showLyrics = true
-        XCTAssertTrue(self.playerService.showLyrics)
-        XCTAssertFalse(self.playerService.showQueue)
+    @Test("Show queue closes lyrics")
+    func showQueueClosesLyrics() {
+        playerService.showLyrics = true
+        #expect(playerService.showLyrics == true)
+        #expect(playerService.showQueue == false)
 
-        // Opening queue should close lyrics
-        self.playerService.showQueue = true
-        XCTAssertTrue(self.playerService.showQueue)
-        XCTAssertFalse(self.playerService.showLyrics, "Opening queue should close lyrics")
+        playerService.showQueue = true
+        #expect(playerService.showQueue == true)
+        #expect(playerService.showLyrics == false, "Opening queue should close lyrics")
     }
 
-    func testShowLyricsClosesQueue() {
-        // First show queue
-        self.playerService.showQueue = true
-        XCTAssertTrue(self.playerService.showQueue)
-        XCTAssertFalse(self.playerService.showLyrics)
+    @Test("Show lyrics closes queue")
+    func showLyricsClosesQueue() {
+        playerService.showQueue = true
+        #expect(playerService.showQueue == true)
+        #expect(playerService.showLyrics == false)
 
-        // Opening lyrics should close queue
-        self.playerService.showLyrics = true
-        XCTAssertTrue(self.playerService.showLyrics)
-        XCTAssertFalse(self.playerService.showQueue, "Opening lyrics should close queue")
+        playerService.showLyrics = true
+        #expect(playerService.showLyrics == true)
+        #expect(playerService.showQueue == false, "Opening lyrics should close queue")
     }
 
-    func testBothSidebarsCanBeClosed() {
-        // Show queue then close it
-        self.playerService.showQueue = true
-        XCTAssertTrue(self.playerService.showQueue)
+    @Test("Both sidebars can be closed")
+    func bothSidebarsCanBeClosed() {
+        playerService.showQueue = true
+        #expect(playerService.showQueue == true)
 
-        self.playerService.showQueue = false
-        XCTAssertFalse(self.playerService.showQueue)
-        XCTAssertFalse(self.playerService.showLyrics)
+        playerService.showQueue = false
+        #expect(playerService.showQueue == false)
+        #expect(playerService.showLyrics == false)
     }
 
     // MARK: - Clear Queue Tests
 
-    func testClearQueueWithNoCurrentTrack() {
-        // Add some songs to queue
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
-        ]
+    @Test("Clear queue with no current track")
+    func clearQueueWithNoCurrentTrack() {
+        playerService.clearQueue()
 
-        Task {
-            await self.playerService.playQueue(songs, startingAt: 0)
-        }
-
-        // Clear with no current track
-        self.playerService.clearQueue()
-
-        XCTAssertTrue(self.playerService.queue.isEmpty)
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.queue.isEmpty)
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testClearQueueKeepsCurrentTrack() async {
+    @Test("Clear queue keeps current track")
+    func clearQueueKeepsCurrentTrack() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
             Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
         ]
 
-        await self.playerService.playQueue(songs, startingAt: 1)
+        await playerService.playQueue(songs, startingAt: 1)
 
-        // Clear queue should keep only the current track
-        self.playerService.clearQueue()
+        playerService.clearQueue()
 
-        XCTAssertEqual(self.playerService.queue.count, 1)
-        XCTAssertEqual(self.playerService.queue.first?.videoId, "v2")
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "v2")
+        #expect(playerService.currentIndex == 0)
     }
 
     // MARK: - Play From Queue Tests
 
-    func testPlayFromQueueValidIndex() async {
+    @Test("Play from queue valid index")
+    func playFromQueueValidIndex() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
             Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
         ]
 
-        await self.playerService.playQueue(songs, startingAt: 0)
+        await playerService.playQueue(songs, startingAt: 0)
+        await playerService.playFromQueue(at: 2)
 
-        await self.playerService.playFromQueue(at: 2)
-
-        XCTAssertEqual(self.playerService.currentIndex, 2)
-        XCTAssertEqual(self.playerService.currentTrack?.videoId, "v3")
+        #expect(playerService.currentIndex == 2)
+        #expect(playerService.currentTrack?.videoId == "v3")
     }
 
-    func testPlayFromQueueInvalidIndexDoesNothing() async {
+    @Test("Play from queue invalid index does nothing")
+    func playFromQueueInvalidIndexDoesNothing() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
         ]
 
-        await self.playerService.playQueue(songs, startingAt: 0)
+        await playerService.playQueue(songs, startingAt: 0)
+        await playerService.playFromQueue(at: 5)
 
-        // Try to play from invalid index
-        await self.playerService.playFromQueue(at: 5)
-
-        // Should stay at original index
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testPlayFromQueueNegativeIndexDoesNothing() async {
+    @Test("Play from queue negative index does nothing")
+    func playFromQueueNegativeIndexDoesNothing() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
         ]
 
-        await self.playerService.playQueue(songs, startingAt: 0)
+        await playerService.playQueue(songs, startingAt: 0)
+        await playerService.playFromQueue(at: -1)
 
-        // Try to play from negative index
-        await self.playerService.playFromQueue(at: -1)
-
-        // Should stay at original index
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.currentIndex == 0)
     }
 
     // MARK: - Play With Radio Tests
 
-    func testPlayWithRadioStartsPlaybackImmediately() async {
+    @Test("Play with radio starts playback immediately")
+    func playWithRadioStartsPlaybackImmediately() async {
         let song = Song(
             id: "radio-seed",
             title: "Seed Song",
@@ -407,16 +375,15 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "radio-seed-video"
         )
 
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        // Playback should start immediately with the seed song
-        XCTAssertEqual(self.playerService.currentTrack?.videoId, "radio-seed-video")
-        XCTAssertEqual(self.playerService.currentTrack?.title, "Seed Song")
-        // Queue should at minimum have the seed song
-        XCTAssertFalse(self.playerService.queue.isEmpty)
+        #expect(playerService.currentTrack?.videoId == "radio-seed-video")
+        #expect(playerService.currentTrack?.title == "Seed Song")
+        #expect(playerService.queue.isEmpty == false)
     }
 
-    func testPlayWithRadioSetsQueueWithSeedSong() async {
+    @Test("Play with radio sets queue with seed song")
+    func playWithRadioSetsQueueWithSeedSong() async {
         let song = Song(
             id: "seed",
             title: "Seed Song",
@@ -427,16 +394,15 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "seed-video"
         )
 
-        // Without a YTMusicClient, the queue should just have the seed song
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        XCTAssertEqual(self.playerService.queue.count, 1)
-        XCTAssertEqual(self.playerService.queue.first?.videoId, "seed-video")
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "seed-video")
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testPlayWithRadioFetchesRadioQueue() async {
-        // Set up mock client with radio queue
+    @Test("Play with radio fetches radio queue")
+    func playWithRadioFetchesRadioQueue() async {
         let mockClient = MockYTMusicClient()
         let radioSongs = [
             Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
@@ -444,7 +410,7 @@ final class PlayerServiceTests: XCTestCase {
             Song(id: "radio-3", title: "Radio Song 3", artists: [], videoId: "radio-video-3"),
         ]
         mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
+        playerService.setYTMusicClient(mockClient)
 
         let song = Song(
             id: "seed",
@@ -456,27 +422,24 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "seed-video"
         )
 
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        // Verify radio queue was fetched
-        XCTAssertTrue(mockClient.getRadioQueueCalled)
-        XCTAssertEqual(mockClient.getRadioQueueVideoIds.first, "seed-video")
-
-        // Queue should have seed song at front plus radio songs
-        XCTAssertEqual(self.playerService.queue.count, 4)
-        XCTAssertEqual(self.playerService.queue.first?.videoId, "seed-video", "Seed song should be at front of queue")
-        XCTAssertEqual(self.playerService.currentIndex, 0)
+        #expect(mockClient.getRadioQueueCalled == true)
+        #expect(mockClient.getRadioQueueVideoIds.first == "seed-video")
+        #expect(playerService.queue.count == 4)
+        #expect(playerService.queue.first?.videoId == "seed-video", "Seed song should be at front of queue")
+        #expect(playerService.currentIndex == 0)
     }
 
-    func testPlayWithRadioKeepsSeedSongAtFrontWhenNotInRadio() async {
-        // Set up mock client with radio queue that doesn't include the seed song
+    @Test("Play with radio keeps seed song at front when not in radio")
+    func playWithRadioKeepsSeedSongAtFrontWhenNotInRadio() async {
         let mockClient = MockYTMusicClient()
         let radioSongs = [
             Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
             Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
         ]
         mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
+        playerService.setYTMusicClient(mockClient)
 
         let song = Song(
             id: "seed",
@@ -488,17 +451,16 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "seed-video"
         )
 
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        // Queue should have seed song prepended to radio songs
-        XCTAssertEqual(self.playerService.queue.count, 3)
-        XCTAssertEqual(self.playerService.queue[0].videoId, "seed-video", "Seed song should be first")
-        XCTAssertEqual(self.playerService.queue[1].videoId, "radio-video-1")
-        XCTAssertEqual(self.playerService.queue[2].videoId, "radio-video-2")
+        #expect(playerService.queue.count == 3)
+        #expect(playerService.queue[0].videoId == "seed-video", "Seed song should be first")
+        #expect(playerService.queue[1].videoId == "radio-video-1")
+        #expect(playerService.queue[2].videoId == "radio-video-2")
     }
 
-    func testPlayWithRadioReordersSeedSongToFront() async {
-        // Set up mock client with radio queue that has seed song in the middle
+    @Test("Play with radio reorders seed song to front")
+    func playWithRadioReordersSeedSongToFront() async {
         let mockClient = MockYTMusicClient()
         let radioSongs = [
             Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
@@ -506,7 +468,7 @@ final class PlayerServiceTests: XCTestCase {
             Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
         ]
         mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
+        playerService.setYTMusicClient(mockClient)
 
         let song = Song(
             id: "seed",
@@ -518,20 +480,18 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "seed-video"
         )
 
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        // Queue should have seed song moved to front
-        XCTAssertEqual(self.playerService.queue.count, 3)
-        XCTAssertEqual(self.playerService.queue[0].videoId, "seed-video", "Seed song should be first")
-        // Other songs should follow (excluding the duplicate seed song)
-        XCTAssertEqual(self.playerService.queue[1].videoId, "radio-video-1")
-        XCTAssertEqual(self.playerService.queue[2].videoId, "radio-video-2")
+        #expect(playerService.queue.count == 3)
+        #expect(playerService.queue[0].videoId == "seed-video", "Seed song should be first")
+        #expect(playerService.queue[1].videoId == "radio-video-1")
+        #expect(playerService.queue[2].videoId == "radio-video-2")
     }
 
-    func testPlayWithRadioHandlesEmptyRadioQueue() async {
+    @Test("Play with radio handles empty radio queue")
+    func playWithRadioHandlesEmptyRadioQueue() async {
         let mockClient = MockYTMusicClient()
-        // Don't set any radio songs - simulates empty response
-        self.playerService.setYTMusicClient(mockClient)
+        playerService.setYTMusicClient(mockClient)
 
         let song = Song(
             id: "lonely",
@@ -543,10 +503,9 @@ final class PlayerServiceTests: XCTestCase {
             videoId: "lonely-video"
         )
 
-        await self.playerService.playWithRadio(song: song)
+        await playerService.playWithRadio(song: song)
 
-        // Queue should still have the original seed song
-        XCTAssertEqual(self.playerService.queue.count, 1)
-        XCTAssertEqual(self.playerService.queue.first?.videoId, "lonely-video")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "lonely-video")
     }
 }

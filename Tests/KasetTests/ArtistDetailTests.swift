@@ -1,9 +1,12 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for ArtistDetail.
-final class ArtistDetailTests: XCTestCase {
-    func testArtistDetailInit() {
+@Suite
+struct ArtistDetailTests {
+    @Test("ArtistDetail initialization")
+    func artistDetailInit() {
         let artist = Artist(id: "UC123", name: "Test Artist", thumbnailURL: URL(string: "https://example.com/a.jpg"))
         let songs = [
             Song(id: "s1", title: "Song 1", artists: [artist], album: nil, duration: 180, thumbnailURL: nil, videoId: "s1"),
@@ -21,45 +24,50 @@ final class ArtistDetailTests: XCTestCase {
             thumbnailURL: URL(string: "https://example.com/large.jpg")
         )
 
-        XCTAssertEqual(detail.id, "UC123")
-        XCTAssertEqual(detail.name, "Test Artist")
-        XCTAssertEqual(detail.description, "A great artist")
-        XCTAssertEqual(detail.songs.count, 2)
-        XCTAssertEqual(detail.albums.count, 1)
-        XCTAssertEqual(detail.thumbnailURL?.absoluteString, "https://example.com/large.jpg")
+        #expect(detail.id == "UC123")
+        #expect(detail.name == "Test Artist")
+        #expect(detail.description == "A great artist")
+        #expect(detail.songs.count == 2)
+        #expect(detail.albums.count == 1)
+        #expect(detail.thumbnailURL?.absoluteString == "https://example.com/large.jpg")
     }
 
-    func testArtistDetailIdComputedProperty() {
+    @Test("ArtistDetail id computed property")
+    func artistDetailIdComputedProperty() {
         let artist = Artist(id: "artist_id_123", name: "Artist")
         let detail = ArtistDetail(artist: artist, description: nil, songs: [], albums: [], thumbnailURL: nil)
-        XCTAssertEqual(detail.id, "artist_id_123")
+        #expect(detail.id == "artist_id_123")
     }
 
-    func testArtistDetailNameComputedProperty() {
+    @Test("ArtistDetail name computed property")
+    func artistDetailNameComputedProperty() {
         let artist = Artist(id: "1", name: "Famous Artist Name")
         let detail = ArtistDetail(artist: artist, description: nil, songs: [], albums: [], thumbnailURL: nil)
-        XCTAssertEqual(detail.name, "Famous Artist Name")
+        #expect(detail.name == "Famous Artist Name")
     }
 
-    func testArtistDetailWithNoDescription() {
+    @Test("ArtistDetail with no description")
+    func artistDetailWithNoDescription() {
         let artist = Artist(id: "1", name: "Artist")
         let detail = ArtistDetail(artist: artist, description: nil, songs: [], albums: [], thumbnailURL: nil)
-        XCTAssertNil(detail.description)
+        #expect(detail.description == nil)
     }
 
-    func testArtistDetailWithEmptySongsAndAlbums() {
+    @Test("ArtistDetail with empty songs and albums")
+    func artistDetailWithEmptySongsAndAlbums() {
         let artist = Artist(id: "1", name: "New Artist")
         let detail = ArtistDetail(artist: artist, description: "Just starting out", songs: [], albums: [], thumbnailURL: nil)
-        XCTAssertTrue(detail.songs.isEmpty)
-        XCTAssertTrue(detail.albums.isEmpty)
+        #expect(detail.songs.isEmpty)
+        #expect(detail.albums.isEmpty)
     }
 
-    func testArtistDetailArtistProperty() {
+    @Test("ArtistDetail artist property")
+    func artistDetailArtistProperty() {
         let artist = Artist(id: "UC123", name: "Artist", thumbnailURL: URL(string: "https://example.com/thumb.jpg"))
         let detail = ArtistDetail(artist: artist, description: nil, songs: [], albums: [], thumbnailURL: nil)
 
-        XCTAssertEqual(detail.artist.id, "UC123")
-        XCTAssertEqual(detail.artist.name, "Artist")
-        XCTAssertNotNil(detail.artist.thumbnailURL)
+        #expect(detail.artist.id == "UC123")
+        #expect(detail.artist.name == "Artist")
+        #expect(detail.artist.thumbnailURL != nil)
     }
 }

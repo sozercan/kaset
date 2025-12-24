@@ -1,77 +1,60 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for SearchViewModel using mock client.
+@Suite(.serialized)
 @MainActor
-final class SearchViewModelTests: XCTestCase {
-    private var mockClient: MockYTMusicClient!
-    private var viewModel: SearchViewModel!
+struct SearchViewModelTests {
+    var mockClient: MockYTMusicClient
+    var viewModel: SearchViewModel
 
-    override func setUp() async throws {
+    init() {
         self.mockClient = MockYTMusicClient()
         self.viewModel = SearchViewModel(client: self.mockClient)
     }
 
-    override func tearDown() async throws {
-        self.mockClient = nil
-        self.viewModel = nil
+    @Test("Initial state is idle with empty query")
+    func initialState() {
+        #expect(viewModel.loadingState == .idle)
+        #expect(viewModel.query.isEmpty)
+        #expect(viewModel.results.allItems.isEmpty)
+        #expect(viewModel.selectedFilter == .all)
     }
 
-    func testInitialState() {
-        XCTAssertEqual(self.viewModel.loadingState, .idle)
-        XCTAssertTrue(self.viewModel.query.isEmpty)
-        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
-        XCTAssertEqual(self.viewModel.selectedFilter, .all)
+    @Test("Query change clears results when empty")
+    func queryChangeClearsResultsWhenEmpty() {
+        viewModel.query = "test"
+        viewModel.query = ""
+
+        #expect(viewModel.loadingState == .idle)
+        #expect(viewModel.results.allItems.isEmpty)
     }
 
-    func testQueryChangeClearsResultsWhenEmpty() {
-        // Given
-        self.viewModel.query = "test"
+    @Test("Search with empty query does not call API")
+    func searchWithEmptyQueryDoesNotCallAPI() {
+        viewModel.query = ""
+        viewModel.search()
 
-        // When
-        self.viewModel.query = ""
-
-        // Then
-        XCTAssertEqual(self.viewModel.loadingState, .idle)
-        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
+        #expect(mockClient.searchCalled == false)
     }
 
-    func testSearchWithEmptyQueryDoesNotCallAPI() {
-        // Given
-        self.viewModel.query = ""
+    @Test("Clear resets state")
+    func clearResetsState() {
+        viewModel.query = "test query"
+        viewModel.selectedFilter = .songs
 
-        // When
-        self.viewModel.search()
+        viewModel.clear()
 
-        // Then
-        XCTAssertFalse(self.mockClient.searchCalled)
+        #expect(viewModel.query.isEmpty)
+        #expect(viewModel.loadingState == .idle)
+        #expect(viewModel.results.allItems.isEmpty)
     }
 
-    func testClearResetsState() {
-        // Given
-        self.viewModel.query = "test query"
-        self.viewModel.selectedFilter = .songs
+    @Test("Filtered items returns all when all selected")
+    func filteredItemsReturnsAllWhenAllSelected() {
+        viewModel.selectedFilter = .all
 
-        // When
-        self.viewModel.clear()
-
-        // Then
-        XCTAssertTrue(self.viewModel.query.isEmpty)
-        XCTAssertEqual(self.viewModel.loadingState, .idle)
-        XCTAssertTrue(self.viewModel.results.allItems.isEmpty)
-    }
-
-    func testFilteredItemsReturnsAllWhenAllSelected() {
-        // Given
-        self.mockClient.searchResponse = TestFixtures.makeSearchResponse(
-            songCount: 2,
-            albumCount: 1,
-            artistCount: 1,
-            playlistCount: 1
-        )
-        self.viewModel.selectedFilter = .all
-
-        // Manually set results for testing
         let response = TestFixtures.makeSearchResponse(
             songCount: 2,
             albumCount: 1,
@@ -79,14 +62,11 @@ final class SearchViewModelTests: XCTestCase {
             playlistCount: 1
         )
 
-        // When - access filtered items
-        // Note: In real usage, results would be set by search()
-        // Here we verify the filter logic by checking the count calculation
-        XCTAssertEqual(response.allItems.count, 5)
+        #expect(response.allItems.count == 5)
     }
 
-    func testFilteredItemsReturnsSongsOnlyWhenSongsSelected() {
-        // Given
+    @Test("Filtered items returns songs only when songs selected")
+    func filteredItemsReturnsSongsOnlyWhenSongsSelected() {
         let response = TestFixtures.makeSearchResponse(
             songCount: 3,
             albumCount: 2,
@@ -94,8 +74,7 @@ final class SearchViewModelTests: XCTestCase {
             playlistCount: 1
         )
 
-        // Then
         let songItems = response.songs.map { SearchResultItem.song($0) }
-        XCTAssertEqual(songItems.count, 3)
+        #expect(songItems.count == 3)
     }
 }

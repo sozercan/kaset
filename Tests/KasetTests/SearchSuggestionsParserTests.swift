@@ -1,48 +1,54 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for SearchSuggestionsParser.
-final class SearchSuggestionsParserTests: XCTestCase {
+@Suite
+struct SearchSuggestionsParserTests {
     // MARK: - Empty Response Tests
 
-    func testParseEmptyResponse() {
+    @Test("Parse empty response returns empty array")
+    func parseEmptyResponse() {
         let data: [String: Any] = [:]
         let suggestions = SearchSuggestionsParser.parse(data)
-        XCTAssertTrue(suggestions.isEmpty)
+        #expect(suggestions.isEmpty)
     }
 
-    func testParseEmptyContents() {
+    @Test("Parse empty contents returns empty array")
+    func parseEmptyContents() {
         let data: [String: Any] = ["contents": []]
         let suggestions = SearchSuggestionsParser.parse(data)
-        XCTAssertTrue(suggestions.isEmpty)
+        #expect(suggestions.isEmpty)
     }
 
     // MARK: - Valid Response Tests
 
-    func testParseSingleSuggestion() {
-        let data = self.makeSuggestionsResponse(queries: ["test query"])
+    @Test("Parse single suggestion")
+    func parseSingleSuggestion() throws {
+        let data = makeSuggestionsResponse(queries: ["test query"])
         let suggestions = SearchSuggestionsParser.parse(data)
 
-        XCTAssertEqual(suggestions.count, 1)
-        XCTAssertEqual(suggestions.first?.query, "test query")
+        #expect(suggestions.count == 1)
+        #expect(suggestions.first?.query == "test query")
     }
 
-    func testParseMultipleSuggestions() {
-        let data = self.makeSuggestionsResponse(queries: [
+    @Test("Parse multiple suggestions")
+    func parseMultipleSuggestions() {
+        let data = makeSuggestionsResponse(queries: [
             "taylor swift",
             "taylor swift anti hero",
             "taylor swift shake it off",
         ])
         let suggestions = SearchSuggestionsParser.parse(data)
 
-        XCTAssertEqual(suggestions.count, 3)
-        XCTAssertEqual(suggestions[0].query, "taylor swift")
-        XCTAssertEqual(suggestions[1].query, "taylor swift anti hero")
-        XCTAssertEqual(suggestions[2].query, "taylor swift shake it off")
+        #expect(suggestions.count == 3)
+        #expect(suggestions[0].query == "taylor swift")
+        #expect(suggestions[1].query == "taylor swift anti hero")
+        #expect(suggestions[2].query == "taylor swift shake it off")
     }
 
-    func testParseSuggestionWithMultipleRuns() {
-        // Simulates bold text formatting where query is split into runs
+    @Test("Parse suggestion with multiple runs joins text")
+    func parseSuggestionWithMultipleRuns() throws {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -66,11 +72,12 @@ final class SearchSuggestionsParserTests: XCTestCase {
 
         let suggestions = SearchSuggestionsParser.parse(data)
 
-        XCTAssertEqual(suggestions.count, 1)
-        XCTAssertEqual(suggestions.first?.query, "taylor swift")
+        #expect(suggestions.count == 1)
+        #expect(suggestions.first?.query == "taylor swift")
     }
 
-    func testParseHistorySuggestion() {
+    @Test("Parse history suggestion")
+    func parseHistorySuggestion() throws {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -93,13 +100,14 @@ final class SearchSuggestionsParserTests: XCTestCase {
 
         let suggestions = SearchSuggestionsParser.parse(data)
 
-        XCTAssertEqual(suggestions.count, 1)
-        XCTAssertEqual(suggestions.first?.query, "recent search")
+        #expect(suggestions.count == 1)
+        #expect(suggestions.first?.query == "recent search")
     }
 
     // MARK: - Edge Cases
 
-    func testParseEmptySuggestionTextIsSkipped() {
+    @Test("Empty suggestion text is skipped")
+    func parseEmptySuggestionTextIsSkipped() {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -121,10 +129,11 @@ final class SearchSuggestionsParserTests: XCTestCase {
         ]
 
         let suggestions = SearchSuggestionsParser.parse(data)
-        XCTAssertTrue(suggestions.isEmpty)
+        #expect(suggestions.isEmpty)
     }
 
-    func testParseMissingSuggestionKeyIsSkipped() {
+    @Test("Missing suggestion key is skipped")
+    func parseMissingSuggestionKeyIsSkipped() {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -142,10 +151,11 @@ final class SearchSuggestionsParserTests: XCTestCase {
         ]
 
         let suggestions = SearchSuggestionsParser.parse(data)
-        XCTAssertTrue(suggestions.isEmpty)
+        #expect(suggestions.isEmpty)
     }
 
-    func testParseUnknownRendererIsSkipped() {
+    @Test("Unknown renderer is skipped")
+    func parseUnknownRendererIsSkipped() {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -165,36 +175,38 @@ final class SearchSuggestionsParserTests: XCTestCase {
         ]
 
         let suggestions = SearchSuggestionsParser.parse(data)
-        XCTAssertTrue(suggestions.isEmpty)
+        #expect(suggestions.isEmpty)
     }
 
     // MARK: - SearchSuggestion Model Tests
 
-    func testSuggestionHasUniqueId() {
+    @Test("Suggestions have unique IDs")
+    func suggestionHasUniqueId() {
         let suggestion1 = SearchSuggestion(query: "test")
         let suggestion2 = SearchSuggestion(query: "test")
 
-        XCTAssertNotEqual(suggestion1.id, suggestion2.id)
+        #expect(suggestion1.id != suggestion2.id)
     }
 
-    func testSuggestionWithExplicitId() {
+    @Test("Suggestion with explicit ID")
+    func suggestionWithExplicitId() {
         let suggestion = SearchSuggestion(id: "custom-id", query: "test query")
 
-        XCTAssertEqual(suggestion.id, "custom-id")
-        XCTAssertEqual(suggestion.query, "test query")
+        #expect(suggestion.id == "custom-id")
+        #expect(suggestion.query == "test query")
     }
 
-    func testSuggestionIsHashable() {
+    @Test("Suggestion is hashable")
+    func suggestionIsHashable() {
         let suggestion = SearchSuggestion(id: "id1", query: "test")
         var set = Set<SearchSuggestion>()
         set.insert(suggestion)
 
-        XCTAssertTrue(set.contains(suggestion))
+        #expect(set.contains(suggestion))
     }
 
     // MARK: - Helpers
 
-    /// Creates a mock suggestions API response.
     private func makeSuggestionsResponse(queries: [String]) -> [String: Any] {
         let suggestionItems = queries.map { query in
             [

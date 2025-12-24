@@ -1,135 +1,163 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Extended tests for YTMusicError.
-final class YTMusicErrorTests: XCTestCase {
+@Suite("YTMusicError")
+struct YTMusicErrorTests {
     // MARK: - Error Description Tests
 
-    func testAuthExpiredDescription() {
+    @Test("authExpired has correct description")
+    func authExpiredDescription() {
         let error = YTMusicError.authExpired
-        XCTAssertEqual(error.errorDescription, "Your session has expired. Please sign in again.")
+        #expect(error.errorDescription == "Your session has expired. Please sign in again.")
     }
 
-    func testNotAuthenticatedDescription() {
+    @Test("notAuthenticated has correct description")
+    func notAuthenticatedDescription() {
         let error = YTMusicError.notAuthenticated
-        XCTAssertEqual(error.errorDescription, "You're not signed in. Please sign in to continue.")
+        #expect(error.errorDescription == "You're not signed in. Please sign in to continue.")
     }
 
-    func testNetworkErrorDescription() {
+    @Test("networkError contains 'Network error'")
+    func networkErrorDescription() {
         let underlying = URLError(.notConnectedToInternet)
         let error = YTMusicError.networkError(underlying: underlying)
-        XCTAssertTrue(error.errorDescription?.contains("Network error") ?? false)
+        #expect(error.errorDescription?.contains("Network error") == true)
     }
 
-    func testParseErrorDescription() {
+    @Test("parseError includes message")
+    func parseErrorDescription() {
         let error = YTMusicError.parseError(message: "Invalid JSON")
-        XCTAssertEqual(error.errorDescription, "Failed to parse response: Invalid JSON")
+        #expect(error.errorDescription == "Failed to parse response: Invalid JSON")
     }
 
-    func testApiErrorWithCodeDescription() {
+    @Test("apiError with code includes code in description")
+    func apiErrorWithCodeDescription() {
         let error = YTMusicError.apiError(message: "Rate limited", code: 429)
-        XCTAssertEqual(error.errorDescription, "API error (429): Rate limited")
+        #expect(error.errorDescription == "API error (429): Rate limited")
     }
 
-    func testApiErrorWithoutCodeDescription() {
+    @Test("apiError without code excludes code from description")
+    func apiErrorWithoutCodeDescription() {
         let error = YTMusicError.apiError(message: "Something went wrong", code: nil)
-        XCTAssertEqual(error.errorDescription, "API error: Something went wrong")
+        #expect(error.errorDescription == "API error: Something went wrong")
     }
 
-    func testPlaybackErrorDescription() {
+    @Test("playbackError includes message")
+    func playbackErrorDescription() {
         let error = YTMusicError.playbackError(message: "Content not available")
-        XCTAssertEqual(error.errorDescription, "Playback error: Content not available")
+        #expect(error.errorDescription == "Playback error: Content not available")
     }
 
-    func testUnknownErrorDescription() {
+    @Test("unknown error uses message as description")
+    func unknownErrorDescription() {
         let error = YTMusicError.unknown(message: "An unexpected error occurred")
-        XCTAssertEqual(error.errorDescription, "An unexpected error occurred")
+        #expect(error.errorDescription == "An unexpected error occurred")
     }
 
     // MARK: - Recovery Suggestion Tests
 
-    func testAuthExpiredRecoverySuggestion() {
+    @Test("authExpired suggests signing in")
+    func authExpiredRecoverySuggestion() {
         let error = YTMusicError.authExpired
-        XCTAssertEqual(error.recoverySuggestion, "Sign in to your YouTube Music account.")
+        #expect(error.recoverySuggestion == "Sign in to your YouTube Music account.")
     }
 
-    func testNotAuthenticatedRecoverySuggestion() {
+    @Test("notAuthenticated suggests signing in")
+    func notAuthenticatedRecoverySuggestion() {
         let error = YTMusicError.notAuthenticated
-        XCTAssertEqual(error.recoverySuggestion, "Sign in to your YouTube Music account.")
+        #expect(error.recoverySuggestion == "Sign in to your YouTube Music account.")
     }
 
-    func testNetworkErrorRecoverySuggestion() {
+    @Test("networkError suggests checking connection")
+    func networkErrorRecoverySuggestion() {
         let error = YTMusicError.networkError(underlying: URLError(.timedOut))
-        XCTAssertEqual(error.recoverySuggestion, "Check your internet connection and try again.")
+        #expect(error.recoverySuggestion == "Check your internet connection and try again.")
     }
 
-    func testParseErrorRecoverySuggestion() {
+    @Test("parseError suggests trying again")
+    func parseErrorRecoverySuggestion() {
         let error = YTMusicError.parseError(message: "Bad data")
-        XCTAssertEqual(error.recoverySuggestion, "Try again. If the problem persists, the service may be temporarily unavailable.")
+        #expect(error.recoverySuggestion == "Try again. If the problem persists, the service may be temporarily unavailable.")
     }
 
-    func testApiErrorRecoverySuggestion() {
+    @Test("apiError suggests trying again")
+    func apiErrorRecoverySuggestion() {
         let error = YTMusicError.apiError(message: "Error", code: 500)
-        XCTAssertEqual(error.recoverySuggestion, "Try again. If the problem persists, the service may be temporarily unavailable.")
+        #expect(error.recoverySuggestion == "Try again. If the problem persists, the service may be temporarily unavailable.")
     }
 
-    func testPlaybackErrorRecoverySuggestion() {
+    @Test("playbackError suggests different track")
+    func playbackErrorRecoverySuggestion() {
         let error = YTMusicError.playbackError(message: "Error")
-        XCTAssertEqual(error.recoverySuggestion, "Try playing a different track.")
+        #expect(error.recoverySuggestion == "Try playing a different track.")
     }
 
-    func testUnknownErrorRecoverySuggestion() {
+    @Test("unknown suggests trying later")
+    func unknownErrorRecoverySuggestion() {
         let error = YTMusicError.unknown(message: "Error")
-        XCTAssertEqual(error.recoverySuggestion, "Try again later.")
+        #expect(error.recoverySuggestion == "Try again later.")
     }
 
     // MARK: - Requires Reauth Tests
 
-    func testAuthExpiredRequiresReauth() {
-        XCTAssertTrue(YTMusicError.authExpired.requiresReauth)
+    @Test(
+        "Auth errors require reauth",
+        arguments: [
+            YTMusicError.authExpired,
+            YTMusicError.notAuthenticated,
+        ]
+    )
+    func authErrorsRequireReauth(error: YTMusicError) {
+        #expect(error.requiresReauth)
     }
 
-    func testNotAuthenticatedRequiresReauth() {
-        XCTAssertTrue(YTMusicError.notAuthenticated.requiresReauth)
-    }
-
-    func testNetworkErrorDoesNotRequireReauth() {
+    @Test("networkError does not require reauth")
+    func networkErrorDoesNotRequireReauth() {
         let error = YTMusicError.networkError(underlying: URLError(.timedOut))
-        XCTAssertFalse(error.requiresReauth)
+        #expect(!error.requiresReauth)
     }
 
-    func testParseErrorDoesNotRequireReauth() {
-        XCTAssertFalse(YTMusicError.parseError(message: "Error").requiresReauth)
+    @Test("parseError does not require reauth")
+    func parseErrorDoesNotRequireReauth() {
+        #expect(!YTMusicError.parseError(message: "Error").requiresReauth)
     }
 
-    func testApiErrorDoesNotRequireReauth() {
-        XCTAssertFalse(YTMusicError.apiError(message: "Error", code: 500).requiresReauth)
+    @Test("apiError does not require reauth")
+    func apiErrorDoesNotRequireReauth() {
+        #expect(!YTMusicError.apiError(message: "Error", code: 500).requiresReauth)
     }
 
-    func testPlaybackErrorDoesNotRequireReauth() {
-        XCTAssertFalse(YTMusicError.playbackError(message: "Error").requiresReauth)
+    @Test("playbackError does not require reauth")
+    func playbackErrorDoesNotRequireReauth() {
+        #expect(!YTMusicError.playbackError(message: "Error").requiresReauth)
     }
 
-    func testUnknownErrorDoesNotRequireReauth() {
-        XCTAssertFalse(YTMusicError.unknown(message: "Error").requiresReauth)
+    @Test("unknown does not require reauth")
+    func unknownErrorDoesNotRequireReauth() {
+        #expect(!YTMusicError.unknown(message: "Error").requiresReauth)
     }
 
     // MARK: - Debug Description Tests
 
-    func testNetworkErrorDebugDescription() {
+    @Test("networkError debug description contains error type")
+    func networkErrorDebugDescription() {
         let underlying = URLError(.notConnectedToInternet)
         let error = YTMusicError.networkError(underlying: underlying)
         let debugDesc = error.debugDescription
-        XCTAssertTrue(debugDesc.contains("YTMusicError.networkError"))
+        #expect(debugDesc.contains("YTMusicError.networkError"))
     }
 
-    func testNonNetworkErrorDebugDescription() {
+    @Test("Non-network error debug description matches error description")
+    func nonNetworkErrorDebugDescription() {
         let error = YTMusicError.authExpired
-        XCTAssertEqual(error.debugDescription, error.errorDescription)
+        #expect(error.debugDescription == error.errorDescription)
     }
 
-    func testParseErrorDebugDescription() {
+    @Test("parseError debug description matches error description")
+    func parseErrorDebugDescription() {
         let error = YTMusicError.parseError(message: "Bad JSON")
-        XCTAssertEqual(error.debugDescription, "Failed to parse response: Bad JSON")
+        #expect(error.debugDescription == "Failed to parse response: Bad JSON")
     }
 }

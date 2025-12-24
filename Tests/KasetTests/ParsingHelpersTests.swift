@@ -1,38 +1,46 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for the ParsingHelpers.
-final class ParsingHelpersTests: XCTestCase {
+@Suite
+struct ParsingHelpersTests {
     // MARK: - Chart Section Detection
 
-    func testIsChartSectionWithChart() {
-        XCTAssertTrue(ParsingHelpers.isChartSection("Top Charts"))
-        XCTAssertTrue(ParsingHelpers.isChartSection("Weekly Top 50"))
-        XCTAssertTrue(ParsingHelpers.isChartSection("Trending Now"))
-        XCTAssertTrue(ParsingHelpers.isChartSection("Daily Top 100"))
+    @Test(
+        "Chart section detection returns true for chart titles",
+        arguments: ["Top Charts", "Weekly Top 50", "Trending Now", "Daily Top 100"]
+    )
+    func isChartSectionWithChart(title: String) {
+        #expect(ParsingHelpers.isChartSection(title) == true)
     }
 
-    func testIsChartSectionWithNonChart() {
-        XCTAssertFalse(ParsingHelpers.isChartSection("Quick picks"))
-        XCTAssertFalse(ParsingHelpers.isChartSection("New releases"))
-        XCTAssertFalse(ParsingHelpers.isChartSection("Recommended"))
+    @Test(
+        "Chart section detection returns false for non-chart titles",
+        arguments: ["Quick picks", "New releases", "Recommended"]
+    )
+    func isChartSectionWithNonChart(title: String) {
+        #expect(ParsingHelpers.isChartSection(title) == false)
     }
 
     // MARK: - URL Normalization
 
-    func testNormalizeURLWithProtocolRelative() {
+    @Test("Normalize URL adds https to protocol-relative URL")
+    func normalizeURLWithProtocolRelative() {
         let result = ParsingHelpers.normalizeURL("//example.com/image.jpg")
-        XCTAssertEqual(result, "https://example.com/image.jpg")
+        #expect(result == "https://example.com/image.jpg")
     }
 
-    func testNormalizeURLWithFullURL() {
+    @Test("Normalize URL preserves full URL")
+    func normalizeURLWithFullURL() {
         let result = ParsingHelpers.normalizeURL("https://example.com/image.jpg")
-        XCTAssertEqual(result, "https://example.com/image.jpg")
+        #expect(result == "https://example.com/image.jpg")
     }
 
     // MARK: - Thumbnail Extraction
 
-    func testExtractThumbnailsFromMusicThumbnailRenderer() {
+    @Test("Extract thumbnails from musicThumbnailRenderer")
+    func extractThumbnailsFromMusicThumbnailRenderer() {
         let data: [String: Any] = [
             "thumbnail": [
                 "musicThumbnailRenderer": [
@@ -48,22 +56,22 @@ final class ParsingHelpersTests: XCTestCase {
 
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
 
-        XCTAssertEqual(thumbnails.count, 2)
-        XCTAssertEqual(thumbnails.first, "https://example.com/small.jpg")
-        XCTAssertEqual(thumbnails.last, "https://example.com/large.jpg")
+        #expect(thumbnails.count == 2)
+        #expect(thumbnails.first == "https://example.com/small.jpg")
+        #expect(thumbnails.last == "https://example.com/large.jpg")
     }
 
-    func testExtractThumbnailsFromEmptyData() {
+    @Test("Extract thumbnails from empty data returns empty array")
+    func extractThumbnailsFromEmptyData() {
         let data: [String: Any] = [:]
-
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-
-        XCTAssertTrue(thumbnails.isEmpty)
+        #expect(thumbnails.isEmpty)
     }
 
     // MARK: - Title Extraction
 
-    func testExtractTitle() {
+    @Test("Extract title from standard title key")
+    func extractTitle() {
         let data: [String: Any] = [
             "title": [
                 "runs": [
@@ -73,11 +81,11 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let title = ParsingHelpers.extractTitle(from: data)
-
-        XCTAssertEqual(title, "Test Title")
+        #expect(title == "Test Title")
     }
 
-    func testExtractTitleWithCustomKey() {
+    @Test("Extract title with custom key")
+    func extractTitleWithCustomKey() {
         let data: [String: Any] = [
             "name": [
                 "runs": [
@@ -87,21 +95,20 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let title = ParsingHelpers.extractTitle(from: data, key: "name")
-
-        XCTAssertEqual(title, "Custom Name")
+        #expect(title == "Custom Name")
     }
 
-    func testExtractTitleFromEmptyData() {
+    @Test("Extract title from empty data returns nil")
+    func extractTitleFromEmptyData() {
         let data: [String: Any] = [:]
-
         let title = ParsingHelpers.extractTitle(from: data)
-
-        XCTAssertNil(title)
+        #expect(title == nil)
     }
 
     // MARK: - Artist Extraction
 
-    func testExtractArtists() {
+    @Test("Extract artists from subtitle runs")
+    func extractArtists() {
         let data: [String: Any] = [
             "subtitle": [
                 "runs": [
@@ -114,13 +121,14 @@ final class ParsingHelpersTests: XCTestCase {
 
         let artists = ParsingHelpers.extractArtists(from: data)
 
-        XCTAssertEqual(artists.count, 2)
-        XCTAssertEqual(artists[0].name, "Artist 1")
-        XCTAssertEqual(artists[0].id, "UC1")
-        XCTAssertEqual(artists[1].name, "Artist 2")
+        #expect(artists.count == 2)
+        #expect(artists[0].name == "Artist 1")
+        #expect(artists[0].id == "UC1")
+        #expect(artists[1].name == "Artist 2")
     }
 
-    func testExtractArtistsFiltersSeparators() {
+    @Test("Extract artists filters out separator characters")
+    func extractArtistsFiltersSeparators() {
         let data: [String: Any] = [
             "subtitle": [
                 "runs": [
@@ -133,24 +141,25 @@ final class ParsingHelpersTests: XCTestCase {
 
         let artists = ParsingHelpers.extractArtists(from: data)
 
-        XCTAssertEqual(artists.count, 2)
-        XCTAssertEqual(artists[0].name, "Artist")
-        XCTAssertEqual(artists[1].name, "Song")
+        #expect(artists.count == 2)
+        #expect(artists[0].name == "Artist")
+        #expect(artists[1].name == "Song")
     }
 
     // MARK: - Video ID Extraction
 
-    func testExtractVideoIdFromPlaylistItemData() {
+    @Test("Extract video ID from playlistItemData")
+    func extractVideoIdFromPlaylistItemData() {
         let data: [String: Any] = [
             "playlistItemData": ["videoId": "abc123"],
         ]
 
         let videoId = ParsingHelpers.extractVideoId(from: data)
-
-        XCTAssertEqual(videoId, "abc123")
+        #expect(videoId == "abc123")
     }
 
-    func testExtractVideoIdFromWatchEndpoint() {
+    @Test("Extract video ID from watchEndpoint")
+    func extractVideoIdFromWatchEndpoint() {
         let data: [String: Any] = [
             "navigationEndpoint": [
                 "watchEndpoint": ["videoId": "xyz789"],
@@ -158,11 +167,11 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let videoId = ParsingHelpers.extractVideoId(from: data)
-
-        XCTAssertEqual(videoId, "xyz789")
+        #expect(videoId == "xyz789")
     }
 
-    func testExtractVideoIdFromOverlay() {
+    @Test("Extract video ID from overlay")
+    func extractVideoIdFromOverlay() {
         let data: [String: Any] = [
             "overlay": [
                 "musicItemThumbnailOverlayRenderer": [
@@ -178,13 +187,13 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let videoId = ParsingHelpers.extractVideoId(from: data)
-
-        XCTAssertEqual(videoId, "overlay123")
+        #expect(videoId == "overlay123")
     }
 
     // MARK: - Browse ID Extraction
 
-    func testExtractBrowseId() {
+    @Test("Extract browse ID from navigation endpoint")
+    func extractBrowseId() {
         let data: [String: Any] = [
             "navigationEndpoint": [
                 "browseEndpoint": ["browseId": "VLPL12345"],
@@ -192,33 +201,33 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let browseId = ParsingHelpers.extractBrowseId(from: data)
-
-        XCTAssertEqual(browseId, "VLPL12345")
+        #expect(browseId == "VLPL12345")
     }
 
     // MARK: - Duration Parsing
 
-    func testParseDurationMinutesSeconds() {
-        let duration = ParsingHelpers.parseDuration("3:45")
-
-        XCTAssertEqual(duration, 225) // 3 * 60 + 45
+    @Test(
+        "Parse duration string to seconds",
+        arguments: [
+            ("3:45", 225.0),      // 3 * 60 + 45
+            ("1:30:00", 5400.0),  // 1 * 3600 + 30 * 60
+        ]
+    )
+    func parseDuration(input: String, expectedSeconds: TimeInterval) {
+        let duration = ParsingHelpers.parseDuration(input)
+        #expect(duration == expectedSeconds)
     }
 
-    func testParseDurationHoursMinutesSeconds() {
-        let duration = ParsingHelpers.parseDuration("1:30:00")
-
-        XCTAssertEqual(duration, 5400) // 1 * 3600 + 30 * 60
-    }
-
-    func testParseDurationInvalid() {
+    @Test("Parse invalid duration returns nil")
+    func parseDurationInvalid() {
         let duration = ParsingHelpers.parseDuration("invalid")
-
-        XCTAssertNil(duration)
+        #expect(duration == nil)
     }
 
     // MARK: - Flex Column Extraction
 
-    func testExtractTitleFromFlexColumns() {
+    @Test("Extract title from flex columns")
+    func extractTitleFromFlexColumns() {
         let data: [String: Any] = [
             "flexColumns": [
                 [
@@ -232,11 +241,11 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let title = ParsingHelpers.extractTitleFromFlexColumns(data)
-
-        XCTAssertEqual(title, "Song Title")
+        #expect(title == "Song Title")
     }
 
-    func testExtractSubtitleFromFlexColumns() {
+    @Test("Extract subtitle from flex columns")
+    func extractSubtitleFromFlexColumns() {
         let data: [String: Any] = [
             "flexColumns": [
                 [
@@ -259,11 +268,11 @@ final class ParsingHelpersTests: XCTestCase {
         ]
 
         let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(data)
-
-        XCTAssertEqual(subtitle, "Artist • Album")
+        #expect(subtitle == "Artist • Album")
     }
 
-    func testExtractArtistsFromFlexColumns() {
+    @Test("Extract artists from flex columns")
+    func extractArtistsFromFlexColumns() {
         let data: [String: Any] = [
             "flexColumns": [
                 [
@@ -285,8 +294,8 @@ final class ParsingHelpersTests: XCTestCase {
 
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
 
-        XCTAssertEqual(artists.count, 1)
-        XCTAssertEqual(artists.first?.name, "Artist Name")
-        XCTAssertEqual(artists.first?.id, "UC123")
+        #expect(artists.count == 1)
+        #expect(artists.first?.name == "Artist Name")
+        #expect(artists.first?.id == "UC123")
     }
 }

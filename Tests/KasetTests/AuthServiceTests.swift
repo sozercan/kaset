@@ -1,84 +1,88 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Kaset
 
 /// Tests for AuthService.
+@Suite(.serialized)
 @MainActor
-final class AuthServiceTests: XCTestCase {
-    var authService: AuthService!
-    var mockWebKitManager: MockWebKitManager!
+struct AuthServiceTests {
+    var authService: AuthService
+    var mockWebKitManager: MockWebKitManager
 
-    override func setUp() async throws {
+    init() {
         self.mockWebKitManager = MockWebKitManager()
         self.authService = AuthService(webKitManager: self.mockWebKitManager)
     }
 
-    override func tearDown() async throws {
-        self.authService = nil
-        self.mockWebKitManager = nil
+    @Test("Initial state is initializing")
+    func initialState() {
+        #expect(authService.state == .initializing)
+        #expect(authService.needsReauth == false)
     }
 
-    func testInitialState() {
-        XCTAssertEqual(self.authService.state, .initializing)
-        XCTAssertFalse(self.authService.needsReauth)
+    @Test("State isInitializing property")
+    func isInitializing() {
+        #expect(authService.state.isInitializing == true)
+        #expect(authService.state.isLoggedIn == false)
+
+        authService.completeLogin(sapisid: "test")
+        #expect(authService.state.isInitializing == false)
+        #expect(authService.state.isLoggedIn == true)
     }
 
-    func testIsInitializing() {
-        XCTAssertTrue(self.authService.state.isInitializing)
-        XCTAssertFalse(self.authService.state.isLoggedIn)
-
-        self.authService.completeLogin(sapisid: "test")
-        XCTAssertFalse(self.authService.state.isInitializing)
-        XCTAssertTrue(self.authService.state.isLoggedIn)
+    @Test("Start login transitions to loggingIn state")
+    func startLogin() {
+        authService.startLogin()
+        #expect(authService.state == .loggingIn)
     }
 
-    func testStartLogin() {
-        self.authService.startLogin()
-        XCTAssertEqual(self.authService.state, .loggingIn)
+    @Test("Complete login transitions to loggedIn state")
+    func completeLogin() {
+        authService.completeLogin(sapisid: "test-sapisid")
+        #expect(authService.state == .loggedIn(sapisid: "test-sapisid"))
+        #expect(authService.needsReauth == false)
     }
 
-    func testCompleteLogin() {
-        self.authService.completeLogin(sapisid: "test-sapisid")
-        XCTAssertEqual(self.authService.state, .loggedIn(sapisid: "test-sapisid"))
-        XCTAssertFalse(self.authService.needsReauth)
+    @Test("Session expired transitions to loggedOut and sets needsReauth")
+    func sessionExpired() {
+        authService.completeLogin(sapisid: "test-sapisid")
+        authService.sessionExpired()
+
+        #expect(authService.state == .loggedOut)
+        #expect(authService.needsReauth == true)
     }
 
-    func testSessionExpired() {
-        self.authService.completeLogin(sapisid: "test-sapisid")
-        self.authService.sessionExpired()
+    @Test("State isLoggedIn property")
+    func stateIsLoggedIn() {
+        #expect(authService.state.isLoggedIn == false)
 
-        XCTAssertEqual(self.authService.state, .loggedOut)
-        XCTAssertTrue(self.authService.needsReauth)
+        authService.completeLogin(sapisid: "test")
+        #expect(authService.state.isLoggedIn == true)
     }
 
-    func testStateIsLoggedIn() {
-        XCTAssertFalse(self.authService.state.isLoggedIn)
+    @Test("Sign out clears state and calls mock")
+    func signOut() async {
+        authService.completeLogin(sapisid: "test-sapisid")
+        authService.needsReauth = true
 
-        self.authService.completeLogin(sapisid: "test")
-        XCTAssertTrue(self.authService.state.isLoggedIn)
+        await authService.signOut()
+
+        #expect(authService.state == .loggedOut)
+        #expect(authService.needsReauth == false)
+        #expect(mockWebKitManager.clearAllDataCalled == true)
     }
 
-    func testSignOut() async {
-        self.authService.completeLogin(sapisid: "test-sapisid")
-        self.authService.needsReauth = true
-
-        await self.authService.signOut()
-
-        XCTAssertEqual(self.authService.state, .loggedOut)
-        XCTAssertFalse(self.authService.needsReauth)
-        // Verify mock was called (not real WebKit/file storage)
-        XCTAssertTrue(self.mockWebKitManager.clearAllDataCalled)
-    }
-
-    func testStateEquatable() {
+    @Test("State equality")
+    func stateEquatable() {
         let state1 = AuthService.State.loggedOut
         let state2 = AuthService.State.loggedOut
-        XCTAssertEqual(state1, state2)
+        #expect(state1 == state2)
 
         let state3 = AuthService.State.loggedIn(sapisid: "test")
         let state4 = AuthService.State.loggedIn(sapisid: "test")
-        XCTAssertEqual(state3, state4)
+        #expect(state3 == state4)
 
         let state5 = AuthService.State.loggedIn(sapisid: "different")
-        XCTAssertNotEqual(state3, state5)
+        #expect(state3 != state5)
     }
 }
