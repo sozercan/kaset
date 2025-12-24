@@ -12,6 +12,7 @@ final class SettingsManager {
     private enum Keys {
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
+        static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -73,6 +74,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether haptic feedback is enabled.
+    var hapticFeedbackEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.hapticFeedbackEnabled, forKey: Keys.hapticFeedbackEnabled)
+        }
+    }
+
     /// The last page the user was on (for "Last Used" option).
     var lastUsedPage: LaunchPage = .home
 
@@ -81,6 +89,7 @@ final class SettingsManager {
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
+        self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),
            let page = LaunchPage(rawValue: rawValue)

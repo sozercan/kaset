@@ -208,13 +208,13 @@ struct CommandBarView: View {
     private var discoverySuggestions: [String] {
         if self.playerService.currentTrack != nil {
             // Playing something - offer queue and discovery actions
-            return ["Add jazz to queue", "Skip this song", "What's in my queue?"]
+            ["Add jazz to queue", "Skip this song", "What's in my queue?"]
         } else if !self.playerService.queue.isEmpty {
             // Queue exists - offer to modify it
-            return ["Add more songs", "Play something different", "Start over"]
+            ["Add more songs", "Play something different", "Start over"]
         } else {
             // Nothing going on - offer pure discovery
-            return ["Play upbeat music", "Workout playlist", "Something to focus"]
+            ["Play upbeat music", "Workout playlist", "Something to focus"]
         }
     }
 
@@ -532,6 +532,7 @@ struct CommandBarView: View {
 
         switch intent.action {
         case .play:
+            HapticService.playback()
             if searchQuery.isEmpty, intent.query.isEmpty {
                 await self.playerService.resume()
                 self.resultMessage = "Resuming playback"
@@ -540,6 +541,7 @@ struct CommandBarView: View {
             }
 
         case .queue:
+            HapticService.success()
             if intent.query == "__clear__" {
                 self.playerService.clearQueue()
                 self.resultMessage = "Queue cleared"
@@ -548,6 +550,7 @@ struct CommandBarView: View {
             }
 
         case .shuffle:
+            HapticService.toggle()
             if intent.shuffleScope == "queue" {
                 self.playerService.shuffleQueue()
                 self.resultMessage = "Queue shuffled"
@@ -558,30 +561,37 @@ struct CommandBarView: View {
             }
 
         case .like:
+            HapticService.toggle()
             self.playerService.likeCurrentTrack()
             self.resultMessage = "Liked!"
 
         case .dislike:
+            HapticService.toggle()
             self.playerService.dislikeCurrentTrack()
             self.resultMessage = "Disliked"
 
         case .skip:
+            HapticService.playback()
             await self.playerService.next()
             self.resultMessage = "Skipped"
 
         case .previous:
+            HapticService.playback()
             await self.playerService.previous()
             self.resultMessage = "Playing previous track"
 
         case .pause:
+            HapticService.playback()
             await self.playerService.pause()
             self.resultMessage = "Paused"
 
         case .resume:
+            HapticService.playback()
             await self.playerService.resume()
             self.resultMessage = "Playing"
 
         case .search:
+            HapticService.success()
             // Switch to search view with the query
             self.fallbackToSearch()
         }

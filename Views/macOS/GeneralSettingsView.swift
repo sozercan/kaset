@@ -36,6 +36,10 @@ struct GeneralSettingsView: View {
                 // Now Playing Notifications
                 Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
 
+                // Haptic Feedback
+                Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
+                    .help("Provide tactile feedback for actions on Force Touch trackpads")
+
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in

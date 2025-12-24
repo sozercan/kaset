@@ -15,6 +15,9 @@ struct InteractiveCardStyle: ButtonStyle {
     /// Scale factor when pressed.
     var pressScale: CGFloat = 0.98
 
+    /// Optional haptic feedback type to trigger on press.
+    var hapticFeedback: HapticService.FeedbackType?
+
     @State private var isHovering = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -31,6 +34,11 @@ struct InteractiveCardStyle: ButtonStyle {
             .onHover { hovering in
                 self.isHovering = hovering
             }
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed, let feedback = hapticFeedback {
+                    HapticService.perform(feedback)
+                }
+            }
     }
 }
 
@@ -44,6 +52,9 @@ struct InteractiveRowStyle: ButtonStyle {
 
     /// Hover background color.
     var hoverColor: Color = .primary.opacity(0.06)
+
+    /// Optional haptic feedback type to trigger on press.
+    var hapticFeedback: HapticService.FeedbackType?
 
     @State private var isHovering = false
 
@@ -59,6 +70,11 @@ struct InteractiveRowStyle: ButtonStyle {
             .onHover { hovering in
                 self.isHovering = hovering
             }
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed, let feedback = hapticFeedback {
+                    HapticService.perform(feedback)
+                }
+            }
     }
 }
 
@@ -70,11 +86,19 @@ struct PressableButtonStyle: ButtonStyle {
     /// Scale factor when pressed.
     var pressScale: CGFloat = 0.9
 
+    /// Optional haptic feedback type to trigger on press.
+    var hapticFeedback: HapticService.FeedbackType?
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? self.pressScale : 1.0)
             .opacity(configuration.isPressed ? 0.7 : 1.0)
             .animation(AppAnimation.quick, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed, let feedback = hapticFeedback {
+                    HapticService.perform(feedback)
+                }
+            }
     }
 }
 
@@ -109,9 +133,15 @@ extension ButtonStyle where Self == InteractiveCardStyle {
     static func interactiveCard(
         showShadow: Bool = true,
         hoverScale: CGFloat = 1.02,
-        pressScale: CGFloat = 0.98
+        pressScale: CGFloat = 0.98,
+        hapticFeedback: HapticService.FeedbackType? = nil
     ) -> InteractiveCardStyle {
-        InteractiveCardStyle(showShadow: showShadow, hoverScale: hoverScale, pressScale: pressScale)
+        InteractiveCardStyle(
+            showShadow: showShadow,
+            hoverScale: hoverScale,
+            pressScale: pressScale,
+            hapticFeedback: hapticFeedback
+        )
     }
 }
 
@@ -120,9 +150,12 @@ extension ButtonStyle where Self == InteractiveRowStyle {
     /// Interactive row style with hover background.
     static var interactiveRow: InteractiveRowStyle { InteractiveRowStyle() }
 
-    /// Interactive row style with custom corner radius.
-    static func interactiveRow(cornerRadius: CGFloat = 8) -> InteractiveRowStyle {
-        InteractiveRowStyle(cornerRadius: cornerRadius)
+    /// Interactive row style with custom corner radius and optional haptic feedback.
+    static func interactiveRow(
+        cornerRadius: CGFloat = 8,
+        hapticFeedback: HapticService.FeedbackType? = nil
+    ) -> InteractiveRowStyle {
+        InteractiveRowStyle(cornerRadius: cornerRadius, hapticFeedback: hapticFeedback)
     }
 }
 
@@ -130,6 +163,11 @@ extension ButtonStyle where Self == InteractiveRowStyle {
 extension ButtonStyle where Self == PressableButtonStyle {
     /// Pressable button style with scale feedback.
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
+
+    /// Pressable button style with optional haptic feedback.
+    static func pressable(hapticFeedback: HapticService.FeedbackType?) -> PressableButtonStyle {
+        PressableButtonStyle(hapticFeedback: hapticFeedback)
+    }
 }
 
 @available(macOS 26.0, *)

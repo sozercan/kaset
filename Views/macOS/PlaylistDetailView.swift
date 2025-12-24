@@ -349,6 +349,7 @@ struct PlaylistDetailView: View {
 
     private func toggleLibrary() {
         let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
+        HapticService.success()
         Task {
             if currentlyInLibrary {
                 await SongActionsHelper.removePlaylistFromLibrary(self.playlist, client: self.viewModel.client)

@@ -59,6 +59,11 @@ struct Sidebar: View {
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
         .accessibilityIdentifier(AccessibilityID.Sidebar.container)
+        .onChange(of: self.selection) { _, newValue in
+            if newValue != nil {
+                HapticService.navigation()
+            }
+        }
     }
 }
 

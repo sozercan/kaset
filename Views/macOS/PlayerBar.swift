@@ -216,6 +216,7 @@ struct PlayerBar: View {
         HStack(spacing: 16) {
             // Shuffle
             Button {
+                HapticService.toggle()
                 self.playerService.toggleShuffle()
             } label: {
                 Image(systemName: "shuffle")
@@ -229,6 +230,7 @@ struct PlayerBar: View {
 
             // Previous
             Button {
+                HapticService.playback()
                 Task {
                     await self.playerService.previous()
                 }
@@ -242,6 +244,7 @@ struct PlayerBar: View {
 
             // Play/Pause
             Button {
+                HapticService.playback()
                 Task {
                     await self.playerService.playPause()
                 }
@@ -256,6 +259,7 @@ struct PlayerBar: View {
 
             // Next
             Button {
+                HapticService.playback()
                 Task {
                     await self.playerService.next()
                 }
@@ -269,6 +273,7 @@ struct PlayerBar: View {
 
             // Repeat
             Button {
+                HapticService.toggle()
                 self.playerService.cycleRepeatMode()
             } label: {
                 Image(systemName: self.repeatIcon)
@@ -334,9 +339,13 @@ struct PlayerBar: View {
             }
             .frame(width: 80)
             .controlSize(.small)
-            .onChange(of: self.volumeValue) { _, newValue in
+            .onChange(of: self.volumeValue) { oldValue, newValue in
                 // Apply volume changes in real-time during dragging for immediate feedback
                 if self.isAdjustingVolume {
+                    // Haptic feedback at slider boundaries
+                    if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
+                        HapticService.sliderBoundary()
+                    }
                     Task {
                         await self.playerService.setVolume(newValue)
                     }
@@ -362,6 +371,7 @@ struct PlayerBar: View {
         return HStack(spacing: 12) {
             // Dislike button
             Button {
+                HapticService.toggle()
                 self.playerService.dislikeCurrentTrack()
             } label: {
                 Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
@@ -379,6 +389,7 @@ struct PlayerBar: View {
 
             // Like button
             Button {
+                HapticService.toggle()
                 self.playerService.likeCurrentTrack()
             } label: {
                 Image(systemName: self.playerService.currentTrackLikeStatus == .like
@@ -396,6 +407,7 @@ struct PlayerBar: View {
 
             // Lyrics button
             Button {
+                HapticService.toggle()
                 withAnimation(AppAnimation.standard) {
                     player.showLyrics.toggle()
                 }
@@ -412,6 +424,7 @@ struct PlayerBar: View {
 
             // Queue button
             Button {
+                HapticService.toggle()
                 withAnimation(AppAnimation.standard) {
                     player.showQueue.toggle()
                 }

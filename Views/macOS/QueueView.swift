@@ -33,21 +33,6 @@ struct QueueView: View {
 
             Spacer()
 
-            // AI refine button (only show if there are items and AI is available)
-            if self.playerService.queue.count > 2 {
-                Button {
-                    self.showCommandBar.wrappedValue = true
-                } label: {
-                    Image(systemName: "wand.and.stars")
-                        .font(.subheadline)
-                        .foregroundStyle(.tint)
-                }
-                .buttonStyle(.plain)
-                .help("Refine queue with AI")
-                .accessibilityIdentifier(AccessibilityID.Queue.refineButton)
-                .requiresIntelligence()
-            }
-
             // Clear queue button (only show if there are items beyond the current track)
             if self.playerService.queue.count > 1 {
                 Button {

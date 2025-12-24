@@ -91,6 +91,7 @@ struct SearchView: View {
                 .textFieldStyle(.plain)
                 .focused(self.$isSearchFieldFocused)
                 .onSubmit {
+                    HapticService.success()
                     if self.selectedSuggestionIndex >= 0,
                        self.selectedSuggestionIndex < self.viewModel.suggestions.count
                     {

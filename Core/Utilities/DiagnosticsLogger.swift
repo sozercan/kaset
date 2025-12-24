@@ -23,4 +23,7 @@ enum DiagnosticsLogger {
 
     /// Logger for AI/Foundation Models-related events.
     static let ai = Logger(subsystem: "com.sertacozercan.Kaset", category: "AI")
+
+    /// Logger for haptic feedback-related events.
+    static let haptic = Logger(subsystem: "com.sertacozercan.Kaset", category: "Haptic")
 }

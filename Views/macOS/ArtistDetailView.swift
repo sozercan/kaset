@@ -163,6 +163,7 @@ struct ArtistDetailView: View {
     private func subscribeButton(_ detail: ArtistDetail) -> some View {
         if detail.isSubscribed {
             Button {
+                HapticService.toggle()
                 Task {
                     await self.viewModel.toggleSubscription()
                 }
@@ -180,6 +181,7 @@ struct ArtistDetailView: View {
             .disabled(self.viewModel.isSubscribing)
         } else {
             Button {
+                HapticService.toggle()
                 Task {
                     await self.viewModel.toggleSubscription()
                 }
