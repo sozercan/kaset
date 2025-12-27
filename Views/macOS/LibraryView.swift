@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
 
     @State private var navigationPath = NavigationPath()
 
@@ -144,4 +145,5 @@ struct LibraryView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     LibraryView(viewModel: LibraryViewModel(client: client))
         .environment(PlayerService())
+        .environment(FavoritesManager.shared)
 }

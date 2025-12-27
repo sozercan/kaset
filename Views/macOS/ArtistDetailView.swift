@@ -6,6 +6,7 @@ struct ArtistDetailView: View {
     let artist: Artist
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
 
     var body: some View {
         Group {
@@ -310,6 +311,10 @@ struct ArtistDetailView: View {
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
             Divider()
 

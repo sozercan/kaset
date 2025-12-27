@@ -95,43 +95,6 @@ extension View {
     }
 }
 
-// MARK: - HoverHighlightModifier
-
-/// A view modifier that adds a hover highlight effect to a view.
-@available(macOS 26.0, *)
-struct HoverHighlightModifier: ViewModifier {
-    var cornerRadius: CGFloat = 8
-    var padding: CGFloat = 4
-
-    @State private var isHovering = false
-
-    func body(content: Content) -> some View {
-        content
-            .padding(self.padding)
-            .background(
-                RoundedRectangle(cornerRadius: self.cornerRadius)
-                    .fill(self.isHovering ? Color.primary.opacity(0.08) : Color.clear)
-            )
-            .padding(-self.padding)
-            .animation(AppAnimation.quick, value: self.isHovering)
-            .onHover { hovering in
-                self.isHovering = hovering
-            }
-    }
-}
-
-@available(macOS 26.0, *)
-extension View {
-    /// Adds a hover highlight background effect.
-    /// - Parameters:
-    ///   - cornerRadius: The corner radius of the highlight.
-    ///   - padding: Internal padding for the highlight background.
-    /// - Returns: A view with hover highlight effect.
-    func hoverHighlight(cornerRadius: CGFloat = 8, padding: CGFloat = 4) -> some View {
-        modifier(HoverHighlightModifier(cornerRadius: cornerRadius, padding: padding))
-    }
-}
-
 // MARK: - FadeInModifier
 
 /// A view modifier for smooth fade-in transitions.
@@ -217,77 +180,6 @@ extension View {
     }
 }
 
-// MARK: - BounceOnChangeModifier
-
-/// A view modifier that bounces when a value changes.
-@available(macOS 26.0, *)
-struct BounceOnChangeModifier<V: Equatable>: ViewModifier {
-    let value: V
-    var scale: CGFloat = 1.2
-
-    @State private var isBouncing = false
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(self.isBouncing ? self.scale : 1.0)
-            .animation(AppAnimation.bouncy, value: self.isBouncing)
-            .onChange(of: self.value) { _, _ in
-                guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-                self.isBouncing = true
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(0.15))
-                    self.isBouncing = false
-                }
-            }
-    }
-}
-
-@available(macOS 26.0, *)
-extension View {
-    /// Bounces the view when the specified value changes.
-    /// - Parameters:
-    ///   - value: The value to observe for changes.
-    ///   - scale: The scale factor during bounce (default: 1.2).
-    /// - Returns: A view that bounces on value change.
-    func bounceOnChange(of value: some Equatable, scale: CGFloat = 1.2) -> some View {
-        modifier(BounceOnChangeModifier(value: value, scale: scale))
-    }
-}
-
-// MARK: - ShakeModifier
-
-/// A view modifier that shakes when triggered.
-@available(macOS 26.0, *)
-struct ShakeModifier: ViewModifier {
-    var isShaking: Bool
-    var shakeAmount: CGFloat = 10
-    var shakeDuration: Double = 0.5
-
-    func body(content: Content) -> some View {
-        content
-            .offset(x: self.isShaking ? self.shakeAmount : 0)
-            .animation(
-                self.isShaking ?
-                    .spring(response: 0.1, dampingFraction: 0.2)
-                    .repeatCount(3, autoreverses: true) :
-                    .default,
-                value: self.isShaking
-            )
-    }
-}
-
-@available(macOS 26.0, *)
-extension View {
-    /// Shakes the view when the condition is true.
-    /// - Parameters:
-    ///   - isShaking: Whether to trigger the shake.
-    ///   - amount: The horizontal shake distance.
-    /// - Returns: A view that shakes when triggered.
-    func shake(when isShaking: Bool, amount: CGFloat = 10) -> some View {
-        modifier(ShakeModifier(isShaking: isShaking, shakeAmount: amount))
-    }
-}
-
 // MARK: - Preview
 
 @available(macOS 26.0, *)
@@ -303,10 +195,6 @@ extension View {
                     .staggeredAppearance(index: index)
             }
         }
-
-        // Hover highlight
-        Text("Hover me!")
-            .hoverHighlight()
 
         // Pulse
         Circle()

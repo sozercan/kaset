@@ -5,6 +5,7 @@ import SwiftUI
 struct LikedMusicView: View {
     @State var viewModel: LikedMusicViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
 
     @State private var navigationPath = NavigationPath()
 
@@ -229,6 +230,10 @@ struct LikedMusicView: View {
 
             Divider()
 
+            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+
+            Divider()
+
             Button {
                 SongActionsHelper.likeSong(song, playerService: self.playerService)
             } label: {
@@ -267,4 +272,5 @@ struct LikedMusicView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     LikedMusicView(viewModel: LikedMusicViewModel(client: client))
         .environment(PlayerService())
+        .environment(FavoritesManager.shared)
 }

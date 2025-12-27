@@ -6,6 +6,7 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.showCommandBar) private var showCommandBar
 
     var body: some View {
@@ -90,6 +91,7 @@ struct QueueView: View {
                         song: song,
                         isCurrentTrack: index == self.playerService.currentIndex,
                         index: index,
+                        favoritesManager: self.favoritesManager,
                         onRemove: {
                             self.playerService.removeFromQueue(videoIds: [song.videoId])
                         },
@@ -115,6 +117,7 @@ private struct QueueRowView: View {
     let song: Song
     let isCurrentTrack: Bool
     let index: Int
+    let favoritesManager: FavoritesManager
     let onRemove: () -> Void
     let onTap: () -> Void
 
@@ -175,6 +178,10 @@ private struct QueueRowView: View {
             self.isHovering = hovering
         }
         .contextMenu {
+            FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
+
+            Divider()
+
             if !self.isCurrentTrack {
                 Button(role: .destructive) {
                     self.onRemove()
@@ -220,6 +227,7 @@ private struct QueueRowView: View {
     let playerService = PlayerService()
     QueueView()
         .environment(playerService)
+        .environment(FavoritesManager.shared)
         .frame(height: 600)
 }
 
@@ -229,5 +237,6 @@ private struct QueueRowView: View {
     // Note: In real use, queue would be populated via playQueue()
     QueueView()
         .environment(playerService)
+        .environment(FavoritesManager.shared)
         .frame(height: 600)
 }

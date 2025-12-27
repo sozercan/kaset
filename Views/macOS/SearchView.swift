@@ -7,6 +7,7 @@ import SwiftUI
 struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
 
     /// External trigger for focusing the search field (from keyboard shortcut).
@@ -356,6 +357,10 @@ struct SearchView: View {
 
             Divider()
 
+            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+
+            Divider()
+
             Button {
                 SongActionsHelper.likeSong(song, playerService: self.playerService)
             } label: {
@@ -415,12 +420,20 @@ struct SearchView: View {
                 Label("View Album", systemImage: "square.stack")
             }
 
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
+
         case let .artist(artist):
             Button {
                 self.navigationPath.append(artist)
             } label: {
                 Label("View Artist", systemImage: "person")
             }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
 
         case let .playlist(playlist):
             Button {
@@ -430,6 +443,12 @@ struct SearchView: View {
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")
             }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
+
+            Divider()
 
             Button {
                 self.navigationPath.append(playlist)
@@ -493,4 +512,5 @@ extension SearchResultItem {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     SearchView(viewModel: SearchViewModel(client: client), focusTrigger: $focusTrigger)
         .environment(PlayerService())
+        .environment(FavoritesManager.shared)
 }

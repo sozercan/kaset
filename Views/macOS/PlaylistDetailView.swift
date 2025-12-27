@@ -9,6 +9,7 @@ struct PlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
 
     /// Tracks whether this playlist has been added to library in this session.
     @State private var isAddedToLibrary: Bool = false
@@ -284,6 +285,10 @@ struct PlaylistDetailView: View {
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
 
             Divider()
 

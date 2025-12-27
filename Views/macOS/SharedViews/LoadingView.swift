@@ -112,30 +112,6 @@ struct HomeLoadingView: View {
     }
 }
 
-// MARK: - ListLoadingView
-
-/// A specialized loading view for list screens with skeleton rows.
-struct ListLoadingView: View {
-    let rowCount: Int
-
-    init(rowCount: Int = 8) {
-        self.rowCount = rowCount
-    }
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(0 ..< self.rowCount, id: \.self) { _ in
-                    SkeletonRowView()
-                    Divider()
-                        .padding(.leading, 72)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-    }
-}
-
 #Preview {
     VStack {
         LoadingView("Loading your music...")

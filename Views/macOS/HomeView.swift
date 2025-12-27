@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
@@ -44,9 +45,22 @@ struct HomeView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
+                // Favorites section (hidden when empty)
+                if self.favoritesManager.isVisible {
+                    FavoritesSection(onNavigate: { destination in
+                        if let playlist = destination as? Playlist {
+                            self.navigationPath.append(playlist)
+                        } else if let artist = destination as? Artist {
+                            self.navigationPath.append(artist)
+                        }
+                    })
+                    .staggeredAppearance(index: 0)
+                }
+
+                // API sections
                 ForEach(Array(self.viewModel.sections.enumerated()), id: \.element.id) { index, section in
                     self.sectionView(section)
-                        .staggeredAppearance(index: index)
+                        .staggeredAppearance(index: self.favoritesManager.isVisible ? index + 1 : index)
                         .task {
                             await self.prefetchImagesAsync(for: section)
                         }
@@ -70,16 +84,109 @@ struct HomeView: View {
                             HomeSectionItemCard(item: item, rank: index + 1) {
                                 self.playItem(item, in: section, at: index)
                             }
+                            .contextMenu {
+                                self.contextMenuItems(for: item, in: section, at: index)
+                            }
                         }
                     } else {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item) {
                                 self.playItem(item, in: section, at: index)
                             }
+                            .contextMenu {
+                                self.contextMenuItems(for: item, in: section, at: index)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private func contextMenuItems(for item: HomeSectionItem, in _: HomeSection, at _: Int) -> some View {
+        switch item {
+        case let .song(song):
+            Button {
+                Task { await self.playerService.play(song: song) }
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+
+            Divider()
+
+            Button {
+                SongActionsHelper.likeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Like", systemImage: "hand.thumbsup")
+            }
+
+            Button {
+                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
+            } label: {
+                Label("Dislike", systemImage: "hand.thumbsdown")
+            }
+
+            Divider()
+
+            if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
+                NavigationLink(value: artist) {
+                    Label("Go to Artist", systemImage: "person")
+                }
+            }
+
+            if let album = song.album, album.hasNavigableId {
+                let playlist = Playlist(
+                    id: album.id,
+                    title: album.title,
+                    description: nil,
+                    thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
+                    trackCount: album.trackCount,
+                    author: album.artistsDisplay
+                )
+                NavigationLink(value: playlist) {
+                    Label("Go to Album", systemImage: "square.stack")
+                }
+            }
+
+        case let .album(album):
+            Button {
+                self.playItem(item, in: HomeSection(id: "", title: "", items: []), at: 0)
+            } label: {
+                Label("View Album", systemImage: "square.stack")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
+
+        case let .playlist(playlist):
+            Button {
+                self.navigationPath.append(playlist)
+            } label: {
+                Label("View Playlist", systemImage: "music.note.list")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
+
+        case let .artist(artist):
+            Button {
+                self.navigationPath.append(artist)
+            } label: {
+                Label("View Artist", systemImage: "person")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
         }
     }
 
@@ -137,4 +244,5 @@ struct HomeView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     HomeView(viewModel: HomeViewModel(client: client))
         .environment(PlayerService())
+        .environment(FavoritesManager.shared)
 }
