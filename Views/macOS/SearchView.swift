@@ -137,8 +137,7 @@ struct SearchView: View {
             }
         }
         .padding(10)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(.rect(cornerRadius: 8))
+        .glassEffect(.regular, in: .capsule)
     }
 
     private var suggestionsDropdown: some View {
@@ -151,8 +150,8 @@ struct SearchView: View {
                 }
             }
         }
-        .background(.ultraThinMaterial)
-        .clipShape(.rect(cornerRadius: 8))
+        .glassEffect(.regular, in: .rect(cornerRadius: 8))
+        .glassEffectTransition(.materialize)
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 

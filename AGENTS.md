@@ -175,12 +175,37 @@ HStack { /* controls */ }
 GlassEffectContainer(spacing: 0) {
     // Glass elements here
 }
+
+// Materialize transition for appearing panels
+QueueView()
+    .glassEffectTransition(.materialize)
+
+// Glass effect ID for morphing support
+.glassEffectID("queue", in: playerNamespace)
+
+// Glass search field
+TextField("Search...", text: $query)
+    .glassEffect(.regular, in: .capsule)
+```
+
+**Liquid Glass Anti-Patterns** (avoid these):
+- ❌ `.buttonStyle(.glass)` on buttons inside a glass container (causes rectangles)
+- ❌ `glassEffectUnion` on buttons already in a glass capsule (glass-on-glass)
+- ❌ Glass effects on content areas (lists, tables, media)
+- ❌ Custom opacity that bypasses accessibility
+
+**Implemented Glass Effects**:
+- `PlayerBar` — glass capsule with namespace for morphing
+- `Sidebar` — wrapped in `GlassEffectContainer`
+- `QueueView` / `LyricsView` — `.glassEffectTransition(.materialize)`
+- `SearchView` — glass search field and suggestions dropdown
 ```
 
 **PlayerBar Pattern**:
 - Each view that can be navigated to must include the `PlayerBar` via `safeAreaInset`
 - The `PlayerBar` floats at the bottom of the content area (not sidebar)
 - Uses `.glassEffect(.regular.interactive(), in: .capsule)` for the liquid glass look
+- Uses `@Namespace` for glass effect morphing support
 
 ```swift
 // Add to every navigable view

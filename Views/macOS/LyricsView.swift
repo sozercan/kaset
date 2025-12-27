@@ -33,6 +33,7 @@ struct LyricsView: View {
         }
         .frame(minWidth: 280, maxWidth: 280)
         .background(.background.opacity(0.95))
+        .glassEffectTransition(.materialize)
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
                 // Reset explanation when track changes

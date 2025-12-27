@@ -9,6 +9,9 @@ struct PlayerBar: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
 
+    /// Namespace for glass effect morphing and unioning.
+    @Namespace private var playerNamespace
+
     @State private var isHovering = false
 
     /// Local seek value for smooth slider dragging without network calls on every change.
@@ -39,6 +42,7 @@ struct PlayerBar: View {
             .padding(.vertical, 8)
             .frame(height: 52)
             .glassEffect(.regular.interactive(), in: .capsule)
+            .glassEffectID("playerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -255,6 +259,7 @@ struct PlayerBar: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
+            .glassEffectID("playPause", in: self.playerNamespace)
             .accessibilityLabel(self.playerService.isPlaying ? "Pause" : "Play")
 
             // Next
@@ -417,6 +422,7 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
+            .glassEffectID("lyrics", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
             .accessibilityLabel("Lyrics")
             .accessibilityValue(self.playerService.showLyrics ? "Showing" : "Hidden")
@@ -434,6 +440,7 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
+            .glassEffectID("queue", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)
             .accessibilityLabel("Queue")
             .accessibilityValue(self.playerService.showQueue ? "Showing" : "Hidden")

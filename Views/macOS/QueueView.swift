@@ -20,6 +20,7 @@ struct QueueView: View {
         }
         .frame(minWidth: 280, maxWidth: 280)
         .background(.background.opacity(0.95))
+        .glassEffectTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Queue.container)
     }
 

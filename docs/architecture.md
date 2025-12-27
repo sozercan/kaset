@@ -416,6 +416,24 @@ DiagnosticsLogger.auth.error("Cookie extraction failed")
 
 The app uses Apple's **Liquid Glass** design language introduced in macOS 26.
 
+### Glass Effect Patterns
+
+| Component | Glass Pattern |
+|-----------|---------------|
+| `PlayerBar` | `.glassEffect(.regular.interactive(), in: .capsule)` |
+| `Sidebar` | Wrapped in `GlassEffectContainer` |
+| `QueueView` / `LyricsView` | `.glassEffectTransition(.materialize)` |
+| Search field | `.glassEffect(.regular, in: .capsule)` |
+| Search suggestions | `.glassEffect(.regular, in: .rect(cornerRadius: 8))` |
+
+### Glass Effect Best Practices
+
+1. **Use `GlassEffectContainer`** to wrap multiple glass elements
+2. **Use `.glassEffectTransition(.materialize)`** for panels that appear/disappear
+3. **Use `@Namespace` + `.glassEffectID()`** for morphing between states
+4. **Avoid glass-on-glass** — don't apply `.buttonStyle(.glass)` to buttons already inside a glass container
+5. **Reserve glass for navigation/floating controls** — not for content areas
+
 ## Foundation Models (Apple Intelligence)
 
 Kaset integrates Apple's on-device Foundation Models framework for AI-powered features. See [ADR-0005: Foundation Models Architecture](adr/0005-foundation-models-architecture.md) for detailed design decisions.
