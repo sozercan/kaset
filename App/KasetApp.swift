@@ -121,6 +121,9 @@ struct KasetApp: App {
                         // Warm up Foundation Models in background
                         await FoundationModelsService.shared.warmup()
                     }
+                    .onOpenURL { url in
+                        self.handleIncomingURL(url)
+                    }
             }
         }
 
@@ -269,6 +272,47 @@ struct KasetApp: App {
             "Repeat One"
         case .one:
             "Repeat Off"
+        }
+    }
+
+    // MARK: - URL Handling
+
+    /// Handles an incoming URL (from custom scheme).
+    private func handleIncomingURL(_ url: URL) {
+        DiagnosticsLogger.app.info("Received URL: \(url.absoluteString)")
+
+        guard let content = URLHandler.parse(url) else {
+            DiagnosticsLogger.app.warning("Unrecognized URL format: \(url.absoluteString)")
+            return
+        }
+
+        // If not logged in, ignore for now
+        guard self.authService.state.isLoggedIn else {
+            DiagnosticsLogger.app.info("Not logged in, ignoring URL")
+            return
+        }
+
+        self.handleParsedContent(content)
+    }
+
+    /// Handles parsed URL content.
+    private func handleParsedContent(_ content: URLHandler.ParsedContent) {
+        switch content {
+        case let .song(videoId):
+            DiagnosticsLogger.app.info("Playing song from URL: \(videoId)")
+            let song = Song(
+                id: videoId,
+                title: "Loading...",
+                artists: [],
+                videoId: videoId
+            )
+            Task {
+                await self.playerService.play(song: song)
+            }
+
+        case .playlist, .album, .artist:
+            // Only song playback is supported via URL scheme
+            DiagnosticsLogger.app.info("URL scheme only supports song playback")
         }
     }
 }

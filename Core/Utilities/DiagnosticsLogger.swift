@@ -32,4 +32,7 @@ enum DiagnosticsLogger {
 
     /// Logger for updater/general app events.
     static let updater = Logger(subsystem: "com.sertacozercan.Kaset", category: "Updater")
+
+    /// Logger for app lifecycle and URL handling events.
+    static let app = Logger(subsystem: "com.sertacozercan.Kaset", category: "App")
 }

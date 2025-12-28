@@ -137,6 +137,10 @@ struct HomeView: View {
 
             Divider()
 
+            ShareContextMenu.menuItem(for: song)
+
+            Divider()
+
             if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")
@@ -168,6 +172,8 @@ struct HomeView: View {
 
             FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
 
+            ShareContextMenu.menuItem(for: album)
+
         case let .playlist(playlist):
             Button {
                 self.navigationPath.append(playlist)
@@ -179,6 +185,10 @@ struct HomeView: View {
 
             FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
 
+            Divider()
+
+            ShareContextMenu.menuItem(for: playlist)
+
         case let .artist(artist):
             Button {
                 self.navigationPath.append(artist)
@@ -189,6 +199,8 @@ struct HomeView: View {
             Divider()
 
             FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
+
+            ShareContextMenu.menuItem(for: artist)
         }
     }
 

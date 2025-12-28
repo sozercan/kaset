@@ -307,6 +307,10 @@ struct PlaylistDetailView: View {
 
             Divider()
 
+            ShareContextMenu.menuItem(for: track)
+
+            Divider()
+
             // Go to Artist - show first artist with valid ID
             if let artist = track.artists.first(where: { !$0.id.isEmpty && $0.id != UUID().uuidString }) {
                 NavigationLink(value: artist) {

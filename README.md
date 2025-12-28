@@ -19,6 +19,8 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement
 - 📜 **Lyrics** — View song lyrics with AI-powered explanations and mood analysis
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
+- 🔗 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
+- 🔗 **URL Scheme** — Open songs directly with `kaset://play?v=VIDEO_ID`
 
 ## Requirements
 
@@ -68,6 +70,15 @@ brew install --cask kaset --no-quarantine
 | `⌘3`     | Go to Library    |
 | `⌘F`     | Go to Search     |
 | `⌘K`     | Open Command Bar |
+
+## URL Scheme
+
+Kaset supports a custom URL scheme for opening content directly:
+
+```bash
+# Play a song by video ID
+open "kaset://play?v=dQw4w9WgXcQ"
+```
 
 ## Contributing
 

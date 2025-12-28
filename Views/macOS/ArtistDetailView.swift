@@ -331,6 +331,10 @@ struct ArtistDetailView: View {
                 Label("Add to Library", systemImage: "plus.circle")
             }
 
+            Divider()
+
+            ShareContextMenu.menuItem(for: song)
+
             // Go to Album - show if album has valid browse ID
             if let album = song.album, album.hasNavigableId {
                 Divider()

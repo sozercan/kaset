@@ -16,6 +16,11 @@
 		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
 		FAV0000100000004 /* FavoritesContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000004 /* FavoritesContextMenu.swift */; };
 		FAV0000100000005 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000005 /* FavoritesManagerTests.swift */; };
+		SHR0000100000001 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000001 /* ShareService.swift */; };
+		SHR0000100000002 /* ShareContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000002 /* ShareContextMenu.swift */; };
+		SHR0000100000003 /* ShareableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000003 /* ShareableTests.swift */; };
+		URL0000100000001 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000001 /* URLHandler.swift */; };
+		URL0000100000002 /* URLHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000002 /* URLHandlerTests.swift */; };
 		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
 		0BF5A9C968BD0D2D9CB057AA /* CassetteIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390C91F55BBE06827FE8EA94 /* CassetteIcon.swift */; };
 		0C310209A7D8DD311A22DCE6 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57FBD1969A60A57AEE99F5D /* EqualizerView.swift */; };
@@ -143,7 +148,6 @@
 		E50000010000000000000401 /* SearchResponseParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000401 /* SearchResponseParserTests.swift */; };
 		E50000010000000000000402 /* ParsingHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000402 /* ParsingHelpersTests.swift */; };
 		E50000010000000000000403 /* PlaylistParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000403 /* PlaylistParserTests.swift */; };
-		E50000010000000000000500 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000500 /* ErrorPresenter.swift */; };
 		E50000010000000000000502 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000502 /* UpdaterService.swift */; };
 		E50000010000000000000600 /* AccessibilityIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000600 /* AccessibilityIdentifiers.swift */; };
 		E50000010000000000000601 /* UITestConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000601 /* UITestConfig.swift */; };
@@ -186,6 +190,11 @@
 		FAV0000200000003 /* FavoritesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesSection.swift; sourceTree = "<group>"; };
 		FAV0000200000004 /* FavoritesContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesContextMenu.swift; sourceTree = "<group>"; };
 		FAV0000200000005 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManagerTests.swift; sourceTree = "<group>"; };
+		SHR0000200000001 /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
+		SHR0000200000002 /* ShareContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareContextMenu.swift; sourceTree = "<group>"; };
+		SHR0000200000003 /* ShareableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareableTests.swift; sourceTree = "<group>"; };
+		URL0000200000001 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
+		URL0000200000002 /* URLHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandlerTests.swift; sourceTree = "<group>"; };
 		04E21018BFEFD7B96F998F28 /* IntelligenceModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceModifier.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E2 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
@@ -319,7 +328,6 @@
 		E50000020000000000000401 /* SearchResponseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResponseParserTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000402 /* ParsingHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsingHelpersTests.swift; sourceTree = "<group>"; };
 		E50000020000000000000403 /* PlaylistParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistParserTests.swift; sourceTree = "<group>"; };
-		E50000020000000000000500 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
 		E50000020000000000000502 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
 		E50000020000000000000600 /* AccessibilityIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityIdentifiers.swift; sourceTree = "<group>"; };
 		E50000020000000000000601 /* UITestConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestConfig.swift; sourceTree = "<group>"; };
@@ -382,6 +390,7 @@
 				1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */,
 				FAV0000200000003 /* FavoritesSection.swift */,
 				FAV0000200000004 /* FavoritesContextMenu.swift */,
+				SHR0000200000002 /* ShareContextMenu.swift */,
 			);
 			path = SharedViews;
 			sourceTree = "<group>";
@@ -579,7 +588,6 @@
 				E50000060000000000000023 /* Player */,
 				E50000060000000000000024 /* WebKit */,
 				E50000020000000000000200 /* Protocols.swift */,
-				E50000020000000000000500 /* ErrorPresenter.swift */,
 				E50000020000000000000502 /* UpdaterService.swift */,
 				0CE90C8E602477823742B6E3 /* SettingsManager.swift */,
 				0CE90C8E602477823742B6E4 /* HapticService.swift */,
@@ -587,6 +595,8 @@
 				482F4F5494A32DF5BC8FB4E4 /* AI */,
 				FAV0000200000002 /* FavoritesManager.swift */,
 				SLS0000200000001 /* SongLikeStatusManager.swift */,
+				SHR0000200000001 /* ShareService.swift */,
+				URL0000200000001 /* URLHandler.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -741,6 +751,8 @@
 				5FD0EE4EB4A6F24FB0C9E93B /* MusicIntentIntegrationTests.swift */,
 				5FD0EE4EB4A6F24FB0C9E93C /* HapticServiceTests.swift */,
 				FAV0000200000005 /* FavoritesManagerTests.swift */,
+				SHR0000200000003 /* ShareableTests.swift */,
+				URL0000200000002 /* URLHandlerTests.swift */,
 			);
 			path = KasetTests;
 			sourceTree = "<group>";
@@ -952,7 +964,6 @@
 				E50000010000000000000305 /* LyricsParser.swift in Sources */,
 				E50000010000000000000306 /* RadioQueueParser.swift in Sources */,
 				E50000010000000000000307 /* SongMetadataParser.swift in Sources */,
-				E50000010000000000000500 /* ErrorPresenter.swift in Sources */,
 				E50000010000000000000502 /* UpdaterService.swift in Sources */,
 				E50000010000000000000076 /* ColorExtractor.swift in Sources */,
 				E50000010000000000000093 /* AccentBackground.swift in Sources */,
@@ -1009,6 +1020,9 @@
 				FAV0000100000003 /* FavoritesSection.swift in Sources */,
 				FAV0000100000004 /* FavoritesContextMenu.swift in Sources */,
 				NETM000100000001 /* NetworkMonitor.swift in Sources */,
+				SHR0000100000001 /* ShareService.swift in Sources */,
+				SHR0000100000002 /* ShareContextMenu.swift in Sources */,
+				URL0000100000001 /* URLHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1047,6 +1061,8 @@
 				C8190591A078D2D9B63D378A /* MusicIntentIntegrationTests.swift in Sources */,
 				C8190591A078D2D9B63D378B /* HapticServiceTests.swift in Sources */,
 				FAV0000100000005 /* FavoritesManagerTests.swift in Sources */,
+				SHR0000100000003 /* ShareableTests.swift in Sources */,
+				URL0000100000002 /* URLHandlerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

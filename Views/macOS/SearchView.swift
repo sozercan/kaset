@@ -384,6 +384,10 @@ struct SearchView: View {
 
             Divider()
 
+            ShareContextMenu.menuItem(for: song)
+
+            Divider()
+
             // Go to Artist - show first artist with valid ID
             if let artist = song.artists.first(where: { !$0.id.isEmpty && $0.id != UUID().uuidString }) {
                 NavigationLink(value: artist) {
@@ -425,6 +429,8 @@ struct SearchView: View {
 
             FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
 
+            ShareContextMenu.menuItem(for: album)
+
         case let .artist(artist):
             Button {
                 self.navigationPath.append(artist)
@@ -435,6 +441,8 @@ struct SearchView: View {
             Divider()
 
             FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
+
+            ShareContextMenu.menuItem(for: artist)
 
         case let .playlist(playlist):
             Button {
@@ -448,6 +456,10 @@ struct SearchView: View {
             Divider()
 
             FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
+
+            Divider()
+
+            ShareContextMenu.menuItem(for: playlist)
 
             Divider()
 

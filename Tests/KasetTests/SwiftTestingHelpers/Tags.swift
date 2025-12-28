@@ -92,7 +92,7 @@ extension Tag {
 
     /// Tests related to services (Auth, Player, WebKit, etc.).
     ///
-    /// Use for: `AuthService`, `PlayerService`, `WebKitManager`, `ErrorPresenter`.
+    /// Use for: `AuthService`, `PlayerService`, `WebKitManager`.
     @Tag static var service: Self
 
     /// Tests related to data models.

@@ -156,6 +156,10 @@ struct FavoritesSection: View {
 
         Divider()
 
+        ShareContextMenu.menuItem(for: item)
+
+        Divider()
+
         // Navigation to related content
         switch item.itemType {
         case let .song(song):

@@ -396,32 +396,6 @@ Unified error type for the app:
 | `.playbackError` | Playback-related failure |
 | `.unknown` | Generic error |
 
-### ErrorPresenter
-
-**File**: `Core/Services/ErrorPresenter.swift`
-
-Centralized service for presenting errors to users:
-
-```swift
-@MainActor @Observable
-final class ErrorPresenter {
-    static let shared = ErrorPresenter()
-
-    var currentError: PresentableError?
-    var isShowingError: Bool
-
-    func present(_ error: YTMusicError, retryAction: (() async -> Void)?)
-    func present(_ error: Error, retryAction: (() async -> Void)?)
-    func dismiss()
-    func retry() async
-}
-```
-
-**PresentableError** converts technical errors to user-friendly messages:
-- Network errors → "Connection Error"
-- API errors → "Server Error (Error XXX)"
-- Auth errors → "Session Expired"
-
 ### Error Flow
 
 1. API returns 401/403 → `YTMusicClient` throws `.authExpired`

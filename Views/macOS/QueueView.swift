@@ -182,6 +182,8 @@ private struct QueueRowView: View {
 
             Divider()
 
+            ShareContextMenu.menuItem(for: self.song)
+
             if !self.isCurrentTrack {
                 Button(role: .destructive) {
                     self.onRemove()
