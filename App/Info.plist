@@ -7,7 +7,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.sozercan.kaset</string>
+			<string>com.sertacozercan.kaset</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>kaset</string>
@@ -16,20 +16,20 @@
 			<string>Viewer</string>
 		</dict>
 	</array>
-	
+
 	<!-- Sparkle Auto-Update Configuration -->
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
-	
+
 	<key>SUPublicEDKey</key>
 	<string>qa2zoeXHqn+pluxQSGjn5HyIYA/iFtrEJz7S1BoslpI=</string>
-	
+
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
-	
+
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	
+
 	<key>SUAllowsAutomaticUpdates</key>
 	<true/>
 </dict>
