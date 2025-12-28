@@ -1,16 +1,52 @@
+import AppKit
 import SwiftUI
 
 // MARK: - ShareContextMenu
 
-/// Shared context menu items for sharing items via native ShareLink.
+/// Shared context menu items for sharing items via NSSharingServicePicker.
+/// Uses native macOS sharing services for proper popup positioning in context menus.
 @available(macOS 26.0, *)
 @MainActor
 enum ShareContextMenu {
+    /// Shows the share picker at the current mouse location.
+    private static func showSharePicker(for url: URL) {
+        let picker = NSSharingServicePicker(items: [url])
+
+        // Get the current mouse location in screen coordinates
+        let mouseLocation = NSEvent.mouseLocation
+
+        // Find the window under the mouse
+        guard let window = NSApp.windows.first(where: { window in
+            window.isVisible && window.frame.contains(mouseLocation)
+        }) else {
+            // Fallback: use key window
+            guard let keyWindow = NSApp.keyWindow else { return }
+            let windowPoint = keyWindow.convertPoint(fromScreen: mouseLocation)
+            let rect = NSRect(origin: windowPoint, size: CGSize(width: 1, height: 1))
+            picker.show(relativeTo: rect, of: keyWindow.contentView!, preferredEdge: .minY)
+            return
+        }
+
+        // Convert screen coordinates to window coordinates
+        let windowPoint = window.convertPoint(fromScreen: mouseLocation)
+
+        // Find the view at this point, or use contentView as fallback
+        let targetView = window.contentView?.hitTest(windowPoint) ?? window.contentView!
+
+        // Convert the point to the target view's coordinate system
+        let viewPoint = targetView.convert(windowPoint, from: nil)
+        let rect = NSRect(origin: viewPoint, size: CGSize(width: 1, height: 1))
+
+        picker.show(relativeTo: rect, of: targetView, preferredEdge: .minY)
+    }
+
     /// Creates a share menu item for a song.
     @ViewBuilder
     static func menuItem(for song: Song) -> some View {
         if let url = song.shareURL {
-            ShareLink(item: url, message: Text(song.shareText)) {
+            Button {
+                self.showSharePicker(for: url)
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
         }
@@ -20,7 +56,9 @@ enum ShareContextMenu {
     @ViewBuilder
     static func menuItem(for playlist: Playlist) -> some View {
         if let url = playlist.shareURL {
-            ShareLink(item: url, message: Text(playlist.shareText)) {
+            Button {
+                self.showSharePicker(for: url)
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
         }
@@ -31,7 +69,9 @@ enum ShareContextMenu {
     @ViewBuilder
     static func menuItem(for album: Album) -> some View {
         if let url = album.shareURL {
-            ShareLink(item: url, message: Text(album.shareText)) {
+            Button {
+                self.showSharePicker(for: url)
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
         }
@@ -42,7 +82,9 @@ enum ShareContextMenu {
     @ViewBuilder
     static func menuItem(for artist: Artist) -> some View {
         if let url = artist.shareURL {
-            ShareLink(item: url, message: Text(artist.shareText)) {
+            Button {
+                self.showSharePicker(for: url)
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
         }
