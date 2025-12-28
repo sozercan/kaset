@@ -288,10 +288,20 @@ final class SingletonPlayerWebView {
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
 
+        // Get current volume from PlayerService via coordinator
+        let currentVolume = self.coordinator?.playerService.volume ?? 1.0
+        self.logger.info("Will apply volume \(currentVolume) after page load")
+
         // Stop current playback first, then load new video
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
-            self?.webView?.load(URLRequest(url: urlToLoad))
+            guard let self, let webView = self.webView else { return }
+
+            // Set target volume BEFORE loading so it's ready when video element appears
+            let setTargetScript = "window.__kasetTargetVolume = \(currentVolume);"
+            webView.evaluateJavaScript(setTargetScript, completionHandler: nil)
+
+            webView.load(URLRequest(url: urlToLoad))
         }
     }
 
@@ -481,18 +491,16 @@ final class SingletonPlayerWebView {
                     video.addEventListener('volumechange', () => {
                         if (isEnforcingVolume) return; // Ignore our own changes
                         const targetVol = window.__kasetTargetVolume;
-                        if (Math.abs(video.volume - targetVol) > 0.01) {
-                            console.log('[Kaset] Volume drifted from', targetVol, 'to', video.volume, '- correcting');
+                        // Only enforce if we have a valid target volume set by Swift
+                        if (targetVol !== undefined && Math.abs(video.volume - targetVol) > 0.01) {
                             isEnforcingVolume = true;
                             video.volume = targetVol;
                             isEnforcingVolume = false;
                         }
                     });
 
-                    // Apply target volume immediately in case video was recreated
-                    if (window.__kasetTargetVolume !== undefined) {
-                        video.volume = window.__kasetTargetVolume;
-                    }
+                    // Don't auto-apply volume here - let didFinish handle it with the current value
+                    // This prevents applying stale volume from WebView creation time
 
                     // Start polling if already playing
                     if (!video.paused) {
@@ -507,6 +515,10 @@ final class SingletonPlayerWebView {
                     if (video && !video.__kasetListenersAttached) {
                         video.__kasetListenersAttached = true;
                         attachVideoListeners();
+                        // Apply current target volume to new video element
+                        if (window.__kasetTargetVolume !== undefined) {
+                            video.volume = window.__kasetTargetVolume;
+                        }
                     }
                 });
                 videoObserver.observe(document.body, { childList: true, subtree: true });
@@ -515,6 +527,14 @@ final class SingletonPlayerWebView {
             function startPolling() {
                 if (isPollingActive) return;
                 isPollingActive = true;
+
+                // Apply target volume when playback starts
+                // This is the most reliable point since the video element definitely exists
+                const video = document.querySelector('video');
+                if (video && window.__kasetTargetVolume !== undefined) {
+                    video.volume = window.__kasetTargetVolume;
+                }
+
                 sendUpdate(); // Immediate update
                 // Poll at 1Hz during playback for progress updates (reduced CPU usage)
                 pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
@@ -686,7 +706,6 @@ final class SingletonPlayerWebView {
                         const video = document.querySelector('video');
                         if (video) {
                             video.volume = \(savedVolume);
-                            console.log('[Kaset] Applied saved volume:', \(savedVolume));
                             return;
                         }
                         setTimeout(applyVolume, 100);

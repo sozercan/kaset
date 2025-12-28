@@ -31,12 +31,10 @@ struct PersistentPlayerView: NSViewRepresentable {
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
 
-        // Load the video if needed
+        // Load the video if needed - use loadVideo() to ensure volume is applied
         if SingletonPlayerWebView.shared.currentVideoId != self.videoId {
-            let url = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
-            self.logger.info("Initial load: \(url.absoluteString)")
-            webView.load(URLRequest(url: url))
-            SingletonPlayerWebView.shared.currentVideoId = self.videoId
+            self.logger.info("Initial load for videoId: \(self.videoId)")
+            SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
         }
 
         return container

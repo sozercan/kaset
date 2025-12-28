@@ -342,8 +342,12 @@ struct PlayerBar: View {
                     // User started dragging
                     self.isAdjustingVolume = true
                 } else {
-                    // User finished dragging - apply volume change
-                    self.performVolumeChange()
+                    // User finished dragging/clicking - apply volume change
+                    self.isAdjustingVolume = false
+                    // Always apply volume when interaction ends to ensure WebView is synced
+                    Task {
+                        await self.playerService.setVolume(self.volumeValue)
+                    }
                 }
             }
             .frame(width: 80)
@@ -360,15 +364,6 @@ struct PlayerBar: View {
                     }
                 }
             }
-        }
-    }
-
-    /// Performs the actual volume change after slider interaction ends.
-    private func performVolumeChange() {
-        guard self.isAdjustingVolume else { return }
-        Task {
-            await self.playerService.setVolume(self.volumeValue)
-            self.isAdjustingVolume = false
         }
     }
 
