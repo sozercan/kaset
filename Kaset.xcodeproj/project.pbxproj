@@ -12,6 +12,7 @@
 		0A5EAC082557373484B2690F /* LyricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F870C29ED7A61E4BFD552C1 /* LyricsView.swift */; };
 		FAV0000100000001 /* FavoriteItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000001 /* FavoriteItem.swift */; };
 		FAV0000100000002 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000002 /* FavoritesManager.swift */; };
+		SLS0000100000001 /* SongLikeStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SLS0000200000001 /* SongLikeStatusManager.swift */; };
 		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
 		FAV0000100000004 /* FavoritesContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000004 /* FavoritesContextMenu.swift */; };
 		FAV0000100000005 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000005 /* FavoritesManagerTests.swift */; };
@@ -49,6 +50,7 @@
 		893FAE9DD3873EF800B84AD7 /* CommandBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */; };
 		894D5939EB562697AE32257F /* LikedMusicViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814910C684FB517EB8004E3C /* LikedMusicViewModel.swift */; };
 		92B599384FFC157929331ABA /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28AB8530C16716F70CFEEE4 /* ErrorView.swift */; };
+		NETM000100000001 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NETM000200000001 /* NetworkMonitor.swift */; };
 		9757065D24FEA188EEC1C958 /* TopSongsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B51A0D3A698E9CDEC337C23 /* TopSongsView.swift */; };
 		985AD2259BF6FDD75C52CF5E /* AnimationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37AD7895605C401CE66CF5E0 /* AnimationConfiguration.swift */; };
 		9A82CDB4FA77A8D528E88445 /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBABB9FAFB133BB2F35BDA14 /* AnimationModifiers.swift */; };
@@ -180,6 +182,7 @@
 /* Begin PBXFileReference section */
 		FAV0000200000001 /* FavoriteItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteItem.swift; sourceTree = "<group>"; };
 		FAV0000200000002 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
+		SLS0000200000001 /* SongLikeStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLikeStatusManager.swift; sourceTree = "<group>"; };
 		FAV0000200000003 /* FavoritesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesSection.swift; sourceTree = "<group>"; };
 		FAV0000200000004 /* FavoritesContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesContextMenu.swift; sourceTree = "<group>"; };
 		FAV0000200000005 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManagerTests.swift; sourceTree = "<group>"; };
@@ -187,6 +190,7 @@
 		0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E2 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E3 /* SettingsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
+		NETM000200000001 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E4 /* HapticService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
 		15F144163C7B4864A81CF002 /* Tags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tags.swift; sourceTree = "<group>"; };
 		15F144163C7B4864A81CF005 /* TestStringConvertible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestStringConvertible.swift; sourceTree = "<group>"; };
@@ -579,8 +583,10 @@
 				E50000020000000000000502 /* UpdaterService.swift */,
 				0CE90C8E602477823742B6E3 /* SettingsManager.swift */,
 				0CE90C8E602477823742B6E4 /* HapticService.swift */,
+				NETM000200000001 /* NetworkMonitor.swift */,
 				482F4F5494A32DF5BC8FB4E4 /* AI */,
 				FAV0000200000002 /* FavoritesManager.swift */,
+				SLS0000200000001 /* SongLikeStatusManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -999,8 +1005,10 @@
 				526371B49E20ABDA59300E01 /* AIErrorHandler.swift in Sources */,
 				FAV0000100000001 /* FavoriteItem.swift in Sources */,
 				FAV0000100000002 /* FavoritesManager.swift in Sources */,
+				SLS0000100000001 /* SongLikeStatusManager.swift in Sources */,
 				FAV0000100000003 /* FavoritesSection.swift in Sources */,
 				FAV0000100000004 /* FavoritesContextMenu.swift in Sources */,
+				NETM000100000001 /* NetworkMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

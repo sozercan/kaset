@@ -43,7 +43,3 @@ enum AppAnimation {
         min(Double(index) * base, self.maxStaggerDelay)
     }
 }
-
-
-
-

@@ -17,6 +17,9 @@ final class FavoritesManager {
     /// Whether Favorites section should be visible.
     var isVisible: Bool { !self.items.isEmpty }
 
+    /// Whether this instance should skip persistence (for testing).
+    private let skipPersistence: Bool
+
     // MARK: - Persistence
 
     /// File URL for persisted data.
@@ -29,11 +32,14 @@ final class FavoritesManager {
     // MARK: - Initialization
 
     private init() {
+        self.skipPersistence = false
         self.load()
     }
 
-    /// Internal initializer for testing that skips auto-loading.
+    /// Internal initializer for testing that skips auto-loading and persistence.
+    /// Test instances never read from or write to disk, ensuring user data is never affected.
     init(skipLoad: Bool) {
+        self.skipPersistence = skipLoad // When skipLoad is true, also skip persistence
         if !skipLoad {
             self.load()
         }
@@ -61,7 +67,11 @@ final class FavoritesManager {
 
     /// Saves items to disk asynchronously on a background thread.
     /// Captures current state and writes without blocking the main thread.
+    /// Test instances (skipPersistence=true) never write to disk.
     private func save() {
+        // Skip persistence for test instances to avoid overwriting user data
+        guard !self.skipPersistence else { return }
+
         // Capture current state for background write
         let itemsSnapshot = self.items
         let targetURL = self.fileURL

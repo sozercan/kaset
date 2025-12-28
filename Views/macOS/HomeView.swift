@@ -6,22 +6,34 @@ struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @State private var navigationPath = NavigationPath()
+    @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
             Group {
-                switch self.viewModel.loadingState {
-                case .idle, .loading:
-                    HomeLoadingView()
-                case .loaded, .loadingMore:
-                    self.contentView
-                case let .error(error):
-                    ErrorView(error: error) {
+                if !self.networkMonitor.isConnected {
+                    ErrorView(
+                        title: "No Connection",
+                        message: "Please check your internet connection and try again."
+                    ) {
                         Task { await self.viewModel.refresh() }
+                    }
+                } else {
+                    switch self.viewModel.loadingState {
+                    case .idle, .loading:
+                        HomeLoadingView()
+                    case .loaded, .loadingMore:
+                        self.contentView
+                    case let .error(error):
+                        ErrorView(error: error) {
+                            Task { await self.viewModel.refresh() }
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Home")
             .navigationDestinations(client: self.viewModel.client)
         }
@@ -121,17 +133,7 @@ struct HomeView: View {
 
             Divider()
 
-            Button {
-                SongActionsHelper.likeSong(song, playerService: self.playerService)
-            } label: {
-                Label("Like", systemImage: "hand.thumbsup")
-            }
-
-            Button {
-                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
-            } label: {
-                Label("Dislike", systemImage: "hand.thumbsdown")
-            }
+            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
 
             Divider()
 

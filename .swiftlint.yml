@@ -80,6 +80,8 @@ custom_rules:
     regex: "DispatchQueue"
     message: "Use Swift concurrency (async/await, MainActor) instead of DispatchQueue"
     severity: error
+    excluded:
+      - "Core/Services/NetworkMonitor.swift"  # NWPathMonitor requires DispatchQueue
 
   no_print:
     name: "No print statements"

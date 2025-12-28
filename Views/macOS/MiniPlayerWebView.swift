@@ -231,7 +231,17 @@ final class SingletonPlayerWebView {
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
 
-        // Inject observer script
+        // Inject volume initialization script FIRST (at document start)
+        // This ensures __kasetTargetVolume is set before the observer script runs
+        let savedVolume = playerService.volume
+        let volumeInitScript = WKUserScript(
+            source: "window.__kasetTargetVolume = \(savedVolume);",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(volumeInitScript)
+
+        // Inject observer script (at document end)
         let script = WKUserScript(
             source: Self.observerScript,
             injectionTime: .atDocumentEnd,
@@ -406,10 +416,16 @@ final class SingletonPlayerWebView {
         let clampedVolume = max(0, min(1, volume))
         self.logger.debug("setVolume(\(clampedVolume)) called")
 
+        // Update both the target volume (for enforcement) and the actual video volume
         let script = """
             (function() {
+                // Update the target volume for enforcement
+                window.__kasetTargetVolume = \(clampedVolume);
                 const video = document.querySelector('video');
-                if (video) { video.volume = \(clampedVolume); return 'set'; }
+                if (video) {
+                    video.volume = \(clampedVolume);
+                    return 'set';
+                }
                 return 'no-video';
             })();
         """
@@ -429,6 +445,11 @@ final class SingletonPlayerWebView {
             let lastUpdateTime = 0;
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
+
+            // Volume enforcement: track target volume set by Swift
+            // Default to 1.0, will be updated when Swift calls setVolume()
+            window.__kasetTargetVolume = window.__kasetTargetVolume ?? 1.0;
+            let isEnforcingVolume = false; // Prevent infinite loops
 
             function waitForPlayerBar() {
                 const playerBar = document.querySelector('ytmusic-player-bar');
@@ -456,12 +477,39 @@ final class SingletonPlayerWebView {
                     video.addEventListener('waiting', () => sendUpdate()); // Buffer state
                     video.addEventListener('seeked', () => sendUpdate()); // Seek completed
 
+                    // Volume enforcement: listen for external volume changes
+                    video.addEventListener('volumechange', () => {
+                        if (isEnforcingVolume) return; // Ignore our own changes
+                        const targetVol = window.__kasetTargetVolume;
+                        if (Math.abs(video.volume - targetVol) > 0.01) {
+                            console.log('[Kaset] Volume drifted from', targetVol, 'to', video.volume, '- correcting');
+                            isEnforcingVolume = true;
+                            video.volume = targetVol;
+                            isEnforcingVolume = false;
+                        }
+                    });
+
+                    // Apply target volume immediately in case video was recreated
+                    if (window.__kasetTargetVolume !== undefined) {
+                        video.volume = window.__kasetTargetVolume;
+                    }
+
                     // Start polling if already playing
                     if (!video.paused) {
                         startPolling();
                     }
                 }
                 attachVideoListeners();
+
+                // Also watch for video element replacement (YouTube may recreate it)
+                const videoObserver = new MutationObserver(() => {
+                    const video = document.querySelector('video');
+                    if (video && !video.__kasetListenersAttached) {
+                        video.__kasetListenersAttached = true;
+                        attachVideoListeners();
+                    }
+                });
+                videoObserver.observe(document.body, { childList: true, subtree: true });
             }
 
             function startPolling() {
@@ -627,6 +675,27 @@ final class SingletonPlayerWebView {
 
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
             DiagnosticsLogger.player.info("Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")")
+
+            // Apply saved volume when page loads
+            // Use a script that waits for the video element to exist
+            let savedVolume = self.playerService.volume
+            let applyVolumeScript = """
+                (function() {
+                    window.__kasetTargetVolume = \(savedVolume);
+                    function applyVolume() {
+                        const video = document.querySelector('video');
+                        if (video) {
+                            video.volume = \(savedVolume);
+                            console.log('[Kaset] Applied saved volume:', \(savedVolume));
+                            return;
+                        }
+                        setTimeout(applyVolume, 100);
+                    }
+                    applyVolume();
+                })();
+            """
+            webView.evaluateJavaScript(applyVolumeScript, completionHandler: nil)
+            DiagnosticsLogger.player.debug("Injected volume apply script: \(savedVolume)")
         }
     }
 }

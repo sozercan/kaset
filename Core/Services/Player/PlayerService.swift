@@ -112,10 +112,29 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private let logger = DiagnosticsLogger.player
     private var ytMusicClient: (any YTMusicClientProtocol)?
 
+    /// UserDefaults key for persisting volume.
+    private static let volumeKey = "playerVolume"
+    /// UserDefaults key for persisting volume before mute.
+    private static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
+
     // MARK: - Initialization
 
     override init() {
         super.init()
+        // Restore saved volume from UserDefaults
+        if UserDefaults.standard.object(forKey: Self.volumeKey) != nil {
+            let savedVolume = UserDefaults.standard.double(forKey: Self.volumeKey)
+            self.volume = max(0, min(1, savedVolume))
+            self.logger.info("Restored saved volume: \(self.volume)")
+        }
+        // Restore volumeBeforeMute for proper unmute behavior
+        if UserDefaults.standard.object(forKey: Self.volumeBeforeMuteKey) != nil {
+            let savedVolumeBeforeMute = UserDefaults.standard.double(forKey: Self.volumeBeforeMuteKey)
+            self.volumeBeforeMute = savedVolumeBeforeMute > 0 ? savedVolumeBeforeMute : 1.0
+            self.logger.info("Restored volumeBeforeMute: \(self.volumeBeforeMute)")
+        } else {
+            self.volumeBeforeMute = self.volume > 0 ? self.volume : 1.0
+        }
     }
 
     /// Sets the YTMusicClient for API calls (dependency injection).
@@ -421,6 +440,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         let clampedValue = max(0, min(1, value))
         self.logger.debug("Setting volume to \(clampedValue)")
         self.volume = clampedValue
+
+        // Persist volume to UserDefaults (including mute state of 0)
+        UserDefaults.standard.set(clampedValue, forKey: Self.volumeKey)
+
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.setVolume(clampedValue)
         } else {
@@ -438,6 +461,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         } else {
             // Mute - save current volume and set to 0
             self.volumeBeforeMute = self.volume
+            // Persist volumeBeforeMute so we can restore after app restart
+            UserDefaults.standard.set(self.volumeBeforeMute, forKey: Self.volumeBeforeMuteKey)
             await self.setVolume(0)
             self.logger.info("Muted")
         }

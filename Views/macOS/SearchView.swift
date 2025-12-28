@@ -8,7 +8,9 @@ struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @State private var navigationPath = NavigationPath()
+    @State private var networkMonitor = NetworkMonitor.shared
 
     /// External trigger for focusing the search field (from keyboard shortcut).
     @Binding var focusTrigger: Bool
@@ -214,20 +216,29 @@ struct SearchView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        switch self.viewModel.loadingState {
-        case .idle:
-            self.emptyStateView
-        case .loading, .loadingMore:
-            LoadingView("Searching...")
-        case .loaded:
-            if self.viewModel.filteredItems.isEmpty {
-                self.noResultsView
-            } else {
-                self.resultsView
-            }
-        case let .error(error):
-            ErrorView(error: error) {
+        if !self.networkMonitor.isConnected {
+            ErrorView(
+                title: "No Connection",
+                message: "Please check your internet connection and try again."
+            ) {
                 self.viewModel.search()
+            }
+        } else {
+            switch self.viewModel.loadingState {
+            case .idle:
+                self.emptyStateView
+            case .loading, .loadingMore:
+                LoadingView("Searching...")
+            case .loaded:
+                if self.viewModel.filteredItems.isEmpty {
+                    self.noResultsView
+                } else {
+                    self.resultsView
+                }
+            case let .error(error):
+                ErrorView(error: error) {
+                    self.viewModel.search()
+                }
             }
         }
     }
@@ -361,17 +372,7 @@ struct SearchView: View {
 
             Divider()
 
-            Button {
-                SongActionsHelper.likeSong(song, playerService: self.playerService)
-            } label: {
-                Label("Like", systemImage: "hand.thumbsup")
-            }
-
-            Button {
-                SongActionsHelper.dislikeSong(song, playerService: self.playerService)
-            } label: {
-                Label("Dislike", systemImage: "hand.thumbsdown")
-            }
+            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
 
             Divider()
 

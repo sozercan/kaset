@@ -109,6 +109,10 @@ struct PlayerBar: View {
                 self.volumeValue = newValue
             }
         }
+        .onAppear {
+            // Sync local volume value from saved state on initial load
+            self.volumeValue = self.playerService.volume
+        }
     }
 
     // MARK: - Center Section (track info blurs, seek bar appears on hover)
@@ -173,7 +177,7 @@ struct PlayerBar: View {
         HStack(spacing: 10) {
             // Elapsed time - show seek position while dragging, actual progress otherwise
             Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .trailing)
 
@@ -191,7 +195,7 @@ struct PlayerBar: View {
 
             // Remaining time
             Text("-\(self.formatTime(self.playerService.duration - (self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress)))")
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .leading)
         }

@@ -47,7 +47,7 @@ struct IntelligenceSettingsView: View {
                     Text("Command Bar")
                     Spacer()
                     Text("⌘K")
-                        .font(.caption.monospaced())
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

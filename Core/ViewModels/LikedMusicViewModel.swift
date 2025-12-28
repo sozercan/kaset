@@ -28,7 +28,16 @@ final class LikedMusicViewModel {
 
         do {
             let loadedSongs = try await client.getLikedSongs()
-            self.songs = loadedSongs
+            // Mark all songs as liked since they come from the liked songs API
+            self.songs = loadedSongs.map { song in
+                var mutableSong = song
+                mutableSong.likeStatus = .like
+                return mutableSong
+            }
+            // Also populate the like status manager cache
+            for song in self.songs {
+                SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+            }
             self.loadingState = .loaded
             self.logger.info("Loaded \(loadedSongs.count) liked songs")
         } catch is CancellationError {

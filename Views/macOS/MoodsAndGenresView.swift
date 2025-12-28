@@ -6,21 +6,32 @@ struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
     @Environment(PlayerService.self) private var playerService
     @State private var navigationPath = NavigationPath()
+    @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
             Group {
-                switch self.viewModel.loadingState {
-                case .idle, .loading:
-                    LoadingView("Loading moods & genres...")
-                case .loaded, .loadingMore:
-                    self.contentView
-                case let .error(error):
-                    ErrorView(error: error) {
+                if !self.networkMonitor.isConnected {
+                    ErrorView(
+                        title: "No Connection",
+                        message: "Please check your internet connection and try again."
+                    ) {
                         Task { await self.viewModel.refresh() }
+                    }
+                } else {
+                    switch self.viewModel.loadingState {
+                    case .idle, .loading:
+                        LoadingView("Loading moods & genres...")
+                    case .loaded, .loadingMore:
+                        self.contentView
+                    case let .error(error):
+                        ErrorView(error: error) {
+                            Task { await self.viewModel.refresh() }
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Moods & Genres")
             .navigationDestinations(client: self.viewModel.client)
         }

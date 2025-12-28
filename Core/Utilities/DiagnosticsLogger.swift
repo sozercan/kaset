@@ -27,6 +27,9 @@ enum DiagnosticsLogger {
     /// Logger for haptic feedback-related events.
     static let haptic = Logger(subsystem: "com.sertacozercan.Kaset", category: "Haptic")
 
+    /// Logger for network connectivity-related events.
+    static let network = Logger(subsystem: "com.sertacozercan.Kaset", category: "Network")
+
     /// Logger for updater/general app events.
     static let updater = Logger(subsystem: "com.sertacozercan.Kaset", category: "Updater")
 }

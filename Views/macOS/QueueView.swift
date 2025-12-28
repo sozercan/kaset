@@ -164,7 +164,7 @@ private struct QueueRowView: View {
                 // Duration
                 if let duration = song.duration {
                     Text(self.formatDuration(duration))
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -201,7 +201,7 @@ private struct QueueRowView: View {
                 .symbolEffect(.variableColor.iterative, options: .repeating)
         } else {
             Text("\(self.index + 1)")
-                .font(.system(size: 12, design: .monospaced))
+                .font(.system(size: 12))
                 .foregroundStyle(.tertiary)
         }
     }
