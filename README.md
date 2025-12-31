@@ -25,7 +25,7 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 ## Requirements
 
 - macOS 26.0 or later
-- [YouTube Music Premium](https://www.youtube.com/musicpremium) subscription
+- [Google](https://accounts.google.com) account
 
 ## Installation
 
