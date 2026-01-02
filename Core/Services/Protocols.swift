@@ -97,6 +97,28 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for songs only (filtered search, excludes videos/podcasts/episodes).
     func searchSongs(query: String) async throws -> [Song]
 
+    /// Searches for songs only with pagination support.
+    func searchSongsWithPagination(query: String) async throws -> SearchResponse
+
+    /// Searches for albums only (filtered search with pagination).
+    func searchAlbums(query: String) async throws -> SearchResponse
+
+    /// Searches for artists only (filtered search with pagination).
+    func searchArtists(query: String) async throws -> SearchResponse
+
+    /// Searches for playlists only (filtered search with pagination).
+    func searchPlaylists(query: String) async throws -> SearchResponse
+
+    /// Fetches the next batch of search results via continuation.
+    /// Returns nil if no more results are available.
+    func getSearchContinuation() async throws -> SearchResponse?
+
+    /// Whether more search results are available to load.
+    var hasMoreSearchResults: Bool { get }
+
+    /// Clears the search continuation token.
+    func clearSearchContinuation()
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion]
 

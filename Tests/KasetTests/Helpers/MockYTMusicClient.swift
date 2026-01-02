@@ -19,6 +19,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var podcastsResponse: HomeResponse = .init(sections: [])
     var podcastsContinuationSections: [[HomeSection]] = []
     var searchResponse: SearchResponse = .empty
+    var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
     var likedSongs: [Song] = []
@@ -75,6 +76,12 @@ final class MockYTMusicClient: YTMusicClientProtocol {
               let continuations = playlistContinuationTracks[playlistId]
         else { return false }
         return self._playlistContinuationIndex < continuations.count
+    }
+
+    private var _searchContinuationIndex = 0
+
+    var hasMoreSearchResults: Bool {
+        self._searchContinuationIndex < self.searchContinuationResponses.count
     }
 
     // MARK: - Call Tracking
@@ -234,6 +241,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     func search(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         return self.searchResponse
     }
@@ -243,6 +251,80 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.searchQueries.append(query)
         if let error = shouldThrowError { throw error }
         return self.searchResponse.songs
+    }
+
+    func searchSongsWithPagination(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        let hasMore = !self.searchContinuationResponses.isEmpty
+        return SearchResponse(
+            songs: self.searchResponse.songs,
+            albums: [],
+            artists: [],
+            playlists: [],
+            continuationToken: hasMore ? "mock-token" : nil
+        )
+    }
+
+    func searchAlbums(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        let hasMore = !self.searchContinuationResponses.isEmpty
+        return SearchResponse(
+            songs: [],
+            albums: self.searchResponse.albums,
+            artists: [],
+            playlists: [],
+            continuationToken: hasMore ? "mock-token" : nil
+        )
+    }
+
+    func searchArtists(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        let hasMore = !self.searchContinuationResponses.isEmpty
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: self.searchResponse.artists,
+            playlists: [],
+            continuationToken: hasMore ? "mock-token" : nil
+        )
+    }
+
+    func searchPlaylists(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        let hasMore = !self.searchContinuationResponses.isEmpty
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: self.searchResponse.playlists,
+            continuationToken: hasMore ? "mock-token" : nil
+        )
+    }
+
+    func getSearchContinuation() async throws -> SearchResponse? {
+        if let error = shouldThrowError { throw error }
+        guard self._searchContinuationIndex < self.searchContinuationResponses.count else {
+            return nil
+        }
+        let response = self.searchContinuationResponses[self._searchContinuationIndex]
+        self._searchContinuationIndex += 1
+        return response
+    }
+
+    func clearSearchContinuation() {
+        self._searchContinuationIndex = 0
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {

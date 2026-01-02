@@ -280,14 +280,50 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(self.viewModel.filteredItems.indices, id: \.self) { index in
-                    let item = self.viewModel.filteredItems[index]
+                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
                     self.resultRow(item, index: index)
                     Divider()
                         .padding(.leading, 72)
                 }
+
+                // Load more indicator / button
+                if self.viewModel.hasMoreResults {
+                    self.loadMoreView
+                }
             }
             .padding(.vertical, 8)
+        }
+    }
+
+    /// Load more view that triggers pagination when visible.
+    private var loadMoreView: some View {
+        Group {
+            if self.viewModel.loadingState == .loadingMore {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Loading more...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+            } else {
+                Button {
+                    Task { await self.viewModel.loadMore() }
+                } label: {
+                    Text("Load More")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                }
+                .buttonStyle(.plain)
+                .onAppear {
+                    // Auto-load more when this view appears (infinite scroll)
+                    Task { await self.viewModel.loadMore() }
+                }
+            }
         }
     }
 

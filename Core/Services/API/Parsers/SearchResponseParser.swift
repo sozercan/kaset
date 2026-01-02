@@ -244,4 +244,205 @@ enum SearchResponseParser {
         )
         return .song(song)
     }
+
+    // MARK: - Filtered Search Parsing
+
+    /// Extracts the continuation token from a filtered search response.
+    private static func extractContinuationToken(from sectionListRenderer: [String: Any]) -> String? {
+        // Check for continuations array
+        if let continuations = sectionListRenderer["continuations"] as? [[String: Any]],
+           let firstContinuation = continuations.first,
+           let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
+           let token = nextContinuationData["continuation"] as? String
+        {
+            return token
+        }
+        return nil
+    }
+
+    /// Helper to get sectionListRenderer from filtered search response.
+    private static func getSectionListRenderer(from data: [String: Any]) -> [String: Any]? {
+        // Try filtered search structure first (no tabs)
+        if let contents = data["contents"] as? [String: Any],
+           let sectionListRenderer = contents["sectionListRenderer"] as? [String: Any]
+        {
+            return sectionListRenderer
+        }
+
+        // Try tabbed structure as fallback
+        if let contents = data["contents"] as? [String: Any],
+           let tabbedSearchResults = contents["tabbedSearchResultsRenderer"] as? [String: Any],
+           let tabs = tabbedSearchResults["tabs"] as? [[String: Any]],
+           let firstTab = tabs.first,
+           let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+           let tabContent = tabRenderer["content"] as? [String: Any],
+           let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any]
+        {
+            return sectionListRenderer
+        }
+
+        return nil
+    }
+
+    /// Parses albums from a filtered search response with continuation token.
+    static func parseAlbumsOnly(_ data: [String: Any]) -> ([Album], String?) {
+        var albums: [Album] = []
+
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return ([], nil)
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let item = parseSearchResultItem(itemData),
+                       case let .album(album) = item
+                    {
+                        albums.append(album)
+                    }
+                }
+            }
+        }
+
+        let token = Self.extractContinuationToken(from: sectionListRenderer)
+        return (albums, token)
+    }
+
+    /// Parses artists from a filtered search response with continuation token.
+    static func parseArtistsOnly(_ data: [String: Any]) -> ([Artist], String?) {
+        var artists: [Artist] = []
+
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return ([], nil)
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let item = parseSearchResultItem(itemData),
+                       case let .artist(artist) = item
+                    {
+                        artists.append(artist)
+                    }
+                }
+            }
+        }
+
+        let token = Self.extractContinuationToken(from: sectionListRenderer)
+        return (artists, token)
+    }
+
+    /// Parses playlists from a filtered search response with continuation token.
+    static func parsePlaylistsOnly(_ data: [String: Any]) -> ([Playlist], String?) {
+        var playlists: [Playlist] = []
+
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return ([], nil)
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let item = parseSearchResultItem(itemData),
+                       case let .playlist(playlist) = item
+                    {
+                        playlists.append(playlist)
+                    }
+                }
+            }
+        }
+
+        let token = Self.extractContinuationToken(from: sectionListRenderer)
+        return (playlists, token)
+    }
+
+    /// Parses songs from a filtered search response with continuation token.
+    static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
+        var songs: [Song] = []
+
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return ([], nil)
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let item = parseSearchResultItem(itemData),
+                       case let .song(song) = item
+                    {
+                        songs.append(song)
+                    }
+                }
+            }
+        }
+
+        let token = Self.extractContinuationToken(from: sectionListRenderer)
+        return (songs, token)
+    }
+
+    /// Parses a search continuation response.
+    /// Returns a SearchResponse with all item types and optional continuation token.
+    static func parseContinuation(_ data: [String: Any]) -> SearchResponse {
+        var songs: [Song] = []
+        var albums: [Album] = []
+        var artists: [Artist] = []
+        var playlists: [Playlist] = []
+        var continuationToken: String?
+
+        // Continuation responses have a different structure
+        if let continuationContents = data["continuationContents"] as? [String: Any],
+           let musicShelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any]
+        {
+            // Parse items
+            if let contents = musicShelfContinuation["contents"] as? [[String: Any]] {
+                for itemData in contents {
+                    if let item = parseSearchResultItem(itemData) {
+                        switch item {
+                        case let .song(song):
+                            songs.append(song)
+                        case let .album(album):
+                            albums.append(album)
+                        case let .artist(artist):
+                            artists.append(artist)
+                        case let .playlist(playlist):
+                            playlists.append(playlist)
+                        }
+                    }
+                }
+            }
+
+            // Extract next continuation token
+            if let continuations = musicShelfContinuation["continuations"] as? [[String: Any]],
+               let firstContinuation = continuations.first,
+               let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
+               let token = nextContinuationData["continuation"] as? String
+            {
+                continuationToken = token
+            }
+        }
+
+        return SearchResponse(
+            songs: songs,
+            albums: albums,
+            artists: artists,
+            playlists: playlists,
+            continuationToken: continuationToken
+        )
+    }
 }

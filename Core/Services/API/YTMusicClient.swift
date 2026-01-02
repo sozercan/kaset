@@ -249,6 +249,122 @@ final class YTMusicClient: YTMusicClientProtocol {
         return songs
     }
 
+    // MARK: - Filtered Search with Pagination
+
+    /// Filter params for YouTube Music search.
+    /// Pattern: EgWKAQ (base) + filter code + AWoMEA4QChADEAQQCRAF (no spelling correction)
+    private enum SearchFilterParams {
+        static let songs = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+        static let albums = "EgWKAQIYAWoMEA4QChADEAQQCRAF"
+        static let artists = "EgWKAQIgAWoMEA4QChADEAQQCRAF"
+        static let playlists = "EgWKAQIoAWoMEA4QChADEAQQCRAF"
+    }
+
+    /// Continuation token for filtered search pagination.
+    private var searchContinuationToken: String?
+
+    /// Whether more search results are available to load.
+    var hasMoreSearchResults: Bool {
+        self.searchContinuationToken != nil
+    }
+
+    /// Searches for albums only (filtered search with pagination).
+    func searchAlbums(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching albums only for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.albums,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let (albums, token) = SearchResponseParser.parseAlbumsOnly(data)
+        self.searchContinuationToken = token
+
+        self.logger.info("Albums search found \(albums.count) albums, hasMore: \(token != nil)")
+        return SearchResponse(songs: [], albums: albums, artists: [], playlists: [], continuationToken: token)
+    }
+
+    /// Searches for artists only (filtered search with pagination).
+    func searchArtists(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching artists only for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.artists,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let (artists, token) = SearchResponseParser.parseArtistsOnly(data)
+        self.searchContinuationToken = token
+
+        self.logger.info("Artists search found \(artists.count) artists, hasMore: \(token != nil)")
+        return SearchResponse(songs: [], albums: [], artists: artists, playlists: [], continuationToken: token)
+    }
+
+    /// Searches for playlists only (filtered search with pagination).
+    func searchPlaylists(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching playlists only for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.playlists,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
+        self.searchContinuationToken = token
+
+        self.logger.info("Playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
+        return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
+    }
+
+    /// Searches for songs only with pagination support.
+    func searchSongsWithPagination(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching songs with pagination for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.songs,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let (songs, token) = SearchResponseParser.parseSongsWithContinuation(data)
+        self.searchContinuationToken = token
+
+        self.logger.info("Songs search found \(songs.count) songs, hasMore: \(token != nil)")
+        return SearchResponse(songs: songs, albums: [], artists: [], playlists: [], continuationToken: token)
+    }
+
+    /// Fetches the next batch of search results via continuation.
+    /// Returns nil if no more results are available.
+    func getSearchContinuation() async throws -> SearchResponse? {
+        guard let token = searchContinuationToken else {
+            self.logger.debug("No search continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching search continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token, ttl: APICache.TTL.search)
+            let response = SearchResponseParser.parseContinuation(continuationData)
+            self.searchContinuationToken = response.continuationToken
+
+            self.logger.info("Search continuation loaded: \(response.allItems.count) items, hasMore: \(response.hasMore)")
+            return response
+        } catch {
+            self.logger.warning("Failed to fetch search continuation: \(error.localizedDescription)")
+            self.searchContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Clears the search continuation token.
+    func clearSearchContinuation() {
+        self.searchContinuationToken = nil
+    }
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         guard !query.isEmpty else {
