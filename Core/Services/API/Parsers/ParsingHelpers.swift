@@ -116,14 +116,22 @@ enum ParsingHelpers {
     }
 
     /// Extracts subtitle text from data.
+    /// Returns the full subtitle text including song counts (e.g., "Playlist • YouTube Music • 145 songs").
     static func extractSubtitle(from data: [String: Any]) -> String? {
         if let subtitleData = data["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             let texts = runs.compactMap { $0["text"] as? String }
-            return texts.joined()
+            let subtitle = texts.joined()
+            return subtitle.isEmpty ? nil : subtitle
         }
         return nil
+    }
+
+    /// Extracts song count from subtitle data (e.g., "Playlist • 145 songs" → 145).
+    static func extractSongCountFromSubtitle(from data: [String: Any]) -> Int? {
+        guard let subtitle = extractSubtitle(from: data) else { return nil }
+        return Self.extractSongCount(from: subtitle)
     }
 
     /// Extracts title from runs data.
@@ -276,6 +284,7 @@ enum ParsingHelpers {
     }
 
     /// Extracts subtitle from flex columns.
+    /// Returns the full subtitle text including song counts (e.g., "Playlist • YouTube Music • 145 songs").
     static func extractSubtitleFromFlexColumns(_ data: [String: Any]) -> String? {
         if let flexColumns = data["flexColumns"] as? [[String: Any]],
            flexColumns.count > 1,
@@ -284,9 +293,45 @@ enum ParsingHelpers {
            let text = renderer["text"] as? [String: Any],
            let runs = text["runs"] as? [[String: Any]]
         {
-            return runs.compactMap { $0["text"] as? String }.joined()
+            let subtitle = runs.compactMap { $0["text"] as? String }.joined()
+            return subtitle.isEmpty ? nil : subtitle
         }
         return nil
+    }
+
+    /// Extracts song count from flex columns subtitle (e.g., "Playlist • 145 songs" → 145).
+    static func extractSongCountFromFlexColumns(_ data: [String: Any]) -> Int? {
+        guard let subtitle = extractSubtitleFromFlexColumns(data) else { return nil }
+        return Self.extractSongCount(from: subtitle)
+    }
+
+    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 1 song").
+    /// The song count is typically displayed separately in the UI from the actual parsed count.
+    static func stripSongCountPattern(from text: String) -> String {
+        var result = text.replacingOccurrences(
+            of: #" • \d+ songs?"#,
+            with: "",
+            options: .regularExpression
+        )
+
+        // Also strip leading " • " if the result starts with it
+        if result.hasPrefix(" • ") {
+            result = String(result.dropFirst(3))
+        }
+
+        return result.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Extracts song count from subtitle text (e.g., "Playlist • YouTube Music • 145 songs" → 145).
+    static func extractSongCount(from text: String) -> Int? {
+        // Match patterns like "145 songs" or "1 song"
+        guard let regex = try? NSRegularExpression(pattern: #"(\d+)\s+songs?"#, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let countRange = Range(match.range(at: 1), in: text)
+        else {
+            return nil
+        }
+        return Int(text[countRange])
     }
 
     /// Extracts title from flex columns.
@@ -304,6 +349,11 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Known content type keywords that should not be treated as artist names.
+    private static let contentTypeKeywords: Set<String> = [
+        "Song", "Video", "Album", "Playlist", "Artist", "Episode", "Podcast",
+    ]
+
     /// Extracts artists from flex columns.
     static func extractArtistsFromFlexColumns(_ data: [String: Any]) -> [Artist] {
         var artists: [Artist] = []
@@ -318,16 +368,19 @@ enum ParsingHelpers {
             for run in runs {
                 if let artistName = run["text"] as? String,
                    artistName != " • ", artistName != " & ", artistName != ", ",
-                   !artistName.isEmpty
+                   !artistName.isEmpty,
+                   // Skip content type keywords (Song, Video, etc.)
+                   !Self.contentTypeKeywords.contains(artistName)
                 {
-                    var artistId = UUID().uuidString
+                    // Only include items that have an artist browse endpoint
+                    // This filters out metadata like view counts, years, etc.
                     if let endpoint = run["navigationEndpoint"] as? [String: Any],
                        let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
-                       let browseId = browseEndpoint["browseId"] as? String
+                       let browseId = browseEndpoint["browseId"] as? String,
+                       browseId.hasPrefix("UC") // Artist IDs start with UC
                     {
-                        artistId = browseId
+                        artists.append(Artist(id: browseId, name: artistName))
                     }
-                    artists.append(Artist(id: artistId, name: artistName))
                 }
             }
         }

@@ -24,7 +24,21 @@ enum RadioQueueParser {
 
         var songs: [Song] = []
         for item in playlistContents {
-            guard let panelVideoRenderer = item["playlistPanelVideoRenderer"] as? [String: Any] else {
+            // Handle both direct and wrapped renderer structures
+            // Direct: item.playlistPanelVideoRenderer
+            // Wrapped: item.playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer
+            let panelVideoRenderer: [String: Any]? = if let direct = item["playlistPanelVideoRenderer"] as? [String: Any] {
+                direct
+            } else if let wrapper = item["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+                      let primary = wrapper["primaryRenderer"] as? [String: Any],
+                      let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+            {
+                wrapped
+            } else {
+                nil
+            }
+
+            guard let panelVideoRenderer else {
                 continue
             }
 

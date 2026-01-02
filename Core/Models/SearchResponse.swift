@@ -8,6 +8,8 @@ struct SearchResponse: Sendable {
     let albums: [Album]
     let artists: [Artist]
     let playlists: [Playlist]
+    /// Continuation token for loading more results (only present for filtered searches).
+    let continuationToken: String?
 
     /// All results as a flat array of items.
     var allItems: [SearchResultItem] {
@@ -24,7 +26,30 @@ struct SearchResponse: Sendable {
         self.songs.isEmpty && self.albums.isEmpty && self.artists.isEmpty && self.playlists.isEmpty
     }
 
-    static let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [])
+    /// Whether more results are available to load.
+    var hasMore: Bool {
+        self.continuationToken != nil
+    }
+
+    static let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [], continuationToken: nil)
+
+    /// Creates a SearchResponse without continuation token (backward compatibility).
+    init(songs: [Song], albums: [Album], artists: [Artist], playlists: [Playlist]) {
+        self.songs = songs
+        self.albums = albums
+        self.artists = artists
+        self.playlists = playlists
+        self.continuationToken = nil
+    }
+
+    /// Creates a SearchResponse with optional continuation token.
+    init(songs: [Song], albums: [Album], artists: [Artist], playlists: [Playlist], continuationToken: String?) {
+        self.songs = songs
+        self.albums = albums
+        self.artists = artists
+        self.playlists = playlists
+        self.continuationToken = continuationToken
+    }
 }
 
 // MARK: - SearchResultItem
@@ -65,13 +90,21 @@ enum SearchResultItem: Identifiable, Sendable {
     var subtitle: String? {
         switch self {
         case let .song(song):
-            song.artistsDisplay
+            let display = song.artistsDisplay
+            return display.isEmpty ? nil : display
         case let .album(album):
-            album.artistsDisplay
+            let display = album.artistsDisplay
+            return display.isEmpty ? nil : display
         case .artist:
-            "Artist"
+            // No additional subtitle needed - resultType already shows "Artist"
+            return nil
         case let .playlist(playlist):
-            playlist.author
+            // Strip "Playlist • " prefix since resultType already shows "Playlist"
+            guard let author = playlist.author else { return nil }
+            let stripped = author
+                .replacingOccurrences(of: "Playlist • ", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            return stripped.isEmpty ? nil : stripped
         }
     }
 

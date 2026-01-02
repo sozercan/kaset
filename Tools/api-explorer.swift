@@ -294,8 +294,21 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_privately_owned_artists",
 ])
 
+/// Checks if a browseId requires authentication.
+/// This includes known endpoints plus playlist IDs that start with VL (which benefit from auth for premium content).
+func needsAuthentication(_ browseId: String) -> Bool {
+    if authRequiredEndpoints.contains(browseId) {
+        return true
+    }
+    // Playlists (VL...) benefit from authentication for personalized content
+    if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
+        return loadCookiesFromAppBackup() != nil // Use auth if available
+    }
+    return false
+}
+
 func exploreBrowse(_ browseId: String, params: String? = nil, verbose: Bool = false, outputFile: String? = nil) async {
-    let needsAuth = authRequiredEndpoints.contains(browseId)
+    let needsAuth = needsAuthentication(browseId)
     let authIcon = needsAuth ? "🔐" : "🌐"
 
     print("\(authIcon) Exploring browse endpoint: \(browseId)")
@@ -362,6 +375,8 @@ let authRequiredActions = Set([
     "account/account_menu",
     "notification/get_notification_menu",
     "stats/watchtime",
+    "next",
+    "music/get_queue",
 ])
 
 func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil) async {
@@ -394,6 +409,77 @@ func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, 
         print("✅ HTTP \(statusCode)")
         print()
         print(analyzeResponse(data, verbose: verbose))
+
+        if verbose {
+            print("\n📄 Raw response (pretty-printed):")
+            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
+               let prettyString = String(data: prettyData, encoding: .utf8)
+            {
+                print(prettyString)
+            }
+        }
+
+        if let outputFile {
+            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) {
+                let url = URL(fileURLWithPath: outputFile)
+                try prettyData.write(to: url)
+                print("\n💾 Saved to: \(outputFile)")
+            }
+        }
+    } catch {
+        print("❌ Error: \(error.localizedDescription)")
+    }
+}
+
+/// Explores a continuation request to fetch more items.
+func exploreContinuation(_ token: String, verbose: Bool = false, outputFile: String? = nil) async {
+    print("🔄 Exploring continuation request")
+    print("   Token: \(token.prefix(50))...")
+    print()
+
+    let body: [String: Any] = ["continuation": token]
+
+    do {
+        // Always authenticate for continuations
+        let (data, statusCode) = try await makeRequest(endpoint: "browse", body: body, authenticated: true)
+
+        if statusCode == 401 || statusCode == 403 {
+            print("❌ HTTP \(statusCode) - Authentication required")
+            return
+        }
+
+        print("✅ HTTP \(statusCode)")
+        print()
+        print(analyzeResponse(data, verbose: verbose))
+
+        // Analyze continuation-specific structure
+        print("\n📊 Continuation Analysis:")
+        if let continuationContents = data["continuationContents"] as? [String: Any] {
+            print("   Found continuationContents with keys: \(Array(continuationContents.keys))")
+            for (key, value) in continuationContents {
+                if let renderer = value as? [String: Any] {
+                    if let contents = renderer["contents"] as? [[String: Any]] {
+                        print("   └─ \(key): \(contents.count) items")
+                    }
+                    if renderer["continuations"] != nil {
+                        print("   └─ \(key) has 'continuations' array (legacy format)")
+                    }
+                }
+            }
+        } else if let actions = data["onResponseReceivedActions"] as? [[String: Any]] {
+            print("   Found onResponseReceivedActions (2025 format)")
+            for (idx, action) in actions.enumerated() {
+                print("   └─ Action \(idx) keys: \(Array(action.keys))")
+                if let appendAction = action["appendContinuationItemsAction"] as? [String: Any],
+                   let items = appendAction["continuationItems"] as? [[String: Any]]
+                {
+                    print("      └─ continuationItems: \(items.count) items")
+                }
+            }
+        } else {
+            print("   ⚠️ No recognized continuation format found")
+            print("   Top-level keys: \(Array(data.keys))")
+        }
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
@@ -536,8 +622,11 @@ func listEndpoints() {
     next                          Track info, lyrics ID, radio queue, feedback tokens
                                   Body: {"videoId": "VIDEO_ID"}
 
-    music/get_queue               Queue data for multiple videos
+    music/get_queue               Queue data for videos or full playlist tracks
                                   Body: {"videoIds": ["ID1", "ID2"]}
+                                    or: {"playlistId": "RDCLAK..."}  (returns ALL tracks)
+                                  Note: Response uses playlistPanelVideoWrapperRenderer
+                                        wrapper structure, not direct playlistPanelVideoRenderer
 
     guide                         Sidebar navigation structure
                                   Body: {}
@@ -718,6 +807,15 @@ func runMain() async {
         let endpoint = filteredArgs[1]
         let bodyJson = filteredArgs[2]
         await exploreAction(endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile)
+
+    case "continuation":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: continuation <token>")
+            print("   Get the token from a browse response's continuationItemRenderer or continuations array")
+            return
+        }
+        let token = filteredArgs[1]
+        await exploreContinuation(token, verbose: verbose, outputFile: outputFile)
 
     case "list":
         listEndpoints()

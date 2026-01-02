@@ -213,12 +213,29 @@ struct PlaylistDetailView: View {
             ForEach(tracks.indices, id: \.self) { index in
                 let track = tracks[index]
                 self.trackRow(track, index: index, tracks: tracks, isAlbum: isAlbum)
+                    .onAppear {
+                        // Load more when reaching the last few items
+                        if index >= tracks.count - 3, self.viewModel.hasMore {
+                            Task { await self.viewModel.loadMore() }
+                        }
+                    }
 
                 if index < tracks.count - 1 {
                     Divider()
                         // For albums: 28 (index) + 12 (spacing)
                         // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
                         .padding(.leading, isAlbum ? 40 : 96)
+                }
+            }
+
+            // Loading indicator for pagination
+            if self.viewModel.loadingState == .loadingMore {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding()
+                    Spacer()
                 }
             }
         }

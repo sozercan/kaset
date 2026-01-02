@@ -19,10 +19,12 @@ final class SearchViewModel {
                 self.suggestions = []
                 self.loadingState = .idle
                 self.lastSearchedQuery = nil
+                self.client.clearSearchContinuation()
             } else if self.query != self.lastSearchedQuery {
                 // Clear results when query changes from what was searched
                 self.results = .empty
                 self.loadingState = .idle
+                self.client.clearSearchContinuation()
             }
         }
     }
@@ -33,6 +35,9 @@ final class SearchViewModel {
     /// The query that produced the current results.
     private var lastSearchedQuery: String?
 
+    /// The filter that produced the current results.
+    private var lastSearchedFilter: SearchFilter?
+
     /// Search suggestions for autocomplete.
     private(set) var suggestions: [SearchSuggestion] = []
 
@@ -42,7 +47,21 @@ final class SearchViewModel {
     }
 
     /// Filter for result types.
-    var selectedFilter: SearchFilter = .all
+    var selectedFilter: SearchFilter = .all {
+        didSet {
+            if oldValue != self.selectedFilter, !self.query.isEmpty, self.lastSearchedQuery != nil {
+                // Filter changed - perform a new filtered search
+                self.searchWithFilter()
+            }
+        }
+    }
+
+    /// Whether more results are available to load.
+    var hasMoreResults: Bool {
+        // For "All" filter, we don't support pagination (mixed results)
+        guard self.selectedFilter != .all else { return false }
+        return self.client.hasMoreSearchResults
+    }
 
     /// Available filters.
     enum SearchFilter: String, CaseIterable, Identifiable, Sendable {
@@ -136,6 +155,7 @@ final class SearchViewModel {
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.suggestions = []
+        self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
             self.results = .empty
@@ -153,6 +173,22 @@ final class SearchViewModel {
         }
     }
 
+    /// Performs a search with the current filter (no debounce, called when filter changes).
+    private func searchWithFilter() {
+        self.searchTask?.cancel()
+        self.client.clearSearchContinuation()
+
+        guard !self.query.isEmpty else {
+            self.results = .empty
+            self.loadingState = .idle
+            return
+        }
+
+        self.searchTask = Task {
+            await self.performSearch()
+        }
+    }
+
     /// Performs the actual search.
     private func performSearch() async {
         // Check cancellation before updating state
@@ -160,10 +196,26 @@ final class SearchViewModel {
 
         self.loadingState = .loading
         let currentQuery = self.query
-        self.logger.info("Searching for: \(currentQuery)")
+        let currentFilter = self.selectedFilter
+        self.logger.info("Searching for: \(currentQuery) with filter: \(currentFilter.rawValue)")
 
         do {
-            let searchResults = try await client.search(query: currentQuery)
+            let searchResults: SearchResponse
+
+                // Use filtered search for specific filters to get more results
+                = switch currentFilter
+            {
+            case .all:
+                try await self.client.search(query: currentQuery)
+            case .songs:
+                try await self.client.searchSongsWithPagination(query: currentQuery)
+            case .albums:
+                try await self.client.searchAlbums(query: currentQuery)
+            case .artists:
+                try await self.client.searchArtists(query: currentQuery)
+            case .playlists:
+                try await self.client.searchPlaylists(query: currentQuery)
+            }
 
             // Check cancellation and query change before updating results
             // This handles the race condition where query changed during the request
@@ -174,14 +226,49 @@ final class SearchViewModel {
 
             self.results = searchResults
             self.lastSearchedQuery = currentQuery
+            self.lastSearchedFilter = currentFilter
             self.loadingState = .loaded
-            self.logger.info("Search complete: \(searchResults.allItems.count) results")
+            self.logger.info("Search complete: \(searchResults.allItems.count) results, hasMore: \(searchResults.hasMore)")
         } catch {
             // CancellationError is thrown when task is cancelled during URLSession request
             if !Task.isCancelled, self.query == currentQuery {
                 self.logger.error("Search failed: \(error.localizedDescription)")
                 self.loadingState = .error(LoadingError(from: error))
             }
+        }
+    }
+
+    /// Loads more search results via continuation.
+    func loadMore() async {
+        // Only load more for filtered searches
+        guard self.selectedFilter != .all else { return }
+        guard self.loadingState == .loaded else { return }
+        guard self.hasMoreResults else { return }
+
+        self.loadingState = .loadingMore
+        self.logger.info("Loading more search results")
+
+        do {
+            guard let continuation = try await client.getSearchContinuation() else {
+                self.loadingState = .loaded
+                return
+            }
+
+            // Merge continuation results with existing results
+            let mergedResults = SearchResponse(
+                songs: self.results.songs + continuation.songs,
+                albums: self.results.albums + continuation.albums,
+                artists: self.results.artists + continuation.artists,
+                playlists: self.results.playlists + continuation.playlists,
+                continuationToken: continuation.continuationToken
+            )
+
+            self.results = mergedResults
+            self.loadingState = .loaded
+            self.logger.info("Loaded more results: now \(mergedResults.allItems.count) total, hasMore: \(mergedResults.hasMore)")
+        } catch {
+            self.logger.error("Failed to load more: \(error.localizedDescription)")
+            self.loadingState = .loaded // Revert to loaded state to allow retry
         }
     }
 
@@ -193,6 +280,8 @@ final class SearchViewModel {
         self.results = .empty
         self.suggestions = []
         self.lastSearchedQuery = nil
+        self.lastSearchedFilter = nil
         self.loadingState = .idle
+        self.client.clearSearchContinuation()
     }
 }
