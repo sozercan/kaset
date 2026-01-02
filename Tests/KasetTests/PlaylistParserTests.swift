@@ -84,6 +84,92 @@ struct PlaylistParserTests {
         #expect(detail.isAlbum == expectedIsAlbum)
     }
 
+    // MARK: - Continuation Parsing
+
+    @Test("Parse 2025 continuation format with onResponseReceivedActions")
+    func parsePlaylistContinuation2025Format() {
+        // Create mock 2025 continuation response format
+        var continuationItems: [[String: Any]] = []
+
+        for i in 0 ..< 5 {
+            continuationItems.append([
+                "musicResponsiveListItemRenderer": [
+                    "playlistItemData": ["videoId": "cont_video\(i)"],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Continuation Track \(i)"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+        }
+
+        // Add continuation token at the end (for next page)
+        continuationItems.append([
+            "continuationItemRenderer": [
+                "continuationEndpoint": [
+                    "continuationCommand": [
+                        "token": "next_page_token_123",
+                    ],
+                ],
+            ],
+        ])
+
+        let data: [String: Any] = [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": continuationItems,
+                ],
+            ]],
+        ]
+
+        let response = PlaylistParser.parsePlaylistContinuation(data)
+
+        #expect(response.tracks.count == 5)
+        #expect(response.tracks[0].title == "Continuation Track 0")
+        #expect(response.tracks[0].videoId == "cont_video0")
+        #expect(response.hasMore == true)
+        #expect(response.continuationToken == "next_page_token_123")
+    }
+
+    @Test("Parse 2025 continuation format without next token")
+    func parsePlaylistContinuation2025FormatNoNextToken() {
+        var continuationItems: [[String: Any]] = []
+
+        for i in 0 ..< 3 {
+            continuationItems.append([
+                "musicResponsiveListItemRenderer": [
+                    "playlistItemData": ["videoId": "final_video\(i)"],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Final Track \(i)"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+        }
+
+        // No continuationItemRenderer at the end - this is the last page
+
+        let data: [String: Any] = [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": continuationItems,
+                ],
+            ]],
+        ]
+
+        let response = PlaylistParser.parsePlaylistContinuation(data)
+
+        #expect(response.tracks.count == 3)
+        #expect(response.hasMore == false)
+        #expect(response.continuationToken == nil)
+    }
+
     // MARK: - Helpers
 
     private func makeLibraryResponseData(playlistCount: Int) -> [String: Any] {

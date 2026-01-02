@@ -115,13 +115,16 @@ enum ParsingHelpers {
         return artists
     }
 
-    /// Extracts subtitle text from data.
+    /// Extracts subtitle text from data, stripping song count patterns.
+    /// The song count is displayed separately in the UI, so we remove it here to avoid redundancy.
     static func extractSubtitle(from data: [String: Any]) -> String? {
         if let subtitleData = data["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             let texts = runs.compactMap { $0["text"] as? String }
-            return texts.joined()
+            var subtitle = texts.joined()
+            subtitle = Self.stripSongCountPattern(from: subtitle)
+            return subtitle.isEmpty ? nil : subtitle
         }
         return nil
     }
@@ -275,7 +278,7 @@ enum ParsingHelpers {
         return nil
     }
 
-    /// Extracts subtitle from flex columns.
+    /// Extracts subtitle from flex columns, stripping song count patterns.
     static func extractSubtitleFromFlexColumns(_ data: [String: Any]) -> String? {
         if let flexColumns = data["flexColumns"] as? [[String: Any]],
            flexColumns.count > 1,
@@ -284,9 +287,28 @@ enum ParsingHelpers {
            let text = renderer["text"] as? [String: Any],
            let runs = text["runs"] as? [[String: Any]]
         {
-            return runs.compactMap { $0["text"] as? String }.joined()
+            var subtitle = runs.compactMap { $0["text"] as? String }.joined()
+            subtitle = Self.stripSongCountPattern(from: subtitle)
+            return subtitle.isEmpty ? nil : subtitle
         }
         return nil
+    }
+
+    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 1 song").
+    /// The song count is typically displayed separately in the UI from the actual parsed count.
+    private static func stripSongCountPattern(from text: String) -> String {
+        var result = text.replacingOccurrences(
+            of: #" • \d+ songs?"#,
+            with: "",
+            options: .regularExpression
+        )
+
+        // Also strip leading " • " if the result starts with it
+        if result.hasPrefix(" • ") {
+            result = String(result.dropFirst(3))
+        }
+
+        return result.trimmingCharacters(in: .whitespaces)
     }
 
     /// Extracts title from flex columns.

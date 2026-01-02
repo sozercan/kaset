@@ -92,10 +92,10 @@ final class LibraryViewModel {
         self.logger.info("Loading playlist: \(id)")
 
         do {
-            let detail = try await client.getPlaylist(id: id)
-            self.selectedPlaylistDetail = detail
+            let response = try await client.getPlaylist(id: id)
+            self.selectedPlaylistDetail = response.detail
             self.playlistDetailLoadingState = .loaded
-            let trackCount = detail.tracks.count
+            let trackCount = response.detail.tracks.count
             self.logger.info("Loaded playlist with \(trackCount) tracks")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry

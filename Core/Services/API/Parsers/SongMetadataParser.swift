@@ -39,6 +39,7 @@ enum SongMetadataParser {
     }
 
     /// Extracts the playlistPanelVideoRenderer from the next endpoint response.
+    /// Handles both direct and wrapped renderer structures.
     static func extractPanelVideoRenderer(from data: [String: Any], videoId: String) throws -> [String: Any] {
         guard let contents = data["contents"] as? [String: Any],
               let watchNextRenderer = contents["singleColumnMusicWatchNextResultsRenderer"] as? [String: Any],
@@ -52,12 +53,24 @@ enum SongMetadataParser {
               let queueContent = musicQueueRenderer["content"] as? [String: Any],
               let playlistPanelRenderer = queueContent["playlistPanelRenderer"] as? [String: Any],
               let playlistContents = playlistPanelRenderer["contents"] as? [[String: Any]],
-              let firstItem = playlistContents.first,
-              let panelVideoRenderer = firstItem["playlistPanelVideoRenderer"] as? [String: Any]
+              let firstItem = playlistContents.first
         else {
             throw YTMusicError.parseError(message: "Failed to parse song metadata for \(videoId)")
         }
-        return panelVideoRenderer
+
+        // Handle both direct and wrapped renderer structures
+        // Direct: firstItem.playlistPanelVideoRenderer
+        // Wrapped: firstItem.playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer
+        if let direct = firstItem["playlistPanelVideoRenderer"] as? [String: Any] {
+            return direct
+        } else if let wrapper = firstItem["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+                  let primary = wrapper["primaryRenderer"] as? [String: Any],
+                  let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+        {
+            return wrapped
+        }
+
+        throw YTMusicError.parseError(message: "Failed to parse song metadata for \(videoId)")
     }
 
     /// Parses the song title from the panel video renderer.

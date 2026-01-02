@@ -282,22 +282,89 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlists
     }
 
-    /// Fetches the user's liked songs.
-    func getLikedSongs() async throws -> [Song] {
-        self.logger.info("Fetching liked songs")
+    // MARK: - Liked Songs with Pagination
+
+    /// Continuation token for liked songs pagination.
+    private var likedSongsContinuationToken: String?
+
+    /// Whether more liked songs are available to load.
+    var hasMoreLikedSongs: Bool {
+        self.likedSongsContinuationToken != nil
+    }
+
+    /// Fetches the user's liked songs with pagination support.
+    /// Uses VLLM (Liked Music playlist) which returns all songs with proper pagination,
+    /// unlike FEmusic_liked_videos which is limited to ~13 songs.
+    func getLikedSongs() async throws -> LikedSongsResponse {
+        self.logger.info("Fetching liked songs via VLLM playlist")
 
         let body: [String: Any] = [
-            "browseId": "FEmusic_liked_videos",
+            "browseId": "VLLM",
         ]
 
         let data = try await request("browse", body: body, ttl: APICache.TTL.library)
-        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "LM")
-        self.logger.info("Parsed \(detail.tracks.count) liked songs")
-        return detail.tracks
+
+        // Use playlist parser since VLLM returns playlist format
+        let playlistResponse = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: "LM")
+
+        // Store continuation token for pagination
+        self.likedSongsContinuationToken = playlistResponse.continuationToken
+        let hasMore = playlistResponse.hasMore
+
+        // Convert to LikedSongsResponse format
+        let response = LikedSongsResponse(
+            songs: playlistResponse.detail.tracks,
+            continuationToken: playlistResponse.continuationToken
+        )
+
+        self.logger.info("Parsed \(response.songs.count) liked songs, hasMore: \(hasMore)")
+        return response
     }
 
-    /// Fetches playlist details including tracks.
-    func getPlaylist(id: String) async throws -> PlaylistDetail {
+    /// Fetches the next batch of liked songs via continuation.
+    /// Returns nil if no more songs are available.
+    func getLikedSongsContinuation() async throws -> LikedSongsResponse? {
+        guard let token = likedSongsContinuationToken else {
+            self.logger.debug("No liked songs continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching liked songs continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            // Use playlist continuation parser since VLLM returns playlist format
+            let playlistResponse = PlaylistParser.parsePlaylistContinuation(continuationData)
+            self.likedSongsContinuationToken = playlistResponse.continuationToken
+            let hasMore = playlistResponse.hasMore
+
+            // Convert to LikedSongsResponse format
+            let response = LikedSongsResponse(
+                songs: playlistResponse.tracks,
+                continuationToken: playlistResponse.continuationToken
+            )
+
+            self.logger.info("Liked songs continuation loaded: \(response.songs.count) songs, hasMore: \(hasMore)")
+            return response
+        } catch {
+            self.logger.warning("Failed to fetch liked songs continuation: \(error.localizedDescription)")
+            self.likedSongsContinuationToken = nil
+            throw error
+        }
+    }
+
+    // MARK: - Playlist with Pagination
+
+    /// Continuation token for playlist tracks pagination.
+    private var playlistContinuationToken: String?
+
+    /// Whether more playlist tracks are available to load.
+    var hasMorePlaylistTracks: Bool {
+        self.playlistContinuationToken != nil
+    }
+
+    /// Fetches playlist details including tracks with pagination support.
+    func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.logger.info("Fetching playlist: \(id)")
 
         // Handle different ID formats:
@@ -320,13 +387,65 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let data = try await request("browse", body: body, ttl: APICache.TTL.playlist)
 
-        // Log top-level keys for debugging
-        let topKeys = Array(data.keys)
-        self.logger.debug("Playlist response top-level keys: \(topKeys)")
+        let response = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: id)
 
-        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: id)
-        self.logger.info("Parsed playlist '\(detail.title)' with \(detail.tracks.count) tracks")
-        return detail
+        // Store continuation token for pagination
+        self.playlistContinuationToken = response.continuationToken
+        let hasMore = response.hasMore
+
+        self.logger.info("Parsed playlist '\(response.detail.title)' with \(response.detail.tracks.count) tracks, hasMore: \(hasMore)")
+        return response
+    }
+
+    /// Fetches all tracks for a playlist using the queue endpoint.
+    /// This returns all tracks in a single request without pagination.
+    /// More reliable for radio playlists (RDCLAK prefix) where continuation doesn't work correctly.
+    func getPlaylistAllTracks(playlistId: String) async throws -> [Song] {
+        // Strip VL prefix if present since get_queue uses raw playlist ID
+        let rawPlaylistId: String = if playlistId.hasPrefix("VL") {
+            String(playlistId.dropFirst(2))
+        } else {
+            playlistId
+        }
+
+        self.logger.info("Fetching all playlist tracks via queue: \(rawPlaylistId)")
+
+        let body: [String: Any] = [
+            "playlistId": rawPlaylistId,
+        ]
+
+        // No caching for queue endpoint - we want fresh results each time
+        let data = try await request("music/get_queue", body: body, ttl: nil)
+
+        let tracks = PlaylistParser.parseQueueTracks(data)
+        self.logger.info("Fetched \(tracks.count) tracks from queue endpoint")
+
+        return tracks
+    }
+
+    /// Fetches the next batch of playlist tracks via continuation.
+    /// Returns nil if no more tracks are available.
+    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse? {
+        guard let token = playlistContinuationToken else {
+            self.logger.debug("No playlist continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching playlist continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let response = PlaylistParser.parsePlaylistContinuation(continuationData)
+            self.playlistContinuationToken = response.continuationToken
+            let hasMore = response.hasMore
+
+            self.logger.info("Playlist continuation loaded: \(response.tracks.count) tracks, hasMore: \(hasMore)")
+            return response
+        } catch {
+            self.logger.warning("Failed to fetch playlist continuation: \(error.localizedDescription)")
+            self.playlistContinuationToken = nil
+            throw error
+        }
     }
 
     /// Fetches artist details including their songs and albums.

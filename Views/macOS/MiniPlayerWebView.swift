@@ -314,7 +314,8 @@ final class SingletonPlayerWebView {
 
         let script = """
             (function() {
-                const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
+                const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar';
+
                 if (playBtn) { playBtn.click(); return 'clicked'; }
                 const video = document.querySelector('video');
                 if (video) {

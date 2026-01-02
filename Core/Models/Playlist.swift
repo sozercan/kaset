@@ -95,3 +95,51 @@ struct PlaylistDetail: Identifiable, Sendable {
         self.duration = duration
     }
 }
+
+// MARK: - LikedSongsResponse
+
+/// Response from the liked songs API, including pagination support.
+struct LikedSongsResponse: Sendable {
+    /// The liked songs returned in this response.
+    let songs: [Song]
+
+    /// Continuation token for fetching more songs, if available.
+    let continuationToken: String?
+
+    /// Whether more songs are available to load.
+    var hasMore: Bool {
+        self.continuationToken != nil
+    }
+}
+
+// MARK: - PlaylistTracksResponse
+
+/// Response from the playlist tracks API, including pagination support.
+struct PlaylistTracksResponse: Sendable {
+    /// The playlist detail with header info and initial tracks.
+    let detail: PlaylistDetail
+
+    /// Continuation token for fetching more tracks, if available.
+    let continuationToken: String?
+
+    /// Whether more tracks are available to load.
+    var hasMore: Bool {
+        self.continuationToken != nil
+    }
+}
+
+// MARK: - PlaylistContinuationResponse
+
+/// Response from a playlist continuation request.
+struct PlaylistContinuationResponse: Sendable {
+    /// The additional tracks from this continuation.
+    let tracks: [Song]
+
+    /// Continuation token for fetching more tracks, if available.
+    let continuationToken: String?
+
+    /// Whether more tracks are available to load.
+    var hasMore: Bool {
+        self.continuationToken != nil
+    }
+}

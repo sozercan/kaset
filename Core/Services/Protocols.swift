@@ -103,11 +103,29 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches the user's library playlists.
     func getLibraryPlaylists() async throws -> [Playlist]
 
-    /// Fetches the user's liked songs.
-    func getLikedSongs() async throws -> [Song]
+    /// Fetches the user's liked songs with pagination support.
+    func getLikedSongs() async throws -> LikedSongsResponse
 
-    /// Fetches playlist details including tracks.
-    func getPlaylist(id: String) async throws -> PlaylistDetail
+    /// Fetches the next batch of liked songs via continuation.
+    /// Returns nil if no more songs are available.
+    func getLikedSongsContinuation() async throws -> LikedSongsResponse?
+
+    /// Whether more liked songs are available to load.
+    var hasMoreLikedSongs: Bool { get }
+
+    /// Fetches playlist details including tracks with pagination support.
+    func getPlaylist(id: String) async throws -> PlaylistTracksResponse
+
+    /// Fetches all tracks for a playlist using the queue endpoint (no pagination needed).
+    /// This returns all tracks in a single request, which is more reliable for radio playlists.
+    func getPlaylistAllTracks(playlistId: String) async throws -> [Song]
+
+    /// Fetches the next batch of playlist tracks via continuation.
+    /// Returns nil if no more tracks are available.
+    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse?
+
+    /// Whether more playlist tracks are available to load.
+    var hasMorePlaylistTracks: Bool { get }
 
     /// Fetches artist details including their songs and albums.
     func getArtist(id: String) async throws -> ArtistDetail
