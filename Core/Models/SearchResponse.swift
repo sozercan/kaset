@@ -65,13 +65,18 @@ enum SearchResultItem: Identifiable, Sendable {
     var subtitle: String? {
         switch self {
         case let .song(song):
-            song.artistsDisplay
+            return song.artistsDisplay
         case let .album(album):
-            album.artistsDisplay
+            return album.artistsDisplay
         case .artist:
-            "Artist"
+            return "Artist"
         case let .playlist(playlist):
-            playlist.author
+            // Strip "Playlist • " prefix since resultType already shows "Playlist"
+            guard let author = playlist.author else { return nil }
+            let stripped = author
+                .replacingOccurrences(of: "Playlist • ", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            return stripped.isEmpty ? nil : stripped
         }
     }
 
