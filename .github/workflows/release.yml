@@ -85,10 +85,21 @@ jobs:
 
       - name: Create DMG
         run: |
-          APP_PATH=$(find ./build/Build/Products/Release -name "*.app" -type d | head -n 1)
+          APP_NAME="Kaset.app"
+          BUILD_DIR="./build/Build/Products/Release"
+
+          # debug: show what's in the build folder
+          echo "Contents of $BUILD_DIR:"
+          ls -la "$BUILD_DIR" || true
+
+          # clean previous artifact
+          rm -f kaset.dmg || true
+
+          # find the main app explicitly by name to avoid Sparkle Updater.app
+          APP_PATH=$(find "$BUILD_DIR" -type d -name "$APP_NAME" | head -n 1)
 
           if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find built app"
+            echo "Error: Could not find $APP_NAME in $BUILD_DIR"
             exit 1
           fi
 
@@ -105,7 +116,11 @@ jobs:
           fi
 
           # Verify Universal Binary (Intel + Apple Silicon)
-          ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/Kaset" 2>/dev/null || echo "unknown")
+          if [ -f "$APP_PATH/Contents/MacOS/Kaset" ]; then
+            ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/Kaset" 2>/dev/null || echo "unknown")
+          else
+            ARCHS="unknown"
+          fi
           echo "Architectures: $ARCHS"
           if [[ "$ARCHS" != *"x86_64"* ]] || [[ "$ARCHS" != *"arm64"* ]]; then
             echo "Error: App is not a Universal Binary (found: $ARCHS)"
