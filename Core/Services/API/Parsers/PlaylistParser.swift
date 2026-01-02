@@ -1,6 +1,8 @@
+// swiftlint:disable file_length
 import Foundation
 import os
 
+// swiftlint:disable type_body_length
 /// Parser for playlist-related responses from YouTube Music API.
 enum PlaylistParser {
     private static let logger = DiagnosticsLogger.api
@@ -113,110 +115,132 @@ enum PlaylistParser {
 
     /// Parses playlist continuation response.
     static func parsePlaylistContinuation(_ data: [String: Any]) -> PlaylistContinuationResponse {
+        self.logger.debug("Parsing playlist continuation. Top-level keys: \(Array(data.keys))")
+
+        // Try each format in order until we find tracks
+        var result = Self.parseContinuationContentsFormat(data)
+
+        // Try 2025 format if no tracks found
+        if result.tracks.isEmpty {
+            result = Self.parse2025ContinuationFormat(data)
+        }
+
+        let hasToken = result.continuationToken != nil
+        Self.logger.debug("Playlist continuation parsed: \(result.tracks.count) tracks, has next token: \(hasToken)")
+
+        return result
+    }
+
+    /// Parses legacy continuationContents format.
+    private static func parseContinuationContentsFormat(_ data: [String: Any]) -> PlaylistContinuationResponse {
+        guard let continuationContents = data["continuationContents"] as? [String: Any] else {
+            return PlaylistContinuationResponse(tracks: [], continuationToken: nil)
+        }
+
+        Self.logger.debug("Found continuationContents, keys: \(Array(continuationContents.keys))")
+
+        // Try musicShelfContinuation
+        if let result = Self.parseShelfContinuation(continuationContents, key: "musicShelfContinuation") {
+            return result
+        }
+
+        // Try musicPlaylistShelfContinuation
+        if let result = Self.parseShelfContinuation(continuationContents, key: "musicPlaylistShelfContinuation") {
+            return result
+        }
+
+        // Try sectionListContinuation
+        if let result = Self.parseSectionListContinuation(continuationContents) {
+            return result
+        }
+
+        return PlaylistContinuationResponse(tracks: [], continuationToken: nil)
+    }
+
+    /// Parses a shelf continuation (musicShelfContinuation or musicPlaylistShelfContinuation).
+    private static func parseShelfContinuation(_ container: [String: Any], key: String) -> PlaylistContinuationResponse? {
+        guard let shelfContinuation = container[key] as? [String: Any],
+              let contents = shelfContinuation["contents"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        Self.logger.debug("Found \(key) with \(contents.count) items")
+        let tracks = Self.parseTracksFromContents(contents)
+
+        // Try legacy format first, then 2025 format
+        let token = Self.extractTokenFromRenderer(shelfContinuation) ?? Self.extractTokenFromContents(contents)
+
+        return PlaylistContinuationResponse(tracks: tracks, continuationToken: token)
+    }
+
+    /// Parses sectionListContinuation format.
+    private static func parseSectionListContinuation(_ container: [String: Any]) -> PlaylistContinuationResponse? {
+        guard let sectionListContinuation = container["sectionListContinuation"] as? [String: Any],
+              let sectionContents = sectionListContinuation["contents"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        Self.logger.debug("Found sectionListContinuation with \(sectionContents.count) sections")
+
         var tracks: [Song] = []
-        var continuationToken: String?
+        var token: String?
 
-        Self.logger.debug("Parsing playlist continuation. Top-level keys: \(Array(data.keys))")
-
-        // Try legacy continuationContents format
-        if let continuationContents = data["continuationContents"] as? [String: Any] {
-            Self.logger.debug("Found continuationContents, keys: \(Array(continuationContents.keys))")
-            if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any],
-               let contents = shelfContinuation["contents"] as? [[String: Any]]
-            {
-                Self.logger.debug("Found musicShelfContinuation with \(contents.count) items")
-                for itemData in contents {
-                    if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                        tracks.append(track)
-                    }
-                }
-                continuationToken = Self.extractTokenFromRenderer(shelfContinuation)
+        for sectionData in sectionContents {
+            if let (sectionTracks, sectionToken) = Self.parseShelfFromSection(sectionData, key: "musicPlaylistShelfRenderer") {
+                tracks.append(contentsOf: sectionTracks)
+                token = token ?? sectionToken
             }
-
-            // Try musicPlaylistShelfContinuation
-            if tracks.isEmpty,
-               let playlistShelfContinuation = continuationContents["musicPlaylistShelfContinuation"] as? [String: Any],
-               let contents = playlistShelfContinuation["contents"] as? [[String: Any]]
-            {
-                Self.logger.debug("Found musicPlaylistShelfContinuation with \(contents.count) items")
-                for itemData in contents {
-                    if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                        tracks.append(track)
-                    }
-                }
-                // Try legacy format first
-                continuationToken = Self.extractTokenFromRenderer(playlistShelfContinuation)
-                // Then try 2025 format
-                if continuationToken == nil {
-                    continuationToken = Self.extractTokenFromContents(contents)
-                }
-            }
-
-            // Try sectionListContinuation (for sectionListRenderer-level continuations)
-            if tracks.isEmpty,
-               let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
-               let sectionContents = sectionListContinuation["contents"] as? [[String: Any]]
-            {
-                Self.logger.debug("Found sectionListContinuation with \(sectionContents.count) sections")
-                for sectionData in sectionContents {
-                    if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
-                       let shelfContents = playlistShelfRenderer["contents"] as? [[String: Any]]
-                    {
-                        Self.logger.debug("Found musicPlaylistShelfRenderer in sectionListContinuation with \(shelfContents.count) items")
-                        for itemData in shelfContents {
-                            if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                                tracks.append(track)
-                            }
-                        }
-                        // Try both token extraction formats
-                        continuationToken = Self.extractTokenFromRenderer(playlistShelfRenderer)
-                        if continuationToken == nil {
-                            continuationToken = Self.extractTokenFromContents(shelfContents)
-                        }
-                    }
-                    if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-                       let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-                    {
-                        Self.logger.debug("Found musicShelfRenderer in sectionListContinuation with \(shelfContents.count) items")
-                        for itemData in shelfContents {
-                            if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                                tracks.append(track)
-                            }
-                        }
-                        continuationToken = Self.extractTokenFromRenderer(shelfRenderer)
-                    }
-                }
-                // Check for continuation at sectionListContinuation level
-                if continuationToken == nil {
-                    continuationToken = Self.extractTokenFromRenderer(sectionListContinuation)
-                }
+            if let (sectionTracks, sectionToken) = Self.parseShelfFromSection(sectionData, key: "musicShelfRenderer") {
+                tracks.append(contentsOf: sectionTracks)
+                token = token ?? sectionToken
             }
         }
 
-        // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction -> continuationItems
-        if tracks.isEmpty,
-           let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
-           let firstAction = onResponseReceivedActions.first,
-           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
-           let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
-        {
-            Self.logger.debug("Using 2025 format continuation response with \(continuationItems.count) items")
-            for itemData in continuationItems {
-                if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                    tracks.append(track)
-                }
-            }
-            // Get next continuation token from last item
-            continuationToken = Self.extractTokenFromContents(continuationItems)
+        // Check for continuation at sectionListContinuation level
+        if token == nil {
+            token = Self.extractTokenFromRenderer(sectionListContinuation)
         }
 
-        if continuationToken != nil {
-            Self.logger.debug("Playlist continuation parsed: \(tracks.count) tracks, has next token: true")
-        } else {
-            Self.logger.debug("Playlist continuation parsed: \(tracks.count) tracks, has next token: false")
+        return tracks.isEmpty ? nil : PlaylistContinuationResponse(tracks: tracks, continuationToken: token)
+    }
+
+    /// Parses a shelf renderer from a section.
+    private static func parseShelfFromSection(_ sectionData: [String: Any], key: String) -> ([Song], String?)? {
+        guard let shelfRenderer = sectionData[key] as? [String: Any],
+              let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+        else {
+            return nil
         }
 
-        return PlaylistContinuationResponse(tracks: tracks, continuationToken: continuationToken)
+        Self.logger.debug("Found \(key) in sectionListContinuation with \(shelfContents.count) items")
+        let tracks = Self.parseTracksFromContents(shelfContents)
+        let token = Self.extractTokenFromRenderer(shelfRenderer) ?? Self.extractTokenFromContents(shelfContents)
+
+        return (tracks, token)
+    }
+
+    /// Parses 2025 format continuation response.
+    private static func parse2025ContinuationFormat(_ data: [String: Any]) -> PlaylistContinuationResponse {
+        guard let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
+              let firstAction = onResponseReceivedActions.first,
+              let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
+              let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
+        else {
+            return PlaylistContinuationResponse(tracks: [], continuationToken: nil)
+        }
+
+        Self.logger.debug("Using 2025 format continuation response with \(continuationItems.count) items")
+        let tracks = Self.parseTracksFromContents(continuationItems)
+        let token = Self.extractTokenFromContents(continuationItems)
+
+        return PlaylistContinuationResponse(tracks: tracks, continuationToken: token)
+    }
+
+    /// Parses tracks from a contents array.
+    private static func parseTracksFromContents(_ contents: [[String: Any]]) -> [Song] {
+        contents.compactMap { self.parseTrackItem($0, fallbackThumbnailURL: nil) }
     }
 
     /// Parses liked songs response with pagination support.
@@ -348,121 +372,145 @@ enum PlaylistParser {
         Self.logger.debug("Contents keys: \(Array(contents.keys))")
 
         // Try singleColumnBrowseResultsRenderer path
-        if let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
-           let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
-           let firstTab = tabs.first,
-           let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-           let tabContent = tabRenderer["content"] as? [String: Any],
-           let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any]
-        {
-            // First check for continuation at sectionListRenderer level (like Home page)
-            if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
-                Self.logger.debug("Found continuation token at sectionListRenderer level")
-                return token
-            }
-
-            if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
-                Self.logger.debug("Found singleColumnBrowseResultsRenderer with \(sectionContents.count) sections")
-                // Log renderer types found
-                for (idx, sectionData) in sectionContents.enumerated() {
-                    let rendererKeys = sectionData.keys.filter { $0.hasSuffix("Renderer") }
-                    Self.logger.debug("Section \(idx) renderer keys: \(rendererKeys)")
-                }
-                // Look for continuation in musicShelfRenderer or musicPlaylistShelfRenderer
-                for sectionData in sectionContents {
-                    if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                        Self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
-                        if let token = Self.extractTokenFromRenderer(shelfRenderer) {
-                            Self.logger.debug("Found continuation token in musicShelfRenderer")
-                            return token
-                        }
-                    }
-                    if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
-                        Self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
-                        // Try legacy continuations format first
-                        if let token = Self.extractTokenFromRenderer(playlistShelfRenderer) {
-                            Self.logger.debug("Found continuation token in musicPlaylistShelfRenderer (legacy format)")
-                            return token
-                        }
-                        // Try 2025 format - token at last item of contents
-                        if let contents = playlistShelfRenderer["contents"] as? [[String: Any]],
-                           let token = Self.extractTokenFromContents(contents)
-                        {
-                            return token
-                        }
-                    }
-                }
-            }
+        if let token = Self.extractTokenFromSingleColumnRenderer(contents) {
+            return token
         }
 
         // Try twoColumnBrowseResultsRenderer path
-        if let twoColumnRenderer = contents["twoColumnBrowseResultsRenderer"] as? [String: Any] {
-            Self.logger.debug("Found twoColumnBrowseResultsRenderer, keys: \(Array(twoColumnRenderer.keys))")
-            // Try secondaryContents path
-            if let secondaryContents = twoColumnRenderer["secondaryContents"] as? [String: Any],
-               let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any]
-            {
-                // First check for continuation at sectionListRenderer level
-                if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
-                    Self.logger.debug("Found continuation token at secondaryContents sectionListRenderer level")
-                    return token
-                }
-
-                if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
-                    Self.logger.debug("Found secondaryContents with \(sectionContents.count) sections")
-                    for sectionData in sectionContents {
-                        if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                            Self.logger.debug("Found musicShelfRenderer in secondaryContents, has continuations: \(shelfRenderer["continuations"] != nil)")
-                            if let token = Self.extractTokenFromRenderer(shelfRenderer) {
-                                Self.logger.debug("Found continuation token in secondaryContents musicShelfRenderer")
-                                return token
-                            }
-                        }
-                        if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
-                            Self.logger.debug("Found musicPlaylistShelfRenderer in secondaryContents, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
-                            // Try legacy continuations format first
-                            if let token = Self.extractTokenFromRenderer(playlistShelfRenderer) {
-                                Self.logger.debug("Found continuation token in secondaryContents musicPlaylistShelfRenderer (legacy format)")
-                                return token
-                            }
-                            // Try 2025 format - token at last item of contents
-                            if let contents = playlistShelfRenderer["contents"] as? [[String: Any]],
-                               let token = Self.extractTokenFromContents(contents)
-                            {
-                                return token
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Try tabs path
-            if let tabs = twoColumnRenderer["tabs"] as? [[String: Any]],
-               let firstTab = tabs.first,
-               let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-               let tabContent = tabRenderer["content"] as? [String: Any],
-               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
-               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-            {
-                Self.logger.debug("Found twoColumnBrowseResultsRenderer tabs with \(sectionContents.count) sections")
-                for sectionData in sectionContents {
-                    if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-                       let token = Self.extractTokenFromRenderer(shelfRenderer)
-                    {
-                        Self.logger.debug("Found continuation token in tabs musicShelfRenderer")
-                        return token
-                    }
-                    if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
-                       let token = Self.extractTokenFromRenderer(playlistShelfRenderer)
-                    {
-                        Self.logger.debug("Found continuation token in tabs musicPlaylistShelfRenderer")
-                        return token
-                    }
-                }
-            }
+        if let token = Self.extractTokenFromTwoColumnRenderer(contents) {
+            return token
         }
 
         Self.logger.debug("No continuation token found in playlist response")
+        return nil
+    }
+
+    /// Extracts token from singleColumnBrowseResultsRenderer.
+    private static func extractTokenFromSingleColumnRenderer(_ contents: [String: Any]) -> String? {
+        guard let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        // First check for continuation at sectionListRenderer level
+        if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
+            Self.logger.debug("Found continuation token at sectionListRenderer level")
+            return token
+        }
+
+        // Check section contents
+        if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
+            return Self.extractTokenFromSectionContents(sectionContents)
+        }
+
+        return nil
+    }
+
+    /// Extracts token from twoColumnBrowseResultsRenderer.
+    private static func extractTokenFromTwoColumnRenderer(_ contents: [String: Any]) -> String? {
+        guard let twoColumnRenderer = contents["twoColumnBrowseResultsRenderer"] as? [String: Any] else {
+            return nil
+        }
+
+        Self.logger.debug("Found twoColumnBrowseResultsRenderer, keys: \(Array(twoColumnRenderer.keys))")
+
+        // Try secondaryContents path
+        if let token = Self.extractTokenFromSecondaryContents(twoColumnRenderer) {
+            return token
+        }
+
+        // Try tabs path
+        if let token = Self.extractTokenFromTabs(twoColumnRenderer) {
+            return token
+        }
+
+        return nil
+    }
+
+    /// Extracts token from secondaryContents.
+    private static func extractTokenFromSecondaryContents(_ twoColumnRenderer: [String: Any]) -> String? {
+        guard let secondaryContents = twoColumnRenderer["secondaryContents"] as? [String: Any],
+              let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        // First check for continuation at sectionListRenderer level
+        if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
+            Self.logger.debug("Found continuation token at secondaryContents sectionListRenderer level")
+            return token
+        }
+
+        if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
+            Self.logger.debug("Found secondaryContents with \(sectionContents.count) sections")
+            return Self.extractTokenFromSectionContents(sectionContents)
+        }
+
+        return nil
+    }
+
+    /// Extracts token from tabs path.
+    private static func extractTokenFromTabs(_ twoColumnRenderer: [String: Any]) -> String? {
+        guard let tabs = twoColumnRenderer["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        Self.logger.debug("Found twoColumnBrowseResultsRenderer tabs with \(sectionContents.count) sections")
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let token = Self.extractTokenFromRenderer(shelfRenderer)
+            {
+                Self.logger.debug("Found continuation token in tabs musicShelfRenderer")
+                return token
+            }
+            if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
+               let token = Self.extractTokenFromRenderer(playlistShelfRenderer)
+            {
+                Self.logger.debug("Found continuation token in tabs musicPlaylistShelfRenderer")
+                return token
+            }
+        }
+
+        return nil
+    }
+
+    /// Extracts token from section contents array.
+    private static func extractTokenFromSectionContents(_ sectionContents: [[String: Any]]) -> String? {
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
+                self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
+                if let token = extractTokenFromRenderer(shelfRenderer) {
+                    self.logger.debug("Found continuation token in musicShelfRenderer")
+                    return token
+                }
+            }
+            if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
+                Self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
+                // Try legacy continuations format first
+                if let token = Self.extractTokenFromRenderer(playlistShelfRenderer) {
+                    Self.logger.debug("Found continuation token in musicPlaylistShelfRenderer (legacy format)")
+                    return token
+                }
+                // Try 2025 format - token at last item of contents
+                if let shelfContents = playlistShelfRenderer["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(shelfContents)
+                {
+                    return token
+                }
+            }
+        }
         return nil
     }
 
@@ -833,84 +881,71 @@ enum PlaylistParser {
         }
 
         Self.logger.debug("Parsing queue response with \(queueDatas.count) items")
-
-        var tracks: [Song] = []
-
-        for queueData in queueDatas {
-            guard let content = queueData["content"] as? [String: Any] else {
-                continue
-            }
-
-            // Try to get the playlistPanelVideoRenderer - it can be:
-            // 1. Directly in content: content.playlistPanelVideoRenderer
-            // 2. Wrapped: content.playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer
-            let renderer: [String: Any]?
-            if let directRenderer = content["playlistPanelVideoRenderer"] as? [String: Any] {
-                renderer = directRenderer
-            } else if let wrapper = content["playlistPanelVideoWrapperRenderer"] as? [String: Any],
-                      let primaryRenderer = wrapper["primaryRenderer"] as? [String: Any],
-                      let wrappedRenderer = primaryRenderer["playlistPanelVideoRenderer"] as? [String: Any]
-            {
-                renderer = wrappedRenderer
-            } else {
-                continue
-            }
-
-            guard let renderer, let videoId = renderer["videoId"] as? String else {
-                continue
-            }
-
-            // Extract title
-            let title = (renderer["title"] as? [String: Any])?["runs"]
-                .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
-                ?? "Unknown"
-
-            // Extract artist from shortBylineText
-            let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
-            let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
-
-            // Extract artist ID if available
-            var artistId: String?
-            if let firstRun = artistRuns?.first,
-               let navEndpoint = firstRun["navigationEndpoint"] as? [String: Any],
-               let browseEndpoint = navEndpoint["browseEndpoint"] as? [String: Any]
-            {
-                artistId = browseEndpoint["browseId"] as? String
-            }
-
-            // Extract duration
-            let durationText = (renderer["lengthText"] as? [String: Any])?["runs"]
-                .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
-
-            // Extract thumbnail
-            let thumbnails = (renderer["thumbnail"] as? [String: Any])?["thumbnails"] as? [[String: Any]]
-            let thumbnailURL = thumbnails?.last?["url"]
-                .flatMap { $0 as? String }
-                .flatMap { URL(string: $0) }
-
-            let artist = Artist(
-                id: artistId ?? "",
-                name: artistName,
-                thumbnailURL: nil
-            )
-
-            // Convert duration text to TimeInterval
-            let durationSeconds: TimeInterval? = durationText.flatMap { ParsingHelpers.parseDuration($0) }
-
-            let song = Song(
-                id: videoId,
-                title: title,
-                artists: [artist],
-                album: nil,
-                duration: durationSeconds,
-                thumbnailURL: thumbnailURL,
-                videoId: videoId
-            )
-
-            tracks.append(song)
-        }
-
+        let tracks = queueDatas.compactMap { Self.parseQueueItem($0) }
         Self.logger.debug("Parsed \(tracks.count) tracks from queue response")
         return tracks
     }
+
+    /// Parses a single queue item into a Song.
+    private static func parseQueueItem(_ queueData: [String: Any]) -> Song? {
+        guard let content = queueData["content"] as? [String: Any],
+              let renderer = extractQueueRenderer(from: content),
+              let videoId = renderer["videoId"] as? String
+        else {
+            return nil
+        }
+
+        let title = (renderer["title"] as? [String: Any])?["runs"]
+            .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
+            ?? "Unknown"
+
+        let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
+        let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
+        let artistId = Self.extractArtistId(from: artistRuns)
+
+        let durationText = (renderer["lengthText"] as? [String: Any])?["runs"]
+            .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
+
+        let thumbnails = (renderer["thumbnail"] as? [String: Any])?["thumbnails"] as? [[String: Any]]
+        let thumbnailURL = thumbnails?.last?["url"]
+            .flatMap { $0 as? String }
+            .flatMap { URL(string: $0) }
+
+        return Song(
+            id: videoId,
+            title: title,
+            artists: [Artist(id: artistId ?? "", name: artistName, thumbnailURL: nil)],
+            album: nil,
+            duration: durationText.flatMap { ParsingHelpers.parseDuration($0) },
+            thumbnailURL: thumbnailURL,
+            videoId: videoId
+        )
+    }
+
+    /// Extracts the playlistPanelVideoRenderer from queue content.
+    private static func extractQueueRenderer(from content: [String: Any]) -> [String: Any]? {
+        if let directRenderer = content["playlistPanelVideoRenderer"] as? [String: Any] {
+            return directRenderer
+        }
+        if let wrapper = content["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+           let primaryRenderer = wrapper["primaryRenderer"] as? [String: Any],
+           let wrappedRenderer = primaryRenderer["playlistPanelVideoRenderer"] as? [String: Any]
+        {
+            return wrappedRenderer
+        }
+        return nil
+    }
+
+    /// Extracts artist ID from runs array.
+    private static func extractArtistId(from artistRuns: [[String: Any]]?) -> String? {
+        guard let firstRun = artistRuns?.first,
+              let navEndpoint = firstRun["navigationEndpoint"] as? [String: Any],
+              let browseEndpoint = navEndpoint["browseEndpoint"] as? [String: Any]
+        else {
+            return nil
+        }
+        return browseEndpoint["browseId"] as? String
+    }
 }
+
+// swiftlint:enable type_body_length

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import CryptoKit
 import Foundation
 import os
