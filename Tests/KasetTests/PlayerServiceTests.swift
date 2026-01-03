@@ -9,6 +9,9 @@ struct PlayerServiceTests {
     var playerService: PlayerService
 
     init() {
+        // Reset UserDefaults to ensure clean initial state for tests
+        UserDefaults.standard.removeObject(forKey: "playerVolume")
+        UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
         self.playerService = PlayerService()
     }
 

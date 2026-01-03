@@ -126,28 +126,3 @@ struct FoundationModelsServiceTests {
         service.clearContext()
     }
 }
-
-// MARK: - AISessionTypeExtendedTests
-
-@available(macOS 26.0, *)
-@Suite("AISessionType Extended", .tags(.api))
-struct AISessionTypeExtendedTests {
-    @Test(
-        "All session types have descriptions",
-        arguments: [
-            AISessionType.command,
-            AISessionType.analysis,
-            AISessionType.conversational,
-        ]
-    )
-    func allSessionTypesHaveDescriptions(type: AISessionType) {
-        let description = type.description
-        #expect(!description.isEmpty)
-    }
-
-    @Test("AISessionType is CaseIterable")
-    func sessionTypeIsCaseIterable() {
-        let allCases = AISessionType.allCases
-        #expect(allCases.count == 3)
-    }
-}

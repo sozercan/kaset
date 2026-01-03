@@ -71,6 +71,7 @@ struct CommandBarView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear input")
                 }
             }
             .padding(.horizontal, 16)

@@ -82,11 +82,12 @@ struct SearchResponseTests {
         #expect(item.subtitle == "Album Artist")
     }
 
-    @Test("Artist result item subtitle")
+    @Test("Artist result item subtitle is nil")
     func artistResultItemSubtitle() {
         let artist = Artist(id: "1", name: "Artist Name")
         let item = SearchResultItem.artist(artist)
-        #expect(item.subtitle == "Artist")
+        // Artist subtitle is nil because resultType already shows "Artist"
+        #expect(item.subtitle == nil)
     }
 
     @Test("Playlist result item subtitle")

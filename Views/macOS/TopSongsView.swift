@@ -26,8 +26,14 @@ struct TopSongsView: View {
                             }
                         }
                 }
-            case .loaded, .loadingMore, .error:
+            case .loaded, .loadingMore:
                 self.songsListView
+            case let .error(error):
+                ErrorView(error: error) {
+                    Task {
+                        await self.viewModel.load()
+                    }
+                }
             }
         }
         .navigationTitle("Top songs")
@@ -149,7 +155,7 @@ struct TopSongsView: View {
             Divider()
 
             // Go to Artist - show first artist with valid ID
-            if let artist = song.artists.first(where: { !$0.id.isEmpty && $0.id != UUID().uuidString }) {
+            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")
                 }

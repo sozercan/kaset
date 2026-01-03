@@ -3,40 +3,6 @@ import FoundationModels
 import Observation
 import os
 
-// MARK: - AISessionType
-
-/// Defines the type of AI session to create, each optimized for specific use cases.
-///
-/// Session types help organize the code and provide semantic meaning,
-/// but note that Apple's Foundation Models framework does not expose
-/// temperature control in macOS 26. All sessions use the system default.
-@available(macOS 26.0, *)
-enum AISessionType: String, CaseIterable, Sendable {
-    /// Quick command parsing (play, skip, queue, etc.)
-    /// Best for predictable structured output.
-    case command
-
-    /// Creative analysis (lyrics explanation, recommendations)
-    /// Best for more insightful, varied responses.
-    case analysis
-
-    /// Multi-turn conversation (future use)
-    /// Best for natural dialogue.
-    case conversational
-
-    /// Human-readable description for logging and debugging.
-    var description: String {
-        switch self {
-        case .command:
-            "Command parsing (structured output)"
-        case .analysis:
-            "Creative analysis (insightful responses)"
-        case .conversational:
-            "Conversational (multi-turn dialogue)"
-        }
-    }
-}
-
 // MARK: - FoundationModelsService
 
 /// Service for managing Apple Foundation Models integration.
@@ -206,26 +172,6 @@ final class FoundationModelsService {
         return LanguageModelSession(
             instructions: instructions
         )
-    }
-
-    // MARK: - Legacy Session Creation (Deprecated)
-
-    /// Creates a new language model session for a given task.
-    /// - Parameter instructions: System instructions for the session.
-    /// - Returns: A configured LanguageModelSession, or nil if unavailable.
-    @available(*, deprecated, message: "Use createAnalysisSession or createCommandSession for better optimization")
-    func createSession(instructions: String) -> LanguageModelSession? {
-        self.createAnalysisSession(instructions: instructions)
-    }
-
-    /// Creates a session with tool access for grounded responses.
-    /// - Parameters:
-    ///   - instructions: System instructions for the session.
-    ///   - tools: Tools the model can use during generation.
-    /// - Returns: A configured LanguageModelSession with tools, or nil if unavailable.
-    @available(*, deprecated, message: "Use createCommandSession for tool-based sessions")
-    func createSession(instructions: String, tools: [any Tool]) -> LanguageModelSession? {
-        self.createCommandSession(instructions: instructions, tools: tools)
     }
 
     /// Clears any cached session state.

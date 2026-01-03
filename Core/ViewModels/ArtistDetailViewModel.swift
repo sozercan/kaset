@@ -15,6 +15,9 @@ final class ArtistDetailViewModel {
     /// Whether a subscription operation is in progress.
     private(set) var isSubscribing: Bool = false
 
+    /// Error message from subscription toggle (nil if no error).
+    private(set) var subscriptionError: String?
+
     /// Whether to show all songs instead of limited preview.
     var showAllSongs: Bool = false
 
@@ -94,6 +97,7 @@ final class ArtistDetailViewModel {
         }
 
         self.isSubscribing = true
+        self.subscriptionError = nil
         defer { isSubscribing = false }
 
         do {
@@ -107,6 +111,7 @@ final class ArtistDetailViewModel {
                 self.logger.info("Subscribed to artist: \(detail.name)")
             }
         } catch {
+            self.subscriptionError = "Failed to update subscription. Please try again."
             self.logger.error("Failed to toggle subscription: \(error.localizedDescription)")
         }
     }

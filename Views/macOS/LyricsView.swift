@@ -87,6 +87,7 @@ struct LyricsView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(self.showExplanation ? .purple : .secondary)
                 .help("Explain lyrics with AI")
+                .accessibilityLabel(self.showExplanation ? "Hide lyrics explanation" : "Explain lyrics with AI")
                 .requiresIntelligence()
                 .disabled(self.isExplaining)
             }
