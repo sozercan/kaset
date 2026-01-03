@@ -444,7 +444,7 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
     print()
 
     var body: [String: Any] = ["continuation": token]
-    
+
     // For "next" endpoint continuations (mix queues), add required parameters
     if endpoint == "next" {
         body["enablePersistentPlaylistPanel"] = true
@@ -472,13 +472,14 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
                 if let renderer = value as? [String: Any] {
                     if let contents = renderer["contents"] as? [[String: Any]] {
                         print("   └─ \(key): \(contents.count) items")
-                        
+
                         // For playlistPanelContinuation (mix queues), show song count
                         if key == "playlistPanelContinuation" {
                             var songCount = 0
                             for item in contents {
                                 if item["playlistPanelVideoRenderer"] != nil ||
-                                   item["playlistPanelVideoWrapperRenderer"] != nil {
+                                    item["playlistPanelVideoWrapperRenderer"] != nil
+                                {
                                     songCount += 1
                                 }
                             }
@@ -489,7 +490,8 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
                         print("   └─ \(key) has 'continuations' array (\(continuations.count) tokens)")
                         // Check for nextRadioContinuationData (mix queue specific)
                         if let firstCont = continuations.first,
-                           firstCont["nextRadioContinuationData"] != nil {
+                           firstCont["nextRadioContinuationData"] != nil
+                        {
                             print("   └─ Has nextRadioContinuationData (more mix songs available)")
                         }
                     }
