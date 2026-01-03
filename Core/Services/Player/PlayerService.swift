@@ -384,8 +384,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 }
             } else if self.mixContinuationToken != nil {
                 // At end of queue but have continuation - fetch more and continue
+                let previousCount = self.queue.count
                 await self.fetchMoreMixSongsIfNeeded()
-                if self.currentIndex < self.queue.count - 1 {
+                // Only advance if new songs were actually added
+                if self.queue.count > previousCount {
                     self.currentIndex += 1
                     if let nextSong = queue[safe: currentIndex] {
                         await self.play(song: nextSong)

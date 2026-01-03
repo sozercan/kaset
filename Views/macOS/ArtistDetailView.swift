@@ -127,11 +127,12 @@ struct ArtistDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
-                    .disabled(detail.songs.isEmpty)
+                    .disabled(detail.songs.isEmpty && !detail.hasMoreSongs)
 
                     // Mix button - plays personalized radio with mix of artists
                     // Only shown if mix data is available from the API
-                    // Passing nil for startVideoId lets the API pick a random starting point each time
+                    // Passing nil for startVideoId lets the API pick a random starting point on the server
+                    // in addition to client-side shuffling applied when the mix tracks are played
                     if let mixPlaylistId = detail.mixPlaylistId {
                         Button {
                             self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
