@@ -45,6 +45,11 @@ struct Sidebar: View {
                         Label("New Releases", systemImage: "sparkles")
                     }
                     .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
+
+                    NavigationLink(value: NavigationItem.podcasts) {
+                        Label("Podcasts", systemImage: "mic.fill")
+                    }
+                    .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
                 }
 
                 // Library section

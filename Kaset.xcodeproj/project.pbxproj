@@ -9,7 +9,9 @@
 /* Begin PBXBuildFile section */
 		027E18189745CEC67E6828A7 /* MusicIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CAC6AE62FD1331D6D7197DE /* MusicIntent.swift */; };
 		03DA3E6574F126D01306B99E /* SearchSuggestionsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */; };
+		04F6B93812DA9A75DDF513F9 /* PodcastParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AC8367F416CA8DBAF1D2E1 /* PodcastParser.swift */; };
 		0A5EAC082557373484B2690F /* LyricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F870C29ED7A61E4BFD552C1 /* LyricsView.swift */; };
+		0B803A492F26F26F494E65C4 /* PodcastsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82655DB7B9B2278F18E3781 /* PodcastsView.swift */; };
 		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
 		0BF5A9C968BD0D2D9CB057AA /* CassetteIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390C91F55BBE06827FE8EA94 /* CassetteIcon.swift */; };
 		0C310209A7D8DD311A22DCE6 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57FBD1969A60A57AEE99F5D /* EqualizerView.swift */; };
@@ -41,6 +43,7 @@
 		69379B5363A7AFFDD1A0B9AE /* ArtistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */; };
 		6C2D2D574F9E7C378AC08E2F /* MoodsAndGenresViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E360DD78CE25F1112D3EB6B /* MoodsAndGenresViewModel.swift */; };
 		7576B7971EAF63A512772F54 /* TopSongsDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5AD13DED71A5777257435FD /* TopSongsDestination.swift */; };
+		7FF67FCFB097BFC63ECA1BA5 /* PodcastsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849D68199B6752D76523AED4 /* PodcastsViewModel.swift */; };
 		893FAE9DD3873EF800B84AD7 /* CommandBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */; };
 		894D5939EB562697AE32257F /* LikedMusicViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814910C684FB517EB8004E3C /* LikedMusicViewModel.swift */; };
 		92B599384FFC157929331ABA /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28AB8530C16716F70CFEEE4 /* ErrorView.swift */; };
@@ -152,6 +155,7 @@
 		E50000010000000000000708 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000708 /* AppLaunchUITests.swift */; };
 		E50000010000000000000800 /* QueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000800 /* QueueView.swift */; };
 		EBD8E2FD5FD9ACA330580345 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568CA211D22F80400B7C464F /* ChartsViewModel.swift */; };
+		F9889294F21DA1FC76A579E7 /* Podcast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75733D592D5AD5DBECEFA881 /* Podcast.swift */; };
 		FAV0000100000001 /* FavoriteItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000001 /* FavoriteItem.swift */; };
 		FAV0000100000002 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000002 /* FavoritesManager.swift */; };
 		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
@@ -215,15 +219,19 @@
 		67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PlayerService+Queue.swift"; sourceTree = "<group>"; };
 		6BE87B6EFFFDDC581F4793ED /* NewReleasesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewReleasesView.swift; path = Views/macOS/NewReleasesView.swift; sourceTree = "<group>"; };
 		74A7B3F1E5D9DD334BDCC588 /* Kaset.Debug.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = Kaset.Debug.entitlements; path = App/Kaset.Debug.entitlements; sourceTree = "<group>"; };
+		75733D592D5AD5DBECEFA881 /* Podcast.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Podcast.swift; sourceTree = "<group>"; };
 		7A40C879039FC38C73C120FC /* MoodCategoryDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MoodCategoryDetailView.swift; sourceTree = "<group>"; };
 		7CAC6AE62FD1331D6D7197DE /* MusicIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MusicIntent.swift; sourceTree = "<group>"; };
 		814910C684FB517EB8004E3C /* LikedMusicViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LikedMusicViewModel.swift; path = Core/ViewModels/LikedMusicViewModel.swift; sourceTree = "<group>"; };
+		849D68199B6752D76523AED4 /* PodcastsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PodcastsViewModel.swift; sourceTree = "<group>"; };
+		88AC8367F416CA8DBAF1D2E1 /* PodcastParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PodcastParser.swift; sourceTree = "<group>"; };
 		8B650A64B02738C0BBF3A524 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		90B59F4F81AEF77844FE5D23 /* NewReleasesViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewReleasesViewModel.swift; path = Core/ViewModels/NewReleasesViewModel.swift; sourceTree = "<group>"; };
 		951CB3DFC58A537A241137ED /* FoundationModelsService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoundationModelsService.swift; sourceTree = "<group>"; };
 		954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchSuggestionsParser.swift; sourceTree = "<group>"; };
 		A3F9A96409478882DDB923DB /* MoodsAndGenresView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MoodsAndGenresView.swift; path = Views/macOS/MoodsAndGenresView.swift; sourceTree = "<group>"; };
 		A7A0AEF7BFCBBF24ACE32BC3 /* NavigationDestinationsModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDestinationsModifier.swift; sourceTree = "<group>"; };
+		A82655DB7B9B2278F18E3781 /* PodcastsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PodcastsView.swift; sourceTree = "<group>"; };
 		AB97FDCBE81D107D28E5B837 /* Lyrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Lyrics.swift; path = Core/Models/Lyrics.swift; sourceTree = "<group>"; };
 		ABDD39F01D95E657E26F9F05 /* ArtistDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetailView.swift; sourceTree = "<group>"; };
 		ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CommandBarView.swift; sourceTree = "<group>"; };
@@ -582,6 +590,7 @@
 				84795838E90A00E0B6D0ADA9 /* AI */,
 				3BA32FDE7D5E0F305D8F490F /* MoodCategory.swift */,
 				FAV0000200000001 /* FavoriteItem.swift */,
+				75733D592D5AD5DBECEFA881 /* Podcast.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -666,6 +675,7 @@
 				E50000020000000000000306 /* RadioQueueParser.swift */,
 				E50000020000000000000307 /* SongMetadataParser.swift */,
 				954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */,
+				88AC8367F416CA8DBAF1D2E1 /* PodcastParser.swift */,
 			);
 			path = Parsers;
 			sourceTree = "<group>";
@@ -680,6 +690,7 @@
 				F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */,
 				E50000020000000000000064 /* ExploreViewModel.swift */,
 				E4BFFC86C639706F84922809 /* MoodCategoryViewModel.swift */,
+				849D68199B6752D76523AED4 /* PodcastsViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -725,6 +736,7 @@
 				0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */,
 				0CE90C8E602477823742B6E2 /* GeneralSettingsView.swift */,
 				7A40C879039FC38C73C120FC /* MoodCategoryDetailView.swift */,
+				A82655DB7B9B2278F18E3781 /* PodcastsView.swift */,
 			);
 			path = macOS;
 			sourceTree = "<group>";
@@ -1035,6 +1047,10 @@
 				URL0000100000001 /* URLHandler.swift in Sources */,
 				B376665F45E0C3B7F291135C /* PlayerService+Queue.swift in Sources */,
 				FCF216A14E8D8CA9425230E9 /* PlayerService+Library.swift in Sources */,
+				F9889294F21DA1FC76A579E7 /* Podcast.swift in Sources */,
+				04F6B93812DA9A75DDF513F9 /* PodcastParser.swift in Sources */,
+				7FF67FCFB097BFC63ECA1BA5 /* PodcastsViewModel.swift in Sources */,
+				0B803A492F26F26F494E65C4 /* PodcastsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
