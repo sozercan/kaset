@@ -21,6 +21,10 @@ struct ArtistDetail: Sendable {
     let songsBrowseId: String?
     /// Params for loading all songs.
     let songsParams: String?
+    /// Playlist ID for Mix (personalized radio), e.g., "RDEM...".
+    let mixPlaylistId: String?
+    /// Starting video ID for Mix.
+    let mixVideoId: String?
 
     var id: String { self.artist.id }
     var name: String { self.artist.name }
@@ -36,7 +40,9 @@ struct ArtistDetail: Sendable {
         subscriberCount: String? = nil,
         hasMoreSongs: Bool = false,
         songsBrowseId: String? = nil,
-        songsParams: String? = nil
+        songsParams: String? = nil,
+        mixPlaylistId: String? = nil,
+        mixVideoId: String? = nil
     ) {
         self.artist = artist
         self.description = description
@@ -49,5 +55,7 @@ struct ArtistDetail: Sendable {
         self.hasMoreSongs = hasMoreSongs
         self.songsBrowseId = songsBrowseId
         self.songsParams = songsParams
+        self.mixPlaylistId = mixPlaylistId
+        self.mixVideoId = mixVideoId
     }
 }

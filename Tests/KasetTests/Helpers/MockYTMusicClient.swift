@@ -512,6 +512,17 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         return self.radioQueueSongs[videoId] ?? []
     }
 
+    func getMixQueue(playlistId _: String, startVideoId _: String?) async throws -> RadioQueueResult {
+        if let error = shouldThrowError { throw error }
+        // Return empty by default, can be overridden via radioQueueSongs if needed
+        return RadioQueueResult(songs: [], continuationToken: nil)
+    }
+
+    func getMixQueueContinuation(continuationToken _: String) async throws -> RadioQueueResult {
+        if let error = shouldThrowError { throw error }
+        return RadioQueueResult(songs: [], continuationToken: nil)
+    }
+
     func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
         if let error = shouldThrowError { throw error }
         // Return empty response by default

@@ -15,6 +15,7 @@
 		SLS0000100000001 /* SongLikeStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SLS0000200000001 /* SongLikeStatusManager.swift */; };
 		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
 		FAV0000100000004 /* FavoritesContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000004 /* FavoritesContextMenu.swift */; };
+		RAD0000100000001 /* StartRadioContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = RAD0000200000001 /* StartRadioContextMenu.swift */; };
 		FAV0000100000005 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000005 /* FavoritesManagerTests.swift */; };
 		SHR0000100000001 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000001 /* ShareService.swift */; };
 		SHR0000100000002 /* ShareContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000002 /* ShareContextMenu.swift */; };
@@ -189,6 +190,7 @@
 		SLS0000200000001 /* SongLikeStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLikeStatusManager.swift; sourceTree = "<group>"; };
 		FAV0000200000003 /* FavoritesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesSection.swift; sourceTree = "<group>"; };
 		FAV0000200000004 /* FavoritesContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesContextMenu.swift; sourceTree = "<group>"; };
+		RAD0000200000001 /* StartRadioContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRadioContextMenu.swift; sourceTree = "<group>"; };
 		FAV0000200000005 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManagerTests.swift; sourceTree = "<group>"; };
 		SHR0000200000001 /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
 		SHR0000200000002 /* ShareContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareContextMenu.swift; sourceTree = "<group>"; };
@@ -390,6 +392,7 @@
 				1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */,
 				FAV0000200000003 /* FavoritesSection.swift */,
 				FAV0000200000004 /* FavoritesContextMenu.swift */,
+				RAD0000200000001 /* StartRadioContextMenu.swift */,
 				SHR0000200000002 /* ShareContextMenu.swift */,
 			);
 			path = SharedViews;
@@ -1019,6 +1022,7 @@
 				SLS0000100000001 /* SongLikeStatusManager.swift in Sources */,
 				FAV0000100000003 /* FavoritesSection.swift in Sources */,
 				FAV0000100000004 /* FavoritesContextMenu.swift in Sources */,
+				RAD0000100000001 /* StartRadioContextMenu.swift in Sources */,
 				NETM000100000001 /* NetworkMonitor.swift in Sources */,
 				SHR0000100000001 /* ShareService.swift in Sources */,
 				SHR0000100000002 /* ShareContextMenu.swift in Sources */,

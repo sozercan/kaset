@@ -74,7 +74,9 @@ enum ArtistParser {
             subscriberCount: headerResult.subscriberCount,
             hasMoreSongs: hasMoreSongs,
             songsBrowseId: songsBrowseId,
-            songsParams: songsParams
+            songsParams: songsParams,
+            mixPlaylistId: headerResult.mixPlaylistId,
+            mixVideoId: headerResult.mixVideoId
         )
     }
 
@@ -88,6 +90,8 @@ enum ArtistParser {
         var channelId: String?
         var isSubscribed: Bool = false
         var subscriberCount: String?
+        var mixPlaylistId: String?
+        var mixVideoId: String?
     }
 
     private static func parseArtistHeader(_ data: [String: Any], artistId: String) -> HeaderParseResult {
@@ -113,6 +117,9 @@ enum ArtistParser {
 
             // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: immersiveHeader, into: &result)
+
+            // Parse startRadioButton for mix (personalized radio)
+            self.parseStartRadioButton(from: immersiveHeader, into: &result)
         }
 
         // Try musicVisualHeaderRenderer (alternative header format)
@@ -129,6 +136,9 @@ enum ArtistParser {
 
             // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: visualHeader, into: &result)
+
+            // Parse startRadioButton for mix (personalized radio)
+            self.parseStartRadioButton(from: visualHeader, into: &result)
         }
 
         return result
@@ -179,6 +189,39 @@ enum ArtistParser {
                         result.isSubscribed = true
                     }
                 }
+            }
+        }
+    }
+
+    // MARK: - Start Radio Button Parsing
+
+    /// Parses the startRadioButton to extract mix playlist ID and video ID.
+    private static func parseStartRadioButton(from header: [String: Any], into result: inout HeaderParseResult) {
+        // Look for startRadioButton in header
+        // Path: startRadioButton.buttonRenderer.navigationEndpoint.watchPlaylistEndpoint
+        guard let startRadioButton = header["startRadioButton"] as? [String: Any],
+              let buttonRenderer = startRadioButton["buttonRenderer"] as? [String: Any],
+              let navigationEndpoint = buttonRenderer["navigationEndpoint"] as? [String: Any]
+        else {
+            return
+        }
+
+        // Try watchPlaylistEndpoint first (used by artist mix buttons)
+        if let watchPlaylistEndpoint = navigationEndpoint["watchPlaylistEndpoint"] as? [String: Any] {
+            if let playlistId = watchPlaylistEndpoint["playlistId"] as? String {
+                result.mixPlaylistId = playlistId
+            }
+            // watchPlaylistEndpoint doesn't have videoId - API picks random start
+            return
+        }
+
+        // Fall back to watchEndpoint (used by some song radios)
+        if let watchEndpoint = navigationEndpoint["watchEndpoint"] as? [String: Any] {
+            if let playlistId = watchEndpoint["playlistId"] as? String {
+                result.mixPlaylistId = playlistId
+            }
+            if let videoId = watchEndpoint["videoId"] as? String {
+                result.mixVideoId = videoId
             }
         }
     }

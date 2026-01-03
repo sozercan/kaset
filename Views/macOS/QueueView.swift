@@ -99,6 +99,7 @@ struct QueueView: View {
                         isCurrentTrack: index == self.playerService.currentIndex,
                         index: index,
                         favoritesManager: self.favoritesManager,
+                        playerService: self.playerService,
                         onRemove: {
                             self.playerService.removeFromQueue(videoIds: [song.videoId])
                         },
@@ -125,6 +126,7 @@ private struct QueueRowView: View {
     let isCurrentTrack: Bool
     let index: Int
     let favoritesManager: FavoritesManager
+    let playerService: PlayerService
     let onRemove: () -> Void
     let onTap: () -> Void
 
@@ -186,6 +188,10 @@ private struct QueueRowView: View {
         }
         .contextMenu {
             FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
+
+            Divider()
+
+            StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
 
             Divider()
 

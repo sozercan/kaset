@@ -112,6 +112,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private let logger = DiagnosticsLogger.player
     private var ytMusicClient: (any YTMusicClientProtocol)?
 
+    /// Continuation token for loading more songs in infinite mix/radio.
+    private var mixContinuationToken: String?
+
+    /// Whether we're currently fetching more mix songs.
+    private var isFetchingMoreMixSongs: Bool = false
+
     /// UserDefaults key for persisting volume.
     private static let volumeKey = "playerVolume"
     /// UserDefaults key for persisting volume before mute.
@@ -357,6 +363,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
                 }
+                // Check if we should fetch more songs
+                await self.fetchMoreMixSongsIfNeeded()
                 return
             }
 
@@ -366,14 +374,25 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
                 }
+                // Check if we should fetch more songs
+                await self.fetchMoreMixSongsIfNeeded()
             } else if self.repeatMode == .all {
                 // Loop back to start if repeat all is enabled
                 self.currentIndex = 0
                 if let firstSong = queue.first {
                     await self.play(song: firstSong)
                 }
+            } else if self.mixContinuationToken != nil {
+                // At end of queue but have continuation - fetch more and continue
+                await self.fetchMoreMixSongsIfNeeded()
+                if self.currentIndex < self.queue.count - 1 {
+                    self.currentIndex += 1
+                    if let nextSong = queue[safe: currentIndex] {
+                        await self.play(song: nextSong)
+                    }
+                }
             }
-            // At end of queue with repeat off, don't do anything
+            // At end of queue with repeat off and no continuation, don't do anything
             return
         }
 
@@ -505,6 +524,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         let safeIndex = max(0, min(index, songs.count - 1))
         self.queue = songs
         self.currentIndex = safeIndex
+        // Clear mix continuation since this is not a mix queue
+        self.mixContinuationToken = nil
         if let song = songs[safe: safeIndex] {
             await self.play(song: song)
         }
@@ -515,6 +536,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func playWithRadio(song: Song) async {
         self.logger.info("Playing with radio: \(song.title)")
 
+        // Clear mix continuation since this is a song radio, not a mix
+        self.mixContinuationToken = nil
+
         // Start with just this song in the queue
         self.queue = [song]
         self.currentIndex = 0
@@ -522,6 +546,97 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Fetch radio queue in background
         await self.fetchAndApplyRadioQueue(for: song.videoId)
+    }
+
+    /// Plays an artist mix from a mix playlist ID.
+    /// Fetches a fresh randomized queue from the API each time.
+    /// Supports infinite mix - automatically fetches more songs as you approach the end.
+    /// - Parameters:
+    ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
+    ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
+    func playWithMix(playlistId: String, startVideoId: String?) async {
+        self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
+
+        guard let client = self.ytMusicClient else {
+            self.logger.warning("No YTMusicClient available for playing mix")
+            return
+        }
+
+        do {
+            // Fetch mix queue from API
+            let result = try await client.getMixQueue(playlistId: playlistId, startVideoId: startVideoId)
+            guard !result.songs.isEmpty else {
+                self.logger.warning("Mix queue returned empty")
+                return
+            }
+
+            // Store continuation token for infinite mix
+            self.mixContinuationToken = result.continuationToken
+
+            // Shuffle the queue to get a different order each time
+            // YouTube's API returns a personalized but consistent order per session,
+            // so we shuffle to give the user variety on each Mix button click
+            let shuffledSongs = result.songs.shuffled()
+
+            // Set up the queue and play the first song
+            self.queue = shuffledSongs
+            self.currentIndex = 0
+            self.currentTrack = shuffledSongs[0]
+
+            // Start playback
+            await self.play(videoId: shuffledSongs[0].videoId)
+
+            self.logger.info("Mix queue loaded with \(shuffledSongs.count) songs, hasContinuation: \(result.continuationToken != nil)")
+        } catch {
+            self.logger.warning("Failed to fetch mix queue: \(error.localizedDescription)")
+        }
+    }
+
+    /// Fetches more songs for the current mix when approaching the end of the queue.
+    /// This enables "infinite mix" behavior like YouTube Music web.
+    private func fetchMoreMixSongsIfNeeded() async {
+        let songsRemaining = self.queue.count - self.currentIndex - 1
+        self.logger.debug("Infinite mix check: \(songsRemaining) songs remaining, hasContinuation: \(self.mixContinuationToken != nil)")
+
+        // Only fetch if we have a continuation token and we're near the end
+        guard let token = mixContinuationToken,
+              !isFetchingMoreMixSongs,
+              let client = ytMusicClient
+        else {
+            return
+        }
+
+        // Fetch more when we're within 10 songs of the end
+        guard songsRemaining <= 10 else {
+            return
+        }
+
+        self.logger.info("Fetching more mix songs, \(songsRemaining) remaining in queue")
+        self.isFetchingMoreMixSongs = true
+
+        do {
+            let result = try await client.getMixQueueContinuation(continuationToken: token)
+            self.logger.debug("Continuation returned \(result.songs.count) songs, hasNextToken: \(result.continuationToken != nil)")
+
+            // Filter out songs already in queue to avoid duplicates
+            let existingIds = Set(queue.map(\.videoId))
+            let newSongs = result.songs.filter { !existingIds.contains($0.videoId) }
+
+            if !newSongs.isEmpty {
+                // Create a new array to ensure @Observable triggers UI update
+                var updatedQueue = self.queue
+                updatedQueue.append(contentsOf: newSongs)
+                self.queue = updatedQueue
+                self.logger.info("Added \(newSongs.count) new songs to queue, total: \(self.queue.count)")
+            }
+
+            // Update continuation token for next batch
+            self.mixContinuationToken = result.continuationToken
+        } catch {
+            self.logger.warning("Failed to fetch more mix songs: \(error.localizedDescription)")
+        }
+
+        self.isFetchingMoreMixSongs = false
     }
 
     /// Fetches radio queue and applies it, keeping the current song at the front.
@@ -578,6 +693,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Clears the playback queue except for the currently playing track.
     func clearQueue() {
+        // Clear mix continuation since queue is being manually cleared
+        self.mixContinuationToken = nil
+
         guard let currentTrack else {
             self.queue = []
             self.currentIndex = 0
@@ -596,6 +714,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         if let song = queue[safe: index] {
             await self.play(song: song)
         }
+        // Check if we need to fetch more songs for infinite mix
+        await self.fetchMoreMixSongsIfNeeded()
     }
 
     /// Inserts songs immediately after the current track.

@@ -209,12 +209,19 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.hasMoreSections(for: .podcasts)
     }
 
-    /// Makes a continuation request.
+    /// Makes a continuation request for browse endpoints.
     private func requestContinuation(_ token: String, ttl: TimeInterval? = APICache.TTL.home) async throws -> [String: Any] {
         let body: [String: Any] = [
             "continuation": token,
         ]
         return try await self.request("browse", body: body, ttl: ttl)
+    }
+
+    /// Makes a continuation request for next/queue endpoints.
+    private func requestContinuation(_ token: String, body additionalBody: [String: Any]) async throws -> [String: Any] {
+        var body = additionalBody
+        body["continuation"] = token
+        return try await self.request("next", body: body)
     }
 
     /// Searches for content.
@@ -693,9 +700,53 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
 
         let data = try await request("next", body: body)
-        let songs = RadioQueueParser.parse(from: data)
-        self.logger.info("Fetched radio queue with \(songs.count) songs")
-        return songs
+        let result = RadioQueueParser.parse(from: data)
+        self.logger.info("Fetched radio queue with \(result.songs.count) songs")
+        return result.songs
+    }
+
+    /// Fetches a mix queue from a playlist ID (e.g., artist mix "RDEM...").
+    /// Uses the "next" endpoint with the provided playlist ID.
+    /// - Parameters:
+    ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
+    ///   - startVideoId: Optional starting video ID
+    /// - Returns: RadioQueueResult with songs and continuation token for infinite mix
+    func getMixQueue(playlistId: String, startVideoId: String?) async throws -> RadioQueueResult {
+        self.logger.info("Fetching mix queue for playlist: \(playlistId)")
+
+        var body: [String: Any] = [
+            "playlistId": playlistId,
+            "enablePersistentPlaylistPanel": true,
+            "isAudioOnly": true,
+            "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+        ]
+
+        // Add video ID if provided to start at a specific track
+        if let videoId = startVideoId {
+            body["videoId"] = videoId
+        }
+
+        let data = try await request("next", body: body)
+        let result = RadioQueueParser.parse(from: data)
+        self.logger.info("Fetched mix queue with \(result.songs.count) songs, hasContinuation: \(result.continuationToken != nil)")
+        return result
+    }
+
+    /// Fetches more songs for a mix queue using a continuation token.
+    /// - Parameter continuationToken: The continuation token from a previous getMixQueue call
+    /// - Returns: RadioQueueResult with additional songs and next continuation token
+    func getMixQueueContinuation(continuationToken: String) async throws -> RadioQueueResult {
+        self.logger.info("Fetching mix queue continuation")
+
+        let body: [String: Any] = [
+            "enablePersistentPlaylistPanel": true,
+            "isAudioOnly": true,
+        ]
+
+        let data = try await requestContinuation(continuationToken, body: body)
+        let result = RadioQueueParser.parseContinuation(from: data)
+        self.logger.info("Fetched \(result.songs.count) more songs, hasContinuation: \(result.continuationToken != nil)")
+        return result
     }
 
     // MARK: - Song Metadata

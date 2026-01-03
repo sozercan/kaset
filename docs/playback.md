@@ -322,9 +322,40 @@ Enable WebView inspector in Debug builds:
 
 Right-click the mini player → "Inspect Element" to debug JavaScript.
 
+## Infinite Mix
+
+When playing artist mixes (`RDEM...` playlists), the app supports infinite queue loading:
+
+### How It Works
+
+1. **Initial Load**: `playWithMix()` fetches ~50 songs via the `next` endpoint
+2. **Continuation Token**: The API returns a `nextRadioContinuationData.continuation` token
+3. **Auto-Fetch**: When ≤10 songs remain in queue, `fetchMoreMixSongsIfNeeded()` loads more
+4. **Duplicate Filter**: New songs are filtered to prevent duplicates
+5. **Repeat**: Process continues until no more continuation tokens
+
+### Key Components
+
+| Component | Purpose |
+|-----------|----------|
+| `RadioQueueResult` | Holds songs + continuation token |
+| `mixContinuationToken` | Stored in `PlayerService` |
+| `isFetchingMoreMixSongs` | Prevents concurrent fetches |
+| `fetchMoreMixSongsIfNeeded()` | Triggered on `next()` and `playFromQueue()` |
+
+### State Reset
+
+The continuation token is cleared when:
+- Playing a regular queue (`playQueue`)
+- Playing song radio (`playWithRadio`)
+- Clearing the queue (`clearQueue`)
+
+This prevents infinite fetch from triggering on non-mix playback.
+
 ## Future Improvements
 
-- [ ] Queue management (next/previous)
+- [x] Queue management (next/previous)
+- [x] Infinite mix loading
 - [ ] Seek support via JavaScript
 - [ ] Volume control
 - [ ] Artwork extraction for Now Playing

@@ -137,6 +137,10 @@ struct HomeView: View {
 
             Divider()
 
+            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
+
+            Divider()
+
             ShareContextMenu.menuItem(for: song)
 
             Divider()

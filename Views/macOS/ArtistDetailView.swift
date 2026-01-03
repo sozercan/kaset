@@ -117,9 +117,11 @@ struct ArtistDetailView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
-                    // Shuffle button
+                    // Shuffle button - shuffles all artist's songs (fetches if needed)
                     Button {
-                        self.shuffleAll(detail.songs)
+                        Task {
+                            await self.shuffleAllSongs()
+                        }
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
@@ -127,15 +129,18 @@ struct ArtistDetailView: View {
                     .controlSize(.large)
                     .disabled(detail.songs.isEmpty)
 
-                    // Play all button (Mix)
-                    Button {
-                        self.playAll(detail.songs)
-                    } label: {
-                        Label("Mix", systemImage: "play.circle")
+                    // Mix button - plays personalized radio with mix of artists
+                    // Only shown if mix data is available from the API
+                    // Passing nil for startVideoId lets the API pick a random starting point each time
+                    if let mixPlaylistId = detail.mixPlaylistId {
+                        Button {
+                            self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
+                        } label: {
+                            Label("Mix", systemImage: "play.circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(detail.songs.isEmpty)
 
                     // Subscribe button
                     if detail.channelId != nil {
@@ -325,6 +330,10 @@ struct ArtistDetailView: View {
 
             Divider()
 
+            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
+
+            Divider()
+
             Button {
                 SongActionsHelper.addToLibrary(song, playerService: self.playerService)
             } label: {
@@ -422,6 +431,12 @@ struct ArtistDetailView: View {
 
     // MARK: - Actions
 
+    private func playMix(playlistId: String, startVideoId: String?) {
+        Task {
+            await self.playerService.playWithMix(playlistId: playlistId, startVideoId: startVideoId)
+        }
+    }
+
     private func playAll(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         Task {
@@ -429,12 +444,12 @@ struct ArtistDetailView: View {
         }
     }
 
-    private func shuffleAll(_ songs: [Song]) {
-        guard !songs.isEmpty else { return }
-        Task {
-            let shuffledSongs = songs.shuffled()
-            await self.playerService.playQueue(shuffledSongs, startingAt: 0)
-        }
+    /// Fetches all artist songs and plays them shuffled.
+    private func shuffleAllSongs() async {
+        let allSongs = await self.viewModel.getAllSongs()
+        guard !allSongs.isEmpty else { return }
+        let shuffledSongs = allSongs.shuffled()
+        await self.playerService.playQueue(shuffledSongs, startingAt: 0)
     }
 }
 
