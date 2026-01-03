@@ -11,6 +11,10 @@ cask "kaset" do
 
   app "Kaset.app"
 
+  postflight do
+    system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
+  end
+
   zap trash: [
     "~/Library/Application Support/Kaset",
     "~/Library/Caches/com.sertacozercan.Kaset",

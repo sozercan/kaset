@@ -37,13 +37,13 @@ Download the latest release from the [Releases](https://github.com/sozercan/kase
 
 ```bash
 brew tap sozercan/kaset https://github.com/sozercan/kaset
-brew install --cask kaset --no-quarantine
+brew install --cask kaset
 ```
 
-> **Note:** The `--no-quarantine` flag is required because the app is not signed.
-> If you downloaded the app manually, you can remove the quarantine attribute with:
+> **Note:** The app is not signed.
+> If you downloaded the app manually, you can clear extended attributes (including quarantine) with:
 > ```bash
-> xattr -d com.apple.quarantine /Applications/Kaset.app
+> xattr -cr /Applications/Kaset.app
 > ```
 
 ## Keyboard Shortcuts

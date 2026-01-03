@@ -246,7 +246,7 @@ jobs:
           ### Homebrew (recommended)
           \`\`\`bash
           brew tap sozercan/kaset https://github.com/sozercan/kaset
-          brew install --cask kaset --no-quarantine
+          brew install --cask kaset
           \`\`\`
 
           ### Manual Download
