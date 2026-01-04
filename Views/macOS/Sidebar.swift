@@ -45,19 +45,24 @@ struct Sidebar: View {
                         Label("New Releases", systemImage: "sparkles")
                     }
                     .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
+
+                    NavigationLink(value: NavigationItem.podcasts) {
+                        Label("Podcasts", systemImage: "mic.fill")
+                    }
+                    .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
                 }
 
-                // Library section
-                Section("Library") {
+                // Collection section
+                Section("Collection") {
+                    NavigationLink(value: NavigationItem.library) {
+                        Label("Library", systemImage: "square.stack.fill")
+                    }
+                    .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
+
                     NavigationLink(value: NavigationItem.likedMusic) {
                         Label("Liked Music", systemImage: "heart.fill")
                     }
                     .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
-
-                    NavigationLink(value: NavigationItem.library) {
-                        Label("Playlists", systemImage: "music.note.list")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
                 }
             }
             .listStyle(.sidebar)

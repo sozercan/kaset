@@ -8,6 +8,7 @@ struct SearchResponse: Sendable {
     let albums: [Album]
     let artists: [Artist]
     let playlists: [Playlist]
+    let podcastShows: [PodcastShow]
     /// Continuation token for loading more results (only present for filtered searches).
     let continuationToken: String?
 
@@ -18,12 +19,13 @@ struct SearchResponse: Sendable {
         items.append(contentsOf: self.albums.map { .album($0) })
         items.append(contentsOf: self.artists.map { .artist($0) })
         items.append(contentsOf: self.playlists.map { .playlist($0) })
+        items.append(contentsOf: self.podcastShows.map { .podcastShow($0) })
         return items
     }
 
     /// Whether the search returned any results.
     var isEmpty: Bool {
-        self.songs.isEmpty && self.albums.isEmpty && self.artists.isEmpty && self.playlists.isEmpty
+        self.songs.isEmpty && self.albums.isEmpty && self.artists.isEmpty && self.playlists.isEmpty && self.podcastShows.isEmpty
     }
 
     /// Whether more results are available to load.
@@ -31,7 +33,7 @@ struct SearchResponse: Sendable {
         self.continuationToken != nil
     }
 
-    static let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [], continuationToken: nil)
+    static let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [], podcastShows: [], continuationToken: nil)
 
     /// Creates a SearchResponse without continuation token (backward compatibility).
     init(songs: [Song], albums: [Album], artists: [Artist], playlists: [Playlist]) {
@@ -39,15 +41,34 @@ struct SearchResponse: Sendable {
         self.albums = albums
         self.artists = artists
         self.playlists = playlists
+        self.podcastShows = []
         self.continuationToken = nil
     }
 
-    /// Creates a SearchResponse with optional continuation token.
+    /// Creates a SearchResponse with optional continuation token (backward compatibility).
     init(songs: [Song], albums: [Album], artists: [Artist], playlists: [Playlist], continuationToken: String?) {
         self.songs = songs
         self.albums = albums
         self.artists = artists
         self.playlists = playlists
+        self.podcastShows = []
+        self.continuationToken = continuationToken
+    }
+
+    /// Creates a SearchResponse with podcast shows and optional continuation token.
+    init(
+        songs: [Song],
+        albums: [Album],
+        artists: [Artist],
+        playlists: [Playlist],
+        podcastShows: [PodcastShow],
+        continuationToken: String?
+    ) {
+        self.songs = songs
+        self.albums = albums
+        self.artists = artists
+        self.playlists = playlists
+        self.podcastShows = podcastShows
         self.continuationToken = continuationToken
     }
 }
@@ -60,6 +81,7 @@ enum SearchResultItem: Identifiable, Sendable {
     case album(Album)
     case artist(Artist)
     case playlist(Playlist)
+    case podcastShow(PodcastShow)
 
     var id: String {
         switch self {
@@ -71,6 +93,8 @@ enum SearchResultItem: Identifiable, Sendable {
             "artist-\(artist.id)"
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .podcastShow(show):
+            "podcast-\(show.id)"
         }
     }
 
@@ -84,6 +108,8 @@ enum SearchResultItem: Identifiable, Sendable {
             artist.name
         case let .playlist(playlist):
             playlist.title
+        case let .podcastShow(show):
+            show.title
         }
     }
 
@@ -105,6 +131,8 @@ enum SearchResultItem: Identifiable, Sendable {
                 .replacingOccurrences(of: "Playlist • ", with: "")
                 .trimmingCharacters(in: .whitespaces)
             return stripped.isEmpty ? nil : stripped
+        case let .podcastShow(show):
+            return show.author
         }
     }
 
@@ -118,6 +146,8 @@ enum SearchResultItem: Identifiable, Sendable {
             artist.thumbnailURL
         case let .playlist(playlist):
             playlist.thumbnailURL
+        case let .podcastShow(show):
+            show.thumbnailURL
         }
     }
 
@@ -131,6 +161,8 @@ enum SearchResultItem: Identifiable, Sendable {
             "Artist"
         case .playlist:
             "Playlist"
+        case .podcastShow:
+            "Podcast"
         }
     }
 

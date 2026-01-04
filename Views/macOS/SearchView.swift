@@ -508,6 +508,17 @@ struct SearchView: View {
             } label: {
                 Label("View Playlist", systemImage: "music.note.list")
             }
+
+        case let .podcastShow(show):
+            Button {
+                self.navigationPath.append(show)
+            } label: {
+                Label("View Podcast", systemImage: "mic.fill")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
         }
     }
 
@@ -523,6 +534,8 @@ struct SearchView: View {
             "person"
         case .playlist:
             "music.note.list"
+        case .podcastShow:
+            "mic.fill"
         }
     }
 
@@ -548,6 +561,8 @@ struct SearchView: View {
             self.navigationPath.append(playlist)
         case let .playlist(playlist):
             self.navigationPath.append(playlist)
+        case let .podcastShow(show):
+            self.navigationPath.append(show)
         }
     }
 }

@@ -26,16 +26,7 @@ enum SearchResponseParser {
             // Parse musicCardShelfRenderer (Top Result section)
             if let cardShelfRenderer = sectionData["musicCardShelfRenderer"] as? [String: Any] {
                 if let item = parseCardShelfRenderer(cardShelfRenderer) {
-                    switch item {
-                    case let .song(song):
-                        songs.append(song)
-                    case let .album(album):
-                        albums.append(album)
-                    case let .artist(artist):
-                        artists.append(artist)
-                    case let .playlist(playlist):
-                        playlists.append(playlist)
-                    }
+                    Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
                 }
             }
 
@@ -45,22 +36,36 @@ enum SearchResponseParser {
             {
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData) {
-                        switch item {
-                        case let .song(song):
-                            songs.append(song)
-                        case let .album(album):
-                            albums.append(album)
-                        case let .artist(artist):
-                            artists.append(artist)
-                        case let .playlist(playlist):
-                            playlists.append(playlist)
-                        }
+                        Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
                     }
                 }
             }
         }
 
         return SearchResponse(songs: songs, albums: albums, artists: artists, playlists: playlists)
+    }
+
+    /// Helper to append a search result item to the appropriate array.
+    private static func appendItem(
+        _ item: SearchResultItem,
+        songs: inout [Song],
+        albums: inout [Album],
+        artists: inout [Artist],
+        playlists: inout [Playlist]
+    ) {
+        switch item {
+        case let .song(song):
+            songs.append(song)
+        case let .album(album):
+            albums.append(album)
+        case let .artist(artist):
+            artists.append(artist)
+        case let .playlist(playlist):
+            playlists.append(playlist)
+        case .podcastShow:
+            // Podcast shows not parsed in general search
+            break
+        }
     }
 
     /// Parses a filtered songs-only search response.
@@ -368,6 +373,62 @@ enum SearchResponseParser {
         return (playlists, token)
     }
 
+    /// Parses podcasts from a filtered search response with continuation token.
+    static func parsePodcastsOnly(_ data: [String: Any]) -> ([PodcastShow], String?) {
+        var podcasts: [PodcastShow] = []
+
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return ([], nil)
+        }
+
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for itemData in shelfContents {
+                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
+                        podcasts.append(show)
+                    }
+                }
+            }
+        }
+
+        let token = Self.extractContinuationToken(from: sectionListRenderer)
+        return (podcasts, token)
+    }
+
+    /// Parses a podcast show from a search result item.
+    private static func parsePodcastShowFromSearchResult(_ data: [String: Any]) -> PodcastShow? {
+        guard let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] else {
+            return nil
+        }
+
+        // Check navigation endpoint for browse ID
+        guard let navigationEndpoint = responsiveRenderer["navigationEndpoint"] as? [String: Any],
+              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+              let browseId = browseEndpoint["browseId"] as? String,
+              browseId.hasPrefix("MPSPP")
+        else {
+            return nil
+        }
+
+        let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown Podcast"
+        let author = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
+
+        return PodcastShow(
+            id: browseId,
+            title: title,
+            author: author,
+            description: nil,
+            thumbnailURL: thumbnailURL,
+            episodeCount: nil
+        )
+    }
+
     /// Parses songs from a filtered search response with continuation token.
     static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
         var songs: [Song] = []
@@ -403,6 +464,7 @@ enum SearchResponseParser {
         var albums: [Album] = []
         var artists: [Artist] = []
         var playlists: [Playlist] = []
+        var podcastShows: [PodcastShow] = []
         var continuationToken: String?
 
         // Continuation responses have a different structure
@@ -412,17 +474,11 @@ enum SearchResponseParser {
             // Parse items
             if let contents = musicShelfContinuation["contents"] as? [[String: Any]] {
                 for itemData in contents {
-                    if let item = parseSearchResultItem(itemData) {
-                        switch item {
-                        case let .song(song):
-                            songs.append(song)
-                        case let .album(album):
-                            albums.append(album)
-                        case let .artist(artist):
-                            artists.append(artist)
-                        case let .playlist(playlist):
-                            playlists.append(playlist)
-                        }
+                    // Try to parse as podcast show first (for podcast search continuation)
+                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
+                        podcastShows.append(show)
+                    } else if let item = parseSearchResultItem(itemData) {
+                        Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
                     }
                 }
             }
@@ -442,6 +498,7 @@ enum SearchResponseParser {
             albums: albums,
             artists: artists,
             playlists: playlists,
+            podcastShows: podcastShows,
             continuationToken: continuationToken
         )
     }

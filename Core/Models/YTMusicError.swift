@@ -16,6 +16,8 @@ enum YTMusicError: LocalizedError, Sendable {
     case apiError(message: String, code: Int?)
     /// Playback error.
     case playbackError(message: String)
+    /// Invalid input provided to an operation.
+    case invalidInput(String)
     /// Unknown error.
     case unknown(message: String)
 
@@ -36,6 +38,8 @@ enum YTMusicError: LocalizedError, Sendable {
             return "API error: \(message)"
         case let .playbackError(message):
             return "Playback error: \(message)"
+        case let .invalidInput(message):
+            return "Invalid input: \(message)"
         case let .unknown(message):
             return message
         }
@@ -51,6 +55,8 @@ enum YTMusicError: LocalizedError, Sendable {
             "Try again. If the problem persists, the service may be temporarily unavailable."
         case .playbackError:
             "Try playing a different track."
+        case .invalidInput:
+            "Please check the input and try again."
         case .unknown:
             "Try again later."
         }
@@ -89,6 +95,9 @@ enum YTMusicError: LocalizedError, Sendable {
         case .playbackError:
             // Playback errors might be transient
             return true
+        case .invalidInput:
+            // Invalid input won't be fixed by retrying
+            return false
         case .unknown:
             // Unknown errors might be transient
             return true
@@ -108,6 +117,8 @@ enum YTMusicError: LocalizedError, Sendable {
             "Data Error"
         case .playbackError:
             "Playback Error"
+        case .invalidInput:
+            "Invalid Input"
         case .unknown:
             "Error"
         }
@@ -132,6 +143,8 @@ enum YTMusicError: LocalizedError, Sendable {
             "Unable to load content. Please try again."
         case .playbackError:
             "Unable to play this track. Try a different one."
+        case let .invalidInput(message):
+            message
         case let .unknown(message):
             message
         }

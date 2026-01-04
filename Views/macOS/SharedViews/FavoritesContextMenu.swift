@@ -62,6 +62,20 @@ enum FavoritesContextMenu {
         }
     }
 
+    /// Creates a context menu button for toggling a podcast show in/out of Favorites.
+    @ViewBuilder
+    static func menuItem(for podcastShow: PodcastShow, manager: FavoritesManager) -> some View {
+        let isPinned = manager.isPinned(podcastShow: podcastShow)
+        Button {
+            manager.toggle(podcastShow: podcastShow)
+        } label: {
+            Label(
+                isPinned ? "Remove from Favorites" : "Add to Favorites",
+                systemImage: isPinned ? "heart.slash" : "heart"
+            )
+        }
+    }
+
     /// Creates a context menu button for toggling a HomeSectionItem in/out of Favorites.
     @ViewBuilder
     static func menuItem(for item: HomeSectionItem, manager: FavoritesManager) -> some View {
@@ -89,6 +103,8 @@ enum FavoritesContextMenu {
             Self.menuItem(for: playlist, manager: manager)
         case let .artist(artist):
             Self.menuItem(for: artist, manager: manager)
+        case let .podcastShow(show):
+            Self.menuItem(for: show, manager: manager)
         }
     }
 }

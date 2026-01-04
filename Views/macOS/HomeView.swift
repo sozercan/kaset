@@ -64,6 +64,8 @@ struct HomeView: View {
                             self.navigationPath.append(playlist)
                         } else if let artist = destination as? Artist {
                             self.navigationPath.append(artist)
+                        } else if let podcastShow = destination as? PodcastShow {
+                            self.navigationPath.append(podcastShow)
                         }
                     })
                     .staggeredAppearance(index: 0)

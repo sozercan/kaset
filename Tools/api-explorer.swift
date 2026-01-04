@@ -306,6 +306,10 @@ func needsAuthentication(_ browseId: String) -> Bool {
     if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
         return loadCookiesFromAppBackup() != nil // Use auth if available
     }
+    // Podcast shows (MPSPP...) require authentication for episode data
+    if browseId.hasPrefix("MPSPP") {
+        return true
+    }
     return false
 }
 

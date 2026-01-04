@@ -90,6 +90,19 @@ enum ShareContextMenu {
         }
     }
 
+    /// Creates a share menu item for a podcast show.
+    /// Only shows if the show has a navigable ID.
+    @ViewBuilder
+    static func menuItem(for podcastShow: PodcastShow) -> some View {
+        if let url = podcastShow.shareURL {
+            Button {
+                self.showSharePicker(for: url)
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
     /// Creates a share menu item for a HomeSectionItem.
     @ViewBuilder
     static func menuItem(for item: HomeSectionItem) -> some View {
@@ -117,6 +130,8 @@ enum ShareContextMenu {
             Self.menuItem(for: playlist)
         case let .artist(artist):
             Self.menuItem(for: artist)
+        case let .podcastShow(show):
+            Self.menuItem(for: show)
         }
     }
 
@@ -132,6 +147,8 @@ enum ShareContextMenu {
             Self.menuItem(for: playlist)
         case let .artist(artist):
             Self.menuItem(for: artist)
+        case let .podcastShow(show):
+            Self.menuItem(for: show)
         }
     }
 }

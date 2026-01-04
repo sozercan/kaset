@@ -73,9 +73,9 @@ final class SidebarUITests: KasetUITestCase {
 
         navigateToLibrary()
 
-        // Verify Library/Playlists view is displayed
-        let navigationTitle = app.staticTexts["Playlists"]
-        XCTAssertTrue(waitForElement(navigationTitle), "Playlists navigation title should be visible")
+        // Verify Library view is displayed
+        let navigationTitle = app.staticTexts["Library"]
+        XCTAssertTrue(waitForElement(navigationTitle), "Library navigation title should be visible")
     }
 
     // MARK: - Navigation Persistence

@@ -69,6 +69,9 @@ struct NavigationDestinationsModifier: ViewModifier {
                     client: self.client
                 ))
             }
+            .navigationDestination(for: PodcastShow.self) { show in
+                PodcastShowView(show: show, client: self.client)
+            }
     }
 }
 

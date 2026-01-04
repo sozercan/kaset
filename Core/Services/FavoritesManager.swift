@@ -173,6 +173,11 @@ final class FavoritesManager {
         self.isPinned(contentId: artist.id)
     }
 
+    /// Checks if a podcast show is pinned.
+    func isPinned(podcastShow: PodcastShow) -> Bool {
+        self.isPinned(contentId: podcastShow.id)
+    }
+
     /// Toggles a song in/out of Favorites.
     func toggle(song: Song) {
         self.toggle(.from(song))
@@ -191,6 +196,11 @@ final class FavoritesManager {
     /// Toggles an artist in/out of Favorites.
     func toggle(artist: Artist) {
         self.toggle(.from(artist))
+    }
+
+    /// Toggles a podcast show in/out of Favorites.
+    func toggle(podcastShow: PodcastShow) {
+        self.toggle(.from(podcastShow))
     }
 
     // MARK: - Testing Support

@@ -56,3 +56,5 @@ Thumbs.db
 .env
 .env.local
 *.pem
+
+TEMP_*

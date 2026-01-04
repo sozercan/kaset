@@ -83,13 +83,19 @@ protocol YTMusicClientProtocol: Sendable {
     var hasMoreNewReleasesSections: Bool { get }
 
     /// Fetches the podcasts page content (initial sections only for fast display).
-    func getPodcasts() async throws -> HomeResponse
+    func getPodcasts() async throws -> [PodcastSection]
 
     /// Fetches the next batch of podcasts sections via continuation.
-    func getPodcastsContinuation() async throws -> [HomeSection]?
+    func getPodcastsContinuation() async throws -> [PodcastSection]?
 
     /// Whether more podcasts sections are available to load.
     var hasMorePodcastsSections: Bool { get }
+
+    /// Fetches details for a podcast show including its episodes.
+    func getPodcastShow(browseId: String) async throws -> PodcastShowDetail
+
+    /// Fetches more episodes for a podcast show via continuation.
+    func getPodcastEpisodesContinuation(token: String) async throws -> PodcastEpisodesContinuation
 
     /// Searches for content.
     func search(query: String) async throws -> SearchResponse
@@ -115,6 +121,9 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for community playlists only (user-created playlists).
     func searchCommunityPlaylists(query: String) async throws -> SearchResponse
 
+    /// Searches for podcasts only (podcast shows).
+    func searchPodcasts(query: String) async throws -> SearchResponse
+
     /// Fetches the next batch of search results via continuation.
     /// Returns nil if no more results are available.
     func getSearchContinuation() async throws -> SearchResponse?
@@ -130,6 +139,9 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches the user's library playlists.
     func getLibraryPlaylists() async throws -> [Playlist]
+
+    /// Fetches the user's library content including playlists and podcast shows.
+    func getLibraryContent() async throws -> PlaylistParser.LibraryContent
 
     /// Fetches the user's liked songs with pagination support.
     func getLikedSongs() async throws -> LikedSongsResponse
@@ -172,6 +184,12 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Removes a playlist from the user's library.
     func unsubscribeFromPlaylist(playlistId: String) async throws
+
+    /// Subscribes to a podcast show (adds to library).
+    func subscribeToPodcast(showId: String) async throws
+
+    /// Unsubscribes from a podcast show (removes from library).
+    func unsubscribeFromPodcast(showId: String) async throws
 
     /// Subscribes to an artist (adds to library).
     func subscribeToArtist(channelId: String) async throws

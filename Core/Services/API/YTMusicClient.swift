@@ -32,6 +32,7 @@ enum PaginatedContentType: String, Hashable, Sendable {
 
 /// Client for making authenticated requests to YouTube Music's internal API.
 @MainActor
+// swiftlint:disable:next type_body_length
 final class YTMusicClient: YTMusicClientProtocol {
     private let authService: AuthService
     private let webKitManager: WebKitManager
@@ -195,18 +196,79 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Fetches the podcasts page content (initial sections only for fast display).
-    func getPodcasts() async throws -> HomeResponse {
-        try await self.fetchPaginatedContent(type: .podcasts)
+    func getPodcasts() async throws -> [PodcastSection] {
+        self.logger.info("Fetching podcasts page")
+
+        let body: [String: Any] = [
+            "browseId": PaginatedContentType.podcasts.rawValue,
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let sections = PodcastParser.parseDiscovery(data)
+
+        // Store continuation token for progressive loading
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        self.continuationTokens[.podcasts] = token
+
+        let hasMore = token != nil
+        self.logger.info("Podcasts page loaded: \(sections.count) initial sections, hasMore: \(hasMore)")
+        return sections
     }
 
     /// Fetches the next batch of podcasts sections via continuation.
-    func getPodcastsContinuation() async throws -> [HomeSection]? {
-        try await self.fetchContinuation(type: .podcasts)
+    func getPodcastsContinuation() async throws -> [PodcastSection]? {
+        guard let token = continuationTokens[.podcasts] else {
+            self.logger.debug("No podcasts continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching podcasts continuation")
+
+        do {
+            let continuationData = try await requestContinuation(token)
+            let additionalSections = PodcastParser.parseContinuation(continuationData)
+            self.continuationTokens[.podcasts] = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self.continuationTokens[.podcasts] != nil
+
+            self.logger.info("Podcasts continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch podcasts continuation: \(error.localizedDescription)")
+            self.continuationTokens[.podcasts] = nil
+            throw error
+        }
     }
 
     /// Whether more podcasts sections are available to load.
     var hasMorePodcastsSections: Bool {
         self.hasMoreSections(for: .podcasts)
+    }
+
+    /// Fetches details for a podcast show including its episodes.
+    func getPodcastShow(browseId: String) async throws -> PodcastShowDetail {
+        self.logger.info("Fetching podcast show: \(browseId)")
+
+        let body: [String: Any] = [
+            "browseId": browseId,
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.playlist)
+
+        let showDetail = PodcastParser.parseShowDetail(data, showId: browseId)
+
+        self.logger.info("Parsed podcast show '\(showDetail.show.title)' with \(showDetail.episodes.count) episodes")
+        return showDetail
+    }
+
+    /// Fetches more episodes for a podcast show via continuation.
+    func getPodcastEpisodesContinuation(token: String) async throws -> PodcastEpisodesContinuation {
+        self.logger.info("Fetching more podcast episodes via continuation")
+
+        let data = try await requestContinuation(token, ttl: APICache.TTL.playlist)
+        let continuation = PodcastParser.parseEpisodesContinuation(data)
+
+        self.logger.info("Parsed \(continuation.episodes.count) more episodes")
+        return continuation
     }
 
     /// Makes a continuation request for browse endpoints.
@@ -270,6 +332,8 @@ final class YTMusicClient: YTMusicClientProtocol {
         static let featuredPlaylists = "EgeKAQQoADgBagwQDhAKEAMQBBAJEAU="
         /// Community playlists (user-created playlists)
         static let communityPlaylists = "EgeKAQQoAEABagwQDhAKEAMQBBAJEAU="
+        /// Podcasts (podcast shows)
+        static let podcasts = "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
     }
 
     /// Continuation token for filtered search pagination.
@@ -365,6 +429,30 @@ final class YTMusicClient: YTMusicClientProtocol {
         return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
     }
 
+    /// Searches for podcasts only (podcast shows).
+    func searchPodcasts(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching podcasts only for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.podcasts,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let (podcastShows, token) = SearchResponseParser.parsePodcastsOnly(data)
+        self.searchContinuationToken = token
+
+        self.logger.info("Podcasts search found \(podcastShows.count) shows, hasMore: \(token != nil)")
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+            podcastShows: podcastShows,
+            continuationToken: token
+        )
+    }
+
     /// Searches for songs only with pagination support.
     func searchSongsWithPagination(query: String) async throws -> SearchResponse {
         self.logger.info("Searching songs with pagination for: \(query)")
@@ -442,6 +530,19 @@ final class YTMusicClient: YTMusicClientProtocol {
         let playlists = PlaylistParser.parseLibraryPlaylists(data)
         self.logger.info("Parsed \(playlists.count) library playlists")
         return playlists
+    }
+
+    /// Fetches the user's library content including playlists and podcast shows.
+    func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
+        self.logger.info("Fetching library content (playlists + podcasts)")
+
+        // Use library_landing to get all content types including podcasts
+        let body: [String: Any] = [
+            "browseId": "FEmusic_library_landing",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.library)
+        return PlaylistParser.parseLibraryContent(data)
     }
 
     // MARK: - Liked Songs with Pagination
@@ -883,6 +984,68 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         _ = try await self.request("like/removelike", body: body)
         self.logger.info("Successfully removed playlist \(playlistId) from library")
+
+        // Invalidate library cache so UI updates
+        APICache.shared.invalidate(matching: "browse:")
+    }
+
+    /// Subscribes to a podcast show (adds to library).
+    /// This uses the playlist-style "like" subscription API (`like/like` endpoint) by treating podcast shows as playlist-like entities.
+    /// - Parameter showId: The podcast show ID (MPSPP prefix)
+    func subscribeToPodcast(showId: String) async throws {
+        self.logger.info("Subscribing to podcast: \(showId)")
+
+        // Extract the playlist ID portion from MPSPP prefix.
+        // Podcast show IDs use the form "MPSPP" + {idSuffix}, where the corresponding
+        // playlist ID is "PL" + {idSuffix}. We validate the suffix is non-empty.
+        let playlistId: String
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            playlistId = "PL" + suffix
+        } else {
+            playlistId = showId
+        }
+
+        let body: [String: Any] = [
+            "target": ["playlistId": playlistId],
+        ]
+
+        _ = try await self.request("like/like", body: body)
+        self.logger.info("Successfully subscribed to podcast \(showId)")
+
+        // Invalidate library cache so UI updates
+        APICache.shared.invalidate(matching: "browse:")
+    }
+
+    /// Unsubscribes from a podcast show (removes from library).
+    /// This uses the playlist-style "like" subscription API (`like/removelike` endpoint).
+    /// - Parameter showId: The podcast show ID (MPSPP prefix)
+    func unsubscribeFromPodcast(showId: String) async throws {
+        self.logger.info("Unsubscribing from podcast: \(showId)")
+
+        // Extract the playlist ID portion from MPSPP prefix.
+        let playlistId: String
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            playlistId = "PL" + suffix
+        } else {
+            playlistId = showId
+        }
+
+        let body: [String: Any] = [
+            "target": ["playlistId": playlistId],
+        ]
+
+        _ = try await self.request("like/removelike", body: body)
+        self.logger.info("Successfully unsubscribed from podcast \(showId)")
 
         // Invalidate library cache so UI updates
         APICache.shared.invalidate(matching: "browse:")

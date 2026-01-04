@@ -86,6 +86,8 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
 | `UC{channelId}` | Artist Detail | 🌐 | Artist page with songs, albums | `ArtistParser` |
 | `MPLYt{id}` | Lyrics | 🌐 | Song lyrics text | Custom parser |
+| `FEmusic_podcasts` | Podcasts Discovery | 🌐 | Podcast shows and episodes carousel | `PodcastParser` |
+| `MPSPP{id}` | Podcast Show Detail | 🌐 | Podcast episodes with playback progress | `PodcastParser` |
 
 > **Note**: `VLLM` is a special case of `VL{playlistId}` where `LM` is the Liked Music playlist ID. Do NOT use `FEmusic_liked_videos` — it returns only ~13 songs without pagination.
 
@@ -170,8 +172,8 @@ These endpoints are functional but not yet implemented in Kaset.
 | `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | **High** | Browse by mood/genre grids |
 | `FEmusic_new_releases` | New Releases | 🌐 | **Medium** | Recent albums, singles, videos |
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
-| `FEmusic_podcasts` | Podcasts | 🌐 | Low | Podcast discovery |
-| `FEmusic_library_landing` | Library Landing | 🔐 | Medium | Library overview |
+| `FEmusic_library_landing` | Library Landing | 🔐 | **High** | All library content (playlists, podcasts, artists, etc.) |
+| `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
 | `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_artists` | Library Artists | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
@@ -181,6 +183,39 @@ These endpoints are functional but not yet implemented in Kaset.
 | `FEmusic_library_privately_owned_albums` | Uploaded Albums | 🔐 | Low | Uploaded albums |
 
 > \* Library Albums/Artists/Songs return HTTP 400 without authentication. With authentication, they also require specific `params` values for sorting. The exact param encoding needs to be captured from web client requests.
+
+---
+
+#### Library Landing (`FEmusic_library_landing`)
+
+```swift
+let body = ["browseId": "FEmusic_library_landing"]
+// Requires authentication
+```
+
+**Response structure**:
+- Returns all library content in a single `gridRenderer`
+- Includes: Playlists (`VL*`), Podcasts (`MPSPP*`), Artists (`UC*`), Profiles, Auto playlists
+- Contains filter chips for: Playlists, Podcasts, Songs, Albums, Artists, Profiles
+- Each chip's `browseEndpoint.browseId` provides the filtered endpoint
+
+**Filter chip endpoints discovered**:
+| Chip | browseId |
+|------|----------|
+| Playlists | `FEmusic_liked_playlists` |
+| Podcasts | `FEmusic_library_non_music_audio_list` |
+| Songs | `FEmusic_liked_videos` |
+| Albums | `FEmusic_liked_albums` |
+| Artists | `FEmusic_library_corpus_track_artists` |
+| Profiles | `FEmusic_library_user_profile_channels_list` (with params) |
+
+**Item identification by browseId prefix**:
+- `VL*`, `PL*`, `RDCLAK*` — Playlists
+- `MPSPP*` — Podcast shows
+- `UC*` — Artists or Profiles
+- `VLLM` — Liked Music auto playlist
+- `VLRDPN` — New Episodes auto playlist
+- `VLSE` — Episodes for Later auto playlist
 
 ---
 
@@ -304,6 +339,24 @@ let body = ["query": "never gonna give you up"]
 
 **Parser**: `SearchResponseParser` (handles both `musicCardShelfRenderer` and `musicShelfRenderer`)
 
+**Filter Params** (base64-encoded filter values for `params` field):
+
+| Filter | Param Value | Description |
+|--------|-------------|-------------|
+| Songs | `EgWKAQIIAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to songs only |
+| Albums | `EgWKAQIYAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to albums only |
+| Artists | `EgWKAQIgAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to artists only |
+| Playlists | `EgeKAQQoAEABahAQEBAJEAQQAxAFEAoQFRAR` | Filter to playlists only |
+| Podcasts | `EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to podcast shows only |
+
+**Usage Example** (podcasts):
+```swift
+let body: [String: Any] = [
+    "query": "crime weekly",
+    "params": "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
+]
+```
+
 ---
 
 #### Search Suggestions (`music/get_search_suggestions`)
@@ -394,10 +447,24 @@ Tokens come from `getSong(videoId:)` response.
 
 #### Subscribe/Unsubscribe
 
+**Artist Subscription** (uses channel ID):
 ```swift
 let body = ["channelIds": ["UCuAXFkgsw1L7xaCfnd5JJOw"]]
 _ = try await request("subscription/subscribe", body: body)
 ```
+
+**Podcast Subscription** (uses show browse ID with `MPSPP` prefix):
+```swift
+// Subscribe to podcast
+let body = ["playlistIds": ["MPSPP2t8s..."]] // Full MPSPP{id} from show
+_ = try await request("subscription/subscribe", body: body)
+
+// Unsubscribe from podcast  
+let body = ["playlistIds": ["MPSPP2t8s..."]]
+_ = try await request("subscription/unsubscribe", body: body)
+```
+
+> ⚠️ **Note**: Podcast subscription uses `playlistIds`, not `channelIds`. The value is the full `MPSPP{id}` browse ID from the podcast show.
 
 ---
 
@@ -784,6 +851,7 @@ The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 
 | Date | Changes |
 |------|---------|
+| 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |
 | 2024-12-22 | Added Undocumented Endpoints section with discovered endpoints |
 | 2024-12-22 | Unified standalone API Explorer with full endpoint coverage |
 | 2024-12-21 | Initial comprehensive documentation |

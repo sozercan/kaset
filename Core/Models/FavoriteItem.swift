@@ -14,6 +14,7 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
         case album(Album)
         case playlist(Playlist)
         case artist(Artist)
+        case podcastShow(PodcastShow)
     }
 
     /// Creates a new FavoriteItem with current timestamp.
@@ -52,6 +53,11 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
         FavoriteItem(itemType: .artist(artist))
     }
 
+    /// Creates a FavoriteItem from a PodcastShow.
+    static func from(_ podcastShow: PodcastShow) -> FavoriteItem {
+        FavoriteItem(itemType: .podcastShow(podcastShow))
+    }
+
     // MARK: - Display Properties
 
     /// Display title for the item.
@@ -65,6 +71,8 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
             playlist.title
         case let .artist(artist):
             artist.name
+        case let .podcastShow(show):
+            show.title
         }
     }
 
@@ -79,6 +87,8 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
             playlist.author ?? playlist.trackCountDisplay
         case .artist:
             "Artist"
+        case let .podcastShow(show):
+            show.author ?? "Podcast"
         }
     }
 
@@ -93,6 +103,8 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
             playlist.thumbnailURL
         case let .artist(artist):
             artist.thumbnailURL
+        case let .podcastShow(show):
+            show.thumbnailURL
         }
     }
 
@@ -108,6 +120,8 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
             playlist.id
         case let .artist(artist):
             artist.id
+        case let .podcastShow(show):
+            show.id
         }
     }
 
@@ -122,6 +136,8 @@ struct FavoriteItem: Identifiable, Codable, Sendable {
             "Playlist"
         case .artist:
             "Artist"
+        case .podcastShow:
+            "Podcast"
         }
     }
 }
@@ -142,7 +158,8 @@ extension FavoriteItem: Hashable {
 
 extension FavoriteItem {
     /// Converts the FavoriteItem to a HomeSectionItem for display.
-    var asHomeSectionItem: HomeSectionItem {
+    /// Returns nil for podcast shows since HomeSectionItem doesn't support podcasts.
+    var asHomeSectionItem: HomeSectionItem? {
         switch self.itemType {
         case let .song(song):
             .song(song)
@@ -152,6 +169,8 @@ extension FavoriteItem {
             .playlist(playlist)
         case let .artist(artist):
             .artist(artist)
+        case .podcastShow:
+            nil
         }
     }
 }

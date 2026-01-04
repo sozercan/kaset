@@ -16,8 +16,8 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var moodsAndGenresContinuationSections: [[HomeSection]] = []
     var newReleasesResponse: HomeResponse = .init(sections: [])
     var newReleasesContinuationSections: [[HomeSection]] = []
-    var podcastsResponse: HomeResponse = .init(sections: [])
-    var podcastsContinuationSections: [[HomeSection]] = []
+    var podcastsSections: [PodcastSection] = []
+    var podcastsContinuationSections: [[PodcastSection]] = []
     var searchResponse: SearchResponse = .empty
     var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
@@ -222,13 +222,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         return sections
     }
 
-    func getPodcasts() async throws -> HomeResponse {
+    func getPodcasts() async throws -> [PodcastSection] {
         self._podcastsContinuationIndex = 0
         if let error = shouldThrowError { throw error }
-        return self.podcastsResponse
+        return self.podcastsSections
     }
 
-    func getPodcastsContinuation() async throws -> [HomeSection]? {
+    func getPodcastsContinuation() async throws -> [PodcastSection]? {
         if let error = shouldThrowError { throw error }
         guard self._podcastsContinuationIndex < self.podcastsContinuationSections.count else {
             return nil
@@ -236,6 +236,21 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         let sections = self.podcastsContinuationSections[self._podcastsContinuationIndex]
         self._podcastsContinuationIndex += 1
         return sections
+    }
+
+    func getPodcastShow(browseId _: String) async throws -> PodcastShowDetail {
+        if let error = shouldThrowError { throw error }
+        return PodcastShowDetail(
+            show: PodcastShow(id: "test", title: "Test Show", author: nil, description: nil, thumbnailURL: nil, episodeCount: nil),
+            episodes: [],
+            continuationToken: nil,
+            isSubscribed: false
+        )
+    }
+
+    func getPodcastEpisodesContinuation(token _: String) async throws -> PodcastEpisodesContinuation {
+        if let error = shouldThrowError { throw error }
+        return PodcastEpisodesContinuation(episodes: [], continuationToken: nil)
     }
 
     func search(query: String) async throws -> SearchResponse {
@@ -343,6 +358,22 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func searchPodcasts(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        self._searchContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        let hasMore = !self.searchContinuationResponses.isEmpty
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+            podcastShows: [],
+            continuationToken: hasMore ? "mock-token" : nil
+        )
+    }
+
     func getSearchContinuation() async throws -> SearchResponse? {
         if let error = shouldThrowError { throw error }
         guard self._searchContinuationIndex < self.searchContinuationResponses.count else {
@@ -368,6 +399,12 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.getLibraryPlaylistsCalled = true
         if let error = shouldThrowError { throw error }
         return self.libraryPlaylists
+    }
+
+    func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
+        self.getLibraryPlaylistsCalled = true
+        if let error = shouldThrowError { throw error }
+        return PlaylistParser.LibraryContent(playlists: self.libraryPlaylists, podcastShows: [])
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -473,6 +510,14 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     func unsubscribeFromPlaylist(playlistId: String) async throws {
         self.unsubscribeFromPlaylistCalled = true
         self.unsubscribeFromPlaylistIds.append(playlistId)
+        if let error = shouldThrowError { throw error }
+    }
+
+    func subscribeToPodcast(showId _: String) async throws {
+        if let error = shouldThrowError { throw error }
+    }
+
+    func unsubscribeFromPodcast(showId _: String) async throws {
         if let error = shouldThrowError { throw error }
     }
 
