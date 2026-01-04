@@ -55,16 +55,15 @@ struct SettingsManagerTests {
     @Test("Default showNowPlayingNotifications is true")
     func defaultShowNowPlayingNotifications() {
         // Access the shared instance to check its default
-        // Note: This tests the actual default value logic
+        // Note: This tests the expected default value. May fail if user has modified UserDefaults.
         let manager = SettingsManager.shared
-        // Cannot reset UserDefaults in test, but we verify the code path exists
-        #expect(manager.showNowPlayingNotifications == true || manager.showNowPlayingNotifications == false)
+        #expect(manager.showNowPlayingNotifications == true)
     }
 
     @Test("Default hapticFeedbackEnabled is true")
     func defaultHapticFeedbackEnabled() {
         let manager = SettingsManager.shared
-        #expect(manager.hapticFeedbackEnabled == true || manager.hapticFeedbackEnabled == false)
+        #expect(manager.hapticFeedbackEnabled == true)
     }
 
     // MARK: - launchPage Computed Property Tests
