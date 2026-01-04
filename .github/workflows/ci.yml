@@ -43,6 +43,12 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
+      - uses: actions/cache@v5
+        with:
+          path: ./build
+          key: ${{ runner.os }}-xcode-build-${{ hashFiles('**/project.pbxproj', '**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-build-
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
       - name: Show Xcode version
@@ -74,6 +80,12 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
+      - uses: actions/cache@v5
+        with:
+          path: ./build
+          key: ${{ runner.os }}-xcode-build-${{ hashFiles('**/project.pbxproj', '**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-build-
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
       - name: Show Xcode version
@@ -105,6 +117,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
+      - uses: actions/cache@v5
+        with:
+          path: ./build
+          key: ${{ runner.os }}-xcode-build-${{ hashFiles('**/project.pbxproj', '**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-build-
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
       - name: Show Xcode version
