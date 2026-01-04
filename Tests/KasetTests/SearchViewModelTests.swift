@@ -77,4 +77,26 @@ struct SearchViewModelTests {
         let songItems = response.songs.map { SearchResultItem.song($0) }
         #expect(songItems.count == 3)
     }
+
+    @Test("Podcast filter is available")
+    func podcastFilterIsAvailable() {
+        let filters = SearchViewModel.SearchFilter.allCases
+        #expect(filters.contains(.podcasts))
+    }
+
+    @Test("Podcast filter has correct raw value")
+    func podcastFilterRawValue() {
+        #expect(SearchViewModel.SearchFilter.podcasts.rawValue == "Podcasts")
+    }
+
+    @Test("Selected filter defaults to all")
+    func selectedFilterDefaultsToAll() {
+        #expect(self.viewModel.selectedFilter == .all)
+    }
+
+    @Test("Can set filter to podcasts")
+    func canSetFilterToPodcasts() {
+        self.viewModel.selectedFilter = .podcasts
+        #expect(self.viewModel.selectedFilter == .podcasts)
+    }
 }

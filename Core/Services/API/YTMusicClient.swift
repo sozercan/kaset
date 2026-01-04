@@ -990,18 +990,24 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Subscribes to a podcast show (adds to library).
-    /// This uses the same like/like endpoint as playlists since podcast shows are playlist-like.
+    /// This uses the playlist-style "like" subscription API (`like/like` endpoint) by treating podcast shows as playlist-like entities.
     /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func subscribeToPodcast(showId: String) async throws {
         self.logger.info("Subscribing to podcast: \(showId)")
 
-        // Extract the playlist ID portion from MPSPP prefix
-        // MPSPP prefix = podcast show, the underlying playlist ID is after "MPSPP" with "PL" prefix
-        let playlistId: String = if showId.hasPrefix("MPSPP") {
-            // Convert MPSPP{id} to PL{id}
-            "PL" + String(showId.dropFirst(5))
+        // Extract the playlist ID portion from MPSPP prefix.
+        // Podcast show IDs use the form "MPSPP" + {idSuffix}, where the corresponding
+        // playlist ID is "PL" + {idSuffix}. We validate the suffix is non-empty.
+        let playlistId: String
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            playlistId = "PL" + suffix
         } else {
-            showId
+            playlistId = showId
         }
 
         let body: [String: Any] = [
@@ -1016,15 +1022,22 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Unsubscribes from a podcast show (removes from library).
+    /// This uses the playlist-style "like" subscription API (`like/removelike` endpoint).
     /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func unsubscribeFromPodcast(showId: String) async throws {
         self.logger.info("Unsubscribing from podcast: \(showId)")
 
-        // Extract the playlist ID portion from MPSPP prefix
-        let playlistId: String = if showId.hasPrefix("MPSPP") {
-            "PL" + String(showId.dropFirst(5))
+        // Extract the playlist ID portion from MPSPP prefix.
+        let playlistId: String
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            playlistId = "PL" + suffix
         } else {
-            showId
+            playlistId = showId
         }
 
         let body: [String: Any] = [
