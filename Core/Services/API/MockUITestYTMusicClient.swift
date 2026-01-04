@@ -99,6 +99,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getPodcastEpisodesContinuation(token _: String) async throws -> PodcastEpisodesContinuation {
+        try? await Task.sleep(for: .milliseconds(100))
+        return PodcastEpisodesContinuation(episodes: [], continuationToken: nil)
+    }
+
     func search(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
         return self.searchResults

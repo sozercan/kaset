@@ -248,6 +248,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getPodcastEpisodesContinuation(token _: String) async throws -> PodcastEpisodesContinuation {
+        if let error = shouldThrowError { throw error }
+        return PodcastEpisodesContinuation(episodes: [], continuationToken: nil)
+    }
+
     func search(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)

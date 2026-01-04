@@ -94,6 +94,9 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches details for a podcast show including its episodes.
     func getPodcastShow(browseId: String) async throws -> PodcastShowDetail
 
+    /// Fetches more episodes for a podcast show via continuation.
+    func getPodcastEpisodesContinuation(token: String) async throws -> PodcastEpisodesContinuation
+
     /// Searches for content.
     func search(query: String) async throws -> SearchResponse
 

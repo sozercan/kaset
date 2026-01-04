@@ -242,9 +242,14 @@ struct PodcastShowView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
 
     @State private var episodes: [PodcastEpisode] = []
+    @State private var continuationToken: String?
     @State private var loadingState: LoadingState = .idle
     @State private var isSubscribed: Bool = false
     @State private var isSubscribing: Bool = false
+    @State private var showAllEpisodes = false
+
+    /// Number of episodes to show in the preview
+    private let previewEpisodeCount = 5
 
     var body: some View {
         ScrollView {
@@ -259,7 +264,24 @@ struct PodcastShowView: View {
             }
             .padding(24)
         }
+        .accentBackground(from: self.show.thumbnailURL)
         .navigationTitle(self.show.title)
+        .navigationDestination(for: AllEpisodesDestination.self) { destination in
+            AllEpisodesView(
+                show: destination.show,
+                initialEpisodes: destination.episodes,
+                continuationToken: destination.continuationToken,
+                client: self.client
+            )
+        }
+        .navigationDestination(isPresented: self.$showAllEpisodes) {
+            AllEpisodesView(
+                show: self.show,
+                initialEpisodes: self.episodes,
+                continuationToken: self.continuationToken,
+                client: self.client
+            )
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
@@ -304,10 +326,10 @@ struct PodcastShowView: View {
 
                 // Action buttons
                 HStack(spacing: 12) {
-                    // Play button
-                    if let firstEpisode = episodes.first {
+                    // Play button - plays from the first episode and queues the rest
+                    if !self.episodes.isEmpty {
                         Button {
-                            self.playEpisode(firstEpisode)
+                            self.playEpisodeInQueue(at: 0)
                         } label: {
                             Label("Play Latest", systemImage: "play.fill")
                                 .font(.headline)
@@ -341,9 +363,26 @@ struct PodcastShowView: View {
 
     private var episodesList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Episodes")
-                .font(.title2)
-                .fontWeight(.semibold)
+            // Header with "Show All" button
+            HStack {
+                Text("Episodes")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                if self.episodes.count > self.previewEpisodeCount || self.continuationToken != nil {
+                    Button {
+                        self.showAllEpisodes = true
+                    } label: {
+                        Text("Show All")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.accent)
+                }
+            }
 
             if self.loadingState == .loading {
                 ProgressView()
@@ -351,15 +390,20 @@ struct PodcastShowView: View {
                     .padding()
             } else {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(self.episodes) { episode in
+                    ForEach(Array(self.previewEpisodes.enumerated()), id: \.element.id) { index, episode in
                         PodcastEpisodeRow(episode: episode) {
-                            self.playEpisode(episode)
+                            self.playEpisodeInQueue(at: index)
                         }
                         Divider()
                     }
                 }
             }
         }
+    }
+
+    /// Episodes to show in the preview (limited to previewEpisodeCount)
+    private var previewEpisodes: [PodcastEpisode] {
+        Array(self.episodes.prefix(self.previewEpisodeCount))
     }
 
     private func loadShow() async {
@@ -369,6 +413,7 @@ struct PodcastShowView: View {
         do {
             let showDetail = try await client.getPodcastShow(browseId: self.show.id)
             self.episodes = showDetail.episodes
+            self.continuationToken = showDetail.continuationToken
             self.isSubscribed = showDetail.isSubscribed
             self.loadingState = .loaded
         } catch {
@@ -377,8 +422,17 @@ struct PodcastShowView: View {
         }
     }
 
-    private func playEpisode(_ episode: PodcastEpisode) {
-        let song = Song(
+    /// Plays an episode and queues the remaining episodes from the show.
+    private func playEpisodeInQueue(at index: Int) {
+        let songs = self.episodes.map { self.episodeToSong($0) }
+        Task {
+            await self.playerService.playQueue(songs, startingAt: index)
+        }
+    }
+
+    /// Converts a podcast episode to a Song for playback.
+    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
+        Song(
             id: episode.id,
             title: episode.title,
             artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
@@ -387,9 +441,6 @@ struct PodcastShowView: View {
             thumbnailURL: episode.thumbnailURL,
             videoId: episode.id
         )
-        Task {
-            await self.playerService.play(song: song)
-        }
     }
 
     private func toggleSubscription() async {
@@ -478,6 +529,113 @@ struct PodcastEpisodeRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - AllEpisodesDestination
+
+/// Navigation destination for the all episodes view.
+struct AllEpisodesDestination: Hashable {
+    let show: PodcastShow
+    let episodes: [PodcastEpisode]
+    let continuationToken: String?
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.show.id)
+    }
+
+    static func == (lhs: AllEpisodesDestination, rhs: AllEpisodesDestination) -> Bool {
+        lhs.show.id == rhs.show.id
+    }
+}
+
+// MARK: - AllEpisodesView
+
+/// View displaying all episodes of a podcast show with infinite scroll pagination.
+@available(macOS 26.0, *)
+struct AllEpisodesView: View {
+    let show: PodcastShow
+    let initialEpisodes: [PodcastEpisode]
+    let continuationToken: String?
+    let client: any YTMusicClientProtocol
+
+    @Environment(PlayerService.self) private var playerService
+    @State private var episodes: [PodcastEpisode] = []
+    @State private var currentContinuationToken: String?
+    @State private var isLoadingMore = false
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(self.episodes.enumerated()), id: \.element.id) { index, episode in
+                    PodcastEpisodeRow(episode: episode) {
+                        self.playEpisodeInQueue(at: index)
+                    }
+                    Divider()
+
+                    // Infinite scroll trigger - load more when near the end
+                    if episode.id == self.episodes.last?.id, self.currentContinuationToken != nil {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding()
+                            .onAppear {
+                                Task {
+                                    await self.loadMoreEpisodes()
+                                }
+                            }
+                    }
+                }
+            }
+            .padding(24)
+        }
+        .accentBackground(from: self.show.thumbnailURL)
+        .navigationTitle("All Episodes")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
+        }
+        .onAppear {
+            // Initialize with episodes passed from parent
+            if self.episodes.isEmpty {
+                self.episodes = self.initialEpisodes
+                self.currentContinuationToken = self.continuationToken
+            }
+        }
+    }
+
+    private func loadMoreEpisodes() async {
+        guard !self.isLoadingMore, let token = self.currentContinuationToken else { return }
+        self.isLoadingMore = true
+        defer { self.isLoadingMore = false }
+
+        do {
+            let continuation = try await self.client.getPodcastEpisodesContinuation(token: token)
+            self.episodes.append(contentsOf: continuation.episodes)
+            self.currentContinuationToken = continuation.continuationToken
+            DiagnosticsLogger.api.info("Loaded \(continuation.episodes.count) more episodes")
+        } catch {
+            DiagnosticsLogger.api.error("Failed to load more episodes: \(error.localizedDescription)")
+        }
+    }
+
+    /// Plays an episode and queues the remaining episodes.
+    private func playEpisodeInQueue(at index: Int) {
+        let songs = self.episodes.map { self.episodeToSong($0) }
+        Task {
+            await self.playerService.playQueue(songs, startingAt: index)
+        }
+    }
+
+    /// Converts a podcast episode to a Song for playback.
+    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
+        Song(
+            id: episode.id,
+            title: episode.title,
+            artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
+            album: nil,
+            duration: episode.durationSeconds.map { TimeInterval($0) },
+            thumbnailURL: episode.thumbnailURL,
+            videoId: episode.id
+        )
     }
 }
 

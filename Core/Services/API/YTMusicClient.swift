@@ -260,6 +260,17 @@ final class YTMusicClient: YTMusicClientProtocol {
         return showDetail
     }
 
+    /// Fetches more episodes for a podcast show via continuation.
+    func getPodcastEpisodesContinuation(token: String) async throws -> PodcastEpisodesContinuation {
+        self.logger.info("Fetching more podcast episodes via continuation")
+
+        let data = try await requestContinuation(token, ttl: APICache.TTL.playlist)
+        let continuation = PodcastParser.parseEpisodesContinuation(data)
+
+        self.logger.info("Parsed \(continuation.episodes.count) more episodes")
+        return continuation
+    }
+
     /// Makes a continuation request for browse endpoints.
     private func requestContinuation(_ token: String, ttl: TimeInterval? = APICache.TTL.home) async throws -> [String: Any] {
         let body: [String: Any] = [
