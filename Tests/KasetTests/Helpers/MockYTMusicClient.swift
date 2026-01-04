@@ -28,6 +28,8 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var playlistContinuationTracks: [String: [[Song]]] = [:]
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
+    var artistSongsResponse: [Song] = []
+    var moodCategoryResponse: HomeResponse = .init(sections: [])
     var lyricsResponses: [String: Lyrics] = [:]
     var radioQueueSongs: [String: [Song]] = [:]
 
@@ -127,6 +129,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var getLyricsVideoIds: [String] = []
     private(set) var getRadioQueueCalled = false
     private(set) var getRadioQueueVideoIds: [String] = []
+    private(set) var moodCategoryCalled = false
 
     // MARK: - Error Simulation
 
@@ -485,6 +488,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.getArtistSongsCalled = true
         self.getArtistSongsBrowseIds.append(browseId)
         if let error = shouldThrowError { throw error }
+        // Return artistSongsResponse if set, otherwise fall back to dictionary lookup
+        if !self.artistSongsResponse.isEmpty {
+            return self.artistSongsResponse
+        }
         return self.artistSongs[browseId] ?? []
     }
 
@@ -569,9 +576,9 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
+        self.moodCategoryCalled = true
         if let error = shouldThrowError { throw error }
-        // Return empty response by default
-        return HomeResponse(sections: [])
+        return self.moodCategoryResponse
     }
 
     // MARK: - Helper Methods
@@ -628,6 +635,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.getLyricsVideoIds = []
         self.getRadioQueueCalled = false
         self.getRadioQueueVideoIds = []
+        self.moodCategoryCalled = false
         self.shouldThrowError = nil
     }
 }
