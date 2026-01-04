@@ -364,7 +364,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
         case .likedMusic:
             "heart.fill"
         case .library:
-            "music.note.list"
+            "square.stack.fill"
         }
     }
 }

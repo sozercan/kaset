@@ -268,6 +268,7 @@ final class SearchViewModel {
                 albums: self.results.albums + continuation.albums,
                 artists: self.results.artists + continuation.artists,
                 playlists: self.results.playlists + continuation.playlists,
+                podcastShows: self.results.podcastShows + continuation.podcastShows,
                 continuationToken: continuation.continuationToken
             )
 

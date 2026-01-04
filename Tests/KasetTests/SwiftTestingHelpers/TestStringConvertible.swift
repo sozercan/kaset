@@ -85,6 +85,16 @@ extension HomeSectionItem: CustomTestStringConvertible {
     }
 }
 
+// MARK: - PodcastShow + CustomTestStringConvertible
+
+/// Provides readable test descriptions for PodcastShow in test failure logs.
+extension PodcastShow: CustomTestStringConvertible {
+    public var testDescription: String {
+        let authorText = author.map { " by \($0)" } ?? ""
+        return "Podcast: \"\(title)\"\(authorText)"
+    }
+}
+
 // MARK: - SearchResultItem + CustomTestStringConvertible
 
 /// Provides readable test descriptions for SearchResultItem in test failure logs.
@@ -99,6 +109,8 @@ extension SearchResultItem: CustomTestStringConvertible {
             "SearchResult[Artist]: \(artist.testDescription)"
         case let .playlist(playlist):
             "SearchResult[Playlist]: \(playlist.testDescription)"
+        case let .podcastShow(show):
+            "SearchResult[Podcast]: \(show.testDescription)"
         }
     }
 }

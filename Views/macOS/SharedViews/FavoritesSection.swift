@@ -104,7 +104,7 @@ struct FavoritesSection: View {
             Divider()
         }
 
-        // View button for albums/playlists/artists
+        // View button for albums/playlists/artists/podcasts
         switch item.itemType {
         case .album:
             Button {
@@ -130,7 +130,16 @@ struct FavoritesSection: View {
             }
 
             Divider()
-        default:
+        case .podcastShow:
+            Button {
+                self.handleTap(item)
+            } label: {
+                Label("View Podcast", systemImage: "mic.fill")
+            }
+
+            Divider()
+        case .song:
+            // Songs don't need a "View" button, they play on tap
             EmptyView()
         }
 

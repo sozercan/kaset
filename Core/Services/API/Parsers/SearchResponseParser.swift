@@ -464,6 +464,7 @@ enum SearchResponseParser {
         var albums: [Album] = []
         var artists: [Artist] = []
         var playlists: [Playlist] = []
+        var podcastShows: [PodcastShow] = []
         var continuationToken: String?
 
         // Continuation responses have a different structure
@@ -473,7 +474,10 @@ enum SearchResponseParser {
             // Parse items
             if let contents = musicShelfContinuation["contents"] as? [[String: Any]] {
                 for itemData in contents {
-                    if let item = parseSearchResultItem(itemData) {
+                    // Try to parse as podcast show first (for podcast search continuation)
+                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
+                        podcastShows.append(show)
+                    } else if let item = parseSearchResultItem(itemData) {
                         Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
                     }
                 }
@@ -494,6 +498,7 @@ enum SearchResponseParser {
             albums: albums,
             artists: artists,
             playlists: playlists,
+            podcastShows: podcastShows,
             continuationToken: continuationToken
         )
     }
