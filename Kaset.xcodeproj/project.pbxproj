@@ -10,17 +10,6 @@
 		027E18189745CEC67E6828A7 /* MusicIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CAC6AE62FD1331D6D7197DE /* MusicIntent.swift */; };
 		03DA3E6574F126D01306B99E /* SearchSuggestionsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */; };
 		0A5EAC082557373484B2690F /* LyricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F870C29ED7A61E4BFD552C1 /* LyricsView.swift */; };
-		FAV0000100000001 /* FavoriteItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000001 /* FavoriteItem.swift */; };
-		FAV0000100000002 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000002 /* FavoritesManager.swift */; };
-		SLS0000100000001 /* SongLikeStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SLS0000200000001 /* SongLikeStatusManager.swift */; };
-		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
-		FAV0000100000004 /* FavoritesContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000004 /* FavoritesContextMenu.swift */; };
-		FAV0000100000005 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000005 /* FavoritesManagerTests.swift */; };
-		SHR0000100000001 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000001 /* ShareService.swift */; };
-		SHR0000100000002 /* ShareContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000002 /* ShareContextMenu.swift */; };
-		SHR0000100000003 /* ShareableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000003 /* ShareableTests.swift */; };
-		URL0000100000001 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000001 /* URLHandler.swift */; };
-		URL0000100000002 /* URLHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000002 /* URLHandlerTests.swift */; };
 		0BC44ED1A1295E5FF52B74BA /* ArtistDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */; };
 		0BF5A9C968BD0D2D9CB057AA /* CassetteIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390C91F55BBE06827FE8EA94 /* CassetteIcon.swift */; };
 		0C310209A7D8DD311A22DCE6 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57FBD1969A60A57AEE99F5D /* EqualizerView.swift */; };
@@ -55,12 +44,12 @@
 		893FAE9DD3873EF800B84AD7 /* CommandBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */; };
 		894D5939EB562697AE32257F /* LikedMusicViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814910C684FB517EB8004E3C /* LikedMusicViewModel.swift */; };
 		92B599384FFC157929331ABA /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28AB8530C16716F70CFEEE4 /* ErrorView.swift */; };
-		NETM000100000001 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NETM000200000001 /* NetworkMonitor.swift */; };
 		9757065D24FEA188EEC1C958 /* TopSongsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B51A0D3A698E9CDEC337C23 /* TopSongsView.swift */; };
 		985AD2259BF6FDD75C52CF5E /* AnimationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37AD7895605C401CE66CF5E0 /* AnimationConfiguration.swift */; };
 		9A82CDB4FA77A8D528E88445 /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBABB9FAFB133BB2F35BDA14 /* AnimationModifiers.swift */; };
 		9D2D4B6287C05DBE99BF3A0E /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */; };
 		B1A24892B22867B3A96E3116 /* LikedMusicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8DCC29CA2E49E033B9CB72D /* LikedMusicView.swift */; };
+		B376665F45E0C3B7F291135C /* PlayerService+Queue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */; };
 		B3A3A2F8AD2C1E3CB4BF1AF4 /* LyricsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 544BCEDE857D4B48CB77862B /* LyricsSummary.swift */; };
 		B45E2A504B1706DE3B32C390 /* ChartsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611D0582A47EC57F44C8ED4A /* ChartsView.swift */; };
 		B79F88AB264E1E80C2BFE453 /* SearchSuggestionsParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D652564736AB747CA0AC35 /* SearchSuggestionsParserTests.swift */; };
@@ -163,7 +152,21 @@
 		E50000010000000000000708 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000708 /* AppLaunchUITests.swift */; };
 		E50000010000000000000800 /* QueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000020000000000000800 /* QueueView.swift */; };
 		EBD8E2FD5FD9ACA330580345 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568CA211D22F80400B7C464F /* ChartsViewModel.swift */; };
+		FAV0000100000001 /* FavoriteItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000001 /* FavoriteItem.swift */; };
+		FAV0000100000002 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000002 /* FavoritesManager.swift */; };
+		FAV0000100000003 /* FavoritesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000003 /* FavoritesSection.swift */; };
+		FAV0000100000004 /* FavoritesContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000004 /* FavoritesContextMenu.swift */; };
+		FAV0000100000005 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAV0000200000005 /* FavoritesManagerTests.swift */; };
 		FC3FE91660E0590011A62E6A /* NewReleasesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BE87B6EFFFDDC581F4793ED /* NewReleasesView.swift */; };
+		FCF216A14E8D8CA9425230E9 /* PlayerService+Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05DB41D343AFD0297AFB9CF /* PlayerService+Library.swift */; };
+		NETM000100000001 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NETM000200000001 /* NetworkMonitor.swift */; };
+		RAD0000100000001 /* StartRadioContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = RAD0000200000001 /* StartRadioContextMenu.swift */; };
+		SHR0000100000001 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000001 /* ShareService.swift */; };
+		SHR0000100000002 /* ShareContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000002 /* ShareContextMenu.swift */; };
+		SHR0000100000003 /* ShareableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHR0000200000003 /* ShareableTests.swift */; };
+		SLS0000100000001 /* SongLikeStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SLS0000200000001 /* SongLikeStatusManager.swift */; };
+		URL0000100000001 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000001 /* URLHandler.swift */; };
+		URL0000100000002 /* URLHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000002 /* URLHandlerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -184,22 +187,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		FAV0000200000001 /* FavoriteItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteItem.swift; sourceTree = "<group>"; };
-		FAV0000200000002 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
-		SLS0000200000001 /* SongLikeStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLikeStatusManager.swift; sourceTree = "<group>"; };
-		FAV0000200000003 /* FavoritesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesSection.swift; sourceTree = "<group>"; };
-		FAV0000200000004 /* FavoritesContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesContextMenu.swift; sourceTree = "<group>"; };
-		FAV0000200000005 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManagerTests.swift; sourceTree = "<group>"; };
-		SHR0000200000001 /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
-		SHR0000200000002 /* ShareContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareContextMenu.swift; sourceTree = "<group>"; };
-		SHR0000200000003 /* ShareableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareableTests.swift; sourceTree = "<group>"; };
-		URL0000200000001 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
-		URL0000200000002 /* URLHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandlerTests.swift; sourceTree = "<group>"; };
 		04E21018BFEFD7B96F998F28 /* IntelligenceModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceModifier.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E2 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E3 /* SettingsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
-		NETM000200000001 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E4 /* HapticService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
 		15F144163C7B4864A81CF002 /* Tags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tags.swift; sourceTree = "<group>"; };
 		15F144163C7B4864A81CF005 /* TestStringConvertible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestStringConvertible.swift; sourceTree = "<group>"; };
@@ -221,6 +212,7 @@
 		5FD0EE4EB4A6F24FB0C9E93B /* MusicIntentIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MusicIntentIntegrationTests.swift; sourceTree = "<group>"; };
 		5FD0EE4EB4A6F24FB0C9E93C /* HapticServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticServiceTests.swift; sourceTree = "<group>"; };
 		611D0582A47EC57F44C8ED4A /* ChartsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChartsView.swift; path = Views/macOS/ChartsView.swift; sourceTree = "<group>"; };
+		67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PlayerService+Queue.swift"; sourceTree = "<group>"; };
 		6BE87B6EFFFDDC581F4793ED /* NewReleasesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewReleasesView.swift; path = Views/macOS/NewReleasesView.swift; sourceTree = "<group>"; };
 		74A7B3F1E5D9DD334BDCC588 /* Kaset.Debug.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = Kaset.Debug.entitlements; path = App/Kaset.Debug.entitlements; sourceTree = "<group>"; };
 		7A40C879039FC38C73C120FC /* MoodCategoryDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MoodCategoryDetailView.swift; sourceTree = "<group>"; };
@@ -237,6 +229,7 @@
 		ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CommandBarView.swift; sourceTree = "<group>"; };
 		B28AB8530C16716F70CFEEE4 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		B5B735BB57DD2ACF165D683F /* MiniPlayerWebView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MiniPlayerWebView.swift; sourceTree = "<group>"; };
+		C05DB41D343AFD0297AFB9CF /* PlayerService+Library.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PlayerService+Library.swift"; sourceTree = "<group>"; };
 		C8E539792EF7A65A0032CA24 /* kaset.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = kaset.icon; sourceTree = "<group>"; };
 		CBABB9FAFB133BB2F35BDA14 /* AnimationModifiers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnimationModifiers.swift; sourceTree = "<group>"; };
 		D2E3F4A5B6C7D8E9F0A1B2C3 /* MiniPlayerViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MiniPlayerViews.swift; sourceTree = "<group>"; };
@@ -345,9 +338,22 @@
 		E50000020000000000000800 /* QueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueView.swift; sourceTree = "<group>"; };
 		F3F9BF1AB1DBD6A559E0C840 /* SongActionsHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongActionsHelper.swift; sourceTree = "<group>"; };
 		F525663B77A8906E1792B4EC /* ArtistDetailViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtistDetailViewModel.swift; sourceTree = "<group>"; };
+		FAV0000200000001 /* FavoriteItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteItem.swift; sourceTree = "<group>"; };
+		FAV0000200000002 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
+		FAV0000200000003 /* FavoritesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesSection.swift; sourceTree = "<group>"; };
+		FAV0000200000004 /* FavoritesContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesContextMenu.swift; sourceTree = "<group>"; };
+		FAV0000200000005 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManagerTests.swift; sourceTree = "<group>"; };
 		FB268027D394E5FBB41AE578 /* MusicSearchTool.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MusicSearchTool.swift; sourceTree = "<group>"; };
 		FB268027D394E5FBB41AE579 /* QueueTool.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueTool.swift; sourceTree = "<group>"; };
 		FDE5C3A60C3FC3C8CFD8BBB0 /* LoadingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LoadingState.swift; sourceTree = "<group>"; };
+		NETM000200000001 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		RAD0000200000001 /* StartRadioContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRadioContextMenu.swift; sourceTree = "<group>"; };
+		SHR0000200000001 /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
+		SHR0000200000002 /* ShareContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareContextMenu.swift; sourceTree = "<group>"; };
+		SHR0000200000003 /* ShareableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareableTests.swift; sourceTree = "<group>"; };
+		SLS0000200000001 /* SongLikeStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLikeStatusManager.swift; sourceTree = "<group>"; };
+		URL0000200000001 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
+		URL0000200000002 /* URLHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandlerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -390,6 +396,7 @@
 				1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */,
 				FAV0000200000003 /* FavoritesSection.swift */,
 				FAV0000200000004 /* FavoritesContextMenu.swift */,
+				RAD0000200000001 /* StartRadioContextMenu.swift */,
 				SHR0000200000002 /* ShareContextMenu.swift */,
 			);
 			path = SharedViews;
@@ -625,6 +632,8 @@
 			children = (
 				E50000020000000000000040 /* PlayerService.swift */,
 				E50000020000000000000041 /* NowPlayingManager.swift */,
+				67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */,
+				C05DB41D343AFD0297AFB9CF /* PlayerService+Library.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -1019,10 +1028,13 @@
 				SLS0000100000001 /* SongLikeStatusManager.swift in Sources */,
 				FAV0000100000003 /* FavoritesSection.swift in Sources */,
 				FAV0000100000004 /* FavoritesContextMenu.swift in Sources */,
+				RAD0000100000001 /* StartRadioContextMenu.swift in Sources */,
 				NETM000100000001 /* NetworkMonitor.swift in Sources */,
 				SHR0000100000001 /* ShareService.swift in Sources */,
 				SHR0000100000002 /* ShareContextMenu.swift in Sources */,
 				URL0000100000001 /* URLHandler.swift in Sources */,
+				B376665F45E0C3B7F291135C /* PlayerService+Queue.swift in Sources */,
+				FCF216A14E8D8CA9425230E9 /* PlayerService+Library.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

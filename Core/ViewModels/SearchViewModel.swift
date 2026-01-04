@@ -69,7 +69,8 @@ final class SearchViewModel {
         case songs = "Songs"
         case albums = "Albums"
         case artists = "Artists"
-        case playlists = "Playlists"
+        case featuredPlaylists = "Featured playlists"
+        case communityPlaylists = "Community playlists"
 
         var id: String { rawValue }
     }
@@ -85,7 +86,7 @@ final class SearchViewModel {
             self.results.albums.map { .album($0) }
         case .artists:
             self.results.artists.map { .artist($0) }
-        case .playlists:
+        case .featuredPlaylists, .communityPlaylists:
             self.results.playlists.map { .playlist($0) }
         }
     }
@@ -213,8 +214,10 @@ final class SearchViewModel {
                 try await self.client.searchAlbums(query: currentQuery)
             case .artists:
                 try await self.client.searchArtists(query: currentQuery)
-            case .playlists:
-                try await self.client.searchPlaylists(query: currentQuery)
+            case .featuredPlaylists:
+                try await self.client.searchFeaturedPlaylists(query: currentQuery)
+            case .communityPlaylists:
+                try await self.client.searchCommunityPlaylists(query: currentQuery)
             }
 
             // Check cancellation and query change before updating results

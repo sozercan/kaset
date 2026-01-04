@@ -334,11 +334,32 @@ let body: [String: Any] = [
 - Lyrics browse ID (in tabs)
 - Related tracks / autoplay queue
 - Feedback tokens for library actions
+- Continuation token for infinite mix (in `playlistPanelRenderer.continuations`)
 
 **Used for**:
 - `getLyrics(videoId:)` - Extracts lyrics browse ID
 - `getSong(videoId:)` - Gets full song metadata with tokens
 - `getRadioQueue(videoId:)` - Gets radio mix (with `playlistId: "RDAMVM{videoId}"`)
+- `getMixQueue(playlistId:)` - Gets artist mix (with `playlistId: "RDEM..."`)
+
+**Continuation (Infinite Mix)**:
+
+For mix playlists, the response includes a continuation token at:
+```
+playlistPanelRenderer.continuations[0].nextRadioContinuationData.continuation
+```
+
+To fetch more songs:
+```swift
+let body: [String: Any] = [
+    "continuation": token,
+    "enablePersistentPlaylistPanel": true,
+    "isAudioOnly": true
+]
+_ = try await request("next", body: body)
+```
+
+Response structure: `continuationContents.playlistPanelContinuation.contents`
 
 ---
 

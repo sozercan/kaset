@@ -321,15 +321,19 @@ jobs:
             version "$VERSION"
             sha256 "${{ steps.sha256.outputs.sha256 }}"
 
-            url "https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
+            url "https://github.com/${{ github.repository }}/releases/download/v#{version}/kaset-v#{version}.dmg"
             name "Kaset"
-            desc "Native macOS YouTube Music client"
+            desc "Native YouTube Music client"
             homepage "https://github.com/${{ github.repository }}"
 
             auto_updates true
             depends_on macos: ">= :tahoe"
 
             app "Kaset.app"
+
+            postflight do
+              system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
+            end
 
             zap trash: [
               "~/Library/Application Support/Kaset",

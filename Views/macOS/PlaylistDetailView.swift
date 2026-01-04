@@ -316,6 +316,10 @@ struct PlaylistDetailView: View {
 
             Divider()
 
+            StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
+
+            Divider()
+
             Button {
                 SongActionsHelper.addToLibrary(track, playerService: self.playerService)
             } label: {

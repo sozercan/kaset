@@ -13,6 +13,7 @@
 //  Commands:
 //    browse <browseId> [params]    - Explore a browse endpoint
 //    action <endpoint> <body>      - Explore an action endpoint (body as JSON)
+//    continuation <token> [ep]     - Explore a continuation (ep: browse or next)
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
@@ -26,6 +27,7 @@
 //    ./Tools/api-explorer.swift browse FEmusic_charts
 //    ./Tools/api-explorer.swift browse FEmusic_liked_playlists   # Requires auth
 //    ./Tools/api-explorer.swift action search '{"query":"never gonna give you up"}'
+//    ./Tools/api-explorer.swift continuation <token> next        # Mix queue continuation
 //    ./Tools/api-explorer.swift auth
 //    ./Tools/api-explorer.swift list
 //
@@ -432,16 +434,26 @@ func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, 
 }
 
 /// Explores a continuation request to fetch more items.
-func exploreContinuation(_ token: String, verbose: Bool = false, outputFile: String? = nil) async {
+/// - Parameters:
+///   - token: The continuation token
+///   - endpoint: The endpoint to use ("browse" for home/library, "next" for mix queues)
+func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil) async {
     print("🔄 Exploring continuation request")
     print("   Token: \(token.prefix(50))...")
+    print("   Endpoint: \(endpoint)")
     print()
 
-    let body: [String: Any] = ["continuation": token]
+    var body: [String: Any] = ["continuation": token]
+
+    // For "next" endpoint continuations (mix queues), add required parameters
+    if endpoint == "next" {
+        body["enablePersistentPlaylistPanel"] = true
+        body["isAudioOnly"] = true
+    }
 
     do {
         // Always authenticate for continuations
-        let (data, statusCode) = try await makeRequest(endpoint: "browse", body: body, authenticated: true)
+        let (data, statusCode) = try await makeRequest(endpoint: endpoint, body: body, authenticated: true)
 
         if statusCode == 401 || statusCode == 403 {
             print("❌ HTTP \(statusCode) - Authentication required")
@@ -460,9 +472,28 @@ func exploreContinuation(_ token: String, verbose: Bool = false, outputFile: Str
                 if let renderer = value as? [String: Any] {
                     if let contents = renderer["contents"] as? [[String: Any]] {
                         print("   └─ \(key): \(contents.count) items")
+
+                        // For playlistPanelContinuation (mix queues), show song count
+                        if key == "playlistPanelContinuation" {
+                            var songCount = 0
+                            for item in contents {
+                                if item["playlistPanelVideoRenderer"] != nil ||
+                                    item["playlistPanelVideoWrapperRenderer"] != nil
+                                {
+                                    songCount += 1
+                                }
+                            }
+                            print("   └─ Songs in continuation: \(songCount)")
+                        }
                     }
-                    if renderer["continuations"] != nil {
-                        print("   └─ \(key) has 'continuations' array (legacy format)")
+                    if let continuations = renderer["continuations"] as? [[String: Any]] {
+                        print("   └─ \(key) has 'continuations' array (\(continuations.count) tokens)")
+                        // Check for nextRadioContinuationData (mix queue specific)
+                        if let firstCont = continuations.first,
+                           firstCont["nextRadioContinuationData"] != nil
+                        {
+                            print("   └─ Has nextRadioContinuationData (more mix songs available)")
+                        }
                     }
                 }
             }
@@ -718,6 +749,7 @@ func showHelp() {
     Commands:
       browse <browseId> [params]     Explore a browse endpoint
       action <endpoint> <body>       Explore an action endpoint (body as JSON)
+      continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
       list                           List all known endpoints
       auth                           Check authentication status
       help                           Show this help message
@@ -739,6 +771,11 @@ func showHelp() {
       # Action endpoints
       ./api-explorer.swift action search '{"query":"never gonna give you up"}'
       ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+      ./api-explorer.swift action next '{"playlistId":"RDEM...","videoId":"abc123"}'
+
+      # Continuation (for pagination / infinite mix)
+      ./api-explorer.swift continuation <token>           # browse endpoint (default)
+      ./api-explorer.swift continuation <token> next      # next endpoint (for mix queues)
 
       # Check auth status
       ./api-explorer.swift auth
@@ -810,12 +847,15 @@ func runMain() async {
 
     case "continuation":
         guard filteredArgs.count >= 2 else {
-            print("❌ Usage: continuation <token>")
-            print("   Get the token from a browse response's continuationItemRenderer or continuations array")
+            print("❌ Usage: continuation <token> [endpoint]")
+            print("   endpoint: 'browse' (default) for home/library, 'next' for mix queues")
+            print("   Get the token from a browse response's continuationItemRenderer or")
+            print("   from a next response's nextRadioContinuationData.continuation")
             return
         }
         let token = filteredArgs[1]
-        await exploreContinuation(token, verbose: verbose, outputFile: outputFile)
+        let endpoint = filteredArgs.count >= 3 ? filteredArgs[2] : "browse"
+        await exploreContinuation(token, endpoint: endpoint, verbose: verbose, outputFile: outputFile)
 
     case "list":
         listEndpoints()

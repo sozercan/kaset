@@ -143,6 +143,28 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func searchFeaturedPlaylists(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: self.searchResults.playlists,
+            continuationToken: nil
+        )
+    }
+
+    func searchCommunityPlaylists(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: self.searchResults.playlists,
+            continuationToken: nil
+        )
+    }
+
     func getSearchContinuation() async throws -> SearchResponse? {
         nil
     }
@@ -278,6 +300,40 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 videoId: "radio-video-\(videoId)-\(index)"
             )
         }
+    }
+
+    func getMixQueue(playlistId: String, startVideoId _: String?) async throws -> RadioQueueResult {
+        try? await Task.sleep(for: .milliseconds(100))
+        // Return a mix queue based on the playlist ID
+        let songs = (0 ..< 50).map { index in
+            Song(
+                id: "mix-\(playlistId)-\(index)",
+                title: "Mix Song \(index + 1)",
+                artists: [Artist(id: "mix-artist-\(index % 5)", name: "Mix Artist \(index % 5 + 1)")],
+                album: nil,
+                duration: TimeInterval(180 + index * 5),
+                thumbnailURL: nil,
+                videoId: "mix-video-\(playlistId)-\(index)"
+            )
+        }
+        return RadioQueueResult(songs: songs, continuationToken: "mock-continuation-token")
+    }
+
+    func getMixQueueContinuation(continuationToken _: String) async throws -> RadioQueueResult {
+        try? await Task.sleep(for: .milliseconds(100))
+        // Return more songs for infinite mix
+        let songs = (50 ..< 75).map { index in
+            Song(
+                id: "mix-continuation-\(index)",
+                title: "Mix Song \(index + 1)",
+                artists: [Artist(id: "mix-artist-\(index % 5)", name: "Mix Artist \(index % 5 + 1)")],
+                album: nil,
+                duration: TimeInterval(180 + index * 5),
+                thumbnailURL: nil,
+                videoId: "mix-video-continuation-\(index)"
+            )
+        }
+        return RadioQueueResult(songs: songs, continuationToken: nil)
     }
 
     func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {

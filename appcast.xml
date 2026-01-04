@@ -5,24 +5,20 @@
         <link>https://github.com/sozercan/kaset/releases</link>
         <description>Most recent updates for Kaset, a native macOS YouTube Music client.</description>
         <language>en</language>
-        
-        <!-- 
-        Example item structure (add new items at the top):
-        
+
         <item>
-            <title>Version 1.0.1</title>
-            <sparkle:releaseNotesLink>https://github.com/sozercan/kaset/releases/tag/v1.0.1</sparkle:releaseNotesLink>
-            <pubDate>Mon, 01 Jan 2025 12:00:00 +0000</pubDate>
-            <enclosure 
-                url="https://github.com/sozercan/kaset/releases/download/v1.0.1/Kaset-v1.0.1.dmg"
-                sparkle:version="1"
-                sparkle:shortVersionString="1.0.1"
-                length="12345678"
+            <title>Version 0.4.1</title>
+            <sparkle:releaseNotesLink>https://github.com/sozercan/kaset/releases/tag/v0.4.1</sparkle:releaseNotesLink>
+            <pubDate>Sat, 03 Jan 2026 01:26:17 +0000</pubDate>
+            <enclosure
+                url="https://github.com/sozercan/kaset/releases/download/v0.4.1/kaset-v0.4.1.dmg"
+                sparkle:version="9"
+                sparkle:shortVersionString="0.4.1"
+                length="7088250"
                 type="application/octet-stream"
-                sparkle:edSignature="YOUR_ED25519_SIGNATURE"/>
+                sparkle:edSignature="Ciarop5rEwvr72Ehe+nFO69vs3Gyf7EENhNxn8GKCp3inf+d3bX9WdRQZFBckK2Yj/qBIZSLBUuDKkJnJ7dTDA=="/>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
         </item>
-        -->
-        
+
     </channel>
 </rss>

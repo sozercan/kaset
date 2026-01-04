@@ -36,7 +36,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private(set) var state: PlaybackState = .idle
 
     /// Currently playing track.
-    private(set) var currentTrack: Song?
+    var currentTrack: Song?
 
     /// Whether playback is active.
     var isPlaying: Bool { self.state.isPlaying }
@@ -63,10 +63,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private(set) var repeatMode: RepeatMode = .off
 
     /// Playback queue.
-    private(set) var queue: [Song] = []
+    var queue: [Song] = []
 
     /// Index of current track in queue.
-    private(set) var currentIndex: Int = 0
+    var currentIndex: Int = 0
 
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
@@ -79,13 +79,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private(set) var hasUserInteractedThisSession: Bool = false
 
     /// Like status of the current track.
-    private(set) var currentTrackLikeStatus: LikeStatus = .indifferent
+    var currentTrackLikeStatus: LikeStatus = .indifferent
 
     /// Whether the current track is in the user's library.
-    private(set) var currentTrackInLibrary: Bool = false
+    var currentTrackInLibrary: Bool = false
 
     /// Feedback tokens for the current track (used for library add/remove).
-    private(set) var currentTrackFeedbackTokens: FeedbackTokens?
+    var currentTrackFeedbackTokens: FeedbackTokens?
 
     /// Whether the lyrics panel is visible.
     var showLyrics: Bool = false {
@@ -107,15 +107,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-    // MARK: - Private Properties
+    // MARK: - Internal Properties (for extensions)
 
-    private let logger = DiagnosticsLogger.player
-    private var ytMusicClient: (any YTMusicClientProtocol)?
+    let logger = DiagnosticsLogger.player
+    var ytMusicClient: (any YTMusicClientProtocol)?
+
+    /// Continuation token for loading more songs in infinite mix/radio.
+    var mixContinuationToken: String?
+
+    /// Whether we're currently fetching more mix songs.
+    var isFetchingMoreMixSongs: Bool = false
 
     /// UserDefaults key for persisting volume.
-    private static let volumeKey = "playerVolume"
+    static let volumeKey = "playerVolume"
     /// UserDefaults key for persisting volume before mute.
-    private static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
+    static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
 
     // MARK: - Initialization
 
@@ -357,6 +363,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
                 }
+                // Check if we should fetch more songs
+                await self.fetchMoreMixSongsIfNeeded()
                 return
             }
 
@@ -366,14 +374,27 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
                 }
+                // Check if we should fetch more songs
+                await self.fetchMoreMixSongsIfNeeded()
             } else if self.repeatMode == .all {
                 // Loop back to start if repeat all is enabled
                 self.currentIndex = 0
                 if let firstSong = queue.first {
                     await self.play(song: firstSong)
                 }
+            } else if self.mixContinuationToken != nil {
+                // At end of queue but have continuation - fetch more and continue
+                let previousCount = self.queue.count
+                await self.fetchMoreMixSongsIfNeeded()
+                // Only advance if new songs were actually added
+                if self.queue.count > previousCount {
+                    self.currentIndex += 1
+                    if let nextSong = queue[safe: currentIndex] {
+                        await self.play(song: nextSong)
+                    }
+                }
             }
-            // At end of queue with repeat off, don't do anything
+            // At end of queue with repeat off and no continuation, don't do anything
             return
         }
 
@@ -497,330 +518,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
-    }
-
-    /// Plays a queue of songs starting at the specified index.
-    func playQueue(_ songs: [Song], startingAt index: Int = 0) async {
-        guard !songs.isEmpty else { return }
-        let safeIndex = max(0, min(index, songs.count - 1))
-        self.queue = songs
-        self.currentIndex = safeIndex
-        if let song = songs[safe: safeIndex] {
-            await self.play(song: song)
-        }
-    }
-
-    /// Plays a song and fetches similar songs (radio queue) in the background.
-    /// The queue will be populated with similar songs from YouTube Music's radio feature.
-    func playWithRadio(song: Song) async {
-        self.logger.info("Playing with radio: \(song.title)")
-
-        // Start with just this song in the queue
-        self.queue = [song]
-        self.currentIndex = 0
-        await self.play(song: song)
-
-        // Fetch radio queue in background
-        await self.fetchAndApplyRadioQueue(for: song.videoId)
-    }
-
-    /// Fetches radio queue and applies it, keeping the current song at the front.
-    private func fetchAndApplyRadioQueue(for videoId: String) async {
-        guard let client = ytMusicClient else {
-            self.logger.warning("No YTMusicClient available for fetching radio queue")
-            return
-        }
-
-        do {
-            let radioSongs = try await client.getRadioQueue(videoId: videoId)
-            guard !radioSongs.isEmpty else {
-                self.logger.info("No radio songs returned")
-                return
-            }
-
-            // Only update if we're still playing the same song
-            guard let currentSong = self.currentTrack, currentSong.videoId == videoId else {
-                self.logger.info("Track changed, discarding radio queue")
-                return
-            }
-
-            // Ensure the current song is at the front of the queue
-            // The radio queue may or may not include the seed song
-            var newQueue: [Song] = []
-
-            // Check if the current song is already in the radio queue
-            let radioContainsCurrentSong = radioSongs.contains { $0.videoId == videoId }
-
-            if radioContainsCurrentSong {
-                // Find the index of current song and reorder queue to start from it
-                if let currentSongIndex = radioSongs.firstIndex(where: { $0.videoId == videoId }) {
-                    // Put current song first, then the rest
-                    newQueue.append(currentSong)
-                    for (index, song) in radioSongs.enumerated() where index != currentSongIndex {
-                        newQueue.append(song)
-                    }
-                } else {
-                    newQueue = radioSongs
-                }
-            } else {
-                // Current song not in radio queue - prepend it
-                newQueue.append(currentSong)
-                newQueue.append(contentsOf: radioSongs)
-            }
-
-            self.queue = newQueue
-            self.currentIndex = 0
-            self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
-        } catch {
-            self.logger.warning("Failed to fetch radio queue: \(error.localizedDescription)")
-        }
-    }
-
-    /// Clears the playback queue except for the currently playing track.
-    func clearQueue() {
-        guard let currentTrack else {
-            self.queue = []
-            self.currentIndex = 0
-            return
-        }
-        // Keep only the current track
-        self.queue = [currentTrack]
-        self.currentIndex = 0
-        self.logger.info("Queue cleared, keeping current track")
-    }
-
-    /// Plays a song from the queue at the specified index.
-    func playFromQueue(at index: Int) async {
-        guard index >= 0, index < self.queue.count else { return }
-        self.currentIndex = index
-        if let song = queue[safe: index] {
-            await self.play(song: song)
-        }
-    }
-
-    /// Inserts songs immediately after the current track.
-    /// - Parameter songs: The songs to insert into the queue.
-    func insertNextInQueue(_ songs: [Song]) {
-        guard !songs.isEmpty else { return }
-        let insertIndex = min(self.currentIndex + 1, self.queue.count)
-        self.queue.insert(contentsOf: songs, at: insertIndex)
-        self.logger.info("Inserted \(songs.count) songs at position \(insertIndex)")
-    }
-
-    /// Removes songs from the queue by video ID.
-    /// - Parameter videoIds: Set of video IDs to remove.
-    func removeFromQueue(videoIds: Set<String>) {
-        let previousCount = self.queue.count
-        self.queue.removeAll { videoIds.contains($0.videoId) }
-
-        // Adjust currentIndex if needed
-        if let current = currentTrack,
-           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
-        {
-            self.currentIndex = newIndex
-        } else if self.currentIndex >= self.queue.count {
-            self.currentIndex = max(0, self.queue.count - 1)
-        }
-
-        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
-    }
-
-    /// Reorders the queue based on a new order of video IDs.
-    /// - Parameter videoIds: The new order of video IDs.
-    func reorderQueue(videoIds: [String]) {
-        var reordered: [Song] = []
-        var videoIdToSong: [String: Song] = [:]
-
-        for song in self.queue {
-            videoIdToSong[song.videoId] = song
-        }
-
-        for videoId in videoIds {
-            if let song = videoIdToSong[videoId] {
-                reordered.append(song)
-            }
-        }
-
-        self.queue = reordered
-
-        // Update currentIndex to match current track's new position
-        if let current = currentTrack,
-           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
-        {
-            self.currentIndex = newIndex
-        }
-
-        self.logger.info("Queue reordered with \(reordered.count) songs")
-    }
-
-    /// Shuffles the queue, keeping the current track in place at the front.
-    func shuffleQueue() {
-        guard self.queue.count > 1 else { return }
-
-        // Remove current track, shuffle the rest, put current track at front
-        if let currentSong = queue[safe: currentIndex] {
-            var shuffled = self.queue
-            shuffled.remove(at: self.currentIndex)
-            shuffled.shuffle()
-            shuffled.insert(currentSong, at: 0)
-            self.queue = shuffled
-            self.currentIndex = 0
-        } else {
-            self.queue.shuffle()
-            self.currentIndex = 0
-        }
-
-        self.logger.info("Queue shuffled")
-    }
-
-    /// Adds songs to the end of the queue.
-    /// - Parameter songs: The songs to append to the queue.
-    func appendToQueue(_ songs: [Song]) {
-        guard !songs.isEmpty else { return }
-        self.queue.append(contentsOf: songs)
-        self.logger.info("Appended \(songs.count) songs to queue")
-    }
-
-    // MARK: - Like/Dislike/Library Actions
-
-    /// Likes the current track (thumbs up).
-    func likeCurrentTrack() {
-        guard let track = currentTrack else { return }
-        self.logger.info("Liking current track: \(track.videoId)")
-
-        // Toggle: if already liked, remove the like
-        let newStatus: LikeStatus = self.currentTrackLikeStatus == .like ? .indifferent : .like
-        let previousStatus = self.currentTrackLikeStatus
-        self.currentTrackLikeStatus = newStatus
-
-        // Use API call for reliable rating
-        Task {
-            do {
-                try await self.ytMusicClient?.rateSong(videoId: track.videoId, rating: newStatus)
-                self.logger.info("Successfully rated song as \(newStatus.rawValue)")
-            } catch {
-                self.logger.error("Failed to rate song: \(error.localizedDescription)")
-                // Revert on failure
-                self.currentTrackLikeStatus = previousStatus
-            }
-        }
-    }
-
-    /// Dislikes the current track (thumbs down).
-    func dislikeCurrentTrack() {
-        guard let track = currentTrack else { return }
-        self.logger.info("Disliking current track: \(track.videoId)")
-
-        // Toggle: if already disliked, remove the dislike
-        let newStatus: LikeStatus = self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike
-        let previousStatus = self.currentTrackLikeStatus
-        self.currentTrackLikeStatus = newStatus
-
-        // Use API call for reliable rating
-        Task {
-            do {
-                try await self.ytMusicClient?.rateSong(videoId: track.videoId, rating: newStatus)
-                self.logger.info("Successfully rated song as \(newStatus.rawValue)")
-            } catch {
-                self.logger.error("Failed to rate song: \(error.localizedDescription)")
-                // Revert on failure
-                self.currentTrackLikeStatus = previousStatus
-            }
-        }
-    }
-
-    /// Toggles the library status of the current track.
-    func toggleLibraryStatus() {
-        guard let track = currentTrack else { return }
-        self.logger.info("Toggling library status for current track: \(track.videoId)")
-
-        // Determine which token to use based on current state
-        let isCurrentlyInLibrary = self.currentTrackInLibrary
-        let tokenToUse = isCurrentlyInLibrary
-            ? self.currentTrackFeedbackTokens?.remove
-            : self.currentTrackFeedbackTokens?.add
-
-        guard let token = tokenToUse else {
-            self.logger.warning("No feedback token available for library toggle")
-            return
-        }
-
-        // Optimistic update
-        let previousState = self.currentTrackInLibrary
-        self.currentTrackInLibrary.toggle()
-
-        // Use API call for reliable library management
-        Task {
-            do {
-                try await self.ytMusicClient?.editSongLibraryStatus(feedbackTokens: [token])
-                let action = isCurrentlyInLibrary ? "removed from" : "added to"
-                self.logger.info("Successfully \(action) library")
-
-                // After successful toggle, we need to swap the tokens
-                // The remove token becomes add, and vice versa
-                // Re-fetch metadata to get updated tokens
-                await self.fetchSongMetadata(videoId: track.videoId)
-            } catch {
-                self.logger.error("Failed to toggle library status: \(error.localizedDescription)")
-                // Revert on failure
-                self.currentTrackInLibrary = previousState
-            }
-        }
-    }
-
-    /// Updates the like status from WebView observation.
-    func updateLikeStatus(_ status: LikeStatus) {
-        self.currentTrackLikeStatus = status
-    }
-
-    /// Resets like/library status when track changes.
-    private func resetTrackStatus() {
-        self.currentTrackLikeStatus = .indifferent
-        self.currentTrackInLibrary = false
-        self.currentTrackFeedbackTokens = nil
-    }
-
-    /// Fetches full song metadata including feedbackTokens from the API.
-    private func fetchSongMetadata(videoId: String) async {
-        guard let client = ytMusicClient else {
-            self.logger.warning("No YTMusicClient available for fetching song metadata")
-            return
-        }
-
-        do {
-            let songData = try await client.getSong(videoId: videoId)
-
-            // Update current track with full metadata if it's still the same song
-            if self.currentTrack?.videoId == videoId {
-                // Preserve the title/artist from WebView if they're better
-                let title = self.currentTrack?.title == "Loading..." ? songData.title : (self.currentTrack?.title ?? songData.title)
-                let artists = self.currentTrack?.artists.isEmpty == true ? songData.artists : (self.currentTrack?.artists ?? songData.artists)
-
-                self.currentTrack = Song(
-                    id: videoId,
-                    title: title,
-                    artists: artists,
-                    album: songData.album ?? self.currentTrack?.album,
-                    duration: songData.duration ?? self.currentTrack?.duration,
-                    thumbnailURL: songData.thumbnailURL ?? self.currentTrack?.thumbnailURL,
-                    videoId: videoId,
-                    likeStatus: songData.likeStatus,
-                    isInLibrary: songData.isInLibrary,
-                    feedbackTokens: songData.feedbackTokens
-                )
-
-                // Update service state
-                if let likeStatus = songData.likeStatus {
-                    self.currentTrackLikeStatus = likeStatus
-                }
-                self.currentTrackInLibrary = songData.isInLibrary ?? false
-                self.currentTrackFeedbackTokens = songData.feedbackTokens
-
-                self.logger.info("Updated track metadata - inLibrary: \(self.currentTrackInLibrary), hasTokens: \(self.currentTrackFeedbackTokens != nil)")
-            }
-        } catch {
-            self.logger.warning("Failed to fetch song metadata: \(error.localizedDescription)")
-        }
     }
 
     // MARK: - Private Methods

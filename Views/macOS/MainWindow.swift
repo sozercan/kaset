@@ -137,7 +137,7 @@ struct MainWindow: View {
     @ViewBuilder
     private var mainContent: some View {
         if let client = ytMusicClient {
-            HStack(spacing: 0) {
+            ZStack(alignment: .trailing) {
                 // Main navigation content
                 NavigationSplitView(columnVisibility: self.$columnVisibility) {
                     Sidebar(selection: self.$navigationSelection)
@@ -152,11 +152,11 @@ struct MainWindow: View {
                     }
                 }
 
-                // Right sidebar - either lyrics or queue (mutually exclusive)
-                self.rightSidebarView(client: client)
+                // Right sidebar overlay - either lyrics or queue (mutually exclusive)
+                self.rightSidebarOverlay(client: client)
             }
-            .animation(.easeInOut(duration: 0.2), value: self.playerService.showLyrics)
-            .animation(.easeInOut(duration: 0.2), value: self.playerService.showQueue)
+            .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
+            .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
             .frame(minWidth: 900, minHeight: 600)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -178,25 +178,31 @@ struct MainWindow: View {
         }
     }
 
-    /// Right sidebar showing either lyrics or queue (mutually exclusive).
+    /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
     @ViewBuilder
-    private func rightSidebarView(client: any YTMusicClientProtocol) -> some View {
+    private func rightSidebarOverlay(client: any YTMusicClientProtocol) -> some View {
         let showRightSidebar = self.playerService.showLyrics || self.playerService.showQueue
 
-        Divider()
-            .opacity(showRightSidebar ? 1 : 0)
-            .frame(width: showRightSidebar ? 1 : 0)
+        if showRightSidebar {
+            VStack {
+                Spacer()
 
-        Group {
-            if self.playerService.showLyrics {
-                LyricsView(client: client)
-            } else if self.playerService.showQueue {
-                QueueView()
+                Group {
+                    if self.playerService.showLyrics {
+                        LyricsView(client: client)
+                    } else if self.playerService.showQueue {
+                        QueueView()
+                    }
+                }
+                .frame(maxHeight: .infinity)
+                .padding(.top, 12)
+                .padding(.bottom, 76) // Space for PlayerBar
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+
+                Spacer()
             }
+            .padding(.trailing, 16)
         }
-        .frame(width: showRightSidebar ? 280 : 0)
-        .opacity(showRightSidebar ? 1 : 0)
-        .clipped()
     }
 
     @ViewBuilder

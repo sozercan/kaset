@@ -109,6 +109,12 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for playlists only (filtered search with pagination).
     func searchPlaylists(query: String) async throws -> SearchResponse
 
+    /// Searches for featured playlists only (YouTube Music curated playlists).
+    func searchFeaturedPlaylists(query: String) async throws -> SearchResponse
+
+    /// Searches for community playlists only (user-created playlists).
+    func searchCommunityPlaylists(query: String) async throws -> SearchResponse
+
     /// Fetches the next batch of search results via continuation.
     /// Returns nil if no more results are available.
     func getSearchContinuation() async throws -> SearchResponse?
@@ -182,6 +188,18 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches a radio queue (similar songs) based on a video ID.
     /// Returns an array of songs that form a "radio" playlist based on the seed track.
     func getRadioQueue(videoId: String) async throws -> [Song]
+
+    /// Fetches a mix queue from a playlist ID (e.g., artist mix "RDEM...").
+    /// - Parameters:
+    ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
+    ///   - startVideoId: Optional starting video ID
+    /// - Returns: RadioQueueResult with songs and continuation token for infinite mix
+    func getMixQueue(playlistId: String, startVideoId: String?) async throws -> RadioQueueResult
+
+    /// Fetches more songs for a mix queue using a continuation token.
+    /// - Parameter continuationToken: The continuation token from a previous getMixQueue call
+    /// - Returns: RadioQueueResult with additional songs and next continuation token
+    func getMixQueueContinuation(continuationToken: String) async throws -> RadioQueueResult
 
     /// Fetches content for a moods/genres category page.
     /// Returns sections of songs/playlists for the category.
@@ -311,6 +329,13 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async
+
+    /// Plays an artist mix from a mix playlist ID.
+    /// Starts playing immediately and fetches the full mix queue in the background.
+    /// - Parameters:
+    ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
+    ///   - startVideoId: Optional starting video ID
+    func playWithMix(playlistId: String, startVideoId: String?) async
 
     // MARK: - Like/Library Actions
 

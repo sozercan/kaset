@@ -425,7 +425,6 @@ struct PlayerBar: View {
             .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
             .accessibilityLabel("Lyrics")
             .accessibilityValue(self.playerService.showLyrics ? "Showing" : "Hidden")
-            .disabled(self.playerService.currentTrack == nil)
 
             // Queue button
             Button {

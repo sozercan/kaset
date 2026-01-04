@@ -412,6 +412,10 @@ struct SearchView: View {
 
             Divider()
 
+            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
+
+            Divider()
+
             Button {
                 SongActionsHelper.addToLibrary(song, playerService: self.playerService)
             } label: {
