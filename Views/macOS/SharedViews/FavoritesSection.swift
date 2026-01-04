@@ -69,6 +69,8 @@ struct FavoritesSection: View {
             self.onNavigate?(playlist)
         case let .artist(artist):
             self.onNavigate?(artist)
+        case let .podcastShow(show):
+            self.onNavigate?(show)
         }
     }
 
@@ -271,6 +273,7 @@ private struct FavoriteItemCard: View {
         case .album: "square.stack"
         case .playlist: "music.note.list"
         case .artist: "person.fill"
+        case .podcastShow: "mic.fill"
         }
     }
 

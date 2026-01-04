@@ -179,7 +179,7 @@ struct PlayerBar: View {
             Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .frame(width: 40, alignment: .trailing)
+                .frame(minWidth: 45, alignment: .trailing)
 
             // Seek slider
             Slider(value: self.$seekValue, in: 0 ... 1) { editing in
@@ -197,7 +197,7 @@ struct PlayerBar: View {
             Text("-\(self.formatTime(self.playerService.duration - (self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress)))")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .frame(width: 40, alignment: .leading)
+                .frame(minWidth: 45, alignment: .leading)
         }
     }
 
@@ -213,9 +213,16 @@ struct PlayerBar: View {
 
     private func formatTime(_ seconds: TimeInterval) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%d:%02d", mins, secs)
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let mins = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, mins, secs)
+        } else {
+            return String(format: "%d:%02d", mins, secs)
+        }
     }
 
     // MARK: - Playback Controls

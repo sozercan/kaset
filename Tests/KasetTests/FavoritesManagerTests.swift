@@ -295,7 +295,10 @@ struct FavoritesManagerTests {
         let song = TestFixtures.makeSong(id: "convert-test", title: "Convert Song")
         let item = FavoriteItem.from(song)
 
-        let homeSectionItem = item.asHomeSectionItem
+        guard let homeSectionItem = item.asHomeSectionItem else {
+            Issue.record("Expected non-nil HomeSectionItem")
+            return
+        }
         #expect(homeSectionItem.title == "Convert Song")
         if case let .song(convertedSong) = homeSectionItem {
             #expect(convertedSong.videoId == "convert-test")

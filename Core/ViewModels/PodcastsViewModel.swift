@@ -39,12 +39,7 @@ final class PodcastsViewModel {
         self.logger.info("Loading podcasts content")
 
         do {
-            let response = try await client.getPodcasts()
-            // Parse podcast-specific sections from the home response
-            self.sections = PodcastParser.parseDiscovery([:])
-            // For now, use the home response sections and try to detect podcast content
-            // The HomeResponse from getPodcasts() already contains the right structure
-            self.sections = Self.convertHomeSectionsToPodcastSections(response.sections)
+            self.sections = try await self.client.getPodcasts()
 
             self.hasMoreSections = self.client.hasMorePodcastsSections
             self.loadingState = .loaded
@@ -86,12 +81,11 @@ final class PodcastsViewModel {
 
             do {
                 if let additionalSections = try await client.getPodcastsContinuation() {
-                    let podcastSections = Self.convertHomeSectionsToPodcastSections(additionalSections)
-                    self.sections.append(contentsOf: podcastSections)
+                    self.sections.append(contentsOf: additionalSections)
                     self.continuationsLoaded += 1
                     self.hasMoreSections = self.client.hasMorePodcastsSections
                     let continuationNum = self.continuationsLoaded
-                    self.logger.info("Background loaded \(podcastSections.count) more podcast sections (continuation \(continuationNum))")
+                    self.logger.info("Background loaded \(additionalSections.count) more podcast sections (continuation \(continuationNum))")
                 } else {
                     self.hasMoreSections = false
                     break
@@ -116,61 +110,5 @@ final class PodcastsViewModel {
         self.hasMoreSections = true
         self.continuationsLoaded = 0
         await self.load()
-    }
-
-    // MARK: - Helper Methods
-
-    /// Converts HomeSections to PodcastSections, preserving podcast content.
-    /// The podcasts endpoint returns data in the same format as home, so we convert it.
-    private static func convertHomeSectionsToPodcastSections(_ homeSections: [HomeSection]) -> [PodcastSection] {
-        homeSections.compactMap { homeSection -> PodcastSection? in
-            let podcastItems: [PodcastSectionItem] = homeSection.items.compactMap { item -> PodcastSectionItem? in
-                switch item {
-                case let .song(song):
-                    // Songs in podcast context are likely episodes
-                    let episode = PodcastEpisode(
-                        id: song.videoId,
-                        title: song.title,
-                        showTitle: song.artistsDisplay.isEmpty ? nil : song.artistsDisplay,
-                        showBrowseId: nil,
-                        description: nil,
-                        thumbnailURL: song.thumbnailURL,
-                        publishedDate: nil,
-                        duration: song.durationDisplay == "--:--" ? nil : song.durationDisplay,
-                        durationSeconds: song.duration.map { Int($0) },
-                        playbackProgress: 0,
-                        isPlayed: false
-                    )
-                    return .episode(episode)
-
-                case let .playlist(playlist):
-                    // Check if this is a podcast show (MPSPP prefix)
-                    if playlist.id.hasPrefix("MPSPP") {
-                        let show = PodcastShow(
-                            id: playlist.id,
-                            title: playlist.title,
-                            author: playlist.author,
-                            description: playlist.description,
-                            thumbnailURL: playlist.thumbnailURL,
-                            episodeCount: playlist.trackCount
-                        )
-                        return .show(show)
-                    }
-                    return nil
-
-                case .album, .artist:
-                    // Albums and artists aren't podcast content
-                    return nil
-                }
-            }
-
-            guard !podcastItems.isEmpty else { return nil }
-
-            return PodcastSection(
-                id: homeSection.id,
-                title: homeSection.title,
-                items: podcastItems
-            )
-        }
     }
 }

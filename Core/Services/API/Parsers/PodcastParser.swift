@@ -34,6 +34,41 @@ enum PodcastParser {
         return sections
     }
 
+    /// Parses a continuation response for podcasts page.
+    static func parseContinuation(_ data: [String: Any]) -> [PodcastSection] {
+        var sections: [PodcastSection] = []
+
+        // Continuation responses use continuationContents
+        if let continuationContents = data["continuationContents"] as? [String: Any],
+           let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
+           let contents = sectionListContinuation["contents"] as? [[String: Any]]
+        {
+            for sectionData in contents {
+                if let section = Self.parsePodcastSection(sectionData) {
+                    sections.append(section)
+                }
+            }
+        }
+
+        // Also try musicCarouselShelfContinuation for carousel-style continuations
+        if let continuationContents = data["continuationContents"] as? [String: Any],
+           let carouselContinuation = continuationContents["musicCarouselShelfContinuation"] as? [String: Any],
+           let contents = carouselContinuation["contents"] as? [[String: Any]]
+        {
+            var items: [PodcastSectionItem] = []
+            for itemData in contents {
+                if let item = Self.parsePodcastItem(itemData) {
+                    items.append(item)
+                }
+            }
+            if !items.isEmpty {
+                sections.append(PodcastSection(id: UUID().uuidString, title: "More", items: items))
+            }
+        }
+
+        return sections
+    }
+
     // MARK: - Section Parsing
 
     private static func parsePodcastSection(_ data: [String: Any]) -> PodcastSection? {
@@ -321,15 +356,19 @@ enum PodcastParser {
     // MARK: - Podcast Show Detail Parsing
 
     /// Parses a podcast show detail page (MPSPP{id}).
-    static func parseShowDetail(_ data: [String: Any], showId: String) -> PodcastShowDetail {
+    static func parseShowDetail( // swiftlint:disable:this function_body_length cyclomatic_complexity
+        _ data: [String: Any],
+        showId: String
+    ) -> PodcastShowDetail {
         var showTitle = ""
         var author: String?
         var description: String?
         var thumbnailURL: URL?
         var episodes: [PodcastEpisode] = []
         var continuationToken: String?
+        var isSubscribed = false
 
-        // Parse header
+        // Parse header from old format (musicDetailHeaderRenderer)
         if let header = data["header"] as? [String: Any],
            let musicDetailHeaderRenderer = header["musicDetailHeaderRenderer"] as? [String: Any]
         {
@@ -341,8 +380,77 @@ enum PodcastParser {
             thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
         }
 
-        // Parse episodes from contents
+        // Parse from twoColumnBrowseResultsRenderer (current format)
         if let contents = data["contents"] as? [String: Any],
+           let twoColumnResults = contents["twoColumnBrowseResultsRenderer"] as? [String: Any]
+        {
+            // Parse header from tabs → sectionListRenderer → musicResponsiveHeaderRenderer
+            if let tabs = twoColumnResults["tabs"] as? [[String: Any]],
+               let firstTab = tabs.first,
+               let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+               let tabContent = tabRenderer["content"] as? [String: Any],
+               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+            {
+                for sectionData in sectionContents {
+                    if let headerRenderer = sectionData["musicResponsiveHeaderRenderer"] as? [String: Any] {
+                        showTitle = ParsingHelpers.extractTitle(from: headerRenderer) ?? showTitle
+                        author = ParsingHelpers.extractSubtitle(from: headerRenderer) ?? author
+                        description = Self.extractDescription(from: headerRenderer) ?? description
+
+                        let thumbnails = ParsingHelpers.extractThumbnails(from: headerRenderer)
+                        if let thumb = thumbnails.last {
+                            thumbnailURL = URL(string: thumb)
+                        }
+
+                        // Extract subscription status from buttons
+                        if let buttons = headerRenderer["buttons"] as? [[String: Any]] {
+                            for button in buttons {
+                                if let toggleButton = button["toggleButtonRenderer"] as? [String: Any],
+                                   let toggled = toggleButton["isToggled"] as? Bool
+                                {
+                                    isSubscribed = toggled
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Parse episodes from secondaryContents
+            if let secondaryContents = twoColumnResults["secondaryContents"] as? [String: Any],
+               let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any],
+               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+            {
+                for sectionData in sectionContents {
+                    if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+                       let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+                    {
+                        for itemData in shelfContents {
+                            if let item = Self.parsePodcastItem(itemData),
+                               case let .episode(episode) = item
+                            {
+                                episodes.append(episode)
+                            }
+                        }
+
+                        // Extract continuation token
+                        if let continuations = shelfRenderer["continuations"] as? [[String: Any]],
+                           let firstContinuation = continuations.first,
+                           let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
+                           let token = nextContinuationData["continuation"] as? String
+                        {
+                            continuationToken = token
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback: Parse episodes from singleColumnBrowseResultsRenderer (old format)
+        if episodes.isEmpty,
+           let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
            let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
            let firstTab = tabs.first,
@@ -352,7 +460,6 @@ enum PodcastParser {
            let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         {
             for sectionData in sectionContents {
-                // Try musicShelfRenderer for episode lists
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
@@ -364,8 +471,8 @@ enum PodcastParser {
                         }
                     }
 
-                    // Extract continuation token
-                    if let continuations = shelfRenderer["continuations"] as? [[String: Any]],
+                    if continuationToken == nil,
+                       let continuations = shelfRenderer["continuations"] as? [[String: Any]],
                        let firstContinuation = continuations.first,
                        let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
                        let token = nextContinuationData["continuation"] as? String
@@ -388,7 +495,8 @@ enum PodcastParser {
         return PodcastShowDetail(
             show: show,
             episodes: episodes,
-            continuationToken: continuationToken
+            continuationToken: continuationToken,
+            isSubscribed: isSubscribed
         )
     }
 

@@ -80,13 +80,23 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         nil
     }
 
-    func getPodcasts() async throws -> HomeResponse {
+    func getPodcasts() async throws -> [PodcastSection] {
         try? await Task.sleep(for: .milliseconds(100))
-        return HomeResponse(sections: Self.defaultHomeSections())
+        return []
     }
 
-    func getPodcastsContinuation() async throws -> [HomeSection]? {
+    func getPodcastsContinuation() async throws -> [PodcastSection]? {
         nil
+    }
+
+    func getPodcastShow(browseId _: String) async throws -> PodcastShowDetail {
+        try? await Task.sleep(for: .milliseconds(100))
+        return PodcastShowDetail(
+            show: PodcastShow(id: "test", title: "Test Show", author: nil, description: nil, thumbnailURL: nil, episodeCount: nil),
+            episodes: [],
+            continuationToken: nil,
+            isSubscribed: false
+        )
     }
 
     func search(query _: String) async throws -> SearchResponse {
@@ -165,6 +175,18 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func searchPodcasts(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+            podcastShows: [],
+            continuationToken: nil
+        )
+    }
+
     func getSearchContinuation() async throws -> SearchResponse? {
         nil
     }
@@ -189,6 +211,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     func getLibraryPlaylists() async throws -> [Playlist] {
         try? await Task.sleep(for: .milliseconds(100))
         return self.playlists
+    }
+
+    func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
+        try? await Task.sleep(for: .milliseconds(100))
+        return PlaylistParser.LibraryContent(playlists: self.playlists, podcastShows: [])
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -257,6 +284,14 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func unsubscribeFromPlaylist(playlistId _: String) async throws {
+        // No-op for UI tests
+    }
+
+    func subscribeToPodcast(showId _: String) async throws {
+        // No-op for UI tests
+    }
+
+    func unsubscribeFromPodcast(showId _: String) async throws {
         // No-op for UI tests
     }
 

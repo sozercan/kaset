@@ -7,6 +7,7 @@ import SwiftUI
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -89,7 +90,7 @@ struct PodcastsView: View {
     private func itemCard(_ item: PodcastSectionItem) -> some View {
         switch item {
         case let .show(show):
-            PodcastShowCard(show: show) {
+            PodcastShowCard(show: show, favoritesManager: self.favoritesManager) {
                 self.navigationPath.append(show)
             }
         case let .episode(episode):
@@ -123,6 +124,7 @@ struct PodcastsView: View {
 @available(macOS 26.0, *)
 private struct PodcastShowCard: View {
     let show: PodcastShow
+    let favoritesManager: FavoritesManager
     let action: () -> Void
 
     var body: some View {
@@ -155,6 +157,9 @@ private struct PodcastShowCard: View {
             .frame(width: 160)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            FavoritesContextMenu.menuItem(for: self.show, manager: self.favoritesManager)
+        }
     }
 }
 
@@ -179,7 +184,7 @@ private struct PodcastEpisodeCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     // Duration badge
-                    if let duration = episode.duration {
+                    if let duration = episode.formattedDuration {
                         Text(duration)
                             .font(.caption2)
                             .fontWeight(.medium)
@@ -234,9 +239,12 @@ struct PodcastShowView: View {
     let show: PodcastShow
     let client: any YTMusicClientProtocol
     @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
 
     @State private var episodes: [PodcastEpisode] = []
     @State private var loadingState: LoadingState = .idle
+    @State private var isSubscribed: Bool = false
+    @State private var isSubscribing: Bool = false
 
     var body: some View {
         ScrollView {
@@ -270,6 +278,9 @@ struct PodcastShowView: View {
             }
             .frame(width: 180, height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .contextMenu {
+                FavoritesContextMenu.menuItem(for: self.show, manager: self.favoritesManager)
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(self.show.title)
@@ -291,15 +302,37 @@ struct PodcastShowView: View {
 
                 Spacer()
 
-                // Play button
-                if let firstEpisode = episodes.first {
-                    Button {
-                        self.playEpisode(firstEpisode)
-                    } label: {
-                        Label("Play Latest", systemImage: "play.fill")
-                            .font(.headline)
+                // Action buttons
+                HStack(spacing: 12) {
+                    // Play button
+                    if let firstEpisode = episodes.first {
+                        Button {
+                            self.playEpisode(firstEpisode)
+                        } label: {
+                            Label("Play Latest", systemImage: "play.fill")
+                                .font(.headline)
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
+
+                    // Add to Library button
+                    Button {
+                        Task {
+                            await self.toggleSubscription()
+                        }
+                    } label: {
+                        if self.isSubscribing {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label(
+                                self.isSubscribed ? "In Library" : "Add to Library",
+                                systemImage: self.isSubscribed ? "checkmark" : "plus"
+                            )
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(self.isSubscribing)
                 }
             }
         }
@@ -333,10 +366,15 @@ struct PodcastShowView: View {
         guard self.loadingState == .idle else { return }
         self.loadingState = .loading
 
-        // For now, we don't have a dedicated API method for show detail
-        // This would need to be added to YTMusicClient
-        // Placeholder: show is already passed in, just mark as loaded
-        self.loadingState = .loaded
+        do {
+            let showDetail = try await client.getPodcastShow(browseId: self.show.id)
+            self.episodes = showDetail.episodes
+            self.isSubscribed = showDetail.isSubscribed
+            self.loadingState = .loaded
+        } catch {
+            DiagnosticsLogger.api.error("Failed to load podcast show: \(error.localizedDescription)")
+            self.loadingState = .error(LoadingError(from: error))
+        }
     }
 
     private func playEpisode(_ episode: PodcastEpisode) {
@@ -351,6 +389,25 @@ struct PodcastShowView: View {
         )
         Task {
             await self.playerService.play(song: song)
+        }
+    }
+
+    private func toggleSubscription() async {
+        self.isSubscribing = true
+        defer { self.isSubscribing = false }
+
+        do {
+            if self.isSubscribed {
+                try await self.client.unsubscribeFromPodcast(showId: self.show.id)
+                self.isSubscribed = false
+                DiagnosticsLogger.api.info("Unsubscribed from podcast: \(self.show.title)")
+            } else {
+                try await self.client.subscribeToPodcast(showId: self.show.id)
+                self.isSubscribed = true
+                DiagnosticsLogger.api.info("Subscribed to podcast: \(self.show.title)")
+            }
+        } catch {
+            DiagnosticsLogger.api.error("Failed to toggle podcast subscription: \(error.localizedDescription)")
         }
     }
 }
@@ -381,7 +438,7 @@ struct PodcastEpisodeRow: View {
                             .font(.headline)
                             .lineLimit(2)
                         Spacer()
-                        if let duration = episode.duration {
+                        if let duration = episode.formattedDuration {
                             Text(duration)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)

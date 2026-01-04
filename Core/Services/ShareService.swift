@@ -103,3 +103,24 @@ extension Artist: Shareable {
         return URL(string: "https://music.youtube.com/channel/\(encodedId)")
     }
 }
+
+// MARK: - PodcastShow + Shareable
+
+extension PodcastShow: Shareable {
+    var shareTitle: String {
+        self.title
+    }
+
+    var shareSubtitle: String? {
+        self.author
+    }
+
+    var shareURL: URL? {
+        // Podcast show IDs start with "MPSPP" prefix
+        guard self.hasNavigableId else { return nil }
+        guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+        return URL(string: "https://music.youtube.com/browse/\(encodedId)")
+    }
+}

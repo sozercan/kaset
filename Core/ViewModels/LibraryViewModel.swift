@@ -15,8 +15,14 @@ final class LibraryViewModel {
     /// User's playlists.
     private(set) var playlists: [Playlist] = []
 
+    /// User's subscribed podcast shows.
+    private(set) var podcastShows: [PodcastShow] = []
+
     /// Set of playlist IDs that are in the user's library (for quick lookup).
     private(set) var libraryPlaylistIds: Set<String> = []
+
+    /// Set of podcast show IDs that are in the user's library (for quick lookup).
+    private(set) var libraryPodcastIds: Set<String> = []
 
     /// Selected playlist detail.
     private(set) var selectedPlaylistDetail: PlaylistDetail?
@@ -44,9 +50,19 @@ final class LibraryViewModel {
         }
     }
 
+    /// Checks if a podcast show is in the user's library.
+    func isInLibrary(podcastId: String) -> Bool {
+        self.libraryPodcastIds.contains(podcastId)
+    }
+
     /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
         self.libraryPlaylistIds.insert(playlistId)
+    }
+
+    /// Adds a podcast ID to the library set (called after successful subscription).
+    func addToLibrarySet(podcastId: String) {
+        self.libraryPodcastIds.insert(podcastId)
     }
 
     /// Removes a playlist ID from the library set (called after successful remove from library).
@@ -60,20 +76,27 @@ final class LibraryViewModel {
         }
     }
 
-    /// Loads library playlists.
+    /// Removes a podcast ID from the library set (called after successful unsubscribe).
+    func removeFromLibrarySet(podcastId: String) {
+        self.libraryPodcastIds.remove(podcastId)
+    }
+
+    /// Loads library content (playlists and podcasts).
     func load() async {
         guard self.loadingState != .loading else { return }
 
         self.loadingState = .loading
-        self.logger.info("Loading library playlists")
+        self.logger.info("Loading library content")
 
         do {
-            let loadedPlaylists = try await client.getLibraryPlaylists()
-            self.playlists = loadedPlaylists
-            // Update the set of library playlist IDs for quick lookup
-            self.libraryPlaylistIds = Set(loadedPlaylists.map(\.id))
+            let content = try await client.getLibraryContent()
+            self.playlists = content.playlists
+            self.podcastShows = content.podcastShows
+            // Update the sets for quick lookup
+            self.libraryPlaylistIds = Set(content.playlists.map(\.id))
+            self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
             self.loadingState = .loaded
-            self.logger.info("Loaded \(loadedPlaylists.count) playlists")
+            self.logger.info("Loaded \(content.playlists.count) playlists and \(content.podcastShows.count) podcasts")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Library load cancelled")
@@ -116,6 +139,7 @@ final class LibraryViewModel {
     /// Refreshes library content.
     func refresh() async {
         self.playlists = []
+        self.podcastShows = []
         await self.load()
     }
 }

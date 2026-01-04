@@ -3,7 +3,7 @@ import Foundation
 // MARK: - PodcastShow
 
 /// Represents a podcast show from YouTube Music.
-struct PodcastShow: Identifiable, Hashable, Sendable {
+struct PodcastShow: Identifiable, Hashable, Codable, Sendable {
     let id: String // browseId (MPSPP...)
     let title: String
     let author: String?
@@ -33,6 +33,22 @@ struct PodcastEpisode: Identifiable, Hashable, Sendable {
     let durationSeconds: Int? // for progress calculation
     let playbackProgress: Double // 0.0-1.0
     let isPlayed: Bool
+
+    /// Formats duration as HH:MM:SS or MM:SS based on durationSeconds.
+    /// Falls back to the API-provided duration string if seconds unavailable.
+    var formattedDuration: String? {
+        if let seconds = durationSeconds {
+            let hours = seconds / 3600
+            let minutes = (seconds % 3600) / 60
+            let secs = seconds % 60
+            if hours > 0 {
+                return String(format: "%d:%02d:%02d", hours, minutes, secs)
+            } else {
+                return String(format: "%d:%02d", minutes, secs)
+            }
+        }
+        return self.duration
+    }
 }
 
 // MARK: - PodcastSection
@@ -80,6 +96,7 @@ struct PodcastShowDetail: Sendable {
     let show: PodcastShow
     let episodes: [PodcastEpisode]
     let continuationToken: String?
+    let isSubscribed: Bool
 
     var hasMore: Bool {
         self.continuationToken != nil
