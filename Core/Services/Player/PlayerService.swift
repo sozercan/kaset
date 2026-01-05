@@ -107,6 +107,19 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Whether the current track has video available.
+    private(set) var currentTrackHasVideo: Bool = false
+
+    /// Whether video mode is active (user has opened video window).
+    var showVideo: Bool = false {
+        didSet {
+            // Auto-close if track changes to audio-only
+            if self.showVideo, !self.currentTrackHasVideo {
+                self.showVideo = false
+            }
+        }
+    }
+
     // MARK: - Internal Properties (for extensions)
 
     let logger = DiagnosticsLogger.player
@@ -152,6 +165,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Plays a track by video ID.
     func play(videoId: String) async {
+        Self.writeVideoDebugLog("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.state = .loading
 
@@ -236,6 +250,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
+        // Debug log once per second (when progress changes by at least 1 second)
+        if Int(progress) != Int(self.progress) {
+            Self.writeVideoDebugLog("updatePlaybackState: isPlaying=\(isPlaying), progress=\(Int(progress)), duration=\(Int(duration))")
+        }
+
         let previousProgress = self.progress
         self.progress = progress
         self.duration = duration
@@ -306,6 +325,43 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // Reset like/library status when track changes
         if trackChanged {
             self.resetTrackStatus()
+        }
+    }
+
+    /// Updates whether the current track has video available.
+    func updateVideoAvailability(hasVideo: Bool) {
+        let previousValue = self.currentTrackHasVideo
+        self.currentTrackHasVideo = hasVideo
+
+        // Debug logging to /tmp
+        Self.writeVideoDebugLog("updateVideoAvailability called: hasVideo=\(hasVideo), previous=\(previousValue)")
+
+        // Auto-close video window if new track has no video
+        if self.showVideo, !hasVideo {
+            self.showVideo = false
+            self.logger.info("Video window closed: track has no video")
+        }
+
+        if previousValue != hasVideo {
+            self.logger.debug("Video availability updated: \(hasVideo)")
+        }
+    }
+
+    /// Write video debug log to /tmp for troubleshooting.
+    private static func writeVideoDebugLog(_ message: String) {
+        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let logLine = "[\(timestamp)] [PlayerService] \(message)\n"
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logFile.path) {
+                if let handle = try? FileHandle(forWritingTo: logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                try? data.write(to: logFile)
+            }
         }
     }
 

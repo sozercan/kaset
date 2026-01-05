@@ -71,6 +71,9 @@ struct KasetApp: App {
     @State private var showCommandBar = false
 
     init() {
+        // Debug log at app startup
+        KasetApp.writeStartupLog("KasetApp init() started")
+
         let auth = AuthService()
         let webkit = WebKitManager.shared
         let player = PlayerService()
@@ -95,6 +98,26 @@ struct KasetApp: App {
 
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")
+        }
+
+        KasetApp.writeStartupLog("KasetApp init() completed")
+    }
+
+    /// Write debug log at startup to verify file writing works.
+    private static func writeStartupLog(_ message: String) {
+        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let logLine = "[\(timestamp)] [KasetApp] \(message)\n"
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logFile.path) {
+                if let handle = try? FileHandle(forWritingTo: logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                try? data.write(to: logFile)
+            }
         }
     }
 

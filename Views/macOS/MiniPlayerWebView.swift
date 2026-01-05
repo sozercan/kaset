@@ -210,7 +210,18 @@ final class SingletonPlayerWebView {
     private var coordinator: Coordinator?
     private let logger = DiagnosticsLogger.player
 
-    private init() {}
+    /// Current display mode for the WebView.
+    enum DisplayMode {
+        case hidden // 1x1 for audio-only
+        case miniPlayer // 160x90 toast
+        case video // Full size in video window
+    }
+
+    private(set) var displayMode: DisplayMode = .hidden
+
+    private init() {
+        Self.writeDebugLog("SingletonPlayerWebView initialized")
+    }
 
     /// Get or create the singleton WebView.
     func getWebView(
@@ -221,6 +232,7 @@ final class SingletonPlayerWebView {
             return existing
         }
 
+        Self.writeDebugLog("Creating singleton WebView")
         self.logger.info("Creating singleton WebView")
 
         // Create coordinator
@@ -264,10 +276,424 @@ final class SingletonPlayerWebView {
     /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
         guard let webView, webView.superview !== container else { return }
+        Self.writeDebugLog("ensureInHierarchy: reparenting WebView to new container")
         webView.removeFromSuperview()
-        webView.frame = container.bounds
-        webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
+
+        // Use autoresizing to match container size
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        // If we're in video mode, re-apply the CSS injection after reparenting
+        if self.displayMode == .video {
+            Self.writeDebugLog("ensureInHierarchy: in video mode, injecting CSS")
+            // Delay slightly to let the layout happen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.injectVideoModeCSS()
+            }
+        }
+    }
+
+    /// Updates WebView size based on display mode.
+    func updateDisplayMode(_ mode: DisplayMode) {
+        guard let webView else {
+            Self.writeDebugLog("updateDisplayMode called but webView is nil!")
+            return
+        }
+        self.displayMode = mode
+        Self.writeDebugLog("updateDisplayMode called with mode: \(mode)")
+
+        switch mode {
+        case .hidden:
+            // WebView stays in hierarchy but tiny
+            webView.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+            self.removeVideoModeCSS()
+        case .miniPlayer:
+            webView.frame = CGRect(x: 0, y: 0, width: 160, height: 90)
+            self.removeVideoModeCSS()
+        case .video:
+            // Full size - parent container determines size
+            if let superview = webView.superview {
+                webView.frame = superview.bounds
+                Self.writeDebugLog("WebView frame set to: \(superview.bounds)")
+            } else {
+                Self.writeDebugLog("WebView has no superview!")
+            }
+            webView.autoresizingMask = [.width, .height]
+            self.injectVideoModeCSS()
+        }
+    }
+
+    /// Injects CSS to hide YouTube Music UI and show only the video.
+    private func injectVideoModeCSS() {
+        guard let webView else { return }
+
+        Self.writeDebugLog("Starting video mode injection...")
+
+        // First, let's debug what's in the DOM
+        let debugScript = """
+            (function() {
+                const video = document.querySelector('video');
+                const videoInfo = video ? {
+                    src: video.src ? video.src.substring(0, 100) : 'none',
+                    width: video.videoWidth,
+                    height: video.videoHeight,
+                    paused: video.paused,
+                    display: getComputedStyle(video).display,
+                    visibility: getComputedStyle(video).visibility
+                } : 'no video element';
+
+                const tabs = document.querySelectorAll('tp-yt-paper-tab');
+                const tabTexts = Array.from(tabs).map(t => t.textContent.trim());
+
+                const playerPage = document.querySelector('ytmusic-player-page');
+                const moviePlayer = document.querySelector('#movie_player');
+                const html5Player = document.querySelector('.html5-video-player');
+
+                return {
+                    videoInfo: videoInfo,
+                    tabTexts: tabTexts,
+                    hasPlayerPage: !!playerPage,
+                    hasMoviePlayer: !!moviePlayer,
+                    hasHtml5Player: !!html5Player,
+                    url: window.location.href
+                };
+            })();
+        """
+
+        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
+            if let error {
+                Self.writeDebugLog("Debug script error: \(error.localizedDescription)")
+            } else if let info = result {
+                Self.writeDebugLog("DOM Debug: \(info)")
+            }
+
+            // Now click the Video tab
+            self?.clickVideoTabAndInjectCSS()
+        }
+    }
+
+    /// Write debug log to a file for debugging.
+    private static func writeDebugLog(_ message: String) {
+        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let logLine = "[\(timestamp)] \(message)\n"
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logFile.path) {
+                if let handle = try? FileHandle(forWritingTo: logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                try? data.write(to: logFile)
+            }
+        }
+        print("[Kaset Video Debug] \(message)")
+    }
+
+    /// Clicks the Video tab and then injects CSS.
+    private func clickVideoTabAndInjectCSS() {
+        guard let webView else { return }
+
+        // The Song/Video toggle is different from the tabs
+        // It appears as a segmented control near the top of the player page
+        let clickVideoTabScript = """
+            (function() {
+                // Method 1: Look for the Song/Video toggle buttons
+                // These are typically in a toggle group with "Song" and "Video" labels
+                const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
+                for (const btn of toggleButtons) {
+                    const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
+                    if (text === 'video') {
+                        btn.click();
+                        console.log('[Kaset] Clicked Video toggle button');
+                        return { clicked: true, method: 'toggleButton', text: text };
+                    }
+                }
+
+                // Method 2: Look for ytmusic-player-page and find the toggle there
+                const playerPage = document.querySelector('ytmusic-player-page');
+                if (playerPage) {
+                    // The toggle might be in a specific container
+                    const toggleContainer = playerPage.querySelector('.toggle-container, .segment-button-container, [class*="toggle"]');
+                    if (toggleContainer) {
+                        const buttons = toggleContainer.querySelectorAll('button, [role="button"]');
+                        for (const btn of buttons) {
+                            const text = (btn.textContent || '').trim().toLowerCase();
+                            if (text === 'video') {
+                                btn.click();
+                                return { clicked: true, method: 'toggleContainer', text: text };
+                            }
+                        }
+                    }
+                }
+
+                // Method 3: Find by aria-label or data attributes
+                const videoBtn = document.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
+                if (videoBtn) {
+                    videoBtn.click();
+                    return { clicked: true, method: 'ariaLabel' };
+                }
+
+                // Method 4: Look in the header area for Song/Video chips
+                const chips = document.querySelectorAll('yt-chip-cloud-chip-renderer, ytmusic-chip-renderer, .chip');
+                for (const chip of chips) {
+                    const text = (chip.textContent || '').trim().toLowerCase();
+                    if (text === 'video') {
+                        chip.click();
+                        return { clicked: true, method: 'chip', text: text };
+                    }
+                }
+
+                return { clicked: false, message: 'Video toggle not found' };
+            })();
+        """
+
+        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, error in
+            if let error {
+                Self.writeDebugLog("Click video error: \(error.localizedDescription)")
+            } else {
+                Self.writeDebugLog("Click video result: \(String(describing: result))")
+            }
+
+            // Wait a moment for the video mode to activate, then inject CSS
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.injectVideoModeStyles()
+            }
+        }
+    }
+
+    /// Actually injects the CSS styles for video mode.
+    private func injectVideoModeStyles() {
+        guard let webView else { return }
+
+        // CSS to hide YouTube Music UI but NOT the video element
+        let css = """
+            /* Hide navigation and player bar */
+            ytmusic-player-bar,
+            ytmusic-nav-bar,
+            #nav-bar-background,
+            ytmusic-guide-renderer,
+            #guide-wrapper {
+                display: none !important;
+            }
+
+            /* Hide the side panel (queue, lyrics, etc) */
+            .side-panel,
+            #side-panel,
+            .content-side-panel,
+            ytmusic-player-queue,
+            ytmusic-tab-renderer {
+                display: none !important;
+            }
+
+            /* Hide ALL player controls - these appear on top of video */
+            /* Use very specific selectors and multiple hiding techniques */
+            .middle-controls,
+            .left-controls,
+            .right-controls,
+            .player-controls-container,
+            .song-media-controls,
+            .middle-controls-buttons,
+            .shuffle-button,
+            .previous-button,
+            .play-pause-button,
+            .next-button,
+            .repeat-button,
+            .time-info,
+            .slider-container,
+            ytmusic-player-page .middle-controls,
+            ytmusic-player-page .player-controls-container,
+            ytmusic-player .middle-controls,
+            ytmusic-player .player-controls-container,
+            #player .middle-controls,
+            #player .player-controls-container {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+                position: absolute !important;
+                left: -9999px !important;
+            }
+
+            /* Hide ALL icon buttons in player */
+            tp-yt-paper-icon-button,
+            ytmusic-player-page tp-yt-paper-icon-button,
+            ytmusic-player tp-yt-paper-icon-button,
+            #player tp-yt-paper-icon-button,
+            .ytmusic-player-page tp-yt-paper-icon-button {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+
+            /* Hide player page content except the player itself */
+            .content-info-wrapper,
+            .song-info,
+            .byline-wrapper,
+            .title-wrapper,
+            #tabsContainer,
+            .tab-headers,
+            tp-yt-paper-tab,
+            ytmusic-like-button-renderer,
+            .toggle-player-page-button,
+            .player-minimize-button,
+            .expand-button,
+            #progress-bar,
+            .slider,
+            .menu-button,
+            #menu-button,
+            ytmusic-toggle-button-renderer,
+            .description,
+            .metadata,
+            .subtitle,
+            .byline {
+                display: none !important;
+            }
+
+            /* Hide YT player chrome */
+            .ytp-chrome-top,
+            .ytp-chrome-bottom,
+            .ytp-gradient-top,
+            .ytp-gradient-bottom,
+            .ytp-pause-overlay,
+            .ytp-watermark {
+                display: none !important;
+            }
+
+            /* Dark background */
+            html, body, ytmusic-app, ytmusic-app-layout, #layout {
+                background: #000 !important;
+                overflow: hidden !important;
+            }
+
+            /* Position the player page to fill viewport */
+            ytmusic-player-page {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: #000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            /* Make sure video fills the screen - leave space for native controls */
+            video {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: calc(100vh - 60px) !important;
+                object-fit: contain !important;
+                z-index: 999999 !important;
+                background: #000 !important;
+            }
+
+            /* Position player containers */
+            ytmusic-player, #player, #movie_player, .html5-video-player, .html5-video-container {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: #000 !important;
+            }
+
+            /* Hide the bottom bar area that shows gray */
+            .av-surround, .player-bar-background, .ytmusic-player-bar {
+                display: none !important;
+                background: #000 !important;
+            }
+        """
+
+        let script = """
+            (function() {
+                // Remove existing style if present
+                const existing = document.getElementById('kaset-video-mode-style');
+                if (existing) existing.remove();
+
+                const style = document.createElement('style');
+                style.id = 'kaset-video-mode-style';
+                style.textContent = `\(css.replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "\n", with: " "))`;
+                document.head.appendChild(style);
+                console.log('[Kaset] Video mode CSS injected');
+            })();
+        """
+
+        webView.evaluateJavaScript(script) { [weak self] _, error in
+            if let error {
+                Self.writeDebugLog("Failed to inject video mode CSS: \(error.localizedDescription)")
+            } else {
+                Self.writeDebugLog("Video mode CSS injected successfully")
+                // Debug: check video state after CSS injection
+                self?.debugVideoStateAfterInjection()
+            }
+        }
+    }
+
+    /// Debug helper to check video state after CSS injection.
+    private func debugVideoStateAfterInjection() {
+        guard let webView else { return }
+
+        let debugScript = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) return { error: 'No video element found' };
+
+                const style = getComputedStyle(video);
+                const songImage = document.querySelector('.song-image img, .thumbnail img');
+                return {
+                    hasSrc: !!video.src,
+                    srcPrefix: video.src ? video.src.substring(0, 50) : 'none',
+                    videoWidth: video.videoWidth,
+                    videoHeight: video.videoHeight,
+                    clientWidth: video.clientWidth,
+                    clientHeight: video.clientHeight,
+                    display: style.display,
+                    visibility: style.visibility,
+                    opacity: style.opacity,
+                    position: style.position,
+                    zIndex: style.zIndex,
+                    paused: video.paused,
+                    currentTime: video.currentTime,
+                    readyState: video.readyState,
+                    songImageSrc: songImage ? songImage.src : 'none'
+                };
+            })();
+        """
+
+        webView.evaluateJavaScript(debugScript) { result, error in
+            if let error {
+                Self.writeDebugLog("Post-injection debug error: \(error.localizedDescription)")
+            } else {
+                Self.writeDebugLog("Post-injection video state: \(String(describing: result))")
+            }
+        }
+    }
+
+    /// Removes the video mode CSS to restore normal YouTube Music UI.
+    private func removeVideoModeCSS() {
+        guard let webView else { return }
+
+        let script = """
+            (function() {
+                const style = document.getElementById('kaset-video-mode-style');
+                if (style) style.remove();
+            })();
+        """
+
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Load a video, stopping any currently playing audio first.
@@ -613,6 +1039,12 @@ final class SingletonPlayerWebView {
                         lastArtist = artist;
                     }
 
+                    // Detect if video is available
+                    // YouTube Music always streams from video, so video is always available
+                    // when there's a track playing. Check if video element exists and has src.
+                    const video = document.querySelector('video');
+                    const hasVideo = video !== null && video.src && video.src.length > 0;
+
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
                         isPlaying: isPlaying,
@@ -622,7 +1054,8 @@ final class SingletonPlayerWebView {
                         artist: artist,
                         thumbnailUrl: thumbnailUrl,
                         trackChanged: trackChanged,
-                        likeStatus: likeStatus
+                        likeStatus: likeStatus,
+                        hasVideo: hasVideo
                     });
                 } catch (e) {}
             }
@@ -659,6 +1092,7 @@ final class SingletonPlayerWebView {
             let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
             let trackChanged = body["trackChanged"] as? Bool ?? false
             let likeStatusString = body["likeStatus"] as? String ?? "INDIFFERENT"
+            let hasVideo = body["hasVideo"] as? Bool ?? false
 
             // Parse like status
             let likeStatus: LikeStatus = switch likeStatusString {
@@ -676,6 +1110,9 @@ final class SingletonPlayerWebView {
                     progress: Double(progress),
                     duration: Double(duration)
                 )
+
+                // Update video availability
+                self.playerService.updateVideoAvailability(hasVideo: hasVideo)
 
                 // Update like status only when track changes (initial state)
                 if trackChanged {
