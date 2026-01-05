@@ -12,6 +12,9 @@ final class VideoWindowController {
     private var hostingView: NSHostingView<AnyView>?
     private let logger = DiagnosticsLogger.player
 
+    /// Reference to PlayerService to sync showVideo state
+    private weak var playerService: PlayerService?
+
     // Corner snapping
     enum Corner: Int {
         case topLeft, topRight, bottomLeft, bottomRight
@@ -31,8 +34,16 @@ final class VideoWindowController {
         // Write debug log to file
         Self.writeDebugLog("VideoWindowController.show() called")
 
-        if window != nil {
-            window?.makeKeyAndOrderFront(nil)
+        // Store reference to sync state on close
+        self.playerService = playerService
+
+        // Start grace period to prevent race condition when video element is moved
+        playerService.videoWindowDidOpen()
+
+        if let existingWindow = window {
+            // Window exists - just bring it to front
+            Self.writeDebugLog("Window already exists, bringing to front")
+            existingWindow.makeKeyAndOrderFront(nil)
             return
         }
 
@@ -59,7 +70,7 @@ final class VideoWindowController {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.level = .floating
+        window.level = .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.aspectRatio = NSSize(width: 16, height: 9)
         window.minSize = NSSize(width: 320, height: 180)
@@ -86,8 +97,22 @@ final class VideoWindowController {
 
     /// Closes the video window.
     func close() {
+        Self.writeDebugLog("VideoWindowController.close() called")
+
+        guard let window = self.window else {
+            Self.writeDebugLog("No window to close")
+            return
+        }
+
         self.logger.info("Closing video window")
-        self.window?.close()
+
+        // Remove observer before closing to prevent double-handling
+        NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
+
+        // Clear grace period
+        self.playerService?.videoWindowDidClose()
+
+        window.close()
         self.window = nil
         self.hostingView = nil
 
@@ -96,16 +121,29 @@ final class VideoWindowController {
     }
 
     @objc private func windowWillClose(_ notification: Notification) {
+        Self.writeDebugLog("windowWillClose called")
+
         // Update corner based on final position
         if let window = notification.object as? NSWindow {
             self.currentCorner = self.nearestCorner(for: window)
             self.saveCorner()
         }
-        window = nil
+
+        // Clean up
+        self.window = nil
         self.hostingView = nil
 
         // Return WebView to hidden mode
         SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+
+        // Clear grace period
+        self.playerService?.videoWindowDidClose()
+
+        // Sync PlayerService state - this handles close via red button
+        if self.playerService?.showVideo == true {
+            Self.writeDebugLog("Syncing playerService.showVideo to false")
+            self.playerService?.showVideo = false
+        }
     }
 
     private func positionAtCorner(window: NSWindow, corner: Corner) {

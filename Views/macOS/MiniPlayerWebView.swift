@@ -293,7 +293,8 @@ final class SingletonPlayerWebView {
         if self.displayMode == .video {
             Self.writeDebugLog("ensureInHierarchy: in video mode, injecting CSS")
             // Delay slightly to let the layout happen
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(100))
                 self?.injectVideoModeCSS()
             }
         }
@@ -463,7 +464,8 @@ final class SingletonPlayerWebView {
             }
 
             // Wait a moment for the video mode to activate, then inject CSS
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
                 self?.injectVideoModeStyles()
             }
         }
@@ -473,170 +475,93 @@ final class SingletonPlayerWebView {
     private func injectVideoModeStyles() {
         guard let webView else { return }
 
-        // CSS to hide YouTube Music UI but NOT the video element
-        let css = """
-            /* Hide navigation and player bar */
-            ytmusic-player-bar,
-            ytmusic-nav-bar,
-            #nav-bar-background,
-            ytmusic-guide-renderer,
-            #guide-wrapper {
-                display: none !important;
-            }
+        // Get the app's current volume to apply to the video element
+        let appVolume = self.coordinator?.playerService.volume ?? 1.0
 
-            /* Hide the side panel (queue, lyrics, etc) */
-            .side-panel,
-            #side-panel,
-            .content-side-panel,
-            ytmusic-player-queue,
-            ytmusic-tab-renderer {
-                display: none !important;
-            }
-
-            /* Hide ALL player controls - these appear on top of video */
-            /* Use very specific selectors and multiple hiding techniques */
-            .middle-controls,
-            .left-controls,
-            .right-controls,
-            .player-controls-container,
-            .song-media-controls,
-            .middle-controls-buttons,
-            .shuffle-button,
-            .previous-button,
-            .play-pause-button,
-            .next-button,
-            .repeat-button,
-            .time-info,
-            .slider-container,
-            ytmusic-player-page .middle-controls,
-            ytmusic-player-page .player-controls-container,
-            ytmusic-player .middle-controls,
-            ytmusic-player .player-controls-container,
-            #player .middle-controls,
-            #player .player-controls-container {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-                width: 0 !important;
-                height: 0 !important;
-                overflow: hidden !important;
-                position: absolute !important;
-                left: -9999px !important;
-            }
-
-            /* Hide ALL icon buttons in player */
-            tp-yt-paper-icon-button,
-            ytmusic-player-page tp-yt-paper-icon-button,
-            ytmusic-player tp-yt-paper-icon-button,
-            #player tp-yt-paper-icon-button,
-            .ytmusic-player-page tp-yt-paper-icon-button {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-            }
-
-            /* Hide player page content except the player itself */
-            .content-info-wrapper,
-            .song-info,
-            .byline-wrapper,
-            .title-wrapper,
-            #tabsContainer,
-            .tab-headers,
-            tp-yt-paper-tab,
-            ytmusic-like-button-renderer,
-            .toggle-player-page-button,
-            .player-minimize-button,
-            .expand-button,
-            #progress-bar,
-            .slider,
-            .menu-button,
-            #menu-button,
-            ytmusic-toggle-button-renderer,
-            .description,
-            .metadata,
-            .subtitle,
-            .byline {
-                display: none !important;
-            }
-
-            /* Hide YT player chrome */
-            .ytp-chrome-top,
-            .ytp-chrome-bottom,
-            .ytp-gradient-top,
-            .ytp-gradient-bottom,
-            .ytp-pause-overlay,
-            .ytp-watermark {
-                display: none !important;
-            }
-
-            /* Dark background */
-            html, body, ytmusic-app, ytmusic-app-layout, #layout {
-                background: #000 !important;
-                overflow: hidden !important;
-            }
-
-            /* Position the player page to fill viewport */
-            ytmusic-player-page {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                background: #000 !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-
-            /* Make sure video fills the screen - leave space for native controls */
-            video {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: calc(100vh - 60px) !important;
-                object-fit: contain !important;
-                z-index: 999999 !important;
-                background: #000 !important;
-            }
-
-            /* Position player containers */
-            ytmusic-player, #player, #movie_player, .html5-video-player, .html5-video-container {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                background: #000 !important;
-            }
-
-            /* Hide the bottom bar area that shows gray */
-            .av-surround, .player-bar-background, .ytmusic-player-bar {
-                display: none !important;
-                background: #000 !important;
-            }
-        """
-
+        // JavaScript to extract the video element into a fullscreen container
+        // This is cleaner than trying to hide all YouTube Music UI elements
         let script = """
             (function() {
-                // Remove existing style if present
-                const existing = document.getElementById('kaset-video-mode-style');
-                if (existing) existing.remove();
+                'use strict';
+                
+                const appVolume = \(appVolume);
 
-                const style = document.createElement('style');
-                style.id = 'kaset-video-mode-style';
-                style.textContent = `\(css.replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "\n", with: " "))`;
-                document.head.appendChild(style);
-                console.log('[Kaset] Video mode CSS injected');
+                // Remove existing Kaset video container if present
+                const existingContainer = document.getElementById('kaset-video-container');
+                if (existingContainer) {
+                    // Move video back to original parent before removing container
+                    const video = existingContainer.querySelector('video');
+                    if (video && video.__kasetOriginalParent) {
+                        video.__kasetOriginalParent.appendChild(video);
+                    }
+                    existingContainer.remove();
+                }
+
+                // Find the video element
+                const video = document.querySelector('video');
+                if (!video) {
+                    console.log('[Kaset] No video element found');
+                    return { success: false, error: 'No video element' };
+                }
+
+                // MUTE FIRST to prevent volume jump during extraction
+                const wasMuted = video.muted;
+                video.muted = true;
+
+                // Store original parent for restoration later
+                video.__kasetOriginalParent = video.parentElement;
+
+                // Create a fullscreen container for the video
+                const container = document.createElement('div');
+                container.id = 'kaset-video-container';
+                container.style.cssText = `
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background: #000 !important;
+                    z-index: 2147483647 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                `;
+
+                // Style the video element with native controls
+                video.style.cssText = `
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: contain !important;
+                    background: #000 !important;
+                `;
+                video.controls = true;
+
+                // Move video into our container
+                container.appendChild(video);
+                document.body.appendChild(container);
+
+                // Set the correct volume BEFORE unmuting
+                video.volume = appVolume;
+                window.__kasetTargetVolume = appVolume;
+                
+                // Now unmute (restoring original mute state if it was muted)
+                video.muted = wasMuted;
+                
+                console.log('[Kaset] Video extracted, volume set to:', appVolume);
+                return {
+                    success: true,
+                    videoWidth: video.videoWidth,
+                    videoHeight: video.videoHeight,
+                    volume: video.volume
+                };
             })();
         """
 
-        webView.evaluateJavaScript(script) { [weak self] _, error in
+        webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error {
-                Self.writeDebugLog("Failed to inject video mode CSS: \(error.localizedDescription)")
+                Self.writeDebugLog("Failed to extract video: \(error.localizedDescription)")
             } else {
-                Self.writeDebugLog("Video mode CSS injected successfully")
-                // Debug: check video state after CSS injection
+                Self.writeDebugLog("Video extraction result: \(String(describing: result))")
                 self?.debugVideoStateAfterInjection()
             }
         }
@@ -682,18 +607,46 @@ final class SingletonPlayerWebView {
         }
     }
 
-    /// Removes the video mode CSS to restore normal YouTube Music UI.
+    /// Removes the video container and restores the video to its original location.
     private func removeVideoModeCSS() {
         guard let webView else { return }
 
         let script = """
             (function() {
+                // Remove old CSS-based style if present
                 const style = document.getElementById('kaset-video-mode-style');
                 if (style) style.remove();
+                
+                // Remove video style
+                const videoStyle = document.getElementById('kaset-video-style');
+                if (videoStyle) videoStyle.remove();
+
+                // Remove video container and restore video to original parent
+                const container = document.getElementById('kaset-video-container');
+                if (container) {
+                    const video = container.querySelector('video');
+                    if (video && video.__kasetOriginalParent) {
+                        // Restore video styles and remove controls
+                        video.style.cssText = '';
+                        video.controls = false;
+                        // Move back to original parent
+                        video.__kasetOriginalParent.appendChild(video);
+                        delete video.__kasetOriginalParent;
+                    }
+                    container.remove();
+                    console.log('[Kaset] Video restored to original location');
+                }
             })();
         """
 
         webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Re-injects video mode after resize or other layout changes.
+    func refreshVideoModeCSS() {
+        guard self.displayMode == .video else { return }
+        Self.writeDebugLog("Refreshing video mode after resize")
+        self.injectVideoModeStyles()
     }
 
     /// Load a video, stopping any currently playing audio first.

@@ -328,6 +328,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Grace period timestamp - don't auto-close video window shortly after opening
+    private var videoWindowOpenedAt: Date?
+
     /// Updates whether the current track has video available.
     func updateVideoAvailability(hasVideo: Bool) {
         let previousValue = self.currentTrackHasVideo
@@ -337,14 +340,34 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         Self.writeVideoDebugLog("updateVideoAvailability called: hasVideo=\(hasVideo), previous=\(previousValue)")
 
         // Auto-close video window if new track has no video
+        // But give a grace period after opening to avoid race condition when video element is moved
         if self.showVideo, !hasVideo {
-            self.showVideo = false
-            self.logger.info("Video window closed: track has no video")
+            if let openedAt = self.videoWindowOpenedAt,
+               Date().timeIntervalSince(openedAt) < 2.0
+            {
+                // Within grace period - don't auto-close, the video element is likely being moved
+                Self.writeVideoDebugLog("Ignoring hasVideo=false during grace period")
+            } else {
+                self.showVideo = false
+                self.logger.info("Video window closed: track has no video")
+            }
         }
 
         if previousValue != hasVideo {
             self.logger.debug("Video availability updated: \(hasVideo)")
         }
+    }
+
+    /// Called when video window opens to start grace period
+    func videoWindowDidOpen() {
+        self.videoWindowOpenedAt = Date()
+        Self.writeVideoDebugLog("videoWindowDidOpen: grace period started")
+    }
+
+    /// Called when video window closes to clear grace period
+    func videoWindowDidClose() {
+        self.videoWindowOpenedAt = nil
+        Self.writeVideoDebugLog("videoWindowDidClose: grace period cleared")
     }
 
     /// Write video debug log to /tmp for troubleshooting.
