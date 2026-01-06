@@ -450,26 +450,27 @@ struct PlayerBar: View {
             .accessibilityLabel("Queue")
             .accessibilityValue(self.playerService.showQueue ? "Showing" : "Hidden")
 
-            // Video button - always shown for debugging
-            // TODO: Restore: if self.playerService.currentTrackHasVideo {
-            Button {
-                HapticService.toggle()
-                Self.writeVideoDebugLog("Video button clicked, toggling showVideo from \(self.playerService.showVideo)")
-                withAnimation(AppAnimation.standard) {
-                    player.showVideo.toggle()
-                }
-            } label: {
-                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .keyboardShortcut("v", modifiers: [.command, .shift])
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
-            .accessibilityLabel("Video")
-            .accessibilityValue(self.playerService.showVideo ? "Playing" : "Off")
-            // TODO: Restore closing brace: }
+      // Video button - only shown when track has video
+      if self.playerService.currentTrackHasVideo {
+        Button {
+          HapticService.toggle()
+          Self.writeVideoDebugLog(
+            "Video button clicked, toggling showVideo from \(self.playerService.showVideo)")
+          withAnimation(AppAnimation.standard) {
+            player.showVideo.toggle()
+          }
+        } label: {
+          Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
+            .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.pressable)
+        .keyboardShortcut("v", modifiers: [.command, .shift])
+        .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
+        .accessibilityLabel("Video")
+        .accessibilityValue(self.playerService.showVideo ? "Playing" : "Off")
+      }
         }
     }
 

@@ -15,7 +15,10 @@ final class VideoWindowController {
     /// Reference to PlayerService to sync showVideo state
     private weak var playerService: PlayerService?
 
-    // Corner snapping
+  /// Flag to prevent re-entrant close handling
+  private var isClosing = false
+
+  // Corner snapping
     enum Corner: Int {
         case topLeft, topRight, bottomLeft, bottomRight
     }
@@ -40,10 +43,13 @@ final class VideoWindowController {
         // Start grace period to prevent race condition when video element is moved
         playerService.videoWindowDidOpen()
 
-        if let existingWindow = window {
+    if let existingWindow = self.window {
             // Window exists - just bring it to front
             Self.writeDebugLog("Window already exists, bringing to front")
-            existingWindow.makeKeyAndOrderFront(nil)
+      self.isClosing = false  // Reset in case of interrupted close
+      existingWindow.makeKeyAndOrderFront(nil)
+      // Ensure video mode is active
+      SingletonPlayerWebView.shared.updateDisplayMode(.video)
             return
         }
 
@@ -81,8 +87,9 @@ final class VideoWindowController {
 
         window.makeKeyAndOrderFront(nil)
         self.window = window
+    self.isClosing = false
 
-        // Observe window close
+    // Observe window close (for red X button)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(self.windowWillClose),
@@ -95,33 +102,48 @@ final class VideoWindowController {
         SingletonPlayerWebView.shared.updateDisplayMode(.video)
     }
 
-    /// Closes the video window.
+  /// Closes the video window programmatically (called when showVideo becomes false).
     func close() {
         Self.writeDebugLog("VideoWindowController.close() called")
 
-        guard let window = self.window else {
+    // Prevent re-entrant calls
+    guard !self.isClosing else {
+      Self.writeDebugLog("Already closing, skipping")
+      return
+    }
+
+    guard let window = self.window else {
             Self.writeDebugLog("No window to close")
             return
         }
 
+    self.isClosing = true
         self.logger.info("Closing video window")
 
-        // Remove observer before closing to prevent double-handling
+    // Remove observer before closing to prevent windowWillClose from firing
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
 
-        // Clear grace period
-        self.playerService?.videoWindowDidClose()
+    // Save corner position
+    self.currentCorner = self.nearestCorner(for: window)
+    self.saveCorner()
 
-        window.close()
-        self.window = nil
-        self.hostingView = nil
+    // Clean up
+    self.performCleanup()
 
-        // Return WebView to hidden mode
-        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+    // Actually close the window
+    window.close()
     }
 
+  /// Called when window is closed via the red X button.
     @objc private func windowWillClose(_ notification: Notification) {
-        Self.writeDebugLog("windowWillClose called")
+    Self.writeDebugLog("windowWillClose called (red X button)")
+
+    // Prevent re-entrant calls
+    guard !self.isClosing else {
+      Self.writeDebugLog("Already closing, skipping windowWillClose")
+      return
+    }
+    self.isClosing = true
 
         // Update corner based on final position
         if let window = notification.object as? NSWindow {
@@ -130,29 +152,39 @@ final class VideoWindowController {
         }
 
         // Clean up
-        self.window = nil
-        self.hostingView = nil
-
-        // Return WebView to hidden mode
-        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
-
-        // Clear grace period
-        self.playerService?.videoWindowDidClose()
+    self.performCleanup()
 
         // Sync PlayerService state - this handles close via red button
+    // This will trigger MainWindow.onChange which calls close(), but isClosing prevents re-entry
         if self.playerService?.showVideo == true {
             Self.writeDebugLog("Syncing playerService.showVideo to false")
             self.playerService?.showVideo = false
         }
     }
 
-    private func positionAtCorner(window: NSWindow, corner: Corner) {
+  /// Shared cleanup logic for both close paths.
+  private func performCleanup() {
+    Self.writeDebugLog("performCleanup called")
+
+    // Clear grace period
+    self.playerService?.videoWindowDidClose()
+
+    // Return WebView to hidden mode (removes video container CSS)
+    SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+
+    // Clear references
+    self.window = nil
+    self.hostingView = nil
+  }
+
+  private func positionAtCorner(window: NSWindow, corner: Corner) {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         let windowSize = window.frame.size
         let padding: CGFloat = 20
 
-        var origin = switch corner {
+    let origin =
+      switch corner {
         case .topLeft:
             NSPoint(
                 x: screenFrame.minX + padding,
@@ -225,7 +257,6 @@ final class VideoWindowController {
             } else {
                 try? data.write(to: logFile)
             }
-        }
-        print("[Kaset Video Debug] \(message)")
+    }
     }
 }

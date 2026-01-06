@@ -328,8 +328,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-    /// Grace period timestamp - don't auto-close video window shortly after opening
-    private var videoWindowOpenedAt: Date?
+  /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
+  private var videoWindowOpenedAt: ContinuousClock.Instant?
 
     /// Updates whether the current track has video available.
     func updateVideoAvailability(hasVideo: Bool) {
@@ -343,7 +343,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // But give a grace period after opening to avoid race condition when video element is moved
         if self.showVideo, !hasVideo {
             if let openedAt = self.videoWindowOpenedAt,
-               Date().timeIntervalSince(openedAt) < 2.0
+        ContinuousClock.now - openedAt < .seconds(2)
             {
                 // Within grace period - don't auto-close, the video element is likely being moved
                 Self.writeVideoDebugLog("Ignoring hasVideo=false during grace period")
@@ -360,7 +360,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Called when video window opens to start grace period
     func videoWindowDidOpen() {
-        self.videoWindowOpenedAt = Date()
+    self.videoWindowOpenedAt = ContinuousClock.now
         Self.writeVideoDebugLog("videoWindowDidOpen: grace period started")
     }
 

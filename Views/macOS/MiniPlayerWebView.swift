@@ -288,16 +288,7 @@ final class SingletonPlayerWebView {
             webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
-
-        // If we're in video mode, re-apply the CSS injection after reparenting
-        if self.displayMode == .video {
-            Self.writeDebugLog("ensureInHierarchy: in video mode, injecting CSS")
-            // Delay slightly to let the layout happen
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(100))
-                self?.injectVideoModeCSS()
-            }
-        }
+    // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
     /// Updates WebView size based on display mode.
@@ -319,19 +310,41 @@ final class SingletonPlayerWebView {
             self.removeVideoModeCSS()
         case .video:
             // Full size - parent container determines size
-            if let superview = webView.superview {
-                webView.frame = superview.bounds
-                Self.writeDebugLog("WebView frame set to: \(superview.bounds)")
-            } else {
-                Self.writeDebugLog("WebView has no superview!")
-            }
-            webView.autoresizingMask = [.width, .height]
+      // Defer injection until container has valid bounds (SwiftUI layout)
+      self.waitForValidBoundsAndInject()
+    }
+  }
+
+  /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
+  private func waitForValidBoundsAndInject(attempts: Int = 0) {
+    guard let webView else { return }
+
+    let maxAttempts = 20  // 2 seconds max (20 * 100ms)
+    if let superview = webView.superview, superview.bounds.width > 0, superview.bounds.height > 0 {
+      webView.frame = superview.bounds
+      webView.autoresizingMask = [.width, .height]
+      Self.writeDebugLog("WebView frame set to valid bounds: \(superview.bounds)")
+      self.injectVideoModeCSS()
+    } else if attempts < maxAttempts {
+      Self.writeDebugLog("Waiting for valid bounds (attempt \(attempts + 1))...")
+      Task { @MainActor [weak self] in
+        try? await Task.sleep(for: .milliseconds(100))
+        self?.waitForValidBoundsAndInject(attempts: attempts + 1)
+      }
+    } else {
+      Self.writeDebugLog("Gave up waiting for valid bounds after \(maxAttempts) attempts")
+      // Fall back to current bounds anyway
+      if let superview = webView.superview {
+        webView.frame = superview.bounds
+        webView.autoresizingMask = [.width, .height]
+      }
             self.injectVideoModeCSS()
         }
     }
 
     /// Injects CSS to hide YouTube Music UI and show only the video.
-    private func injectVideoModeCSS() {
+  /// Called when entering video mode or when page reloads while in video mode.
+  func injectVideoModeCSS() {
         guard let webView else { return }
 
         Self.writeDebugLog("Starting video mode injection...")
@@ -380,7 +393,7 @@ final class SingletonPlayerWebView {
     }
 
     /// Write debug log to a file for debugging.
-    private static func writeDebugLog(_ message: String) {
+  static func writeDebugLog(_ message: String) {
         let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let logLine = "[\(timestamp)] \(message)\n"
@@ -394,8 +407,7 @@ final class SingletonPlayerWebView {
             } else {
                 try? data.write(to: logFile)
             }
-        }
-        print("[Kaset Video Debug] \(message)")
+    }
     }
 
     /// Clicks the Video tab and then injects CSS.
@@ -483,7 +495,7 @@ final class SingletonPlayerWebView {
         let script = """
             (function() {
                 'use strict';
-                
+
                 const appVolume = \(appVolume);
 
                 // Remove existing Kaset video container if present
@@ -543,10 +555,10 @@ final class SingletonPlayerWebView {
                 // Set the correct volume BEFORE unmuting
                 video.volume = appVolume;
                 window.__kasetTargetVolume = appVolume;
-                
+
                 // Now unmute (restoring original mute state if it was muted)
                 video.muted = wasMuted;
-                
+
                 console.log('[Kaset] Video extracted, volume set to:', appVolume);
                 return {
                     success: true,
@@ -616,7 +628,7 @@ final class SingletonPlayerWebView {
                 // Remove old CSS-based style if present
                 const style = document.getElementById('kaset-video-mode-style');
                 if (style) style.remove();
-                
+
                 // Remove video style
                 const videoStyle = document.getElementById('kaset-video-style');
                 if (videoStyle) videoStyle.remove();
@@ -838,7 +850,7 @@ final class SingletonPlayerWebView {
             // Volume enforcement: track target volume set by Swift
             // Default to 1.0, will be updated when Swift calls setVolume()
             window.__kasetTargetVolume = window.__kasetTargetVolume ?? 1.0;
-            let isEnforcingVolume = false; // Prevent infinite loops
+            let volumeEnforcementTimeout = null; // Debounce volume enforcement
 
             function waitForPlayerBar() {
                 const playerBar = document.querySelector('ytmusic-player-bar');
@@ -866,16 +878,21 @@ final class SingletonPlayerWebView {
                     video.addEventListener('waiting', () => sendUpdate()); // Buffer state
                     video.addEventListener('seeked', () => sendUpdate()); // Seek completed
 
-                    // Volume enforcement: listen for external volume changes
+                    // Volume enforcement: listen for external volume changes with debounce
                     video.addEventListener('volumechange', () => {
-                        if (isEnforcingVolume) return; // Ignore our own changes
-                        const targetVol = window.__kasetTargetVolume;
-                        // Only enforce if we have a valid target volume set by Swift
-                        if (targetVol !== undefined && Math.abs(video.volume - targetVol) > 0.01) {
-                            isEnforcingVolume = true;
-                            video.volume = targetVol;
-                            isEnforcingVolume = false;
+                        // Debounce to prevent rapid-fire enforcement
+                        if (volumeEnforcementTimeout) {
+                            clearTimeout(volumeEnforcementTimeout);
                         }
+                        volumeEnforcementTimeout = setTimeout(() => {
+                            const targetVol = window.__kasetTargetVolume;
+                            const currentVideo = document.querySelector('video');
+                            // Only enforce if we have a valid target volume set by Swift
+                            if (currentVideo && targetVol !== undefined && Math.abs(currentVideo.volume - targetVol) > 0.01) {
+                                currentVideo.volume = targetVol;
+                            }
+                            volumeEnforcementTimeout = null;
+                        }, 50);
                     });
 
                     // Don't auto-apply volume here - let didFinish handle it with the current value
@@ -992,11 +1009,43 @@ final class SingletonPlayerWebView {
                         lastArtist = artist;
                     }
 
-                    // Detect if video is available
-                    // YouTube Music always streams from video, so video is always available
-                    // when there's a track playing. Check if video element exists and has src.
-                    const video = document.querySelector('video');
-                    const hasVideo = video !== null && video.src && video.src.length > 0;
+                    // Detect if actual video content is available
+                    // YouTube Music always has a video element for audio, but only shows
+                    // a "Video" tab/toggle when there's actual video content (music videos).
+                    // Check for the Song/Video toggle which only appears for video tracks.
+                    let hasVideo = false;
+
+                    // Method 1: Look for Song/Video toggle buttons in the player page
+                    const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
+                    for (const btn of toggleButtons) {
+                        const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
+                        if (text === 'video' || text === 'song') {
+                            // Found the toggle - this track has video
+                            hasVideo = true;
+                            break;
+                        }
+                    }
+
+                    // Method 2: Check for video tab in ytmusic-player-page
+                    if (!hasVideo) {
+                        const playerPage = document.querySelector('ytmusic-player-page');
+                        if (playerPage) {
+                            const videoTab = playerPage.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
+                            if (videoTab) hasVideo = true;
+                        }
+                    }
+
+                    // Method 3: Check if video has actual video dimensions (not just audio poster)
+                    if (!hasVideo) {
+                        const video = document.querySelector('video');
+                        if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+                            // Video has dimensions - but this could still be audio with a static image
+                            // Check if there's a song-image overlay covering the video (indicates audio-only)
+                            const songImage = document.querySelector('.song-image, .thumbnail-image-wrapper');
+                            const songImageVisible = songImage && getComputedStyle(songImage).display !== 'none';
+                            hasVideo = !songImageVisible;
+                        }
+                    }
 
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
@@ -1079,6 +1128,13 @@ final class SingletonPlayerWebView {
                         artist: artist,
                         thumbnailUrl: thumbnailUrl
                     )
+
+          // Close video window on track change - user can re-open for new track
+          if self.playerService.showVideo {
+            SingletonPlayerWebView.writeDebugLog(
+              "trackChanged: Closing video window (user can re-open for new track)")
+            self.playerService.showVideo = false
+          }
                 }
             }
         }
