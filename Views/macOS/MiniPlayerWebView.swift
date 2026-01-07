@@ -408,16 +408,16 @@ final class SingletonPlayerWebView {
                     window.__kasetTargetVolume = \(savedVolume);
                     // Set flag to prevent enforcement from reverting our change
                     window.__kasetIsSettingVolume = true;
-                    
+
                     // Apply to video element if it exists
                     const video = document.querySelector('video');
                     if (video) {
                         video.volume = \(savedVolume);
                     }
-                    
+
                     // Clear flag after a moment
                     setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
-                    
+
                     return video ? 'applied' : 'no-video-yet';
                 })();
             """

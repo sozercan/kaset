@@ -125,6 +125,7 @@ extension PlayerService {
                     duration: songData.duration ?? self.currentTrack?.duration,
                     thumbnailURL: songData.thumbnailURL ?? self.currentTrack?.thumbnailURL,
                     videoId: videoId,
+                    musicVideoType: songData.musicVideoType,
                     likeStatus: songData.likeStatus,
                     isInLibrary: songData.isInLibrary,
                     feedbackTokens: songData.feedbackTokens
@@ -136,6 +137,13 @@ extension PlayerService {
                 }
                 self.currentTrackInLibrary = songData.isInLibrary ?? false
                 self.currentTrackFeedbackTokens = songData.feedbackTokens
+
+                // Update video availability based on API-detected musicVideoType
+                // This is more reliable than DOM inspection since it comes directly from the API
+                if let videoType = songData.musicVideoType {
+                    self.updateVideoAvailability(hasVideo: videoType.hasVideoContent)
+                    self.logger.debug("Video availability from API: \(videoType.rawValue) -> hasVideo=\(videoType.hasVideoContent)")
+                }
 
                 self.logger.info("Updated track metadata - inLibrary: \(self.currentTrackInLibrary), hasTokens: \(self.currentTrackFeedbackTokens != nil)")
             }

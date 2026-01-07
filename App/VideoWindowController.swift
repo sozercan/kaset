@@ -136,11 +136,6 @@ final class VideoWindowController {
     /// Called when window is closed via the red X button.
     @objc private func windowWillClose(_ notification: Notification) {
         self.logger.info("windowWillClose notification received")
-        
-        // Log call stack to understand what triggered this
-        Thread.callStackSymbols.prefix(10).forEach { symbol in
-            self.logger.debug("  Stack: \(symbol)")
-        }
 
         // Prevent re-entrant calls
         guard !self.isClosing else {

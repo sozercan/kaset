@@ -41,7 +41,6 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: NSView, context _: Context) {
-
         // Ensure WebView is in this container
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,

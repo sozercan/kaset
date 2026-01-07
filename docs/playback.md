@@ -361,6 +361,6 @@ For floating video window functionality, see [docs/video.md](video.md).
 - [x] Queue management (next/previous)
 - [x] Infinite mix loading
 - [x] Video mode (floating video window)
-- [ ] Seek support via JavaScript
-- [ ] Volume control
-- [ ] Artwork extraction for Now Playing
+- [x] Seek support via JavaScript
+- [x] Volume control
+- [x] Now Playing in Control Center (via WKWebView media session + remote commands)

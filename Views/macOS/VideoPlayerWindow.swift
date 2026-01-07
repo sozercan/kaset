@@ -70,7 +70,6 @@ final class VideoContainerView: NSView {
     }
 
     deinit {
-        NSObject.cancelPreviousPerformRequests(withTarget: self)
         NotificationCenter.default.removeObserver(self)
     }
 }

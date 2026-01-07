@@ -15,6 +15,10 @@ struct Song: Identifiable, Codable, Hashable, Sendable {
     /// Whether this track has a music video available.
     var hasVideo: Bool?
 
+    /// The type of music video (OMV, ATV, UGC, etc.).
+    /// Use `musicVideoType?.hasVideoContent` to check if video is worth displaying.
+    var musicVideoType: MusicVideoType?
+
     /// Like/dislike status of the song (nil if unknown).
     var likeStatus: LikeStatus?
 
@@ -34,6 +38,7 @@ struct Song: Identifiable, Codable, Hashable, Sendable {
         thumbnailURL: URL? = nil,
         videoId: String,
         hasVideo: Bool? = nil,
+        musicVideoType: MusicVideoType? = nil,
         likeStatus: LikeStatus? = nil,
         isInLibrary: Bool? = nil,
         feedbackTokens: FeedbackTokens? = nil
@@ -46,6 +51,7 @@ struct Song: Identifiable, Codable, Hashable, Sendable {
         self.thumbnailURL = thumbnailURL
         self.videoId = videoId
         self.hasVideo = hasVideo
+        self.musicVideoType = musicVideoType
         self.likeStatus = likeStatus
         self.isInLibrary = isInLibrary
         self.feedbackTokens = feedbackTokens

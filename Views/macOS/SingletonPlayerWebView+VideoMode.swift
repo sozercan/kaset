@@ -176,7 +176,15 @@ extension SingletonPlayerWebView {
             })();
         """
 
-        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] _, _ in
+        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, _ in
+            // Log if Video tab wasn't found (YouTube UI may have changed)
+            if let resultDict = result as? [String: Any],
+               let clicked = resultDict["clicked"] as? Bool,
+               !clicked
+            {
+                self?.logger.warning("Video tab not found - YouTube UI may have changed")
+            }
+
             // Wait a moment for the video mode to activate, then inject CSS
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(500))
@@ -194,115 +202,122 @@ extension SingletonPlayerWebView {
         let width = Int(superviewFrame.width > 0 ? superviewFrame.width : 480)
         let height = Int(superviewFrame.height > 0 ? superviewFrame.height : 270)
 
-        // JavaScript to extract the video element into a fullscreen container
-        // Use explicit pixel values since viewport units don't update reliably in WKWebView
-        let script = """
-            (function() {
-                'use strict';
-
-                const containerWidth = \(width);
-                const containerHeight = \(height);
-
-                // Remove existing Kaset video container if present
-                const existingContainer = document.getElementById('kaset-video-container');
-                if (existingContainer) {
-                    // Move video back to original parent before removing container
-                    const video = existingContainer.querySelector('video');
-                    if (video && video.__kasetOriginalParent) {
-                        video.__kasetOriginalParent.appendChild(video);
-                    }
-                    existingContainer.remove();
-                }
-
-                // Find the video element
-                const video = document.querySelector('video');
-                if (!video) {
-                    console.log('[Kaset] No video element found');
-                    return { success: false, error: 'No video element' };
-                }
-
-                // Store original parent for restoration later
-                video.__kasetOriginalParent = video.parentElement;
-
-                // Create a fullscreen container for the video
-                const container = document.createElement('div');
-                container.id = 'kaset-video-container';
-                container.style.cssText = `
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: ${containerWidth}px !important;
-                    height: ${containerHeight}px !important;
-                    background: #000 !important;
-                    z-index: 2147483647 !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                `;
-                
-                // Prevent clicks from bubbling to YouTube's underlying player
-                // This stops YouTube from intercepting clicks and changing volume
-                container.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                }, true);
-                container.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                }, true);
-                container.addEventListener('mouseup', (e) => {
-                    e.stopPropagation();
-                }, true);
-
-                // Style the video element with native controls
-                // Use explicit pixel values AND override any max-width/max-height from YouTube CSS
-                video.style.cssText = `
-                    width: ${containerWidth}px !important;
-                    height: ${containerHeight}px !important;
-                    max-width: ${containerWidth}px !important;
-                    max-height: ${containerHeight}px !important;
-                    min-width: ${containerWidth}px !important;
-                    min-height: ${containerHeight}px !important;
-                    object-fit: contain !important;
-                    background: #000 !important;
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    pointer-events: auto !important;
-                `;
-                // Disable native controls - users should use app's player bar for control
-                // This prevents volume conflicts from native control interactions
-                video.controls = false;
-                
-                // Prevent video click events from reaching YouTube's handlers
-                video.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                }, true);
-
-                // Move video into our container (audio continues uninterrupted)
-                container.appendChild(video);
-                document.body.appendChild(container);
-
-                // Remove blackout now that video container is in place
-                const blackout = document.getElementById('kaset-blackout');
-                if (blackout) blackout.remove();
-
-                // Restore volume to app's target value (YouTube may have reset it)
-                if (typeof window.__kasetTargetVolume === 'number') {
-                    video.volume = window.__kasetTargetVolume;
-                }
-
-                return {
-                    success: true,
-                    videoWidth: video.videoWidth,
-                    videoHeight: video.videoHeight,
-                    containerWidth: containerWidth,
-                    containerHeight: containerHeight
-                };
-            })();
-        """
-
+        let script = Self.videoContainerScript(width: width, height: height)
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
+
+    // swiftlint:disable function_body_length
+    /// Generates the JavaScript to extract video into a fullscreen container.
+    private static func videoContainerScript(width: Int, height: Int) -> String {
+        // JavaScript to extract the video element into a fullscreen container
+        // Use explicit pixel values since viewport units don't update reliably in WKWebView
+        """
+        (function() {
+            'use strict';
+
+            const containerWidth = \(width);
+            const containerHeight = \(height);
+
+            // Remove existing Kaset video container if present
+            const existingContainer = document.getElementById('kaset-video-container');
+            if (existingContainer) {
+                // Move video back to original parent before removing container
+                const video = existingContainer.querySelector('video');
+                if (video && video.__kasetOriginalParent) {
+                    video.__kasetOriginalParent.appendChild(video);
+                }
+                existingContainer.remove();
+            }
+
+            // Find the video element
+            const video = document.querySelector('video');
+            if (!video) {
+                console.log('[Kaset] No video element found');
+                return { success: false, error: 'No video element' };
+            }
+
+            // Store original parent for restoration later
+            video.__kasetOriginalParent = video.parentElement;
+
+            // Create a fullscreen container for the video
+            const container = document.createElement('div');
+            container.id = 'kaset-video-container';
+            container.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: ${containerWidth}px !important;
+                height: ${containerHeight}px !important;
+                background: #000 !important;
+                z-index: 2147483647 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            `;
+
+            // Prevent clicks from bubbling to YouTube's underlying player
+            // This stops YouTube from intercepting clicks and changing volume
+            container.addEventListener('click', (e) => {
+                e.stopPropagation();
+            }, true);
+            container.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            }, true);
+            container.addEventListener('mouseup', (e) => {
+                e.stopPropagation();
+            }, true);
+
+            // Style the video element with native controls
+            // Use explicit pixel values AND override any max-width/max-height from YouTube CSS
+            video.style.cssText = `
+                width: ${containerWidth}px !important;
+                height: ${containerHeight}px !important;
+                max-width: ${containerWidth}px !important;
+                max-height: ${containerHeight}px !important;
+                min-width: ${containerWidth}px !important;
+                min-height: ${containerHeight}px !important;
+                object-fit: contain !important;
+                background: #000 !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                pointer-events: auto !important;
+            `;
+            // Disable native controls - users should use app's player bar for control
+            // This prevents volume conflicts from native control interactions
+            video.controls = false;
+
+            // Prevent video click events from reaching YouTube's handlers
+            video.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+            }, true);
+
+            // Move video into our container (audio continues uninterrupted)
+            container.appendChild(video);
+            document.body.appendChild(container);
+
+            // Remove blackout now that video container is in place
+            const blackout = document.getElementById('kaset-blackout');
+            if (blackout) blackout.remove();
+
+            // Restore volume to app's target value (YouTube may have reset it)
+            if (typeof window.__kasetTargetVolume === 'number') {
+                video.volume = window.__kasetTargetVolume;
+            }
+
+            return {
+                success: true,
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight,
+                containerWidth: containerWidth,
+                containerHeight: containerHeight
+            };
+        })();
+        """
+    }
+
+    // swiftlint:enable function_body_length
 
     /// Removes the video container and restores the video to its original location.
     func removeVideoModeCSS() {
@@ -347,27 +362,27 @@ extension SingletonPlayerWebView {
     /// Ensures the video container fills the entire viewport.
     func refreshVideoModeCSS() {
         guard self.displayMode == .video, let webView else { return }
-        
+
         // Use superview frame since that's the actual container size
         let superviewFrame = webView.superview?.frame ?? webView.frame
         let width = Int(superviewFrame.width)
         let height = Int(superviewFrame.height)
-        
+
         guard width > 0, height > 0 else { return }
-        
+
         // Update the video container to match WebView bounds exactly
         let resizeScript = """
             (function() {
                 const container = document.getElementById('kaset-video-container');
                 if (!container) return { success: false };
-                
+
                 const width = \(width);
                 const height = \(height);
-                
+
                 // Update container to fill viewport
                 container.style.width = width + 'px';
                 container.style.height = height + 'px';
-                
+
                 // Also update the video element with explicit pixel dimensions
                 const video = container.querySelector('video');
                 if (video) {
@@ -379,7 +394,7 @@ extension SingletonPlayerWebView {
                     video.style.minHeight = height + 'px';
                     video.style.objectFit = 'contain';
                 }
-                
+
                 return { success: true, width: width, height: height };
             })();
         """

@@ -23,6 +23,7 @@ enum SongMetadataParser {
         let thumbnailURL = self.parseThumbnail(from: panelVideoRenderer)
         let duration = self.parseDuration(from: panelVideoRenderer)
         let menuData = self.parseMenuData(from: panelVideoRenderer)
+        let musicVideoType = self.parseMusicVideoType(from: panelVideoRenderer)
 
         return Song(
             id: videoId,
@@ -32,6 +33,7 @@ enum SongMetadataParser {
             duration: duration,
             thumbnailURL: thumbnailURL,
             videoId: videoId,
+            musicVideoType: musicVideoType,
             likeStatus: menuData.likeStatus,
             isInLibrary: menuData.isInLibrary,
             feedbackTokens: menuData.feedbackTokens
@@ -131,6 +133,19 @@ enum SongMetadataParser {
         else { return nil }
 
         return ParsingHelpers.parseDuration(text)
+    }
+
+    /// Parses the music video type from the panel video renderer's navigation endpoint.
+    /// Path: navigationEndpoint.watchEndpoint.watchEndpointMusicSupportedConfigs.watchEndpointMusicConfig.musicVideoType
+    static func parseMusicVideoType(from renderer: [String: Any]) -> MusicVideoType? {
+        guard let navEndpoint = renderer["navigationEndpoint"] as? [String: Any],
+              let watchEndpoint = navEndpoint["watchEndpoint"] as? [String: Any],
+              let configs = watchEndpoint["watchEndpointMusicSupportedConfigs"] as? [String: Any],
+              let musicConfig = configs["watchEndpointMusicConfig"] as? [String: Any],
+              let typeString = musicConfig["musicVideoType"] as? String
+        else { return nil }
+
+        return MusicVideoType(rawValue: typeString)
     }
 
     /// Parses menu data (feedbackTokens, library status, like status) from the panel video renderer.

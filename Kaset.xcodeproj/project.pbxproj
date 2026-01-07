@@ -57,6 +57,7 @@
 		985AD2259BF6FDD75C52CF5E /* AnimationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37AD7895605C401CE66CF5E0 /* AnimationConfiguration.swift */; };
 		9A82CDB4FA77A8D528E88445 /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBABB9FAFB133BB2F35BDA14 /* AnimationModifiers.swift */; };
 		9D2D4B6287C05DBE99BF3A0E /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D7DDDC369AB4D72D7306F02 /* SkeletonView.swift */; };
+		B12091679D1BC037D7FE82D0 /* MusicVideoType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63AB4670ED0A0CAF11944C93 /* MusicVideoType.swift */; };
 		B1A24892B22867B3A96E3116 /* LikedMusicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8DCC29CA2E49E033B9CB72D /* LikedMusicView.swift */; };
 		B376665F45E0C3B7F291135C /* PlayerService+Queue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */; };
 		B3A3A2F8AD2C1E3CB4BF1AF4 /* LyricsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 544BCEDE857D4B48CB77862B /* LyricsSummary.swift */; };
@@ -228,6 +229,7 @@
 		5FD0EE4EB4A6F24FB0C9E93B /* MusicIntentIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MusicIntentIntegrationTests.swift; sourceTree = "<group>"; };
 		5FD0EE4EB4A6F24FB0C9E93C /* HapticServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticServiceTests.swift; sourceTree = "<group>"; };
 		611D0582A47EC57F44C8ED4A /* ChartsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChartsView.swift; path = Views/macOS/ChartsView.swift; sourceTree = "<group>"; };
+		63AB4670ED0A0CAF11944C93 /* MusicVideoType.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MusicVideoType.swift; sourceTree = "<group>"; };
 		67EEAB06629FA5154C0CD393 /* PlayerService+Queue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PlayerService+Queue.swift"; sourceTree = "<group>"; };
 		6BE87B6EFFFDDC581F4793ED /* NewReleasesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewReleasesView.swift; path = Views/macOS/NewReleasesView.swift; sourceTree = "<group>"; };
 		74A7B3F1E5D9DD334BDCC588 /* Kaset.Debug.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = Kaset.Debug.entitlements; path = App/Kaset.Debug.entitlements; sourceTree = "<group>"; };
@@ -604,6 +606,7 @@
 				3BA32FDE7D5E0F305D8F490F /* MoodCategory.swift */,
 				FAV0000200000001 /* FavoriteItem.swift */,
 				75733D592D5AD5DBECEFA881 /* Podcast.swift */,
+				63AB4670ED0A0CAF11944C93 /* MusicVideoType.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1074,6 +1077,7 @@
 				732DCD0BDD44B5149B04B7F5 /* SingletonPlayerWebView+VideoMode.swift in Sources */,
 				732DCD0BDD44B5149B04B7F6 /* SingletonPlayerWebView+PlaybackControls.swift in Sources */,
 				732DCD0BDD44B5149B04B7F7 /* SingletonPlayerWebView+ObserverScript.swift in Sources */,
+				B12091679D1BC037D7FE82D0 /* MusicVideoType.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

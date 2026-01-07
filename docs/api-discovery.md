@@ -851,6 +851,7 @@ The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 
 | Date | Changes |
 |------|---------|
+| 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |
 | 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |
 | 2024-12-22 | Added Undocumented Endpoints section with discovered endpoints |
 | 2024-12-22 | Unified standalone API Explorer with full endpoint coverage |
@@ -858,6 +859,111 @@ The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 | 2024-12-21 | Verified Player and Queue endpoints with detailed response structures |
 | 2024-12-21 | Confirmed Library Albums/Artists/Songs require auth + params |
 | 2024-12-21 | Documented playlist management auth requirements |
+
+---
+
+## Video Feature API
+
+This section documents API functionality for the floating video window feature. See [docs/video.md](video.md) for implementation details.
+
+### Music Video Type Detection
+
+The `musicVideoType` field distinguishes between actual music videos and audio-only tracks. This is available in both `player` and `next` endpoint responses.
+
+| Video Type | Constant | Description | Has Video Content |
+|------------|----------|-------------|-------------------|
+| Official Music Video | `MUSIC_VIDEO_TYPE_OMV` | Full video from artist/label | ✅ Yes |
+| Audio Track Video | `MUSIC_VIDEO_TYPE_ATV` | Static image or visualizer | ❌ No |
+| User Generated Content | `MUSIC_VIDEO_TYPE_UGC` | Fan-made or unofficial | ⚠️ Varies |
+| Podcast Episode | `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` | Audio podcast | ❌ No |
+
+**Implementation**: The `MusicVideoType` enum and parsing are implemented in:
+- [Core/Models/MusicVideoType.swift](../Core/Models/MusicVideoType.swift) - Enum definition
+- [Core/Models/Song.swift](../Core/Models/Song.swift) - `musicVideoType` property
+- [Core/Services/API/Parsers/SongMetadataParser.swift](../Core/Services/API/Parsers/SongMetadataParser.swift) - Parsing logic
+
+**Location in `next` response**:
+```
+playlistPanelVideoRenderer.navigationEndpoint.watchEndpoint
+  .watchEndpointMusicSupportedConfigs.watchEndpointMusicConfig.musicVideoType
+```
+
+**Location in `player` response**:
+```
+videoDetails.musicVideoType
+```
+
+**Usage Example**:
+```swift
+// Only show video toggle for actual music videos
+if song.musicVideoType?.hasVideoContent == true {
+    showVideoToggle()
+}
+```
+
+---
+
+### Video Quality Options (Future Enhancement)
+
+The `player` endpoint returns video streaming data in `streamingData.adaptiveFormats`. This could enable a video quality selector feature.
+
+> ⚠️ **Not Implemented**: Due to DRM requirements, Kaset uses WebView for playback. Direct URL streaming would bypass DRM protection. Quality selection would need to be implemented via WebView JavaScript.
+
+**Available Qualities** (from `adaptiveFormats`):
+
+| Quality | Resolution | Codec Options |
+|---------|------------|---------------|
+| 1080p | 1920×1080 | H.264 (avc1.640028), VP9 |
+| 720p | 1280×720 | H.264 (avc1.4d401f), VP9 |
+| 480p | 854×480 | H.264 (avc1.4d401f), VP9 |
+| 360p | 640×360 | H.264 (avc1.4d401e), VP9 |
+| 240p | 426×240 | H.264 (avc1.4d4015), VP9 |
+| 144p | 256×144 | H.264 (avc1.4d400c), VP9 |
+
+**Response Structure**:
+```json
+{
+  "streamingData": {
+    "adaptiveFormats": [
+      {
+        "itag": 137,
+        "mimeType": "video/mp4; codecs=\"avc1.640028\"",
+        "bitrate": 2173100,
+        "width": 1920,
+        "height": 1080,
+        "quality": "hd1080",
+        "qualityLabel": "1080p",
+        "fps": 30,
+        "url": "https://..."
+      }
+    ]
+  }
+}
+```
+
+**Future Implementation Path**:
+1. Inject JavaScript into WebView to access player API
+2. Use `player.setPlaybackQuality()` or similar YouTube player methods
+3. Or: Parse available qualities and let WebView auto-select
+
+---
+
+### Related Content / Video Alternatives (Future Enhancement)
+
+The `next` endpoint returns a Related tab that can find song/video counterparts.
+
+> ⚠️ **Not Implemented**: Could be used to find video version of audio-only tracks or vice versa.
+
+**Related Tab browseId Pattern**: `MPTRt_{trackId}`
+
+**Example**: For song `DyDfgMOUjCI`, the Related tab browseId is `MPTRt_5OAD9vk2OaS`
+
+**Page Type**: `MUSIC_PAGE_TYPE_TRACK_RELATED`
+
+**Use Cases**:
+- "Watch Video" button for ATV tracks that have an OMV version
+- "Listen to Audio" for users who prefer audio-only playback
+- Finding alternative versions (live, remix, etc.)
 
 ---
 

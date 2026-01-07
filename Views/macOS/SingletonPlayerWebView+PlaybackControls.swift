@@ -116,7 +116,7 @@ extension SingletonPlayerWebView {
                 window.__kasetTargetVolume = \(clampedVolume);
                 const video = document.querySelector('video');
                 let result = [];
-                
+
                 if (video) {
                     // Set flag to prevent volumechange listener from reverting
                     window.__kasetIsSettingVolume = true;
@@ -126,7 +126,7 @@ extension SingletonPlayerWebView {
                 } else {
                     result.push('no-video');
                 }
-                
+
                 // Also try YouTube Music's internal player API
                 const player = document.querySelector('ytmusic-player');
                 if (player && player.playerApi) {
@@ -134,7 +134,7 @@ extension SingletonPlayerWebView {
                     player.playerApi.setVolume(ytVolume);
                     result.push('ytapi.setVolume=' + ytVolume);
                 }
-                
+
                 // Try movie_player API as fallback
                 const moviePlayer = document.getElementById('movie_player');
                 if (moviePlayer && moviePlayer.setVolume) {
@@ -142,7 +142,7 @@ extension SingletonPlayerWebView {
                     moviePlayer.setVolume(ytVolume);
                     result.push('movie_player.setVolume=' + ytVolume);
                 }
-                
+
                 return result.join(', ');
             })();
         """

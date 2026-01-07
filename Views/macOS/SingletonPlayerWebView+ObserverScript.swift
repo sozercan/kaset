@@ -52,7 +52,7 @@ extension SingletonPlayerWebView {
                     video.addEventListener('volumechange', () => {
                         // Skip if we're currently enforcing (prevents feedback loop)
                         if (isEnforcingVolume) return;
-                        
+
                         // Debounce to prevent rapid-fire enforcement
                         if (volumeEnforcementTimeout) {
                             clearTimeout(volumeEnforcementTimeout);
@@ -69,7 +69,7 @@ extension SingletonPlayerWebView {
                             if (currentVideo && typeof targetVol === 'number' && Math.abs(currentVideo.volume - targetVol) > 0.01) {
                                 isEnforcingVolume = true;
                                 currentVideo.volume = targetVol;
-                                
+
                                 // Also enforce via YouTube's internal APIs
                                 const ytVolume = Math.round(targetVol * 100);
                                 const player = document.querySelector('ytmusic-player');
@@ -80,7 +80,7 @@ extension SingletonPlayerWebView {
                                 if (moviePlayer && moviePlayer.setVolume) {
                                     moviePlayer.setVolume(ytVolume);
                                 }
-                                
+
                                 // Clear flag after a tick to allow next external change to be caught
                                 setTimeout(() => { isEnforcingVolume = false; }, 10);
                             }
@@ -96,7 +96,7 @@ extension SingletonPlayerWebView {
                     if (typeof targetVol === 'number') {
                         isEnforcingVolume = true;
                         video.volume = targetVol;
-                        
+
                         // Also set YouTube's internal player API volume
                         const player = document.querySelector('ytmusic-player');
                         if (player && player.playerApi) {
@@ -106,7 +106,7 @@ extension SingletonPlayerWebView {
                         if (moviePlayer && moviePlayer.setVolume) {
                             moviePlayer.setVolume(Math.round(targetVol * 100));
                         }
-                        
+
                         setTimeout(() => { isEnforcingVolume = false; }, 10);
                     }
 
@@ -215,40 +215,18 @@ extension SingletonPlayerWebView {
                     }
 
                     // Detect if actual video content is available
-                    // YouTube Music always has a video element for audio, but only shows
-                    // a "Video" tab/toggle when there's actual video content (music videos).
-                    // Check for the Song/Video toggle which only appears for video tracks.
+                    // This is a quick DOM check for initial detection.
+                    // The API-based musicVideoType detection in fetchSongMetadata
+                    // will provide the authoritative value once metadata is loaded.
                     let hasVideo = false;
 
-                    // Method 1: Look for Song/Video toggle buttons in the player page
+                    // Quick check: Look for Song/Video toggle buttons
                     const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
                     for (const btn of toggleButtons) {
                         const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
                         if (text === 'video' || text === 'song') {
-                            // Found the toggle - this track has video
                             hasVideo = true;
                             break;
-                        }
-                    }
-
-                    // Method 2: Check for video tab in ytmusic-player-page
-                    if (!hasVideo) {
-                        const playerPage = document.querySelector('ytmusic-player-page');
-                        if (playerPage) {
-                            const videoTab = playerPage.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
-                            if (videoTab) hasVideo = true;
-                        }
-                    }
-
-                    // Method 3: Check if video has actual video dimensions (not just audio poster)
-                    if (!hasVideo) {
-                        const video = document.querySelector('video');
-                        if (video && video.videoWidth > 0 && video.videoHeight > 0) {
-                            // Video has dimensions - but this could still be audio with a static image
-                            // Check if there's a song-image overlay covering the video (indicates audio-only)
-                            const songImage = document.querySelector('.song-image, .thumbnail-image-wrapper');
-                            const songImageVisible = songImage && getComputedStyle(songImage).display !== 'none';
-                            hasVideo = !songImageVisible;
                         }
                     }
 
