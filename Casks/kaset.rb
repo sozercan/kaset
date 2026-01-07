@@ -7,10 +7,20 @@ cask "kaset" do
   desc "Native YouTube Music client"
   homepage "https://github.com/sozercan/kaset"
 
+  deprecate! date: "2026-01-06", because: "has moved to a new tap"
+
   auto_updates false
   depends_on macos: ">= :tahoe"
 
   app "Kaset.app"
+
+  caveats <<~EOS
+    ⚠️  This tap is deprecated and will no longer receive updates.
+
+    To migrate to the new tap:
+      brew untap sozercan/kaset
+      brew install sozercan/repo/kaset
+  EOS
 
   postflight do
     system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
