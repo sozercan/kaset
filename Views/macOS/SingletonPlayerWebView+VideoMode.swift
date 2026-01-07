@@ -49,7 +49,11 @@ extension SingletonPlayerWebView {
                 }
             })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(script) { _, error in
+            if let error {
+                DiagnosticsLogger.player.error("Failed to inject blackout CSS: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
@@ -203,7 +207,18 @@ extension SingletonPlayerWebView {
         let height = Int(superviewFrame.height > 0 ? superviewFrame.height : 270)
 
         let script = Self.videoContainerScript(width: width, height: height)
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(script) { result, error in
+            if let error {
+                DiagnosticsLogger.player.error("Failed to inject video mode styles: \(error.localizedDescription)")
+                return
+            }
+            if let dict = result as? [String: Any],
+               let success = dict["success"] as? Bool,
+               !success
+            {
+                DiagnosticsLogger.player.warning("Video mode CSS injection reported failure: \(dict)")
+            }
+        }
     }
 
     // swiftlint:disable function_body_length
@@ -355,7 +370,11 @@ extension SingletonPlayerWebView {
             })();
         """
 
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(script) { _, error in
+            if let error {
+                DiagnosticsLogger.player.error("Failed to remove video mode CSS: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Re-injects video mode after resize or other layout changes.
@@ -398,6 +417,17 @@ extension SingletonPlayerWebView {
                 return { success: true, width: width, height: height };
             })();
         """
-        webView.evaluateJavaScript(resizeScript, completionHandler: nil)
+        webView.evaluateJavaScript(resizeScript) { result, error in
+            if let error {
+                DiagnosticsLogger.player.error("Failed to refresh video mode CSS: \(error.localizedDescription)")
+                return
+            }
+            if let dict = result as? [String: Any],
+               let success = dict["success"] as? Bool,
+               !success
+            {
+                DiagnosticsLogger.player.warning("Video mode CSS resize reported failure")
+            }
+        }
     }
 }

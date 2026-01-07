@@ -174,6 +174,9 @@ final class VideoWindowController {
         // Clear references
         self.window = nil
         self.hostingView = nil
+
+        // Reset close guard so future close operations can proceed
+        self.isClosing = false
     }
 
     private func positionAtCorner(window: NSWindow, corner: Corner) {

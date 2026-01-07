@@ -278,14 +278,10 @@ final class SingletonPlayerWebView {
         webView.removeFromSuperview()
         container.addSubview(webView)
 
-        // Use autoresizing to match container size
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            webView.topAnchor.constraint(equalTo: container.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
+        // Use autoresizing to match container size (consistent with waitForValidBoundsAndInject)
+        webView.translatesAutoresizingMaskIntoConstraints = true
+        webView.frame = container.bounds
+        webView.autoresizingMask = [.width, .height]
         // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
@@ -381,12 +377,9 @@ final class SingletonPlayerWebView {
                         thumbnailUrl: thumbnailUrl
                     )
 
-                    // Only close video window on track change if we're NOT in video mode
-                    // When video mode is active, trackChanged detection is unreliable because
-                    // our video container can obscure the DOM elements being queried
+                    // Close video window on track change, but skip during grace period
+                    // (grace period prevents false positives during initial video mode setup)
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
-                        // Check if this is a real track change by comparing video IDs
-                        // rather than relying on title/artist which can be unreliable
                         DiagnosticsLogger.player.info(
                             "trackChanged to '\(title)' while video shown - closing video window")
                         self.playerService.showVideo = false
@@ -421,7 +414,15 @@ final class SingletonPlayerWebView {
                     return video ? 'applied' : 'no-video-yet';
                 })();
             """
-            webView.evaluateJavaScript(applyVolumeScript, completionHandler: nil)
+            webView.evaluateJavaScript(applyVolumeScript) { result, error in
+                if let error {
+                    DiagnosticsLogger.player.error(
+                        "Failed to apply saved volume \(savedVolume): \(error.localizedDescription)"
+                    )
+                } else if let resultString = result as? String {
+                    DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
+                }
+            }
         }
     }
 }

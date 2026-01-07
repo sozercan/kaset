@@ -65,10 +65,6 @@ final class VideoContainerView: NSView {
         }
     }
 
-    @objc private func reinjectCSS() {
-        // Legacy method - now handled directly in frameDidChange
-    }
-
     deinit {
         NotificationCenter.default.removeObserver(self)
     }

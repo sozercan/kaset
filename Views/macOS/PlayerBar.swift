@@ -466,6 +466,7 @@ struct PlayerBar: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.pressable)
+                .glassEffectID("video", in: self.playerNamespace)
                 .keyboardShortcut("v", modifiers: [.command, .shift])
                 .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
                 .accessibilityLabel("Video")
