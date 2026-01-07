@@ -7,6 +7,10 @@ import UserNotifications
 /// Keeps the app running when windows are closed so audio playback continues.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Reference to the PlayerService for dock menu actions.
+    /// Set by KasetApp after initialization.
+    weak var playerService: PlayerService?
+
     func applicationDidFinishLaunching(_: Notification) {
         // Set up notification center delegate to show notifications in foreground
         UNUserNotificationCenter.current().delegate = self
@@ -62,15 +66,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func dockMenuPlayPause() {
-        SingletonPlayerWebView.shared.playPause()
+        guard let playerService else {
+            // Fallback to direct WebView control if PlayerService not available
+            SingletonPlayerWebView.shared.playPause()
+            return
+        }
+        Task {
+            await playerService.playPause()
+        }
     }
 
     @objc private func dockMenuNext() {
-        SingletonPlayerWebView.shared.next()
+        guard let playerService else {
+            // Fallback to direct WebView control if PlayerService not available
+            SingletonPlayerWebView.shared.next()
+            return
+        }
+        Task {
+            await playerService.next()
+        }
     }
 
     @objc private func dockMenuPrevious() {
-        SingletonPlayerWebView.shared.previous()
+        guard let playerService else {
+            // Fallback to direct WebView control if PlayerService not available
+            SingletonPlayerWebView.shared.previous()
+            return
+        }
+        Task {
+            await playerService.previous()
+        }
     }
 
     /// Keep app running when the window is closed (for background audio).

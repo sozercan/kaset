@@ -115,6 +115,9 @@ struct KasetApp: App {
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
                     .task {
+                        // Wire up PlayerService to AppDelegate for dock menu actions
+                        self.appDelegate.playerService = self.playerService
+
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
 

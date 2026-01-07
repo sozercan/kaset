@@ -243,6 +243,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.state = .loading
         self.currentTrack = song
 
+        // Mark that we initiated this playback (to ignore YouTube's autoplay override)
+        self.isKasetInitiatedPlayback = true
+
         // Use existing feedbackTokens if the song already has them
         if let tokens = song.feedbackTokens {
             self.currentTrackFeedbackTokens = tokens
@@ -313,6 +316,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Flag to track when a song is nearing its end.
     private var songNearingEnd: Bool = false
 
+    /// Flag to track when we initiated a track change (to ignore YouTube's autoplay).
+    /// This is set when we call play() and cleared after the track loads.
+    private var isKasetInitiatedPlayback: Bool = false
+
     /// Updates track metadata when track changes (e.g., via next/previous).
     /// Also handles enforcing our queue when YouTube autoplay kicks in.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
@@ -327,7 +334,24 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // Check if track actually changed
         let trackChanged = self.currentTrack?.title != title || self.currentTrack?.artistsDisplay != artist
 
-        // If track changed and we have a queue, check if YouTube autoplay kicked in
+        // If we initiated playback (e.g., via next() with shuffle), check if YouTube loaded a different track
+        // This happens when the WebView's media session intercepts media keys and triggers YouTube's own next
+        if trackChanged, self.isKasetInitiatedPlayback, !self.queue.isEmpty {
+            // Get the song we intended to play
+            if let intendedSong = queue[safe: currentIndex], intendedSong.title != title {
+                self.logger.info("YouTube loaded different track '\(title)', re-playing intended track '\(intendedSong.title)'")
+                // Clear the flag to prevent infinite loop
+                self.isKasetInitiatedPlayback = false
+                Task {
+                    await self.play(song: intendedSong)
+                }
+                return
+            }
+            // Track matches what we wanted, clear the flag
+            self.isKasetInitiatedPlayback = false
+        }
+
+        // If track changed and we have a queue, check if YouTube autoplay kicked in (song ending naturally)
         if trackChanged, !self.queue.isEmpty, self.songNearingEnd {
             self.songNearingEnd = false
 
