@@ -149,6 +149,50 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         } else {
             self.volumeBeforeMute = self.volume > 0 ? self.volume : 1.0
         }
+
+        // Load mock state for UI tests
+        self.loadMockStateIfNeeded()
+    }
+
+    /// Loads mock player state from environment variables for UI testing.
+    private func loadMockStateIfNeeded() {
+        guard UITestConfig.isUITestMode else { return }
+
+        // Load mock current track
+        if let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockCurrentTrackKey),
+           let data = jsonString.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let id = dict["id"] as? String,
+           let title = dict["title"] as? String,
+           let videoId = dict["videoId"] as? String
+        {
+            let artist = dict["artist"] as? String ?? "Unknown Artist"
+            let duration: TimeInterval? = (dict["duration"] as? Int).map { TimeInterval($0) }
+            self.currentTrack = Song(
+                id: id,
+                title: title,
+                artists: [Artist(id: "mock-artist", name: artist)],
+                album: nil,
+                duration: duration,
+                thumbnailURL: nil,
+                videoId: videoId
+            )
+            self.logger.debug("Loaded mock current track: \(title)")
+        }
+
+        // Load mock playing state
+        if let isPlayingString = UITestConfig.environmentValue(for: UITestConfig.mockIsPlayingKey) {
+            let isPlaying = isPlayingString == "true"
+            self.state = isPlaying ? .playing : .paused
+            self.logger.debug("Loaded mock playing state: \(isPlaying)")
+        }
+
+        // Load mock video availability
+        if let hasVideoString = UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) {
+            let hasVideo = hasVideoString == "true"
+            self.currentTrackHasVideo = hasVideo
+            self.logger.debug("Loaded mock video availability: \(hasVideo)")
+        }
     }
 
     /// Sets the YTMusicClient for API calls (dependency injection).

@@ -28,6 +28,9 @@ enum UITestConfig {
     /// Whether player should simulate playing state.
     static let mockIsPlayingKey = "MOCK_IS_PLAYING"
 
+    /// Whether the current track has video available.
+    static let mockHasVideoKey = "MOCK_HAS_VIDEO"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.

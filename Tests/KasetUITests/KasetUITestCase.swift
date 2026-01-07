@@ -17,6 +17,14 @@ enum TestAccessibilityID {
     enum Home {
         static let container = "homeView"
     }
+
+    enum PlayerBar {
+        static let videoButton = "playerBar.video"
+    }
+
+    enum VideoWindow {
+        static let container = "videoWindow"
+    }
 }
 
 // MARK: - KasetUITestCase
@@ -121,7 +129,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with a mock current track (player has something playing).
-    func launchWithMockPlayer(isPlaying: Bool = true) {
+    func launchWithMockPlayer(isPlaying: Bool = true, hasVideo: Bool = false) {
         let track: [String: Any] = [
             "id": "current-track",
             "title": "Now Playing Song",
@@ -136,8 +144,14 @@ class KasetUITestCase: XCTestCase {
             self.app.launchEnvironment["MOCK_CURRENT_TRACK"] = jsonString
         }
         self.app.launchEnvironment["MOCK_IS_PLAYING"] = isPlaying ? "true" : "false"
+        self.app.launchEnvironment["MOCK_HAS_VIDEO"] = hasVideo ? "true" : "false"
 
         self.app.launch()
+    }
+
+    /// Launches the app with a mock current track that has video available.
+    func launchWithMockPlayerWithVideo(isPlaying: Bool = true) {
+        self.launchWithMockPlayer(isPlaying: isPlaying, hasVideo: true)
     }
 
     /// Launches the app with default configuration (logged in, no specific mock data).

@@ -14,6 +14,7 @@ struct VideoPlayerWindow: View {
             .background(.black)
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .frame(minWidth: 320, minHeight: 180)
+            .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
     }
 }
 

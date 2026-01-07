@@ -81,6 +81,9 @@ final class VideoWindowController {
         window.minSize = NSSize(width: 320, height: 180)
         window.backgroundColor = .black
 
+        // Set accessibility identifier for UI testing
+        window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.VideoWindow.container)
+
         // Position at saved corner
         self.positionAtCorner(window: window, corner: self.currentCorner)
 
