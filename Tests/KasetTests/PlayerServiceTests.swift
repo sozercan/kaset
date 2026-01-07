@@ -323,6 +323,65 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentIndex == 0)
     }
 
+    // MARK: - Next with Shuffle Tests
+
+    @Test("Next with shuffle picks random song from queue")
+    func nextWithShufflePicksFromQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
+            Song(id: "5", title: "Song 5", artists: [], album: nil, duration: 260, thumbnailURL: nil, videoId: "v5"),
+        ]
+
+        await playerService.playQueue(songs, startingAt: 0)
+        self.playerService.toggleShuffle()
+        #expect(self.playerService.shuffleEnabled == true)
+
+        // Call next multiple times and verify we always pick from the queue
+        let validVideoIds = Set(songs.map(\.videoId))
+        for _ in 0 ..< 10 {
+            await self.playerService.next()
+            // Verify the current track is from our queue
+            #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Shuffle should only pick songs from the queue")
+        }
+    }
+
+    @Test("UpdateTrackMetadata corrects YouTube autoplay with Kaset-initiated playback")
+    func updateTrackMetadataCorrectsYouTubeAutoplay() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await playerService.playQueue(songs, startingAt: 0)
+        self.playerService.toggleShuffle()
+
+        // Simulate calling next which sets isKasetInitiatedPlayback
+        await self.playerService.next()
+
+        // Get the song that Kaset intended to play
+        let intendedSong = self.playerService.queue[self.playerService.currentIndex]
+
+        // Simulate YouTube loading a DIFFERENT track (not from our queue)
+        // This should trigger a re-play of the intended track
+        self.playerService.updateTrackMetadata(
+            title: "YouTube Autoplay Song",
+            artist: "Random Artist",
+            thumbnailUrl: ""
+        )
+
+        // Give async correction task time to run
+        try? await Task.sleep(for: .milliseconds(100))
+
+        // The current track should still be the intended song from our queue
+        // (or a re-played version of it)
+        let validVideoIds = Set(songs.map(\.videoId))
+        #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Track should be from our queue, not YouTube autoplay")
+    }
+
     // MARK: - Play From Queue Tests
 
     @Test("Play from queue valid index")
