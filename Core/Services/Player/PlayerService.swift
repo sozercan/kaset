@@ -167,7 +167,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                     self.repeatMode = .all
                 case "one":
                     self.repeatMode = .one
+                case "off":
+                    self.repeatMode = .off
                 default:
+                    self.logger.warning("Unexpected repeat mode value in UserDefaults: \(savedRepeatMode), defaulting to off")
                     self.repeatMode = .off
                 }
                 self.logger.info("Restored repeat mode: \(String(describing: self.repeatMode))")

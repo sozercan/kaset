@@ -86,6 +86,11 @@ final class SettingsManager {
     var rememberPlaybackSettings: Bool {
         didSet {
             UserDefaults.standard.set(self.rememberPlaybackSettings, forKey: Keys.rememberPlaybackSettings)
+            // Clear stale values when setting is disabled to prevent unexpected restoration
+            if !self.rememberPlaybackSettings {
+                UserDefaults.standard.removeObject(forKey: "playerShuffleEnabled")
+                UserDefaults.standard.removeObject(forKey: "playerRepeatMode")
+            }
         }
     }
 
