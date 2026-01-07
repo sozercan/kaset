@@ -111,14 +111,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private(set) var currentTrackHasVideo: Bool = false
 
     /// Whether video mode is active (user has opened video window).
-    var showVideo: Bool = false {
-        didSet {
-            // Auto-close if track changes to audio-only
-            if self.showVideo, !self.currentTrackHasVideo {
-                self.showVideo = false
-            }
-        }
-    }
+    /// Note: We don't auto-close based on currentTrackHasVideo here because
+    /// the detection can be unreliable when video mode CSS is active.
+    var showVideo: Bool = false
 
     // MARK: - Internal Properties (for extensions)
 
@@ -165,7 +160,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Plays a track by video ID.
     func play(videoId: String) async {
-        Self.writeVideoDebugLog("play() called with videoId: \(videoId)")
+        self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.state = .loading
 
@@ -252,7 +247,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
         // Debug log once per second (when progress changes by at least 1 second)
         if Int(progress) != Int(self.progress) {
-            Self.writeVideoDebugLog("updatePlaybackState: isPlaying=\(isPlaying), progress=\(Int(progress)), duration=\(Int(duration))")
+            self.logger.debug("updatePlaybackState: isPlaying=\(isPlaying), progress=\(Int(progress)), duration=\(Int(duration))")
         }
 
         let previousProgress = self.progress
@@ -328,30 +323,27 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-  /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
-  private var videoWindowOpenedAt: ContinuousClock.Instant?
+    /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
+    private var videoWindowOpenedAt: ContinuousClock.Instant?
 
     /// Updates whether the current track has video available.
+    /// Note: This only affects the UI (enabling/disabling the video button).
+    /// It does NOT auto-close an open video window, since hasVideo detection
+    /// can be unreliable when the video element has been extracted by video mode CSS.
     func updateVideoAvailability(hasVideo: Bool) {
         let previousValue = self.currentTrackHasVideo
         self.currentTrackHasVideo = hasVideo
 
-        // Debug logging to /tmp
-        Self.writeVideoDebugLog("updateVideoAvailability called: hasVideo=\(hasVideo), previous=\(previousValue)")
+        self.logger.debug("updateVideoAvailability called: hasVideo=\(hasVideo), previous=\(previousValue)")
 
-        // Auto-close video window if new track has no video
-        // But give a grace period after opening to avoid race condition when video element is moved
-        if self.showVideo, !hasVideo {
-            if let openedAt = self.videoWindowOpenedAt,
-        ContinuousClock.now - openedAt < .seconds(2)
-            {
-                // Within grace period - don't auto-close, the video element is likely being moved
-                Self.writeVideoDebugLog("Ignoring hasVideo=false during grace period")
-            } else {
-                self.showVideo = false
-                self.logger.info("Video window closed: track has no video")
-            }
-        }
+        // Don't auto-close the video window based on hasVideo detection.
+        // The detection is unreliable when video mode is active because:
+        // 1. The video element has been extracted from its original DOM location
+        // 2. The Song/Video toggle buttons may be hidden by our CSS
+        // 3. Resize or other layout changes can temporarily break detection
+        //
+        // Instead, we rely on trackChanged detection in the Coordinator to close
+        // the video window when a new track starts.
 
         if previousValue != hasVideo {
             self.logger.debug("Video availability updated: \(hasVideo)")
@@ -360,32 +352,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Called when video window opens to start grace period
     func videoWindowDidOpen() {
-    self.videoWindowOpenedAt = ContinuousClock.now
-        Self.writeVideoDebugLog("videoWindowDidOpen: grace period started")
+        self.videoWindowOpenedAt = ContinuousClock.now
+        self.logger.debug("videoWindowDidOpen: grace period started")
     }
 
     /// Called when video window closes to clear grace period
     func videoWindowDidClose() {
         self.videoWindowOpenedAt = nil
-        Self.writeVideoDebugLog("videoWindowDidClose: grace period cleared")
-    }
-
-    /// Write video debug log to /tmp for troubleshooting.
-    private static func writeVideoDebugLog(_ message: String) {
-        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logLine = "[\(timestamp)] [PlayerService] \(message)\n"
-        if let data = logLine.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: logFile.path) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                try? data.write(to: logFile)
-            }
-        }
+        self.logger.debug("videoWindowDidClose: grace period cleared")
     }
 
     /// Toggles play/pause.

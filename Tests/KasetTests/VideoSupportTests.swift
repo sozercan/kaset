@@ -39,25 +39,30 @@ struct VideoSupportTests {
         #expect(self.playerService.currentTrackHasVideo == false)
     }
 
-    // MARK: - Auto-Close Tests
+    // MARK: - Video Window Behavior Tests
 
-    @Test("showVideo auto-closes when track has no video")
-    func showVideoAutoClosesWhenNoVideo() {
-        // First, enable video with a video-capable track
+    @Test("showVideo stays open even when hasVideo becomes false")
+    func showVideoStaysOpenWhenHasVideoChanges() {
+        // The video window should not auto-close based on hasVideo detection
+        // because detection is unreliable when video mode CSS is active.
+        // Only trackChanged should close the video window.
         self.playerService.updateVideoAvailability(hasVideo: true)
         self.playerService.showVideo = true
         #expect(self.playerService.showVideo == true)
 
-        // Then track changes to one without video
+        // hasVideo becomes false (unreliable detection during video mode)
         self.playerService.updateVideoAvailability(hasVideo: false)
-        #expect(self.playerService.showVideo == false, "Video window should auto-close")
+        #expect(self.playerService.showVideo == true, "Video window should NOT auto-close based on hasVideo")
     }
 
-    @Test("showVideo cannot be enabled when no video available")
-    func showVideoCannotBeEnabledWhenNoVideo() {
+    @Test("showVideo can be enabled even when hasVideo is false")
+    func showVideoCanBeEnabledWhenNoVideo() {
+        // We allow enabling showVideo even without hasVideo because:
+        // 1. hasVideo detection might lag behind
+        // 2. User explicitly requested video mode
         #expect(self.playerService.currentTrackHasVideo == false)
         self.playerService.showVideo = true
-        #expect(self.playerService.showVideo == false, "showVideo should stay false when no video available")
+        #expect(self.playerService.showVideo == true, "showVideo should be allowed even if hasVideo is false")
     }
 
     @Test("showVideo stays open when changing to another video track")

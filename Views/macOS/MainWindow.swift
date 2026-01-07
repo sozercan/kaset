@@ -128,7 +128,7 @@ struct MainWindow: View {
             }
         }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
-            Self.writeVideoDebugLog("showVideo onChange triggered: \(showVideo)")
+            DiagnosticsLogger.player.debug("showVideo onChange triggered: \(showVideo)")
             if showVideo {
                 VideoWindowController.shared.show(
                     playerService: self.playerService,
@@ -141,24 +141,6 @@ struct MainWindow: View {
         .task {
             self.setupClient()
             NowPlayingManager.shared.configure(playerService: self.playerService)
-        }
-    }
-
-    /// Write debug log for video troubleshooting.
-    private static func writeVideoDebugLog(_ message: String) {
-        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logLine = "[\(timestamp)] [MainWindow] \(message)\n"
-        if let data = logLine.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: logFile.path) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                try? data.write(to: logFile)
-            }
         }
     }
 

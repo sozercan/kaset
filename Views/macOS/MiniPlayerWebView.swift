@@ -62,7 +62,8 @@ struct MiniPlayerWebView: NSViewRepresentable {
     static func dismantleNSView(_: NSView, coordinator _: Coordinator) {
         // WebView is managed by SingletonPlayerWebView.shared - it persists
         // Remove the message handler to avoid duplicate handlers
-        SingletonPlayerWebView.shared.webView?.configuration.userContentController.removeScriptMessageHandler(forName: "miniPlayer")
+        SingletonPlayerWebView.shared.webView?.configuration.userContentController
+            .removeScriptMessageHandler(forName: "miniPlayer")
     }
 
     // MARK: - Observer Script
@@ -201,14 +202,19 @@ struct MiniPlayerWebView: NSViewRepresentable {
 
 /// Manages a single WebView instance for the entire app lifetime.
 /// This ensures there's only ever ONE WebView playing audio.
+///
+/// Extensions provide:
+/// - Playback controls (SingletonPlayerWebView+PlaybackControls.swift)
+/// - Video mode CSS injection (SingletonPlayerWebView+VideoMode.swift)
+/// - Observer script (SingletonPlayerWebView+ObserverScript.swift)
 @MainActor
 final class SingletonPlayerWebView {
     static let shared = SingletonPlayerWebView()
 
     private(set) var webView: WKWebView?
     var currentVideoId: String?
-    private var coordinator: Coordinator?
-    private let logger = DiagnosticsLogger.player
+    var coordinator: Coordinator?
+    let logger = DiagnosticsLogger.player
 
     /// Current display mode for the WebView.
     enum DisplayMode {
@@ -217,10 +223,10 @@ final class SingletonPlayerWebView {
         case video // Full size in video window
     }
 
-    private(set) var displayMode: DisplayMode = .hidden
+    var displayMode: DisplayMode = .hidden
 
     private init() {
-        Self.writeDebugLog("SingletonPlayerWebView initialized")
+        self.logger.debug("SingletonPlayerWebView initialized")
     }
 
     /// Get or create the singleton WebView.
@@ -232,7 +238,7 @@ final class SingletonPlayerWebView {
             return existing
         }
 
-        Self.writeDebugLog("Creating singleton WebView")
+        self.logger.debug("Creating singleton WebView")
         self.logger.info("Creating singleton WebView")
 
         // Create coordinator
@@ -276,7 +282,7 @@ final class SingletonPlayerWebView {
     /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
         guard let webView, webView.superview !== container else { return }
-        Self.writeDebugLog("ensureInHierarchy: reparenting WebView to new container")
+        self.logger.debug("ensureInHierarchy: reparenting WebView to new container")
         webView.removeFromSuperview()
         container.addSubview(webView)
 
@@ -288,377 +294,7 @@ final class SingletonPlayerWebView {
             webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
-    // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
-    }
-
-    /// Updates WebView size based on display mode.
-    func updateDisplayMode(_ mode: DisplayMode) {
-        guard let webView else {
-            Self.writeDebugLog("updateDisplayMode called but webView is nil!")
-            return
-        }
-        self.displayMode = mode
-        Self.writeDebugLog("updateDisplayMode called with mode: \(mode)")
-
-        switch mode {
-        case .hidden:
-            // WebView stays in hierarchy but tiny
-            webView.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-            self.removeVideoModeCSS()
-        case .miniPlayer:
-            webView.frame = CGRect(x: 0, y: 0, width: 160, height: 90)
-            self.removeVideoModeCSS()
-        case .video:
-            // Full size - parent container determines size
-      // Defer injection until container has valid bounds (SwiftUI layout)
-      self.waitForValidBoundsAndInject()
-    }
-  }
-
-  /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
-  private func waitForValidBoundsAndInject(attempts: Int = 0) {
-    guard let webView else { return }
-
-    let maxAttempts = 20  // 2 seconds max (20 * 100ms)
-    if let superview = webView.superview, superview.bounds.width > 0, superview.bounds.height > 0 {
-      webView.frame = superview.bounds
-      webView.autoresizingMask = [.width, .height]
-      Self.writeDebugLog("WebView frame set to valid bounds: \(superview.bounds)")
-      self.injectVideoModeCSS()
-    } else if attempts < maxAttempts {
-      Self.writeDebugLog("Waiting for valid bounds (attempt \(attempts + 1))...")
-      Task { @MainActor [weak self] in
-        try? await Task.sleep(for: .milliseconds(100))
-        self?.waitForValidBoundsAndInject(attempts: attempts + 1)
-      }
-    } else {
-      Self.writeDebugLog("Gave up waiting for valid bounds after \(maxAttempts) attempts")
-      // Fall back to current bounds anyway
-      if let superview = webView.superview {
-        webView.frame = superview.bounds
-        webView.autoresizingMask = [.width, .height]
-      }
-            self.injectVideoModeCSS()
-        }
-    }
-
-    /// Injects CSS to hide YouTube Music UI and show only the video.
-  /// Called when entering video mode or when page reloads while in video mode.
-  func injectVideoModeCSS() {
-        guard let webView else { return }
-
-        Self.writeDebugLog("Starting video mode injection...")
-
-        // First, let's debug what's in the DOM
-        let debugScript = """
-            (function() {
-                const video = document.querySelector('video');
-                const videoInfo = video ? {
-                    src: video.src ? video.src.substring(0, 100) : 'none',
-                    width: video.videoWidth,
-                    height: video.videoHeight,
-                    paused: video.paused,
-                    display: getComputedStyle(video).display,
-                    visibility: getComputedStyle(video).visibility
-                } : 'no video element';
-
-                const tabs = document.querySelectorAll('tp-yt-paper-tab');
-                const tabTexts = Array.from(tabs).map(t => t.textContent.trim());
-
-                const playerPage = document.querySelector('ytmusic-player-page');
-                const moviePlayer = document.querySelector('#movie_player');
-                const html5Player = document.querySelector('.html5-video-player');
-
-                return {
-                    videoInfo: videoInfo,
-                    tabTexts: tabTexts,
-                    hasPlayerPage: !!playerPage,
-                    hasMoviePlayer: !!moviePlayer,
-                    hasHtml5Player: !!html5Player,
-                    url: window.location.href
-                };
-            })();
-        """
-
-        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
-            if let error {
-                Self.writeDebugLog("Debug script error: \(error.localizedDescription)")
-            } else if let info = result {
-                Self.writeDebugLog("DOM Debug: \(info)")
-            }
-
-            // Now click the Video tab
-            self?.clickVideoTabAndInjectCSS()
-        }
-    }
-
-    /// Write debug log to a file for debugging.
-  static func writeDebugLog(_ message: String) {
-        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logLine = "[\(timestamp)] \(message)\n"
-        if let data = logLine.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: logFile.path) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                try? data.write(to: logFile)
-            }
-    }
-    }
-
-    /// Clicks the Video tab and then injects CSS.
-    private func clickVideoTabAndInjectCSS() {
-        guard let webView else { return }
-
-        // The Song/Video toggle is different from the tabs
-        // It appears as a segmented control near the top of the player page
-        let clickVideoTabScript = """
-            (function() {
-                // Method 1: Look for the Song/Video toggle buttons
-                // These are typically in a toggle group with "Song" and "Video" labels
-                const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
-                for (const btn of toggleButtons) {
-                    const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
-                    if (text === 'video') {
-                        btn.click();
-                        console.log('[Kaset] Clicked Video toggle button');
-                        return { clicked: true, method: 'toggleButton', text: text };
-                    }
-                }
-
-                // Method 2: Look for ytmusic-player-page and find the toggle there
-                const playerPage = document.querySelector('ytmusic-player-page');
-                if (playerPage) {
-                    // The toggle might be in a specific container
-                    const toggleContainer = playerPage.querySelector('.toggle-container, .segment-button-container, [class*="toggle"]');
-                    if (toggleContainer) {
-                        const buttons = toggleContainer.querySelectorAll('button, [role="button"]');
-                        for (const btn of buttons) {
-                            const text = (btn.textContent || '').trim().toLowerCase();
-                            if (text === 'video') {
-                                btn.click();
-                                return { clicked: true, method: 'toggleContainer', text: text };
-                            }
-                        }
-                    }
-                }
-
-                // Method 3: Find by aria-label or data attributes
-                const videoBtn = document.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
-                if (videoBtn) {
-                    videoBtn.click();
-                    return { clicked: true, method: 'ariaLabel' };
-                }
-
-                // Method 4: Look in the header area for Song/Video chips
-                const chips = document.querySelectorAll('yt-chip-cloud-chip-renderer, ytmusic-chip-renderer, .chip');
-                for (const chip of chips) {
-                    const text = (chip.textContent || '').trim().toLowerCase();
-                    if (text === 'video') {
-                        chip.click();
-                        return { clicked: true, method: 'chip', text: text };
-                    }
-                }
-
-                return { clicked: false, message: 'Video toggle not found' };
-            })();
-        """
-
-        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, error in
-            if let error {
-                Self.writeDebugLog("Click video error: \(error.localizedDescription)")
-            } else {
-                Self.writeDebugLog("Click video result: \(String(describing: result))")
-            }
-
-            // Wait a moment for the video mode to activate, then inject CSS
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(500))
-                self?.injectVideoModeStyles()
-            }
-        }
-    }
-
-    /// Actually injects the CSS styles for video mode.
-    private func injectVideoModeStyles() {
-        guard let webView else { return }
-
-        // Get the app's current volume to apply to the video element
-        let appVolume = self.coordinator?.playerService.volume ?? 1.0
-
-        // JavaScript to extract the video element into a fullscreen container
-        // This is cleaner than trying to hide all YouTube Music UI elements
-        let script = """
-            (function() {
-                'use strict';
-
-                const appVolume = \(appVolume);
-
-                // Remove existing Kaset video container if present
-                const existingContainer = document.getElementById('kaset-video-container');
-                if (existingContainer) {
-                    // Move video back to original parent before removing container
-                    const video = existingContainer.querySelector('video');
-                    if (video && video.__kasetOriginalParent) {
-                        video.__kasetOriginalParent.appendChild(video);
-                    }
-                    existingContainer.remove();
-                }
-
-                // Find the video element
-                const video = document.querySelector('video');
-                if (!video) {
-                    console.log('[Kaset] No video element found');
-                    return { success: false, error: 'No video element' };
-                }
-
-                // MUTE FIRST to prevent volume jump during extraction
-                const wasMuted = video.muted;
-                video.muted = true;
-
-                // Store original parent for restoration later
-                video.__kasetOriginalParent = video.parentElement;
-
-                // Create a fullscreen container for the video
-                const container = document.createElement('div');
-                container.id = 'kaset-video-container';
-                container.style.cssText = `
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    background: #000 !important;
-                    z-index: 2147483647 !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                `;
-
-                // Style the video element with native controls
-                video.style.cssText = `
-                    width: 100% !important;
-                    height: 100% !important;
-                    object-fit: contain !important;
-                    background: #000 !important;
-                `;
-                video.controls = true;
-
-                // Move video into our container
-                container.appendChild(video);
-                document.body.appendChild(container);
-
-                // Set the correct volume BEFORE unmuting
-                video.volume = appVolume;
-                window.__kasetTargetVolume = appVolume;
-
-                // Now unmute (restoring original mute state if it was muted)
-                video.muted = wasMuted;
-
-                console.log('[Kaset] Video extracted, volume set to:', appVolume);
-                return {
-                    success: true,
-                    videoWidth: video.videoWidth,
-                    videoHeight: video.videoHeight,
-                    volume: video.volume
-                };
-            })();
-        """
-
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error {
-                Self.writeDebugLog("Failed to extract video: \(error.localizedDescription)")
-            } else {
-                Self.writeDebugLog("Video extraction result: \(String(describing: result))")
-                self?.debugVideoStateAfterInjection()
-            }
-        }
-    }
-
-    /// Debug helper to check video state after CSS injection.
-    private func debugVideoStateAfterInjection() {
-        guard let webView else { return }
-
-        let debugScript = """
-            (function() {
-                const video = document.querySelector('video');
-                if (!video) return { error: 'No video element found' };
-
-                const style = getComputedStyle(video);
-                const songImage = document.querySelector('.song-image img, .thumbnail img');
-                return {
-                    hasSrc: !!video.src,
-                    srcPrefix: video.src ? video.src.substring(0, 50) : 'none',
-                    videoWidth: video.videoWidth,
-                    videoHeight: video.videoHeight,
-                    clientWidth: video.clientWidth,
-                    clientHeight: video.clientHeight,
-                    display: style.display,
-                    visibility: style.visibility,
-                    opacity: style.opacity,
-                    position: style.position,
-                    zIndex: style.zIndex,
-                    paused: video.paused,
-                    currentTime: video.currentTime,
-                    readyState: video.readyState,
-                    songImageSrc: songImage ? songImage.src : 'none'
-                };
-            })();
-        """
-
-        webView.evaluateJavaScript(debugScript) { result, error in
-            if let error {
-                Self.writeDebugLog("Post-injection debug error: \(error.localizedDescription)")
-            } else {
-                Self.writeDebugLog("Post-injection video state: \(String(describing: result))")
-            }
-        }
-    }
-
-    /// Removes the video container and restores the video to its original location.
-    private func removeVideoModeCSS() {
-        guard let webView else { return }
-
-        let script = """
-            (function() {
-                // Remove old CSS-based style if present
-                const style = document.getElementById('kaset-video-mode-style');
-                if (style) style.remove();
-
-                // Remove video style
-                const videoStyle = document.getElementById('kaset-video-style');
-                if (videoStyle) videoStyle.remove();
-
-                // Remove video container and restore video to original parent
-                const container = document.getElementById('kaset-video-container');
-                if (container) {
-                    const video = container.querySelector('video');
-                    if (video && video.__kasetOriginalParent) {
-                        // Restore video styles and remove controls
-                        video.style.cssText = '';
-                        video.controls = false;
-                        // Move back to original parent
-                        video.__kasetOriginalParent.appendChild(video);
-                        delete video.__kasetOriginalParent;
-                    }
-                    container.remove();
-                    console.log('[Kaset] Video restored to original location');
-                }
-            })();
-        """
-
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    /// Re-injects video mode after resize or other layout changes.
-    func refreshVideoModeCSS() {
-        guard self.displayMode == .video else { return }
-        Self.writeDebugLog("Refreshing video mode after resize")
-        self.injectVideoModeStyles()
+        // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
     /// Load a video, stopping any currently playing audio first.
@@ -694,381 +330,6 @@ final class SingletonPlayerWebView {
 
             webView.load(URLRequest(url: urlToLoad))
         }
-    }
-
-    // MARK: - Playback Controls
-
-    /// Toggle play/pause.
-    func playPause() {
-        guard let webView else { return }
-        self.logger.debug("playPause() called")
-
-        let script = """
-            (function() {
-                const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-                if (playBtn) { playBtn.click(); return 'clicked'; }
-                const video = document.querySelector('video');
-                if (video) {
-                    if (video.paused) { video.play(); return 'played'; }
-                    else { video.pause(); return 'paused'; }
-                }
-                return 'no-element';
-            })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error {
-                self?.logger.error("playPause error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("playPause result: \(String(describing: result))")
-            }
-        }
-    }
-
-    /// Play (resume).
-    func play() {
-        guard let webView else { return }
-        self.logger.debug("play() called")
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video && video.paused) { video.play(); return 'played'; }
-                return 'already-playing';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    /// Pause.
-    func pause() {
-        guard let webView else { return }
-        self.logger.debug("pause() called")
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video && !video.paused) { video.pause(); return 'paused'; }
-                return 'already-paused';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    /// Skip to next track.
-    func next() {
-        guard let webView else { return }
-        self.logger.debug("next() called")
-
-        let script = """
-            (function() {
-                const nextBtn = document.querySelector('.next-button.ytmusic-player-bar');
-                if (nextBtn) { nextBtn.click(); return 'clicked'; }
-                return 'no-button';
-            })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error {
-                self?.logger.error("next error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("next result: \(String(describing: result))")
-            }
-        }
-    }
-
-    /// Go to previous track.
-    func previous() {
-        guard let webView else { return }
-        self.logger.debug("previous() called")
-
-        let script = """
-            (function() {
-                const prevBtn = document.querySelector('.previous-button.ytmusic-player-bar');
-                if (prevBtn) { prevBtn.click(); return 'clicked'; }
-                return 'no-button';
-            })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error {
-                self?.logger.error("previous error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("previous result: \(String(describing: result))")
-            }
-        }
-    }
-
-    /// Seek to a specific time in seconds.
-    func seek(to time: Double) {
-        guard let webView else { return }
-        self.logger.debug("seek(to: \(time)) called")
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video) { video.currentTime = \(time); return 'seeked'; }
-                return 'no-video';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    /// Set volume (0.0 - 1.0).
-    func setVolume(_ volume: Double) {
-        guard let webView else { return }
-        let clampedVolume = max(0, min(1, volume))
-        self.logger.debug("setVolume(\(clampedVolume)) called")
-
-        // Update both the target volume (for enforcement) and the actual video volume
-        let script = """
-            (function() {
-                // Update the target volume for enforcement
-                window.__kasetTargetVolume = \(clampedVolume);
-                const video = document.querySelector('video');
-                if (video) {
-                    video.volume = \(clampedVolume);
-                    return 'set';
-                }
-                return 'no-video';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    // Observer script for playback state
-    private static var observerScript: String {
-        """
-        (function() {
-            'use strict';
-            const bridge = window.webkit.messageHandlers.singletonPlayer;
-            let lastTitle = '';
-            let lastArtist = '';
-            let isPollingActive = false;
-            let pollIntervalId = null;
-            let lastUpdateTime = 0;
-            const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
-            const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
-
-            // Volume enforcement: track target volume set by Swift
-            // Default to 1.0, will be updated when Swift calls setVolume()
-            window.__kasetTargetVolume = window.__kasetTargetVolume ?? 1.0;
-            let volumeEnforcementTimeout = null; // Debounce volume enforcement
-
-            function waitForPlayerBar() {
-                const playerBar = document.querySelector('ytmusic-player-bar');
-                if (playerBar) {
-                    setupObserver(playerBar);
-                    setupVideoListeners();
-                    return;
-                }
-                setTimeout(waitForPlayerBar, 500);
-            }
-
-            function setupVideoListeners() {
-                // Watch for video element to attach play/pause listeners
-                function attachVideoListeners() {
-                    const video = document.querySelector('video');
-                    if (!video) {
-                        setTimeout(attachVideoListeners, 500);
-                        return;
-                    }
-
-                    video.addEventListener('play', startPolling);
-                    video.addEventListener('playing', startPolling);
-                    video.addEventListener('pause', stopPolling);
-                    video.addEventListener('ended', stopPolling);
-                    video.addEventListener('waiting', () => sendUpdate()); // Buffer state
-                    video.addEventListener('seeked', () => sendUpdate()); // Seek completed
-
-                    // Volume enforcement: listen for external volume changes with debounce
-                    video.addEventListener('volumechange', () => {
-                        // Debounce to prevent rapid-fire enforcement
-                        if (volumeEnforcementTimeout) {
-                            clearTimeout(volumeEnforcementTimeout);
-                        }
-                        volumeEnforcementTimeout = setTimeout(() => {
-                            const targetVol = window.__kasetTargetVolume;
-                            const currentVideo = document.querySelector('video');
-                            // Only enforce if we have a valid target volume set by Swift
-                            if (currentVideo && targetVol !== undefined && Math.abs(currentVideo.volume - targetVol) > 0.01) {
-                                currentVideo.volume = targetVol;
-                            }
-                            volumeEnforcementTimeout = null;
-                        }, 50);
-                    });
-
-                    // Don't auto-apply volume here - let didFinish handle it with the current value
-                    // This prevents applying stale volume from WebView creation time
-
-                    // Start polling if already playing
-                    if (!video.paused) {
-                        startPolling();
-                    }
-                }
-                attachVideoListeners();
-
-                // Also watch for video element replacement (YouTube may recreate it)
-                const videoObserver = new MutationObserver(() => {
-                    const video = document.querySelector('video');
-                    if (video && !video.__kasetListenersAttached) {
-                        video.__kasetListenersAttached = true;
-                        attachVideoListeners();
-                        // Apply current target volume to new video element
-                        if (window.__kasetTargetVolume !== undefined) {
-                            video.volume = window.__kasetTargetVolume;
-                        }
-                    }
-                });
-                videoObserver.observe(document.body, { childList: true, subtree: true });
-            }
-
-            function startPolling() {
-                if (isPollingActive) return;
-                isPollingActive = true;
-
-                // Apply target volume when playback starts
-                // This is the most reliable point since the video element definitely exists
-                const video = document.querySelector('video');
-                if (video && window.__kasetTargetVolume !== undefined) {
-                    video.volume = window.__kasetTargetVolume;
-                }
-
-                sendUpdate(); // Immediate update
-                // Poll at 1Hz during playback for progress updates (reduced CPU usage)
-                pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
-            }
-
-            function stopPolling() {
-                isPollingActive = false;
-                if (pollIntervalId) {
-                    clearInterval(pollIntervalId);
-                    pollIntervalId = null;
-                }
-                sendUpdate(); // Final state update
-            }
-
-            function setupObserver(playerBar) {
-                // Debounced mutation observer - only triggers on significant changes
-                let mutationTimeout = null;
-                const observer = new MutationObserver(() => {
-                    if (mutationTimeout) return;
-                    mutationTimeout = setTimeout(() => {
-                        mutationTimeout = null;
-                        sendUpdate();
-                    }, 100);
-                });
-                observer.observe(playerBar, {
-                    attributes: true, characterData: true,
-                    childList: true, subtree: true,
-                    attributeFilter: ['title', 'aria-label', 'like-status', 'value', 'aria-valuemax']
-                });
-                sendUpdate();
-            }
-
-            function sendUpdate() {
-                // Throttle updates
-                const now = Date.now();
-                if (now - lastUpdateTime < UPDATE_THROTTLE_MS && isPollingActive) {
-                    return;
-                }
-                lastUpdateTime = now;
-
-                try {
-                    const playPauseBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-                    const isPlaying = playPauseBtn ?
-                        (playPauseBtn.getAttribute('title') === 'Pause' ||
-                         playPauseBtn.getAttribute('aria-label') === 'Pause') : false;
-
-                    const progressBar = document.querySelector('#progress-bar');
-
-                    // Extract track metadata
-                    const titleEl = document.querySelector('.ytmusic-player-bar.title');
-                    const artistEl = document.querySelector('.ytmusic-player-bar.byline');
-                    const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
-
-                    const title = titleEl ? titleEl.textContent.trim() : '';
-                    const artist = artistEl ? artistEl.textContent.trim() : '';
-                    let thumbnailUrl = '';
-
-                    // Get the thumbnail URL from the image element
-                    if (thumbEl) {
-                        thumbnailUrl = thumbEl.src || thumbEl.getAttribute('src') || '';
-                    }
-
-                    // Extract like status from the like button renderer
-                    let likeStatus = 'INDIFFERENT';
-                    const likeRenderer = document.querySelector('ytmusic-like-button-renderer');
-                    if (likeRenderer) {
-                        const status = likeRenderer.getAttribute('like-status');
-                        if (status === 'LIKE') likeStatus = 'LIKE';
-                        else if (status === 'DISLIKE') likeStatus = 'DISLIKE';
-                    }
-
-                    // Check if track changed
-                    const trackChanged = (title !== lastTitle || artist !== lastArtist) && title !== '';
-                    if (trackChanged) {
-                        lastTitle = title;
-                        lastArtist = artist;
-                    }
-
-                    // Detect if actual video content is available
-                    // YouTube Music always has a video element for audio, but only shows
-                    // a "Video" tab/toggle when there's actual video content (music videos).
-                    // Check for the Song/Video toggle which only appears for video tracks.
-                    let hasVideo = false;
-
-                    // Method 1: Look for Song/Video toggle buttons in the player page
-                    const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
-                    for (const btn of toggleButtons) {
-                        const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
-                        if (text === 'video' || text === 'song') {
-                            // Found the toggle - this track has video
-                            hasVideo = true;
-                            break;
-                        }
-                    }
-
-                    // Method 2: Check for video tab in ytmusic-player-page
-                    if (!hasVideo) {
-                        const playerPage = document.querySelector('ytmusic-player-page');
-                        if (playerPage) {
-                            const videoTab = playerPage.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
-                            if (videoTab) hasVideo = true;
-                        }
-                    }
-
-                    // Method 3: Check if video has actual video dimensions (not just audio poster)
-                    if (!hasVideo) {
-                        const video = document.querySelector('video');
-                        if (video && video.videoWidth > 0 && video.videoHeight > 0) {
-                            // Video has dimensions - but this could still be audio with a static image
-                            // Check if there's a song-image overlay covering the video (indicates audio-only)
-                            const songImage = document.querySelector('.song-image, .thumbnail-image-wrapper');
-                            const songImageVisible = songImage && getComputedStyle(songImage).display !== 'none';
-                            hasVideo = !songImageVisible;
-                        }
-                    }
-
-                    bridge.postMessage({
-                        type: 'STATE_UPDATE',
-                        isPlaying: isPlaying,
-                        progress: progressBar ? parseInt(progressBar.getAttribute('value') || '0') : 0,
-                        duration: progressBar ? parseInt(progressBar.getAttribute('aria-valuemax') || '0') : 0,
-                        title: title,
-                        artist: artist,
-                        thumbnailUrl: thumbnailUrl,
-                        trackChanged: trackChanged,
-                        likeStatus: likeStatus,
-                        hasVideo: hasVideo
-                    });
-                } catch (e) {}
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', waitForPlayerBar);
-            } else {
-                waitForPlayerBar();
-            }
-        })();
-        """
     }
 
     // MARK: - Coordinator
@@ -1129,18 +390,19 @@ final class SingletonPlayerWebView {
                         thumbnailUrl: thumbnailUrl
                     )
 
-          // Close video window on track change - user can re-open for new track
-          if self.playerService.showVideo {
-            SingletonPlayerWebView.writeDebugLog(
-              "trackChanged: Closing video window (user can re-open for new track)")
-            self.playerService.showVideo = false
-          }
+                    // Close video window on track change
+                    if self.playerService.showVideo {
+                        DiagnosticsLogger.player.info(
+                            "trackChanged to '\(title)' - closing video window")
+                        self.playerService.showVideo = false
+                    }
                 }
             }
         }
 
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
-            DiagnosticsLogger.player.info("Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")")
+            DiagnosticsLogger.player.info(
+                "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")")
 
             // Apply saved volume when page loads
             // Use a script that waits for the video element to exist

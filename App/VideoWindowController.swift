@@ -15,10 +15,10 @@ final class VideoWindowController {
     /// Reference to PlayerService to sync showVideo state
     private weak var playerService: PlayerService?
 
-  /// Flag to prevent re-entrant close handling
-  private var isClosing = false
+    /// Flag to prevent re-entrant close handling
+    private var isClosing = false
 
-  // Corner snapping
+    // Corner snapping
     enum Corner: Int {
         case topLeft, topRight, bottomLeft, bottomRight
     }
@@ -34,8 +34,7 @@ final class VideoWindowController {
         playerService: PlayerService,
         webKitManager: WebKitManager
     ) {
-        // Write debug log to file
-        Self.writeDebugLog("VideoWindowController.show() called")
+        self.logger.debug("VideoWindowController.show() called")
 
         // Store reference to sync state on close
         self.playerService = playerService
@@ -43,18 +42,17 @@ final class VideoWindowController {
         // Start grace period to prevent race condition when video element is moved
         playerService.videoWindowDidOpen()
 
-    if let existingWindow = self.window {
+        if let existingWindow = self.window {
             // Window exists - just bring it to front
-            Self.writeDebugLog("Window already exists, bringing to front")
-      self.isClosing = false  // Reset in case of interrupted close
-      existingWindow.makeKeyAndOrderFront(nil)
-      // Ensure video mode is active
-      SingletonPlayerWebView.shared.updateDisplayMode(.video)
+            self.logger.debug("Window already exists, bringing to front")
+            self.isClosing = false // Reset in case of interrupted close
+            existingWindow.makeKeyAndOrderFront(nil)
+            // Ensure video mode is active
+            SingletonPlayerWebView.shared.updateDisplayMode(.video)
             return
         }
 
-        Self.writeDebugLog("Creating new video window")
-        self.logger.info("Opening video window")
+        self.logger.info("Creating new video window")
 
         let contentView = VideoPlayerWindow()
             .environment(playerService)
@@ -76,6 +74,7 @@ final class VideoWindowController {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
+        // Normal window level (not always-on-top) for better UX
         window.level = .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.aspectRatio = NSSize(width: 16, height: 9)
@@ -87,9 +86,9 @@ final class VideoWindowController {
 
         window.makeKeyAndOrderFront(nil)
         self.window = window
-    self.isClosing = false
+        self.isClosing = false
 
-    // Observe window close (for red X button)
+        // Observe window close (for red X button)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(self.windowWillClose),
@@ -102,48 +101,53 @@ final class VideoWindowController {
         SingletonPlayerWebView.shared.updateDisplayMode(.video)
     }
 
-  /// Closes the video window programmatically (called when showVideo becomes false).
+    /// Closes the video window programmatically (called when showVideo becomes false).
     func close() {
-        Self.writeDebugLog("VideoWindowController.close() called")
+        self.logger.debug("VideoWindowController.close() called")
 
-    // Prevent re-entrant calls
-    guard !self.isClosing else {
-      Self.writeDebugLog("Already closing, skipping")
-      return
-    }
-
-    guard let window = self.window else {
-            Self.writeDebugLog("No window to close")
+        // Prevent re-entrant calls
+        guard !self.isClosing else {
+            self.logger.debug("Already closing, skipping")
             return
         }
 
-    self.isClosing = true
+        guard let window = self.window else {
+            self.logger.debug("No window to close")
+            return
+        }
+
+        self.isClosing = true
         self.logger.info("Closing video window")
 
-    // Remove observer before closing to prevent windowWillClose from firing
+        // Remove observer before closing to prevent windowWillClose from firing
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
 
-    // Save corner position
-    self.currentCorner = self.nearestCorner(for: window)
-    self.saveCorner()
+        // Save corner position
+        self.currentCorner = self.nearestCorner(for: window)
+        self.saveCorner()
 
-    // Clean up
-    self.performCleanup()
+        // Clean up
+        self.performCleanup()
 
-    // Actually close the window
-    window.close()
+        // Actually close the window
+        window.close()
     }
 
-  /// Called when window is closed via the red X button.
+    /// Called when window is closed via the red X button.
     @objc private func windowWillClose(_ notification: Notification) {
-    Self.writeDebugLog("windowWillClose called (red X button)")
+        self.logger.info("windowWillClose notification received")
+        
+        // Log call stack to understand what triggered this
+        Thread.callStackSymbols.prefix(10).forEach { symbol in
+            self.logger.debug("  Stack: \(symbol)")
+        }
 
-    // Prevent re-entrant calls
-    guard !self.isClosing else {
-      Self.writeDebugLog("Already closing, skipping windowWillClose")
-      return
-    }
-    self.isClosing = true
+        // Prevent re-entrant calls
+        guard !self.isClosing else {
+            self.logger.debug("Already closing, skipping windowWillClose")
+            return
+        }
+        self.isClosing = true
 
         // Update corner based on final position
         if let window = notification.object as? NSWindow {
@@ -152,60 +156,60 @@ final class VideoWindowController {
         }
 
         // Clean up
-    self.performCleanup()
+        self.performCleanup()
 
         // Sync PlayerService state - this handles close via red button
-    // This will trigger MainWindow.onChange which calls close(), but isClosing prevents re-entry
+        // This will trigger MainWindow.onChange which calls close(), but isClosing prevents re-entry
         if self.playerService?.showVideo == true {
-            Self.writeDebugLog("Syncing playerService.showVideo to false")
+            self.logger.debug("Syncing playerService.showVideo to false")
             self.playerService?.showVideo = false
         }
     }
 
-  /// Shared cleanup logic for both close paths.
-  private func performCleanup() {
-    Self.writeDebugLog("performCleanup called")
+    /// Shared cleanup logic for both close paths.
+    private func performCleanup() {
+        self.logger.debug("performCleanup called")
 
-    // Clear grace period
-    self.playerService?.videoWindowDidClose()
+        // Clear grace period
+        self.playerService?.videoWindowDidClose()
 
-    // Return WebView to hidden mode (removes video container CSS)
-    SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+        // Return WebView to hidden mode (removes video container CSS)
+        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
 
-    // Clear references
-    self.window = nil
-    self.hostingView = nil
-  }
+        // Clear references
+        self.window = nil
+        self.hostingView = nil
+    }
 
-  private func positionAtCorner(window: NSWindow, corner: Corner) {
+    private func positionAtCorner(window: NSWindow, corner: Corner) {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         let windowSize = window.frame.size
         let padding: CGFloat = 20
 
-    let origin =
-      switch corner {
-        case .topLeft:
-            NSPoint(
-                x: screenFrame.minX + padding,
-                y: screenFrame.maxY - windowSize.height - padding
-            )
-        case .topRight:
-            NSPoint(
-                x: screenFrame.maxX - windowSize.width - padding,
-                y: screenFrame.maxY - windowSize.height - padding
-            )
-        case .bottomLeft:
-            NSPoint(
-                x: screenFrame.minX + padding,
-                y: screenFrame.minY + padding
-            )
-        case .bottomRight:
-            NSPoint(
-                x: screenFrame.maxX - windowSize.width - padding,
-                y: screenFrame.minY + padding
-            )
-        }
+        let origin =
+            switch corner {
+            case .topLeft:
+                NSPoint(
+                    x: screenFrame.minX + padding,
+                    y: screenFrame.maxY - windowSize.height - padding
+                )
+            case .topRight:
+                NSPoint(
+                    x: screenFrame.maxX - windowSize.width - padding,
+                    y: screenFrame.maxY - windowSize.height - padding
+                )
+            case .bottomLeft:
+                NSPoint(
+                    x: screenFrame.minX + padding,
+                    y: screenFrame.minY + padding
+                )
+            case .bottomRight:
+                NSPoint(
+                    x: screenFrame.maxX - windowSize.width - padding,
+                    y: screenFrame.minY + padding
+                )
+            }
 
         window.setFrameOrigin(origin)
     }
@@ -240,23 +244,5 @@ final class VideoWindowController {
     private func loadCorner() {
         let raw = UserDefaults.standard.integer(forKey: "videoWindowCorner")
         self.currentCorner = Corner(rawValue: raw) ?? .bottomRight
-    }
-
-    /// Write debug log to a file for debugging.
-    private static func writeDebugLog(_ message: String) {
-        let logFile = URL(fileURLWithPath: "/tmp/kaset_video_debug.log")
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logLine = "[\(timestamp)] [VideoWindowController] \(message)\n"
-        if let data = logLine.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: logFile.path) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                try? data.write(to: logFile)
-            }
-    }
     }
 }

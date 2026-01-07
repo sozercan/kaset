@@ -352,10 +352,15 @@ The continuation token is cleared when:
 
 This prevents infinite fetch from triggering on non-mix playback.
 
+## Video Mode
+
+For floating video window (Picture-in-Picture) functionality, see [docs/video.md](video.md).
+
 ## Future Improvements
 
 - [x] Queue management (next/previous)
 - [x] Infinite mix loading
+- [x] Video mode (floating PiP window)
 - [ ] Seek support via JavaScript
 - [ ] Volume control
 - [ ] Artwork extraction for Now Playing

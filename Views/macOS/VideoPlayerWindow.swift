@@ -22,6 +22,7 @@ struct VideoPlayerWindow: View {
 /// NSViewRepresentable container for the video WebView.
 struct VideoWebViewContainer: NSViewRepresentable {
     func makeNSView(context _: Context) -> VideoContainerView {
+        DiagnosticsLogger.player.info("VideoWebViewContainer.makeNSView called")
         let container = VideoContainerView()
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.black.cgColor
@@ -29,6 +30,7 @@ struct VideoWebViewContainer: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: VideoContainerView, context _: Context) {
+        DiagnosticsLogger.player.debug("VideoWebViewContainer.updateNSView called")
         // Reparent the WebView into this container for video display
         SingletonPlayerWebView.shared.ensureInHierarchy(container: nsView)
     }
@@ -55,20 +57,17 @@ final class VideoContainerView: NSView {
     }
 
     @objc private func frameDidChange(_: Notification) {
-        // Debounce: re-inject CSS after resize settles
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(self.reinjectCSS), object: nil)
-        self.perform(#selector(self.reinjectCSS), with: nil, afterDelay: 0.1)
+        // Immediately update container size (no debounce for instant feedback)
+        Task { @MainActor in
+            if SingletonPlayerWebView.shared.displayMode == .video {
+                SingletonPlayerWebView.shared.refreshVideoModeCSS()
+            }
+        }
     }
 
     @objc private func reinjectCSS() {
-    // Ensure we're on the main actor since SingletonPlayerWebView is @MainActor
-    Task { @MainActor in
-      // Re-inject video mode CSS to fix layout after resize
-      if SingletonPlayerWebView.shared.displayMode == .video {
-        SingletonPlayerWebView.shared.refreshVideoModeCSS()
-      }
+        // Legacy method - now handled directly in frameDidChange
     }
-  }
 
     deinit {
         NSObject.cancelPreviousPerformRequests(withTarget: self)
