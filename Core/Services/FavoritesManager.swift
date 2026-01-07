@@ -32,8 +32,14 @@ final class FavoritesManager {
     // MARK: - Initialization
 
     private init() {
-        self.skipPersistence = false
-        self.load()
+        // In UI test mode, use mock data and skip persistence to avoid touching live data
+        if UITestConfig.isUITestMode {
+            self.skipPersistence = true
+            self.loadMockData()
+        } else {
+            self.skipPersistence = false
+            self.load()
+        }
     }
 
     /// Internal initializer for testing that skips auto-loading and persistence.
@@ -204,6 +210,27 @@ final class FavoritesManager {
     }
 
     // MARK: - Testing Support
+
+    /// Loads mock favorites data from environment variable (for UI testing).
+    /// This never touches disk, ensuring live user data is protected.
+    private func loadMockData() {
+        guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockFavoritesKey),
+              let data = jsonString.data(using: .utf8)
+        else {
+            DiagnosticsLogger.ui.debug("No mock favorites data provided")
+            self.items = []
+            return
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([FavoriteItem].self, from: data)
+            self.items = decoded
+            DiagnosticsLogger.ui.info("Loaded \(decoded.count) mock favorite items")
+        } catch {
+            DiagnosticsLogger.ui.error("Failed to decode mock favorites: \(error.localizedDescription)")
+            self.items = []
+        }
+    }
 
     /// Clears all favorites (for testing).
     func clearAll() {

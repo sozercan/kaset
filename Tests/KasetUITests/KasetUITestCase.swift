@@ -27,6 +27,48 @@ enum TestAccessibilityID {
     }
 }
 
+// MARK: - MockFavoriteItem
+
+/// Helper type for creating mock favorites in UI tests.
+struct MockFavoriteItem {
+    let id: String
+    let pinnedAt: Date
+    let type: MockFavoriteType
+
+    enum MockFavoriteType {
+        case song(videoId: String, title: String, artist: String)
+        case album(id: String, title: String, artist: String)
+        case playlist(id: String, title: String, author: String)
+        case artist(id: String, name: String)
+    }
+
+    init(id: String = UUID().uuidString, pinnedAt: Date = Date(), type: MockFavoriteType) {
+        self.id = id
+        self.pinnedAt = pinnedAt
+        self.type = type
+    }
+
+    /// Creates a mock song favorite.
+    static func song(videoId: String, title: String, artist: String) -> MockFavoriteItem {
+        MockFavoriteItem(type: .song(videoId: videoId, title: title, artist: artist))
+    }
+
+    /// Creates a mock album favorite.
+    static func album(id: String, title: String, artist: String) -> MockFavoriteItem {
+        MockFavoriteItem(type: .album(id: id, title: title, artist: artist))
+    }
+
+    /// Creates a mock playlist favorite.
+    static func playlist(id: String, title: String, author: String) -> MockFavoriteItem {
+        MockFavoriteItem(type: .playlist(id: id, title: title, author: author))
+    }
+
+    /// Creates a mock artist favorite.
+    static func artist(id: String, name: String) -> MockFavoriteItem {
+        MockFavoriteItem(type: .artist(id: id, name: name))
+    }
+}
+
 // MARK: - KasetUITestCase
 
 /// Base class for Kaset UI tests.
@@ -152,6 +194,155 @@ class KasetUITestCase: XCTestCase {
     /// Launches the app with a mock current track that has video available.
     func launchWithMockPlayerWithVideo(isPlaying: Bool = true) {
         self.launchWithMockPlayer(isPlaying: isPlaying, hasVideo: true)
+    }
+
+    /// Launches the app with mock favorites.
+    /// - Parameter items: Array of favorite item configurations.
+    func launchWithMockFavorites(_ items: [MockFavoriteItem]) {
+        let favorites = items.map { item -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": item.id,
+                "pinnedAt": ISO8601DateFormatter().string(from: item.pinnedAt),
+            ]
+
+            // Encode the itemType based on type
+            switch item.type {
+            case let .song(videoId, title, artist):
+                dict["itemType"] = [
+                    "song": [
+                        "_0": [
+                            "id": videoId,
+                            "title": title,
+                            "artists": [["id": "artist-\(videoId)", "name": artist]],
+                            "videoId": videoId,
+                        ],
+                    ],
+                ]
+            case let .album(albumId, title, artist):
+                dict["itemType"] = [
+                    "album": [
+                        "_0": [
+                            "id": albumId,
+                            "title": title,
+                            "artists": [["id": "artist-\(albumId)", "name": artist]],
+                        ],
+                    ],
+                ]
+            case let .playlist(playlistId, title, author):
+                dict["itemType"] = [
+                    "playlist": [
+                        "_0": [
+                            "id": playlistId,
+                            "title": title,
+                            "author": author,
+                        ],
+                    ],
+                ]
+            case let .artist(artistId, name):
+                dict["itemType"] = [
+                    "artist": [
+                        "_0": [
+                            "id": artistId,
+                            "name": name,
+                        ],
+                    ],
+                ]
+            }
+
+            return dict
+        }
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: favorites),
+           let jsonString = String(data: jsonData, encoding: .utf8)
+        {
+            self.app.launchEnvironment["MOCK_FAVORITES"] = jsonString
+        }
+
+        self.app.launch()
+    }
+
+    /// Launches the app with mock player state and mock favorites.
+    func launchWithMockPlayerAndFavorites(
+        isPlaying: Bool = true,
+        hasVideo: Bool = false,
+        favorites: [MockFavoriteItem] = []
+    ) {
+        let track: [String: Any] = [
+            "id": "current-track",
+            "title": "Now Playing Song",
+            "artist": "Current Artist",
+            "videoId": "current-video",
+            "duration": 180,
+        ]
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: track),
+           let jsonString = String(data: jsonData, encoding: .utf8)
+        {
+            self.app.launchEnvironment["MOCK_CURRENT_TRACK"] = jsonString
+        }
+        self.app.launchEnvironment["MOCK_IS_PLAYING"] = isPlaying ? "true" : "false"
+        self.app.launchEnvironment["MOCK_HAS_VIDEO"] = hasVideo ? "true" : "false"
+
+        // Add mock favorites
+        let favoritesArray = favorites.map { item -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": item.id,
+                "pinnedAt": ISO8601DateFormatter().string(from: item.pinnedAt),
+            ]
+
+            switch item.type {
+            case let .song(videoId, title, artist):
+                dict["itemType"] = [
+                    "song": [
+                        "_0": [
+                            "id": videoId,
+                            "title": title,
+                            "artists": [["id": "artist-\(videoId)", "name": artist]],
+                            "videoId": videoId,
+                        ],
+                    ],
+                ]
+            case let .album(albumId, title, artist):
+                dict["itemType"] = [
+                    "album": [
+                        "_0": [
+                            "id": albumId,
+                            "title": title,
+                            "artists": [["id": "artist-\(albumId)", "name": artist]],
+                        ],
+                    ],
+                ]
+            case let .playlist(playlistId, title, author):
+                dict["itemType"] = [
+                    "playlist": [
+                        "_0": [
+                            "id": playlistId,
+                            "title": title,
+                            "author": author,
+                        ],
+                    ],
+                ]
+            case let .artist(artistId, name):
+                dict["itemType"] = [
+                    "artist": [
+                        "_0": [
+                            "id": artistId,
+                            "name": name,
+                        ],
+                    ],
+                ]
+            }
+
+            return dict
+        }
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: favoritesArray),
+           let jsonString = String(data: jsonData, encoding: .utf8)
+        {
+            self.app.launchEnvironment["MOCK_FAVORITES"] = jsonString
+        }
+
+        self.app.launch()
     }
 
     /// Launches the app with default configuration (logged in, no specific mock data).

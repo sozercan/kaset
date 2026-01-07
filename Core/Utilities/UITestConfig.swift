@@ -31,6 +31,9 @@ enum UITestConfig {
     /// Whether the current track has video available.
     static let mockHasVideoKey = "MOCK_HAS_VIDEO"
 
+    /// JSON-encoded mock favorites data.
+    static let mockFavoritesKey = "MOCK_FAVORITES"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.
