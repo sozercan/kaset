@@ -212,7 +212,7 @@ private struct QueueRowView: View {
         if self.isCurrentTrack {
             Image(systemName: "waveform")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.red)
+                .foregroundStyle(self.playerService.isPlaying ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                 .symbolEffect(
                     .variableColor.iterative,
                     options: .repeating,
