@@ -385,9 +385,12 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             self.cookieDebounceTask = Task {
                 do {
                     try await Task.sleep(for: Self.cookieDebounceInterval)
-                } catch {
+                } catch is CancellationError {
                     // Task was cancelled (new cookie change came in), skip backup
                     return
+                } catch {
+                    // Unexpected error during sleep - log and continue with backup
+                    self.logger.warning("Unexpected error during cookie debounce: \(error.localizedDescription)")
                 }
 
                 // Perform debounced backup

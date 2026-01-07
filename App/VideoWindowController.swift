@@ -4,6 +4,7 @@ import SwiftUI
 // MARK: - VideoWindowController
 
 /// Manages the floating video window.
+@available(macOS 26.0, *)
 @MainActor
 final class VideoWindowController {
     static let shared = VideoWindowController()

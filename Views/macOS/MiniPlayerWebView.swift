@@ -294,6 +294,7 @@ final class SingletonPlayerWebView {
 
         let previousVideoId = self.currentVideoId
         guard videoId != previousVideoId else {
+            self.logger.debug("Video \(videoId) already loaded, skipping")
             return
         }
 
@@ -379,6 +380,7 @@ final class SingletonPlayerWebView {
 
                     // Close video window on track change, but skip during grace period
                     // (grace period prevents false positives during initial video mode setup)
+                    // Note: trackChanged detection uses title/artist comparison from the observer script
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
                             "trackChanged to '\(title)' while video shown - closing video window")
