@@ -60,6 +60,16 @@ final class YTMusicClient: YTMusicClientProtocol {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
             "Accept-Encoding": "gzip, deflate, br",
         ]
+        // Enable HTTP pipelining for faster sequential requests
+        configuration.httpShouldUsePipelining = true
+        // Increase connection pool for parallel requests
+        configuration.httpMaximumConnectionsPerHost = 6
+        // Use shared URL cache for transport-level caching
+        configuration.urlCache = URLCache.shared
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+        // Reduce timeout for faster failure detection
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 30
         self.session = URLSession(configuration: configuration)
     }
 
@@ -1203,8 +1213,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         // Handle errors back on main actor
         switch result {
         case let .success(data):
-            // Parse JSON - URLSession already decompresses gzip/deflate on a background thread,
-            // and JSONSerialization is very fast for typical response sizes (~5-15ms)
+            // Parse JSON synchronously - JSONSerialization is highly optimized
+            // and typically completes in <5ms even for large responses.
+            // The actual response parsing (in Parsers/) is more expensive
+            // but must happen on MainActor anyway for @Observable updates.
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw YTMusicError.parseError(message: "Response is not a JSON object")
             }

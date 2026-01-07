@@ -39,9 +39,19 @@ final class APICache {
     /// Maximum number of cached entries before LRU eviction kicks in.
     private static let maxEntries = 50
 
-    private var cache: [String: CacheEntry] = [:]
+    /// Pre-allocated dictionary with initial capacity to reduce rehashing.
+    private var cache: [String: CacheEntry]
 
-    private init() {}
+    /// Timestamp of last eviction to avoid running on every access.
+    private var lastEvictionTime: Date = .distantPast
+
+    /// Minimum interval between automatic evictions (30 seconds).
+    private static let evictionInterval: TimeInterval = 30
+
+    private init() {
+        // Pre-allocate capacity to avoid rehashing during normal operation
+        self.cache = Dictionary(minimumCapacity: Self.maxEntries)
+    }
 
     /// Gets cached data if available and not expired.
     func get(key: String) -> [String: Any]? {
@@ -61,15 +71,20 @@ final class APICache {
     /// Stores data in the cache with the specified TTL.
     /// Evicts least recently used entries if cache is at capacity.
     func set(key: String, data: [String: Any], ttl: TimeInterval) {
-        // Evict expired entries first
-        self.evictExpiredEntries()
+        let now = Date()
+
+        // Evict expired entries periodically (not on every set)
+        if now.timeIntervalSince(self.lastEvictionTime) > Self.evictionInterval {
+            self.evictExpiredEntries()
+            self.lastEvictionTime = now
+        }
 
         // Evict LRU entries if still at capacity
         while self.cache.count >= Self.maxEntries {
             self.evictLeastRecentlyUsed()
         }
 
-        self.cache[key] = CacheEntry(data: data, timestamp: Date(), ttl: ttl)
+        self.cache[key] = CacheEntry(data: data, timestamp: now, ttl: ttl)
     }
 
     /// Generates a stable, deterministic cache key from endpoint and request body.

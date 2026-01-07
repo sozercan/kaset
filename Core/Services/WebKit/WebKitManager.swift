@@ -155,7 +155,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     private var cookieDebounceTask: Task<Void, Never>?
 
     /// Minimum interval between cookie backup operations (in seconds).
-    private static let cookieDebounceInterval: Duration = .seconds(2)
+    private static let cookieDebounceInterval: Duration = .seconds(5)
 
     /// The YouTube Music origin URL.
     static let origin = "https://music.youtube.com"

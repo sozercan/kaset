@@ -280,8 +280,8 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
-                    self.resultRow(item, index: index)
+                ForEach(self.viewModel.filteredItems) { item in
+                    self.resultRow(item)
                     Divider()
                         .padding(.leading, 72)
                 }
@@ -327,7 +327,7 @@ struct SearchView: View {
         }
     }
 
-    private func resultRow(_ item: SearchResultItem, index: Int) -> some View {
+    private func resultRow(_ item: SearchResultItem) -> some View {
         Button {
             self.handleItemTap(item)
         } label: {
@@ -386,7 +386,6 @@ struct SearchView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.interactiveRow(cornerRadius: 6))
-        .staggeredAppearance(index: min(index, 10))
         .contextMenu {
             self.contextMenuItems(for: item)
         }

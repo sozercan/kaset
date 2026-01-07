@@ -257,8 +257,12 @@ Before completing non-trivial features, verify:
 - [ ] Lists use `LazyVStack`/`LazyHStack` for large datasets
 - [ ] Network calls cancelled on view disappear (`.task` handles this)
 - [ ] Parsers have `measure {}` tests if processing large payloads
-- [ ] Images use `ImageCache` (not loading inline)
+- [ ] Images use `ImageCache` with appropriate `targetSize` (not loading inline)
 - [ ] Search input is debounced (not firing on every keystroke)
+- [ ] ForEach uses stable identity (avoid `Array(enumerated())` unless rank is needed)
+- [ ] Frequently updating UI (e.g., progress) caches formatted strings
+
+> 📚 See [docs/architecture.md#performance-guidelines](docs/architecture.md#performance-guidelines) for detailed patterns.
 
 ## Task Planning: Phases with Exit Criteria
 

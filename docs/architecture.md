@@ -251,7 +251,9 @@ Application lifecycle management:
 
 - Implements `NSWindowDelegate` to hide window instead of close
 - Keeps app running when window is closed (`applicationShouldTerminateAfterLastWindowClosed` returns `false`)
-- Handles dock icon click to reopen window
+- Handles dock icon click to reopen window (when no other windows are visible)
+
+> **Note**: When the video window is open, clicking the dock icon won't restore the main window (macOS limitation). Use **Window → Kaset (⌘0)** to show the main window in this case.
 
 ## Authentication Flow
 
@@ -420,6 +422,145 @@ DiagnosticsLogger.auth.error("Cookie extraction failed")
 **Categories**: `.player`, `.auth`, `.api`, `.webKit`, `.haptic`
 
 **Levels**: `.debug`, `.info`, `.warning`, `.error`
+
+## Performance Guidelines
+
+This section documents performance patterns and optimizations used throughout the codebase.
+
+### Network Optimization
+
+**File**: `Core/Services/API/YTMusicClient.swift`
+
+The API client uses an optimized `URLSession` configuration:
+
+```swift
+let configuration = URLSessionConfiguration.default
+configuration.httpShouldUsePipelining = true       // Parallel requests on same connection
+configuration.httpMaximumConnectionsPerHost = 6   // Connection pool size
+configuration.urlCache = URLCache.shared          // HTTP caching
+configuration.timeoutIntervalForRequest = 15      // Fail fast
+```
+
+### API Caching
+
+**File**: `Core/Services/API/APICache.swift`
+
+In-memory cache with TTL and LRU eviction:
+
+| TTL | Endpoints |
+|-----|-----------|
+| 5 minutes | Home, Explore, Library |
+| 2 minutes | Search |
+| 30 minutes | Playlist, Song metadata |
+| 1 hour | Artist |
+| 24 hours | Lyrics |
+
+**Design**:
+- Pre-allocated dictionary capacity to reduce rehashing
+- Periodic eviction (every 30 seconds) instead of per-write
+- Stable cache keys using SHA256 hash of sorted JSON body
+
+### Image Caching
+
+**File**: `Core/Utilities/ImageCache.swift`
+
+Thread-safe actor with memory and disk caching:
+
+| Feature | Description |
+|---------|-------------|
+| Memory cache | 200 items, 50MB limit via `NSCache` |
+| Disk cache | 200MB limit with LRU eviction |
+| Downsampling | Images resized to display size before caching |
+| Prefetch cancellation | `cancelPrefetch(id:)` stops in-flight requests |
+
+**Prefetch Pattern**:
+```swift
+// In view's .task modifier
+await ImageCache.shared.prefetch(
+    urls: section.items.prefix(10).compactMap { $0.thumbnailURL },
+    targetSize: CGSize(width: 160, height: 160),
+    maxConcurrent: 4
+)
+```
+
+### SwiftUI View Optimization
+
+#### Stable ForEach Identity
+
+**Avoid** creating new array identity on every render:
+
+```swift
+// ❌ Bad: Array(enumerated()) creates new array identity
+ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+    Row(item)
+}
+
+// ✅ Good: Direct iteration with stable id
+ForEach(items) { item in
+    Row(item)
+}
+
+// ✅ Good: Enumeration only when rank is needed (charts)
+ForEach(Array(chartItems.enumerated()), id: \.element.id) { index, item in
+    ChartRow(item, rank: index + 1)
+}
+```
+
+#### Throttled UI Updates
+
+For frequently changing values (e.g., playback progress at 60Hz), cache formatted strings:
+
+```swift
+// In PlayerBar
+@State private var formattedProgress: String = "0:00"
+@State private var lastProgressSecond: Int = -1
+
+.onChange(of: playerService.progress) { _, newValue in
+    let currentSecond = Int(newValue)
+    if currentSecond != lastProgressSecond {
+        lastProgressSecond = currentSecond
+        formattedProgress = formatTime(newValue)  // Only 1x per second
+    }
+}
+```
+
+#### Task Cancellation
+
+Cancel async work when views disappear or inputs change:
+
+```swift
+// In CachedAsyncImage
+@State private var loadTask: Task<Void, Never>?
+
+.task(id: url) {
+    loadTask?.cancel()
+    loadTask = Task {
+        guard !Task.isCancelled else { return }
+        image = await ImageCache.shared.image(for: url)
+    }
+}
+.onDisappear {
+    loadTask?.cancel()
+}
+```
+
+### Memory Management
+
+- **NSCache** for images responds to memory pressure automatically
+- `DispatchSource.makeMemoryPressureSource` clears image cache on system warning
+- Prefetch tasks are cancellable to prevent memory buildup during fast scrolling
+
+### Profiling Checklist
+
+Before completing non-trivial features, verify:
+
+- [ ] No `await` calls inside loops or `ForEach`
+- [ ] Lists use `LazyVStack`/`LazyHStack` for large datasets
+- [ ] Network calls cancelled on view disappear (`.task` handles this)
+- [ ] Parsers have `measure {}` tests if processing large payloads
+- [ ] Images use `ImageCache` with appropriate `targetSize`
+- [ ] Search input is debounced (not firing on every keystroke)
+- [ ] ForEach uses stable identity (avoid `Array(enumerated())` unless needed)
 
 ## UI Design (macOS 26+)
 

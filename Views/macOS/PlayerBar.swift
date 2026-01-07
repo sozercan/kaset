@@ -22,6 +22,12 @@ struct PlayerBar: View {
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
 
+    /// Cached formatted progress string to avoid repeated formatting.
+    @State private var formattedProgress: String = "0:00"
+    @State private var formattedRemaining: String = "-0:00"
+    /// Last integer second of progress to reduce string formatting frequency.
+    @State private var lastProgressSecond: Int = -1
+
     var body: some View {
         GlassEffectContainer(spacing: 0) {
             HStack(spacing: 0) {
@@ -102,6 +108,13 @@ struct PlayerBar: View {
             if !self.isSeeking, self.playerService.duration > 0 {
                 self.seekValue = newValue / self.playerService.duration
             }
+            // Only update formatted strings when the second changes to reduce Text view updates
+            let currentSecond = Int(newValue)
+            if currentSecond != self.lastProgressSecond {
+                self.lastProgressSecond = currentSecond
+                self.formattedProgress = self.formatTime(newValue)
+                self.formattedRemaining = "-\(self.formatTime(self.playerService.duration - newValue))"
+            }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             // Sync local volume value when not actively adjusting
@@ -175,11 +188,12 @@ struct PlayerBar: View {
 
     private var seekBarView: some View {
         HStack(spacing: 10) {
-            // Elapsed time - show seek position while dragging, actual progress otherwise
-            Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
+            // Elapsed time - use cached formatted string when not seeking
+            Text(self.isSeeking ? self.formatTime(self.seekValue * self.playerService.duration) : self.formattedProgress)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45, alignment: .trailing)
+                .monospacedDigit()
 
             // Seek slider
             Slider(value: self.$seekValue, in: 0 ... 1) { editing in
@@ -193,11 +207,12 @@ struct PlayerBar: View {
             }
             .controlSize(.small)
 
-            // Remaining time
-            Text("-\(self.formatTime(self.playerService.duration - (self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress)))")
+            // Remaining time - use cached formatted string when not seeking
+            Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45, alignment: .leading)
+                .monospacedDigit()
         }
     }
 

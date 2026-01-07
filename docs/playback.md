@@ -178,7 +178,8 @@ func applicationShouldHandleReopen(_:, hasVisibleWindows:) -> Bool {
 | Action | Result |
 |--------|--------|
 | Close window (⌘W) | Window hides, audio continues |
-| Click dock icon | Window reappears, same audio |
+| Click dock icon | Window reappears (unless video window is open) |
+| Window → Kaset (⌘0) | Main window reappears (works even with video window open) |
 | Quit app (⌘Q) | App terminates, audio stops |
 
 ## JavaScript Bridge
