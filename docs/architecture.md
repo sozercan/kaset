@@ -251,9 +251,7 @@ Application lifecycle management:
 
 - Implements `NSWindowDelegate` to hide window instead of close
 - Keeps app running when window is closed (`applicationShouldTerminateAfterLastWindowClosed` returns `false`)
-- Handles dock icon click to reopen window (when no other windows are visible)
-
-> **Note**: When the video window is open, clicking the dock icon won't restore the main window (macOS limitation). Use **Window → Kaset (⌘0)** to show the main window in this case.
+- Handles dock icon click to reopen window
 
 ## Authentication Flow
 
