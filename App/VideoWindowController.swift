@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - VideoWindowController
 
-/// Manages the floating video PiP window.
+/// Manages the floating video window.
 @MainActor
 final class VideoWindowController {
     static let shared = VideoWindowController()

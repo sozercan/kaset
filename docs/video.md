@@ -1,6 +1,6 @@
 # Video Mode
 
-This document details the Picture-in-Picture (PiP) video playback feature.
+This document details the floating video window feature.
 
 ## Overview
 
@@ -54,11 +54,14 @@ When entering video mode, JavaScript extracts the `<video>` element from YouTube
 
 ### Injection Flow
 
-1. **Click Video Tab**: Attempts to click YouTube Music's "Video" toggle (if available)
-2. **Create Container**: Creates `#kaset-video-container` with `position: fixed`
-3. **Move Video**: Moves `<video>` element into the container
-4. **Enable Controls**: Sets `video.controls = true` for native HTML5 controls
-5. **Apply Volume**: Syncs video volume with app's volume setting
+1. **Inject Blackout CSS**: Immediately covers the page with a black overlay to prevent UI flash
+2. **Click Video Tab**: Attempts to click YouTube Music's "Video" toggle (if available)
+3. **Create Container**: Creates `#kaset-video-container` with `position: fixed`
+4. **Move Video**: Moves `<video>` element into the container
+5. **Disable Controls**: Sets `video.controls = false` (users control via app's player bar)
+6. **Block Click Events**: Prevents clicks from reaching YouTube's underlying handlers
+7. **Apply Volume**: Syncs video volume with app's volume setting
+8. **Remove Blackout**: Shows the extracted video
 
 ### CSS Strategy
 
@@ -67,20 +70,20 @@ container.style.cssText = `
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    width: ${containerWidth}px !important;
+    height: ${containerHeight}px !important;
     z-index: 2147483647 !important;
 `;
 ```
 
-The container uses viewport units (`100vw`/`100vh`) so it **automatically resizes** when the window is resized. No re-injection is needed on resize.
+The container uses explicit pixel values (not viewport units) because WKWebView viewport units don't update reliably on resize. `refreshVideoModeCSS()` is called on resize to update dimensions.
 
 ## Resize Handling
 
-The video container uses CSS that auto-adjusts to window size:
-- `refreshVideoModeCSS()` is called on resize but does nothing substantive
-- The `position: fixed` with `100vw/100vh` handles resize natively
-- No re-extraction of the video element is performed on resize
+On window resize:
+1. `refreshVideoModeCSS()` is called
+2. Updates container and video element to new pixel dimensions
+3. No re-extraction of the video element is performed
 
 ## Window Lifecycle
 
@@ -109,9 +112,11 @@ User clicks close button (red X)
 ### Track Changes
 
 When a new track starts while video window is open:
-- Video window closes automatically
+- Video window closes automatically (after a 3-second grace period for initial load)
 - User can reopen for the new track
 - This prevents showing wrong video for the audio
+
+The grace period prevents the video from closing during the initial `trackChanged` events that fire when the video is first loaded.
 
 ## Known Issues & Solutions
 
@@ -126,14 +131,31 @@ When a new track starts while video window is open:
 
 The `hasVideo` property is still updated and used to enable/disable the Video button in the UI, but it no longer affects an already-open video window.
 
-### Issue: Volume Jump When Opening Video
+### Issue: Volume Jump When Opening Video (FIXED)
 
-**Root Cause**: Moving the video element could cause a momentary volume spike.
+**Root Cause**: YouTube's internal player APIs and the HTML5 video element have separate volume states. Moving the video element or clicking the Video tab could cause YouTube to reset volume.
 
-**Solution**: The injection script now:
-1. Mutes the video before extraction
-2. Sets the correct volume
-3. Unmutes after extraction
+**Solution**: Volume enforcement via multiple mechanisms:
+1. `window.__kasetTargetVolume` stores the app's target volume
+2. `volumechange` event listener enforces the target volume (with debouncing)
+3. Volume is applied via three APIs: `video.volume`, `playerApi.setVolume()`, and `movie_player.setVolume()`
+4. Click events on the video container are blocked to prevent YouTube's handlers from changing volume
+5. Volume is reapplied after video extraction completes
+
+### Issue: UI Flash When Opening Video (FIXED)
+
+**Root Cause**: When entering video mode, YouTube's web UI was briefly visible before video extraction completed.
+
+**Solution**: Inject a blackout overlay (`#kaset-blackout`) immediately when entering video mode. This black `<div>` covers the entire viewport until video extraction is complete.
+
+### Issue: Volume Wrong on Song Start (FIXED)
+
+**Root Cause**: The WKUserScript for volume initialization was created at WebView creation time, capturing a stale volume value. When pages reloaded for new songs, this stale script ran.
+
+**Solution**: 
+1. Removed static volume init script from WebView configuration
+2. `didFinish` navigation delegate applies current volume dynamically
+3. Observer script applies `__kasetTargetVolume` when video element is first detected
 
 ### Issue: Video Availability
 
@@ -169,8 +191,7 @@ return {
 ### Logs
 
 Video-related logs use `DiagnosticsLogger.player`:
-- `"updateDisplayMode called with mode: ..."` — Mode changes
-- `"Video extracted, volume set to: ..."` — Successful extraction
+- `"Singleton WebView finished loading: ..."` — Page navigation complete
 - `"Video restored to original location"` — Cleanup completed
 
 ## Future Improvements

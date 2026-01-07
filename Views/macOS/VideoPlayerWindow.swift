@@ -3,7 +3,7 @@ import WebKit
 
 // MARK: - VideoPlayerWindow
 
-/// Floating Picture-in-Picture style window for video playback.
+/// Floating window for video playback.
 @available(macOS 26.0, *)
 struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
