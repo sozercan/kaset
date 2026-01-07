@@ -13,6 +13,7 @@ final class SettingsManager {
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
+        static let rememberPlaybackSettings = "settings.rememberPlaybackSettings"
     }
 
     // MARK: - Launch Page Options
@@ -81,6 +82,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether to remember shuffle/repeat settings across app restarts.
+    var rememberPlaybackSettings: Bool {
+        didSet {
+            UserDefaults.standard.set(self.rememberPlaybackSettings, forKey: Keys.rememberPlaybackSettings)
+        }
+    }
+
     /// The last page the user was on (for "Last Used" option).
     var lastUsedPage: LaunchPage = .home
 
@@ -90,6 +98,7 @@ final class SettingsManager {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
+        self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),
            let page = LaunchPage(rawValue: rawValue)

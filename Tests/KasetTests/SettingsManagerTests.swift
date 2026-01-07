@@ -66,6 +66,12 @@ struct SettingsManagerTests {
         #expect(manager.hapticFeedbackEnabled == true)
     }
 
+    @Test("Default rememberPlaybackSettings is false")
+    func defaultRememberPlaybackSettings() {
+        let manager = SettingsManager.shared
+        #expect(manager.rememberPlaybackSettings == false)
+    }
+
     // MARK: - launchPage Computed Property Tests
 
     @Test("launchPage returns defaultLaunchPage for non-lastUsed")

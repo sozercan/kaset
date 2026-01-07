@@ -45,6 +45,10 @@ struct GeneralSettingsView: View {
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")
 
+                // Remember Playback Settings
+                Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
+                    .help("Save shuffle and repeat settings across app restarts")
+
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in

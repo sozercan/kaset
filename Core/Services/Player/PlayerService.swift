@@ -130,6 +130,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let volumeKey = "playerVolume"
     /// UserDefaults key for persisting volume before mute.
     static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
+    /// UserDefaults key for persisting shuffle state.
+    static let shuffleEnabledKey = "playerShuffleEnabled"
+    /// UserDefaults key for persisting repeat mode.
+    static let repeatModeKey = "playerRepeatMode"
 
     // MARK: - Initialization
 
@@ -148,6 +152,26 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.logger.info("Restored volumeBeforeMute: \(self.volumeBeforeMute)")
         } else {
             self.volumeBeforeMute = self.volume > 0 ? self.volume : 1.0
+        }
+
+        // Restore shuffle and repeat settings if enabled in settings
+        if SettingsManager.shared.rememberPlaybackSettings {
+            if UserDefaults.standard.object(forKey: Self.shuffleEnabledKey) != nil {
+                self.shuffleEnabled = UserDefaults.standard.bool(forKey: Self.shuffleEnabledKey)
+                self.logger.info("Restored shuffle state: \(self.shuffleEnabled)")
+            }
+
+            if let savedRepeatMode = UserDefaults.standard.string(forKey: Self.repeatModeKey) {
+                switch savedRepeatMode {
+                case "all":
+                    self.repeatMode = .all
+                case "one":
+                    self.repeatMode = .one
+                default:
+                    self.repeatMode = .off
+                }
+                self.logger.info("Restored repeat mode: \(String(describing: self.repeatMode))")
+            }
         }
 
         // Load mock state for UI tests
@@ -594,6 +618,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Toggles shuffle mode.
     func toggleShuffle() {
         self.shuffleEnabled.toggle()
+        // Persist shuffle state to UserDefaults if setting is enabled
+        if SettingsManager.shared.rememberPlaybackSettings {
+            UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
+        }
         let status = self.shuffleEnabled ? "enabled" : "disabled"
         self.logger.info("Shuffle mode: \(status)")
     }
@@ -607,6 +635,18 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.repeatMode = .one
         case .one:
             self.repeatMode = .off
+        }
+        // Persist repeat mode to UserDefaults if setting is enabled
+        if SettingsManager.shared.rememberPlaybackSettings {
+            let modeString = switch self.repeatMode {
+            case .off:
+                "off"
+            case .all:
+                "all"
+            case .one:
+                "one"
+            }
+            UserDefaults.standard.set(modeString, forKey: Self.repeatModeKey)
         }
         let mode = self.repeatMode
         self.logger.info("Repeat mode: \(String(describing: mode))")
