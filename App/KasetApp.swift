@@ -263,6 +263,34 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut("k", modifiers: .command)
             }
+
+            // Window menu - show main window
+            CommandGroup(after: .windowArrangement) {
+                Button("Kaset") {
+                    self.showMainWindow()
+                }
+                .keyboardShortcut("0", modifiers: .command)
+            }
+        }
+    }
+
+    /// Shows the main window.
+    private func showMainWindow() {
+        // Find and show the main window
+        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // Fallback: find any main-capable window that's not the video window
+        for window in NSApplication.shared.windows where window.canBecomeMain {
+            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+                continue
+            }
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
         }
     }
 
