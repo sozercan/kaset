@@ -6,7 +6,6 @@ extension SingletonPlayerWebView {
     /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }
-        self.logger.debug("playPause() called")
 
         let script = """
             (function() {
@@ -20,11 +19,9 @@ extension SingletonPlayerWebView {
                 return 'no-element';
             })();
         """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
                 self?.logger.error("playPause error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("playPause result: \(String(describing: result))")
             }
         }
     }
@@ -32,7 +29,6 @@ extension SingletonPlayerWebView {
     /// Play (resume).
     func play() {
         guard let webView else { return }
-        self.logger.debug("play() called")
 
         let script = """
             (function() {
@@ -47,7 +43,6 @@ extension SingletonPlayerWebView {
     /// Pause.
     func pause() {
         guard let webView else { return }
-        self.logger.debug("pause() called")
 
         let script = """
             (function() {
@@ -62,7 +57,6 @@ extension SingletonPlayerWebView {
     /// Skip to next track.
     func next() {
         guard let webView else { return }
-        self.logger.debug("next() called")
 
         let script = """
             (function() {
@@ -71,11 +65,9 @@ extension SingletonPlayerWebView {
                 return 'no-button';
             })();
         """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
                 self?.logger.error("next error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("next result: \(String(describing: result))")
             }
         }
     }
@@ -83,7 +75,6 @@ extension SingletonPlayerWebView {
     /// Go to previous track.
     func previous() {
         guard let webView else { return }
-        self.logger.debug("previous() called")
 
         let script = """
             (function() {
@@ -92,11 +83,9 @@ extension SingletonPlayerWebView {
                 return 'no-button';
             })();
         """
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
                 self?.logger.error("previous error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("previous result: \(String(describing: result))")
             }
         }
     }
@@ -104,7 +93,6 @@ extension SingletonPlayerWebView {
     /// Seek to a specific time in seconds.
     func seek(to time: Double) {
         guard let webView else { return }
-        self.logger.debug("seek(to: \(time)) called")
 
         let script = """
             (function() {
@@ -120,21 +108,48 @@ extension SingletonPlayerWebView {
     func setVolume(_ volume: Double) {
         guard let webView else { return }
         let clampedVolume = max(0, min(1, volume))
-        self.logger.debug("setVolume(\(clampedVolume)) called")
 
-        // Update both the target volume (for enforcement) and the actual video volume
+        // Update target volume and set video volume directly
+        // Also try to set YouTube's internal player volume via their API
         let script = """
             (function() {
-                // Update the target volume for enforcement
                 window.__kasetTargetVolume = \(clampedVolume);
                 const video = document.querySelector('video');
+                let result = [];
+                
                 if (video) {
+                    // Set flag to prevent volumechange listener from reverting
+                    window.__kasetIsSettingVolume = true;
                     video.volume = \(clampedVolume);
-                    return 'set';
+                    result.push('video.volume=' + video.volume);
+                    setTimeout(() => { window.__kasetIsSettingVolume = false; }, 50);
+                } else {
+                    result.push('no-video');
                 }
-                return 'no-video';
+                
+                // Also try YouTube Music's internal player API
+                const player = document.querySelector('ytmusic-player');
+                if (player && player.playerApi) {
+                    const ytVolume = Math.round(\(clampedVolume) * 100);
+                    player.playerApi.setVolume(ytVolume);
+                    result.push('ytapi.setVolume=' + ytVolume);
+                }
+                
+                // Try movie_player API as fallback
+                const moviePlayer = document.getElementById('movie_player');
+                if (moviePlayer && moviePlayer.setVolume) {
+                    const ytVolume = Math.round(\(clampedVolume) * 100);
+                    moviePlayer.setVolume(ytVolume);
+                    result.push('movie_player.setVolume=' + ytVolume);
+                }
+                
+                return result.join(', ');
             })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(script) { _, error in
+            if let error {
+                self.logger.error("setVolume error: \(error.localizedDescription)")
+            }
+        }
     }
 }

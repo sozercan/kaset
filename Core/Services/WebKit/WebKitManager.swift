@@ -73,7 +73,7 @@ enum CookieBackupManager {
 
         do {
             try data.write(to: fileURL, options: .atomic)
-            self.logger.info("Backed up \(authCookies.count) auth cookies to file")
+            self.logger.debug("Backed up \(authCookies.count) auth cookies to file")
         } catch {
             self.logger.error("Failed to backup cookies to file: \(error.localizedDescription)")
         }
@@ -150,6 +150,12 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     /// Timestamp of the last cookie change (for observation).
     private(set) var cookiesDidChange: Date = .distantPast
+
+    /// Task for debouncing cookie change handling.
+    private var cookieDebounceTask: Task<Void, Never>?
+
+    /// Minimum interval between cookie backup operations (in seconds).
+    private static let cookieDebounceInterval: Duration = .seconds(2)
 
     /// The YouTube Music origin URL.
     static let origin = "https://music.youtube.com"
@@ -371,26 +377,41 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     nonisolated func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
         Task { @MainActor in
             self.cookiesDidChange = Date()
-            self.logger.debug("Cookies changed at \(self.cookiesDidChange)")
 
-            // Backup cookies to Keychain whenever they change
-            let cookies = await cookieStore.allCookies()
-            self.logger.debug("Cookie change detected - total cookies: \(cookies.count)")
+            // Debounce cookie backup to avoid excessive writes
+            // WebKit fires this callback for each individual cookie change,
+            // which can result in dozens of calls in rapid succession
+            self.cookieDebounceTask?.cancel()
+            self.cookieDebounceTask = Task {
+                do {
+                    try await Task.sleep(for: Self.cookieDebounceInterval)
+                } catch {
+                    // Task was cancelled (new cookie change came in), skip backup
+                    return
+                }
 
-            // Filter for YouTube/Google auth cookies
-            let authCookies = cookies.filter { cookie in
-                let domain = cookie.domain.lowercased()
-                // Match youtube.com, .youtube.com, google.com, .google.com
-                return domain.hasSuffix("youtube.com") ||
-                    domain.hasSuffix("google.com") ||
-                    domain == ".youtube.com" ||
-                    domain == ".google.com"
+                // Perform debounced backup
+                await self.performCookieBackup(cookieStore: cookieStore)
             }
+        }
+    }
 
-            self.logger.debug("Found \(authCookies.count) YouTube/Google cookies")
-            if !authCookies.isEmpty {
-                CookieBackupManager.backupCookies(authCookies)
-            }
+    /// Performs the actual cookie backup after debouncing.
+    private func performCookieBackup(cookieStore: WKHTTPCookieStore) async {
+        let cookies = await cookieStore.allCookies()
+
+        // Filter for YouTube/Google auth cookies
+        let authCookies = cookies.filter { cookie in
+            let domain = cookie.domain.lowercased()
+            // Match youtube.com, .youtube.com, google.com, .google.com
+            return domain.hasSuffix("youtube.com") ||
+                domain.hasSuffix("google.com") ||
+                domain == ".youtube.com" ||
+                domain == ".google.com"
+        }
+
+        if !authCookies.isEmpty {
+            CookieBackupManager.backupCookies(authCookies)
         }
     }
 }

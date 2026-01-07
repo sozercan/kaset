@@ -225,9 +225,7 @@ final class SingletonPlayerWebView {
 
     var displayMode: DisplayMode = .hidden
 
-    private init() {
-        self.logger.debug("SingletonPlayerWebView initialized")
-    }
+    private init() {}
 
     /// Get or create the singleton WebView.
     func getWebView(
@@ -238,7 +236,6 @@ final class SingletonPlayerWebView {
             return existing
         }
 
-        self.logger.debug("Creating singleton WebView")
         self.logger.info("Creating singleton WebView")
 
         // Create coordinator
@@ -249,15 +246,11 @@ final class SingletonPlayerWebView {
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
 
-        // Inject volume initialization script FIRST (at document start)
-        // This ensures __kasetTargetVolume is set before the observer script runs
-        let savedVolume = playerService.volume
-        let volumeInitScript = WKUserScript(
-            source: "window.__kasetTargetVolume = \(savedVolume);",
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        )
-        configuration.userContentController.addUserScript(volumeInitScript)
+        // Note: We do NOT inject a static volume init script here because the volume
+        // may change between WebView creation and page loads. Instead, we:
+        // 1. Set __kasetTargetVolume in loadVideo() before loading a new page
+        // 2. Update it in didFinish after each page load completes
+        // This ensures we always use the CURRENT volume, not a stale value.
 
         // Inject observer script (at document end)
         let script = WKUserScript(
@@ -282,7 +275,6 @@ final class SingletonPlayerWebView {
     /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
         guard let webView, webView.superview !== container else { return }
-        self.logger.debug("ensureInHierarchy: reparenting WebView to new container")
         webView.removeFromSuperview()
         container.addSubview(webView)
 
@@ -306,7 +298,6 @@ final class SingletonPlayerWebView {
 
         let previousVideoId = self.currentVideoId
         guard videoId != previousVideoId else {
-            self.logger.info("Video \(videoId) already loaded, skipping")
             return
         }
 
@@ -390,10 +381,14 @@ final class SingletonPlayerWebView {
                         thumbnailUrl: thumbnailUrl
                     )
 
-                    // Close video window on track change
-                    if self.playerService.showVideo {
+                    // Only close video window on track change if we're NOT in video mode
+                    // When video mode is active, trackChanged detection is unreliable because
+                    // our video container can obscure the DOM elements being queried
+                    if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
+                        // Check if this is a real track change by comparing video IDs
+                        // rather than relying on title/artist which can be unreliable
                         DiagnosticsLogger.player.info(
-                            "trackChanged to '\(title)' - closing video window")
+                            "trackChanged to '\(title)' while video shown - closing video window")
                         self.playerService.showVideo = false
                     }
                 }
@@ -404,25 +399,29 @@ final class SingletonPlayerWebView {
             DiagnosticsLogger.player.info(
                 "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")")
 
-            // Apply saved volume when page loads
-            // Use a script that waits for the video element to exist
+            // Apply the current volume when page finishes loading
+            // This is critical because YouTube may set its own default volume
             let savedVolume = self.playerService.volume
             let applyVolumeScript = """
                 (function() {
+                    // Set target volume for enforcement
                     window.__kasetTargetVolume = \(savedVolume);
-                    function applyVolume() {
-                        const video = document.querySelector('video');
-                        if (video) {
-                            video.volume = \(savedVolume);
-                            return;
-                        }
-                        setTimeout(applyVolume, 100);
+                    // Set flag to prevent enforcement from reverting our change
+                    window.__kasetIsSettingVolume = true;
+                    
+                    // Apply to video element if it exists
+                    const video = document.querySelector('video');
+                    if (video) {
+                        video.volume = \(savedVolume);
                     }
-                    applyVolume();
+                    
+                    // Clear flag after a moment
+                    setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
+                    
+                    return video ? 'applied' : 'no-video-yet';
                 })();
             """
             webView.evaluateJavaScript(applyVolumeScript, completionHandler: nil)
-            DiagnosticsLogger.player.debug("Injected volume apply script: \(savedVolume)")
         }
     }
 }

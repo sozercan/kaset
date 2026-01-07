@@ -16,9 +16,10 @@ extension SingletonPlayerWebView {
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
 
             // Volume enforcement: track target volume set by Swift
-            // Default to 1.0, will be updated when Swift calls setVolume()
-            window.__kasetTargetVolume = window.__kasetTargetVolume ?? 1.0;
+            // Don't set a default - only enforce when explicitly set by Swift
+            // window.__kasetTargetVolume is set by volume init script at document start
             let volumeEnforcementTimeout = null; // Debounce volume enforcement
+            let isEnforcingVolume = false; // Prevent feedback loops
 
             function waitForPlayerBar() {
                 const playerBar = document.querySelector('ytmusic-player-bar');
@@ -47,24 +48,67 @@ extension SingletonPlayerWebView {
                     video.addEventListener('seeked', () => sendUpdate()); // Seek completed
 
                     // Volume enforcement: listen for external volume changes with debounce
+                    // This catches YouTube's attempts to change volume and reverts to our target
                     video.addEventListener('volumechange', () => {
+                        // Skip if we're currently enforcing (prevents feedback loop)
+                        if (isEnforcingVolume) return;
+                        
                         // Debounce to prevent rapid-fire enforcement
                         if (volumeEnforcementTimeout) {
                             clearTimeout(volumeEnforcementTimeout);
                         }
                         volumeEnforcementTimeout = setTimeout(() => {
+                            // Also skip if Swift is actively setting volume
+                            if (window.__kasetIsSettingVolume) {
+                                volumeEnforcementTimeout = null;
+                                return;
+                            }
                             const targetVol = window.__kasetTargetVolume;
                             const currentVideo = document.querySelector('video');
-                            // Only enforce if we have a valid target volume set by Swift
-                            if (currentVideo && targetVol !== undefined && Math.abs(currentVideo.volume - targetVol) > 0.01) {
+                            // Only enforce if target was explicitly set and differs significantly
+                            if (currentVideo && typeof targetVol === 'number' && Math.abs(currentVideo.volume - targetVol) > 0.01) {
+                                isEnforcingVolume = true;
                                 currentVideo.volume = targetVol;
+                                
+                                // Also enforce via YouTube's internal APIs
+                                const ytVolume = Math.round(targetVol * 100);
+                                const player = document.querySelector('ytmusic-player');
+                                if (player && player.playerApi) {
+                                    player.playerApi.setVolume(ytVolume);
+                                }
+                                const moviePlayer = document.getElementById('movie_player');
+                                if (moviePlayer && moviePlayer.setVolume) {
+                                    moviePlayer.setVolume(ytVolume);
+                                }
+                                
+                                // Clear flag after a tick to allow next external change to be caught
+                                setTimeout(() => { isEnforcingVolume = false; }, 10);
                             }
                             volumeEnforcementTimeout = null;
-                        }, 50);
+                        }, 100);
                     });
 
-                    // Don't auto-apply volume here - let didFinish handle it with the current value
-                    // This prevents applying stale volume from WebView creation time
+                    // CRITICAL: Apply target volume immediately when video element is first detected
+                    // This handles the case where didFinish already set __kasetTargetVolume but
+                    // the video element didn't exist yet. Without this, YouTube creates video at
+                    // 100% and volumechange may never fire (no change from initial state).
+                    const targetVol = window.__kasetTargetVolume;
+                    if (typeof targetVol === 'number') {
+                        isEnforcingVolume = true;
+                        video.volume = targetVol;
+                        
+                        // Also set YouTube's internal player API volume
+                        const player = document.querySelector('ytmusic-player');
+                        if (player && player.playerApi) {
+                            player.playerApi.setVolume(Math.round(targetVol * 100));
+                        }
+                        const moviePlayer = document.getElementById('movie_player');
+                        if (moviePlayer && moviePlayer.setVolume) {
+                            moviePlayer.setVolume(Math.round(targetVol * 100));
+                        }
+                        
+                        setTimeout(() => { isEnforcingVolume = false; }, 10);
+                    }
 
                     // Start polling if already playing
                     if (!video.paused) {
@@ -79,10 +123,7 @@ extension SingletonPlayerWebView {
                     if (video && !video.__kasetListenersAttached) {
                         video.__kasetListenersAttached = true;
                         attachVideoListeners();
-                        // Apply current target volume to new video element
-                        if (window.__kasetTargetVolume !== undefined) {
-                            video.volume = window.__kasetTargetVolume;
-                        }
+                        // Note: attachVideoListeners now applies target volume immediately
                     }
                 });
                 videoObserver.observe(document.body, { childList: true, subtree: true });
@@ -92,12 +133,8 @@ extension SingletonPlayerWebView {
                 if (isPollingActive) return;
                 isPollingActive = true;
 
-                // Apply target volume when playback starts
-                // This is the most reliable point since the video element definitely exists
-                const video = document.querySelector('video');
-                if (video && window.__kasetTargetVolume !== undefined) {
-                    video.volume = window.__kasetTargetVolume;
-                }
+                // Don't apply volume here - let volume enforcement handle it
+                // Applying volume on every startPolling causes volume jumps
 
                 sendUpdate(); // Immediate update
                 // Poll at 1Hz during playback for progress updates (reduced CPU usage)

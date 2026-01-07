@@ -6,12 +6,8 @@ import WebKit
 extension SingletonPlayerWebView {
     /// Updates WebView size based on display mode.
     func updateDisplayMode(_ mode: DisplayMode) {
-        guard let webView else {
-            self.logger.debug("updateDisplayMode called but webView is nil!")
-            return
-        }
+        guard let webView else { return }
         self.displayMode = mode
-        self.logger.debug("updateDisplayMode called with mode: \(String(describing: mode))")
 
         switch mode {
         case .hidden:
@@ -64,16 +60,13 @@ extension SingletonPlayerWebView {
         if let superview = webView.superview, superview.bounds.width > 0, superview.bounds.height > 0 {
             webView.frame = superview.bounds
             webView.autoresizingMask = [.width, .height]
-            self.logger.debug("WebView frame set to valid bounds: \(NSStringFromRect(superview.bounds))")
             self.injectVideoModeCSS()
         } else if attempts < maxAttempts {
-            self.logger.debug("Waiting for valid bounds (attempt \(attempts + 1))...")
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(100))
                 self?.waitForValidBoundsAndInject(attempts: attempts + 1)
             }
         } else {
-            self.logger.debug("Gave up waiting for valid bounds after \(maxAttempts) attempts")
             // Fall back to current bounds anyway
             if let superview = webView.superview {
                 webView.frame = superview.bounds
@@ -87,8 +80,6 @@ extension SingletonPlayerWebView {
     /// Called when entering video mode or when page reloads while in video mode.
     func injectVideoModeCSS() {
         guard let webView else { return }
-
-        self.logger.debug("Starting video mode injection...")
 
         // First, let's debug what's in the DOM
         let debugScript = """
@@ -121,13 +112,7 @@ extension SingletonPlayerWebView {
             })();
         """
 
-        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
-            if let error {
-                self?.logger.debug("Debug script error: \(error.localizedDescription)")
-            } else if let info = result {
-                self?.logger.debug("DOM Debug: \(String(describing: info))")
-            }
-
+        webView.evaluateJavaScript(debugScript) { [weak self] _, _ in
             // Now click the Video tab
             self?.clickVideoTabAndInjectCSS()
         }
@@ -191,13 +176,7 @@ extension SingletonPlayerWebView {
             })();
         """
 
-        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, error in
-            if let error {
-                self?.logger.debug("Click video error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("Click video result: \(String(describing: result))")
-            }
-
+        webView.evaluateJavaScript(clickVideoTabScript) { [weak self] _, _ in
             // Wait a moment for the video mode to activate, then inject CSS
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(500))
@@ -210,9 +189,6 @@ extension SingletonPlayerWebView {
     func injectVideoModeStyles() {
         guard let webView else { return }
 
-        // Get the app's current volume to apply to the video element
-        let appVolume = self.coordinator?.playerService.volume ?? 1.0
-        
         // Use superview frame since that's the actual container size
         let superviewFrame = webView.superview?.frame ?? .zero
         let width = Int(superviewFrame.width > 0 ? superviewFrame.width : 480)
@@ -224,7 +200,6 @@ extension SingletonPlayerWebView {
             (function() {
                 'use strict';
 
-                const appVolume = \(appVolume);
                 const containerWidth = \(width);
                 const containerHeight = \(height);
 
@@ -246,10 +221,6 @@ extension SingletonPlayerWebView {
                     return { success: false, error: 'No video element' };
                 }
 
-                // MUTE FIRST to prevent volume jump during extraction
-                const wasMuted = video.muted;
-                video.muted = true;
-
                 // Store original parent for restoration later
                 video.__kasetOriginalParent = video.parentElement;
 
@@ -268,6 +239,18 @@ extension SingletonPlayerWebView {
                     align-items: center !important;
                     justify-content: center !important;
                 `;
+                
+                // Prevent clicks from bubbling to YouTube's underlying player
+                // This stops YouTube from intercepting clicks and changing volume
+                container.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                }, true);
+                container.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                }, true);
+                container.addEventListener('mouseup', (e) => {
+                    e.stopPropagation();
+                }, true);
 
                 // Style the video element with native controls
                 // Use explicit pixel values AND override any max-width/max-height from YouTube CSS
@@ -283,10 +266,19 @@ extension SingletonPlayerWebView {
                     position: absolute !important;
                     top: 0 !important;
                     left: 0 !important;
+                    pointer-events: auto !important;
                 `;
-                video.controls = true;
+                // Disable native controls - users should use app's player bar for control
+                // This prevents volume conflicts from native control interactions
+                video.controls = false;
+                
+                // Prevent video click events from reaching YouTube's handlers
+                video.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }, true);
 
-                // Move video into our container
+                // Move video into our container (audio continues uninterrupted)
                 container.appendChild(video);
                 document.body.appendChild(container);
 
@@ -294,72 +286,22 @@ extension SingletonPlayerWebView {
                 const blackout = document.getElementById('kaset-blackout');
                 if (blackout) blackout.remove();
 
-                // Set the correct volume BEFORE unmuting
-                video.volume = appVolume;
-                window.__kasetTargetVolume = appVolume;
-
-                // Now unmute (restoring original mute state if it was muted)
-                video.muted = wasMuted;
+                // Restore volume to app's target value (YouTube may have reset it)
+                if (typeof window.__kasetTargetVolume === 'number') {
+                    video.volume = window.__kasetTargetVolume;
+                }
 
                 return {
                     success: true,
                     videoWidth: video.videoWidth,
                     videoHeight: video.videoHeight,
                     containerWidth: containerWidth,
-                    containerHeight: containerHeight,
-                    volume: video.volume
+                    containerHeight: containerHeight
                 };
             })();
         """
 
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error {
-                self?.logger.debug("Failed to extract video: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("Video extraction result: \(String(describing: result))")
-                self?.debugVideoStateAfterInjection()
-            }
-        }
-    }
-
-    /// Debug helper to check video state after CSS injection.
-    func debugVideoStateAfterInjection() {
-        guard let webView else { return }
-
-        let debugScript = """
-            (function() {
-                const video = document.querySelector('video');
-                if (!video) return { error: 'No video element found' };
-
-                const style = getComputedStyle(video);
-                const songImage = document.querySelector('.song-image img, .thumbnail img');
-                return {
-                    hasSrc: !!video.src,
-                    srcPrefix: video.src ? video.src.substring(0, 50) : 'none',
-                    videoWidth: video.videoWidth,
-                    videoHeight: video.videoHeight,
-                    clientWidth: video.clientWidth,
-                    clientHeight: video.clientHeight,
-                    display: style.display,
-                    visibility: style.visibility,
-                    opacity: style.opacity,
-                    position: style.position,
-                    zIndex: style.zIndex,
-                    paused: video.paused,
-                    currentTime: video.currentTime,
-                    readyState: video.readyState,
-                    songImageSrc: songImage ? songImage.src : 'none'
-                };
-            })();
-        """
-
-        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
-            if let error {
-                self?.logger.debug("Post-injection debug error: \(error.localizedDescription)")
-            } else {
-                self?.logger.debug("Post-injection video state: \(String(describing: result))")
-            }
-        }
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Removes the video container and restores the video to its original location.

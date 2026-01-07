@@ -334,8 +334,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         let previousValue = self.currentTrackHasVideo
         self.currentTrackHasVideo = hasVideo
 
-        self.logger.debug("updateVideoAvailability called: hasVideo=\(hasVideo), previous=\(previousValue)")
-
         // Don't auto-close the video window based on hasVideo detection.
         // The detection is unreliable when video mode is active because:
         // 1. The video element has been extracted from its original DOM location
@@ -360,6 +358,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func videoWindowDidClose() {
         self.videoWindowOpenedAt = nil
         self.logger.debug("videoWindowDidClose: grace period cleared")
+    }
+
+    /// Returns true if video window was recently opened (within grace period)
+    /// This is used to ignore spurious trackChanged events during video mode setup
+    var isVideoGracePeriodActive: Bool {
+        guard let openedAt = self.videoWindowOpenedAt else { return false }
+        // 3 second grace period to allow video mode setup to complete
+        return ContinuousClock.now - openedAt < .seconds(3)
     }
 
     /// Toggles play/pause.
@@ -512,7 +518,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the volume.
     func setVolume(_ value: Double) async {
         let clampedValue = max(0, min(1, value))
-        self.logger.debug("Setting volume to \(clampedValue)")
         self.volume = clampedValue
 
         // Persist volume to UserDefaults (including mute state of 0)
