@@ -37,8 +37,7 @@ Download the latest release from the [Releases](https://github.com/sozercan/kase
 ### Homebrew
 
 ```bash
-brew tap sozercan/kaset https://github.com/sozercan/kaset
-brew install --cask kaset
+brew install sozercan/repo/kaset
 ```
 
 > **Note:** The app is not signed.

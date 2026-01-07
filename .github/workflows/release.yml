@@ -245,8 +245,7 @@ jobs:
 
           ### Homebrew (recommended)
           \`\`\`bash
-          brew tap sozercan/kaset https://github.com/sozercan/kaset
-          brew install --cask kaset
+          brew install sozercan/repo/kaset
           \`\`\`
 
           ### Manual Download
@@ -303,28 +302,31 @@ jobs:
               $PRERELEASE_FLAG
           fi
 
-      - name: Commit Cask and Appcast Update
+      - name: Update Homebrew Cask
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_REPO_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Fetch and checkout the default branch (we're in detached HEAD from tag checkout)
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
-
-          # Re-apply the cask update on the branch
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
 
+          # Clone the homebrew-repo
+          git clone https://x-access-token:${GH_TOKEN}@github.com/sozercan/homebrew-repo.git /tmp/homebrew-repo
+          cd /tmp/homebrew-repo
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Update the cask file
+          mkdir -p Casks
           cat > Casks/kaset.rb << EOF
           cask "kaset" do
             version "$VERSION"
             sha256 "${{ steps.sha256.outputs.sha256 }}"
 
-            url "https://github.com/${{ github.repository }}/releases/download/v#{version}/kaset-v#{version}.dmg"
+            url "https://github.com/sozercan/kaset/releases/download/v#{version}/kaset-v#{version}.dmg"
             name "Kaset"
             desc "Native YouTube Music client"
-            homepage "https://github.com/${{ github.repository }}"
+            homepage "https://github.com/sozercan/kaset"
 
             auto_updates true
             depends_on macos: ">= :tahoe"
@@ -345,10 +347,26 @@ jobs:
           end
           EOF
 
+          git add Casks/kaset.rb
+          git diff --cached --quiet || git commit -m "Update kaset to ${TAG}"
+          git push origin main
+
+      - name: Update Appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch and checkout the default branch (we're in detached HEAD from tag checkout)
+          git fetch origin ${{ github.event.repository.default_branch }}
+          git checkout ${{ github.event.repository.default_branch }}
+
+          TAG="${{ steps.artifact.outputs.tag }}"
+          VERSION="${TAG#v}"
+
           # Update appcast.xml for Sparkle auto-updates
           SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
           LENGTH="${{ steps.sparkle_sign.outputs.length }}"
-          
+
           if [ -n "$SIGNATURE" ]; then
             PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
@@ -381,10 +399,8 @@ jobs:
               </channel>
           </rss>
           APPCAST_EOF
-            
-            git add appcast.xml
-          fi
 
-          git add Casks/kaset.rb
-          git diff --cached --quiet || git commit -m "Update cask and appcast to ${{ steps.artifact.outputs.tag }}"
-          git push origin ${{ github.event.repository.default_branch }}
+            git add appcast.xml
+            git diff --cached --quiet || git commit -m "Update appcast to ${{ steps.artifact.outputs.tag }}"
+            git push origin ${{ github.event.repository.default_branch }}
+          fi
