@@ -213,7 +213,11 @@ private struct QueueRowView: View {
             Image(systemName: "waveform")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.red)
-                .symbolEffect(.variableColor.iterative, options: .repeating)
+                .symbolEffect(
+                    .variableColor.iterative,
+                    options: .repeating,
+                    isActive: self.playerService.isPlaying
+                )
         } else {
             Text("\(self.index + 1)")
                 .font(.system(size: 12))
