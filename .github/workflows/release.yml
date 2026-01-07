@@ -302,16 +302,20 @@ jobs:
               $PRERELEASE_FLAG
           fi
 
+      - name: Checkout Homebrew tap repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
+        with:
+          repository: sozercan/homebrew-repo
+          token: ${{ secrets.HOMEBREW_REPO_TOKEN }}
+          path: homebrew-repo
+          fetch-depth: 0
+
       - name: Update Homebrew Cask
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_REPO_TOKEN }}
         run: |
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
 
-          # Clone the homebrew-repo
-          git clone https://x-access-token:${GH_TOKEN}@github.com/sozercan/homebrew-repo.git /tmp/homebrew-repo
-          cd /tmp/homebrew-repo
+          cd homebrew-repo
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
