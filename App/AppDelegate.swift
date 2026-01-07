@@ -30,6 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupWindowDelegate() {
         for window in NSApplication.shared.windows where window.canBecomeMain {
             window.delegate = self
+      // Enable automatic window frame persistence using autosave name
+      // This ensures window size/position is restored across app launches
+      if window.frameAutosaveName.isEmpty {
+        window.setFrameAutosaveName("KasetMainWindow")
+      }
         }
     }
 
