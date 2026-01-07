@@ -161,7 +161,68 @@ The `hasVideo` property is still updated and used to enable/disable the Video bu
 
 **Root Cause**: Not all songs have music videos available.
 
-**Solution**: `PlayerService.hasVideo` tracks video availability. The Video button is only enabled when a video exists.
+**Solution**: `PlayerService.currentTrackHasVideo` tracks video availability using a hybrid detection approach. The Video button is only enabled when a video exists.
+
+## Video Detection
+
+Video availability is detected using a **hybrid approach** with two sources:
+
+### 1. API-Based Detection (Authoritative)
+
+When `fetchSongMetadata` is called, the parser extracts `musicVideoType` from the YouTube Music API response:
+
+```swift
+// Response path (next endpoint):
+navigationEndpoint.watchEndpoint.watchEndpointMusicSupportedConfigs
+    .watchEndpointMusicConfig.musicVideoType
+```
+
+The `MusicVideoType` enum classifies content:
+
+| Value | Enum Case | Has Video |
+|-------|-----------|-----------|
+| `MUSIC_VIDEO_TYPE_OMV` | `.omv` | ✅ Yes |
+| `MUSIC_VIDEO_TYPE_ATV` | `.atv` | ❌ No (audio track video) |
+| `MUSIC_VIDEO_TYPE_UGC` | `.ugc` | ❌ No (user-generated placeholder) |
+| `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` | `.podcastEpisode` | ❌ No |
+
+Only Official Music Videos (OMV) have actual video content. ATV tracks show a static album art "video."
+
+**Files**:
+- [Core/Models/MusicVideoType.swift](../Core/Models/MusicVideoType.swift) — Enum definition with `hasVideoContent` property
+- [Core/Services/API/Parsers/SongMetadataParser.swift](../Core/Services/API/Parsers/SongMetadataParser.swift) — `parseMusicVideoType(from:)` method
+- [Core/Services/Player/PlayerService+Library.swift](../Core/Services/Player/PlayerService+Library.swift) — Calls `updateVideoAvailability(hasVideo:)` after parsing
+
+### 2. DOM-Based Detection (Fast Fallback)
+
+The JavaScript observer in the WebView provides immediate feedback before the API call completes:
+
+```javascript
+// Detects Song/Video toggle button
+const toggleButton = document.querySelector('#tab-renderer tp-yt-paper-tab:nth-child(2)');
+const hasVideo = toggleButton != null;
+```
+
+This is a **fallback** mechanism because:
+- DOM detection fires immediately when the WebView loads the page
+- API detection requires a network round-trip to the `next` endpoint
+- DOM detection can be unreliable when video mode CSS is injected
+
+**File**: [Views/macOS/SingletonPlayerWebView+ObserverScript.swift](../Views/macOS/SingletonPlayerWebView+ObserverScript.swift)
+
+### Detection Flow
+
+```
+Track starts playing
+    ├── DOM observer fires immediately
+    │   └── PlayerService.updateVideoAvailability() called (fast, may be inaccurate)
+    │
+    └── fetchSongMetadata() completes
+        └── musicVideoType parsed
+            └── PlayerService.updateVideoAvailability() called (authoritative)
+```
+
+The API-based detection overwrites any earlier DOM-based value, providing the correct authoritative result.
 
 ## Debugging
 
@@ -200,3 +261,4 @@ Video-related logs use `DiagnosticsLogger.player`:
 - [ ] Keyboard shortcuts for video controls
 - [ ] Fullscreen video mode
 - [ ] Remember window size (not just corner)
+- [ ] Video quality selection (requires WebView JavaScript injection to access streamingData formats)
