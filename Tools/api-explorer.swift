@@ -39,7 +39,7 @@ import Foundation
 // MARK: - Configuration
 
 let apiKey = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
-let clientVersion = "1.20231204.01.00"
+let clientVersion = "1.20250106.01.00"
 let baseURL = "https://music.youtube.com/youtubei/v1"
 let origin = "https://music.youtube.com"
 
@@ -147,13 +147,15 @@ func buildHeaders(authenticated: Bool = false) -> [String: String] {
         "Referer": "\(origin)/",
     ]
 
-    if authenticated, let cookies = loadCookiesFromAppBackup() {
-        if let sapisid = getSAPISID(from: cookies) {
-            let sapisidhash = computeSAPISIDHASH(sapisid: sapisid)
-            headers["Cookie"] = buildCookieHeader(from: cookies)
-            headers["Authorization"] = "SAPISIDHASH \(sapisidhash)"
-            headers["X-Goog-AuthUser"] = "0"
-            headers["X-Origin"] = origin
+    if authenticated {
+        if let cookies = loadCookiesFromAppBackup() {
+            if let sapisid = getSAPISID(from: cookies) {
+                let sapisidhash = computeSAPISIDHASH(sapisid: sapisid)
+                headers["Cookie"] = buildCookieHeader(from: cookies)
+                headers["Authorization"] = "SAPISIDHASH \(sapisidhash)"
+                headers["X-Goog-AuthUser"] = "0"
+                headers["X-Origin"] = origin
+            }
         }
     }
 
@@ -309,6 +311,10 @@ func needsAuthentication(_ browseId: String) -> Bool {
     // Podcast shows (MPSPP...) require authentication for episode data
     if browseId.hasPrefix("MPSPP") {
         return true
+    }
+    // Home endpoint benefits from authentication for personalized content (Speed Dial, etc.)
+    if browseId == "FEmusic_home" {
+        return loadCookiesFromAppBackup() != nil // Use auth if available
     }
     return false
 }
@@ -576,7 +582,7 @@ func checkAuthStatus() {
                 expiry = "session-only"
             }
 
-            print("  \(status) \(name): expires \(expiry)")
+            print("  \(status) \(name): expires \(expiry), domain: \(cookie.domain)")
         } else {
             print("  ❌ \(name): not found")
         }

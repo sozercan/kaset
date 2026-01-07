@@ -181,6 +181,7 @@ These endpoints are functional but not yet implemented in Kaset.
 | `FEmusic_library_privately_owned_landing` | Uploads | 🔐 | Low | User-uploaded content |
 | `FEmusic_library_privately_owned_tracks` | Uploaded Tracks | 🔐 | Low | Uploaded songs |
 | `FEmusic_library_privately_owned_albums` | Uploaded Albums | 🔐 | Low | Uploaded albums |
+| *Speed Dial* | Speed Dial | 🔐📱 | **Unknown** | Mobile-only feature, needs investigation |
 
 > \* Library Albums/Artists/Songs return HTTP 400 without authentication. With authentication, they also require specific `params` values for sorting. The exact param encoding needs to be captured from web client requests.
 
@@ -216,6 +217,50 @@ let body = ["browseId": "FEmusic_library_landing"]
 - `VLLM` — Liked Music auto playlist
 - `VLRDPN` — New Episodes auto playlist
 - `VLSE` — Episodes for Later auto playlist
+
+---
+
+#### Speed Dial (Mobile Feature) ⚠️
+
+> **Status**: Unverified / Requires Mobile Client Investigation
+> 
+> Speed Dial is a personalized grid feature that appears on mobile/tablet YouTube Music apps, showing quick-access items like frequently played songs, podcasts, and playlists under the user's profile name.
+
+**Visual Characteristics**:
+- Displays as a grid (typically 3×4 items) under the user's name
+- Shows mixed content: songs, podcasts, playlists, artist mixes
+- Items include thumbnails with optional chevron (>) for navigation
+- Appears to be personalized based on listening history/preferences
+
+**Investigation Status**:
+This feature has NOT been confirmed via API exploration due to:
+1. Speed Dial may be exclusive to mobile clients (`ANDROID_MUSIC`, `IOS_MUSIC`)
+2. The `WEB_REMIX` client used by Kaset may not receive this section
+3. Requires authenticated requests to appear
+
+**Possible Locations**:
+| Hypothesis | Endpoint | Notes |
+|------------|----------|-------|
+| Part of Home | `FEmusic_home` | May appear only for mobile clients |
+| Separate endpoint | `FEmusic_speed_dial` | Returns HTTP 400 (endpoint doesn't exist for web) |
+| Part of Library | `FEmusic_library_landing` | Could be the first section for mobile clients |
+
+**Renderer Type** (hypothesis):
+Speed Dial likely uses one of these renderer types:
+- `gridRenderer` — Standard grid layout
+- `musicCarouselShelfRenderer` with grid layout variant
+- A mobile-specific renderer not present in web responses
+
+**Implementation Notes**:
+To properly explore Speed Dial, consider:
+1. Capturing network traffic from the YouTube Music mobile app
+2. Using mobile client identifiers (`ANDROID_MUSIC` with appropriate version)
+3. Checking if the feature appears in authenticated `FEmusic_home` responses
+
+**Future Work**:
+- [ ] Capture mobile app traffic to identify the exact endpoint/renderer
+- [ ] Test with `clientName: "ANDROID_MUSIC"` in API requests
+- [ ] Determine if Speed Dial content is algorithmically generated or user-configurable
 
 ---
 
@@ -851,6 +896,7 @@ The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
 
 | Date | Changes |
 |------|---------|
+| 2026-01-07 | Added Speed Dial documentation: mobile-only personalized grid feature, investigation status, possible endpoints |
 | 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |
 | 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |
 | 2024-12-22 | Added Undocumented Endpoints section with discovered endpoints |

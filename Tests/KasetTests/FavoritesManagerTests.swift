@@ -306,4 +306,49 @@ struct FavoritesManagerTests {
             Issue.record("Expected song type")
         }
     }
+
+    // MARK: - User Identity Tests
+
+    @Test("setUserIdentifier clears items when user changes")
+    func setUserIdentifierClearsItems() {
+        // Add some items first
+        self.manager.add(.from(TestFixtures.makeSong(id: "user-test-1")))
+        self.manager.add(.from(TestFixtures.makeSong(id: "user-test-2")))
+        #expect(self.manager.items.count == 2)
+
+        // Switching user should clear in-memory items (since skipLoad=true, load does nothing)
+        self.manager.setUserIdentifier(from: "new-user-sapisid")
+
+        // Items are cleared because load() is called but file doesn't exist for new user
+        #expect(self.manager.items.isEmpty)
+    }
+
+    @Test("setUserIdentifier with same user does not reload")
+    func setUserIdentifierSameUserNoReload() {
+        // Set initial user
+        self.manager.setUserIdentifier(from: "same-user-sapisid")
+
+        // Add items after setting user
+        self.manager.add(.from(TestFixtures.makeSong(id: "same-user-test")))
+        #expect(self.manager.items.count == 1)
+
+        // Setting same user again should not clear items
+        self.manager.setUserIdentifier(from: "same-user-sapisid")
+
+        #expect(self.manager.items.count == 1)
+    }
+
+    @Test("setUserIdentifier with nil clears to anonymous")
+    func setUserIdentifierNilClearsToAnonymous() {
+        // Set a user first
+        self.manager.setUserIdentifier(from: "some-user-sapisid")
+        self.manager.add(.from(TestFixtures.makeSong(id: "logged-in-song")))
+        #expect(self.manager.items.count == 1)
+
+        // Clear user (sign out)
+        self.manager.setUserIdentifier(from: nil)
+
+        // Items should be cleared (loading empty anonymous favorites)
+        #expect(self.manager.items.isEmpty)
+    }
 }

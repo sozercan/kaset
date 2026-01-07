@@ -1,3 +1,4 @@
+import CommonCrypto
 import CoreTransferable
 import Foundation
 import Observation
@@ -5,6 +6,7 @@ import Observation
 // MARK: - FavoritesManager
 
 /// Manages Favorites persistence and state.
+/// Favorites are stored per-user to ensure each account has its own favorites.
 @MainActor
 @Observable
 final class FavoritesManager {
@@ -20,13 +22,26 @@ final class FavoritesManager {
     /// Whether this instance should skip persistence (for testing).
     private let skipPersistence: Bool
 
+    /// Current user identifier (derived from SAPISID hash).
+    /// When nil, favorites are stored in a shared "anonymous" file.
+    private var currentUserIdentifier: String?
+
     // MARK: - Persistence
 
-    /// File URL for persisted data.
-    private var fileURL: URL {
+    /// Base directory for favorites storage.
+    private var favoritesDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let kasetDir = appSupport.appendingPathComponent("Kaset", isDirectory: true)
-        return kasetDir.appendingPathComponent("favorites.json")
+        return appSupport.appendingPathComponent("Kaset", isDirectory: true)
+    }
+
+    /// File URL for persisted data (user-specific).
+    private var fileURL: URL {
+        let filename = if let userIdentifier = self.currentUserIdentifier {
+            "favorites_\(userIdentifier).json"
+        } else {
+            "favorites_anonymous.json"
+        }
+        return self.favoritesDirectory.appendingPathComponent(filename)
     }
 
     // MARK: - Initialization
@@ -35,10 +50,12 @@ final class FavoritesManager {
         // In UI test mode, use mock data and skip persistence to avoid touching live data
         if UITestConfig.isUITestMode {
             self.skipPersistence = true
+            self.currentUserIdentifier = nil
             self.loadMockData()
         } else {
             self.skipPersistence = false
-            self.load()
+            self.currentUserIdentifier = nil
+            // Favorites will be loaded when setUserIdentifier is called after auth check
         }
     }
 
@@ -46,9 +63,44 @@ final class FavoritesManager {
     /// Test instances never read from or write to disk, ensuring user data is never affected.
     init(skipLoad: Bool) {
         self.skipPersistence = skipLoad // When skipLoad is true, also skip persistence
+        self.currentUserIdentifier = nil
         if !skipLoad {
             self.load()
         }
+    }
+
+    // MARK: - User Identity
+
+    /// Sets the current user identifier and reloads favorites for that user.
+    /// Call this when a user signs in or when auth state is confirmed.
+    /// - Parameter sapisid: The SAPISID cookie value, or nil if signed out.
+    func setUserIdentifier(from sapisid: String?) {
+        let newIdentifier = sapisid.map { Self.hashForUserIdentifier($0) }
+
+        // Only reload if user actually changed
+        guard newIdentifier != self.currentUserIdentifier else {
+            DiagnosticsLogger.ui.debug("User identifier unchanged, skipping reload")
+            return
+        }
+
+        let previousUser = self.currentUserIdentifier ?? "anonymous"
+        let newUser = newIdentifier ?? "anonymous"
+        DiagnosticsLogger.ui.info("Switching favorites from user '\(previousUser)' to '\(newUser)'")
+
+        self.currentUserIdentifier = newIdentifier
+        self.load()
+    }
+
+    /// Computes a stable, short hash from the SAPISID for use as a user identifier.
+    /// The hash is one-way and safe to store on disk.
+    private static func hashForUserIdentifier(_ sapisid: String) -> String {
+        let data = Data(sapisid.utf8)
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        data.withUnsafeBytes { buffer in
+            _ = CC_SHA256(buffer.baseAddress, CC_LONG(buffer.count), &hash)
+        }
+        // Use first 16 characters of hex for a reasonably short but unique identifier
+        return hash.prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Load & Save
@@ -56,6 +108,9 @@ final class FavoritesManager {
     /// Loads items from disk (called once at init, runs synchronously on main thread).
     /// This is acceptable because it only happens once at app launch.
     func load() {
+        // Clear existing items first - important when switching users
+        self.items = []
+
         do {
             guard FileManager.default.fileExists(atPath: self.fileURL.path) else {
                 DiagnosticsLogger.ui.debug("Favorites file does not exist, starting fresh")

@@ -317,11 +317,14 @@ struct MainWindow: View {
             break
         case .loggedOut:
             // Onboarding view handles login, no need to auto-show sheet
-            break
+            // Clear favorites for logged out user (switch to anonymous)
+            FavoritesManager.shared.setUserIdentifier(from: nil)
         case .loggingIn:
             self.showLoginSheet = true
-        case .loggedIn:
+        case let .loggedIn(sapisid):
             self.showLoginSheet = false
+            // Update favorites manager with the new user's identifier
+            FavoritesManager.shared.setUserIdentifier(from: sapisid)
             // If we just completed login (transitioning from loggingIn), refresh content
             // This handles the case where cookies weren't ready during initial load
             if case .loggingIn = oldState {

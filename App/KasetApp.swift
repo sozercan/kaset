@@ -121,6 +121,10 @@ struct KasetApp: App {
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
 
+                        // Update favorites manager with current user after auth check
+                        let sapisid = await self.webKitManager.getSAPISID()
+                        self.favoritesManager.setUserIdentifier(from: sapisid)
+
                         // Warm up Foundation Models in background
                         await FoundationModelsService.shared.warmup()
                     }
