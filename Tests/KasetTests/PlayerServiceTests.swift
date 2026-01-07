@@ -349,7 +349,7 @@ struct PlayerServiceTests {
     }
 
     @Test("UpdateTrackMetadata corrects YouTube autoplay with Kaset-initiated playback")
-    func updateTrackMetadataCorrectYouTubeAutoplay() async {
+    func updateTrackMetadataCorrectsYouTubeAutoplay() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
