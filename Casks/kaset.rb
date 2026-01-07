@@ -7,7 +7,7 @@ cask "kaset" do
   desc "Native YouTube Music client"
   homepage "https://github.com/sozercan/kaset"
 
-  deprecate! date: "2026-01-06", because: "has moved to a new tap"
+  deprecate! date: "2026-01-06", because: "has moved to the tap at https://github.com/sozercan/homebrew-repo"
 
   auto_updates false
   depends_on macos: ">= :tahoe"
