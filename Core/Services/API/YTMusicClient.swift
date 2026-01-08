@@ -60,9 +60,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
             "Accept-Encoding": "gzip, deflate, br",
         ]
-        // Enable HTTP pipelining for faster sequential requests
-        configuration.httpShouldUsePipelining = true
-        // Increase connection pool for parallel requests
+        // Increase connection pool for parallel requests (HTTP/2 multiplexing is automatic)
         configuration.httpMaximumConnectionsPerHost = 6
         // Use shared URL cache for transport-level caching
         configuration.urlCache = URLCache.shared

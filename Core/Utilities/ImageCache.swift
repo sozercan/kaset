@@ -14,12 +14,6 @@ actor ImageCache {
     /// Maximum disk cache size in bytes (200MB).
     private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
-    /// Priority levels for image loading to ensure visible images load first.
-    enum Priority: Sendable {
-        case high // Visible on screen
-        case low // Prefetch for upcoming content
-    }
-
     private let memoryCache = NSCache<NSURL, NSImage>()
     private var inFlight: [URL: Task<NSImage?, Never>] = [:]
     /// Tracks active prefetch task groups to allow cancellation.
@@ -167,10 +161,10 @@ actor ImageCache {
 
     /// Cancels all active prefetch operations.
     func cancelAllPrefetches() {
-        for (id, task) in self.activePrefetchTasks {
+        for (_, task) in self.activePrefetchTasks {
             task.cancel()
-            self.activePrefetchTasks.removeValue(forKey: id)
         }
+        self.activePrefetchTasks.removeAll()
     }
 
     /// Legacy fire-and-forget prefetch for backward compatibility.
