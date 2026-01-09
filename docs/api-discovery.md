@@ -821,7 +821,7 @@ For authenticated endpoints (🔐), sign in to the Kaset app first:
 ./Tools/api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
 ```
 
-The tool reads cookies from `~/Library/Application Support/Kaset/cookies.dat`.
+Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
 
 ### Commands Reference
 

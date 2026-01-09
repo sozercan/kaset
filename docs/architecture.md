@@ -63,7 +63,8 @@ final class HomeViewModel {
 
 Manages WebKit infrastructure for the app:
 
-- Owns a persistent `WKWebsiteDataStore` for cookie storage
+- Owns a persistent `WKWebsiteDataStore` for runtime cookie storage
+- Backs up auth cookies to **macOS Keychain** for persistence across app updates
 - Provides cookie access via `getAllCookies()`
 - Observes cookie changes via `WKHTTPCookieStoreObserver`
 - Creates WebView configurations with shared data store
@@ -722,7 +723,7 @@ UI elements that must remain visible across all navigation states (like the lyri
 var mainContent: some View {
     HStack(spacing: 0) {
         NavigationSplitView { ... }  // Sidebar + detail navigation
-        
+
         // Lyrics sidebar OUTSIDE navigation - persists across all pushed views
         LyricsView(...)
             .frame(width: playerService.showLyrics ? 280 : 0)

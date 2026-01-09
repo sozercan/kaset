@@ -96,7 +96,7 @@ Review [docs/api-discovery.md](docs/api-discovery.md) to see if the endpoint is 
 If the endpoint requires authentication:
 1. Run `./Tools/api-explorer.swift auth` to check cookie status
 2. If no cookies, run the Kaset app and sign in to YouTube Music
-3. The app saves cookies to `~/Library/Application Support/Kaset/cookies.dat`
+3. The app stores cookies in Keychain; Debug builds also export cookies to `~/Library/Application Support/Kaset/cookies.dat` for tooling
 4. Run the API explorer again
 
 #### Step 4: Document Findings
@@ -140,7 +140,7 @@ swiftlint --strict && swiftformat .
 > ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. This means:
 > - In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`)
 > - In instance methods, use `self.property` explicitly
-> 
+>
 > Always run `swiftformat .` before completing work to auto-fix these issues.
 
 ### Modern SwiftUI APIs

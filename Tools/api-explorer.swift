@@ -4,7 +4,7 @@
 //  Standalone API Explorer for YouTube Music
 //
 //  A unified tool for exploring both public and authenticated YouTube Music API endpoints.
-//  Reads cookies from the Kaset app's backup file for authenticated requests.
+//  Reads cookies from the Kaset app's debug cookie export for authenticated requests.
 //
 //  Usage:
 //    chmod +x Tools/api-explorer.swift
@@ -784,9 +784,10 @@ func showHelp() {
       # Check auth status
       ./api-explorer.swift auth
 
-    Authentication:
-      For authenticated endpoints, sign in to the Kaset app first.
-      The tool reads cookies from ~/Library/Application Support/Kaset/cookies.dat
+        Authentication:
+            For authenticated endpoints, sign in to the Kaset app first.
+            Debug builds export auth cookies to:
+                ~/Library/Application Support/Kaset/cookies.dat
 
     """)
 }
