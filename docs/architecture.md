@@ -433,8 +433,7 @@ The API client uses an optimized `URLSession` configuration:
 
 ```swift
 let configuration = URLSessionConfiguration.default
-configuration.httpShouldUsePipelining = true       // Parallel requests on same connection
-configuration.httpMaximumConnectionsPerHost = 6   // Connection pool size
+configuration.httpMaximumConnectionsPerHost = 6   // Connection pool size (HTTP/2 multiplexing is automatic)
 configuration.urlCache = URLCache.shared          // HTTP caching
 configuration.timeoutIntervalForRequest = 15      // Fail fast
 ```
@@ -469,11 +468,11 @@ Thread-safe actor with memory and disk caching:
 | Memory cache | 200 items, 50MB limit via `NSCache` |
 | Disk cache | 200MB limit with LRU eviction |
 | Downsampling | Images resized to display size before caching |
-| Prefetch cancellation | `cancelPrefetch(id:)` stops in-flight requests |
+| Structured cancellation | Prefetch respects SwiftUI `.task` cancellation |
 
 **Prefetch Pattern**:
 ```swift
-// In view's .task modifier
+// In view's .task modifier - cancellation is automatic when view disappears
 await ImageCache.shared.prefetch(
     urls: section.items.prefix(10).compactMap { $0.thumbnailURL },
     targetSize: CGSize(width: 160, height: 160),

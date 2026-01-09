@@ -16,8 +16,6 @@ actor ImageCache {
 
     private let memoryCache = NSCache<NSURL, NSImage>()
     private var inFlight: [URL: Task<NSImage?, Never>] = [:]
-    /// Tracks active prefetch task groups to allow cancellation.
-    private var activePrefetchTasks: [UUID: Task<Void, Never>] = [:]
     private let fileManager = FileManager.default
     private let diskCacheURL: URL
 
@@ -101,70 +99,40 @@ actor ImageCache {
     }
 
     /// Prefetches images with controlled concurrency to avoid network congestion.
-    /// Returns a prefetch ID that can be used to cancel the prefetch operation.
+    /// Supports cooperative cancellation from SwiftUI's structured concurrency.
     /// - Parameters:
     ///   - urls: URLs to prefetch.
     ///   - targetSize: Optional target size for downsampling.
     ///   - maxConcurrent: Maximum number of concurrent fetches (default: 4).
-    /// - Returns: A UUID that can be passed to `cancelPrefetch` to stop the operation.
-    @discardableResult
-    func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch)
-        async -> UUID
-    {
-        let prefetchId = UUID()
+    func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch) async {
+        // Use structured concurrency directly - cancellation propagates automatically
+        // when SwiftUI's .task is cancelled (view disappears or id changes)
+        await withTaskGroup(of: Void.self) { group in
+            var inProgress = 0
+            for url in urls {
+                // Check cancellation before starting new work
+                guard !Task.isCancelled else { break }
 
-        let task = Task(priority: .utility) {
-            await withTaskGroup(of: Void.self) { group in
-                var inProgress = 0
-                for url in urls {
-                    // Check cancellation before starting new work
-                    guard !Task.isCancelled else { break }
-
-                    // Skip if already in memory cache
-                    if self.memoryCache.object(forKey: url as NSURL) != nil {
-                        continue
-                    }
-
-                    // Wait for a slot if we're at capacity
-                    if inProgress >= maxConcurrent {
-                        await group.next()
-                        inProgress -= 1
-                    }
-
-                    group.addTask(priority: .utility) {
-                        guard !Task.isCancelled else { return }
-                        _ = await self.image(for: url, targetSize: targetSize)
-                    }
-                    inProgress += 1
+                // Skip if already in memory cache
+                if self.memoryCache.object(forKey: url as NSURL) != nil {
+                    continue
                 }
-                // Wait for remaining tasks
-                await group.waitForAll()
+
+                // Wait for a slot if we're at capacity
+                if inProgress >= maxConcurrent {
+                    await group.next()
+                    inProgress -= 1
+                }
+
+                group.addTask(priority: .utility) {
+                    guard !Task.isCancelled else { return }
+                    _ = await self.image(for: url, targetSize: targetSize)
+                }
+                inProgress += 1
             }
+            // Wait for remaining tasks (will be cancelled if parent is cancelled)
+            await group.waitForAll()
         }
-
-        self.activePrefetchTasks[prefetchId] = task
-
-        // Wait for completion and cleanup
-        await task.value
-        self.activePrefetchTasks.removeValue(forKey: prefetchId)
-
-        return prefetchId
-    }
-
-    /// Cancels an active prefetch operation.
-    func cancelPrefetch(id: UUID) {
-        if let task = activePrefetchTasks[id] {
-            task.cancel()
-            self.activePrefetchTasks.removeValue(forKey: id)
-        }
-    }
-
-    /// Cancels all active prefetch operations.
-    func cancelAllPrefetches() {
-        for (_, task) in self.activePrefetchTasks {
-            task.cancel()
-        }
-        self.activePrefetchTasks.removeAll()
     }
 
     /// Legacy fire-and-forget prefetch for backward compatibility.
