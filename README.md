@@ -84,5 +84,7 @@ open "kaset://play?v=dQw4w9WgXcQ"
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and coding guidelines.
 
+We welcome AI-assisted contributions! You can submit traditional PRs or **prompt requests** — share the AI prompt that generates your changes, and maintainers can review the intent before running the code. See the [AI-Assisted Contributions](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests) section for details.
+
 ## Disclaimer
 Kaset is an unofficial application and not affiliated with YouTube or Google Inc. in any way. "YouTube", "YouTube Music" and the "YouTube Logo" are registered trademarks of Google Inc.
