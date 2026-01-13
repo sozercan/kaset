@@ -52,7 +52,6 @@ body:
         - Follow existing empty state patterns in LibraryView
         - Use SF Symbols for the illustration
         - Ensure VoiceOver accessibility
-      render: markdown
     validations:
       required: true
 

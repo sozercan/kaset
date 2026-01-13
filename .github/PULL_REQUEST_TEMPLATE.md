@@ -11,8 +11,8 @@ share the prompt that created these changes. This helps reviewers:
 - Validate the approach before reviewing implementation
 - Run the prompt themselves to verify or iterate
 
-If you're submitting a "prompt request" (prompt-only, no code), remove the code 
-changes and just include the prompt below for maintainers to execute.
+If you want to submit a "prompt request" (prompt-only, no code), please open a
+new issue using the "Prompt Request" issue template instead of a pull request.
 -->
 
 <details>

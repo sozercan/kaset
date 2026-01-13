@@ -23,7 +23,7 @@ We adopt a **prompt request workflow** that allows contributions in three forms:
 
 Standard code contributions where contributors may optionally share the AI prompt used to generate the code in the PR template.
 
-### 2. PRs with Required Prompt Disclosure
+### 2. PRs with Prompt Disclosure (Encouraged)
 
 For AI-generated code, we encourage (but don't require) sharing the prompt that produced the changes. This helps reviewers:
 - Understand the contributor's intent

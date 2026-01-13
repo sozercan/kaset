@@ -225,13 +225,13 @@ Create an issue using the **Prompt Request** template if you:
 ### Example Prompt
 
 ```
-Add haptic feedback to the shuffle button in PlayerControlsView.swift.
+Add haptic feedback to the shuffle button in PlayerBar.swift.
 
 Requirements:
-- Use HapticService.shared.playFeedback(.light) on button tap
+- Use HapticService.toggle() on button tap
 - Only trigger haptic on state change (not when already shuffled)
 - Follow existing haptic patterns used in volume controls
-- Add unit test in PlayerControlsTests.swift
+- Add unit test in PlayerServiceTests.swift
 
 Reference: Core/Services/HapticService.swift for existing patterns
 ```
