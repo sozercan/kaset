@@ -14,6 +14,7 @@ Review and fix Swift Concurrency issues in Swift 6.2+ codebases by applying acto
 ### 1. Triage the issue
 
 - Capture the exact compiler diagnostics and the offending symbol(s).
+- Check project concurrency settings: Swift language version (6.2+), strict concurrency level, and whether approachable concurrency (default actor isolation / main-actor-by-default) is enabled.
 - Identify the current actor context (`@MainActor`, `actor`, `nonisolated`) and whether a default actor isolation mode is enabled.
 - Confirm whether the code is UI-bound or intended to run off the main actor.
 
@@ -31,4 +32,5 @@ Common fixes:
 ## Reference material
 
 - See `references/swift-6-2-concurrency.md` for Swift 6.2 changes, patterns, and examples.
+- See `references/approachable-concurrency.md` when the project is opted into approachable concurrency mode.
 - See `references/swiftui-concurrency-tour-wwdc.md` for SwiftUI-specific concurrency guidance.

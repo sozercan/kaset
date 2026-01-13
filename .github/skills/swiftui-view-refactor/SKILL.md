@@ -136,3 +136,7 @@ init(dependency: Dependency) {
 - Prefer small, explicit helpers over large conditional blocks.
 - Keep computed view builders below `body` and non-view computed vars above `init`.
 - For MV-first guidance and rationale, see `references/mv-patterns.md`.
+
+## Large-view handling
+
+- When a SwiftUI view file exceeds ~300 lines, split it using extensions to group related helpers. Move async functions and helper functions into dedicated `private` extensions, separated with `// MARK: -` comments that describe their purpose (e.g., `// MARK: - Actions`, `// MARK: - Subviews`, `// MARK: - Helpers`). Keep the main `struct` focused on stored properties, init, and `body`, with view-building computed vars also grouped via marks when the file is long.
