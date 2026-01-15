@@ -1,8 +1,7 @@
 import XCTest
 
 /// UI tests for Video functionality.
-@MainActor
-final class VideoUITests: KasetUITestCase {
+nonisolated final class VideoUITests: KasetUITestCase {
     // MARK: - Video Button Visibility
 
     func testVideoButtonHiddenWhenNoVideo() throws {

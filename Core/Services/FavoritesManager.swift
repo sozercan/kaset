@@ -82,6 +82,8 @@ final class FavoritesManager {
         let itemsSnapshot = self.items
         let targetURL = self.fileURL
 
+        // Use Task.detached to avoid blocking MainActor with disk I/O.
+        // Fire-and-forget: failures are logged but not propagated.
         Task.detached(priority: .utility) {
             do {
                 // Ensure directory exists
@@ -248,7 +250,7 @@ final class FavoritesManager {
 // MARK: - FavoriteItem + Transferable
 
 extension FavoriteItem: Transferable {
-    static var transferRepresentation: some TransferRepresentation {
+    nonisolated static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(for: FavoriteItem.self, contentType: .data)
     }
 }

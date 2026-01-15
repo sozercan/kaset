@@ -61,11 +61,8 @@ final class NetworkMonitor {
         }
     }
 
-    // swiftformat:disable modifierOrder
-    /// NWPathMonitor accessed from deinit, which is non-isolated in Swift 6.
-    /// Using nonisolated(unsafe) since monitor.cancel() is thread-safe.
-    nonisolated(unsafe) private let monitor: NWPathMonitor
-    // swiftformat:enable modifierOrder
+    /// NWPathMonitor is Sendable and thread-safe, so no isolation needed.
+    private let monitor: NWPathMonitor
     private let queue: DispatchQueue
     private let logger = DiagnosticsLogger.network
 

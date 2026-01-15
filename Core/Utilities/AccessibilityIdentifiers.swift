@@ -2,10 +2,10 @@ import Foundation
 
 /// Centralized accessibility identifiers for UI testing.
 /// Using an enum namespace prevents typos and enables autocomplete.
-enum AccessibilityID {
+nonisolated enum AccessibilityID {
     // MARK: - Sidebar
 
-    enum Sidebar {
+    nonisolated enum Sidebar {
         static let container = "sidebar"
         static let searchItem = "sidebar.search"
         static let homeItem = "sidebar.home"
@@ -20,7 +20,7 @@ enum AccessibilityID {
 
     // MARK: - PlayerBar
 
-    enum PlayerBar {
+    nonisolated enum PlayerBar {
         static let container = "playerBar"
         static let playPauseButton = "playerBar.playPause"
         static let previousButton = "playerBar.previous"
@@ -40,7 +40,7 @@ enum AccessibilityID {
 
     // MARK: - Queue View
 
-    enum Queue {
+    nonisolated enum Queue {
         static let container = "queueView"
         static let scrollView = "queueView.scrollView"
         static let clearButton = "queueView.clearButton"
@@ -55,7 +55,7 @@ enum AccessibilityID {
 
     // MARK: - HomeView
 
-    enum Home {
+    nonisolated enum Home {
         static let container = "homeView"
         static let scrollView = "homeView.scrollView"
         static let loadingIndicator = "homeView.loading"
@@ -76,7 +76,7 @@ enum AccessibilityID {
 
     // MARK: - SearchView
 
-    enum Search {
+    nonisolated enum Search {
         static let container = "searchView"
         static let searchField = "searchView.searchField"
         static let clearButton = "searchView.clearButton"
@@ -101,7 +101,7 @@ enum AccessibilityID {
 
     // MARK: - LibraryView
 
-    enum Library {
+    nonisolated enum Library {
         static let container = "libraryView"
         static let scrollView = "libraryView.scrollView"
         static let loadingIndicator = "libraryView.loading"
@@ -114,7 +114,7 @@ enum AccessibilityID {
 
     // MARK: - PlaylistDetailView
 
-    enum PlaylistDetail {
+    nonisolated enum PlaylistDetail {
         static let container = "playlistDetailView"
         static let header = "playlistDetailView.header"
         static let playButton = "playlistDetailView.playButton"
@@ -129,14 +129,14 @@ enum AccessibilityID {
 
     // MARK: - OnboardingView
 
-    enum Onboarding {
+    nonisolated enum Onboarding {
         static let container = "onboardingView"
         static let signInButton = "onboardingView.signInButton"
     }
 
     // MARK: - Main Window
 
-    enum MainWindow {
+    nonisolated enum MainWindow {
         static let container = "mainWindow"
         static let initializingView = "mainWindow.initializing"
         static let aiButton = "mainWindow.aiButton"
@@ -144,7 +144,7 @@ enum AccessibilityID {
 
     // MARK: - Explore View
 
-    enum Explore {
+    nonisolated enum Explore {
         static let container = "exploreView"
         static let scrollView = "exploreView.scrollView"
         static let loadingIndicator = "exploreView.loading"
@@ -152,7 +152,7 @@ enum AccessibilityID {
 
     // MARK: - Liked Music View
 
-    enum LikedMusic {
+    nonisolated enum LikedMusic {
         static let container = "likedMusicView"
         static let scrollView = "likedMusicView.scrollView"
         static let loadingIndicator = "likedMusicView.loading"
@@ -165,7 +165,7 @@ enum AccessibilityID {
 
     // MARK: - Video Window
 
-    enum VideoWindow {
+    nonisolated enum VideoWindow {
         static let container = "videoWindow"
         static let videoContent = "videoWindow.content"
     }

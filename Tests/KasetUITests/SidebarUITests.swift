@@ -1,8 +1,7 @@
 import XCTest
 
 /// UI tests for sidebar navigation.
-@MainActor
-final class SidebarUITests: KasetUITestCase {
+nonisolated final class SidebarUITests: KasetUITestCase {
     // MARK: - Navigation Items Visible
 
     func testSidebarShowsAllNavigationItems() throws {

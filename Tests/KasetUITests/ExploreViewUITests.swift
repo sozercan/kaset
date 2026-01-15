@@ -1,8 +1,7 @@
 import XCTest
 
 /// UI tests for the ExploreView.
-@MainActor
-final class ExploreViewUITests: KasetUITestCase {
+nonisolated final class ExploreViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
     func testExploreViewDisplaysTitle() throws {

@@ -1,8 +1,7 @@
 import XCTest
 
 /// UI tests for the HomeView.
-@MainActor
-final class HomeViewUITests: KasetUITestCase {
+nonisolated final class HomeViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
     func testHomeViewDisplaysTitle() throws {

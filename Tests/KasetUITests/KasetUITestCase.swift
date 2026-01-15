@@ -4,38 +4,38 @@ import XCTest
 
 /// Accessibility identifiers matching those in AccessibilityID enum.
 /// Duplicated here to avoid import issues with the app target.
-enum TestAccessibilityID {
-    enum Sidebar {
-        static let container = "sidebar"
-        static let searchItem = "sidebar.search"
-        static let homeItem = "sidebar.home"
-        static let exploreItem = "sidebar.explore"
-        static let likedMusicItem = "sidebar.likedMusic"
-        static let libraryItem = "sidebar.library"
+nonisolated enum TestAccessibilityID {
+    nonisolated enum Sidebar {
+        nonisolated static let container = "sidebar"
+        nonisolated static let searchItem = "sidebar.search"
+        nonisolated static let homeItem = "sidebar.home"
+        nonisolated static let exploreItem = "sidebar.explore"
+        nonisolated static let likedMusicItem = "sidebar.likedMusic"
+        nonisolated static let libraryItem = "sidebar.library"
     }
 
-    enum Home {
-        static let container = "homeView"
+    nonisolated enum Home {
+        nonisolated static let container = "homeView"
     }
 
-    enum PlayerBar {
-        static let videoButton = "playerBar.video"
+    nonisolated enum PlayerBar {
+        nonisolated static let videoButton = "playerBar.video"
     }
 
-    enum VideoWindow {
-        static let container = "videoWindow"
+    nonisolated enum VideoWindow {
+        nonisolated static let container = "videoWindow"
     }
 }
 
 // MARK: - MockFavoriteItem
 
 /// Helper type for creating mock favorites in UI tests.
-struct MockFavoriteItem {
+nonisolated struct MockFavoriteItem {
     let id: String
     let pinnedAt: Date
     let type: MockFavoriteType
 
-    enum MockFavoriteType {
+    nonisolated enum MockFavoriteType {
         case song(videoId: String, title: String, artist: String)
         case album(id: String, title: String, artist: String)
         case playlist(id: String, title: String, author: String)
@@ -49,22 +49,22 @@ struct MockFavoriteItem {
     }
 
     /// Creates a mock song favorite.
-    static func song(videoId: String, title: String, artist: String) -> MockFavoriteItem {
+    nonisolated static func song(videoId: String, title: String, artist: String) -> MockFavoriteItem {
         MockFavoriteItem(type: .song(videoId: videoId, title: title, artist: artist))
     }
 
     /// Creates a mock album favorite.
-    static func album(id: String, title: String, artist: String) -> MockFavoriteItem {
+    nonisolated static func album(id: String, title: String, artist: String) -> MockFavoriteItem {
         MockFavoriteItem(type: .album(id: id, title: title, artist: artist))
     }
 
     /// Creates a mock playlist favorite.
-    static func playlist(id: String, title: String, author: String) -> MockFavoriteItem {
+    nonisolated static func playlist(id: String, title: String, author: String) -> MockFavoriteItem {
         MockFavoriteItem(type: .playlist(id: id, title: title, author: author))
     }
 
     /// Creates a mock artist favorite.
-    static func artist(id: String, name: String) -> MockFavoriteItem {
+    nonisolated static func artist(id: String, name: String) -> MockFavoriteItem {
         MockFavoriteItem(type: .artist(id: id, name: name))
     }
 }
@@ -73,10 +73,10 @@ struct MockFavoriteItem {
 
 /// Base class for Kaset UI tests.
 /// Provides common setup, launch configuration, and helper methods.
-@MainActor
-class KasetUITestCase: XCTestCase {
+/// Note: XCTestCase is nonisolated by design for thread-safe test execution.
+nonisolated class KasetUITestCase: XCTestCase {
     /// The application under test.
-    var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
 
     // MARK: - Setup / Teardown
 

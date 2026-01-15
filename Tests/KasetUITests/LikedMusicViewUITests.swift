@@ -1,8 +1,7 @@
 import XCTest
 
 /// UI tests for the LikedMusicView.
-@MainActor
-final class LikedMusicViewUITests: KasetUITestCase {
+nonisolated final class LikedMusicViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
     func testLikedMusicViewDisplaysTitle() throws {

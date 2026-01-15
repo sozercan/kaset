@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Artist
 
 /// Represents an artist from YouTube Music.
-struct Artist: Identifiable, Codable, Hashable, Sendable {
+nonisolated struct Artist: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let name: String
     let thumbnailURL: URL?

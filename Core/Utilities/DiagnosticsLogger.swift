@@ -2,37 +2,37 @@ import Foundation
 import os
 
 /// Centralized logging for the Kaset app.
-enum DiagnosticsLogger {
+nonisolated enum DiagnosticsLogger {
     /// Logger for authentication-related events.
-    static let auth = Logger(subsystem: "com.sertacozercan.Kaset", category: "Auth")
+    nonisolated static let auth = Logger(subsystem: "com.sertacozercan.Kaset", category: "Auth")
 
     /// Logger for API-related events.
-    static let api = Logger(subsystem: "com.sertacozercan.Kaset", category: "API")
+    nonisolated static let api = Logger(subsystem: "com.sertacozercan.Kaset", category: "API")
 
     /// Logger for WebKit-related events.
-    static let webKit = Logger(subsystem: "com.sertacozercan.Kaset", category: "WebKit")
+    nonisolated static let webKit = Logger(subsystem: "com.sertacozercan.Kaset", category: "WebKit")
 
     /// Logger for player-related events.
-    static let player = Logger(subsystem: "com.sertacozercan.Kaset", category: "Player")
+    nonisolated static let player = Logger(subsystem: "com.sertacozercan.Kaset", category: "Player")
 
     /// Logger for UI-related events.
-    static let ui = Logger(subsystem: "com.sertacozercan.Kaset", category: "UI")
+    nonisolated static let ui = Logger(subsystem: "com.sertacozercan.Kaset", category: "UI")
 
     /// Logger for notification-related events.
-    static let notification = Logger(subsystem: "com.sertacozercan.Kaset", category: "Notification")
+    nonisolated static let notification = Logger(subsystem: "com.sertacozercan.Kaset", category: "Notification")
 
     /// Logger for AI/Foundation Models-related events.
-    static let ai = Logger(subsystem: "com.sertacozercan.Kaset", category: "AI")
+    nonisolated static let ai = Logger(subsystem: "com.sertacozercan.Kaset", category: "AI")
 
     /// Logger for haptic feedback-related events.
-    static let haptic = Logger(subsystem: "com.sertacozercan.Kaset", category: "Haptic")
+    nonisolated static let haptic = Logger(subsystem: "com.sertacozercan.Kaset", category: "Haptic")
 
     /// Logger for network connectivity-related events.
-    static let network = Logger(subsystem: "com.sertacozercan.Kaset", category: "Network")
+    nonisolated static let network = Logger(subsystem: "com.sertacozercan.Kaset", category: "Network")
 
     /// Logger for updater/general app events.
-    static let updater = Logger(subsystem: "com.sertacozercan.Kaset", category: "Updater")
+    nonisolated static let updater = Logger(subsystem: "com.sertacozercan.Kaset", category: "Updater")
 
     /// Logger for app lifecycle and URL handling events.
-    static let app = Logger(subsystem: "com.sertacozercan.Kaset", category: "App")
+    nonisolated static let app = Logger(subsystem: "com.sertacozercan.Kaset", category: "App")
 }
