@@ -25,6 +25,27 @@ enum TestAccessibilityID {
     enum VideoWindow {
         static let container = "videoWindow"
     }
+
+    // MARK: - Sidebar Profile
+
+    enum SidebarProfile {
+        static let container = "sidebarProfile"
+        static let profileButton = "sidebarProfile.profileButton"
+        static let loadingState = "sidebarProfile.loading"
+        static let loggedOutState = "sidebarProfile.loggedOut"
+    }
+
+    // MARK: - Account Switcher
+
+    enum AccountSwitcher {
+        static let container = "accountSwitcher"
+        static let header = "accountSwitcher.header"
+        static let accountsList = "accountSwitcher.accountsList"
+
+        static func accountRow(index: Int) -> String {
+            "accountSwitcher.account.\(index)"
+        }
+    }
 }
 
 // MARK: - MockFavoriteItem

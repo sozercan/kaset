@@ -47,6 +47,10 @@ final class HomeViewModel {
             self.continuationsLoaded = 0
             let sectionCount = self.sections.count
             self.logger.info("Home content loaded: \(sectionCount) sections")
+            let sectionSummary = self.sections
+                .map { "\($0.title) (\($0.items.count))" }
+                .joined(separator: ", ")
+            self.logger.debug("Home sections: [\(sectionSummary)]")
 
             // Start background loading of additional sections
             self.startBackgroundLoading()

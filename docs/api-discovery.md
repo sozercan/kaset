@@ -8,6 +8,7 @@
 
 - [Overview](#overview)
 - [Authentication](#authentication)
+  - [Brand Account Support](#brand-account-support)
 - [Browse Endpoints](#browse-endpoints)
   - [Implemented](#implemented-browse-endpoints)
   - [Available (Not Implemented)](#available-browse-endpoints)
@@ -68,6 +69,77 @@ let header = "SAPISIDHASH \(timestamp)_\(hash)"
 | `__Secure-3PAPISID` | Fallback for SAPISID |
 | `SID`, `HSID`, `SSID` | Session cookies |
 | `LOGIN_INFO` | Login state |
+
+### Brand Account Support
+
+Brand accounts (YouTube channels) can be accessed by setting `context.user.onBehalfOfUser` in the request body. This is separate from the `X-Goog-AuthUser` header, which only switches between multiple Google accounts.
+
+#### Discovering Brand Accounts
+
+Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs:
+
+```bash
+./Tools/api-explorer.swift brandaccounts
+```
+
+**Response Structure**:
+```
+📧 Google Account: user@gmail.com
+
+📋 Found 2 account(s):
+
+  0: Primary Account (@handle) [Primary] ← current
+  1: Brand Channel (@brand-handle) [Brand Account]
+     Brand ID: 111997145576882617490
+```
+
+**API Response Path**:
+```
+actions[0].getMultiPageMenuAction.menu.multiPageMenuRenderer.sections[0]
+  .accountSectionListRenderer.contents[0].accountItemSectionRenderer.contents[]
+```
+
+Each brand account item contains:
+- `accountName.runs[0].text` — Display name
+- `channelHandle.runs[0].text` — @handle
+- `serviceEndpoint.selectActiveIdentityEndpoint.supportedTokens[].pageIdToken.pageId` — Brand account ID (21-digit string)
+
+#### Using Brand Accounts
+
+Add the brand ID to the request body context:
+
+```swift
+let body: [String: Any] = [
+    "context": [
+        "client": [
+            "clientName": "WEB_REMIX",
+            "clientVersion": "1.20231204.01.00"
+        ],
+        "user": [
+            "onBehalfOfUser": "111997145576882617490"  // Brand account ID
+        ]
+    ],
+    "browseId": "FEmusic_liked_playlists"
+]
+```
+
+**API Explorer Usage**:
+```bash
+# List brand accounts with IDs
+./Tools/api-explorer.swift brandaccounts
+
+# Access brand account library
+./Tools/api-explorer.swift browse FEmusic_liked_playlists --brand 111997145576882617490
+```
+
+#### Key Differences: authuser vs brand
+
+| Mechanism | Header/Body | Purpose | ID Format |
+|-----------|-------------|---------|-----------|
+| `X-Goog-AuthUser: N` | Header | Switch between multiple Google accounts logged in | Integer index (0, 1, 2...) |
+| `context.user.onBehalfOfUser` | Body | Access brand account under same Google account | 21-digit string |
+
+> **Note**: Brand accounts are YouTube channels created under a Google account. They share the same authentication cookies but have separate libraries. The brand ID can also be found at `https://myaccount.google.com/brandaccounts` after selecting the account (appears in URL as `/b/21_digit_number`).
 
 ---
 
@@ -296,6 +368,8 @@ Action endpoints perform operations or fetch specific data.
 | `feedback` | Feedback | 🔐 | Add/remove from library via tokens |
 | `subscription/subscribe` | Subscribe | 🔐 | Subscribe to artist |
 | `subscription/unsubscribe` | Unsubscribe | 🔐 | Unsubscribe from artist |
+| `account/accounts_list` | Accounts List | 🔐 | List all accounts (primary + brand) |
+| `account/account_menu` | Account Menu | 🔐 | Current account info and settings |
 
 ---
 
@@ -823,16 +897,39 @@ For authenticated endpoints (🔐), sign in to the Kaset app first:
 
 Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
 
+### Brand Account Support
+
+```bash
+# List all accounts (primary + brand) with their IDs
+./Tools/api-explorer.swift brandaccounts
+
+# Access a brand account's library
+./Tools/api-explorer.swift browse FEmusic_liked_playlists --brand 111997145576882617490
+```
+
+The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [Brand Account Support](#brand-account-support) in the Authentication section for details.
+
 ### Commands Reference
 
 | Command | Description |
 |---------|-------------|
 | `browse <id> [params]` | Explore a browse endpoint |
 | `action <endpoint> <json>` | Explore an action endpoint |
+| `continuation <token> [ep]` | Explore a continuation (`browse` or `next`) |
 | `list` | List all known endpoints |
 | `auth` | Check authentication status |
+| `accounts` | Discover accounts via authuser header |
+| `brandaccounts` | List all brand accounts with IDs |
 | `help` | Show help message |
-| `-v, --verbose` | Show raw JSON response |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-v, --verbose` | Show full raw JSON response |
+| `-o, --output <file>` | Save raw JSON to file |
+| `--authuser N` | Use Google account at index N |
+| `--brand <ID>` | Use brand account (21-digit ID) |
 
 ---
 
@@ -851,6 +948,7 @@ Debug builds export auth cookies for the API explorer to `~/Library/Application 
 
 | Date | Changes |
 |------|---------|
+| 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
 | 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |
 | 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |
 | 2024-12-22 | Added Undocumented Endpoints section with discovered endpoints |

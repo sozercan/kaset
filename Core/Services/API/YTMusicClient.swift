@@ -39,6 +39,11 @@ final class YTMusicClient: YTMusicClientProtocol {
     private let session: URLSession
     private let logger = DiagnosticsLogger.api
 
+    /// Provider for the current brand account ID.
+    /// Set this after initialization to enable brand account API requests.
+    /// Returns nil for primary account, brand ID string for brand accounts.
+    var brandIdProvider: (() -> String?)?
+
     /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
@@ -507,6 +512,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.searchContinuationToken = nil
     }
 
+    /// Clears cached continuation/session state when switching accounts.
+    func resetSessionStateForAccountSwitch() {
+        self.logger.info("Resetting client session state for account switch")
+        self.continuationTokens.removeAll()
+        self.searchContinuationToken = nil
+        self.likedSongsContinuationToken = nil
+        self.playlistContinuationToken = nil
+    }
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         guard !query.isEmpty else {
@@ -906,6 +920,22 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
+    // MARK: - Account Management
+
+    /// Fetches the list of available accounts (primary + brand accounts).
+    /// Used for account switching functionality.
+    /// - Returns: AccountsListResponse containing all available accounts
+    /// - Throws: YTMusicError if not authenticated or request fails
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        self.logger.info("Fetching accounts list")
+
+        let data = try await request("account/accounts_list", body: [:])
+        let response = AccountsListParser.parse(data)
+
+        self.logger.info("Accounts list loaded: \(response.accounts.count) accounts")
+        return response
+    }
+
     // MARK: - Like/Library Actions
 
     /// Rates a song (like/dislike/indifferent).
@@ -1134,8 +1164,21 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Builds the standard context payload.
+    /// Includes `onBehalfOfUser` when a brand account is selected.
     private func buildContext() -> [String: Any] {
-        [
+        var userDict: [String: Any] = [
+            "lockedSafetyMode": false,
+        ]
+
+        // Add brand account ID if one is selected
+        if let brandId = self.brandIdProvider?() {
+            userDict["onBehalfOfUser"] = brandId
+            self.logger.debug("Using brand account: \(brandId)")
+        } else {
+            self.logger.debug("Using primary account (no brand ID)")
+        }
+
+        return [
             "client": [
                 "clientName": "WEB_REMIX",
                 "clientVersion": Self.clientVersion,
@@ -1151,26 +1194,33 @@ final class YTMusicClient: YTMusicClientProtocol {
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
                 "utcOffsetMinutes": -TimeZone.current.secondsFromGMT() / 60,
             ],
-            "user": [
-                "lockedSafetyMode": false,
-            ],
+            "user": userDict,
         ]
     }
 
     /// Makes an authenticated request to the API with optional caching and retry.
     private func request(_ endpoint: String, body: [String: Any], ttl: TimeInterval? = nil) async throws -> [String: Any] {
-        // Generate stable cache key from endpoint and body
-        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: body)
+        // Build request body with context so cache keys reflect the actual request
+        var fullBody = body
+        fullBody["context"] = self.buildContext()
+
+        // Generate stable cache key from endpoint, full body, and brand account ID
+        // Brand ID must be in cache key to prevent returning cached data from other accounts
+        let brandId = self.brandIdProvider?() ?? ""
+        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: brandId)
+        self.logger.debug(
+            "Request \(endpoint): brandId=\(brandId.isEmpty ? "primary" : brandId), cacheKey=\(cacheKey)")
 
         // Check cache first
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(endpoint)")
+            self.logger.debug(
+                "Cache hit for \(endpoint) (brandId=\(brandId.isEmpty ? "primary" : brandId))")
             return cached
         }
 
         // Execute with retry policy
         let json = try await RetryPolicy.default.execute { [self] in
-            try await self.performRequest(endpoint, body: body)
+            try await self.performRequest(endpoint, fullBody: fullBody)
         }
 
         // Cache response if TTL specified
@@ -1182,7 +1232,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Performs the actual network request.
-    private func performRequest(_ endpoint: String, body: [String: Any]) async throws -> [String: Any] {
+    private func performRequest(_ endpoint: String, fullBody: [String: Any]) async throws -> [String:
+        Any]
+    {
         let urlString = "\(Self.baseURL)/\(endpoint)?key=\(Self.apiKey)&prettyPrint=false"
         guard let url = URL(string: urlString) else {
             throw YTMusicError.unknown(message: "Invalid URL: \(urlString)")
@@ -1197,13 +1249,17 @@ final class YTMusicClient: YTMusicClientProtocol {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        // Build request body with context
-        var fullBody = body
-        fullBody["context"] = self.buildContext()
-
         request.httpBody = try JSONSerialization.data(withJSONObject: fullBody)
 
-        self.logger.debug("Making request to \(endpoint)")
+        if let context = fullBody["context"] as? [String: Any],
+           let user = context["user"] as? [String: Any]
+        {
+            let onBehalfOfUser = user["onBehalfOfUser"] as? String
+            self.logger.debug(
+                "Making request to \(endpoint) (onBehalfOfUser=\(onBehalfOfUser ?? "primary"))")
+        } else {
+            self.logger.debug("Making request to \(endpoint) (missing context)")
+        }
 
         // Perform network I/O off the main thread
         let result = try await Self.performNetworkRequest(request: request, session: self.session)

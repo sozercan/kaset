@@ -9,71 +9,79 @@ struct Sidebar: View {
     @Namespace private var sidebarNamespace
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
-            List(selection: self.$selection) {
-                // Main navigation
-                Section {
-                    NavigationLink(value: NavigationItem.search) {
-                        Label("Search", systemImage: "magnifyingglass")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
+        VStack(spacing: 0) {
+            GlassEffectContainer(spacing: 0) {
+                List(selection: self.$selection) {
+                    // Main navigation
+                    Section {
+                        NavigationLink(value: NavigationItem.search) {
+                            Label("Search", systemImage: "magnifyingglass")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
 
-                    NavigationLink(value: NavigationItem.home) {
-                        Label("Home", systemImage: "house")
+                        NavigationLink(value: NavigationItem.home) {
+                            Label("Home", systemImage: "house")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.homeItem)
                     }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.homeItem)
+
+                    // Discover section
+                    Section("Discover") {
+                        NavigationLink(value: NavigationItem.explore) {
+                            Label("Explore", systemImage: "globe")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
+
+                        NavigationLink(value: NavigationItem.charts) {
+                            Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.chartsItem)
+
+                        NavigationLink(value: NavigationItem.moodsAndGenres) {
+                            Label("Moods & Genres", systemImage: "theatermask.and.paintbrush")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.moodsAndGenresItem)
+
+                        NavigationLink(value: NavigationItem.newReleases) {
+                            Label("New Releases", systemImage: "sparkles")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
+
+                        NavigationLink(value: NavigationItem.podcasts) {
+                            Label("Podcasts", systemImage: "mic.fill")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
+                    }
+
+                    // Collection section
+                    Section("Collection") {
+                        NavigationLink(value: NavigationItem.library) {
+                            Label("Library", systemImage: "square.stack.fill")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
+
+                        NavigationLink(value: NavigationItem.likedMusic) {
+                            Label("Liked Music", systemImage: "heart.fill")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
+                    }
                 }
-
-                // Discover section
-                Section("Discover") {
-                    NavigationLink(value: NavigationItem.explore) {
-                        Label("Explore", systemImage: "globe")
+                .listStyle(.sidebar)
+                .accessibilityIdentifier(AccessibilityID.Sidebar.container)
+                .onChange(of: self.selection) { _, newValue in
+                    if newValue != nil {
+                        HapticService.navigation()
                     }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
-
-                    NavigationLink(value: NavigationItem.charts) {
-                        Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.chartsItem)
-
-                    NavigationLink(value: NavigationItem.moodsAndGenres) {
-                        Label("Moods & Genres", systemImage: "theatermask.and.paintbrush")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.moodsAndGenresItem)
-
-                    NavigationLink(value: NavigationItem.newReleases) {
-                        Label("New Releases", systemImage: "sparkles")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
-
-                    NavigationLink(value: NavigationItem.podcasts) {
-                        Label("Podcasts", systemImage: "mic.fill")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
-                }
-
-                // Collection section
-                Section("Collection") {
-                    NavigationLink(value: NavigationItem.library) {
-                        Label("Library", systemImage: "square.stack.fill")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
-
-                    NavigationLink(value: NavigationItem.likedMusic) {
-                        Label("Liked Music", systemImage: "heart.fill")
-                    }
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
                 }
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
-            .accessibilityIdentifier(AccessibilityID.Sidebar.container)
-            .onChange(of: self.selection) { _, newValue in
-                if newValue != nil {
-                    HapticService.navigation()
-                }
-            }
+
+            Divider()
+                .opacity(0.3)
+
+            // Profile section at bottom
+            SidebarProfileView()
         }
+        .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
     }
 }
 

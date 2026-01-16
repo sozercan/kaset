@@ -89,9 +89,10 @@ final class APICache {
 
     private static let logger = DiagnosticsLogger.api
 
-    /// Generates a stable, deterministic cache key from endpoint and request body.
+    /// Generates a stable, deterministic cache key from endpoint, request body, and brand ID.
     /// Uses SHA256 hash of sorted JSON to ensure consistency.
-    static func stableCacheKey(endpoint: String, body: [String: Any]) -> String {
+    /// Including brandId ensures cache isolation between accounts.
+    static func stableCacheKey(endpoint: String, body: [String: Any], brandId: String = "") -> String {
         // Use JSONSerialization with .sortedKeys for deterministic output
         // This is more efficient than custom recursive string building
         let jsonData: Data
@@ -104,7 +105,14 @@ final class APICache {
             // Return endpoint-only key with error marker to avoid collisions
             return "\(endpoint):serialization_error_\(body.count)"
         }
-        let hash = SHA256.hash(data: jsonData)
+
+        // Include brand ID in hash to isolate cache between accounts
+        var hashData = jsonData
+        if !brandId.isEmpty {
+            hashData.append(Data(brandId.utf8))
+        }
+
+        let hash = SHA256.hash(data: hashData)
         let hashString = hash.prefix(16).compactMap { String(format: "%02x", $0) }.joined()
         return "\(endpoint):\(hashString)"
     }

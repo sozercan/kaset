@@ -343,3 +343,66 @@ After each phase, briefly report:
 - ➡️ Next phase plan
 
 This keeps the human informed and provides natural points to course-correct.
+
+## Subagents (Context-Isolated Tasks)
+
+VS Code's `#runSubagent` tool enables context-isolated task execution. Subagents run independently with their own context, preventing context confusion in complex tasks.
+
+### When to Use Subagents
+
+| Task Type | Use Subagent? | Rationale |
+|-----------|---------------|-----------|
+| Research API endpoints | ✅ Yes | Keeps raw JSON exploration out of main context |
+| Analyze unfamiliar code areas | ✅ Yes | Deep dives don't pollute main conversation |
+| Review a single file for patterns | ✅ Yes | Focused analysis, returns summary only |
+| Generate test fixtures | ✅ Yes | Boilerplate generation isolated from design discussion |
+| Simple edits to known files | ❌ No | Direct action is faster |
+| Multi-step refactoring | ❌ No | Needs continuous context across steps |
+| Tasks requiring user feedback | ❌ No | Subagents don't pause for input |
+
+### Subagent Prompts for This Project
+
+**API Research** — Explore an endpoint before implementing:
+```
+Analyze the YouTube Music API endpoint structure for #file:docs/api-discovery.md with #runSubagent.
+Focus on FEmusic_liked_playlists response format and identify all playlist item fields.
+Return a summary of the response structure suitable for writing a parser.
+```
+
+**Code Pattern Analysis** — Understand existing patterns:
+```
+With #runSubagent, analyze #file:Core/Services/API/YTMusicClient.swift and identify:
+1. How authenticated requests are constructed
+2. Error handling patterns
+3. How parsers are invoked
+Return a concise pattern guide for adding a new endpoint method.
+```
+
+**Parser Stub Generation** — Generate boilerplate:
+```
+Using #runSubagent, generate a Swift parser struct following the pattern in #file:Core/Services/API/Parsers/
+for parsing a "moods and genres" API response with categories containing playlists.
+Return only the struct definition with placeholder parsing logic.
+```
+
+**Performance Audit** — Isolated deep dive:
+```
+With #runSubagent, audit #file:Views/macOS/LibraryView.swift for SwiftUI performance issues.
+Check for: await in ForEach, missing LazyVStack, inline image loading, excessive state updates.
+Return a prioritized list of issues with line numbers.
+```
+
+### Subagent Best Practices
+
+1. **Be specific in prompts** — Subagents don't have conversation history; include all necessary context
+2. **Request structured output** — Ask for summaries, lists, or code snippets that integrate cleanly
+3. **Use for exploration, not execution** — Subagents are great for research; keep edits in main context
+4. **Combine with file references** — Use `#file:path` to give subagents focused context
+5. **Review before integrating** — Subagent results join main context; verify accuracy first
+
+### Anti-Patterns
+
+- ❌ Using subagents for quick lookups (overhead not worth it)
+- ❌ Chaining multiple subagents (use main context for multi-step work)
+- ❌ Expecting subagents to remember previous subagent results
+- ❌ Using subagents for tasks requiring user clarification

@@ -8,14 +8,17 @@ struct MainWindow: View {
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
+    @Environment(AccountService.self) private var accountService
     @Environment(\.showCommandBar) private var showCommandBar
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
+    /// Shared API client used by all views and services.
+    let client: any YTMusicClientProtocol
+
     @State private var showLoginSheet = false
     @State private var showCommandBarSheet = false
-    @State private var ytMusicClient: (any YTMusicClientProtocol)?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -31,6 +34,20 @@ struct MainWindow: View {
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+    init(navigationSelection: Binding<NavigationItem?>, client: any YTMusicClientProtocol) {
+        self._navigationSelection = navigationSelection
+        self.client = client
+        _homeViewModel = State(initialValue: HomeViewModel(client: client))
+        _exploreViewModel = State(initialValue: ExploreViewModel(client: client))
+        _searchViewModel = State(initialValue: SearchViewModel(client: client))
+        _chartsViewModel = State(initialValue: ChartsViewModel(client: client))
+        _moodsAndGenresViewModel = State(initialValue: MoodsAndGenresViewModel(client: client))
+        _newReleasesViewModel = State(initialValue: NewReleasesViewModel(client: client))
+        _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
+        _likedMusicViewModel = State(initialValue: LikedMusicViewModel(client: client))
+        _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
+    }
 
     /// Access to the app delegate for persistent WebView.
     private var appDelegate: AppDelegate? {
@@ -91,7 +108,7 @@ struct MainWindow: View {
         }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.showCommandBarSheet, let client = ytMusicClient {
+            if self.showCommandBarSheet {
                 ZStack {
                     // Background tap area to dismiss
                     Color.black.opacity(0.3)
@@ -101,11 +118,16 @@ struct MainWindow: View {
                         }
 
                     // Command bar centered
-                    CommandBarView(client: client, isPresented: self.$showCommandBarSheet)
+                    CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
                 .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
             }
+        }
+        .overlay(alignment: .top) {
+            // Error toast for account switching failures
+            AccountErrorToast()
+                .padding(.top, 60)
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
@@ -138,8 +160,18 @@ struct MainWindow: View {
                 VideoWindowController.shared.close()
             }
         }
+        .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
+            // Refresh all content when user switches accounts
+            guard newAccountId != nil else { return }
+            DiagnosticsLogger.auth.info("Account switched, refreshing content...")
+            // Clear API cache to ensure fresh data for new account
+            Task { @MainActor in
+                APICache.shared.invalidateAll()
+                URLCache.shared.removeAllCachedResponses()
+                await self.refreshAllContent()
+            }
+        }
         .task {
-            self.setupClient()
             NowPlayingManager.shared.configure(playerService: self.playerService)
         }
     }
@@ -148,45 +180,41 @@ struct MainWindow: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if let client = ytMusicClient {
-            ZStack(alignment: .trailing) {
-                // Main navigation content
-                NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                    Sidebar(selection: self.$navigationSelection)
-                } detail: {
-                    self.detailView(for: self.navigationSelection, client: client)
+        ZStack(alignment: .trailing) {
+            // Main navigation content
+            NavigationSplitView(columnVisibility: self.$columnVisibility) {
+                Sidebar(selection: self.$navigationSelection)
+            } detail: {
+                self.detailView(for: self.navigationSelection, client: self.client)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                // Ensure sidebar is visible when window becomes key (e.g., restored from dock)
+                if self.columnVisibility != .all {
+                    self.columnVisibility = .all
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                    // Ensure sidebar is visible when window becomes key (e.g., restored from dock)
-                    if self.columnVisibility != .all {
-                        self.columnVisibility = .all
-                    }
-                }
+            }
 
-                // Right sidebar overlay - either lyrics or queue (mutually exclusive)
-                self.rightSidebarOverlay(client: client)
-            }
-            .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
-            .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-            .frame(minWidth: 900, minHeight: 600)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        self.showCommandBarSheet = true
-                    } label: {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white)
-                    }
-                    .keyboardShortcut("k", modifiers: .command)
-                    .help("Ask AI (⌘K)")
-                    .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
-                    .requiresIntelligence()
+            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
+            self.rightSidebarOverlay(client: self.client)
+        }
+        .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
+        .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
+        .frame(minWidth: 900, minHeight: 600)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    self.showCommandBarSheet = true
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white)
                 }
+                .keyboardShortcut("k", modifiers: .command)
+                .help("Ask AI (⌘K)")
+                .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+                .requiresIntelligence()
             }
-        } else {
-            self.loadingView
         }
     }
 
@@ -256,18 +284,6 @@ struct MainWindow: View {
         }
     }
 
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .controlSize(.regular)
-                .scaleEffect(1.5)
-                .frame(width: 30, height: 30)
-            Text("Loading YouTube Music...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(minWidth: 900, minHeight: 600)
-    }
-
     /// View shown while checking initial login status.
     private var initializingView: some View {
         VStack(spacing: 16) {
@@ -280,36 +296,6 @@ struct MainWindow: View {
         .frame(minWidth: 900, minHeight: 600)
     }
 
-    // MARK: - Setup
-
-    private func setupClient() {
-        // Use mock client in UI test mode, real client otherwise
-        let client: any YTMusicClientProtocol = if UITestConfig.isUITestMode {
-            MockUITestYTMusicClient()
-        } else {
-            YTMusicClient(
-                authService: self.authService,
-                webKitManager: self.webKitManager
-            )
-        }
-
-        self.ytMusicClient = client
-
-        // Create view models once and cache them
-        self.homeViewModel = HomeViewModel(client: client)
-        self.exploreViewModel = ExploreViewModel(client: client)
-        self.searchViewModel = SearchViewModel(client: client)
-        self.chartsViewModel = ChartsViewModel(client: client)
-        self.moodsAndGenresViewModel = MoodsAndGenresViewModel(client: client)
-        self.newReleasesViewModel = NewReleasesViewModel(client: client)
-        self.podcastsViewModel = PodcastsViewModel(client: client)
-        self.likedMusicViewModel = LikedMusicViewModel(client: client)
-        self.libraryViewModel = LibraryViewModel(client: client)
-
-        // Don't start loading here - let each view's onAppear handle it
-        // This avoids race conditions after login where cookies may not be fully ready
-    }
-
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
         switch newState {
         case .initializing:
@@ -317,11 +303,14 @@ struct MainWindow: View {
             break
         case .loggedOut:
             // Onboarding view handles login, no need to auto-show sheet
-            break
+            self.accountService.clearAccounts()
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
             self.showLoginSheet = false
+            Task {
+                await self.accountService.fetchAccounts()
+            }
             // If we just completed login (transitioning from loggingIn), refresh content
             // This handles the case where cookies weren't ready during initial load
             if case .loggingIn = oldState {
@@ -337,6 +326,24 @@ struct MainWindow: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Refreshes all content when switching accounts.
+    ///
+    /// This method is called when the user switches between their primary account
+    /// and brand accounts, ensuring all views display content for the new account.
+    private func refreshAllContent() async {
+        // Parallel refresh of all content views
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.homeViewModel?.refresh() }
+            group.addTask { await self.exploreViewModel?.refresh() }
+            group.addTask { await self.chartsViewModel?.refresh() }
+            group.addTask { await self.moodsAndGenresViewModel?.refresh() }
+            group.addTask { await self.newReleasesViewModel?.refresh() }
+            group.addTask { await self.podcastsViewModel?.refresh() }
+            group.addTask { await self.likedMusicViewModel?.refresh() }
+            group.addTask { await self.libraryViewModel?.refresh() }
         }
     }
 }
@@ -384,8 +391,11 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
     let authService = AuthService()
-    MainWindow(navigationSelection: $navSelection)
+    let ytMusicClient = YTMusicClient(authService: authService)
+    let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
+    MainWindow(navigationSelection: $navSelection, client: ytMusicClient)
         .environment(authService)
         .environment(PlayerService())
         .environment(WebKitManager.shared)
+        .environment(accountService)
 }

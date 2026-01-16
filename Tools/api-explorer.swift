@@ -43,6 +43,12 @@ let clientVersion = "1.20231204.01.00"
 let baseURL = "https://music.youtube.com/youtubei/v1"
 let origin = "https://music.youtube.com"
 
+/// Global auth user index (0 = primary account, 1+ = brand accounts)
+var globalAuthUserIndex = 0
+
+/// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
+var globalBrandAccountId: String?
+
 // MARK: - Cookie Management
 
 /// Reads cookies from Kaset app's backup file in Application Support.
@@ -90,17 +96,41 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
     return cookies.isEmpty ? nil : cookies
 }
 
+/// Filters cookies to those that match the music.youtube.com domain.
+/// Cookies with domain `.youtube.com` match `music.youtube.com` (subdomain matching).
+func filterCookiesForMusicYouTube(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
+    cookies.filter { cookie in
+        let domain = cookie.domain.lowercased()
+        // Cookies with leading dot match subdomains (e.g., ".youtube.com" matches "music.youtube.com")
+        if domain.hasPrefix(".") {
+            let withoutDot = String(domain.dropFirst())
+            return "music.youtube.com".hasSuffix(withoutDot) || withoutDot == "music.youtube.com"
+        }
+        // Exact match or subdomain
+        return domain == "music.youtube.com" || "music.youtube.com".hasSuffix("." + domain)
+    }
+}
+
 /// Gets the SAPISID value from cookies for authentication.
+/// Prefers .youtube.com domain cookies over .google.com for music.youtube.com requests.
 func getSAPISID(from cookies: [HTTPCookie]) -> String? {
-    // Try secure cookie first, then fallback
-    let secureCookie = cookies.first { $0.name == "__Secure-3PAPISID" }
-    let fallbackCookie = cookies.first { $0.name == "SAPISID" }
+    // Filter to youtube.com domain cookies first (better match for music.youtube.com)
+    let ytCookies = filterCookiesForMusicYouTube(cookies)
+    let secureCookie = ytCookies.first { $0.name == "__Secure-3PAPISID" }
+    let fallbackCookie = ytCookies.first { $0.name == "SAPISID" }
     return (secureCookie ?? fallbackCookie)?.value
 }
 
-/// Builds a cookie header string from an array of cookies.
-func buildCookieHeader(from cookies: [HTTPCookie]) -> String {
-    cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+/// Builds a cookie header string using HTTPCookie's built-in method.
+/// This ensures proper cookie formatting that matches what browsers send.
+func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
+    // Filter to only cookies that match music.youtube.com
+    let matchingCookies = filterCookiesForMusicYouTube(cookies)
+    guard !matchingCookies.isEmpty else { return nil }
+
+    // Use HTTPCookie's built-in method for proper formatting
+    let headerFields = HTTPCookie.requestHeaderFields(with: matchingCookies)
+    return headerFields["Cookie"]
 }
 
 /// Computes SAPISIDHASH for YouTube API authentication.
@@ -120,8 +150,17 @@ func computeSAPISIDHASH(sapisid: String) -> String {
 
 // MARK: - Request Builder
 
-func buildContext() -> [String: Any] {
-    [
+func buildContext(brandAccountId: String? = nil) -> [String: Any] {
+    var userDict: [String: Any] = [
+        "lockedSafetyMode": false,
+    ]
+
+    // Add brand account ID if specified
+    if let brandId = brandAccountId ?? globalBrandAccountId {
+        userDict["onBehalfOfUser"] = brandId
+    }
+
+    return [
         "client": [
             "clientName": "WEB_REMIX",
             "clientVersion": clientVersion,
@@ -133,13 +172,11 @@ func buildContext() -> [String: Any] {
             "osVersion": "10_15_7",
             "platform": "DESKTOP",
         ],
-        "user": [
-            "lockedSafetyMode": false,
-        ],
+        "user": userDict,
     ]
 }
 
-func buildHeaders(authenticated: Bool = false) -> [String: String] {
+func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [String: String] {
     var headers: [String: String] = [
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
@@ -148,11 +185,13 @@ func buildHeaders(authenticated: Bool = false) -> [String: String] {
     ]
 
     if authenticated, let cookies = loadCookiesFromAppBackup() {
-        if let sapisid = getSAPISID(from: cookies) {
+        if let sapisid = getSAPISID(from: cookies),
+           let cookieHeader = buildCookieHeader(from: cookies)
+        {
             let sapisidhash = computeSAPISIDHASH(sapisid: sapisid)
-            headers["Cookie"] = buildCookieHeader(from: cookies)
+            headers["Cookie"] = cookieHeader
             headers["Authorization"] = "SAPISIDHASH \(sapisidhash)"
-            headers["X-Goog-AuthUser"] = "0"
+            headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
             headers["X-Origin"] = origin
         }
     }
@@ -379,6 +418,7 @@ let authRequiredActions = Set([
     "playlist/create",
     "playlist/delete",
     "account/account_menu",
+    "account/accounts_list",
     "notification/get_notification_menu",
     "stats/watchtime",
     "next",
@@ -552,14 +592,16 @@ func checkAuthStatus() {
         return
     }
 
-    print("✅ Found \(cookies.count) cookies in app backup\n")
+    let matchingCookies = filterCookiesForMusicYouTube(cookies)
+    print("✅ Found \(cookies.count) cookies in app backup")
+    print("✅ \(matchingCookies.count) cookies match music.youtube.com domain\n")
 
-    // Check for key auth cookies
+    // Check for key auth cookies (in youtube.com domain)
     let authCookieNames = ["SAPISID", "__Secure-3PAPISID", "SID", "HSID", "SSID", "APISID", "__Secure-1PAPISID"]
 
-    print("Auth cookies:")
+    print("Auth cookies (youtube.com domain):")
     for name in authCookieNames {
-        if let cookie = cookies.first(where: { $0.name == name }) {
+        if let cookie = matchingCookies.first(where: { $0.name == name }) {
             var status = "✅"
             var expiry = ""
 
@@ -590,6 +632,308 @@ func checkAuthStatus() {
         print("   SAPISID value: \(sapisid.prefix(8))... (truncated)")
     } else {
         print("❌ Cannot compute SAPISIDHASH - missing SAPISID cookie")
+    }
+}
+
+// MARK: - Account Discovery
+
+/// Discovers all available accounts (primary + brand accounts) by probing authuser indices
+func discoverAccounts(verbose: Bool) async {
+    print("🔍 Discovering Accounts")
+    print("=======================\n")
+
+    guard loadCookiesFromAppBackup() != nil else {
+        print("❌ No cookies found. Please sign in to Kaset first.")
+        return
+    }
+
+    var accounts: [(index: Int, name: String, handle: String?)] = []
+    let maxAttempts = 10 // Probe up to 10 accounts
+
+    for index in 0 ..< maxAttempts {
+        if verbose {
+            print("  Probing authuser=\(index)...")
+        }
+
+        if let accountInfo = await fetchAccountInfo(authUserIndex: index, verbose: verbose) {
+            accounts.append((index: index, name: accountInfo.name, handle: accountInfo.handle))
+            if verbose {
+                print("    ✅ Found: \(accountInfo.name)")
+            }
+        } else {
+            // No more accounts at this index
+            if verbose {
+                print("    ❌ No account at index \(index)")
+            }
+            // If we found at least one account, stop after first failure
+            // Brand accounts are typically consecutive starting from 0
+            if !accounts.isEmpty {
+                break
+            }
+        }
+    }
+
+    print()
+    if accounts.isEmpty {
+        print("❌ No accounts found. Make sure you're signed in.")
+    } else {
+        print("📋 Found \(accounts.count) account(s):\n")
+        for account in accounts {
+            let handleStr = account.handle.map { " (\($0))" } ?? ""
+            let typeStr = account.index == 0 ? " [Primary]" : " [Brand Account]"
+            print("  \(account.index): \(account.name)\(handleStr)\(typeStr)")
+        }
+        print()
+        print("💡 Use --authuser N to make requests as a specific account")
+        print("   Example: ./api-explorer.swift browse FEmusic_liked_playlists --authuser 1")
+    }
+}
+
+/// Fetches account info for a specific authuser index
+private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (name: String, handle: String?)? {
+    let url = URL(string: "\(baseURL)/account/account_menu?key=\(apiKey)")!
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+
+    let headers = buildHeaders(authenticated: true, authUserIndex: authUserIndex)
+    for (key, value) in headers {
+        request.setValue(value, forHTTPHeaderField: key)
+    }
+
+    let body: [String: Any] = [
+        "context": [
+            "client": [
+                "clientName": "WEB_REMIX",
+                "clientVersion": "1.20241127.01.00",
+            ],
+        ],
+    ]
+
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+    do {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return nil
+        }
+
+        // 401/403 means no account at this index
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            return nil
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if verbose {
+                print("    HTTP \(httpResponse.statusCode)")
+            }
+            return nil
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        // Check if we got an error response
+        if json["error"] != nil {
+            return nil
+        }
+
+        // Extract account name from response
+        // Path: actions[0].openPopupAction.popup.multiPageMenuRenderer.header.activeAccountHeaderRenderer.accountName.runs[0].text
+        guard let actions = json["actions"] as? [[String: Any]],
+              let firstAction = actions.first,
+              let openPopupAction = firstAction["openPopupAction"] as? [String: Any],
+              let popup = openPopupAction["popup"] as? [String: Any],
+              let multiPageMenuRenderer = popup["multiPageMenuRenderer"] as? [String: Any],
+              let header = multiPageMenuRenderer["header"] as? [String: Any],
+              let activeAccountHeaderRenderer = header["activeAccountHeaderRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        // Extract account name
+        var accountName: String?
+        if let accountNameObj = activeAccountHeaderRenderer["accountName"] as? [String: Any],
+           let runs = accountNameObj["runs"] as? [[String: Any]],
+           let firstRun = runs.first,
+           let text = firstRun["text"] as? String
+        {
+            accountName = text
+        }
+
+        guard let name = accountName, !name.isEmpty else {
+            return nil
+        }
+
+        // Extract channel handle (optional)
+        var channelHandle: String?
+        if let channelHandleObj = activeAccountHeaderRenderer["channelHandle"] as? [String: Any],
+           let runs = channelHandleObj["runs"] as? [[String: Any]],
+           let firstRun = runs.first,
+           let text = firstRun["text"] as? String
+        {
+            channelHandle = text
+        }
+
+        return (name: name, handle: channelHandle)
+
+    } catch {
+        if verbose {
+            print("    Error: \(error.localizedDescription)")
+        }
+        return nil
+    }
+}
+
+// MARK: - Brand Account Discovery
+
+/// Discovers all brand accounts using the account/accounts_list endpoint
+func discoverBrandAccounts(verbose: Bool) async {
+    print("🔍 Discovering Brand Accounts")
+    print("=============================\n")
+
+    guard loadCookiesFromAppBackup() != nil else {
+        print("❌ No cookies found. Please sign in to Kaset first.")
+        return
+    }
+
+    do {
+        let (data, statusCode) = try await makeRequest(
+            endpoint: "account/accounts_list",
+            body: [:],
+            authenticated: true
+        )
+
+        guard statusCode == 200 else {
+            print("❌ HTTP \(statusCode) - Failed to fetch accounts list")
+            return
+        }
+
+        // Parse accounts from response
+        // Path: actions[0].getMultiPageMenuAction.menu.multiPageMenuRenderer.sections[0]
+        //       .accountSectionListRenderer.contents[0].accountItemSectionRenderer.contents[]
+        guard let actions = data["actions"] as? [[String: Any]],
+              let firstAction = actions.first,
+              let getMultiPageMenuAction = firstAction["getMultiPageMenuAction"] as? [String: Any],
+              let menu = getMultiPageMenuAction["menu"] as? [String: Any],
+              let multiPageMenuRenderer = menu["multiPageMenuRenderer"] as? [String: Any],
+              let sections = multiPageMenuRenderer["sections"] as? [[String: Any]],
+              let firstSection = sections.first,
+              let accountSectionListRenderer = firstSection["accountSectionListRenderer"] as? [String: Any],
+              let contents = accountSectionListRenderer["contents"] as? [[String: Any]],
+              let firstContent = contents.first,
+              let accountItemSectionRenderer = firstContent["accountItemSectionRenderer"] as? [String: Any],
+              let accountItems = accountItemSectionRenderer["contents"] as? [[String: Any]]
+        else {
+            print("❌ Failed to parse accounts list response")
+            if verbose {
+                print("\nResponse structure:")
+                if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
+                   let prettyString = String(data: prettyData, encoding: .utf8)
+                {
+                    print(prettyString)
+                }
+            }
+            return
+        }
+
+        // Also get the Google account header for the email
+        var googleEmail: String?
+        if let header = accountSectionListRenderer["header"] as? [String: Any],
+           let googleAccountHeaderRenderer = header["googleAccountHeaderRenderer"] as? [String: Any],
+           let email = googleAccountHeaderRenderer["email"] as? [String: Any],
+           let runs = email["runs"] as? [[String: Any]],
+           let firstRun = runs.first,
+           let text = firstRun["text"] as? String
+        {
+            googleEmail = text
+        }
+
+        if let email = googleEmail {
+            print("📧 Google Account: \(email)\n")
+        }
+
+        // Extract account info from each item
+        var accounts: [(name: String, handle: String?, brandId: String?, isSelected: Bool)] = []
+
+        for accountItem in accountItems {
+            guard let item = accountItem["accountItem"] as? [String: Any] else {
+                continue
+            }
+
+            // Extract account name
+            var name: String?
+            if let accountName = item["accountName"] as? [String: Any],
+               let runs = accountName["runs"] as? [[String: Any]],
+               let firstRun = runs.first,
+               let text = firstRun["text"] as? String
+            {
+                name = text
+            }
+
+            // Extract channel handle
+            var handle: String?
+            if let channelHandle = item["channelHandle"] as? [String: Any],
+               let runs = channelHandle["runs"] as? [[String: Any]],
+               let firstRun = runs.first,
+               let text = firstRun["text"] as? String
+            {
+                handle = text
+            }
+
+            // Extract brand account ID from pageIdToken
+            var brandId: String?
+            if let serviceEndpoint = item["serviceEndpoint"] as? [String: Any],
+               let selectActiveIdentityEndpoint = serviceEndpoint["selectActiveIdentityEndpoint"] as? [String: Any],
+               let supportedTokens = selectActiveIdentityEndpoint["supportedTokens"] as? [[String: Any]]
+            {
+                for token in supportedTokens {
+                    if let pageIdToken = token["pageIdToken"] as? [String: Any],
+                       let pageId = pageIdToken["pageId"] as? String
+                    {
+                        brandId = pageId
+                        break
+                    }
+                }
+            }
+
+            // Check if selected
+            let isSelected = item["isSelected"] as? Bool ?? false
+
+            if let accountName = name {
+                accounts.append((name: accountName, handle: handle, brandId: brandId, isSelected: isSelected))
+            }
+        }
+
+        if accounts.isEmpty {
+            print("❌ No accounts found in response")
+            return
+        }
+
+        print("📋 Found \(accounts.count) account(s):\n")
+
+        for (index, account) in accounts.enumerated() {
+            let handleStr = account.handle.map { " (\($0))" } ?? ""
+            let selectedStr = account.isSelected ? " ← current" : ""
+            let typeStr = account.brandId == nil ? " [Primary]" : " [Brand Account]"
+
+            print("  \(index): \(account.name)\(handleStr)\(typeStr)\(selectedStr)")
+
+            if let brandId = account.brandId {
+                print("     Brand ID: \(brandId)")
+            }
+        }
+
+        print()
+        print("💡 To use a brand account, use the --brand flag with the Brand ID:")
+        print("   Example: ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>")
+        print()
+        print("   This sets context.user.onBehalfOfUser in the request body,")
+        print("   which is required for brand account access.")
+
+    } catch {
+        print("❌ Error: \(error.localizedDescription)")
     }
 }
 
@@ -756,11 +1100,15 @@ func showHelp() {
       continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
       list                           List all known endpoints
       auth                           Check authentication status
+      accounts                       Discover available accounts (via authuser)
+      brandaccounts                  List all brand accounts with their IDs
       help                           Show this help message
 
     Options:
       -v, --verbose                  Show full raw JSON response (not truncated)
       -o, --output <file>            Save raw JSON response to a file
+      --authuser N                   Use Google account at index N (for multi-account)
+      --brand <ID>                   Use brand account ID (21-digit number)
 
     Examples:
       # Explore public endpoints
@@ -771,6 +1119,10 @@ func showHelp() {
       # Explore authenticated endpoints (requires Kaset sign-in)
       ./api-explorer.swift browse FEmusic_liked_playlists
       ./api-explorer.swift browse FEmusic_history
+
+      # Discover brand accounts and use them
+      ./api-explorer.swift brandaccounts                            # List brand accounts with IDs
+      ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>  # Use brand account
 
       # Action endpoints
       ./api-explorer.swift action search '{"query":"never gonna give you up"}'
@@ -807,6 +1159,24 @@ func runMain() async {
         }
     }
 
+    // Parse authuser option
+    for (index, arg) in args.enumerated() {
+        if arg == "--authuser", index + 1 < args.count {
+            if let value = Int(args[index + 1]) {
+                globalAuthUserIndex = value
+            }
+            break
+        }
+    }
+
+    // Parse brand account option
+    for (index, arg) in args.enumerated() {
+        if arg == "--brand", index + 1 < args.count {
+            globalBrandAccountId = args[index + 1]
+            break
+        }
+    }
+
     // Filter out option flags and their values
     var filteredArgs: [String] = []
     var skipNext = false
@@ -818,7 +1188,7 @@ func runMain() async {
         if arg == "-v" || arg == "--verbose" {
             continue
         }
-        if arg == "-o" || arg == "--output" {
+        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {
             skipNext = true
             continue
         }
@@ -867,6 +1237,12 @@ func runMain() async {
 
     case "auth":
         checkAuthStatus()
+
+    case "accounts":
+        await discoverAccounts(verbose: verbose)
+
+    case "brandaccounts":
+        await discoverBrandAccounts(verbose: verbose)
 
     case "help", "-h", "--help":
         showHelp()
