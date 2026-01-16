@@ -211,6 +211,8 @@ struct AccountServiceTests {
     }
 }
 
+// MARK: - TestServices
+
 /// Helper struct to avoid large tuple violation.
 private struct TestServices {
     let account: AccountService
