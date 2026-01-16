@@ -14,7 +14,7 @@ struct AccountServiceTests {
     // MARK: - Initial State Tests
 
     @Test @MainActor func initialStateIsEmpty() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         #expect(service.accounts.isEmpty)
         #expect(service.currentAccount == nil)
@@ -25,7 +25,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         // Simulate single account scenario
         service.setAccountsForTesting([MockUserAccountData.primaryAccount])
@@ -34,7 +34,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func hasBrandAccountsReturnsTrueForMultipleAccounts() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         // Simulate multiple accounts scenario
         service.setAccountsForTesting([
@@ -48,7 +48,7 @@ struct AccountServiceTests {
     // MARK: - Switch Account Tests
 
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         // Setup initial state with multiple accounts
         let primaryAccount = MockUserAccountData.primaryAccount
@@ -66,7 +66,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func switchAccountToSameAccountIsNoOp() async throws {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let primaryAccount = MockUserAccountData.primaryAccount
         service.setAccountsForTesting([primaryAccount])
@@ -80,7 +80,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func switchAccountUpdatesBrandId() async throws {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
@@ -101,7 +101,7 @@ struct AccountServiceTests {
     // MARK: - Persistence Tests
 
     @Test @MainActor func switchAccountPersistsSelection() async throws {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
@@ -120,7 +120,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func switchToPrimaryAccountPersistsPrimaryId() async throws {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
@@ -141,7 +141,7 @@ struct AccountServiceTests {
     // MARK: - Clear Accounts Tests
 
     @Test @MainActor func clearAccountsResetsState() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         // Setup initial state
         let primaryAccount = MockUserAccountData.primaryAccount
@@ -168,7 +168,7 @@ struct AccountServiceTests {
     // MARK: - Error Handling Tests
 
     @Test @MainActor func clearErrorResetsLastError() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         // Simulate an error state
         service.setLastErrorForTesting(YTMusicError.apiError("Test error"))
@@ -184,7 +184,7 @@ struct AccountServiceTests {
     // MARK: - Computed Properties Tests
 
     @Test @MainActor func currentBrandIdReturnsNilForPrimaryAccount() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let primaryAccount = MockUserAccountData.primaryAccount
         service.setCurrentAccountForTesting(primaryAccount)
@@ -193,7 +193,7 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func currentBrandIdReturnsBrandIdForBrandAccount() {
-        let (service, _, _) = Self.createService()
+        let service = Self.createService().account
 
         let brandAccount = MockUserAccountData.brandAccount
         service.setCurrentAccountForTesting(brandAccount)
@@ -203,12 +203,19 @@ struct AccountServiceTests {
 
     // MARK: - Helper Methods
 
-    private static func createService() -> (AccountService, MockYTMusicClient, AuthService) {
+    private static func createService() -> TestServices {
         let authService = AuthService()
         let mockClient = MockYTMusicClient()
         let service = AccountService(ytMusicClient: mockClient, authService: authService)
-        return (service, mockClient, authService)
+        return TestServices(account: service, client: mockClient, auth: authService)
     }
+}
+
+/// Helper struct to avoid large tuple violation.
+private struct TestServices {
+    let account: AccountService
+    let client: MockYTMusicClient
+    let auth: AuthService
 }
 
 // MARK: - AccountService Test Helpers

@@ -197,7 +197,7 @@ struct AccountRowView: View {
 @available(macOS 26.0, *)
 #Preview("Account Without Handle") {
     let account = UserAccount(
-        id: "nohanlde",
+        id: "nohandle",
         name: "No Handle User",
         handle: nil,
         brandId: nil,

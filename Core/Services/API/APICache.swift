@@ -109,6 +109,8 @@ final class APICache {
         // Include brand ID in hash to isolate cache between accounts
         var hashData = jsonData
         if !brandId.isEmpty {
+            // Use NUL byte separator to avoid ambiguity between JSON and brandId bytes
+            hashData.append(0)
             hashData.append(Data(brandId.utf8))
         }
 
