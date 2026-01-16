@@ -527,18 +527,27 @@ let body = ["channelIds": ["UCuAXFkgsw1L7xaCfnd5JJOw"]]
 _ = try await request("subscription/subscribe", body: body)
 ```
 
-**Podcast Subscription** (uses show browse ID with `MPSPP` prefix):
+**Podcast Subscription** (uses like/like endpoint with converted playlist ID):
 ```swift
-// Subscribe to podcast
-let body = ["playlistIds": ["MPSPP2t8s..."]] // Full MPSPP{id} from show
-_ = try await request("subscription/subscribe", body: body)
+// Podcast show IDs have MPSPP prefix (e.g., "MPSPPLXz2p9...")
+// The suffix after MPSPP already starts with "L", so:
+// - Strip "MPSPP" (5 chars) to get "LXz2p9..."  
+// - Prepend "P" to get "PLXz2p9..."
+//
+// ⚠️ IMPORTANT: Do NOT add "PL" prefix - that would create "PLLXz2p9..." which returns 404!
 
-// Unsubscribe from podcast  
-let body = ["playlistIds": ["MPSPP2t8s..."]]
-_ = try await request("subscription/unsubscribe", body: body)
+// Subscribe to podcast (add to library)
+let suffix = String(showId.dropFirst(5)) // Drop "MPSPP"
+let playlistId = "P" + suffix            // Prepend "P" only
+let body = ["target": ["playlistId": playlistId]]
+_ = try await request("like/like", body: body)
+
+// Unsubscribe from podcast (remove from library)
+let body = ["target": ["playlistId": playlistId]]
+_ = try await request("like/removelike", body: body)
 ```
 
-> ⚠️ **Note**: Podcast subscription uses `playlistIds`, not `channelIds`. The value is the full `MPSPP{id}` browse ID from the podcast show.
+> ⚠️ **Note**: Podcast subscription uses `like/like` and `like/removelike` endpoints, NOT `subscription/*`. The MPSPP browse ID must be converted to a PL playlist ID by stripping "MPSPP" and prepending "P" (not "PL").
 
 ---
 

@@ -60,6 +60,16 @@ final class LibraryViewModel {
         self.libraryPlaylistIds.insert(playlistId)
     }
 
+    /// Adds a podcast to the library (called after successful subscription).
+    /// Updates both the ID set and the shows array for immediate UI update.
+    func addToLibrary(podcast: PodcastShow) {
+        self.libraryPodcastIds.insert(podcast.id)
+        // Add to shows array if not already present
+        if !self.podcastShows.contains(where: { $0.id == podcast.id }) {
+            self.podcastShows.insert(podcast, at: 0)
+        }
+    }
+
     /// Adds a podcast ID to the library set (called after successful subscription).
     func addToLibrarySet(podcastId: String) {
         self.libraryPodcastIds.insert(podcastId)
@@ -74,6 +84,13 @@ final class LibraryViewModel {
             let normalizedStoredId = storedId.hasPrefix("VL") ? String(storedId.dropFirst(2)) : storedId
             return normalizedId != normalizedStoredId
         }
+    }
+
+    /// Removes a podcast from the library (called after successful unsubscribe).
+    /// Updates both the ID set and the shows array for immediate UI update.
+    func removeFromLibrary(podcastId: String) {
+        self.libraryPodcastIds.remove(podcastId)
+        self.podcastShows.removeAll { $0.id == podcastId }
     }
 
     /// Removes a podcast ID from the library set (called after successful unsubscribe).
