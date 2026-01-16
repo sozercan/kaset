@@ -1027,6 +1027,36 @@ final class YTMusicClient: YTMusicClientProtocol {
         APICache.shared.invalidate(matching: "browse:")
     }
 
+    // MARK: - Podcast ID Conversion
+
+    /// Converts a podcast show ID (MPSPP prefix) to a playlist ID (PL prefix) for the like/unlike API.
+    /// - Podcast show IDs use "MPSPP" + "L" + {idSuffix}, e.g. "MPSPPLXz2p9...".
+    /// - The corresponding playlist ID is "PL" + {idSuffix}, e.g. "PLXz2p9...".
+    /// - We strip "MPSPP" (5 chars) leaving "LXz2p9...", then prepend "P" to get "PLXz2p9...".
+    /// - Parameter showId: The podcast show ID to convert
+    /// - Returns: The playlist ID for the like API
+    /// - Throws: YTMusicError.invalidInput if the ID format is invalid
+    private func convertPodcastShowIdToPlaylistId(_ showId: String) throws -> String {
+        guard showId.hasPrefix("MPSPP") else {
+            self.logger.warning("ShowId does not have MPSPP prefix, using as-is: \(showId)")
+            return showId
+        }
+
+        let suffix = String(showId.dropFirst(5)) // "LXz2p9..."
+
+        guard !suffix.isEmpty else {
+            self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+            throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+        }
+
+        guard suffix.hasPrefix("L") else {
+            self.logger.error("Invalid podcast show ID (suffix must start with 'L'): \(showId)")
+            throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+        }
+
+        return "P" + suffix // "P" + "LXz2p9..." = "PLXz2p9..."
+    }
+
     /// Subscribes to a podcast show (adds to library).
     /// This uses the like/like endpoint with the playlist ID (PL prefix).
     /// Podcast shows have an MPSPP prefix that maps to PL for the like API.
@@ -1034,22 +1064,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func subscribeToPodcast(showId: String) async throws {
         self.logger.info("Subscribing to podcast: \(showId)")
 
-        // Convert MPSPP prefix to P for the like endpoint.
-        // Podcast show IDs use "MPSPP" + "L" + {idSuffix}, e.g. "MPSPPLXz2p9...".
-        // The corresponding playlist ID is "PL" + {idSuffix}, e.g. "PLXz2p9...".
-        // So we strip "MPSPP" (5 chars) leaving "LXz2p9...", then prepend "P" to get "PLXz2p9...".
-        let playlistId: String
-        if showId.hasPrefix("MPSPP") {
-            let suffix = String(showId.dropFirst(5)) // "LXz2p9..."
-            if suffix.isEmpty {
-                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
-                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
-            }
-            playlistId = "P" + suffix // "P" + "LXz2p9..." = "PLXz2p9..."
-        } else {
-            playlistId = showId
-            self.logger.warning("ShowId does not have MPSPP prefix, using as-is: \(showId)")
-        }
+        let playlistId = try self.convertPodcastShowIdToPlaylistId(showId)
 
         let body: [String: Any] = [
             "target": ["playlistId": playlistId],
@@ -1069,19 +1084,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func unsubscribeFromPodcast(showId: String) async throws {
         self.logger.info("Unsubscribing from podcast: \(showId)")
 
-        // Convert MPSPP prefix to P for the like endpoint.
-        // Same logic as subscribeToPodcast: "MPSPP" + "L..." → "P" + "L..." = "PL..."
-        let playlistId: String
-        if showId.hasPrefix("MPSPP") {
-            let suffix = String(showId.dropFirst(5)) // "LXz2p9..."
-            if suffix.isEmpty {
-                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
-                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
-            }
-            playlistId = "P" + suffix // "P" + "LXz2p9..." = "PLXz2p9..."
-        } else {
-            playlistId = showId
-        }
+        let playlistId = try self.convertPodcastShowIdToPlaylistId(showId)
 
         let body: [String: Any] = [
             "target": ["playlistId": playlistId],

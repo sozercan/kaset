@@ -533,12 +533,32 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         if let error = shouldThrowError { throw error }
     }
 
-    func subscribeToPodcast(showId _: String) async throws {
+    func subscribeToPodcast(showId: String) async throws {
         if let error = shouldThrowError { throw error }
+        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            if !suffix.hasPrefix("L") {
+                throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+            }
+        }
     }
 
-    func unsubscribeFromPodcast(showId _: String) async throws {
+    func unsubscribeFromPodcast(showId: String) async throws {
         if let error = shouldThrowError { throw error }
+        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            if !suffix.hasPrefix("L") {
+                throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+            }
+        }
     }
 
     func subscribeToArtist(channelId: String) async throws {

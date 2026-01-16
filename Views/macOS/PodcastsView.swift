@@ -464,12 +464,22 @@ struct PodcastShowView: View {
                 try await self.client.unsubscribeFromPodcast(showId: self.show.id)
                 self.isSubscribed = false
                 // Update LibraryViewModel for immediate UI update in library view
-                LibraryViewModel.shared?.removeFromLibrary(podcastId: self.show.id)
+                if let libraryVM = LibraryViewModel.shared {
+                    libraryVM.removeFromLibrary(podcastId: self.show.id)
+                } else {
+                    DiagnosticsLogger.api.warning(
+                        "LibraryViewModel.shared is nil - library UI may be stale after unsubscribing from podcast")
+                }
             } else {
                 try await self.client.subscribeToPodcast(showId: self.show.id)
                 self.isSubscribed = true
                 // Update LibraryViewModel for immediate UI update in library view
-                LibraryViewModel.shared?.addToLibrary(podcast: self.show)
+                if let libraryVM = LibraryViewModel.shared {
+                    libraryVM.addToLibrary(podcast: self.show)
+                } else {
+                    DiagnosticsLogger.api.warning(
+                        "LibraryViewModel.shared is nil - library UI may be stale after subscribing to podcast")
+                }
             }
         } catch {
             let errorMessage = error.localizedDescription

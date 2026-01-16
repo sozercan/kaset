@@ -283,11 +283,35 @@ let body = ["browseId": "FEmusic_library_landing"]
 
 **Item identification by browseId prefix**:
 - `VL*`, `PL*`, `RDCLAK*` — Playlists
-- `MPSPP*` — Podcast shows
+- `MPSPP*` — Podcast shows (see [Podcast ID Format](#podcast-id-format) below)
 - `UC*` — Artists or Profiles
 - `VLLM` — Liked Music auto playlist
 - `VLRDPN` — New Episodes auto playlist
 - `VLSE` — Episodes for Later auto playlist
+
+#### Podcast ID Format
+
+Podcast show IDs follow a specific structure that requires conversion for subscription operations:
+
+| ID Type | Format | Example |
+|---------|--------|---------|
+| Show Browse ID | `MPSPP` + `L` + `{base64suffix}` | `MPSPPLXz2p9abc123def` |
+| Playlist ID (for API) | `PL` + `{base64suffix}` | `PLXz2p9abc123def` |
+
+**Conversion Logic**:
+```swift
+// MPSPP IDs are structured as: "MPSPP" + "L" + {idSuffix}
+// To convert to playlist ID: strip "MPSPP" (5 chars), prepend "P"
+let suffix = String(showId.dropFirst(5))  // "LXz2p9abc123def"
+let playlistId = "P" + suffix              // "PLXz2p9abc123def"
+```
+
+> ⚠️ **Critical**: The suffix already starts with `L`. Adding `"PL"` instead of `"P"` creates a double-L (`PLLXz2p9...`) which causes HTTP 404 errors. Always use `"P" + suffix`, never `"PL" + suffix`.
+
+**Validation Requirements** (implemented in `YTMusicClient.convertPodcastShowIdToPlaylistId`):
+1. ID must have `MPSPP` prefix (warns and passes through if missing)
+2. Suffix after stripping `MPSPP` must not be empty (throws)
+3. Suffix must start with `L` (throws)
 
 ---
 
@@ -957,6 +981,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
 | 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |
 | 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |
