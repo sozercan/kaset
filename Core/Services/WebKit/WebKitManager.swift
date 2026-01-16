@@ -7,7 +7,7 @@ import WebKit
 
 /// Securely stores auth cookies in the macOS Keychain.
 /// Provides encryption at rest and app-specific access control.
-nonisolated enum KeychainCookieStorage {
+enum KeychainCookieStorage {
     private static let logger = DiagnosticsLogger.webKit
 
     /// Keychain service identifier for cookie storage.
@@ -204,7 +204,7 @@ nonisolated enum KeychainCookieStorage {
 
 /// Handles one-time migration from file-based cookie storage to Keychain.
 /// This ensures existing users don't lose their login session.
-nonisolated enum LegacyCookieMigration {
+enum LegacyCookieMigration {
     private static let logger = DiagnosticsLogger.webKit
 
     /// Returns the URL for the legacy cookie backup file.
@@ -315,7 +315,7 @@ nonisolated enum LegacyCookieMigration {
     /// Debug-only cookie export to the legacy `cookies.dat` file used by `Tools/api-explorer.swift`.
     ///
     /// In release builds we store cookies only in Keychain and do not export to disk.
-    nonisolated enum DebugCookieFileExporter {
+    enum DebugCookieFileExporter {
         private static let logger = DiagnosticsLogger.webKit
 
         private static var fileURL: URL? {
@@ -428,8 +428,8 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         try? await Task.sleep(for: .milliseconds(100))
 
         // Migrate from legacy file-based storage if needed (one-time operation).
-        // Use Task.detached to perform file I/O off MainActor.
-        _ = await Task.detached(priority: .utility) {
+        // Perform file I/O off the main actor.
+        _ = await Task(priority: .utility) {
             LegacyCookieMigration.migrateIfNeeded()
         }.value
 
@@ -437,8 +437,8 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("WebKit has \(existingCookies.count) cookies on startup")
 
         // Load cookies from Keychain.
-        // Use Task.detached to perform Keychain I/O off MainActor; decode on MainActor.
-        let archiveData = await Task.detached(priority: .utility) {
+        // Perform Keychain I/O off the main actor; decode on main actor.
+        let archiveData = await Task(priority: .utility) {
             KeychainCookieStorage.loadArchiveData()
         }.value
 
@@ -626,9 +626,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("Force backup: \(authCookies.count) YouTube/Google cookies to Keychain")
         guard let archive = KeychainCookieStorage.makeArchiveData(from: authCookies) else { return }
 
-        // Use Task.detached to perform Keychain/file I/O off MainActor.
+        // Perform Keychain/file I/O off the main actor.
         // Fire-and-forget: failures are handled inside KeychainCookieStorage.
-        Task.detached(priority: .utility) {
+        Task(priority: .utility) {
             KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
             #if DEBUG
                 DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)

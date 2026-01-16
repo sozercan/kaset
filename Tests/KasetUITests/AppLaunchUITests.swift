@@ -1,7 +1,8 @@
 import XCTest
 
 /// UI tests that verify the app launches correctly.
-nonisolated final class AppLaunchUITests: KasetUITestCase {
+@MainActor
+final class AppLaunchUITests: KasetUITestCase {
     // MARK: - App Launch
 
     func testAppLaunchesSuccessfully() throws {

@@ -2,8 +2,7 @@ import Foundation
 
 /// A custom URLProtocol that intercepts network requests for testing.
 /// Allows tests to provide mock responses without making real network calls.
-/// Note: URLProtocol lifecycle methods are nonisolated by design.
-nonisolated final class MockURLProtocol: URLProtocol {
+final class MockURLProtocol: URLProtocol {
     /// Handler type for processing requests.
     typealias RequestHandler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
 
@@ -11,15 +10,15 @@ nonisolated final class MockURLProtocol: URLProtocol {
     /// Using nonisolated(unsafe) because URLProtocol requires static mutable state.
     nonisolated(unsafe) static var requestHandler: RequestHandler?
 
-    override nonisolated static func canInit(with _: URLRequest) -> Bool {
+    override static func canInit(with _: URLRequest) -> Bool {
         true
     }
 
-    override nonisolated static func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 
-    override nonisolated func startLoading() {
+    override func startLoading() {
         guard let handler = MockURLProtocol.requestHandler else {
             let error = NSError(
                 domain: "MockURLProtocol",
@@ -40,19 +39,19 @@ nonisolated final class MockURLProtocol: URLProtocol {
         }
     }
 
-    override nonisolated func stopLoading() {
+    override func stopLoading() {
         // No-op
     }
 
     /// Creates a URLSession configured to use this mock protocol.
-    nonisolated static func makeMockSession() -> URLSession {
+    static func makeMockSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         return URLSession(configuration: configuration)
     }
 
     /// Resets the request handler.
-    nonisolated static func reset() {
+    static func reset() {
         self.requestHandler = nil
     }
 
@@ -60,11 +59,11 @@ nonisolated final class MockURLProtocol: URLProtocol {
     /// - Parameters:
     ///   - json: The JSON dictionary to return.
     ///   - statusCode: The HTTP status code (default 200).
-    nonisolated static func setMockJSONResponse(_ json: [String: Any], statusCode: Int = 200) {
+    static func setMockJSONResponse(_ json: [String: Any], statusCode: Int = 200) {
         // Pre-serialize the JSON to Data to avoid capturing non-Sendable type
         // swiftlint:disable:next force_try
         let data = try! JSONSerialization.data(withJSONObject: json)
-        Self.requestHandler = { request in
+        self.requestHandler = { request in
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: statusCode,
@@ -77,7 +76,7 @@ nonisolated final class MockURLProtocol: URLProtocol {
 
     /// Sets up an error response.
     /// - Parameter error: The error to throw.
-    nonisolated static func setMockError(_ error: any Error & Sendable) {
+    static func setMockError(_ error: any Error & Sendable) {
         self.requestHandler = { _ in
             throw error
         }

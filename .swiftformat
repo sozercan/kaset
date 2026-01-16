@@ -26,7 +26,7 @@
 --lifecycle
 --linebreaks lf
 --maxwidth none
---modifierorder override,nonisolated,public,private,fileprivate,internal,open,final,static,class,required,convenience,lazy,weak,unowned,dynamic
+--modifierorder
 --nospaceoperators
 --nowrapoperators
 --octalgrouping 4,8

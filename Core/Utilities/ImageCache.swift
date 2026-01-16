@@ -32,8 +32,8 @@ actor ImageCache {
         Self.setupMemoryPressureMonitoring(cache: self)
 
         // Evict disk cache if needed on startup.
-        // Use Task.detached to avoid blocking actor with file system I/O.
-        Task.detached(priority: .utility) {
+        // Perform file system I/O off the main actor.
+        Task(priority: .utility) {
             await self.evictDiskCacheIfNeeded()
         }
     }
@@ -227,8 +227,8 @@ actor ImageCache {
         try? data.write(to: path, options: .atomic)
 
         // Evict old files if disk cache exceeds limit.
-        // Use Task.detached to avoid blocking actor with file system I/O.
-        Task.detached(priority: .utility) {
+        // Perform file system I/O off the main actor.
+        Task(priority: .utility) {
             await self.evictDiskCacheIfNeeded()
         }
     }

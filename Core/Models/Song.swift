@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Song
 
 /// Represents a song/track from YouTube Music.
-nonisolated struct Song: Identifiable, Codable, Hashable, Sendable {
+struct Song: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let title: String
     let artists: [Artist]
@@ -131,12 +131,12 @@ extension Song {
 // MARK: - Equatable & Hashable
 
 extension Song {
-    nonisolated static func == (lhs: Song, rhs: Song) -> Bool {
+    static func == (lhs: Song, rhs: Song) -> Bool {
         // Compare by video ID for identity equality
         lhs.videoId == rhs.videoId
     }
 
-    nonisolated func hash(into hasher: inout Hasher) {
+    func hash(into hasher: inout Hasher) {
         hasher.combine(self.videoId)
     }
 }

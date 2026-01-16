@@ -3,7 +3,7 @@ import Foundation
 // MARK: - FavoriteItem
 
 /// An item pinned to Favorites.
-nonisolated struct FavoriteItem: Identifiable, Codable, Sendable {
+struct FavoriteItem: Identifiable, Codable, Sendable {
     let id: UUID
     let pinnedAt: Date
     let itemType: ItemType

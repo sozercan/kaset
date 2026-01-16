@@ -3,7 +3,7 @@ import CoreGraphics
 import SwiftUI
 
 /// Extracts dominant colors from images for UI accent backgrounds.
-nonisolated enum ColorExtractor {
+enum ColorExtractor {
     /// Represents a weighted color sample for averaging.
     private struct WeightedColor {
         let red: CGFloat
@@ -22,7 +22,7 @@ nonisolated enum ColorExtractor {
         let lightTint: Color
 
         /// Default adaptive palette when no image is available.
-        nonisolated static let `default` = ColorPalette(
+        static let `default` = ColorPalette(
             primary: Color(nsColor: NSColor(white: 0.15, alpha: 1)),
             secondary: Color(nsColor: NSColor(white: 0.08, alpha: 1)),
             lightTint: Color(nsColor: NSColor.controlAccentColor).opacity(0.3)
@@ -110,9 +110,9 @@ nonisolated enum ColorExtractor {
     /// - Parameter data: Raw image data.
     /// - Returns: Extracted color palette.
     static func extractPalette(from data: Data) async -> ColorPalette {
-        // Use Task.detached to perform CPU-intensive color extraction off MainActor.
+        // Perform CPU-intensive color extraction off the main actor.
         // This prevents UI jank during image processing.
-        await Task.detached(priority: .userInitiated) {
+        await Task(priority: .userInitiated) {
             guard let image = NSImage(data: data) else {
                 return ColorPalette.default
             }

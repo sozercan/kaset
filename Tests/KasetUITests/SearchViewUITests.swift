@@ -1,7 +1,8 @@
 import XCTest
 
 /// UI tests for the SearchView.
-nonisolated final class SearchViewUITests: KasetUITestCase {
+@MainActor
+final class SearchViewUITests: KasetUITestCase {
     // MARK: - Search Field
 
     func testSearchFieldExists() throws {
