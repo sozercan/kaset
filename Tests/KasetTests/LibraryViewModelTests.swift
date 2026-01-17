@@ -93,4 +93,76 @@ struct LibraryViewModelTests {
 
         #expect(self.viewModel.playlists.count == 2)
     }
+
+    // MARK: - Podcast Library Tests
+
+    @Test("addToLibrary inserts podcast at beginning and updates ID set")
+    func addToLibraryInsertsPodcast() {
+        let podcast = TestFixtures.makePodcastShow(id: "MPSPPLXz2p9test123", title: "Test Podcast")
+
+        self.viewModel.addToLibrary(podcast: podcast)
+
+        #expect(self.viewModel.libraryPodcastIds.contains("MPSPPLXz2p9test123"))
+        #expect(self.viewModel.podcastShows.first?.id == "MPSPPLXz2p9test123")
+        #expect(self.viewModel.podcastShows.first?.title == "Test Podcast")
+    }
+
+    @Test("addToLibrary does not duplicate existing podcast")
+    func addToLibraryNoDuplicate() {
+        let podcast = TestFixtures.makePodcastShow(id: "MPSPPLXz2p9test123")
+
+        self.viewModel.addToLibrary(podcast: podcast)
+        self.viewModel.addToLibrary(podcast: podcast)
+
+        #expect(self.viewModel.podcastShows.count(where: { $0.id == "MPSPPLXz2p9test123" }) == 1)
+        #expect(self.viewModel.libraryPodcastIds.count == 1)
+    }
+
+    @Test("addToLibrary inserts new podcast at position 0")
+    func addToLibraryInsertsAtBeginning() {
+        let podcast1 = TestFixtures.makePodcastShow(id: "MPSPPLA", title: "Podcast A")
+        let podcast2 = TestFixtures.makePodcastShow(id: "MPSPPLB", title: "Podcast B")
+
+        self.viewModel.addToLibrary(podcast: podcast1)
+        self.viewModel.addToLibrary(podcast: podcast2)
+
+        // Podcast B should be first (inserted at position 0)
+        #expect(self.viewModel.podcastShows.first?.id == "MPSPPLB")
+        #expect(self.viewModel.podcastShows[1].id == "MPSPPLA")
+    }
+
+    @Test("removeFromLibrary removes podcast from both set and array")
+    func removeFromLibraryRemovesPodcast() {
+        let podcast = TestFixtures.makePodcastShow(id: "MPSPPLXz2p9test123")
+        self.viewModel.addToLibrary(podcast: podcast)
+        #expect(self.viewModel.podcastShows.count == 1)
+        #expect(self.viewModel.libraryPodcastIds.count == 1)
+
+        self.viewModel.removeFromLibrary(podcastId: "MPSPPLXz2p9test123")
+
+        #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.libraryPodcastIds.isEmpty)
+    }
+
+    @Test("removeFromLibrary handles non-existent podcast gracefully")
+    func removeFromLibraryNonExistent() {
+        // Should not crash when removing non-existent podcast
+        self.viewModel.removeFromLibrary(podcastId: "nonexistent")
+
+        #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.libraryPodcastIds.isEmpty)
+    }
+
+    @Test("isInLibrary returns true for added podcast")
+    func isInLibraryForAddedPodcast() {
+        let podcast = TestFixtures.makePodcastShow(id: "MPSPPLXz2p9test123")
+        self.viewModel.addToLibrary(podcast: podcast)
+
+        #expect(self.viewModel.isInLibrary(podcastId: "MPSPPLXz2p9test123") == true)
+    }
+
+    @Test("isInLibrary returns false for non-added podcast")
+    func isInLibraryForNonAddedPodcast() {
+        #expect(self.viewModel.isInLibrary(podcastId: "MPSPPLXz2p9test123") == false)
+    }
 }

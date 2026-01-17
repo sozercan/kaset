@@ -15,31 +15,35 @@ struct RequiresIntelligenceModifier: ViewModifier {
     /// Whether to show a sparkle overlay when AI is available and active.
     let showSparkleOverlay: Bool
 
-    /// Access to the Foundation Models service.
-    @State private var isAvailable = FoundationModelsService.shared.isAvailable
+    /// Reads availability directly from the @Observable singleton.
+    /// SwiftUI's Observation system automatically tracks this access
+    /// and triggers re-renders when the underlying value changes.
+    private var isAvailable: Bool {
+        FoundationModelsService.shared.isAvailable
+    }
 
     func body(content: Content) -> some View {
+        // Cache availability for consistent reads within this render pass
+        let isAvailable = self.isAvailable
+
         Group {
-            if self.hideWhenUnavailable, !self.isAvailable {
+            if self.hideWhenUnavailable, !isAvailable {
                 EmptyView()
             } else {
                 content
-                    .disabled(!self.isAvailable)
-                    .opacity(self.isAvailable ? 1.0 : 0.4)
+                    .disabled(!isAvailable)
+                    .opacity(isAvailable ? 1.0 : 0.4)
                     .overlay(alignment: .topTrailing) {
-                        if self.showSparkleOverlay, self.isAvailable {
+                        if self.showSparkleOverlay, isAvailable {
                             Image(systemName: "sparkle")
                                 .font(.system(size: 8, weight: .bold))
                                 .foregroundStyle(.purple)
                                 .offset(x: 2, y: -2)
                         }
                     }
-                    .help(self.isAvailable ? "" : self.unavailableMessage)
-                    .animation(.easeInOut(duration: 0.2), value: self.isAvailable)
+                    .help(isAvailable ? "" : self.unavailableMessage)
+                    .animation(.easeInOut(duration: 0.2), value: isAvailable)
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .intelligenceAvailabilityChanged)) { _ in
-            self.isAvailable = FoundationModelsService.shared.isAvailable
         }
     }
 }

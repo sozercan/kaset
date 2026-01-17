@@ -283,11 +283,35 @@ let body = ["browseId": "FEmusic_library_landing"]
 
 **Item identification by browseId prefix**:
 - `VL*`, `PL*`, `RDCLAK*` — Playlists
-- `MPSPP*` — Podcast shows
+- `MPSPP*` — Podcast shows (see [Podcast ID Format](#podcast-id-format) below)
 - `UC*` — Artists or Profiles
 - `VLLM` — Liked Music auto playlist
 - `VLRDPN` — New Episodes auto playlist
 - `VLSE` — Episodes for Later auto playlist
+
+#### Podcast ID Format
+
+Podcast show IDs follow a specific structure that requires conversion for subscription operations:
+
+| ID Type | Format | Example |
+|---------|--------|---------|
+| Show Browse ID | `MPSPP` + `L` + `{base64suffix}` | `MPSPPLXz2p9abc123def` |
+| Playlist ID (for API) | `PL` + `{base64suffix}` | `PLXz2p9abc123def` |
+
+**Conversion Logic**:
+```swift
+// MPSPP IDs are structured as: "MPSPP" + "L" + {idSuffix}
+// To convert to playlist ID: strip "MPSPP" (5 chars), prepend "P"
+let suffix = String(showId.dropFirst(5))  // "LXz2p9abc123def"
+let playlistId = "P" + suffix              // "PLXz2p9abc123def"
+```
+
+> ⚠️ **Critical**: The suffix already starts with `L`. Adding `"PL"` instead of `"P"` creates a double-L (`PLLXz2p9...`) which causes HTTP 404 errors. Always use `"P" + suffix`, never `"PL" + suffix`.
+
+**Validation Requirements** (implemented in `YTMusicClient.convertPodcastShowIdToPlaylistId`):
+1. ID must have `MPSPP` prefix (warns and passes through if missing)
+2. Suffix after stripping `MPSPP` must not be empty (throws)
+3. Suffix must start with `L` (throws)
 
 ---
 
@@ -527,18 +551,27 @@ let body = ["channelIds": ["UCuAXFkgsw1L7xaCfnd5JJOw"]]
 _ = try await request("subscription/subscribe", body: body)
 ```
 
-**Podcast Subscription** (uses show browse ID with `MPSPP` prefix):
+**Podcast Subscription** (uses like/like endpoint with converted playlist ID):
 ```swift
-// Subscribe to podcast
-let body = ["playlistIds": ["MPSPP2t8s..."]] // Full MPSPP{id} from show
-_ = try await request("subscription/subscribe", body: body)
+// Podcast show IDs have MPSPP prefix (e.g., "MPSPPLXz2p9...")
+// The suffix after MPSPP already starts with "L", so:
+// - Strip "MPSPP" (5 chars) to get "LXz2p9..."  
+// - Prepend "P" to get "PLXz2p9..."
+//
+// ⚠️ IMPORTANT: Do NOT add "PL" prefix - that would create "PLLXz2p9..." which returns 404!
 
-// Unsubscribe from podcast  
-let body = ["playlistIds": ["MPSPP2t8s..."]]
-_ = try await request("subscription/unsubscribe", body: body)
+// Subscribe to podcast (add to library)
+let suffix = String(showId.dropFirst(5)) // Drop "MPSPP"
+let playlistId = "P" + suffix            // Prepend "P" only
+let body = ["target": ["playlistId": playlistId]]
+_ = try await request("like/like", body: body)
+
+// Unsubscribe from podcast (remove from library)
+let body = ["target": ["playlistId": playlistId]]
+_ = try await request("like/removelike", body: body)
 ```
 
-> ⚠️ **Note**: Podcast subscription uses `playlistIds`, not `channelIds`. The value is the full `MPSPP{id}` browse ID from the podcast show.
+> ⚠️ **Note**: Podcast subscription uses `like/like` and `like/removelike` endpoints, NOT `subscription/*`. The MPSPP browse ID must be converted to a PL playlist ID by stripping "MPSPP" and prepending "P" (not "PL").
 
 ---
 
@@ -948,6 +981,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
 | 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |
 | 2025-07-26 | Documented podcast implementation: `FEmusic_podcasts`, `MPSPP{id}` endpoints, podcast search filter params, podcast subscription API |

@@ -247,6 +247,7 @@ struct PodcastShowView: View {
     @State private var isSubscribed: Bool = false
     @State private var isSubscribing: Bool = false
     @State private var showAllEpisodes = false
+    @State private var subscriptionError: String?
 
     /// Number of episodes to show in the preview
     private let previewEpisodeCount = 5
@@ -287,6 +288,17 @@ struct PodcastShowView: View {
         }
         .task {
             await self.loadShow()
+        }
+        .alert(
+            "Subscription Error",
+            isPresented: Binding(
+                get: { self.subscriptionError != nil },
+                set: { if !$0 { self.subscriptionError = nil } }
+            )
+        ) {
+            Button("OK") { self.subscriptionError = nil }
+        } message: {
+            Text(self.subscriptionError ?? "An unknown error occurred")
         }
     }
 
@@ -451,14 +463,29 @@ struct PodcastShowView: View {
             if self.isSubscribed {
                 try await self.client.unsubscribeFromPodcast(showId: self.show.id)
                 self.isSubscribed = false
-                DiagnosticsLogger.api.info("Unsubscribed from podcast: \(self.show.title)")
+                // Update LibraryViewModel for immediate UI update in library view
+                if let libraryVM = LibraryViewModel.shared {
+                    libraryVM.removeFromLibrary(podcastId: self.show.id)
+                } else {
+                    DiagnosticsLogger.api.warning(
+                        "LibraryViewModel.shared is nil - library UI may be stale after unsubscribing from podcast")
+                }
             } else {
                 try await self.client.subscribeToPodcast(showId: self.show.id)
                 self.isSubscribed = true
-                DiagnosticsLogger.api.info("Subscribed to podcast: \(self.show.title)")
+                // Update LibraryViewModel for immediate UI update in library view
+                if let libraryVM = LibraryViewModel.shared {
+                    libraryVM.addToLibrary(podcast: self.show)
+                } else {
+                    DiagnosticsLogger.api.warning(
+                        "LibraryViewModel.shared is nil - library UI may be stale after subscribing to podcast")
+                }
             }
         } catch {
-            DiagnosticsLogger.api.error("Failed to toggle podcast subscription: \(error.localizedDescription)")
+            let errorMessage = error.localizedDescription
+            DiagnosticsLogger.api.error(
+                "Failed to toggle podcast subscription for \(self.show.title): \(errorMessage)")
+            self.subscriptionError = errorMessage
         }
     }
 }

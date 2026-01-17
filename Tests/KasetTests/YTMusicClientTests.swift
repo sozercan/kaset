@@ -117,31 +117,123 @@ struct YTMusicClientTests {
 
     // MARK: - Podcast Show ID Validation Tests
 
-    @Test("Podcast show ID conversion extracts suffix correctly")
-    func podcastShowIdConversion() {
-        // Test that MPSPP prefix removal produces correct PL format
-        let showId = "MPSPP12345ABC"
-        let expectedSuffix = "12345ABC" // After removing "MPSPP"
-        let playlistId = "PL\(expectedSuffix)" // What subscription uses
+    @Test("Podcast show ID conversion handles L-prefixed suffix correctly")
+    func podcastShowIdConversionWithLPrefix() {
+        // Real podcast IDs are "MPSPP" + "L" + {base64id}
+        // Example: "MPSPPLXz2p9abc123"
+        let showId = "MPSPPLXz2p9abc123"
+        let suffix = String(showId.dropFirst(5)) // "LXz2p9abc123"
+        let playlistId = "P" + suffix // "PLXz2p9abc123"
 
-        #expect(playlistId == "PL12345ABC")
+        #expect(suffix == "LXz2p9abc123")
+        #expect(suffix.hasPrefix("L"), "Suffix should start with 'L'")
+        #expect(playlistId == "PLXz2p9abc123")
+        #expect(playlistId.hasPrefix("PL"), "Playlist ID should start with 'PL'")
     }
 
-    @Test("Podcast show ID with only MPSPP prefix would be invalid")
+    @Test("Podcast show ID conversion avoids double-L bug")
+    func podcastShowIdAvoidDoubleLBug() {
+        // The bug was: "PL" + suffix = "PLLXz2p9..." (double L = 404)
+        // Fix: "P" + suffix = "PLXz2p9..." (correct)
+        let showId = "MPSPPLXz2p9abc123"
+        let suffix = String(showId.dropFirst(5)) // "LXz2p9abc123"
+
+        // Wrong: This was the bug
+        let wrongPlaylistId = "PL" + suffix // "PLLXz2p9abc123" - DOUBLE L!
+        #expect(wrongPlaylistId.hasPrefix("PLL"), "Bug would produce double-L")
+
+        // Correct: This is the fix
+        let correctPlaylistId = "P" + suffix // "PLXz2p9abc123"
+        #expect(!correctPlaylistId.hasPrefix("PLL"), "Fix should not have double-L")
+        #expect(correctPlaylistId == "PLXz2p9abc123")
+    }
+
+    @Test("Podcast show ID with only MPSPP prefix is invalid")
     func podcastShowIdWithOnlyPrefix() {
         // This tests the validation logic we added
         let showId = "MPSPP"
-        let suffix = String(showId.dropFirst("MPSPP".count))
+        let suffix = String(showId.dropFirst(5))
 
         #expect(suffix.isEmpty, "Empty suffix should trigger validation error")
     }
 
-    @Test("Valid podcast show IDs have content after prefix")
-    func validPodcastShowIdHasContent() {
-        let validShowId = "MPSPP12345"
-        let suffix = String(validShowId.dropFirst("MPSPP".count))
+    @Test("Valid podcast show IDs have L-prefixed content after MPSPP")
+    func validPodcastShowIdHasLPrefixedContent() {
+        let validShowId = "MPSPPLabc123"
+        let suffix = String(validShowId.dropFirst(5))
 
         #expect(!suffix.isEmpty)
-        #expect(suffix == "12345")
+        #expect(suffix.hasPrefix("L"), "Valid suffix should start with 'L'")
+        #expect(suffix == "Labc123")
+    }
+
+    @Test("Podcast show ID without L-prefix should be rejected")
+    func podcastShowIdWithoutLPrefix() {
+        // IDs like "MPSPPX123" would be invalid
+        let invalidShowId = "MPSPPX123"
+        let suffix = String(invalidShowId.dropFirst(5))
+
+        #expect(!suffix.isEmpty)
+        #expect(!suffix.hasPrefix("L"), "This ID doesn't have required L-prefix")
+    }
+
+    // MARK: - Podcast Subscription Integration Tests
+
+    @Test("subscribeToPodcast throws for empty suffix")
+    @MainActor
+    func subscribeToPodcastThrowsForEmptySuffix() async {
+        let mockClient = MockYTMusicClient()
+
+        await #expect(throws: YTMusicError.self) {
+            try await mockClient.subscribeToPodcast(showId: "MPSPP")
+        }
+    }
+
+    @Test("subscribeToPodcast throws for missing L-prefix")
+    @MainActor
+    func subscribeToPodcastThrowsForMissingLPrefix() async {
+        let mockClient = MockYTMusicClient()
+
+        await #expect(throws: YTMusicError.self) {
+            try await mockClient.subscribeToPodcast(showId: "MPSPPX123")
+        }
+    }
+
+    @Test("subscribeToPodcast succeeds for valid MPSPP ID")
+    @MainActor
+    func subscribeToPodcastSucceedsForValidId() async throws {
+        let mockClient = MockYTMusicClient()
+
+        // Should not throw for valid ID
+        try await mockClient.subscribeToPodcast(showId: "MPSPPLXz2p9abc123")
+    }
+
+    @Test("unsubscribeFromPodcast throws for empty suffix")
+    @MainActor
+    func unsubscribeFromPodcastThrowsForEmptySuffix() async {
+        let mockClient = MockYTMusicClient()
+
+        await #expect(throws: YTMusicError.self) {
+            try await mockClient.unsubscribeFromPodcast(showId: "MPSPP")
+        }
+    }
+
+    @Test("unsubscribeFromPodcast throws for missing L-prefix")
+    @MainActor
+    func unsubscribeFromPodcastThrowsForMissingLPrefix() async {
+        let mockClient = MockYTMusicClient()
+
+        await #expect(throws: YTMusicError.self) {
+            try await mockClient.unsubscribeFromPodcast(showId: "MPSPPX123")
+        }
+    }
+
+    @Test("unsubscribeFromPodcast succeeds for valid MPSPP ID")
+    @MainActor
+    func unsubscribeFromPodcastSucceedsForValidId() async throws {
+        let mockClient = MockYTMusicClient()
+
+        // Should not throw for valid ID
+        try await mockClient.unsubscribeFromPodcast(showId: "MPSPPLXz2p9abc123")
     }
 }
