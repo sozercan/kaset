@@ -6,9 +6,6 @@ import os
 @MainActor
 @Observable
 final class LibraryViewModel {
-    /// Shared instance for checking library status from other views.
-    static var shared: LibraryViewModel?
-
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -36,8 +33,6 @@ final class LibraryViewModel {
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
-        // Set shared instance for global access
-        LibraryViewModel.shared = self
     }
 
     /// Checks if a playlist is in the user's library.

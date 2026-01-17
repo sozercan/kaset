@@ -11,6 +11,7 @@ struct PlaylistDetailView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
 
     /// Tracks whether this playlist has been added to library in this session.
     @State private var isAddedToLibrary: Bool = false
@@ -32,7 +33,7 @@ struct PlaylistDetailView: View {
 
     /// Computed property to check if playlist is in library.
     private var isInLibrary: Bool {
-        LibraryViewModel.shared?.isInLibrary(playlistId: self.playlist.id) ?? false
+        self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
     }
 
     private let logger = DiagnosticsLogger.ai
@@ -210,8 +211,7 @@ struct PlaylistDetailView: View {
 
     private func tracksView(_ tracks: [Song], isAlbum: Bool) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(tracks.indices, id: \.self) { index in
-                let track = tracks[index]
+            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                 self.trackRow(track, index: index, tracks: tracks, isAlbum: isAlbum)
                     .onAppear {
                         // Load more when reaching the last few items
@@ -376,10 +376,18 @@ struct PlaylistDetailView: View {
         HapticService.success()
         Task {
             if currentlyInLibrary {
-                await SongActionsHelper.removePlaylistFromLibrary(self.playlist, client: self.viewModel.client)
+                await SongActionsHelper.removePlaylistFromLibrary(
+                    self.playlist,
+                    client: self.viewModel.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isAddedToLibrary = false
             } else {
-                await SongActionsHelper.addPlaylistToLibrary(self.playlist, client: self.viewModel.client)
+                await SongActionsHelper.addPlaylistToLibrary(
+                    self.playlist,
+                    client: self.viewModel.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isAddedToLibrary = true
             }
         }

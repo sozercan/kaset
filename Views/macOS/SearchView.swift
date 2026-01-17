@@ -9,6 +9,7 @@ struct SearchView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -486,7 +487,11 @@ struct SearchView: View {
         case let .playlist(playlist):
             Button {
                 Task {
-                    await SongActionsHelper.addPlaylistToLibrary(playlist, client: self.viewModel.client)
+                    await SongActionsHelper.addPlaylistToLibrary(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
                 }
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")

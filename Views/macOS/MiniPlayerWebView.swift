@@ -42,8 +42,11 @@ struct MiniPlayerWebView: NSViewRepresentable {
             playerService: self.playerService
         )
 
-        // Add additional message handler for this view's callbacks
-        webView.configuration.userContentController.add(context.coordinator, name: "miniPlayer")
+        // Remove existing handler if present to avoid duplicates, then add fresh one
+        // This handles the case where makeNSView is called multiple times
+        let contentController = webView.configuration.userContentController
+        contentController.removeScriptMessageHandler(forName: "miniPlayer")
+        contentController.add(context.coordinator, name: "miniPlayer")
 
         // Ensure WebView is in this container
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
@@ -172,6 +175,13 @@ struct MiniPlayerWebView: NSViewRepresentable {
 
         func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
             self.onStateChange?(.error(error.localizedDescription))
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // WebView content process crashed - attempt recovery by reloading
+            DiagnosticsLogger.player.error("MiniPlayer WebView content process terminated, attempting reload")
+            self.onStateChange?(.error("Player crashed, reloading..."))
+            webView.reload()
         }
 
         func userContentController(
@@ -423,6 +433,27 @@ final class SingletonPlayerWebView {
                     )
                 } else if let resultString = result as? String {
                     DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
+                }
+            }
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // WebView content process crashed - attempt recovery
+            DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
+
+            // Get the current video ID before reloading
+            let currentVideoId = SingletonPlayerWebView.shared.currentVideoId
+
+            // Reload the WebView
+            webView.reload()
+
+            // If we had a video playing, reload it after a brief delay
+            if let videoId = currentVideoId {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1))
+                    // Reset currentVideoId to force reload
+                    SingletonPlayerWebView.shared.currentVideoId = nil
+                    SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
                 }
             }
         }

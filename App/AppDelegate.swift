@@ -29,6 +29,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? await Task.sleep(for: .milliseconds(500))
             self.setupWindowDelegate()
         }
+
+        // Register for system sleep/wake notifications
+        self.registerForSleepWakeNotifications()
+    }
+
+    /// Registers for system sleep and wake notifications to handle playback appropriately.
+    private func registerForSleepWakeNotifications() {
+        let notificationCenter = NSWorkspace.shared.notificationCenter
+
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(self.systemWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(self.systemDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    /// Tracks whether audio was playing before system sleep (for resume on wake).
+    private var wasPlayingBeforeSleep: Bool = false
+
+    @objc private func systemWillSleep(_: Notification) {
+        // Remember playback state and pause before sleep
+        self.wasPlayingBeforeSleep = self.playerService?.isPlaying ?? false
+        if self.wasPlayingBeforeSleep {
+            DiagnosticsLogger.player.info("System going to sleep, pausing playback")
+            SingletonPlayerWebView.shared.pause()
+        }
+    }
+
+    @objc private func systemDidWake(_: Notification) {
+        // Optionally resume playback after wake if it was playing before sleep
+        // Note: We don't auto-resume by default as it could be surprising
+        // Just log the wake event for now
+        DiagnosticsLogger.player.info("System woke from sleep, wasPlayingBeforeSleep: \(self.wasPlayingBeforeSleep)")
     }
 
     func applicationDidBecomeActive(_: Notification) {

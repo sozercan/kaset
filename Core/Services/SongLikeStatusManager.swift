@@ -99,6 +99,14 @@ final class SongLikeStatusManager {
         do {
             try await client.rateSong(videoId: song.videoId, rating: status)
             DiagnosticsLogger.api.info("Rated song \(song.videoId) as \(status.rawValue)")
+        } catch is CancellationError {
+            // Task was cancelled - rollback optimistic update
+            if let previous = previousStatus {
+                self.statusCache[song.videoId] = previous
+            } else {
+                self.statusCache.removeValue(forKey: song.videoId)
+            }
+            DiagnosticsLogger.api.debug("Rating cancelled for song \(song.videoId), rolled back")
         } catch {
             // Revert on failure
             if let previous = previousStatus {

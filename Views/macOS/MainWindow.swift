@@ -262,26 +262,29 @@ struct MainWindow: View {
     @ViewBuilder
     // swiftlint:disable:next cyclomatic_complexity
     private func viewForNavigationItem(_ item: NavigationItem) -> some View {
-        switch item {
-        case .home:
-            if let vm = homeViewModel { HomeView(viewModel: vm) }
-        case .explore:
-            if let vm = exploreViewModel { ExploreView(viewModel: vm) }
-        case .search:
-            if let vm = searchViewModel { SearchView(viewModel: vm) }
-        case .charts:
-            if let vm = chartsViewModel { ChartsView(viewModel: vm) }
-        case .moodsAndGenres:
-            if let vm = moodsAndGenresViewModel { MoodsAndGenresView(viewModel: vm) }
-        case .newReleases:
-            if let vm = newReleasesViewModel { NewReleasesView(viewModel: vm) }
-        case .podcasts:
-            if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
-        case .likedMusic:
-            if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
-        case .library:
-            if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+        Group {
+            switch item {
+            case .home:
+                if let vm = homeViewModel { HomeView(viewModel: vm) }
+            case .explore:
+                if let vm = exploreViewModel { ExploreView(viewModel: vm) }
+            case .search:
+                if let vm = searchViewModel { SearchView(viewModel: vm) }
+            case .charts:
+                if let vm = chartsViewModel { ChartsView(viewModel: vm) }
+            case .moodsAndGenres:
+                if let vm = moodsAndGenresViewModel { MoodsAndGenresView(viewModel: vm) }
+            case .newReleases:
+                if let vm = newReleasesViewModel { NewReleasesView(viewModel: vm) }
+            case .podcasts:
+                if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
+            case .likedMusic:
+                if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
+            case .library:
+                if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+            }
         }
+        .environment(self.libraryViewModel)
     }
 
     /// View shown while checking initial login status.

@@ -29,6 +29,9 @@ final class FavoritesManager {
         return kasetDir.appendingPathComponent("favorites.json")
     }
 
+    /// Task for the current save operation - cancelled when new save is triggered.
+    private var saveTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     private init() {
@@ -73,18 +76,28 @@ final class FavoritesManager {
 
     /// Saves items to disk asynchronously on a background thread.
     /// Captures current state and writes without blocking the main thread.
+    /// Cancels any pending save and debounces to coalesce rapid changes.
     /// Test instances (skipPersistence=true) never write to disk.
     private func save() {
         // Skip persistence for test instances to avoid overwriting user data
         guard !self.skipPersistence else { return }
 
+        // Cancel any pending save to avoid race conditions
+        self.saveTask?.cancel()
+
         // Capture current state for background write
         let itemsSnapshot = self.items
         let targetURL = self.fileURL
 
-        // Perform disk I/O off the main actor.
-        // Fire-and-forget: failures are logged but not propagated.
-        Task(priority: .utility) {
+        // Perform disk I/O off the main actor with debounce.
+        // Slight delay coalesces rapid successive saves.
+        self.saveTask = Task(priority: .utility) {
+            // Debounce: wait briefly to coalesce rapid changes
+            try? await Task.sleep(for: .milliseconds(100))
+
+            // Check if cancelled (a newer save superseded this one)
+            guard !Task.isCancelled else { return }
+
             do {
                 // Ensure directory exists
                 let directory = targetURL.deletingLastPathComponent()

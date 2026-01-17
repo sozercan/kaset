@@ -47,12 +47,13 @@ enum SongActionsHelper {
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
-        client: any YTMusicClientProtocol
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
     ) async {
         do {
             try await client.subscribeToPlaylist(playlistId: playlist.id)
-            LibraryViewModel.shared?.addToLibrarySet(playlistId: playlist.id)
-            await LibraryViewModel.shared?.refresh()
+            libraryViewModel?.addToLibrarySet(playlistId: playlist.id)
+            await libraryViewModel?.refresh()
             DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
@@ -62,12 +63,13 @@ enum SongActionsHelper {
     /// Removes a playlist from the library.
     static func removePlaylistFromLibrary(
         _ playlist: Playlist,
-        client: any YTMusicClientProtocol
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
     ) async {
         do {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            LibraryViewModel.shared?.removeFromLibrarySet(playlistId: playlist.id)
-            await LibraryViewModel.shared?.refresh()
+            libraryViewModel?.removeFromLibrarySet(playlistId: playlist.id)
+            await libraryViewModel?.refresh()
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
