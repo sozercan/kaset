@@ -123,16 +123,44 @@ enum AIErrorHandler {
     /// Handles specific GenerationError cases.
     private static func handleGenerationError(_ error: LanguageModelSession.GenerationError) -> AIError {
         switch error {
-        case let .exceededContextWindowSize(info):
-            self.logger.warning("Context window exceeded: \\(String(describing: info))")
+        case .exceededContextWindowSize:
+            self.logger.warning("Context window exceeded")
             return .contextWindowExceeded
 
         case .guardrailViolation:
             self.logger.warning("Content blocked by guardrails")
             return .contentBlocked
 
+        case .assetsUnavailable:
+            self.logger.warning("Model assets unavailable")
+            return .notAvailable(reason: "Model assets are not available")
+
+        case .unsupportedGuide:
+            self.logger.warning("Unsupported generation guide")
+            return .unknown(underlying: error)
+
+        case .unsupportedLanguageOrLocale:
+            self.logger.warning("Unsupported language or locale")
+            return .notAvailable(reason: "Language not supported")
+
+        case .decodingFailure:
+            self.logger.warning("Failed to decode model response")
+            return .unknown(underlying: error)
+
+        case .rateLimited:
+            self.logger.warning("Rate limited by model")
+            return .sessionBusy
+
+        case .concurrentRequests:
+            self.logger.warning("Concurrent request limit exceeded")
+            return .sessionBusy
+
+        case .refusal:
+            self.logger.warning("Model refused to respond")
+            return .contentBlocked
+
         @unknown default:
-            self.logger.error("Unknown generation error: \\(error.localizedDescription)")
+            self.logger.error("Unknown generation error: \(error.localizedDescription)")
             return .unknown(underlying: error)
         }
     }
@@ -145,9 +173,9 @@ enum AIErrorHandler {
     /// - Returns: A formatted string suitable for UI display.
     static func userMessage(for error: AIError) -> String {
         if let suggestion = error.recoverySuggestion {
-            return "\(error.localizedDescription ?? "Error"). \(suggestion)"
+            return "\(error.errorDescription ?? "Error"). \(suggestion)"
         }
-        return error.localizedDescription ?? "An error occurred"
+        return error.errorDescription ?? "An error occurred"
     }
 
     /// Logs an error with appropriate severity and returns a display message.

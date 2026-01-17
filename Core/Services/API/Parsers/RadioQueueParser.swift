@@ -13,6 +13,8 @@ struct RadioQueueResult {
 
 /// Parses radio queue responses from YouTube Music API.
 enum RadioQueueParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Parses the radio queue from the "next" endpoint response.
     /// - Parameter data: The response from the "next" endpoint with a radio playlist ID
     /// - Returns: RadioQueueResult containing songs and optional continuation token
@@ -30,6 +32,7 @@ enum RadioQueueParser {
               let playlistPanelRenderer = queueContent["playlistPanelRenderer"] as? [String: Any],
               let playlistContents = playlistPanelRenderer["contents"] as? [[String: Any]]
         else {
+            self.logger.debug("RadioQueueParser: Failed to parse radio queue structure. Top keys: \(data.keys.sorted())")
             return RadioQueueResult(songs: [], continuationToken: nil)
         }
 

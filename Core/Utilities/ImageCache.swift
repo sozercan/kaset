@@ -244,7 +244,8 @@ actor ImageCache {
 
     /// Evicts oldest files until disk cache is under the size limit.
     /// Uses LRU (Least Recently Used) eviction based on file modification dates.
-    private func evictDiskCacheIfNeeded() {
+    /// Marked async to document the I/O-bound nature and satisfy actor isolation.
+    private func evictDiskCacheIfNeeded() async {
         let currentSize = self.diskCacheSize()
         guard currentSize > Self.maxDiskCacheSize else { return }
 

@@ -46,6 +46,10 @@ enum KeychainCookieStorage {
             for (key, value) in properties {
                 stringProperties[key.rawValue] = value
             }
+            // Note: Cookie properties dictionary contains types like String, Date, Number, Bool
+            // which all support NSSecureCoding. However, using requiringSecureCoding: false here
+            // because [String: Any] doesn't directly conform to NSSecureCoding.
+            // The unarchive side uses explicit class allowlists for security.
             return try? NSKeyedArchiver.archivedData(
                 withRootObject: stringProperties,
                 requiringSecureCoding: false
@@ -54,8 +58,8 @@ enum KeychainCookieStorage {
 
         guard !cookieData.isEmpty,
               let data = try? NSKeyedArchiver.archivedData(
-                  withRootObject: cookieData,
-                  requiringSecureCoding: false
+                  withRootObject: cookieData as NSArray,
+                  requiringSecureCoding: true
               )
         else {
             Self.logger.error("Failed to serialize cookies for Keychain")

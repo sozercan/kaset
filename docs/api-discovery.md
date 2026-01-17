@@ -18,6 +18,8 @@
 - [Undocumented Endpoints](#undocumented-endpoints)
 - [Request Patterns](#request-patterns)
 - [Response Parsing](#response-parsing)
+- [Parsers Reference](#parsers-reference)
+- [Error Handling](#error-handling)
 - [Implementation Priorities](#implementation-priorities)
 - [Using the API Explorer](#using-the-api-explorer)
 
@@ -153,6 +155,10 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 |-----------|------|------|-------------|--------|
 | `FEmusic_home` | Home | 🌐 | Personalized recommendations, mixes, quick picks | `HomeResponseParser` |
 | `FEmusic_explore` | Explore | 🌐 | New releases, charts, moods shortcuts | `HomeResponseParser` |
+| `FEmusic_charts` | Charts | 🌐 | Top songs, albums by country/genre | `ChartsParser` |
+| `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | Browse by mood/genre grids | `MoodsAndGenresParser` |
+| `FEmusic_new_releases` | New Releases | 🌐 | Recent albums, singles, videos | `NewReleasesParser` |
+| `FEmusic_library_landing` | Library Landing | 🔐 | All library content (playlists, podcasts, artists) | `LibraryParser` |
 | `FEmusic_liked_playlists` | Library Playlists | 🔐 | User's saved/created playlists | `PlaylistParser` |
 | `VLLM` | Liked Songs | 🔐 | All songs user has liked (with pagination) | `PlaylistParser` |
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
@@ -240,11 +246,7 @@ These endpoints are functional but not yet implemented in Kaset.
 
 | Browse ID | Name | Auth | Priority | Notes |
 |-----------|------|------|----------|-------|
-| `FEmusic_charts` | Charts | 🌐 | **High** | Top songs, albums by country/genre |
-| `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | **High** | Browse by mood/genre grids |
-| `FEmusic_new_releases` | New Releases | 🌐 | **Medium** | Recent albums, singles, videos |
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
-| `FEmusic_library_landing` | Library Landing | 🔐 | **High** | All library content (playlists, podcasts, artists, etc.) |
 | `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
 | `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_artists` | Library Artists | 🔐 | Medium | Requires auth + params* |
@@ -441,11 +443,15 @@ let body = ["query": "never gonna give you up"]
 
 | Filter | Param Value | Description |
 |--------|-------------|-------------|
-| Songs | `EgWKAQIIAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to songs only |
-| Albums | `EgWKAQIYAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to albums only |
-| Artists | `EgWKAQIgAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to artists only |
-| Playlists | `EgeKAQQoAEABahAQEBAJEAQQAxAFEAoQFRAR` | Filter to playlists only |
+| Songs | `EgWKAQIIAWoMEA4QChADEAQQCRAF` | Filter to songs only |
+| Albums | `EgWKAQIYAWoMEA4QChADEAQQCRAF` | Filter to albums only |
+| Artists | `EgWKAQIgAWoMEA4QChADEAQQCRAF` | Filter to artists only |
+| Playlists | `EgWKAQIoAWoMEA4QChADEAQQCRAF` | Filter to all playlists |
+| Featured Playlists | `EgeKAQQoADgBagwQDhAKEAMQBBAJEAU=` | YouTube Music curated playlists |
+| Community Playlists | `EgeKAQQoAEABagwQDhAKEAMQBBAJEAU=` | User-created playlists |
 | Podcasts | `EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to podcast shows only |
+
+> **Filter Pattern**: `EgWKAQ` (base) + filter code + `AWoMEA4QChADEAQQCRAF` (no spelling correction suffix). The filter code encodes the content type (songs=II, albums=IY, artists=Ig, playlists=Io, podcasts=JQ).
 
 **Usage Example** (podcasts):
 ```swift
@@ -846,6 +852,121 @@ if let watchEndpoint = navEndpoint["watchEndpoint"] as? [String: Any],
    let videoId = watchEndpoint["videoId"] as? String {
     // Use videoId
 }
+```
+
+---
+
+## Parsers Reference
+
+All parsers are located in `Core/Services/API/Parsers/`. Each parser is responsible for extracting structured data from raw API JSON responses.
+
+| Parser | File | Input | Output | Used By |
+|--------|------|-------|--------|--------|
+| `HomeResponseParser` | `HomeResponseParser.swift` | Home/Explore browse response | `HomeResponse` with `[HomeSection]` | `FEmusic_home`, `FEmusic_explore` |
+| `SearchResponseParser` | `SearchResponseParser.swift` | Search response | `SearchResponse` with songs, albums, artists, playlists | `search` endpoint |
+| `SearchSuggestionsParser` | `SearchSuggestionsParser.swift` | Suggestions response | `[SearchSuggestion]` | `music/get_search_suggestions` |
+| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_library_landing` |
+| `ArtistParser` | `ArtistParser.swift` | Artist browse response | `ArtistDetail` with songs, albums | `UC{channelId}` |
+| `LyricsParser` | `LyricsParser.swift` | Next/lyrics response | `Lyrics` or lyrics browse ID | `next`, `MPLYt{id}` |
+| `PodcastParser` | `PodcastParser.swift` | Podcast browse response | `[PodcastSection]`, `PodcastShowDetail` | `FEmusic_podcasts`, `MPSPP{id}` |
+| `AccountsListParser` | `AccountsListParser.swift` | Accounts list response | `AccountsListResponse` with `[UserAccount]` | `account/accounts_list` |
+| `SongMetadataParser` | `SongMetadataParser.swift` | Next endpoint response | `Song` with full metadata | `next` endpoint |
+| `RadioQueueParser` | `RadioQueueParser.swift` | Next endpoint response | `RadioQueueResult` with songs + continuation | Radio/mix playback |
+| `ParsingHelpers` | `ParsingHelpers.swift` | Various | Utility functions (stable IDs, text extraction) | All parsers |
+
+### Parser Patterns
+
+**Common extraction helpers** (from `ParsingHelpers`):
+
+```swift
+// Extract text from runs array
+ParsingHelpers.extractText(from: titleRuns)  // -> "Song Title"
+
+// Generate stable ID for SwiftUI
+ParsingHelpers.stableId(title: "Section", components: "item1")  // -> deterministic hash
+
+// Extract thumbnail URL with size preference
+ParsingHelpers.extractThumbnailURL(from: thumbnails, preferredSize: 226)
+```
+
+**Common response structure**:
+```
+contents
+  -> singleColumnBrowseResultsRenderer
+    -> tabs[0]
+      -> tabRenderer
+        -> content
+          -> sectionListRenderer
+            -> contents[]  <- iterate here for sections
+```
+
+---
+
+## Error Handling
+
+Kaset uses a unified `YTMusicError` enum for all API-related errors. This enables consistent error handling, user-friendly messages, and retry logic.
+
+### Error Types
+
+| Error | When Thrown | Retryable | User Action |
+|-------|-------------|-----------|-------------|
+| `authExpired` | HTTP 401/403, invalid SAPISIDHASH | ❌ | Sign in again |
+| `notAuthenticated` | No cookies available for auth-required endpoint | ❌ | Sign in |
+| `networkError(underlying:)` | Connection failed, timeout, DNS failure | ✅ | Check connection |
+| `parseError(message:)` | Unexpected JSON structure, missing required fields | ❌ | Report bug |
+| `apiError(message:, code:)` | API returned error response | ✅ (5xx only) | Try again |
+| `playbackError(message:)` | WebView playback failed, DRM error | ✅ | Try different track |
+| `invalidInput(message:)` | Invalid video ID, empty query | ❌ | Fix input |
+| `unknown(message:)` | Catch-all for unexpected errors | ✅ | Try again |
+
+### Error Properties
+
+```swift
+let error: YTMusicError = .networkError(underlying: urlError)
+
+error.errorDescription     // "Network error: The Internet connection appears to be offline."
+error.recoverySuggestion   // "Check your internet connection and try again."
+error.userFriendlyTitle    // "Connection Error"
+error.userFriendlyMessage  // "Unable to connect. Please check your internet connection."
+error.requiresReauth       // false
+error.isRetryable          // true
+```
+
+### Handling in Views
+
+```swift
+// In ViewModel
+func load() async {
+    do {
+        self.data = try await client.fetchData()
+    } catch let error as YTMusicError {
+        if error.requiresReauth {
+            self.showLoginSheet = true
+        } else if error.isRetryable {
+            self.errorMessage = error.userFriendlyMessage
+            self.showRetryButton = true
+        } else {
+            self.errorMessage = error.userFriendlyMessage
+        }
+    }
+}
+```
+
+### Retry Logic
+
+Use `RetryPolicy` for automatic retries with exponential backoff:
+
+```swift
+let result = try await RetryPolicy.execute(
+    maxAttempts: 3,
+    initialDelay: .seconds(1),
+    shouldRetry: { error in
+        (error as? YTMusicError)?.isRetryable ?? false
+    }
+) {
+    try await client.fetchData()
+}
+```
 ```
 
 ---

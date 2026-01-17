@@ -132,18 +132,54 @@ struct PlayerBar: View {
 
     private var centerSection: some View {
         ZStack {
-            // Track info (blurred when hovering and track is playing)
-            self.trackInfoView
-                .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
-                .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
+            // Error state display with retry option
+            if case let .error(message) = playerService.state {
+                self.errorView(message: message)
+            } else {
+                // Track info (blurred when hovering and track is playing)
+                self.trackInfoView
+                    .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
+                    .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
 
-            // Seek bar (shown when hovering and track is playing)
-            if self.isHovering, self.playerService.currentTrack != nil {
-                self.seekBarView
-                    .transition(.opacity)
+                // Seek bar (shown when hovering and track is playing)
+                if self.isHovering, self.playerService.currentTrack != nil {
+                    self.seekBarView
+                        .transition(.opacity)
+                }
             }
         }
         .frame(maxWidth: 400)
+    }
+
+    // MARK: - Error View
+
+    private func errorView(message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.system(size: 14))
+
+            Text(message)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+
+            Button {
+                Task {
+                    if let track = playerService.currentTrack {
+                        await self.playerService.play(song: track)
+                    }
+                }
+            } label: {
+                Text("Retry")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.quaternary)
+            .clipShape(.capsule)
+        }
     }
 
     // MARK: - Track Info View

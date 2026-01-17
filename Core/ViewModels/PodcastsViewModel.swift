@@ -17,9 +17,11 @@ final class PodcastsViewModel {
     /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
-
-    /// Task for background loading of additional sections.
-    private var backgroundLoadTask: Task<Void, Never>?
+    // swiftformat:disable modifierOrder
+    /// Task for background loading, cancelled in deinit.
+    /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
+    nonisolated(unsafe) private var backgroundLoadTask: Task<Void, Never>?
+    // swiftformat:enable modifierOrder
 
     /// Number of background continuations loaded.
     private var continuationsLoaded = 0
@@ -29,6 +31,10 @@ final class PodcastsViewModel {
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
+    }
+
+    deinit {
+        self.backgroundLoadTask?.cancel()
     }
 
     /// Loads podcasts content with fast initial load.

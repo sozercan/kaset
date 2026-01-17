@@ -69,12 +69,18 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
         return nil
     }
 
-    guard let data = try? Data(contentsOf: cookieFile),
-          let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
-              ofClasses: [NSArray.self, NSData.self],
-              from: data
-          ) as? [Data]
-    else {
+    guard let data = try? Data(contentsOf: cookieFile) else {
+        print("⚠️ Cookie file exists but failed to read: \(cookieFile.path)")
+        return nil
+    }
+
+    guard let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
+        ofClasses: [NSArray.self, NSData.self],
+        from: data
+    ) as? [Data] else {
+        print("⚠️ Cookie file exists but failed to unarchive. File may be corrupted or use a different format.")
+        print("   Path: \(cookieFile.path)")
+        print("   Size: \(data.count) bytes")
         return nil
     }
 
@@ -407,6 +413,8 @@ func exploreBrowse(_ browseId: String, params: String? = nil, verbose: Bool = fa
 }
 
 /// Known action endpoints that require authentication
+/// Known action endpoints that require authentication.
+/// Note: music/get_queue works without auth but returns richer data with auth.
 let authRequiredActions = Set([
     "like/like",
     "like/dislike",
@@ -423,7 +431,6 @@ let authRequiredActions = Set([
     "notification/get_notification_menu",
     "stats/watchtime",
     "next",
-    "music/get_queue",
 ])
 
 func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil) async {

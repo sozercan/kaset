@@ -2,6 +2,8 @@ import Foundation
 
 /// Parses song metadata from YouTube Music API responses.
 enum SongMetadataParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Contains parsed menu data including feedback tokens, library status, and like status.
     struct MenuParseResult {
         var feedbackTokens: FeedbackTokens?
