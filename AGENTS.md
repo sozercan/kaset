@@ -202,17 +202,12 @@ func likeTrack() {
 }
 
 // ✅ GOOD: Track task, handle errors, support cancellation
-private var likeTask: Task<Void, Never>?
+private var likeTask: Task<Void, Error>?
 
 func likeTrack() async throws {
     likeTask?.cancel()
     likeTask = Task {
-        do {
-            try await api.like(trackId)
-        } catch {
-            // Handle error, update UI
-            throw error
-        }
+        try await api.like(trackId)
     }
     try await likeTask?.value
 }
@@ -238,9 +233,9 @@ func rate(_ song: Song, status: LikeStatus) async {
     cache[song.id] = status
     do {
         try await api.rate(song.id, status)
-    } catch is CancellationError {
+    } catch let error as CancellationError {
         cache[song.id] = previous  // Rollback on cancel
-        throw CancellationError()
+        throw error  // Propagate original cancellation
     } catch {
         cache[song.id] = previous  // Rollback on error
         throw error

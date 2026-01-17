@@ -327,6 +327,7 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_albums",
     "FEmusic_library_artists",
     "FEmusic_library_songs",
+    "FEmusic_library_non_music_audio_list",
     "FEmusic_recently_played",
     "FEmusic_offline",
     "FEmusic_library_privately_owned_landing",

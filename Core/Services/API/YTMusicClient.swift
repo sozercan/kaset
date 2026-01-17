@@ -1090,6 +1090,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             "target": ["playlistId": playlistId],
         ]
 
+        self.logger.debug("Calling like/removelike with playlistId=\(playlistId)")
         _ = try await self.request("like/removelike", body: body)
         self.logger.info("Successfully unsubscribed from podcast \(showId)")
 

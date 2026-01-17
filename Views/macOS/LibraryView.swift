@@ -27,6 +27,7 @@ struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(LibraryViewModel.self) private var libraryViewModelEnv: LibraryViewModel?
     @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var navigationPath = NavigationPath()
@@ -66,8 +67,9 @@ struct LibraryView: View {
                     )
                 )
             }
-            .navigationDestination(for: PodcastShow.self) { show in
+            .navigationDestination(for: PodcastShow.self) { [libraryViewModelEnv] show in
                 PodcastShowView(show: show, client: self.viewModel.client)
+                    .environment(libraryViewModelEnv)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

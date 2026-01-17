@@ -240,6 +240,7 @@ struct PodcastShowView: View {
     let client: any YTMusicClientProtocol
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
 
     @State private var episodes: [PodcastEpisode] = []
     @State private var continuationToken: String?
@@ -459,27 +460,25 @@ struct PodcastShowView: View {
         self.isSubscribing = true
         defer { self.isSubscribing = false }
 
+        DiagnosticsLogger.api.debug("toggleSubscription called, isSubscribed=\(self.isSubscribed), showId=\(self.show.id)")
+
         do {
             if self.isSubscribed {
-                try await self.client.unsubscribeFromPodcast(showId: self.show.id)
+                try await SongActionsHelper.unsubscribeFromPodcast(
+                    self.show,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isSubscribed = false
-                // Update LibraryViewModel for immediate UI update in library view
-                if let libraryVM = LibraryViewModel.shared {
-                    libraryVM.removeFromLibrary(podcastId: self.show.id)
-                } else {
-                    DiagnosticsLogger.api.warning(
-                        "LibraryViewModel.shared is nil - library UI may be stale after unsubscribing from podcast")
-                }
+                DiagnosticsLogger.api.debug("Unsubscribe completed, isSubscribed now=\(self.isSubscribed)")
             } else {
-                try await self.client.subscribeToPodcast(showId: self.show.id)
+                try await SongActionsHelper.subscribeToPodcast(
+                    self.show,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isSubscribed = true
-                // Update LibraryViewModel for immediate UI update in library view
-                if let libraryVM = LibraryViewModel.shared {
-                    libraryVM.addToLibrary(podcast: self.show)
-                } else {
-                    DiagnosticsLogger.api.warning(
-                        "LibraryViewModel.shared is nil - library UI may be stale after subscribing to podcast")
-                }
+                DiagnosticsLogger.api.debug("Subscribe completed, isSubscribed now=\(self.isSubscribed)")
             }
         } catch {
             let errorMessage = error.localizedDescription

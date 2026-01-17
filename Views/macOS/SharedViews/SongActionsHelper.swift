@@ -75,6 +75,31 @@ enum SongActionsHelper {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
         }
     }
+
+    /// Subscribes to a podcast show (adds to library).
+    static func subscribeToPodcast(
+        _ show: PodcastShow,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        try await client.subscribeToPodcast(showId: show.id)
+        libraryViewModel?.addToLibrarySet(podcastId: show.id)
+        await libraryViewModel?.refresh()
+        DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
+    }
+
+    /// Unsubscribes from a podcast show (removes from library).
+    static func unsubscribeFromPodcast(
+        _ show: PodcastShow,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
+        try await client.unsubscribeFromPodcast(showId: show.id)
+        libraryViewModel?.removeFromLibrarySet(podcastId: show.id)
+        await libraryViewModel?.refresh()
+        DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
+    }
 }
 
 // MARK: - LikeDislikeContextMenu

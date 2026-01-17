@@ -7,6 +7,7 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
 
     func body(content: Content) -> some View {
         content
@@ -69,8 +70,9 @@ struct NavigationDestinationsModifier: ViewModifier {
                     client: self.client
                 ))
             }
-            .navigationDestination(for: PodcastShow.self) { show in
+            .navigationDestination(for: PodcastShow.self) { [libraryViewModel] show in
                 PodcastShowView(show: show, client: self.client)
+                    .environment(libraryViewModel)
             }
     }
 }
