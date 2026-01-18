@@ -967,7 +967,6 @@ let result = try await RetryPolicy.execute(
     try await client.fetchData()
 }
 ```
-```
 
 ---
 
