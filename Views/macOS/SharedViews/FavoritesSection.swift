@@ -34,7 +34,7 @@ struct FavoritesSection: View {
                                 .opacity(0.8)
                         }
                         .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
-                            return self.handleDrop(droppedItems, on: item)
+                            self.handleDrop(droppedItems, on: item)
                         }
                         .contextMenu {
                             self.contextMenu(for: item)
