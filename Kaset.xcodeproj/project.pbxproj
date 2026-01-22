@@ -187,6 +187,8 @@
 		SLS0000100000001 /* SongLikeStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SLS0000200000001 /* SongLikeStatusManager.swift */; };
 		URL0000100000001 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000001 /* URLHandler.swift */; };
 		URL0000100000002 /* URLHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000002 /* URLHandlerTests.swift */; };
+		SCR0000100000001 /* Kaset.sdef in Resources */ = {isa = PBXBuildFile; fileRef = SCR0000200000001 /* Kaset.sdef */; };
+		SCR0000100000002 /* ScriptCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCR0000200000002 /* ScriptCommands.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -394,6 +396,8 @@
 		SLS0000200000001 /* SongLikeStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLikeStatusManager.swift; sourceTree = "<group>"; };
 		URL0000200000001 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
 		URL0000200000002 /* URLHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandlerTests.swift; sourceTree = "<group>"; };
+		SCR0000200000001 /* Kaset.sdef */ = {isa = PBXFileReference; lastKnownFileType = text.sdef; path = Kaset.sdef; sourceTree = "<group>"; };
+		SCR0000200000002 /* ScriptCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptCommands.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -562,6 +566,7 @@
 				E50000020000000000000001 /* KasetApp.swift */,
 				E50000020000000000000002 /* Assets.xcassets */,
 				E50000020000000000000003 /* Kaset.entitlements */,
+				SCR0000200000001 /* Kaset.sdef */,
 				5EED7AE0758BC04F43AD72BB /* VideoWindowController.swift */,
 			);
 			path = App;
@@ -638,6 +643,7 @@
 				E50000060000000000000022 /* Auth */,
 				E50000060000000000000025 /* Notification */,
 				E50000060000000000000023 /* Player */,
+				SCR0000600000001 /* Scripting */,
 				E50000060000000000000024 /* WebKit */,
 				E50000020000000000000200 /* Protocols.swift */,
 				E50000020000000000000502 /* UpdaterService.swift */,
@@ -716,6 +722,14 @@
 				EB9C4422DFE12C15B9CBE844 /* AccountsListParser.swift */,
 			);
 			path = Parsers;
+			sourceTree = "<group>";
+		};
+		SCR0000600000001 /* Scripting */ = {
+			isa = PBXGroup;
+			children = (
+				SCR0000200000002 /* ScriptCommands.swift */,
+			);
+			path = Scripting;
 			sourceTree = "<group>";
 		};
 		E50000060000000000000030 /* ViewModels */ = {
@@ -970,6 +984,7 @@
 			files = (
 				E50000010000000000000002 /* Assets.xcassets in Resources */,
 				C8E5397A2EF7A65A0032CA24 /* kaset.icon in Resources */,
+				SCR0000100000001 /* Kaset.sdef in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1113,6 +1128,7 @@
 				D00FA32826CAC950B46D1A25 /* AccountSwitcherPopover.swift in Sources */,
 				BB9015B490D3697FF15B95C7 /* AccountRowView.swift in Sources */,
 				603D8E6C1950DADF3DDA3563 /* ToastView.swift in Sources */,
+				SCR0000100000002 /* ScriptCommands.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

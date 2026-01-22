@@ -8,6 +8,8 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
+    /// Shared instance for AppleScript access. Set by KasetApp on init.
+    static var shared: PlayerService?
     /// Current playback state.
     enum PlaybackState: Equatable, Sendable {
         case idle

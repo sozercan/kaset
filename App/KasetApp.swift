@@ -88,6 +88,9 @@ struct KasetApp: App {
         player.setYTMusicClient(client)
         SongLikeStatusManager.shared.setClient(client)
 
+        // Set shared instance for AppleScript access
+        PlayerService.shared = player
+
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth)
 
@@ -125,10 +128,12 @@ struct KasetApp: App {
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
-                    .task {
-                        // Wire up PlayerService to AppDelegate for dock menu actions
+                    .onAppear {
+                        // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
+                        // This runs synchronously so AppleScript commands can access playerService immediately
                         self.appDelegate.playerService = self.playerService
-
+                    }
+                    .task {
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
 
