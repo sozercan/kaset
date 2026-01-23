@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-// MARK: - AppleScript Commands
+// MARK: - PlayCommand
 
 /// Play command: start or resume playback.
 @objc(KasetPlayCommand)
@@ -15,6 +15,8 @@ final class PlayCommand: NSScriptCommand {
     }
 }
 
+// MARK: - PauseCommand
+
 /// Pause command: pause playback.
 @objc(KasetPauseCommand)
 final class PauseCommand: NSScriptCommand {
@@ -26,6 +28,8 @@ final class PauseCommand: NSScriptCommand {
         return nil
     }
 }
+
+// MARK: - PlayPauseCommand
 
 /// PlayPause command: toggle play/pause state.
 @objc(KasetPlayPauseCommand)
@@ -39,6 +43,8 @@ final class PlayPauseCommand: NSScriptCommand {
     }
 }
 
+// MARK: - NextTrackCommand
+
 /// NextTrack command: skip to the next track.
 @objc(KasetNextTrackCommand)
 final class NextTrackCommand: NSScriptCommand {
@@ -51,6 +57,8 @@ final class NextTrackCommand: NSScriptCommand {
     }
 }
 
+// MARK: - PreviousTrackCommand
+
 /// PreviousTrack command: go to the previous track.
 @objc(KasetPreviousTrackCommand)
 final class PreviousTrackCommand: NSScriptCommand {
@@ -62,6 +70,8 @@ final class PreviousTrackCommand: NSScriptCommand {
         return nil
     }
 }
+
+// MARK: - SetVolumeCommand
 
 /// SetVolume command: set the playback volume (0-100).
 @objc(KasetSetVolumeCommand)
@@ -82,6 +92,8 @@ final class SetVolumeCommand: NSScriptCommand {
     }
 }
 
+// MARK: - ToggleShuffleCommand
+
 /// ToggleShuffle command: toggle shuffle mode.
 @objc(KasetToggleShuffleCommand)
 final class ToggleShuffleCommand: NSScriptCommand {
@@ -93,6 +105,8 @@ final class ToggleShuffleCommand: NSScriptCommand {
         return nil
     }
 }
+
+// MARK: - CycleRepeatCommand
 
 /// CycleRepeat command: cycle through repeat modes (off, all, one).
 @objc(KasetCycleRepeatCommand)
@@ -106,6 +120,8 @@ final class CycleRepeatCommand: NSScriptCommand {
     }
 }
 
+// MARK: - ToggleMuteCommand
+
 /// ToggleMute command: toggle mute state.
 @objc(KasetToggleMuteCommand)
 final class ToggleMuteCommand: NSScriptCommand {
@@ -118,24 +134,26 @@ final class ToggleMuteCommand: NSScriptCommand {
     }
 }
 
+// MARK: - GetPlayerInfoCommand
+
 /// GetPlayerInfo command: returns current player state as JSON.
 @objc(KasetGetPlayerInfoCommand)
 final class GetPlayerInfoCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
         // AppleScript runs on main thread, so we can assume MainActor isolation
-        let result: String = MainActor.assumeIsolated {
+        let result = MainActor.assumeIsolated {
             guard let playerService = PlayerService.shared else {
                 return "{\"error\": \"Player not available\"}"
             }
 
             let track = playerService.currentTrack
-            let repeatMode: String = switch playerService.repeatMode {
+            let repeatMode = switch playerService.repeatMode {
             case .off: "off"
             case .all: "all"
             case .one: "one"
             }
 
-            let likeStatus: String = switch playerService.currentTrackLikeStatus {
+            let likeStatus = switch playerService.currentTrackLikeStatus {
             case .like: "liked"
             case .dislike: "disliked"
             case .indifferent: "none"
@@ -176,6 +194,8 @@ final class GetPlayerInfoCommand: NSScriptCommand {
     }
 }
 
+// MARK: - LikeTrackCommand
+
 /// LikeTrack command: like/unlike the current track.
 @objc(KasetLikeTrackCommand)
 final class LikeTrackCommand: NSScriptCommand {
@@ -187,6 +207,8 @@ final class LikeTrackCommand: NSScriptCommand {
         return nil
     }
 }
+
+// MARK: - DislikeTrackCommand
 
 /// DislikeTrack command: dislike/undislike the current track.
 @objc(KasetDislikeTrackCommand)
