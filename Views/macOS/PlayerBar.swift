@@ -385,13 +385,14 @@ struct PlayerBar: View {
                 HapticService.toggle()
                 self.playerService.showAirPlayPicker()
             } label: {
-                Image(systemName: "airplayaudio")
+                Image(systemName: self.playerService.isAirPlayConnected ? "airplayaudio.circle.fill" : "airplayaudio")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.85))
+                    .foregroundStyle(self.playerService.isAirPlayConnected ? .blue : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
-            .accessibilityLabel("AirPlay")
+            .accessibilityLabel(self.playerService.isAirPlayConnected ? "AirPlay Connected" : "AirPlay")
             .disabled(self.playerService.currentTrack == nil)
 
             Divider()

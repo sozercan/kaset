@@ -155,7 +155,10 @@ extension SingletonPlayerWebView {
 
     /// Show the native AirPlay picker for the WebView's video element.
     func showAirPlayPicker() {
-        guard let webView else { return }
+        guard let webView else {
+            DiagnosticsLogger.airplay.warning("showAirPlayPicker called but webView is nil")
+            return
+        }
 
         let script = """
             (function() {
@@ -168,27 +171,19 @@ extension SingletonPlayerWebView {
                 return 'picker-shown';
             })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    /// Check if AirPlay is currently connected (playing to a wireless target).
-    func checkAirPlayStatus(completion: @escaping (Bool) -> Void) {
-        guard let webView else {
-            completion(false)
-            return
-        }
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video && video.webkitCurrentPlaybackTargetIsWireless) {
-                    return true;
+        webView.evaluateJavaScript(script) { result, error in
+            if let error {
+                DiagnosticsLogger.airplay.error("showAirPlayPicker error: \(error.localizedDescription)")
+            } else if let status = result as? String {
+                switch status {
+                case "no-video":
+                    DiagnosticsLogger.airplay.warning("showAirPlayPicker: no video element available")
+                case "unsupported":
+                    DiagnosticsLogger.airplay.warning("showAirPlayPicker: webkitShowPlaybackTargetPicker not supported")
+                default:
+                    DiagnosticsLogger.airplay.debug("showAirPlayPicker: \(status)")
                 }
-                return false;
-            })();
-        """
-        webView.evaluateJavaScript(script) { result, _ in
-            completion(result as? Bool ?? false)
+            }
         }
     }
 }
