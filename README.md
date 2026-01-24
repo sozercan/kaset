@@ -47,12 +47,6 @@ brew install sozercan/repo/kaset
 > xattr -cr /Applications/Kaset.app
 > ```
 
-## Documentation
-
-- [Keyboard Shortcuts](docs/keyboard-shortcuts.md) — Full list of playback and navigation shortcuts
-- [URL Scheme](docs/url-scheme.md) — Open content directly via `kaset://` URLs
-- [AppleScript Support](docs/applescript.md) — Automate playback with scripts, Raycast, Alfred, and Shortcuts
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and coding guidelines.
