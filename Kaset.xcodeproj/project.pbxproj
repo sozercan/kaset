@@ -189,6 +189,7 @@
 		URL0000100000002 /* URLHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = URL0000200000002 /* URLHandlerTests.swift */; };
 		SCR0000100000001 /* Kaset.sdef in Resources */ = {isa = PBXBuildFile; fileRef = SCR0000200000001 /* Kaset.sdef */; };
 		SCR0000100000002 /* ScriptCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCR0000200000002 /* ScriptCommands.swift */; };
+		SCR0000100000003 /* ScriptCommandsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCR0000200000003 /* ScriptCommandsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -398,6 +399,7 @@
 		URL0000200000002 /* URLHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandlerTests.swift; sourceTree = "<group>"; };
 		SCR0000200000001 /* Kaset.sdef */ = {isa = PBXFileReference; lastKnownFileType = text.sdef; path = Kaset.sdef; sourceTree = "<group>"; };
 		SCR0000200000002 /* ScriptCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptCommands.swift; sourceTree = "<group>"; };
+		SCR0000200000003 /* ScriptCommandsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptCommandsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -835,6 +837,7 @@
 				SHR0000200000003 /* ShareableTests.swift */,
 				URL0000200000002 /* URLHandlerTests.swift */,
 				418DD8ACFEDBAD9842774030 /* VideoSupportTests.swift */,
+				SCR0000200000003 /* ScriptCommandsTests.swift */,
 			);
 			path = KasetTests;
 			sourceTree = "<group>";
@@ -1170,6 +1173,7 @@
 				SHR0000100000003 /* ShareableTests.swift in Sources */,
 				URL0000100000002 /* URLHandlerTests.swift in Sources */,
 				7B2A2E583CDC6227337B5532 /* VideoSupportTests.swift in Sources */,
+				SCR0000100000003 /* ScriptCommandsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

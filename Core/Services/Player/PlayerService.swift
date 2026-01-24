@@ -8,7 +8,15 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
-    /// Shared instance for AppleScript access. Set by KasetApp on init.
+    /// Shared instance for AppleScript access.
+    ///
+    /// **Safety Invariant:** This property is set exactly once during app initialization
+    /// in `KasetApp.init()` before any AppleScript commands can be received, and is never
+    /// modified afterward. The property is `@MainActor`-isolated along with the entire class,
+    /// ensuring thread-safe access from AppleScript commands (which run on the main thread).
+    ///
+    /// AppleScript commands should handle the `nil` case gracefully by returning an error
+    /// to the caller, as there's a brief window during app launch before initialization completes.
     static var shared: PlayerService?
     /// Current playback state.
     enum PlaybackState: Equatable, Sendable {

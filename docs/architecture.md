@@ -14,6 +14,7 @@ Core/               → Shared logic (platform-independent)
   │   ├── API/      → YTMusicClient, Parsers/
   │   ├── Auth/     → AuthService (login state machine)
   │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
+  │   ├── Scripting/→ ScriptCommands (AppleScript integration)
   │   ├── WebKit/   → WebKitManager (cookie persistence)
   │   └── HapticService.swift → Force Touch trackpad haptic feedback
   ├── ViewModels/   → State management (HomeViewModel, etc.)
@@ -340,6 +341,48 @@ Parses YouTube Music and custom `kaset://` URLs:
 
 **Usage**: Called from `KasetApp.onOpenURL` to handle deep links.
 
+### ScriptCommands (AppleScript)
+
+**File**: `Core/Services/Scripting/ScriptCommands.swift`
+
+Provides AppleScript support for external automation via NSScriptCommand subclasses:
+
+| Command Class | AppleScript Command | Description |
+|---------------|---------------------|-------------|
+| `PlayCommand` | `play` | Resume playback |
+| `PauseCommand` | `pause` | Pause playback |
+| `PlayPauseCommand` | `playpause` | Toggle play/pause |
+| `NextTrackCommand` | `next track` | Skip to next track |
+| `PreviousTrackCommand` | `previous track` | Go to previous track |
+| `SetVolumeCommand` | `set volume N` | Set volume (0-100) |
+| `ToggleMuteCommand` | `toggle mute` | Toggle mute state |
+| `ToggleShuffleCommand` | `toggle shuffle` | Toggle shuffle mode |
+| `CycleRepeatCommand` | `cycle repeat` | Cycle repeat (Off → All → One) |
+| `LikeTrackCommand` | `like track` | Like current track |
+| `DislikeTrackCommand` | `dislike track` | Dislike current track |
+| `GetPlayerInfoCommand` | `get player info` | Returns player state as JSON |
+
+**Implementation Details**:
+
+- Commands access `PlayerService.shared` via `MainActor.assumeIsolated` (AppleScript runs on main thread)
+- Synchronous methods (shuffle, repeat, like/dislike) execute directly
+- Async methods (play, pause, volume) spawn detached Tasks
+- All commands return AppleScript errors (`-1728`) if `PlayerService.shared` is nil
+- Logging via `DiagnosticsLogger.scripting`
+
+**Related Files**:
+- `App/Kaset.sdef` — AppleScript dictionary definition
+- `App/Info.plist` — `NSAppleScriptEnabled` and `OSAScriptingDefinition` keys
+
+**Usage**:
+```applescript
+tell application "Kaset"
+    play
+    set volume 50
+    get player info  -- Returns JSON string
+end tell
+```
+
 ### UpdaterService
 
 **File**: `Core/Services/UpdaterService.swift`
@@ -530,7 +573,7 @@ DiagnosticsLogger.player.info("Loading video: \(videoId)")
 DiagnosticsLogger.auth.error("Cookie extraction failed")
 ```
 
-**Categories**: `.player`, `.auth`, `.api`, `.webKit`, `.haptic`, `.notification`
+**Categories**: `.player`, `.auth`, `.api`, `.webKit`, `.haptic`, `.notification`, `.scripting`
 
 **Levels**: `.debug`, `.info`, `.warning`, `.error`
 

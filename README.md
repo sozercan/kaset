@@ -22,6 +22,7 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
 - 🔗 **URL Scheme** — Open songs directly with `kaset://play?v=VIDEO_ID`
+- 🤖 **AppleScript Support** — Automate playback with scripts, Raycast, Alfred, and Shortcuts
 
 ## Requirements
 
@@ -78,6 +79,54 @@ Kaset supports a custom URL scheme for opening content directly:
 ```bash
 # Play a song by video ID
 open "kaset://play?v=dQw4w9WgXcQ"
+```
+
+## AppleScript
+
+Kaset supports AppleScript for automation with tools like Raycast, Alfred, and Shortcuts.
+
+### Available Commands
+
+| Command | Description |
+| ------- | ----------- |
+| `play` | Start or resume playback |
+| `pause` | Pause playback |
+| `playpause` | Toggle play/pause |
+| `next track` | Skip to next track |
+| `previous track` | Go to previous track |
+| `set volume N` | Set volume (0-100) |
+| `toggle mute` | Mute/unmute |
+| `toggle shuffle` | Toggle shuffle mode |
+| `cycle repeat` | Cycle repeat (Off → All → One) |
+| `like track` | Like current track |
+| `dislike track` | Dislike current track |
+| `get player info` | Get player state as JSON |
+
+### Examples
+
+```applescript
+-- Basic playback control
+tell application "Kaset"
+    play
+    set volume 50
+    toggle shuffle
+end tell
+
+-- Get current player state (returns JSON)
+tell application "Kaset"
+    get player info
+end tell
+```
+
+### Shell Usage
+
+```bash
+# Control playback
+osascript -e 'tell application "Kaset" to play'
+osascript -e 'tell application "Kaset" to set volume 75'
+
+# Get player info as JSON
+osascript -e 'tell application "Kaset" to get player info'
 ```
 
 ## Contributing
