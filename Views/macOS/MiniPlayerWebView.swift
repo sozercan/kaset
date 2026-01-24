@@ -296,6 +296,8 @@ final class SingletonPlayerWebView {
     }
 
     /// Load a video, stopping any currently playing audio first.
+    /// Note: This uses full page navigation which destroys the video element.
+    /// AirPlay connections will be lost but the auto-reconnect picker will appear.
     func loadVideo(videoId: String) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
@@ -341,9 +343,24 @@ final class SingletonPlayerWebView {
 
         func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: Any],
-                  let type = body["type"] as? String,
-                  type == "STATE_UPDATE"
+                  let type = body["type"] as? String
             else { return }
+
+            // Handle AirPlay status updates
+            if type == "AIRPLAY_STATUS" {
+                let isConnected = body["isConnected"] as? Bool ?? false
+                let wasRequested = body["wasRequested"] as? Bool ?? false
+
+                Task { @MainActor in
+                    self.playerService.updateAirPlayStatus(
+                        isConnected: isConnected,
+                        wasRequested: wasRequested
+                    )
+                }
+                return
+            }
+
+            guard type == "STATE_UPDATE" else { return }
 
             let isPlaying = body["isPlaying"] as? Bool ?? false
             let progress = body["progress"] as? Int ?? 0

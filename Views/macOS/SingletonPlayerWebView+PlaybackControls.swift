@@ -152,4 +152,43 @@ extension SingletonPlayerWebView {
             }
         }
     }
+
+    /// Show the native AirPlay picker for the WebView's video element.
+    func showAirPlayPicker() {
+        guard let webView else { return }
+
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) return 'no-video';
+                if (typeof video.webkitShowPlaybackTargetPicker !== 'function') return 'unsupported';
+
+                window.__kasetAirPlayRequested = true;
+                video.webkitShowPlaybackTargetPicker();
+                return 'picker-shown';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Check if AirPlay is currently connected (playing to a wireless target).
+    func checkAirPlayStatus(completion: @escaping (Bool) -> Void) {
+        guard let webView else {
+            completion(false)
+            return
+        }
+
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (video && video.webkitCurrentPlaybackTargetIsWireless) {
+                    return true;
+                }
+                return false;
+            })();
+        """
+        webView.evaluateJavaScript(script) { result, _ in
+            completion(result as? Bool ?? false)
+        }
+    }
 }

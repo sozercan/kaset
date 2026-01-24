@@ -125,6 +125,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// the detection can be unreliable when video mode CSS is active.
     var showVideo: Bool = false
 
+    /// Whether AirPlay is currently connected (playing to a wireless target).
+    private(set) var isAirPlayConnected: Bool = false
+
+    /// Whether the user has requested AirPlay this session (for persistence across track changes).
+    private(set) var airPlayWasRequested: Bool = false
+
     // MARK: - Internal Properties (for extensions)
 
     let logger = DiagnosticsLogger.player
@@ -692,6 +698,20 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
+    }
+
+    /// Show the AirPlay picker for selecting audio output devices.
+    func showAirPlayPicker() {
+        self.airPlayWasRequested = true
+        SingletonPlayerWebView.shared.showAirPlayPicker()
+    }
+
+    /// Updates the AirPlay connection status from the WebView.
+    func updateAirPlayStatus(isConnected: Bool, wasRequested: Bool = false) {
+        self.isAirPlayConnected = isConnected
+        if wasRequested {
+            self.airPlayWasRequested = true
+        }
     }
 
     // MARK: - Private Methods
