@@ -134,6 +134,9 @@ protocol YTMusicClientProtocol: Sendable {
     /// Clears the search continuation token.
     func clearSearchContinuation()
 
+    /// Clears cached continuation/session state when switching accounts.
+    func resetSessionStateForAccountSwitch()
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion]
 
@@ -222,6 +225,10 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches content for a moods/genres category page.
     /// Returns sections of songs/playlists for the category.
     func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse
+
+    /// Fetches the list of available accounts (primary + brand accounts).
+    /// Used for account switching functionality.
+    func fetchAccountsList() async throws -> AccountsListResponse
 }
 
 // MARK: - AuthServiceProtocol

@@ -30,9 +30,16 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 self.placeholder()
             }
         }
+        .onChange(of: self.url) { _, _ in
+            // Reset state when URL changes for proper UX
+            self.image = nil
+            self.isLoaded = false
+        }
         .task(id: self.url) {
             guard let url else { return }
-            self.image = await ImageCache.shared.image(for: url, targetSize: self.targetSize)
+            let loadedImage = await ImageCache.shared.image(for: url, targetSize: self.targetSize)
+            guard !Task.isCancelled else { return }
+            self.image = loadedImage
             self.isLoaded = true
         }
     }

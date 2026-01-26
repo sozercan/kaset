@@ -11,7 +11,6 @@ final class VideoWindowController {
 
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
-    private let logger = DiagnosticsLogger.player
 
     /// Reference to PlayerService to sync showVideo state
     private weak var playerService: PlayerService?
@@ -35,8 +34,6 @@ final class VideoWindowController {
         playerService: PlayerService,
         webKitManager: WebKitManager
     ) {
-        self.logger.debug("VideoWindowController.show() called")
-
         // Store reference to sync state on close
         self.playerService = playerService
 
@@ -45,15 +42,12 @@ final class VideoWindowController {
 
         if let existingWindow = self.window {
             // Window exists - just bring it to front
-            self.logger.debug("Window already exists, bringing to front")
             self.isClosing = false // Reset in case of interrupted close
             existingWindow.makeKeyAndOrderFront(nil)
             // Ensure video mode is active
             SingletonPlayerWebView.shared.updateDisplayMode(.video)
             return
         }
-
-        self.logger.info("Creating new video window")
 
         let contentView = VideoPlayerWindow()
             .environment(playerService)
@@ -101,27 +95,16 @@ final class VideoWindowController {
         )
 
         // Update WebView display mode for video
-        self.logger.info("Calling updateDisplayMode(.video)")
         SingletonPlayerWebView.shared.updateDisplayMode(.video)
     }
 
     /// Closes the video window programmatically (called when showVideo becomes false).
     func close() {
-        self.logger.debug("VideoWindowController.close() called")
-
         // Prevent re-entrant calls
-        guard !self.isClosing else {
-            self.logger.debug("Already closing, skipping")
-            return
-        }
-
-        guard let window = self.window else {
-            self.logger.debug("No window to close")
-            return
-        }
+        guard !self.isClosing else { return }
+        guard let window = self.window else { return }
 
         self.isClosing = true
-        self.logger.info("Closing video window")
 
         // Remove observer before closing to prevent windowWillClose from firing
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
@@ -139,13 +122,8 @@ final class VideoWindowController {
 
     /// Called when window is closed via the red X button.
     @objc private func windowWillClose(_ notification: Notification) {
-        self.logger.info("windowWillClose notification received")
-
         // Prevent re-entrant calls
-        guard !self.isClosing else {
-            self.logger.debug("Already closing, skipping windowWillClose")
-            return
-        }
+        guard !self.isClosing else { return }
         self.isClosing = true
 
         // Update corner based on final position
@@ -160,15 +138,12 @@ final class VideoWindowController {
         // Sync PlayerService state - this handles close via red button
         // This will trigger MainWindow.onChange which calls close(), but isClosing prevents re-entry
         if self.playerService?.showVideo == true {
-            self.logger.debug("Syncing playerService.showVideo to false")
             self.playerService?.showVideo = false
         }
     }
 
     /// Shared cleanup logic for both close paths.
     private func performCleanup() {
-        self.logger.debug("performCleanup called")
-
         // Clear grace period
         self.playerService?.videoWindowDidClose()
 

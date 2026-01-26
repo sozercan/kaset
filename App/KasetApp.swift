@@ -55,11 +55,12 @@ struct KasetApp: App {
     @State private var authService = AuthService()
     @State private var webKitManager = WebKitManager.shared
     @State private var playerService = PlayerService()
-    @State private var ytMusicClient: YTMusicClient?
+    @State private var sharedClient: any YTMusicClientProtocol
     @State private var notificationService: NotificationService?
     @State private var updaterService = UpdaterService()
     @State private var favoritesManager = FavoritesManager.shared
     @State private var likeStatusManager = SongLikeStatusManager.shared
+    @State private var accountService: AccountService?
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -87,11 +88,23 @@ struct KasetApp: App {
         player.setYTMusicClient(client)
         SongLikeStatusManager.shared.setClient(client)
 
+        // Set shared instance for AppleScript access
+        PlayerService.shared = player
+
+        // Create account service
+        let account = AccountService(ytMusicClient: client, authService: auth)
+
+        // Wire up brand account provider so API requests use the correct account
+        realClient.brandIdProvider = { [weak account] in
+            account?.currentBrandId
+        }
+
         _authService = State(initialValue: auth)
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
-        _ytMusicClient = State(initialValue: UITestConfig.isUITestMode ? nil : realClient)
+        _sharedClient = State(initialValue: client)
         _notificationService = State(initialValue: NotificationService(playerService: player))
+        _accountService = State(initialValue: account)
 
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")
@@ -105,21 +118,27 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
-                MainWindow(navigationSelection: self.$navigationSelection)
+                MainWindow(navigationSelection: self.$navigationSelection, client: self.sharedClient)
                     .environment(self.authService)
                     .environment(self.webKitManager)
                     .environment(self.playerService)
                     .environment(self.favoritesManager)
                     .environment(self.likeStatusManager)
+                    .environment(self.accountService)
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
-                    .task {
-                        // Wire up PlayerService to AppDelegate for dock menu actions
+                    .onAppear {
+                        // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
+                        // This runs synchronously so AppleScript commands can access playerService immediately
                         self.appDelegate.playerService = self.playerService
-
+                    }
+                    .task {
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
+
+                        // Fetch accounts after login check (for account switcher)
+                        await self.accountService?.fetchAccounts()
 
                         // Warm up Foundation Models in background
                         await FoundationModelsService.shared.warmup()
@@ -263,6 +282,34 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut("k", modifiers: .command)
             }
+
+            // Window menu - show main window
+            CommandGroup(after: .windowArrangement) {
+                Button("Kaset") {
+                    self.showMainWindow()
+                }
+                .keyboardShortcut("0", modifiers: .command)
+            }
+        }
+    }
+
+    /// Shows the main window.
+    private func showMainWindow() {
+        // Find and show the main window
+        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // Fallback: find any main-capable window that's not the video window
+        for window in NSApplication.shared.windows where window.canBecomeMain {
+            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+                continue
+            }
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
         }
     }
 

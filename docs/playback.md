@@ -29,10 +29,10 @@ Our solution: A **singleton WebView** that loads YouTube Music watch pages and p
 @MainActor
 final class SingletonPlayerWebView {
     static let shared = SingletonPlayerWebView()
-    
+
     private(set) var webView: WKWebView?
     var currentVideoId: String?
-    
+
     func getWebView(webKitManager:, playerService:) -> WKWebView
     func loadVideo(videoId: String)
 }
@@ -77,12 +77,12 @@ if let videoId = playerService.pendingPlayVideoId {
 ```swift
 func makeNSView(context: Context) -> NSView {
     let webView = SingletonPlayerWebView.shared.getWebView(...)
-    
+
     // Load if different video
     if SingletonPlayerWebView.shared.currentVideoId != videoId {
         webView.load(URLRequest(url: watchURL))
     }
-    
+
     return container
 }
 ```
@@ -124,10 +124,10 @@ When user plays a different track:
 ```swift
 func loadVideo(videoId: String) {
     guard videoId != currentVideoId else { return }
-    
+
     // Update ID immediately to prevent duplicate loads
     currentVideoId = videoId
-    
+
     // Pause current, load new
     webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in
         self.webView?.load(URLRequest(url: watchURL))
@@ -191,7 +191,7 @@ Injected into every watch page:
 (function() {
     'use strict';
     const bridge = window.webkit.messageHandlers.singletonPlayer;
-    
+
     function waitForPlayerBar() {
         const playerBar = document.querySelector('ytmusic-player-bar');
         if (playerBar) {
@@ -200,7 +200,7 @@ Injected into every watch page:
         }
         setTimeout(waitForPlayerBar, 500);
     }
-    
+
     function setupObserver(playerBar) {
         const observer = new MutationObserver(sendUpdate);
         observer.observe(playerBar, {
@@ -210,12 +210,12 @@ Injected into every watch page:
         sendUpdate();
         setInterval(sendUpdate, 1000);
     }
-    
+
     function sendUpdate() {
         const playPauseBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
         const isPlaying = playPauseBtn?.getAttribute('title') === 'Pause';
         const progressBar = document.querySelector('#progress-bar');
-        
+
         bridge.postMessage({
             type: 'STATE_UPDATE',
             isPlaying: isPlaying,
@@ -223,7 +223,7 @@ Injected into every watch page:
             duration: parseInt(progressBar?.getAttribute('aria-valuemax') || '0')
         });
     }
-    
+
     waitForPlayerBar();
 })();
 ```
@@ -234,7 +234,7 @@ Injected into every watch page:
 func userContentController(_:, didReceive message: WKScriptMessage) {
     guard let body = message.body as? [String: Any],
           body["type"] as? String == "STATE_UPDATE" else { return }
-    
+
     Task { @MainActor in
         playerService.updatePlaybackState(
             isPlaying: body["isPlaying"] as? Bool ?? false,

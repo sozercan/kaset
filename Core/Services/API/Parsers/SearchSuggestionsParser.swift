@@ -2,6 +2,8 @@ import Foundation
 
 /// Parser for search suggestions responses from YouTube Music API.
 enum SearchSuggestionsParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Parses a search suggestions response.
     /// - Parameter data: The raw JSON response from the API.
     /// - Returns: An array of search suggestions.
@@ -10,6 +12,7 @@ enum SearchSuggestionsParser {
 
         // Navigate to contents array
         guard let contents = data["contents"] as? [[String: Any]] else {
+            Self.logger.debug("SearchSuggestionsParser: No contents array found. Top keys: \(data.keys.sorted())")
             return suggestions
         }
 

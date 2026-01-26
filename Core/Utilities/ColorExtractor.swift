@@ -109,13 +109,14 @@ enum ColorExtractor {
     /// Extracts palette from image data off the main actor.
     /// - Parameter data: Raw image data.
     /// - Returns: Extracted color palette.
-    @MainActor
     static func extractPalette(from data: Data) async -> ColorPalette {
-        await Task.detached(priority: .userInitiated) {
+        // Perform CPU-intensive color extraction off the main actor.
+        // This prevents UI jank during image processing.
+        await Task(priority: .userInitiated) {
             guard let image = NSImage(data: data) else {
                 return ColorPalette.default
             }
-            return self.extractPalette(from: image)
+            return Self.extractPalette(from: image)
         }.value
     }
 

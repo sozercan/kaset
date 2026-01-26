@@ -193,12 +193,8 @@ final class FoundationModelsService {
 
         let session = LanguageModelSession()
 
-        do {
-            // Use the official prewarm API instead of sending a dummy prompt
-            try await session.prewarm()
-            self.logger.debug("Foundation Models prewarm completed successfully")
-        } catch {
-            self.logger.error("Failed to prewarm session: \(error.localizedDescription)")
-        }
+        // Use the official prewarm API to load model resources
+        await session.prewarm()
+        self.logger.debug("Foundation Models prewarm completed successfully")
     }
 }

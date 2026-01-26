@@ -2,6 +2,30 @@
 
 <!-- Provide a brief description of the changes in this PR -->
 
+## AI Prompt (Optional)
+
+<!-- 
+If this PR was generated with AI assistance (GitHub Copilot, Claude, Cursor, etc.), 
+share the prompt that created these changes. This helps reviewers:
+- Understand your intent better than code alone
+- Validate the approach before reviewing implementation
+- Run the prompt themselves to verify or iterate
+
+If you want to submit a "prompt request" (prompt-only, no code), please open a
+new issue using the "Prompt Request" issue template instead of a pull request.
+-->
+
+<details>
+<summary>🤖 AI Prompt Used</summary>
+
+```
+<!-- Paste your prompt here, or write "N/A - Manual implementation" -->
+```
+
+**AI Tool:** <!-- e.g., GitHub Copilot, Claude, Cursor -->
+
+</details>
+
 ## Type of Change
 
 <!-- Mark the relevant option with an 'x' -->

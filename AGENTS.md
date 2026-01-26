@@ -49,10 +49,9 @@ For detailed information, see the `docs/` folder:
 
 ## Before You Start
 
-1. **Read [PLAN.md](PLAN.md)** — Contains the phased implementation plan
-2. **Understand the playback architecture** — See [docs/playback.md](docs/playback.md)
-3. **Check ADRs for past decisions** — See [docs/adr/](docs/adr/) before proposing architectural changes
-4. **Consult API documentation before implementing API features** — See [docs/api-discovery.md](docs/api-discovery.md) for endpoint reference
+1. **Understand the playback architecture** — See [docs/playback.md](docs/playback.md)
+2. **Check ADRs for past decisions** — See [docs/adr/](docs/adr/) before proposing architectural changes
+3. **Consult API documentation before implementing API features** — See [docs/api-discovery.md](docs/api-discovery.md) for endpoint reference
 
 ### API Discovery Workflow
 
@@ -96,7 +95,7 @@ Review [docs/api-discovery.md](docs/api-discovery.md) to see if the endpoint is 
 If the endpoint requires authentication:
 1. Run `./Tools/api-explorer.swift auth` to check cookie status
 2. If no cookies, run the Kaset app and sign in to YouTube Music
-3. The app saves cookies to `~/Library/Application Support/Kaset/cookies.dat`
+3. The app stores cookies in Keychain; Debug builds also export cookies to `~/Library/Application Support/Kaset/cookies.dat` for tooling
 4. Run the API explorer again
 
 #### Step 4: Document Findings
@@ -119,6 +118,8 @@ If you discover new response structures or endpoint behaviors, update [docs/api-
 
 > 📝 **Document Architectural Decisions** — For significant design changes, create an ADR in `docs/adr/` following the format in [docs/adr/README.md](docs/adr/README.md).
 
+> 🤖 **Document Your Prompts** — When completing a task, summarize the key prompt(s) used so the human can include them in the PR. This supports the project's "prompt request" workflow where prompts are reviewed alongside (or instead of) code. See [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests).
+
 > ⚡ **Performance Awareness** — For non-trivial features, run performance tests and verify no anti-patterns. When adding parsers or API calls, include `measure {}` tests.
 
 > 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Tools/api-explorer.swift`** instead of writing temporary scripts. This ensures the tool grows with the project, maintains consistency, and provides reusable functionality for future API work. If you need to fetch raw JSON, test a new endpoint, or debug response parsing, add that capability to the API explorer.
@@ -140,7 +141,7 @@ swiftlint --strict && swiftformat .
 > ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. This means:
 > - In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`)
 > - In instance methods, use `self.property` explicitly
-> 
+>
 > Always run `swiftformat .` before completing work to auto-fix these issues.
 
 ### Modern SwiftUI APIs
@@ -186,6 +187,177 @@ swiftlint --strict && swiftformat .
 
 - Mark `@Observable` classes with `@MainActor`
 - Never use `DispatchQueue` — use `async`/`await`, `MainActor`
+
+### Common Bug Patterns to Avoid
+
+These patterns have caused bugs in this codebase. **Always check for these during code review.**
+
+#### ❌ Fire-and-Forget Tasks
+
+```swift
+// ❌ BAD: Task not tracked, errors lost, can't cancel
+func likeTrack() {
+    Task { await api.like(trackId) }
+}
+
+// ✅ GOOD: Track task, handle errors, support cancellation
+private var likeTask: Task<Void, Error>?
+
+func likeTrack() async throws {
+    likeTask?.cancel()
+    likeTask = Task {
+        try await api.like(trackId)
+    }
+    try await likeTask?.value
+}
+```
+
+#### ❌ Optimistic Updates Without Proper Rollback
+
+```swift
+// ❌ BAD: CancellationError not handled, cache permanently wrong
+func rate(_ song: Song, status: LikeStatus) async {
+    let previous = cache[song.id]
+    cache[song.id] = status  // Optimistic update
+    do {
+        try await api.rate(song.id, status)
+    } catch {
+        cache[song.id] = previous  // Doesn't run on cancellation!
+    }
+}
+
+// ✅ GOOD: Handle ALL errors including cancellation
+func rate(_ song: Song, status: LikeStatus) async {
+    let previous = cache[song.id]
+    cache[song.id] = status
+    do {
+        try await api.rate(song.id, status)
+    } catch let error as CancellationError {
+        cache[song.id] = previous  // Rollback on cancel
+        throw error  // Propagate original cancellation
+    } catch {
+        cache[song.id] = previous  // Rollback on error
+        throw error
+    }
+}
+```
+
+#### ❌ Static Shared Singletons with Mutable Assignment
+
+```swift
+// ❌ BAD: Race condition if multiple instances created
+class LibraryViewModel {
+    static var shared: LibraryViewModel?
+    init() { Self.shared = self }  // Overwrites previous!
+}
+
+// ✅ GOOD: Use SwiftUI Environment for dependency injection
+@Observable @MainActor
+class LibraryViewModel { /* ... */ }
+
+// In parent view:
+.environment(libraryViewModel)
+
+// In child view:
+@Environment(LibraryViewModel.self) var viewModel
+```
+
+#### ❌ `.onAppear` Instead of `.task` for Async Work
+
+```swift
+// ❌ BAD: Task not cancelled on disappear, can update stale view
+.onAppear {
+    Task { await viewModel.load() }
+}
+
+// ✅ GOOD: Lifecycle-managed, auto-cancelled on disappear
+.task {
+    await viewModel.load()
+}
+
+// ✅ GOOD: With ID for re-execution on change
+.task(id: playlistId) {
+    await viewModel.load(playlistId)
+}
+```
+
+#### ❌ ForEach with Unstable Identity
+
+```swift
+// ❌ BAD: Index-based identity causes wrong views during mutations
+ForEach(tracks.indices, id: \.self) { index in
+    TrackRow(track: tracks[index])
+}
+
+// ❌ BAD: Array enumeration recreates identity on every change
+ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+    TrackRow(track: track, rank: index + 1)
+}
+
+// ✅ GOOD: Use stable model identity
+ForEach(tracks) { track in
+    TrackRow(track: track)
+}
+
+// ✅ GOOD: If you need index for display (charts), use element ID
+ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+    TrackRow(track: track, rank: index + 1)
+}
+```
+
+#### ❌ Background Tasks Not Cancelled on Deinit
+
+```swift
+// ❌ BAD: Task continues after ViewModel is deallocated
+@Observable @MainActor
+class HomeViewModel {
+    private var backgroundTask: Task<Void, Never>?
+    
+    func startLoading() {
+        backgroundTask = Task { /* ... */ }
+    }
+    // Missing deinit cleanup!
+}
+
+// ✅ GOOD: Cancel tasks in deinit
+@Observable @MainActor
+class HomeViewModel {
+    private var backgroundTask: Task<Void, Never>?
+    
+    func startLoading() {
+        backgroundTask?.cancel()
+        backgroundTask = Task { [weak self] in
+            guard !Task.isCancelled else { return }
+            // ...
+        }
+    }
+    
+    deinit {
+        backgroundTask?.cancel()
+    }
+}
+```
+
+#### ❌ Shared Continuation Tokens Across Different Requests
+
+```swift
+// ❌ BAD: Single token for all search types causes conflicts
+class YTMusicClient {
+    private var searchContinuationToken: String?  // Shared!
+    
+    func searchSongs() { /* sets token */ }
+    func searchAlbums() { /* overwrites token! */ }
+}
+
+// ✅ GOOD: Scope tokens by request type or return in response
+class YTMusicClient {
+    private var continuationTokens: [String: String] = [:]
+    
+    func searchSongs() -> (songs: [Song], continuation: String?) {
+        // Return token with response, let caller manage
+    }
+}
+```
 
 ### WebKit Patterns
 
@@ -257,8 +429,25 @@ Before completing non-trivial features, verify:
 - [ ] Lists use `LazyVStack`/`LazyHStack` for large datasets
 - [ ] Network calls cancelled on view disappear (`.task` handles this)
 - [ ] Parsers have `measure {}` tests if processing large payloads
-- [ ] Images use `ImageCache` (not loading inline)
+- [ ] Images use `ImageCache` with appropriate `targetSize` (not loading inline)
 - [ ] Search input is debounced (not firing on every keystroke)
+- [ ] ForEach uses stable identity (avoid `Array(enumerated())` unless rank is needed)
+- [ ] Frequently updating UI (e.g., progress) caches formatted strings
+
+## Concurrency Safety Checklist
+
+Before completing features with async code, verify:
+
+- [ ] No fire-and-forget `Task { }` without error handling
+- [ ] Optimistic updates handle `CancellationError` explicitly
+- [ ] Background tasks cancelled in `deinit`
+- [ ] Using `.task` instead of `.onAppear { Task { } }`
+- [ ] Continuation tokens scoped per-request (not shared across types)
+- [ ] No `static var shared` pattern with mutable assignment in `init`
+- [ ] WebView message handlers removed in `dismantleNSView`
+- [ ] `WKNavigationDelegate` implements `webViewWebContentProcessDidTerminate`
+
+> 📚 See [docs/architecture.md#performance-guidelines](docs/architecture.md#performance-guidelines) for detailed patterns.
 
 ## Task Planning: Phases with Exit Criteria
 
@@ -337,3 +526,66 @@ After each phase, briefly report:
 - ➡️ Next phase plan
 
 This keeps the human informed and provides natural points to course-correct.
+
+## Subagents (Context-Isolated Tasks)
+
+VS Code's `#runSubagent` tool enables context-isolated task execution. Subagents run independently with their own context, preventing context confusion in complex tasks.
+
+### When to Use Subagents
+
+| Task Type | Use Subagent? | Rationale |
+|-----------|---------------|-----------|
+| Research API endpoints | ✅ Yes | Keeps raw JSON exploration out of main context |
+| Analyze unfamiliar code areas | ✅ Yes | Deep dives don't pollute main conversation |
+| Review a single file for patterns | ✅ Yes | Focused analysis, returns summary only |
+| Generate test fixtures | ✅ Yes | Boilerplate generation isolated from design discussion |
+| Simple edits to known files | ❌ No | Direct action is faster |
+| Multi-step refactoring | ❌ No | Needs continuous context across steps |
+| Tasks requiring user feedback | ❌ No | Subagents don't pause for input |
+
+### Subagent Prompts for This Project
+
+**API Research** — Explore an endpoint before implementing:
+```
+Analyze the YouTube Music API endpoint structure for #file:docs/api-discovery.md with #runSubagent.
+Focus on FEmusic_liked_playlists response format and identify all playlist item fields.
+Return a summary of the response structure suitable for writing a parser.
+```
+
+**Code Pattern Analysis** — Understand existing patterns:
+```
+With #runSubagent, analyze #file:Core/Services/API/YTMusicClient.swift and identify:
+1. How authenticated requests are constructed
+2. Error handling patterns
+3. How parsers are invoked
+Return a concise pattern guide for adding a new endpoint method.
+```
+
+**Parser Stub Generation** — Generate boilerplate:
+```
+Using #runSubagent, generate a Swift parser struct following the pattern in #file:Core/Services/API/Parsers/
+for parsing a "moods and genres" API response with categories containing playlists.
+Return only the struct definition with placeholder parsing logic.
+```
+
+**Performance Audit** — Isolated deep dive:
+```
+With #runSubagent, audit #file:Views/macOS/LibraryView.swift for SwiftUI performance issues.
+Check for: await in ForEach, missing LazyVStack, inline image loading, excessive state updates.
+Return a prioritized list of issues with line numbers.
+```
+
+### Subagent Best Practices
+
+1. **Be specific in prompts** — Subagents don't have conversation history; include all necessary context
+2. **Request structured output** — Ask for summaries, lists, or code snippets that integrate cleanly
+3. **Use for exploration, not execution** — Subagents are great for research; keep edits in main context
+4. **Combine with file references** — Use `#file:path` to give subagents focused context
+5. **Review before integrating** — Subagent results join main context; verify accuracy first
+
+### Anti-Patterns
+
+- ❌ Using subagents for quick lookups (overhead not worth it)
+- ❌ Chaining multiple subagents (use main context for multi-step work)
+- ❌ Expecting subagents to remember previous subagent results
+- ❌ Using subagents for tasks requiring user clarification

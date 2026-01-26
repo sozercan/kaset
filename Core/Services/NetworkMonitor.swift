@@ -61,6 +61,7 @@ final class NetworkMonitor {
         }
     }
 
+    /// NWPathMonitor is Sendable and immutable, so no isolation annotation needed.
     private let monitor: NWPathMonitor
     private let queue: DispatchQueue
     private let logger = DiagnosticsLogger.network

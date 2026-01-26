@@ -62,7 +62,10 @@ enum PodcastParser {
                 }
             }
             if !items.isEmpty {
-                sections.append(PodcastSection(id: UUID().uuidString, title: "More", items: items))
+                // Generate stable ID from title and first item
+                let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
+                let stableId = ParsingHelpers.stableId(title: "More", components: firstItemId)
+                sections.append(PodcastSection(id: stableId, title: "More", items: items))
             }
         }
 
@@ -112,8 +115,12 @@ enum PodcastParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return PodcastSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items
         )
@@ -135,8 +142,12 @@ enum PodcastParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return PodcastSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items
         )
@@ -534,6 +545,14 @@ enum PodcastParser {
     }
 
     // MARK: - Helper Methods
+
+    /// Extracts a stable ID from a PodcastSectionItem for identity purposes.
+    private static func extractPodcastItemId(_ item: PodcastSectionItem) -> String {
+        switch item {
+        case let .show(show): show.id
+        case let .episode(episode): episode.id
+        }
+    }
 
     private static func extractCarouselTitle(from data: [String: Any]) -> String? {
         if let header = data["header"] as? [String: Any],

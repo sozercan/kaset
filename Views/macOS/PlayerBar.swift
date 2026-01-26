@@ -1,4 +1,3 @@
-import AVKit
 import SwiftUI
 
 // MARK: - PlayerBar
@@ -21,6 +20,12 @@ struct PlayerBar: View {
     /// Local volume value for smooth slider dragging.
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
+
+    /// Cached formatted progress string to avoid repeated formatting.
+    @State private var formattedProgress: String = "0:00"
+    @State private var formattedRemaining: String = "-0:00"
+    /// Last integer second of progress to reduce string formatting frequency.
+    @State private var lastProgressSecond: Int = -1
 
     var body: some View {
         GlassEffectContainer(spacing: 0) {
@@ -102,6 +107,13 @@ struct PlayerBar: View {
             if !self.isSeeking, self.playerService.duration > 0 {
                 self.seekValue = newValue / self.playerService.duration
             }
+            // Only update formatted strings when the second changes to reduce Text view updates
+            let currentSecond = Int(newValue)
+            if currentSecond != self.lastProgressSecond {
+                self.lastProgressSecond = currentSecond
+                self.formattedProgress = self.formatTime(newValue)
+                self.formattedRemaining = "-\(self.formatTime(self.playerService.duration - newValue))"
+            }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             // Sync local volume value when not actively adjusting
@@ -119,18 +131,54 @@ struct PlayerBar: View {
 
     private var centerSection: some View {
         ZStack {
-            // Track info (blurred when hovering and track is playing)
-            self.trackInfoView
-                .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
-                .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
+            // Error state display with retry option
+            if case let .error(message) = playerService.state {
+                self.errorView(message: message)
+            } else {
+                // Track info (blurred when hovering and track is playing)
+                self.trackInfoView
+                    .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
+                    .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
 
-            // Seek bar (shown when hovering and track is playing)
-            if self.isHovering, self.playerService.currentTrack != nil {
-                self.seekBarView
-                    .transition(.opacity)
+                // Seek bar (shown when hovering and track is playing)
+                if self.isHovering, self.playerService.currentTrack != nil {
+                    self.seekBarView
+                        .transition(.opacity)
+                }
             }
         }
         .frame(maxWidth: 400)
+    }
+
+    // MARK: - Error View
+
+    private func errorView(message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.system(size: 14))
+
+            Text(message)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+
+            Button {
+                Task {
+                    if let track = playerService.currentTrack {
+                        await self.playerService.play(song: track)
+                    }
+                }
+            } label: {
+                Text("Retry")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.quaternary)
+            .clipShape(.capsule)
+        }
     }
 
     // MARK: - Track Info View
@@ -175,11 +223,12 @@ struct PlayerBar: View {
 
     private var seekBarView: some View {
         HStack(spacing: 10) {
-            // Elapsed time - show seek position while dragging, actual progress otherwise
-            Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
+            // Elapsed time - use cached formatted string when not seeking
+            Text(self.isSeeking ? self.formatTime(self.seekValue * self.playerService.duration) : self.formattedProgress)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45, alignment: .trailing)
+                .monospacedDigit()
 
             // Seek slider
             Slider(value: self.$seekValue, in: 0 ... 1) { editing in
@@ -193,11 +242,12 @@ struct PlayerBar: View {
             }
             .controlSize(.small)
 
-            // Remaining time
-            Text("-\(self.formatTime(self.playerService.duration - (self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress)))")
+            // Remaining time - use cached formatted string when not seeking
+            Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 45, alignment: .leading)
+                .monospacedDigit()
         }
     }
 
@@ -331,8 +381,19 @@ struct PlayerBar: View {
             self.actionButtons
 
             // AirPlay button
-            AirPlayButton()
-                .frame(width: 20, height: 20)
+            Button {
+                HapticService.toggle()
+                self.playerService.showAirPlayPicker()
+            } label: {
+                Image(systemName: "airplayaudio")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.isAirPlayConnected ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
+            .accessibilityLabel(self.playerService.isAirPlayConnected ? "AirPlay Connected" : "AirPlay")
+            .disabled(self.playerService.currentTrack == nil)
 
             Divider()
                 .frame(height: 20)
@@ -484,22 +545,6 @@ struct PlayerBar: View {
         } else {
             return "speaker.wave.2.fill"
         }
-    }
-}
-
-// MARK: - AirPlayButton
-
-/// A SwiftUI wrapper for AVRoutePickerView to show AirPlay destinations.
-@available(macOS 26.0, *)
-struct AirPlayButton: NSViewRepresentable {
-    func makeNSView(context _: Context) -> AVRoutePickerView {
-        let routePickerView = AVRoutePickerView()
-        routePickerView.isRoutePickerButtonBordered = false
-        return routePickerView
-    }
-
-    func updateNSView(_: AVRoutePickerView, context _: Context) {
-        // No updates needed
     }
 }
 

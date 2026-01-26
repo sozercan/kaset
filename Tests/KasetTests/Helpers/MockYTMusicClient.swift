@@ -391,6 +391,19 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self._searchContinuationIndex = 0
     }
 
+    func resetSessionStateForAccountSwitch() {
+        self._homeContinuationIndex = 0
+        self._exploreContinuationIndex = 0
+        self._chartsContinuationIndex = 0
+        self._moodsAndGenresContinuationIndex = 0
+        self._newReleasesContinuationIndex = 0
+        self._podcastsContinuationIndex = 0
+        self._likedSongsContinuationIndex = 0
+        self._playlistContinuationIndex = 0
+        self._searchContinuationIndex = 0
+        self._currentPlaylistId = nil
+    }
+
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         self.getSearchSuggestionsCalled = true
         self.getSearchSuggestionsQueries.append(query)
@@ -520,12 +533,32 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         if let error = shouldThrowError { throw error }
     }
 
-    func subscribeToPodcast(showId _: String) async throws {
+    func subscribeToPodcast(showId: String) async throws {
         if let error = shouldThrowError { throw error }
+        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            if !suffix.hasPrefix("L") {
+                throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+            }
+        }
     }
 
-    func unsubscribeFromPodcast(showId _: String) async throws {
+    func unsubscribeFromPodcast(showId: String) async throws {
         if let error = shouldThrowError { throw error }
+        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
+        if showId.hasPrefix("MPSPP") {
+            let suffix = String(showId.dropFirst(5))
+            if suffix.isEmpty {
+                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+            }
+            if !suffix.hasPrefix("L") {
+                throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+            }
+        }
     }
 
     func subscribeToArtist(channelId: String) async throws {
@@ -579,6 +612,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.moodCategoryCalled = true
         if let error = shouldThrowError { throw error }
         return self.moodCategoryResponse
+    }
+
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        if let error = shouldThrowError { throw error }
+        return AccountsListResponse(googleEmail: "test@gmail.com", accounts: [])
     }
 
     // MARK: - Helper Methods

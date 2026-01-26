@@ -240,6 +240,7 @@ struct PodcastShowView: View {
     let client: any YTMusicClientProtocol
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
 
     @State private var episodes: [PodcastEpisode] = []
     @State private var continuationToken: String?
@@ -247,6 +248,7 @@ struct PodcastShowView: View {
     @State private var isSubscribed: Bool = false
     @State private var isSubscribing: Bool = false
     @State private var showAllEpisodes = false
+    @State private var subscriptionError: String?
 
     /// Number of episodes to show in the preview
     private let previewEpisodeCount = 5
@@ -287,6 +289,17 @@ struct PodcastShowView: View {
         }
         .task {
             await self.loadShow()
+        }
+        .alert(
+            "Subscription Error",
+            isPresented: Binding(
+                get: { self.subscriptionError != nil },
+                set: { if !$0 { self.subscriptionError = nil } }
+            )
+        ) {
+            Button("OK") { self.subscriptionError = nil }
+        } message: {
+            Text(self.subscriptionError ?? "An unknown error occurred")
         }
     }
 
@@ -447,18 +460,31 @@ struct PodcastShowView: View {
         self.isSubscribing = true
         defer { self.isSubscribing = false }
 
+        DiagnosticsLogger.api.debug("toggleSubscription called, isSubscribed=\(self.isSubscribed), showId=\(self.show.id)")
+
         do {
             if self.isSubscribed {
-                try await self.client.unsubscribeFromPodcast(showId: self.show.id)
+                try await SongActionsHelper.unsubscribeFromPodcast(
+                    self.show,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isSubscribed = false
-                DiagnosticsLogger.api.info("Unsubscribed from podcast: \(self.show.title)")
+                DiagnosticsLogger.api.debug("Unsubscribe completed, isSubscribed now=\(self.isSubscribed)")
             } else {
-                try await self.client.subscribeToPodcast(showId: self.show.id)
+                try await SongActionsHelper.subscribeToPodcast(
+                    self.show,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.isSubscribed = true
-                DiagnosticsLogger.api.info("Subscribed to podcast: \(self.show.title)")
+                DiagnosticsLogger.api.debug("Subscribe completed, isSubscribed now=\(self.isSubscribed)")
             }
         } catch {
-            DiagnosticsLogger.api.error("Failed to toggle podcast subscription: \(error.localizedDescription)")
+            let errorMessage = error.localizedDescription
+            DiagnosticsLogger.api.error(
+                "Failed to toggle podcast subscription for \(self.show.title): \(errorMessage)")
+            self.subscriptionError = errorMessage
         }
     }
 }

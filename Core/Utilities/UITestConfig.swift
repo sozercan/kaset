@@ -34,6 +34,18 @@ enum UITestConfig {
     /// JSON-encoded mock favorites data.
     static let mockFavoritesKey = "MOCK_FAVORITES"
 
+    /// JSON-encoded mock accounts data for account switcher UI tests.
+    static let mockAccountsKey = "MOCK_ACCOUNTS"
+
+    /// When true, simulate account switch failure in UI tests.
+    static let mockAccountSwitchFailKey = "MOCK_ACCOUNT_SWITCH_FAIL"
+
+    /// When true, add delay to account loading to surface loading UI in tests.
+    static let mockAccountLoadingDelayKey = "MOCK_ACCOUNT_LOADING_DELAY"
+
+    /// When true, force logged-out state in UI tests.
+    static let mockLoggedOutKey = "MOCK_LOGGED_OUT"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.

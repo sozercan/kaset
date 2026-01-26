@@ -1,0 +1,137 @@
+name: Prompt Request
+description: Propose a change via an AI prompt that can be reviewed and executed
+title: "[Prompt]: "
+labels: ["prompt-request", "ai-assisted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## What is a Prompt Request?
+
+        Instead of submitting code directly, share the **AI prompt** that generates the changes you want. This allows maintainers to:
+        - Understand the **intent** behind changes
+        - Review the **reasoning** before code is generated
+        - Run the prompt themselves to verify and merge
+        - Iterate on the prompt before implementation
+
+        This is especially useful for AI-assisted development where the prompt often captures intent better than the resulting code diff.
+
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Is there an existing issue or PR for this?
+      description: Please search to see if this has already been addressed.
+      options:
+        - label: I have searched the existing issues and PRs
+          required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & Motivation
+      description: What problem does this prompt solve? Why should this change be made?
+      placeholder: |
+        Describe the motivation for this change. Link to related issues if applicable.
+        Ex: "The current search doesn't handle empty results gracefully..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: prompt
+    attributes:
+      label: AI Prompt
+      description: |
+        The exact prompt to run with an AI coding assistant (GitHub Copilot, Claude, Cursor, etc.).
+        Include all necessary context the AI would need.
+      placeholder: |
+        Add graceful empty state handling to SearchView.swift.
+        
+        Requirements:
+        - Show an illustration when search returns no results
+        - Display helpful message suggesting different search terms
+        - Follow existing empty state patterns in LibraryView
+        - Use SF Symbols for the illustration
+        - Ensure VoiceOver accessibility
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-tool
+    attributes:
+      label: Recommended AI Tool
+      description: Which AI tool is this prompt designed for?
+      options:
+        - GitHub Copilot (Agent Mode)
+        - Claude (via Cursor/Claude Code)
+        - Any compatible AI assistant
+        - Not sure / Tool-agnostic
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Target Files (Optional)
+      description: List specific files the prompt should modify, if known.
+      placeholder: |
+        - Views/macOS/Search/SearchView.swift
+        - Views/macOS/Components/EmptyStateView.swift (new)
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How will we know the prompt produced correct results?
+      placeholder: |
+        - [ ] Empty state appears when search returns 0 results
+        - [ ] Message is helpful and not generic
+        - [ ] VoiceOver reads the empty state correctly
+        - [ ] Unit tests pass
+        - [ ] No SwiftLint warnings
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of the app does this affect?
+      options:
+        - Playback / Audio
+        - Library / Playlists
+        - Search
+        - Home / Browse
+        - Now Playing / Player Bar
+        - UI / Visual
+        - Performance
+        - Documentation
+        - Testing
+        - Build / CI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Approaches
+      description: Other prompts or approaches you considered.
+      placeholder: Describe other ways this could be achieved.
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      description: Please confirm the following.
+      options:
+        - label: I have tested this prompt locally (or explained why I couldn't)
+        - label: The prompt follows project conventions in AGENTS.md
+        - label: No secrets, API keys, or sensitive data are included in the prompt
+          required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that would help when running the prompt.
+      placeholder: Screenshots, expected behavior, edge cases to consider, etc.

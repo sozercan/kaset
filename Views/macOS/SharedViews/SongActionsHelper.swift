@@ -47,12 +47,13 @@ enum SongActionsHelper {
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
-        client: any YTMusicClientProtocol
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
     ) async {
         do {
             try await client.subscribeToPlaylist(playlistId: playlist.id)
-            LibraryViewModel.shared?.addToLibrarySet(playlistId: playlist.id)
-            await LibraryViewModel.shared?.refresh()
+            libraryViewModel?.addToLibrarySet(playlistId: playlist.id)
+            await libraryViewModel?.refresh()
             DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
@@ -62,16 +63,42 @@ enum SongActionsHelper {
     /// Removes a playlist from the library.
     static func removePlaylistFromLibrary(
         _ playlist: Playlist,
-        client: any YTMusicClientProtocol
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
     ) async {
         do {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            LibraryViewModel.shared?.removeFromLibrarySet(playlistId: playlist.id)
-            await LibraryViewModel.shared?.refresh()
+            libraryViewModel?.removeFromLibrarySet(playlistId: playlist.id)
+            await libraryViewModel?.refresh()
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
         }
+    }
+
+    /// Subscribes to a podcast show (adds to library).
+    static func subscribeToPodcast(
+        _ show: PodcastShow,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        try await client.subscribeToPodcast(showId: show.id)
+        libraryViewModel?.addToLibrarySet(podcastId: show.id)
+        await libraryViewModel?.refresh()
+        DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
+    }
+
+    /// Unsubscribes from a podcast show (removes from library).
+    static func unsubscribeFromPodcast(
+        _ show: PodcastShow,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
+        try await client.unsubscribeFromPodcast(showId: show.id)
+        libraryViewModel?.removeFromLibrarySet(podcastId: show.id)
+        await libraryViewModel?.refresh()
+        DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
     }
 }
 

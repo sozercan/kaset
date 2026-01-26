@@ -20,10 +20,12 @@ enum ShareContextMenu {
             window.isVisible && window.frame.contains(mouseLocation)
         }) else {
             // Fallback: use key window
-            guard let keyWindow = NSApp.keyWindow else { return }
+            guard let keyWindow = NSApp.keyWindow,
+                  let contentView = keyWindow.contentView
+            else { return }
             let windowPoint = keyWindow.convertPoint(fromScreen: mouseLocation)
             let rect = NSRect(origin: windowPoint, size: CGSize(width: 1, height: 1))
-            picker.show(relativeTo: rect, of: keyWindow.contentView!, preferredEdge: .minY)
+            picker.show(relativeTo: rect, of: contentView, preferredEdge: .minY)
             return
         }
 
@@ -31,7 +33,8 @@ enum ShareContextMenu {
         let windowPoint = window.convertPoint(fromScreen: mouseLocation)
 
         // Find the view at this point, or use contentView as fallback
-        let targetView = window.contentView?.hitTest(windowPoint) ?? window.contentView!
+        guard let contentView = window.contentView else { return }
+        let targetView = contentView.hitTest(windowPoint) ?? contentView
 
         // Convert the point to the target view's coordinate system
         let viewPoint = targetView.convert(windowPoint, from: nil)

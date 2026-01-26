@@ -161,4 +161,21 @@ enum TestFixtures {
             }
         )
     }
+
+    // MARK: - Podcasts
+
+    static func makePodcastShow(
+        id: String = "MPSPPLXz2p9test123",
+        title: String = "Test Podcast",
+        author: String? = "Test Host"
+    ) -> PodcastShow {
+        PodcastShow(
+            id: id,
+            title: title,
+            author: author,
+            description: "A test podcast show",
+            thumbnailURL: URL(string: "https://example.com/podcast.jpg"),
+            episodeCount: 50
+        )
+    }
 }

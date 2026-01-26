@@ -38,8 +38,12 @@ final class AuthService: AuthServiceProtocol {
         // This avoids async delays that can cause UI test flakiness
         let isUITest = UITestConfig.isUITestMode
         let skipAuth = UITestConfig.shouldSkipAuth
+        let forceLoggedOut = UITestConfig.environmentValue(for: UITestConfig.mockLoggedOutKey) == "true"
         self.logger.debug("AuthService init: isUITestMode=\(isUITest), shouldSkipAuth=\(skipAuth)")
-        if isUITest, skipAuth {
+        if isUITest, forceLoggedOut {
+            self.logger.info("UI Test mode: forcing logged-out state")
+            self.state = .loggedOut
+        } else if isUITest, skipAuth {
             self.logger.info("UI Test mode with SkipAuth: starting in logged-in state")
             self.state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
         } else {
@@ -57,6 +61,12 @@ final class AuthService: AuthServiceProtocol {
     /// Includes retry logic to handle WebKit cookie store lazy loading.
     func checkLoginStatus() async {
         // In UI test mode with skip auth, immediately set logged in state
+        if UITestConfig.isUITestMode, UITestConfig.environmentValue(for: UITestConfig.mockLoggedOutKey) == "true" {
+            self.logger.info("UI Test mode: forcing logged out state")
+            self.state = .loggedOut
+            return
+        }
+
         if UITestConfig.isUITestMode, UITestConfig.shouldSkipAuth {
             self.logger.info("UI Test mode: skipping auth check, assuming logged in")
             self.state = .loggedIn(sapisid: "mock-sapisid-for-ui-tests")

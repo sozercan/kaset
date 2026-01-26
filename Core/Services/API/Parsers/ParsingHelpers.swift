@@ -1,9 +1,29 @@
+import CryptoKit
 import Foundation
 
 // MARK: - ParsingHelpers
 
 /// Provides common utility methods for parsing YouTube Music API responses.
 enum ParsingHelpers {
+    // MARK: - Stable ID Generation
+
+    /// Generates a stable, deterministic ID from content components.
+    /// This avoids SwiftUI identity churn caused by UUID() regeneration on refresh.
+    /// - Parameters:
+    ///   - title: Primary identifying text (section/item title)
+    ///   - components: Additional identifying components (first item ID, index, etc.)
+    /// - Returns: A stable hex string ID derived from the content hash
+    static func stableId(title: String, components: String...) -> String {
+        var combined = title
+        for component in components {
+            combined += "|" + component
+        }
+        let data = Data(combined.utf8)
+        let hash = SHA256.hash(data: data)
+        // Use first 16 bytes (32 hex chars) for a compact but collision-resistant ID
+        return hash.prefix(16).compactMap { String(format: "%02x", $0) }.joined()
+    }
+
     /// Keywords used to identify chart sections for special rendering.
     static let chartKeywords = [
         "chart",
@@ -106,7 +126,9 @@ enum ParsingHelpers {
                     {
                         artists.append(Artist(id: artistId, name: text))
                     } else if !text.isEmpty {
-                        artists.append(Artist(id: UUID().uuidString, name: text))
+                        // Generate stable ID from artist name when no browse ID available
+                        let stableArtistId = Self.stableId(title: "artist", components: text)
+                        artists.append(Artist(id: stableArtistId, name: text))
                     }
                 }
             }

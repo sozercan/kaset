@@ -39,6 +39,11 @@ final class YTMusicClient: YTMusicClientProtocol {
     private let session: URLSession
     private let logger = DiagnosticsLogger.api
 
+    /// Provider for the current brand account ID.
+    /// Set this after initialization to enable brand account API requests.
+    /// Returns nil for primary account, brand ID string for brand accounts.
+    var brandIdProvider: (() -> String?)?
+
     /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
@@ -60,6 +65,14 @@ final class YTMusicClient: YTMusicClientProtocol {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
             "Accept-Encoding": "gzip, deflate, br",
         ]
+        // Increase connection pool for parallel requests (HTTP/2 multiplexing is automatic)
+        configuration.httpMaximumConnectionsPerHost = 6
+        // Use shared URL cache for transport-level caching
+        configuration.urlCache = URLCache.shared
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+        // Reduce timeout for faster failure detection
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 30
         self.session = URLSession(configuration: configuration)
     }
 
@@ -499,6 +512,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.searchContinuationToken = nil
     }
 
+    /// Clears cached continuation/session state when switching accounts.
+    func resetSessionStateForAccountSwitch() {
+        self.logger.info("Resetting client session state for account switch")
+        self.continuationTokens.removeAll()
+        self.searchContinuationToken = nil
+        self.likedSongsContinuationToken = nil
+        self.playlistContinuationToken = nil
+    }
+
     /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         guard !query.isEmpty else {
@@ -898,6 +920,22 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
+    // MARK: - Account Management
+
+    /// Fetches the list of available accounts (primary + brand accounts).
+    /// Used for account switching functionality.
+    /// - Returns: AccountsListResponse containing all available accounts
+    /// - Throws: YTMusicError if not authenticated or request fails
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        self.logger.info("Fetching accounts list")
+
+        let data = try await request("account/accounts_list", body: [:])
+        let response = AccountsListParser.parse(data)
+
+        self.logger.info("Accounts list loaded: \(response.accounts.count) accounts")
+        return response
+    }
+
     // MARK: - Like/Library Actions
 
     /// Rates a song (like/dislike/indifferent).
@@ -989,26 +1027,44 @@ final class YTMusicClient: YTMusicClientProtocol {
         APICache.shared.invalidate(matching: "browse:")
     }
 
+    // MARK: - Podcast ID Conversion
+
+    /// Converts a podcast show ID (MPSPP prefix) to a playlist ID (PL prefix) for the like/unlike API.
+    /// - Podcast show IDs use "MPSPP" + "L" + {idSuffix}, e.g. "MPSPPLXz2p9...".
+    /// - The corresponding playlist ID is "PL" + {idSuffix}, e.g. "PLXz2p9...".
+    /// - We strip "MPSPP" (5 chars) leaving "LXz2p9...", then prepend "P" to get "PLXz2p9...".
+    /// - Parameter showId: The podcast show ID to convert
+    /// - Returns: The playlist ID for the like API
+    /// - Throws: YTMusicError.invalidInput if the ID format is invalid
+    private func convertPodcastShowIdToPlaylistId(_ showId: String) throws -> String {
+        guard showId.hasPrefix("MPSPP") else {
+            self.logger.warning("ShowId does not have MPSPP prefix, using as-is: \(showId)")
+            return showId
+        }
+
+        let suffix = String(showId.dropFirst(5)) // "LXz2p9..."
+
+        guard !suffix.isEmpty else {
+            self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
+            throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
+        }
+
+        guard suffix.hasPrefix("L") else {
+            self.logger.error("Invalid podcast show ID (suffix must start with 'L'): \(showId)")
+            throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
+        }
+
+        return "P" + suffix // "P" + "LXz2p9..." = "PLXz2p9..."
+    }
+
     /// Subscribes to a podcast show (adds to library).
-    /// This uses the playlist-style "like" subscription API (`like/like` endpoint) by treating podcast shows as playlist-like entities.
+    /// This uses the like/like endpoint with the playlist ID (PL prefix).
+    /// Podcast shows have an MPSPP prefix that maps to PL for the like API.
     /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func subscribeToPodcast(showId: String) async throws {
         self.logger.info("Subscribing to podcast: \(showId)")
 
-        // Extract the playlist ID portion from MPSPP prefix.
-        // Podcast show IDs use the form "MPSPP" + {idSuffix}, where the corresponding
-        // playlist ID is "PL" + {idSuffix}. We validate the suffix is non-empty.
-        let playlistId: String
-        if showId.hasPrefix("MPSPP") {
-            let suffix = String(showId.dropFirst(5))
-            if suffix.isEmpty {
-                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
-                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
-            }
-            playlistId = "PL" + suffix
-        } else {
-            playlistId = showId
-        }
+        let playlistId = try self.convertPodcastShowIdToPlaylistId(showId)
 
         let body: [String: Any] = [
             "target": ["playlistId": playlistId],
@@ -1022,28 +1078,19 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Unsubscribes from a podcast show (removes from library).
-    /// This uses the playlist-style "like" subscription API (`like/removelike` endpoint).
+    /// This uses the like/removelike endpoint with the playlist ID (PL prefix).
+    /// Podcast shows have an MPSPP prefix that maps to PL for the like API.
     /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func unsubscribeFromPodcast(showId: String) async throws {
         self.logger.info("Unsubscribing from podcast: \(showId)")
 
-        // Extract the playlist ID portion from MPSPP prefix.
-        let playlistId: String
-        if showId.hasPrefix("MPSPP") {
-            let suffix = String(showId.dropFirst(5))
-            if suffix.isEmpty {
-                self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
-                throw YTMusicError.invalidInput("Invalid podcast show ID: \(showId)")
-            }
-            playlistId = "PL" + suffix
-        } else {
-            playlistId = showId
-        }
+        let playlistId = try self.convertPodcastShowIdToPlaylistId(showId)
 
         let body: [String: Any] = [
             "target": ["playlistId": playlistId],
         ]
 
+        self.logger.debug("Calling like/removelike with playlistId=\(playlistId)")
         _ = try await self.request("like/removelike", body: body)
         self.logger.info("Successfully unsubscribed from podcast \(showId)")
 
@@ -1126,8 +1173,21 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Builds the standard context payload.
+    /// Includes `onBehalfOfUser` when a brand account is selected.
     private func buildContext() -> [String: Any] {
-        [
+        var userDict: [String: Any] = [
+            "lockedSafetyMode": false,
+        ]
+
+        // Add brand account ID if one is selected
+        if let brandId = self.brandIdProvider?() {
+            userDict["onBehalfOfUser"] = brandId
+            self.logger.debug("Using brand account: \(brandId)")
+        } else {
+            self.logger.debug("Using primary account (no brand ID)")
+        }
+
+        return [
             "client": [
                 "clientName": "WEB_REMIX",
                 "clientVersion": Self.clientVersion,
@@ -1143,26 +1203,33 @@ final class YTMusicClient: YTMusicClientProtocol {
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
                 "utcOffsetMinutes": -TimeZone.current.secondsFromGMT() / 60,
             ],
-            "user": [
-                "lockedSafetyMode": false,
-            ],
+            "user": userDict,
         ]
     }
 
     /// Makes an authenticated request to the API with optional caching and retry.
     private func request(_ endpoint: String, body: [String: Any], ttl: TimeInterval? = nil) async throws -> [String: Any] {
-        // Generate stable cache key from endpoint and body
-        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: body)
+        // Build request body with context so cache keys reflect the actual request
+        var fullBody = body
+        fullBody["context"] = self.buildContext()
+
+        // Generate stable cache key from endpoint, full body, and brand account ID
+        // Brand ID must be in cache key to prevent returning cached data from other accounts
+        let brandId = self.brandIdProvider?() ?? ""
+        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: brandId)
+        self.logger.debug(
+            "Request \(endpoint): brandId=\(brandId.isEmpty ? "primary" : brandId), cacheKey=\(cacheKey)")
 
         // Check cache first
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(endpoint)")
+            self.logger.debug(
+                "Cache hit for \(endpoint) (brandId=\(brandId.isEmpty ? "primary" : brandId))")
             return cached
         }
 
         // Execute with retry policy
         let json = try await RetryPolicy.default.execute { [self] in
-            try await self.performRequest(endpoint, body: body)
+            try await self.performRequest(endpoint, fullBody: fullBody)
         }
 
         // Cache response if TTL specified
@@ -1174,7 +1241,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Performs the actual network request.
-    private func performRequest(_ endpoint: String, body: [String: Any]) async throws -> [String: Any] {
+    private func performRequest(_ endpoint: String, fullBody: [String: Any]) async throws -> [String:
+        Any]
+    {
         let urlString = "\(Self.baseURL)/\(endpoint)?key=\(Self.apiKey)&prettyPrint=false"
         guard let url = URL(string: urlString) else {
             throw YTMusicError.unknown(message: "Invalid URL: \(urlString)")
@@ -1189,13 +1258,17 @@ final class YTMusicClient: YTMusicClientProtocol {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        // Build request body with context
-        var fullBody = body
-        fullBody["context"] = self.buildContext()
-
         request.httpBody = try JSONSerialization.data(withJSONObject: fullBody)
 
-        self.logger.debug("Making request to \(endpoint)")
+        if let context = fullBody["context"] as? [String: Any],
+           let user = context["user"] as? [String: Any]
+        {
+            let onBehalfOfUser = user["onBehalfOfUser"] as? String
+            self.logger.debug(
+                "Making request to \(endpoint) (onBehalfOfUser=\(onBehalfOfUser ?? "primary"))")
+        } else {
+            self.logger.debug("Making request to \(endpoint) (missing context)")
+        }
 
         // Perform network I/O off the main thread
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
@@ -1203,8 +1276,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         // Handle errors back on main actor
         switch result {
         case let .success(data):
-            // Parse JSON - URLSession already decompresses gzip/deflate on a background thread,
-            // and JSONSerialization is very fast for typical response sizes (~5-15ms)
+            // Parse JSON synchronously - JSONSerialization is highly optimized
+            // and typically completes in <5ms even for large responses.
+            // The actual response parsing (in Parsers/) is more expensive
+            // but must happen on MainActor anyway for @Observable updates.
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw YTMusicError.parseError(message: "Response is not a JSON object")
             }

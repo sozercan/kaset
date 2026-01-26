@@ -2,6 +2,8 @@ import Foundation
 
 /// Parses lyrics responses from YouTube Music API.
 enum LyricsParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Extracts the lyrics browse ID from the "next" endpoint response.
     /// - Parameter data: The response from the "next" endpoint
     /// - Returns: The browse ID for fetching lyrics, or nil if unavailable
@@ -12,6 +14,7 @@ enum LyricsParser {
               let watchNextTabbedResults = tabbedRenderer["watchNextTabbedResultsRenderer"] as? [String: Any],
               let tabs = watchNextTabbedResults["tabs"] as? [[String: Any]]
         else {
+            self.logger.debug("LyricsParser: Failed to extract lyrics browse ID structure")
             return nil
         }
 

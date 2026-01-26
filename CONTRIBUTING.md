@@ -186,6 +186,55 @@ final class MyServiceTests: XCTestCase {
 3. **Tests Must Pass** — Run `xcodebuild -scheme Kaset -destination 'platform=macOS' test`
 4. **Linting** — Run `swiftlint --strict && swiftformat .` before submitting
 5. **Small PRs** — Keep changes focused and reviewable
+6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
+
+## AI-Assisted Contributions & Prompt Requests
+
+We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
+
+### What is a Prompt Request?
+
+A **prompt request** is a contribution where you share the AI prompt that generates code, rather than (or in addition to) the code itself. This approach:
+
+- **Captures intent** — The prompt often explains *why* better than a code diff
+- **Enables review before implementation** — Maintainers can validate the approach
+- **Supports iteration** — Prompts can be refined before code is generated
+- **Improves reproducibility** — Anyone can run the prompt to verify results
+
+### Contributing with AI Assistance
+
+#### Option 1: Traditional PR with AI Prompt Disclosure
+
+Submit code as usual, but include the AI prompt in the PR template's "AI Prompt" section. This helps reviewers understand your approach and intent.
+
+#### Option 2: Prompt Request (Prompt-Only)
+
+Create an issue using the **Prompt Request** template if you:
+- Have a well-crafted prompt but haven't run it yet
+- Want feedback on your approach before implementation
+- Prefer maintainers to run and merge the prompt themselves
+
+### Best Practices for AI Prompts
+
+1. **Be specific** — Include file paths, function names, and concrete requirements
+2. **Reference project conventions** — Mention AGENTS.md and relevant patterns
+3. **Define acceptance criteria** — How will we know it worked?
+4. **Include context** — Link to issues, docs, or examples
+5. **Test locally when possible** — Verify the prompt produces working code
+
+### Example Prompt
+
+```
+Add haptic feedback to the shuffle button in PlayerBar.swift.
+
+Requirements:
+- Use HapticService.toggle() on button tap
+- Only trigger haptic on state change (not when already shuffled)
+- Follow existing haptic patterns used in volume controls
+- Add unit test in PlayerServiceTests.swift
+
+Reference: Core/Services/HapticService.swift for existing patterns
+```
 
 ## Testing
 

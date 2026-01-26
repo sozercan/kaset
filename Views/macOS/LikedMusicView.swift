@@ -89,8 +89,7 @@ struct LikedMusicView: View {
                 if self.viewModel.songs.isEmpty {
                     self.emptyStateView
                 } else {
-                    ForEach(self.viewModel.songs.indices, id: \.self) { index in
-                        let song = self.viewModel.songs[index]
+                    ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
                         self.songRow(song, index: index)
                             .onAppear {
                                 // Load more when reaching the last few items

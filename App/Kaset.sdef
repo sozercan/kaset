@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<dictionary title="Kaset Terminology">
+
+    <!-- Standard Suite -->
+    <suite name="Standard Suite" code="????" description="Common classes and commands for all applications.">
+
+        <command name="quit" code="aevtquit" description="Quit the application.">
+            <cocoa class="NSQuitCommand"/>
+        </command>
+
+    </suite>
+
+    <!-- Kaset Suite -->
+    <suite name="Kaset Suite" code="Kast" description="Commands and classes for controlling Kaset.">
+
+        <!-- Playback Commands -->
+        <command name="play" code="Kastplay" description="Start or resume playback.">
+            <cocoa class="KasetPlayCommand"/>
+        </command>
+
+        <command name="pause" code="Kastpaus" description="Pause playback.">
+            <cocoa class="KasetPauseCommand"/>
+        </command>
+
+        <command name="playpause" code="Kasttogg" description="Toggle play/pause state.">
+            <cocoa class="KasetPlayPauseCommand"/>
+        </command>
+
+        <command name="next track" code="Kastnext" description="Skip to the next track.">
+            <cocoa class="KasetNextTrackCommand"/>
+        </command>
+
+        <command name="previous track" code="Kastprev" description="Go to the previous track.">
+            <cocoa class="KasetPreviousTrackCommand"/>
+        </command>
+
+        <command name="set volume" code="Kastvolu" description="Set the playback volume.">
+            <cocoa class="KasetSetVolumeCommand"/>
+            <direct-parameter type="integer" description="Volume level (0-100)."/>
+        </command>
+
+        <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle mode.">
+            <cocoa class="KasetToggleShuffleCommand"/>
+        </command>
+
+        <command name="cycle repeat" code="Kastrepe" description="Cycle through repeat modes (off, all, one).">
+            <cocoa class="KasetCycleRepeatCommand"/>
+        </command>
+
+        <command name="toggle mute" code="Kastmute" description="Toggle mute state.">
+            <cocoa class="KasetToggleMuteCommand"/>
+        </command>
+
+        <command name="get player info" code="Kastinfo" description="Get current player state as JSON.">
+            <cocoa class="KasetGetPlayerInfoCommand"/>
+            <result type="text" description="JSON string with player state."/>
+        </command>
+
+        <command name="like track" code="Kastlike" description="Like or unlike the current track.">
+            <cocoa class="KasetLikeTrackCommand"/>
+        </command>
+
+        <command name="dislike track" code="Kastdslk" description="Dislike or undislike the current track.">
+            <cocoa class="KasetDislikeTrackCommand"/>
+        </command>
+
+    </suite>
+
+</dictionary>

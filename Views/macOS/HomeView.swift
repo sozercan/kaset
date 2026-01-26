@@ -71,10 +71,9 @@ struct HomeView: View {
                     .staggeredAppearance(index: 0)
                 }
 
-                // API sections
-                ForEach(Array(self.viewModel.sections.enumerated()), id: \.element.id) { index, section in
+                // API sections - use stable id without array enumeration
+                ForEach(self.viewModel.sections) { section in
                     self.sectionView(section)
-                        .staggeredAppearance(index: self.favoritesManager.isVisible ? index + 1 : index)
                         .task {
                             await self.prefetchImagesAsync(for: section)
                         }
@@ -93,6 +92,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
+                    // Use stable ID from items, avoid enumeration for non-chart sections
                     if section.isChart {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item, rank: index + 1) {
@@ -103,12 +103,12 @@ struct HomeView: View {
                             }
                         }
                     } else {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
+                        ForEach(section.items) { item in
                             HomeSectionItemCard(item: item) {
-                                self.playItem(item, in: section, at: index)
+                                self.playItem(item, in: section, at: 0)
                             }
                             .contextMenu {
-                                self.contextMenuItems(for: item, in: section, at: index)
+                                self.contextMenuItems(for: item, in: section, at: 0)
                             }
                         }
                     }

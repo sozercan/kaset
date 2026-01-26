@@ -31,8 +31,9 @@ actor ImageCache {
         // Set up memory pressure monitoring
         Self.setupMemoryPressureMonitoring(cache: self)
 
-        // Evict disk cache if needed on startup
-        Task.detached(priority: .utility) {
+        // Evict disk cache if needed on startup.
+        // Perform file system I/O off the main actor.
+        Task(priority: .utility) {
             await self.evictDiskCacheIfNeeded()
         }
     }
@@ -99,16 +100,25 @@ actor ImageCache {
     }
 
     /// Prefetches images with controlled concurrency to avoid network congestion.
+    /// Supports cooperative cancellation from SwiftUI's structured concurrency.
     /// - Parameters:
     ///   - urls: URLs to prefetch.
     ///   - targetSize: Optional target size for downsampling.
     ///   - maxConcurrent: Maximum number of concurrent fetches (default: 4).
-    func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch)
-        async
-    {
+    func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch) async {
+        // Use structured concurrency directly - cancellation propagates automatically
+        // when SwiftUI's .task is cancelled (view disappears or id changes)
         await withTaskGroup(of: Void.self) { group in
             var inProgress = 0
             for url in urls {
+                // Check cancellation before starting new work
+                guard !Task.isCancelled else { break }
+
+                // Skip if already in memory cache
+                if self.memoryCache.object(forKey: url as NSURL) != nil {
+                    continue
+                }
+
                 // Wait for a slot if we're at capacity
                 if inProgress >= maxConcurrent {
                     await group.next()
@@ -116,19 +126,13 @@ actor ImageCache {
                 }
 
                 group.addTask(priority: .utility) {
+                    guard !Task.isCancelled else { return }
                     _ = await self.image(for: url, targetSize: targetSize)
                 }
                 inProgress += 1
             }
-            // Wait for remaining tasks
+            // Wait for remaining tasks (will be cancelled if parent is cancelled)
             await group.waitForAll()
-        }
-    }
-
-    /// Legacy fire-and-forget prefetch for backward compatibility.
-    func prefetch(urls: [URL]) {
-        Task.detached(priority: .utility) {
-            await self.prefetch(urls: urls, targetSize: CGSize(width: 320, height: 320))
         }
     }
 
@@ -222,8 +226,9 @@ actor ImageCache {
         let path = self.diskCachePath(for: url)
         try? data.write(to: path, options: .atomic)
 
-        // Evict old files if disk cache exceeds limit
-        Task.detached(priority: .utility) {
+        // Evict old files if disk cache exceeds limit.
+        // Perform file system I/O off the main actor.
+        Task(priority: .utility) {
             await self.evictDiskCacheIfNeeded()
         }
     }
@@ -239,7 +244,8 @@ actor ImageCache {
 
     /// Evicts oldest files until disk cache is under the size limit.
     /// Uses LRU (Least Recently Used) eviction based on file modification dates.
-    private func evictDiskCacheIfNeeded() {
+    /// Marked async to document the I/O-bound nature and satisfy actor isolation.
+    private func evictDiskCacheIfNeeded() async {
         let currentSize = self.diskCacheSize()
         guard currentSize > Self.maxDiskCacheSize else { return }
 

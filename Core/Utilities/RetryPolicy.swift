@@ -24,9 +24,10 @@ struct RetryPolicy: Sendable {
             } catch {
                 lastError = error
 
-                // Don't retry auth errors
-                if case YTMusicError.authExpired = error { throw error }
-                if case YTMusicError.notAuthenticated = error { throw error }
+                // Don't retry non-retryable errors (auth, parse, invalid input)
+                if let ytError = error as? YTMusicError, !ytError.isRetryable {
+                    throw error
+                }
 
                 // Don't retry on last attempt
                 if attempt < self.maxAttempts - 1 {

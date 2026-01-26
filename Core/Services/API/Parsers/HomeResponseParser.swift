@@ -160,8 +160,12 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return HomeSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items,
             isChart: ParsingHelpers.isChartSection(title)
@@ -184,8 +188,12 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return HomeSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items,
             isChart: ParsingHelpers.isChartSection(title)
@@ -215,8 +223,12 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return HomeSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items,
             isChart: ParsingHelpers.isChartSection(title)
@@ -239,8 +251,12 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         return HomeSection(
-            id: UUID().uuidString,
+            id: stableId,
             title: title,
             items: items,
             isChart: ParsingHelpers.isChartSection(title)
@@ -270,8 +286,12 @@ enum HomeResponseParser {
 
         guard !sectionItems.isEmpty else { return nil }
 
+        // Generate stable ID from title and first item to avoid SwiftUI identity churn
+        let firstItemId = sectionItems.first.map { Self.extractItemId($0) } ?? ""
+        let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
+
         // Check if this is a chart section based on title, not renderer type
-        return HomeSection(id: UUID().uuidString, title: title, items: sectionItems, isChart: ParsingHelpers.isChartSection(title))
+        return HomeSection(id: stableId, title: title, items: sectionItems, isChart: ParsingHelpers.isChartSection(title))
     }
 
     // MARK: - Item Parsing
@@ -463,6 +483,16 @@ enum HomeResponseParser {
     }
 
     // MARK: - Helpers
+
+    /// Extracts a stable ID from a HomeSectionItem for identity purposes.
+    private static func extractItemId(_ item: HomeSectionItem) -> String {
+        switch item {
+        case let .song(song): song.id
+        case let .album(album): album.id
+        case let .playlist(playlist): playlist.id
+        case let .artist(artist): artist.id
+        }
+    }
 
     private static func extractCarouselTitle(from data: [String: Any]) -> String? {
         if let header = data["header"] as? [String: Any],

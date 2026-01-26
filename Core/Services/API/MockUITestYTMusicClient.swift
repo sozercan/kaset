@@ -213,6 +213,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         ]
     }
 
+    func resetSessionStateForAccountSwitch() {
+        // No-op for UI test mock
+    }
+
     func getLibraryPlaylists() async throws -> [Playlist] {
         try? await Task.sleep(for: .milliseconds(100))
         return self.playlists
@@ -392,6 +396,29 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return HomeResponse(sections: [section])
     }
 
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        if UITestConfig.environmentValue(for: UITestConfig.mockAccountLoadingDelayKey) == "true" {
+            try? await Task.sleep(for: .milliseconds(800))
+        } else {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        if let accounts = Self.parseAccounts() {
+            return AccountsListResponse(googleEmail: "test@example.com", accounts: accounts)
+        }
+
+        // Return default mock account for UI testing
+        let primaryAccount = UserAccount(
+            id: "primary",
+            name: "Test User",
+            handle: "@testuser",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        return AccountsListResponse(googleEmail: "test@example.com", accounts: [primaryAccount])
+    }
+
     // MARK: - Environment Parsing
 
     private static func parseHomeSections() -> [HomeSection]? {
@@ -478,6 +505,38 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 thumbnailURL: nil,
                 trackCount: dict["trackCount"] as? Int,
                 author: dict["author"] as? String
+            )
+        }
+    }
+
+    private static func parseAccounts() -> [UserAccount]? {
+        guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockAccountsKey),
+              let data = jsonString.data(using: .utf8),
+              let accounts = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        return accounts.compactMap { dict in
+            guard let id = dict["id"] as? String,
+                  let name = dict["name"] as? String,
+                  let isSelected = dict["isSelected"] as? Bool
+            else {
+                return nil
+            }
+
+            let handle = dict["handle"] as? String
+            let brandId = dict["brandId"] as? String
+            let thumbnailString = dict["thumbnailURL"] as? String
+            let thumbnailURL = thumbnailString.flatMap { URL(string: $0) }
+
+            return UserAccount(
+                id: id,
+                name: name,
+                handle: handle,
+                brandId: brandId,
+                thumbnailURL: thumbnailURL,
+                isSelected: isSelected
             )
         }
     }

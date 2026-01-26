@@ -637,14 +637,14 @@ struct CommandBarView: View {
             let songs = Array(allSongs.prefix(10))
 
             self.logger.info("Queue songs search returned \(allSongs.count), using top \(songs.count) for query: \(query)")
-            if !songs.isEmpty {
+            if let firstSong = songs.first {
                 if self.playerService.queue.isEmpty {
                     // No queue exists, create one with the search results
                     await self.playerService.playQueue(songs, startingAt: 0)
                     if !description.isEmpty {
                         self.resultMessage = "Playing \(description)"
                     } else {
-                        self.resultMessage = "Playing \"\(songs.first!.title)\" and \(songs.count - 1) more"
+                        self.resultMessage = "Playing \"\(firstSong.title)\" and \(songs.count - 1) more"
                     }
                 } else {
                     // Add all songs to existing queue

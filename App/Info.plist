@@ -32,5 +32,11 @@
 
 	<key>SUAllowsAutomaticUpdates</key>
 	<true/>
+
+	<!-- AppleScript Support -->
+	<key>NSAppleScriptEnabled</key>
+	<true/>
+	<key>OSAScriptingDefinition</key>
+	<string>Kaset.sdef</string>
 </dict>
 </plist>

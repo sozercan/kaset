@@ -152,4 +152,38 @@ extension SingletonPlayerWebView {
             }
         }
     }
+
+    /// Show the native AirPlay picker for the WebView's video element.
+    func showAirPlayPicker() {
+        guard let webView else {
+            DiagnosticsLogger.airplay.warning("showAirPlayPicker called but webView is nil")
+            return
+        }
+
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) return 'no-video';
+                if (typeof video.webkitShowPlaybackTargetPicker !== 'function') return 'unsupported';
+
+                window.__kasetAirPlayRequested = true;
+                video.webkitShowPlaybackTargetPicker();
+                return 'picker-shown';
+            })();
+        """
+        webView.evaluateJavaScript(script) { result, error in
+            if let error {
+                DiagnosticsLogger.airplay.error("showAirPlayPicker error: \(error.localizedDescription)")
+            } else if let status = result as? String {
+                switch status {
+                case "no-video":
+                    DiagnosticsLogger.airplay.warning("showAirPlayPicker: no video element available")
+                case "unsupported":
+                    DiagnosticsLogger.airplay.warning("showAirPlayPicker: webkitShowPlaybackTargetPicker not supported")
+                default:
+                    DiagnosticsLogger.airplay.debug("showAirPlayPicker: \(status)")
+                }
+            }
+        }
+    }
 }

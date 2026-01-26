@@ -2,6 +2,8 @@ import Foundation
 
 /// Parses song metadata from YouTube Music API responses.
 enum SongMetadataParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Contains parsed menu data including feedback tokens, library status, and like status.
     struct MenuParseResult {
         var feedbackTokens: FeedbackTokens?
@@ -105,7 +107,8 @@ enum SongMetadataParser {
             {
                 browseId
             } else {
-                UUID().uuidString
+                // Generate stable ID from artist name when no browse ID available
+                ParsingHelpers.stableId(title: "artist", components: text)
             }
             artists.append(Artist(id: artistId, name: text))
         }

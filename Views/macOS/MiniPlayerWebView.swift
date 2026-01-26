@@ -42,8 +42,11 @@ struct MiniPlayerWebView: NSViewRepresentable {
             playerService: self.playerService
         )
 
-        // Add additional message handler for this view's callbacks
-        webView.configuration.userContentController.add(context.coordinator, name: "miniPlayer")
+        // Remove existing handler if present to avoid duplicates, then add fresh one
+        // This handles the case where makeNSView is called multiple times
+        let contentController = webView.configuration.userContentController
+        contentController.removeScriptMessageHandler(forName: "miniPlayer")
+        contentController.add(context.coordinator, name: "miniPlayer")
 
         // Ensure WebView is in this container
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
@@ -174,6 +177,13 @@ struct MiniPlayerWebView: NSViewRepresentable {
             self.onStateChange?(.error(error.localizedDescription))
         }
 
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // WebView content process crashed - attempt recovery by reloading
+            DiagnosticsLogger.player.error("MiniPlayer WebView content process terminated, attempting reload")
+            self.onStateChange?(.error("Player crashed, reloading..."))
+            webView.reload()
+        }
+
         func userContentController(
             _: WKUserContentController,
             didReceive message: WKScriptMessage
@@ -286,6 +296,8 @@ final class SingletonPlayerWebView {
     }
 
     /// Load a video, stopping any currently playing audio first.
+    /// Note: This uses full page navigation which destroys the video element.
+    /// AirPlay connections will be lost but the auto-reconnect picker will appear.
     func loadVideo(videoId: String) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
@@ -331,9 +343,24 @@ final class SingletonPlayerWebView {
 
         func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: Any],
-                  let type = body["type"] as? String,
-                  type == "STATE_UPDATE"
+                  let type = body["type"] as? String
             else { return }
+
+            // Handle AirPlay status updates
+            if type == "AIRPLAY_STATUS" {
+                let isConnected = body["isConnected"] as? Bool ?? false
+                let wasRequested = body["wasRequested"] as? Bool ?? false
+
+                Task { @MainActor in
+                    self.playerService.updateAirPlayStatus(
+                        isConnected: isConnected,
+                        wasRequested: wasRequested
+                    )
+                }
+                return
+            }
+
+            guard type == "STATE_UPDATE" else { return }
 
             let isPlaying = body["isPlaying"] as? Bool ?? false
             let progress = body["progress"] as? Int ?? 0
@@ -423,6 +450,27 @@ final class SingletonPlayerWebView {
                     )
                 } else if let resultString = result as? String {
                     DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
+                }
+            }
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // WebView content process crashed - attempt recovery
+            DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
+
+            // Get the current video ID before reloading
+            let currentVideoId = SingletonPlayerWebView.shared.currentVideoId
+
+            // Reload the WebView
+            webView.reload()
+
+            // If we had a video playing, reload it after a brief delay
+            if let videoId = currentVideoId {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1))
+                    // Reset currentVideoId to force reload
+                    SingletonPlayerWebView.shared.currentVideoId = nil
+                    SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
                 }
             }
         }

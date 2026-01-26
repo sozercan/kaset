@@ -9,6 +9,7 @@ struct SearchView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -280,8 +281,8 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
-                    self.resultRow(item, index: index)
+                ForEach(self.viewModel.filteredItems) { item in
+                    self.resultRow(item)
                     Divider()
                         .padding(.leading, 72)
                 }
@@ -327,7 +328,7 @@ struct SearchView: View {
         }
     }
 
-    private func resultRow(_ item: SearchResultItem, index: Int) -> some View {
+    private func resultRow(_ item: SearchResultItem) -> some View {
         Button {
             self.handleItemTap(item)
         } label: {
@@ -386,7 +387,6 @@ struct SearchView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.interactiveRow(cornerRadius: 6))
-        .staggeredAppearance(index: min(index, 10))
         .contextMenu {
             self.contextMenuItems(for: item)
         }
@@ -487,7 +487,11 @@ struct SearchView: View {
         case let .playlist(playlist):
             Button {
                 Task {
-                    await SongActionsHelper.addPlaylistToLibrary(playlist, client: self.viewModel.client)
+                    await SongActionsHelper.addPlaylistToLibrary(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
                 }
             } label: {
                 Label("Add to Library", systemImage: "plus.circle")

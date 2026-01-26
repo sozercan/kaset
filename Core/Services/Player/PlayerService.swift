@@ -8,6 +8,16 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
+    /// Shared instance for AppleScript access.
+    ///
+    /// **Safety Invariant:** This property is set exactly once during app initialization
+    /// in `KasetApp.init()` before any AppleScript commands can be received, and is never
+    /// modified afterward. The property is `@MainActor`-isolated along with the entire class,
+    /// ensuring thread-safe access from AppleScript commands (which run on the main thread).
+    ///
+    /// AppleScript commands should handle the `nil` case gracefully by returning an error
+    /// to the caller, as there's a brief window during app launch before initialization completes.
+    static var shared: PlayerService?
     /// Current playback state.
     enum PlaybackState: Equatable, Sendable {
         case idle
@@ -114,6 +124,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Note: We don't auto-close based on currentTrackHasVideo here because
     /// the detection can be unreliable when video mode CSS is active.
     var showVideo: Bool = false
+
+    /// Whether AirPlay is currently connected (playing to a wireless target).
+    private(set) var isAirPlayConnected: Bool = false
+
+    /// Whether the user has requested AirPlay this session (for persistence across track changes).
+    private(set) var airPlayWasRequested: Bool = false
 
     // MARK: - Internal Properties (for extensions)
 
@@ -319,11 +335,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
-        // Debug log once per second (when progress changes by at least 1 second)
-        if Int(progress) != Int(self.progress) {
-            self.logger.debug("updatePlaybackState: isPlaying=\(isPlaying), progress=\(Int(progress)), duration=\(Int(duration))")
-        }
-
         let previousProgress = self.progress
         self.progress = progress
         self.duration = duration
@@ -687,6 +698,20 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
+    }
+
+    /// Show the AirPlay picker for selecting audio output devices.
+    func showAirPlayPicker() {
+        self.airPlayWasRequested = true
+        SingletonPlayerWebView.shared.showAirPlayPicker()
+    }
+
+    /// Updates the AirPlay connection status from the WebView.
+    func updateAirPlayStatus(isConnected: Bool, wasRequested: Bool = false) {
+        self.isAirPlayConnected = isConnected
+        if wasRequested {
+            self.airPlayWasRequested = true
+        }
     }
 
     // MARK: - Private Methods

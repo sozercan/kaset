@@ -2,6 +2,8 @@ import Foundation
 
 /// Parser for search responses from YouTube Music API.
 enum SearchResponseParser {
+    private static let logger = DiagnosticsLogger.api
+
     /// Parses a search response.
     static func parse(_ data: [String: Any]) -> SearchResponse {
         var songs: [Song] = []
@@ -19,6 +21,7 @@ enum SearchResponseParser {
               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
+            Self.logger.debug("SearchResponseParser: Failed to parse response structure. Top keys: \(data.keys.sorted())")
             return SearchResponse.empty
         }
 
