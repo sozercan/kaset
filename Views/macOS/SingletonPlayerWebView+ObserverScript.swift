@@ -211,10 +211,10 @@ extension SingletonPlayerWebView {
                 lastUpdateTime = now;
 
                 try {
-                    const playPauseBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-                    const isPlaying = playPauseBtn ?
-                        (playPauseBtn.getAttribute('title') === 'Pause' ||
-                         playPauseBtn.getAttribute('aria-label') === 'Pause') : false;
+                    // Use video element's paused property for language-agnostic detection
+                    // Previously checked button title/aria-label which fails for non-English locales
+                    const video = document.querySelector('video');
+                    const isPlaying = video ? !video.paused : false;
 
                     const progressBar = document.querySelector('#progress-bar');
 

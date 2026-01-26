@@ -120,17 +120,16 @@ struct MiniPlayerWebView: NSViewRepresentable {
                     const titleEl = document.querySelector('.ytmusic-player-bar.title');
                     const artistEl = document.querySelector('.ytmusic-player-bar.byline');
                     const progressBar = document.querySelector('#progress-bar');
-                    const playPauseBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
 
                     const title = titleEl ? titleEl.textContent : '';
                     const artist = artistEl ? artistEl.textContent : '';
                     const progress = progressBar ? parseInt(progressBar.getAttribute('value') || '0') : 0;
                     const duration = progressBar ? parseInt(progressBar.getAttribute('aria-valuemax') || '0') : 0;
 
-                    // Check if playing by looking at the button title
-                    const isPlaying = playPauseBtn ?
-                        playPauseBtn.getAttribute('title') === 'Pause' ||
-                        playPauseBtn.getAttribute('aria-label') === 'Pause' : false;
+                    // Use video element's paused property for language-agnostic detection
+                    // Previously checked button title/aria-label which fails for non-English locales
+                    const video = document.querySelector('video');
+                    const isPlaying = video ? !video.paused : false;
 
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
