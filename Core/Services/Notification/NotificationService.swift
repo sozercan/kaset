@@ -42,7 +42,7 @@ final class NotificationService {
     // MARK: - Observation
 
     private func startObserving() {
-        self.observationTask = Task { [weak self] in
+        self.observationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             var previousTrack: Song?
 
