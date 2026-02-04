@@ -5,7 +5,7 @@ import XCTest
 final class VideoUITests: KasetUITestCase {
     // MARK: - Video Button Visibility
 
-    func testVideoButtonHiddenWhenNoVideo() throws {
+    func testVideoButtonHiddenWhenNoVideo() {
         // Launch with player but no video support
         launchWithMockPlayer(isPlaying: true, hasVideo: false)
 
@@ -16,7 +16,7 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertFalse(videoButton.exists, "Video button should be hidden when track has no video")
     }
 
-    func testVideoButtonVisibleWhenTrackHasVideo() throws {
+    func testVideoButtonVisibleWhenTrackHasVideo() {
         // Launch with player that has video
         launchWithMockPlayerWithVideo(isPlaying: true)
 
@@ -27,7 +27,7 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should exist when track has video")
     }
 
-    func testVideoButtonAccessibilityLabel() throws {
+    func testVideoButtonAccessibilityLabel() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -38,7 +38,7 @@ final class VideoUITests: KasetUITestCase {
 
     // MARK: - Video Button Interaction
 
-    func testVideoButtonIsClickable() throws {
+    func testVideoButtonIsClickable() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -47,7 +47,7 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertTrue(waitForHittable(videoButton), "Video button should be clickable")
     }
 
-    func testVideoButtonToggle() throws {
+    func testVideoButtonToggle() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -78,7 +78,7 @@ final class VideoUITests: KasetUITestCase {
 
     // MARK: - Video Window Tests
 
-    func testVideoWindowOpensOnButtonClick() throws {
+    func testVideoWindowOpensOnButtonClick() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -94,7 +94,7 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5), "Video window should appear after clicking video button")
     }
 
-    func testVideoWindowHasCorrectTitle() throws {
+    func testVideoWindowHasCorrectTitle() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -111,7 +111,7 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertEqual(videoWindow.title, "Video", "Video window should have title 'Video'")
     }
 
-    func testVideoWindowClosesOnRedButton() throws {
+    func testVideoWindowClosesOnRedButton() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -140,7 +140,7 @@ final class VideoUITests: KasetUITestCase {
         }
     }
 
-    func testVideoWindowClosesOnSecondButtonClick() throws {
+    func testVideoWindowClosesOnSecondButtonClick() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
@@ -164,7 +164,7 @@ final class VideoUITests: KasetUITestCase {
 
     // MARK: - Video Button State Persistence
 
-    func testVideoButtonPersistsAcrossNavigation() throws {
+    func testVideoButtonPersistsAcrossNavigation() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         // Navigate to different views and verify video button is present
@@ -184,7 +184,7 @@ final class VideoUITests: KasetUITestCase {
 
     // MARK: - Keyboard Shortcut
 
-    func testVideoKeyboardShortcut() throws {
+    func testVideoKeyboardShortcut() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()

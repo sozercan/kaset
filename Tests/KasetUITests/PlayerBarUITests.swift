@@ -5,7 +5,7 @@ import XCTest
 final class PlayerBarUITests: KasetUITestCase {
     // MARK: - Player Bar Visibility
 
-    func testPlayerBarVisibleWithCurrentTrack() throws {
+    func testPlayerBarVisibleWithCurrentTrack() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -20,7 +20,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
     // MARK: - Playback Controls
 
-    func testPlayPauseButtonExists() throws {
+    func testPlayPauseButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -31,7 +31,7 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForHittable(playPauseButton))
     }
 
-    func testNextButtonExists() throws {
+    func testNextButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -40,7 +40,7 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(nextButton, timeout: 10), "Next button should exist")
     }
 
-    func testPreviousButtonExists() throws {
+    func testPreviousButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -49,7 +49,7 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(previousButton, timeout: 10), "Previous button should exist")
     }
 
-    func testShuffleButtonExists() throws {
+    func testShuffleButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -58,7 +58,7 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(shuffleButton, timeout: 10), "Shuffle button should exist")
     }
 
-    func testRepeatButtonExists() throws {
+    func testRepeatButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -69,7 +69,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
     // MARK: - Like/Dislike Buttons
 
-    func testLikeButtonExists() throws {
+    func testLikeButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -78,7 +78,7 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(likeButton, timeout: 10), "Like button should exist")
     }
 
-    func testDislikeButtonExists() throws {
+    func testDislikeButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -89,7 +89,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
     // MARK: - Lyrics Button
 
-    func testLyricsButtonExists() throws {
+    func testLyricsButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -100,7 +100,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
     // MARK: - Button Interactions
 
-    func testShuffleButtonToggles() throws {
+    func testShuffleButtonToggles() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -119,7 +119,7 @@ final class PlayerBarUITests: KasetUITestCase {
         // The accessibility value should update
     }
 
-    func testRepeatButtonCycles() throws {
+    func testRepeatButtonCycles() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -140,7 +140,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
     // MARK: - Player Bar Persistence Across Views
 
-    func testPlayerBarPersistsAcrossNavigation() throws {
+    func testPlayerBarPersistsAcrossNavigation() {
         launchWithMockPlayer(isPlaying: true)
 
         // Navigate to different views and verify player bar is present

@@ -24,7 +24,7 @@ struct SearchSuggestionsParserTests {
     // MARK: - Valid Response Tests
 
     @Test("Parse single suggestion")
-    func parseSingleSuggestion() throws {
+    func parseSingleSuggestion() {
         let data = self.makeSuggestionsResponse(queries: ["test query"])
         let suggestions = SearchSuggestionsParser.parse(data)
 
@@ -48,7 +48,7 @@ struct SearchSuggestionsParserTests {
     }
 
     @Test("Parse suggestion with multiple runs joins text")
-    func parseSuggestionWithMultipleRuns() throws {
+    func parseSuggestionWithMultipleRuns() {
         let data: [String: Any] = [
             "contents": [
                 [
@@ -77,7 +77,7 @@ struct SearchSuggestionsParserTests {
     }
 
     @Test("Parse history suggestion")
-    func parseHistorySuggestion() throws {
+    func parseHistorySuggestion() {
         let data: [String: Any] = [
             "contents": [
                 [

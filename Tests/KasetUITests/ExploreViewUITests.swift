@@ -5,7 +5,7 @@ import XCTest
 final class ExploreViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
-    func testExploreViewDisplaysTitle() throws {
+    func testExploreViewDisplaysTitle() {
         launchDefault()
 
         navigateToExplore()
@@ -14,7 +14,7 @@ final class ExploreViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(title), "Explore title should be visible")
     }
 
-    func testExploreViewShowsContent() throws {
+    func testExploreViewShowsContent() {
         launchWithMockHome() // Explore uses same mock data format
 
         navigateToExplore()
@@ -23,7 +23,7 @@ final class ExploreViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(scrollView, timeout: 10))
     }
 
-    func testExploreViewIsScrollable() throws {
+    func testExploreViewIsScrollable() {
         launchWithMockHome(sectionCount: 5)
 
         navigateToExplore()
@@ -37,7 +37,7 @@ final class ExploreViewUITests: KasetUITestCase {
 
     // MARK: - Navigation
 
-    func testExploreNavigationFromSidebar() throws {
+    func testExploreNavigationFromSidebar() {
         launchDefault()
 
         navigateToExplore()
@@ -48,7 +48,7 @@ final class ExploreViewUITests: KasetUITestCase {
 
     // MARK: - Player Bar Integration
 
-    func testExploreViewShowsPlayerBar() throws {
+    func testExploreViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToExplore()

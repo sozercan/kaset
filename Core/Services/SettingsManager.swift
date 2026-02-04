@@ -29,7 +29,9 @@ final class SettingsManager {
         case playlists
         case lastUsed
 
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
 
         var displayName: String {
             switch self {

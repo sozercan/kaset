@@ -127,7 +127,9 @@ struct ChipButtonStyle: ButtonStyle {
 @available(macOS 26.0, *)
 extension ButtonStyle where Self == InteractiveCardStyle {
     /// Interactive card style with hover scale and shadow effects.
-    static var interactiveCard: InteractiveCardStyle { InteractiveCardStyle() }
+    static var interactiveCard: InteractiveCardStyle {
+        InteractiveCardStyle()
+    }
 
     /// Interactive card style with custom parameters.
     static func interactiveCard(
@@ -148,7 +150,9 @@ extension ButtonStyle where Self == InteractiveCardStyle {
 @available(macOS 26.0, *)
 extension ButtonStyle where Self == InteractiveRowStyle {
     /// Interactive row style with hover background.
-    static var interactiveRow: InteractiveRowStyle { InteractiveRowStyle() }
+    static var interactiveRow: InteractiveRowStyle {
+        InteractiveRowStyle()
+    }
 
     /// Interactive row style with custom corner radius and optional haptic feedback.
     static func interactiveRow(
@@ -162,7 +166,9 @@ extension ButtonStyle where Self == InteractiveRowStyle {
 @available(macOS 26.0, *)
 extension ButtonStyle where Self == PressableButtonStyle {
     /// Pressable button style with scale feedback.
-    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+    static var pressable: PressableButtonStyle {
+        PressableButtonStyle()
+    }
 
     /// Pressable button style with optional haptic feedback.
     static func pressable(hapticFeedback: HapticService.FeedbackType?) -> PressableButtonStyle {

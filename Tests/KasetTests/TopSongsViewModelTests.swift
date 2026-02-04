@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-
 @testable import Kaset
 
 @Suite("TopSongsViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))

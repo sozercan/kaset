@@ -178,7 +178,6 @@ struct MainWindow: View {
 
     // MARK: - Main Content
 
-    @ViewBuilder
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
             // Main navigation content
@@ -245,7 +244,6 @@ struct MainWindow: View {
         }
     }
 
-    @ViewBuilder
     private func detailView(for item: NavigationItem?, client _: any YTMusicClientProtocol) -> some View {
         Group {
             if let item {
@@ -259,7 +257,6 @@ struct MainWindow: View {
     }
 
     /// Returns the view for a specific navigation item.
-    @ViewBuilder
     private func viewForNavigationItem(_ item: NavigationItem) -> some View { // swiftlint:disable:this cyclomatic_complexity
         Group {
             switch item {
@@ -363,7 +360,9 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case likedMusic = "Liked Music"
     case library = "Library"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var icon: String {
         switch self {

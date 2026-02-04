@@ -73,7 +73,9 @@ final class SearchViewModel {
         case communityPlaylists = "Community playlists"
         case podcasts = "Podcasts"
 
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     /// Filtered results based on selected filter.

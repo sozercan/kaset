@@ -50,7 +50,8 @@ struct LikedMusicView: View {
                     viewModel: TopSongsViewModel(
                         destination: destination,
                         client: self.viewModel.client
-                    ))
+                    )
+                )
             }
             .navigationDestination(for: Playlist.self) { playlist in
                 PlaylistDetailView(

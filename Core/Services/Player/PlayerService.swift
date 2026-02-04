@@ -49,7 +49,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var currentTrack: Song?
 
     /// Whether playback is active.
-    var isPlaying: Bool { self.state.isPlaying }
+    var isPlaying: Bool {
+        self.state.isPlaying
+    }
 
     /// Current playback position in seconds.
     private(set) var progress: TimeInterval = 0
@@ -64,7 +66,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private var volumeBeforeMute: Double = 1.0
 
     /// Whether audio is currently muted.
-    var isMuted: Bool { self.volume == 0 }
+    var isMuted: Bool {
+        self.volume == 0
+    }
 
     /// Whether shuffle mode is enabled.
     private(set) var shuffleEnabled: Bool = false

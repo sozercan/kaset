@@ -1218,12 +1218,14 @@ final class YTMusicClient: YTMusicClientProtocol {
         let brandId = self.brandIdProvider?() ?? ""
         let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: brandId)
         self.logger.debug(
-            "Request \(endpoint): brandId=\(brandId.isEmpty ? "primary" : brandId), cacheKey=\(cacheKey)")
+            "Request \(endpoint): brandId=\(brandId.isEmpty ? "primary" : brandId), cacheKey=\(cacheKey)"
+        )
 
         // Check cache first
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
             self.logger.debug(
-                "Cache hit for \(endpoint) (brandId=\(brandId.isEmpty ? "primary" : brandId))")
+                "Cache hit for \(endpoint) (brandId=\(brandId.isEmpty ? "primary" : brandId))"
+            )
             return cached
         }
 
@@ -1265,7 +1267,8 @@ final class YTMusicClient: YTMusicClientProtocol {
         {
             let onBehalfOfUser = user["onBehalfOfUser"] as? String
             self.logger.debug(
-                "Making request to \(endpoint) (onBehalfOfUser=\(onBehalfOfUser ?? "primary"))")
+                "Making request to \(endpoint) (onBehalfOfUser=\(onBehalfOfUser ?? "primary"))"
+            )
         } else {
             self.logger.debug("Making request to \(endpoint) (missing context)")
         }

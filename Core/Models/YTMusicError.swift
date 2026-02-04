@@ -153,7 +153,7 @@ enum YTMusicError: LocalizedError, Sendable {
 
 // MARK: CustomDebugStringConvertible
 
-// Make the underlying error's description accessible for logging
+/// Make the underlying error's description accessible for logging
 extension YTMusicError: CustomDebugStringConvertible {
     var debugDescription: String {
         switch self {

@@ -15,7 +15,9 @@ final class FavoritesManager {
     private(set) var items: [FavoriteItem] = []
 
     /// Whether Favorites section should be visible.
-    var isVisible: Bool { !self.items.isEmpty }
+    var isVisible: Bool {
+        !self.items.isEmpty
+    }
 
     /// Whether this instance should skip persistence (for testing).
     private let skipPersistence: Bool

@@ -8,7 +8,9 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
     case playlists = "Playlists"
     case podcasts = "Podcasts"
 
-    var id: String { self.rawValue }
+    var id: String {
+        self.rawValue
+    }
 
     var icon: String {
         switch self {

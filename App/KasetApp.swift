@@ -1,46 +1,16 @@
 import AppKit
 import SwiftUI
 
-// MARK: - SearchFocusTriggerKey
-
-/// Environment key for triggering search focus from keyboard shortcut.
-struct SearchFocusTriggerKey: EnvironmentKey {
-    static let defaultValue: Binding<Bool> = .constant(false)
+extension EnvironmentValues {
+    @Entry var searchFocusTrigger: Binding<Bool> = .constant(false)
 }
 
 extension EnvironmentValues {
-    var searchFocusTrigger: Binding<Bool> {
-        get { self[SearchFocusTriggerKey.self] }
-        set { self[SearchFocusTriggerKey.self] = newValue }
-    }
-}
-
-// MARK: - NavigationSelectionKey
-
-/// Environment key for navigation selection.
-struct NavigationSelectionKey: EnvironmentKey {
-    static let defaultValue: Binding<NavigationItem?> = .constant(nil)
+    @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
 }
 
 extension EnvironmentValues {
-    var navigationSelection: Binding<NavigationItem?> {
-        get { self[NavigationSelectionKey.self] }
-        set { self[NavigationSelectionKey.self] = newValue }
-    }
-}
-
-// MARK: - CommandBarVisibilityKey
-
-/// Environment key for command bar visibility.
-struct CommandBarVisibilityKey: EnvironmentKey {
-    static let defaultValue: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
-    var showCommandBar: Binding<Bool> {
-        get { self[CommandBarVisibilityKey.self] }
-        set { self[CommandBarVisibilityKey.self] = newValue }
-    }
+    @Entry var showCommandBar: Binding<Bool> = .constant(false)
 }
 
 // MARK: - KasetApp

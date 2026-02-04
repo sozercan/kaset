@@ -26,8 +26,13 @@ struct ArtistDetail: Sendable {
     /// Starting video ID for Mix.
     let mixVideoId: String?
 
-    var id: String { self.artist.id }
-    var name: String { self.artist.name }
+    var id: String {
+        self.artist.id
+    }
+
+    var name: String {
+        self.artist.name
+    }
 
     init(
         artist: Artist,

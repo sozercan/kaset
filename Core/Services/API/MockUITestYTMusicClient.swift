@@ -6,14 +6,37 @@ import Foundation
 final class MockUITestYTMusicClient: YTMusicClientProtocol {
     // MARK: - Continuation State
 
-    var hasMoreHomeSections: Bool { false }
-    var hasMoreExploreSections: Bool { false }
-    var hasMoreChartsSections: Bool { false }
-    var hasMoreMoodsAndGenresSections: Bool { false }
-    var hasMoreNewReleasesSections: Bool { false }
-    var hasMorePodcastsSections: Bool { false }
-    var hasMoreLikedSongs: Bool { false }
-    var hasMorePlaylistTracks: Bool { false }
+    var hasMoreHomeSections: Bool {
+        false
+    }
+
+    var hasMoreExploreSections: Bool {
+        false
+    }
+
+    var hasMoreChartsSections: Bool {
+        false
+    }
+
+    var hasMoreMoodsAndGenresSections: Bool {
+        false
+    }
+
+    var hasMoreNewReleasesSections: Bool {
+        false
+    }
+
+    var hasMorePodcastsSections: Bool {
+        false
+    }
+
+    var hasMoreLikedSongs: Bool {
+        false
+    }
+
+    var hasMorePlaylistTracks: Bool {
+        false
+    }
 
     // MARK: - Mock Data
 

@@ -516,7 +516,8 @@ struct PlayerBar: View {
                 Button {
                     HapticService.toggle()
                     DiagnosticsLogger.player.debug(
-                        "Video button clicked, toggling showVideo from \(self.playerService.showVideo)")
+                        "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+                    )
                     withAnimation(AppAnimation.standard) {
                         player.showVideo.toggle()
                     }

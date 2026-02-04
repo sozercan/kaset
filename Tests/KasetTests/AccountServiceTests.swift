@@ -4,7 +4,6 @@
 // Tests for AccountService using Swift Testing framework.
 
 import Testing
-
 @testable import Kaset
 
 // MARK: - AccountServiceTests

@@ -5,7 +5,7 @@ import XCTest
 final class SidebarUITests: KasetUITestCase {
     // MARK: - Navigation Items Visible
 
-    func testSidebarShowsAllNavigationItems() throws {
+    func testSidebarShowsAllNavigationItems() {
         launchDefault()
 
         // Verify all sidebar items are present via accessibility identifiers
@@ -24,7 +24,7 @@ final class SidebarUITests: KasetUITestCase {
 
     // MARK: - Navigation Selection
 
-    func testNavigateToHome() throws {
+    func testNavigateToHome() {
         launchDefault()
 
         navigateToHome()
@@ -34,7 +34,7 @@ final class SidebarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(navigationTitle), "Home navigation title should be visible")
     }
 
-    func testNavigateToSearch() throws {
+    func testNavigateToSearch() {
         launchDefault()
 
         navigateToSearch()
@@ -48,7 +48,7 @@ final class SidebarUITests: KasetUITestCase {
         XCTAssertTrue(searchField.exists, "Search field should exist")
     }
 
-    func testNavigateToExplore() throws {
+    func testNavigateToExplore() {
         launchDefault()
 
         navigateToExplore()
@@ -58,7 +58,7 @@ final class SidebarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(navigationTitle), "Explore navigation title should be visible")
     }
 
-    func testNavigateToLikedMusic() throws {
+    func testNavigateToLikedMusic() {
         launchDefault()
 
         navigateToLikedMusic()
@@ -68,7 +68,7 @@ final class SidebarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(navigationTitle), "Liked Music navigation title should be visible")
     }
 
-    func testNavigateToLibrary() throws {
+    func testNavigateToLibrary() {
         launchDefault()
 
         navigateToLibrary()
@@ -80,7 +80,7 @@ final class SidebarUITests: KasetUITestCase {
 
     // MARK: - Navigation Persistence
 
-    func testNavigationPersistsAfterSwitching() throws {
+    func testNavigationPersistsAfterSwitching() {
         launchDefault()
 
         // Navigate to Search

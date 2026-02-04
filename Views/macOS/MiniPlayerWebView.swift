@@ -409,7 +409,8 @@ final class SingletonPlayerWebView {
                     // Note: trackChanged detection uses title/artist comparison from the observer script
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
-                            "trackChanged to '\(title)' while video shown - closing video window")
+                            "trackChanged to '\(title)' while video shown - closing video window"
+                        )
                         self.playerService.showVideo = false
                     }
                 }
@@ -418,7 +419,8 @@ final class SingletonPlayerWebView {
 
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
             DiagnosticsLogger.player.info(
-                "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")")
+                "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
+            )
 
             // Apply the current volume when page finishes loading
             // This is critical because YouTube may set its own default volume

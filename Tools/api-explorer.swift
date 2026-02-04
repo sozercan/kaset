@@ -1261,7 +1261,7 @@ func runMain() async {
     }
 }
 
-// Run the async main
+/// Run the async main
 let semaphore = DispatchSemaphore(value: 0)
 Task {
     await runMain()

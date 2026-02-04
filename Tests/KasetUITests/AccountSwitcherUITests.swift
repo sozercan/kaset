@@ -9,7 +9,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Profile Display Tests
 
     /// Verifies the profile section appears at bottom of sidebar when logged in.
-    func testProfileSectionDisplaysWhenLoggedIn() throws {
+    func testProfileSectionDisplaysWhenLoggedIn() {
         // Launch with mock accounts to simulate logged-in state
         self.launchWithMockAccounts()
 
@@ -26,7 +26,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies profile section shows loading state when account is being fetched.
-    func testProfileShowsLoadingStateWhenFetchingAccount() throws {
+    func testProfileShowsLoadingStateWhenFetchingAccount() {
         // Launch with delayed account loading
         app.launchEnvironment["MOCK_ACCOUNT_LOADING_DELAY"] = "true"
         app.launch()
@@ -41,7 +41,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies profile section shows logged-out state when not authenticated.
-    func testProfileSectionShowsLoggedOutStateWhenNotAuthenticated() throws {
+    func testProfileSectionShowsLoggedOutStateWhenNotAuthenticated() {
         // Launch without auth
         app.launchArguments.removeAll { $0 == "-SkipAuth" }
         app.launchEnvironment["MOCK_LOGGED_OUT"] = "true"
@@ -63,7 +63,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Popover Tests
 
     /// Verifies tapping profile opens account switcher popover when multiple accounts exist.
-    func testTappingProfileOpensPopoverWhenMultipleAccounts() throws {
+    func testTappingProfileOpensPopoverWhenMultipleAccounts() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -86,7 +86,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies tapping profile does NOT open popover when only one account exists.
-    func testTappingProfileDoesNotOpenPopoverWhenSingleAccount() throws {
+    func testTappingProfileDoesNotOpenPopoverWhenSingleAccount() {
         self.launchWithMockAccounts(accountCount: 1)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -106,7 +106,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies popover shows header with "Switch Account" title.
-    func testPopoverShowsHeader() throws {
+    func testPopoverShowsHeader() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -128,7 +128,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies popover shows list of all available accounts.
-    func testPopoverShowsAccountList() throws {
+    func testPopoverShowsAccountList() {
         self.launchWithMockAccounts(accountCount: 3)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -155,7 +155,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies selected account has checkmark indicator.
-    func testSelectedAccountHasCheckmark() throws {
+    func testSelectedAccountHasCheckmark() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -178,7 +178,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies account rows display account type badges (Personal/Brand).
-    func testAccountRowsShowTypeBadges() throws {
+    func testAccountRowsShowTypeBadges() {
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -208,7 +208,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Account Switching Tests
 
     /// Verifies switching accounts updates the profile display.
-    func testSwitchingAccountUpdatesProfile() throws {
+    func testSwitchingAccountUpdatesProfile() {
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -256,7 +256,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies switching accounts triggers content refresh.
-    func testSwitchingAccountRefreshesContent() throws {
+    func testSwitchingAccountRefreshesContent() {
         self.launchWithMockAccounts(accountCount: 2)
 
         // First navigate to Library (user-specific content)
@@ -305,7 +305,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Dismiss Tests
 
     /// Verifies clicking outside popover dismisses it.
-    func testClickingOutsideDismissesPopover() throws {
+    func testClickingOutsideDismissesPopover() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -341,7 +341,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies pressing Escape key dismisses popover.
-    func testPressingEscapeDismissesPopover() throws {
+    func testPressingEscapeDismissesPopover() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -368,7 +368,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies selecting an account dismisses the popover.
-    func testSelectingAccountDismissesPopover() throws {
+    func testSelectingAccountDismissesPopover() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -403,7 +403,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Accessibility Tests
 
     /// Verifies profile button has appropriate accessibility label.
-    func testProfileButtonHasAccessibilityLabel() throws {
+    func testProfileButtonHasAccessibilityLabel() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -421,7 +421,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies profile button has accessibility hint when multiple accounts available.
-    func testProfileButtonHasAccessibilityHintWithMultipleAccounts() throws {
+    func testProfileButtonHasAccessibilityHintWithMultipleAccounts() {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -439,7 +439,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Error Handling Tests
 
     /// Verifies error state is handled gracefully when account switch fails.
-    func testAccountSwitchErrorShowsGracefulFallback() throws {
+    func testAccountSwitchErrorShowsGracefulFallback() {
         // Launch with mock that will fail on account switch
         app.launchEnvironment["MOCK_ACCOUNT_SWITCH_FAIL"] = "true"
         self.launchWithMockAccounts(accountCount: 2)

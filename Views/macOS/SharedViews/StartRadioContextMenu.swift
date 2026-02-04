@@ -8,7 +8,6 @@ import SwiftUI
 enum StartRadioContextMenu {
     /// Creates a context menu button for starting radio based on a song.
     /// Starts playing the song immediately and loads similar songs in the background.
-    @ViewBuilder
     static func menuItem(for song: Song, playerService: PlayerService) -> some View {
         Button {
             Task {

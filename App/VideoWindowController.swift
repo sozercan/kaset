@@ -18,7 +18,7 @@ final class VideoWindowController {
     /// Flag to prevent re-entrant close handling
     private var isClosing = false
 
-    // Corner snapping
+    /// Corner snapping
     enum Corner: Int {
         case topLeft, topRight, bottomLeft, bottomRight
     }

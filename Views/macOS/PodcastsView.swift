@@ -483,7 +483,8 @@ struct PodcastShowView: View {
         } catch {
             let errorMessage = error.localizedDescription
             DiagnosticsLogger.api.error(
-                "Failed to toggle podcast subscription for \(self.show.title): \(errorMessage)")
+                "Failed to toggle podcast subscription for \(self.show.title): \(errorMessage)"
+            )
             self.subscriptionError = errorMessage
         }
     }

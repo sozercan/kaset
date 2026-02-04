@@ -329,5 +329,7 @@ enum ContentSource: String, Sendable, CustomStringConvertible {
     /// Use Charts for popularity-based requests
     case charts
 
-    var description: String { rawValue }
+    var description: String {
+        rawValue
+    }
 }
