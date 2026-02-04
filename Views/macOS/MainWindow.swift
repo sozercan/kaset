@@ -260,8 +260,7 @@ struct MainWindow: View {
 
     /// Returns the view for a specific navigation item.
     @ViewBuilder
-    // swiftlint:disable:next cyclomatic_complexity
-    private func viewForNavigationItem(_ item: NavigationItem) -> some View {
+    private func viewForNavigationItem(_ item: NavigationItem) -> some View { // swiftlint:disable:this cyclomatic_complexity
         Group {
             switch item {
             case .home:

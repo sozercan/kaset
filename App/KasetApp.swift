@@ -112,7 +112,7 @@ struct KasetApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        Window("Kaset", id: "main") {
             // Skip UI during unit tests to prevent window spam
             if UITestConfig.isRunningUnitTests, !UITestConfig.isUITestMode {
                 Color.clear
