@@ -47,7 +47,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
       - name: Install SwiftFormat
-        run: brew install swiftformat
+        run: |
+          brew update
+          brew install swiftformat
+          swiftformat --version
 
       - name: Check formatting
         run: |
