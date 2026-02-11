@@ -231,12 +231,16 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }
             let videoId = song.videoId
             let offsetX = slideDirection * rowView.bounds.width
+            let originalFrame = rowView.frame
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 rowView.animator().alphaValue = 0
                 rowView.animator().frame.origin.x += offsetX
             } completionHandler: { [weak self] in
+                // Reset row view so it can be reused without a stuck frame/alpha (fixes misaligned rows).
+                rowView.alphaValue = 1
+                rowView.frame = originalFrame
                 self?.onRemove(videoId)
             }
         }
@@ -436,7 +440,6 @@ class DraggableTableView: NSTableView {
                 let localPoint = self.convert(point, from: nil)
                 let rowAtStart = self.row(at: localPoint)
                 swipeRemoveTargetRow = rowAtStart
-                DiagnosticsLogger.ui.info("[SwipeRemove] began: locationInWindow=(\(point.x), \(point.y)) localInTable=(\(localPoint.x), \(localPoint.y)) row=\(rowAtStart) totalRows=\(coord.queue.count) currentIndex=\(coord.currentIndex)")
             }
         case .changed:
             horizontalSwipeAccumulator += dx
@@ -447,37 +450,19 @@ class DraggableTableView: NSTableView {
             let point = event.locationInWindow
             let localPoint = self.convert(point, from: nil)
             let rowAtEnd = self.row(at: localPoint)
-            if let coord = coordinator {
-                DiagnosticsLogger.ui.info("[SwipeRemove] ended: phase=\(event.phase.rawValue) accH=\(accH) accV=\(accV) locationInWindow=(\(point.x), \(point.y)) localInTable=(\(localPoint.x), \(localPoint.y)) rowAtEnd=\(rowAtEnd) targetRowFromBegin=\(self.swipeRemoveTargetRow) totalRows=\(coord.queue.count) currentIndex=\(coord.currentIndex)")
-            }
             horizontalSwipeAccumulator = 0
             verticalSwipeAccumulator = 0
-            if CFAbsoluteTimeGetCurrent() < swipeRemoveCooldownUntil {
-                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: cooldown")
-                break
-            }
+            if CFAbsoluteTimeGetCurrent() < swipeRemoveCooldownUntil { break }
             guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
                   abs(accH) > abs(accV)
-            else {
-                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: threshold (accH=\(accH) accV=\(accV))")
-                break
-            }
+            else { break }
             guard let coord = coordinator else { break }
             let row = swipeRemoveTargetRow >= 0 ? swipeRemoveTargetRow : rowAtEnd
-            if row < 0 {
-                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: row=\(row)")
-                break
-            }
-            if row == coord.currentIndex {
-                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: row \(row) is current track")
-                break
-            }
-            guard let song = coord.queue[safe: row] else {
-                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: no song at row \(row)")
-                break
-            }
+            if row < 0 { break }
+            if row == coord.currentIndex { break }
+            guard let song = coord.queue[safe: row] else { break }
             let slideDirection: CGFloat = accH > 0 ? 1 : -1
-            DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\" slideDirection=\(slideDirection) (accH>0 → right)")
+            DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\"")
             swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
             coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
             return
@@ -521,6 +506,8 @@ class QueueTableCellView: NSView {
 
     private func setupView() {
         wantsLayer = true
+        // Fill the row view so layout is consistent when the table reuses row views (fixes misaligned rows).
+        autoresizingMask = [.width, .height]
 
         let stackView = NSStackView()
         stackView.orientation = .horizontal
@@ -529,11 +516,15 @@ class QueueTableCellView: NSView {
         stackView.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 8)  // Reduced right padding
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Indicator container (for number or waveform)
+        // Indicator container (for number or waveform) — keep fixed so long text doesn't shift row layout
         let indicatorContainer = NSView()
         indicatorContainer.translatesAutoresizingMaskIntoConstraints = false
-        indicatorContainer.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        let indicatorWidth = indicatorContainer.widthAnchor.constraint(equalToConstant: 24)
+        indicatorWidth.priority = .required
+        indicatorWidth.isActive = true
         indicatorContainer.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        indicatorContainer.setContentHuggingPriority(.required, for: .horizontal)
+        indicatorContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         indicatorLabel.isEditable = false
         indicatorLabel.isBordered = false
@@ -552,6 +543,8 @@ class QueueTableCellView: NSView {
         thumbnailImageView.layer?.masksToBounds = true
         thumbnailImageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
         thumbnailImageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        thumbnailImageView.setContentHuggingPriority(.required, for: .horizontal)
+        thumbnailImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let infoStackView = NSStackView()
         infoStackView.orientation = .vertical
@@ -581,10 +574,18 @@ class QueueTableCellView: NSView {
         durationLabel.textColor = NSColor.tertiaryLabelColor
         durationLabel.setContentCompressionResistancePriority(.required, for: .horizontal)  // Don't compress duration
 
+        // Spacer takes all flexible space so title/artist and duration stay consistently aligned across rows
+        let spacerView = NSView()
+        spacerView.translatesAutoresizingMaskIntoConstraints = false
+        spacerView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        infoStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)  // Truncate before spacer grows
+
         stackView.addArrangedSubview(indicatorContainer)
         stackView.addArrangedSubview(thumbnailImageView)
         stackView.addArrangedSubview(infoStackView)
-        stackView.addArrangedSubview(NSView())
+        stackView.addArrangedSubview(spacerView)
         stackView.addArrangedSubview(durationLabel)
 
         addSubview(stackView)
@@ -597,6 +598,14 @@ class QueueTableCellView: NSView {
 
         let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
         addGestureRecognizer(clickGesture)
+    }
+
+    override func layout() {
+        super.layout()
+        // Ensure we always fill the row view so reused rows don't keep a stale frame (fixes misaligned rows).
+        if let sv = superview, !sv.bounds.isEmpty, frame != sv.bounds {
+            frame = sv.bounds
+        }
     }
 
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, favoritesManager: FavoritesManager, onPlay: @escaping () -> Void, onRemove: @escaping () -> Void) {
