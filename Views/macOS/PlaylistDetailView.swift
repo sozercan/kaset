@@ -332,6 +332,10 @@ struct PlaylistDetailView: View {
 
             Divider()
 
+            AddToQueueContextMenu(song: track, playerService: self.playerService)
+
+            Divider()
+
             // Go to Artist - show first artist with valid ID
             if let artist = track.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {

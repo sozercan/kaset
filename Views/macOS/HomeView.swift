@@ -147,6 +147,10 @@ struct HomeView: View {
 
             Divider()
 
+            AddToQueueContextMenu(song: song, playerService: self.playerService)
+
+            Divider()
+
             if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")

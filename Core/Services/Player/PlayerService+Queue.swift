@@ -314,4 +314,84 @@ extension PlayerService {
         self.queue.append(contentsOf: songs)
         self.logger.info("Appended \(songs.count) songs to queue")
     }
+
+    // MARK: - Queue Persistence
+
+    /// UserDefaults keys for queue persistence
+    private static let savedQueueKey = "kaset.saved.queue"
+    private static let savedQueueIndexKey = "kaset.saved.queueIndex"
+    private static let savedQueueTimestampKey = "kaset.saved.queueTimestamp"
+    /// Maximum age of saved queue in seconds (24 hours)
+    private static let maxQueueAge: TimeInterval = 24 * 60 * 60
+
+    /// Saves the current queue to UserDefaults for restoration on next launch.
+    func saveQueueForPersistence() {
+        guard !self.queue.isEmpty else {
+            // Clear saved queue if empty
+            UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
+            UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
+            UserDefaults.standard.removeObject(forKey: Self.savedQueueTimestampKey)
+            self.logger.info("Cleared saved queue (queue is empty)")
+            return
+        }
+
+        do {
+            let encoder = JSONEncoder()
+            let queueData = try encoder.encode(self.queue)
+            UserDefaults.standard.set(queueData, forKey: Self.savedQueueKey)
+            UserDefaults.standard.set(self.currentIndex, forKey: Self.savedQueueIndexKey)
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.savedQueueTimestampKey)
+            self.logger.info("Saved queue with \(self.queue.count) songs at index \(self.currentIndex)")
+        } catch {
+            self.logger.error("Failed to save queue: \(error.localizedDescription)")
+        }
+    }
+
+    /// Restores the queue from UserDefaults if available and not expired.
+    /// - Returns: True if queue was restored, false otherwise.
+    @discardableResult
+    func restoreQueueFromPersistence() -> Bool {
+        guard let queueData = UserDefaults.standard.data(forKey: Self.savedQueueKey),
+              let savedIndex = UserDefaults.standard.object(forKey: Self.savedQueueIndexKey) as? Int,
+              let timestamp = UserDefaults.standard.object(forKey: Self.savedQueueTimestampKey) as? TimeInterval
+        else {
+            self.logger.info("No saved queue found")
+            return false
+        }
+
+        // Check if saved queue is expired
+        let age = Date().timeIntervalSince1970 - timestamp
+        guard age < Self.maxQueueAge else {
+            self.logger.info("Saved queue expired (age: \(age)s)")
+            clearSavedQueue()
+            return false
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            let savedQueue = try decoder.decode([Song].self, from: queueData)
+            guard !savedQueue.isEmpty else {
+                self.logger.info("Saved queue is empty")
+                clearSavedQueue()
+                return false
+            }
+
+            self.queue = savedQueue
+            self.currentIndex = min(savedIndex, savedQueue.count - 1)
+            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
+            return true
+        } catch {
+            self.logger.error("Failed to restore queue: \(error.localizedDescription)")
+            clearSavedQueue()
+            return false
+        }
+    }
+
+    /// Clears the saved queue from UserDefaults.
+    func clearSavedQueue() {
+        UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
+        UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
+        UserDefaults.standard.removeObject(forKey: Self.savedQueueTimestampKey)
+        self.logger.info("Cleared saved queue")
+    }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - SongActionsHelper
 
-/// Helper for common song actions like liking, disliking, and adding to library.
+/// Helper for common song actions like liking, disliking, adding to library, and queue management.
 @MainActor
 enum SongActionsHelper {
     /// Likes a song via the API (does not play the song).
@@ -100,6 +100,34 @@ enum SongActionsHelper {
         await libraryViewModel?.refresh()
         DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
     }
+
+    // MARK: - Queue Actions
+
+    /// Adds a song to play next (immediately after current track).
+    static func addToQueueNext(_ song: Song, playerService: PlayerService) {
+        playerService.insertNextInQueue([song])
+        DiagnosticsLogger.ui.info("Added song to play next: \(song.title)")
+    }
+
+    /// Adds a song to the end of the queue.
+    static func addToQueueLast(_ song: Song, playerService: PlayerService) {
+        playerService.appendToQueue([song])
+        DiagnosticsLogger.ui.info("Added song to end of queue: \(song.title)")
+    }
+
+    /// Adds multiple songs (e.g., from an album) to play next.
+    static func addSongsToQueueNext(_ songs: [Song], playerService: PlayerService) {
+        guard !songs.isEmpty else { return }
+        playerService.insertNextInQueue(songs)
+        DiagnosticsLogger.ui.info("Added \(songs.count) songs to play next")
+    }
+
+    /// Adds multiple songs (e.g., from an album) to the end of the queue.
+    static func addSongsToQueueLast(_ songs: [Song], playerService: PlayerService) {
+        guard !songs.isEmpty else { return }
+        playerService.appendToQueue(songs)
+        DiagnosticsLogger.ui.info("Added \(songs.count) songs to end of queue")
+    }
 }
 
 // MARK: - LikeDislikeContextMenu
@@ -139,6 +167,29 @@ struct LikeDislikeContextMenu: View {
                     Label("Dislike", systemImage: "hand.thumbsdown")
                 }
             }
+        }
+    }
+}
+
+// MARK: - AddToQueueContextMenu
+
+/// Reusable context menu items for adding songs to the queue.
+@available(macOS 26.0, *)
+struct AddToQueueContextMenu: View {
+    let song: Song
+    let playerService: PlayerService
+
+    var body: some View {
+        Button {
+            SongActionsHelper.addToQueueNext(song, playerService: playerService)
+        } label: {
+            Label("Play Next", systemImage: "text.insert")
+        }
+
+        Button {
+            SongActionsHelper.addToQueueLast(song, playerService: playerService)
+        } label: {
+            Label("Add to Queue", systemImage: "text.append")
         }
     }
 }
