@@ -663,12 +663,21 @@ private struct QueueFooterActions: View {
             .buttonStyle(.plain)
 
             Button {
-                self.playerService.clearQueue()
+                Task {
+                    // Stop playback if something is playing
+                    if self.playerService.isPlaying {
+                        await self.playerService.stop()
+                    }
+                    // Clear the entire queue including current track
+                    self.playerService.queue = []
+                    self.playerService.currentIndex = 0
+                    self.playerService.mixContinuationToken = nil
+                }
             } label: {
                 Label("Clear", systemImage: "trash")
                     .foregroundStyle(.red)
             }
-            .disabled(self.playerService.queue.count <= 1)
+            .disabled(self.playerService.queue.isEmpty)
             .buttonStyle(.plain)
 
             Spacer()

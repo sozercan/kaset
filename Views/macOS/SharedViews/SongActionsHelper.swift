@@ -116,17 +116,467 @@ enum SongActionsHelper {
     }
 
     /// Adds multiple songs (e.g., from an album) to play next.
-    static func addSongsToQueueNext(_ songs: [Song], playerService: PlayerService) {
+    /// - Parameters:
+    ///   - fallbackArtist: Artist name to use when songs have empty artists (e.g., album author)
+    ///   - fallbackAlbum: Album info to use when songs don't have album metadata (e.g., album title/cover)
+    static func addSongsToQueueNext(
+        _ songs: [Song],
+        playerService: PlayerService,
+        fallbackArtist: String? = nil,
+        fallbackAlbum: Album? = nil
+    ) {
         guard !songs.isEmpty else { return }
-        playerService.insertNextInQueue(songs)
-        DiagnosticsLogger.ui.info("Added \(songs.count) songs to play next")
+        
+        DiagnosticsLogger.ui.info("[QueueDebug] addSongsToQueueNext called with \(songs.count) songs, fallbackArtist: \(fallbackArtist ?? "nil"), fallbackAlbum: \(fallbackAlbum?.title ?? "nil")")
+        if let firstSong = songs.first {
+            DiagnosticsLogger.ui.info("[QueueDebug] First song '\(firstSong.title)' raw artists: \(firstSong.artists.map { $0.name })")
+        }
+        
+        // Clean artists and use fallback when empty
+        let cleanedSongs = songs.map { song in
+            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
+                if artist.name == "Album" { return nil }
+                var cleanName = artist.name
+                if cleanName.hasPrefix("Album, ") {
+                    cleanName = String(cleanName.dropFirst(7))
+                }
+                return Artist(id: artist.id, name: cleanName)
+            }
+            
+            // Use fallback artist if artists are empty (and clean the fallback too)
+            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
+                // Clean the fallback string - it might have "Album, " prefix or be "Album"
+                var cleanFallback = fallback
+                if cleanFallback == "Album" {
+                    cleanFallback = "Unknown Artist"
+                } else if cleanFallback.hasPrefix("Album, ") {
+                    cleanFallback = String(cleanFallback.dropFirst(7))
+                }
+                // Also handle case where it's "Album, Artist" but we got it as a combined string
+                if cleanFallback.contains("Album,") {
+                    // Try to extract just the artist part after "Album,"
+                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
+                    if parts.count > 1 {
+                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
+                    }
+                }
+                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
+                DiagnosticsLogger.ui.info("[QueueDebug] Using fallback artist '\(fallback)' -> '\(cleanFallback)' for song '\(song.title)'")
+            }
+            
+            // Use fallback album if song doesn't have album info
+            let finalAlbum = song.album ?? fallbackAlbum
+            // Use fallback thumbnail if song doesn't have one
+            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
+            
+            return Song(
+                id: song.id,
+                title: song.title,
+                artists: cleanedArtists,
+                album: finalAlbum,
+                duration: song.duration,
+                thumbnailURL: finalThumbnail,
+                videoId: song.videoId
+            )
+        }
+        
+        if let firstCleaned = cleanedSongs.first {
+            DiagnosticsLogger.ui.info("[QueueDebug] First song after cleaning: \(firstCleaned.artists.map { $0.name })")
+        }
+        
+        playerService.insertNextInQueue(cleanedSongs)
+        DiagnosticsLogger.ui.info("[QueueDebug] Added \(cleanedSongs.count) songs to play next")
     }
 
     /// Adds multiple songs (e.g., from an album) to the end of the queue.
-    static func addSongsToQueueLast(_ songs: [Song], playerService: PlayerService) {
+    /// - Parameters:
+    ///   - fallbackArtist: Artist name to use when songs have empty artists (e.g., album author)
+    ///   - fallbackAlbum: Album info to use when songs don't have album metadata (e.g., album title/cover)
+    static func addSongsToQueueLast(
+        _ songs: [Song],
+        playerService: PlayerService,
+        fallbackArtist: String? = nil,
+        fallbackAlbum: Album? = nil
+    ) {
         guard !songs.isEmpty else { return }
-        playerService.appendToQueue(songs)
-        DiagnosticsLogger.ui.info("Added \(songs.count) songs to end of queue")
+        
+        DiagnosticsLogger.ui.info("[QueueDebug] addSongsToQueueLast called with \(songs.count) songs, fallbackArtist: \(fallbackArtist ?? "nil"), fallbackAlbum: \(fallbackAlbum?.title ?? "nil")")
+        if let firstSong = songs.first {
+            DiagnosticsLogger.ui.info("[QueueDebug] First song '\(firstSong.title)' raw artists: \(firstSong.artists.map { $0.name })")
+        }
+        
+        // Clean artists and use fallback when empty
+        let cleanedSongs = songs.map { song in
+            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
+                if artist.name == "Album" { return nil }
+                var cleanName = artist.name
+                if cleanName.hasPrefix("Album, ") {
+                    cleanName = String(cleanName.dropFirst(7))
+                }
+                return Artist(id: artist.id, name: cleanName)
+            }
+            
+            // Use fallback artist if artists are empty (and clean the fallback too)
+            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
+                // Clean the fallback string - it might have "Album, " prefix or be "Album"
+                var cleanFallback = fallback
+                if cleanFallback == "Album" {
+                    cleanFallback = "Unknown Artist"
+                } else if cleanFallback.hasPrefix("Album, ") {
+                    cleanFallback = String(cleanFallback.dropFirst(7))
+                }
+                // Also handle case where it's "Album, Artist" but we got it as a combined string
+                if cleanFallback.contains("Album,") {
+                    // Try to extract just the artist part after "Album,"
+                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
+                    if parts.count > 1 {
+                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
+                    }
+                }
+                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
+                DiagnosticsLogger.ui.info("[QueueDebug] Using fallback artist '\(fallback)' -> '\(cleanFallback)' for song '\(song.title)'")
+            }
+            
+            // Use fallback album if song doesn't have album info
+            let finalAlbum = song.album ?? fallbackAlbum
+            // Use fallback thumbnail if song doesn't have one
+            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
+            
+            return Song(
+                id: song.id,
+                title: song.title,
+                artists: cleanedArtists,
+                album: finalAlbum,
+                duration: song.duration,
+                thumbnailURL: finalThumbnail,
+                videoId: song.videoId
+            )
+        }
+        
+        if let firstCleaned = cleanedSongs.first {
+            DiagnosticsLogger.ui.info("[QueueDebug] First song after cleaning: \(firstCleaned.artists.map { $0.name })")
+        }
+        
+        playerService.appendToQueue(cleanedSongs)
+        DiagnosticsLogger.ui.info("[QueueDebug] Added \(cleanedSongs.count) songs to end of queue")
+    }
+
+    // MARK: - Album Queue Actions
+
+    /// Adds an album's songs to play next (immediately after current track).
+    static func addAlbumToQueueNext(
+        _ album: Album,
+        client: any YTMusicClientProtocol,
+        playerService: PlayerService
+    ) {
+        Task {
+            do {
+                DiagnosticsLogger.ui.info("[QueueDebug] addAlbumToQueueNext called for album: \(album.title)")
+                DiagnosticsLogger.ui.info("[QueueDebug] Raw album.artists: \(album.artists?.map { $0.name } ?? [])")
+                
+                // Fetch album tracks - albums are treated as playlists
+                let response = try await client.getPlaylist(id: album.id)
+                var songs = response.detail.tracks
+                DiagnosticsLogger.ui.info("[QueueDebug] Fetched \(songs.count) tracks from API")
+                
+                guard !songs.isEmpty else { return }
+                
+                // Log first song's raw artists
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] First song '\(firstSong.title)' raw artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                // Clean up album artists - filter out "Album" keyword and clean names
+                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
+                    var cleanName = artist.name
+                    
+                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
+                    if cleanName == "Album" {
+                        DiagnosticsLogger.ui.info("[QueueDebug] Filtering out 'Album' keyword")
+                        return nil
+                    }
+                    
+                    // Also clean "Album, " prefix if present
+                    if cleanName.hasPrefix("Album, ") {
+                        cleanName = String(cleanName.dropFirst(7))
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Cleaning album artist: '\(artist.name)' -> '\(cleanName)'")
+                    return Artist(id: artist.id, name: cleanName)
+                }
+                
+                DiagnosticsLogger.ui.info("[QueueDebug] Cleaned album artists: \(cleanAlbumArtists.map { $0.name })")
+                
+                // Populate album and artist info for each song
+                songs = songs.map { song in
+                    // Use song artists if available and not empty, otherwise use cleaned album artists
+                    let usingSongArtists = !song.artists.isEmpty
+                    let baseArtists = usingSongArtists ? song.artists : cleanAlbumArtists
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)': usingSongArtists=\(usingSongArtists), baseArtists=\(baseArtists.map { $0.name })")
+                    
+                    // Also clean song artists - filter "Album" keyword and clean names
+                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
+                        var cleanName = artist.name
+                        
+                        // Skip artists that are literally just "Album"
+                        if cleanName == "Album" {
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Filtering out 'Album' keyword from song artists")
+                            return nil
+                        }
+                        
+                        // Clean "Album, " prefix if present
+                        if cleanName.hasPrefix("Album, ") {
+                            cleanName = String(cleanName.dropFirst(7))
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Cleaned artist: '\(artist.name)' -> '\(cleanName)'")
+                        }
+                        return Artist(id: artist.id, name: cleanName)
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)' final artists: \(effectiveArtists.map { $0.name })")
+                    
+                    // Create updated song with album info and proper artists
+                    return Song(
+                        id: song.id,
+                        title: song.title,
+                        artists: effectiveArtists,
+                        album: Album(
+                            id: album.id,
+                            title: album.title,
+                            artists: cleanAlbumArtists,
+                            thumbnailURL: album.thumbnailURL,
+                            year: nil,
+                            trackCount: album.trackCount
+                        ),
+                        duration: song.duration,
+                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
+                        videoId: song.videoId
+                    )
+                }
+                
+                // Log final result for first song
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] FINAL: First song '\(firstSong.title)' artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                playerService.insertNextInQueue(songs)
+                DiagnosticsLogger.ui.info("[QueueDebug] Added album '\(album.title)' (\(songs.count) songs) to play next")
+            } catch {
+                DiagnosticsLogger.ui.error("[QueueDebug] Failed to add album to queue: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Adds an album's songs to the end of the queue.
+    static func addAlbumToQueueLast(
+        _ album: Album,
+        client: any YTMusicClientProtocol,
+        playerService: PlayerService
+    ) {
+        Task {
+            do {
+                DiagnosticsLogger.ui.info("[QueueDebug] addAlbumToQueueLast called for album: \(album.title)")
+                DiagnosticsLogger.ui.info("[QueueDebug] Raw album.artists: \(album.artists?.map { $0.name } ?? [])")
+                
+                // Fetch album tracks - albums are treated as playlists
+                let response = try await client.getPlaylist(id: album.id)
+                var songs = response.detail.tracks
+                DiagnosticsLogger.ui.info("[QueueDebug] Fetched \(songs.count) tracks from API")
+                
+                guard !songs.isEmpty else { return }
+                
+                // Log first song's raw artists
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] First song '\(firstSong.title)' raw artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                // Clean up album artists - filter out "Album" keyword and clean names
+                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
+                    var cleanName = artist.name
+                    
+                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
+                    if cleanName == "Album" {
+                        DiagnosticsLogger.ui.info("[QueueDebug] Filtering out 'Album' keyword")
+                        return nil
+                    }
+                    
+                    // Also clean "Album, " prefix if present
+                    if cleanName.hasPrefix("Album, ") {
+                        cleanName = String(cleanName.dropFirst(7))
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Cleaning album artist: '\(artist.name)' -> '\(cleanName)'")
+                    return Artist(id: artist.id, name: cleanName)
+                }
+                
+                DiagnosticsLogger.ui.info("[QueueDebug] Cleaned album artists: \(cleanAlbumArtists.map { $0.name })")
+                
+                // Populate album and artist info for each song
+                songs = songs.map { song in
+                    // Use song artists if available and not empty, otherwise use cleaned album artists
+                    let usingSongArtists = !song.artists.isEmpty
+                    let baseArtists = usingSongArtists ? song.artists : cleanAlbumArtists
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)': usingSongArtists=\(usingSongArtists), baseArtists=\(baseArtists.map { $0.name })")
+                    
+                    // Also clean song artists - filter "Album" keyword and clean names
+                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
+                        var cleanName = artist.name
+                        
+                        // Skip artists that are literally just "Album"
+                        if cleanName == "Album" {
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Filtering out 'Album' keyword from song artists")
+                            return nil
+                        }
+                        
+                        // Clean "Album, " prefix if present
+                        if cleanName.hasPrefix("Album, ") {
+                            cleanName = String(cleanName.dropFirst(7))
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Cleaned artist: '\(artist.name)' -> '\(cleanName)'")
+                        }
+                        return Artist(id: artist.id, name: cleanName)
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)' final artists: \(effectiveArtists.map { $0.name })")
+                    
+                    // Create updated song with album info and proper artists
+                    return Song(
+                        id: song.id,
+                        title: song.title,
+                        artists: effectiveArtists,
+                        album: Album(
+                            id: album.id,
+                            title: album.title,
+                            artists: cleanAlbumArtists,
+                            thumbnailURL: album.thumbnailURL,
+                            year: nil,
+                            trackCount: album.trackCount
+                        ),
+                        duration: song.duration,
+                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
+                        videoId: song.videoId
+                    )
+                }
+                
+                // Log final result for first song
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] FINAL: First song '\(firstSong.title)' artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                playerService.appendToQueue(songs)
+                DiagnosticsLogger.ui.info("[QueueDebug] Added album '\(album.title)' (\(songs.count) songs) to end of queue")
+            } catch {
+                DiagnosticsLogger.ui.error("[QueueDebug] Failed to add album to queue: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Plays an album immediately, replacing the current queue.
+    static func playAlbum(
+        _ album: Album,
+        client: any YTMusicClientProtocol,
+        playerService: PlayerService
+    ) {
+        Task {
+            do {
+                DiagnosticsLogger.ui.info("[QueueDebug] playAlbum called for album: \(album.title)")
+                DiagnosticsLogger.ui.info("[QueueDebug] Raw album.artists: \(album.artists?.map { $0.name } ?? [])")
+                
+                // Fetch album tracks - albums are treated as playlists
+                let response = try await client.getPlaylist(id: album.id)
+                var songs = response.detail.tracks
+                DiagnosticsLogger.ui.info("[QueueDebug] Fetched \(songs.count) tracks from API")
+                
+                guard !songs.isEmpty else { return }
+                
+                // Log first song's raw artists
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] First song '\(firstSong.title)' raw artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                // Clean up album artists - filter out "Album" keyword and clean names
+                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
+                    var cleanName = artist.name
+                    
+                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
+                    if cleanName == "Album" {
+                        DiagnosticsLogger.ui.info("[QueueDebug] Filtering out 'Album' keyword")
+                        return nil
+                    }
+                    
+                    // Also clean "Album, " prefix if present
+                    if cleanName.hasPrefix("Album, ") {
+                        cleanName = String(cleanName.dropFirst(7))
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Cleaning album artist: '\(artist.name)' -> '\(cleanName)'")
+                    return Artist(id: artist.id, name: cleanName)
+                }
+                
+                DiagnosticsLogger.ui.info("[QueueDebug] Cleaned album artists: \(cleanAlbumArtists.map { $0.name })")
+                
+                // Populate album and artist info for each song
+                songs = songs.map { song in
+                    // Use song artists if available and not empty, otherwise use cleaned album artists
+                    let usingSongArtists = !song.artists.isEmpty
+                    let baseArtists = usingSongArtists ? song.artists : cleanAlbumArtists
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)': usingSongArtists=\(usingSongArtists), baseArtists=\(baseArtists.map { $0.name })")
+                    
+                    // Also clean song artists - filter "Album" keyword and clean names
+                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
+                        var cleanName = artist.name
+                        
+                        // Skip artists that are literally just "Album"
+                        if cleanName == "Album" {
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Filtering out 'Album' keyword from song artists")
+                            return nil
+                        }
+                        
+                        // Clean "Album, " prefix if present
+                        if cleanName.hasPrefix("Album, ") {
+                            cleanName = String(cleanName.dropFirst(7))
+                            DiagnosticsLogger.ui.info("[QueueDebug]   Cleaned artist: '\(artist.name)' -> '\(cleanName)'")
+                        }
+                        return Artist(id: artist.id, name: cleanName)
+                    }
+                    
+                    DiagnosticsLogger.ui.info("[QueueDebug] Song '\(song.title)' final artists: \(effectiveArtists.map { $0.name })")
+                    
+                    // Create album object for the song
+                    let songAlbum = Album(
+                        id: album.id,
+                        title: album.title,
+                        artists: cleanAlbumArtists.isEmpty ? nil : cleanAlbumArtists,
+                        thumbnailURL: album.thumbnailURL,
+                        year: album.year,
+                        trackCount: songs.count
+                    )
+                    
+                    // Create updated song with album info and proper artists
+                    return Song(
+                        id: song.id,
+                        title: song.title,
+                        artists: effectiveArtists.isEmpty ? cleanAlbumArtists : effectiveArtists,
+                        album: songAlbum,
+                        duration: song.duration,
+                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
+                        videoId: song.videoId
+                    )
+                }
+                
+                // Log final result for first song
+                if let firstSong = songs.first {
+                    DiagnosticsLogger.ui.info("[QueueDebug] FINAL: First song '\(firstSong.title)' artists: \(firstSong.artists.map { $0.name })")
+                }
+
+                // Stop current playback and play the album
+                await playerService.playQueue(songs, startingAt: 0)
+                DiagnosticsLogger.ui.info("[QueueDebug] Playing album '\(album.title)' (\(songs.count) songs)")
+            } catch {
+                DiagnosticsLogger.ui.error("[QueueDebug] Failed to play album: \(error.localizedDescription)")
+            }
+        }
     }
 }
 
