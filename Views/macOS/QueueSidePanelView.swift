@@ -8,7 +8,7 @@ struct QueueSidePanelView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
 
     var body: some View {
-        // Note: Removed GlassEffectContainer to test drag-and-drop
+        // Using regular material background - GlassEffectContainer breaks drag-and-drop
         VStack(spacing: 0) {
             QueueSidePanelHeader()
 
@@ -47,7 +47,7 @@ struct QueueSidePanelView: View {
 
             QueueFooterActions()
         }
-        .frame(width: 350)
+        .frame(width: 400)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .accessibilityIdentifier(AccessibilityID.Queue.container)
@@ -103,6 +103,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             viewController.tableView?.reloadData()
         }
 
+        // Update current track highlighting and waveform animation
         if let tableView = viewController.tableView {
             for row in 0..<queue.count {
                 if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? QueueTableCellView {
@@ -131,7 +132,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     // MARK: - View Controller
 
     class QueueListViewController: NSViewController {
-        var tableView: NSTableView?
+        var tableView: DraggableTableView?
         weak var coordinator: Coordinator?
 
         override func loadView() {
@@ -141,8 +142,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             scrollView.borderType = .noBorder
             scrollView.backgroundColor = .clear
             scrollView.drawsBackground = false
+            scrollView.hasHorizontalScroller = false  // Disable horizontal scrolling
+            scrollView.horizontalScrollElasticity = .none  // No horizontal bounce
 
-            let tableView = NSTableView()
+            let tableView = DraggableTableView()
             tableView.headerView = nil
             tableView.selectionHighlightStyle = .none
             tableView.backgroundColor = .clear
@@ -155,12 +158,14 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("QueueColumn"))
             column.title = ""
             column.minWidth = 350
-            column.maxWidth = 350
+            column.maxWidth = 400
+            column.width = 350  // Matches container width minus scroll bar space
             tableView.addTableColumn(column)
 
             let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
             tableView.registerForDraggedTypes([dragType, .string])
             tableView.verticalMotionCanBeginDrag = true
+            tableView.draggingDestinationFeedbackStyle = .gap  // Show gap where item will be dropped
 
             scrollView.documentView = tableView
             self.tableView = tableView
@@ -172,6 +177,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             if let tableView = tableView {
                 tableView.delegate = coordinator
                 tableView.dataSource = coordinator
+                tableView.coordinator = coordinator
             }
         }
     }
@@ -257,8 +263,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard dropOperation == .above else { return [] }
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return [] }
-            // For moving down: use row directly (move API handles the shift)
-            // For moving up: use row directly
             let destRow = row
             guard destRow != currentIndex && srcRow != destRow else { return [] }
             return .move
@@ -267,7 +271,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return false }
-            // Use row directly - move(fromOffsets:toOffset:) handles the index adjustment
             let destRow = row
             guard srcRow != currentIndex && destRow != currentIndex && srcRow != destRow else { return false }
             onReorder(srcRow, destRow)
@@ -277,12 +280,42 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     }
 }
 
+// MARK: - Custom Table View with Drag Visual Feedback
+
+@available(macOS 26.0, *)
+class DraggableTableView: NSTableView {
+    weak var coordinator: QueueListControllerRepresentable.Coordinator?
+
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        setupTable()
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupTable()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupTable()
+    }
+
+    private func setupTable() {
+        // Enable gap feedback style for drag-and-drop
+        self.draggingDestinationFeedbackStyle = .gap
+    }
+}
+
 // MARK: - Cell View
 
 @available(macOS 26.0, *)
 class QueueTableCellView: NSView {
     private var onPlay: (() -> Void)?
-    private let indicatorLabel = NSTextField()
+    private var isCurrentTrack: Bool = false
+    private var isPlaying: Bool = false
+    private var indicatorLabel = NSTextField()
+    private var waveformView: NSView?
     private let thumbnailImageView = NSImageView()
     private let titleLabel = NSTextField()
     private let artistLabel = NSTextField()
@@ -305,15 +338,26 @@ class QueueTableCellView: NSView {
         stackView.orientation = .horizontal
         stackView.spacing = 12
         stackView.alignment = .centerY
-        stackView.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        stackView.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 8)  // Reduced right padding
         stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Indicator container (for number or waveform)
+        let indicatorContainer = NSView()
+        indicatorContainer.translatesAutoresizingMaskIntoConstraints = false
+        indicatorContainer.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        indicatorContainer.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
         indicatorLabel.isEditable = false
         indicatorLabel.isBordered = false
         indicatorLabel.backgroundColor = .clear
         indicatorLabel.alignment = .center
         indicatorLabel.font = NSFont.systemFont(ofSize: 12)
-        indicatorLabel.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        indicatorLabel.translatesAutoresizingMaskIntoConstraints = false
+        indicatorContainer.addSubview(indicatorLabel)
+        NSLayoutConstraint.activate([
+            indicatorLabel.centerXAnchor.constraint(equalTo: indicatorContainer.centerXAnchor),
+            indicatorLabel.centerYAnchor.constraint(equalTo: indicatorContainer.centerYAnchor)
+        ])
 
         thumbnailImageView.wantsLayer = true
         thumbnailImageView.layer?.cornerRadius = 4
@@ -347,8 +391,9 @@ class QueueTableCellView: NSView {
         durationLabel.alignment = .right
         durationLabel.font = NSFont.systemFont(ofSize: 11)
         durationLabel.textColor = NSColor.tertiaryLabelColor
+        durationLabel.setContentCompressionResistancePriority(.required, for: .horizontal)  // Don't compress duration
 
-        stackView.addArrangedSubview(indicatorLabel)
+        stackView.addArrangedSubview(indicatorContainer)
         stackView.addArrangedSubview(thumbnailImageView)
         stackView.addArrangedSubview(infoStackView)
         stackView.addArrangedSubview(NSView())
@@ -368,6 +413,8 @@ class QueueTableCellView: NSView {
 
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, favoritesManager: FavoritesManager, onPlay: @escaping () -> Void, onRemove: @escaping () -> Void) {
         self.onPlay = onPlay
+        self.isCurrentTrack = isCurrentTrack
+        self.isPlaying = isPlaying
         updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
 
         titleLabel.stringValue = song.title
@@ -395,13 +442,48 @@ class QueueTableCellView: NSView {
     }
 
     func updateAppearance(isCurrentTrack: Bool, isPlaying: Bool, index: Int) {
+        self.isCurrentTrack = isCurrentTrack
+        self.isPlaying = isPlaying
+
         if isCurrentTrack {
-            indicatorLabel.stringValue = isPlaying ? "♪" : "♪"
-            indicatorLabel.textColor = isPlaying ? NSColor.systemRed : NSColor.tertiaryLabelColor
+            // Show animated waveform for current track
+            indicatorLabel.stringValue = ""
+            indicatorLabel.isHidden = true
+
+            // Create or update waveform view
+            if waveformView == nil {
+                let waveView = WaveformView(frame: NSRect(x: 0, y: 0, width: 24, height: 16))
+                waveView.translatesAutoresizingMaskIntoConstraints = false
+                waveformView = waveView
+
+                // Find indicator container and add waveform
+                if let indicatorContainer = indicatorLabel.superview {
+                    indicatorContainer.addSubview(waveView)
+                    NSLayoutConstraint.activate([
+                        waveView.centerXAnchor.constraint(equalTo: indicatorContainer.centerXAnchor),
+                        waveView.centerYAnchor.constraint(equalTo: indicatorContainer.centerYAnchor),
+                        waveView.widthAnchor.constraint(equalToConstant: 24),
+                        waveView.heightAnchor.constraint(equalToConstant: 16)
+                    ])
+                }
+            }
+
+            if let waveView = waveformView as? WaveformView {
+                waveView.isHidden = false
+                waveView.isAnimating = isPlaying
+                waveView.tintColor = isPlaying ? NSColor.systemRed : NSColor.tertiaryLabelColor
+            }
+
             layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.1).cgColor
         } else {
+            // Show number for non-current tracks
+            indicatorLabel.isHidden = false
             indicatorLabel.stringValue = "\(index + 1)"
             indicatorLabel.textColor = NSColor.tertiaryLabelColor
+
+            // Hide waveform
+            waveformView?.isHidden = true
+
             layer?.backgroundColor = NSColor.clear.cgColor
         }
     }
@@ -413,6 +495,120 @@ class QueueTableCellView: NSView {
     override func prepareForReuse() {
         super.prepareForReuse()
         thumbnailImageView.image = nil
+        waveformView?.removeFromSuperview()
+        waveformView = nil
+    }
+}
+
+// MARK: - Animated Waveform View
+
+@available(macOS 26.0, *)
+class WaveformView: NSView {
+    var isAnimating: Bool = false {
+        didSet {
+            updateAnimation()
+        }
+    }
+    var tintColor: NSColor = .systemRed {
+        didSet {
+            layer?.sublayers?.forEach { $0.backgroundColor = tintColor.cgColor }
+        }
+    }
+
+    private var timer: Timer?
+    private var bars: [CALayer] = []
+    private var startTime: CFTimeInterval = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupBars()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupBars()
+    }
+
+    private func setupBars() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+
+        // Create 3 bars for the waveform
+        let barWidth: CGFloat = 3
+        let barSpacing: CGFloat = 2
+        let totalWidth = CGFloat(3) * barWidth + CGFloat(2) * barSpacing
+        let startX = (bounds.width - totalWidth) / 2
+
+        for i in 0..<3 {
+            let bar = CALayer()
+            bar.backgroundColor = tintColor.cgColor
+            bar.cornerRadius = 1
+            bar.frame = NSRect(
+                x: startX + CGFloat(i) * (barWidth + barSpacing),
+                y: bounds.height / 2 - 4,
+                width: barWidth,
+                height: 8
+            )
+            layer?.addSublayer(bar)
+            bars.append(bar)
+        }
+    }
+
+    private func updateAnimation() {
+        if isAnimating {
+            startAnimation()
+        } else {
+            stopAnimation()
+            // Reset to static middle position
+            for bar in bars {
+                bar.frame.size.height = 8
+                bar.frame.origin.y = (bounds.height - 8) / 2
+            }
+        }
+    }
+
+    private func startAnimation() {
+        guard timer == nil else { return }
+
+        startTime = CACurrentMediaTime()
+
+        // Use Timer for 30fps animation - simpler and safer than CVDisplayLink
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { [weak self] _ in
+            self?.updateBars()
+        }
+        // Add to common run loop modes to ensure it runs during tracking/dragging
+        if let timer = timer {
+            RunLoop.current.add(timer, forMode: .common)
+        }
+    }
+
+    private func stopAnimation() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func updateBars() {
+        guard isAnimating else { return }
+
+        let elapsed = CACurrentMediaTime() - startTime
+        let barHeights: [CGFloat] = [
+            4 + 8 * CGFloat(abs(sin(elapsed * 4))),
+            4 + 10 * CGFloat(abs(sin(elapsed * 3 + 1))),
+            4 + 6 * CGFloat(abs(sin(elapsed * 5 + 2)))
+        ]
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)  // Disable implicit animations
+        for (i, bar) in bars.enumerated() {
+            let height = min(barHeights[i], bounds.height)
+            bar.frame.size.height = height
+            bar.frame.origin.y = (bounds.height - height) / 2
+        }
+        CATransaction.commit()
+    }
+
+    deinit {
+        stopAnimation()
     }
 }
 
