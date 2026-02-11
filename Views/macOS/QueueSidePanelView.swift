@@ -399,10 +399,17 @@ class DraggableTableView: NSTableView {
     private var verticalSwipeAccumulator: CGFloat = 0
     /// Row index under the cursor when the gesture *started* (.began), so we remove that row even if content scrolls by .ended.
     private var swipeRemoveTargetRow: Int = -1
+    /// When non-nil, we're showing real-time slide feedback; value is the row view's initial origin.x to restore on cancel.
+    private var swipeTrackedInitialOriginX: CGFloat?
     /// Cooldown after a remove so we don't trigger again from leftover events.
     private var swipeRemoveCooldownUntil: CFAbsoluteTime = 0
-    private static let swipeRemoveDeltaThreshold: CGFloat = 40
+    /// Minimum horizontal delta to "commit" and start moving the row (avoids vertical scroll moving a row).
+    private static let swipeCommitThreshold: CGFloat = 10
+    /// Horizontal swipe distance (pt) beyond which release counts as delete. Increase for a more deliberate confirm, decrease for quicker remove.
+    private static let swipeRemoveDeltaThreshold: CGFloat = 100
     private static let swipeRemoveCooldown: CFAbsoluteTime = 0.5
+    /// Max horizontal drag (multiple of row width) for real-time feedback.
+    private static let swipeMaxDragFactor: CGFloat = 1.2
 
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -424,8 +431,7 @@ class DraggableTableView: NSTableView {
         self.draggingDestinationFeedbackStyle = .gap
     }
 
-    /// Two-finger horizontal trackpad swipe: only remove when the gesture *ends* with enough horizontal movement.
-    /// One remove per gesture, with slide-out animation. Cooldown prevents multiple removes from one swipe.
+    /// Two-finger horizontal trackpad swipe: row follows finger in real time; release past threshold to remove, or return to cancel.
     override func scrollWheel(with event: NSEvent) {
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
@@ -435,6 +441,7 @@ class DraggableTableView: NSTableView {
             horizontalSwipeAccumulator = dx
             verticalSwipeAccumulator = dy
             swipeRemoveTargetRow = -1
+            swipeTrackedInitialOriginX = nil
             if let coord = coordinator {
                 let point = event.locationInWindow
                 let localPoint = self.convert(point, from: nil)
@@ -444,20 +451,97 @@ class DraggableTableView: NSTableView {
         case .changed:
             horizontalSwipeAccumulator += dx
             verticalSwipeAccumulator += dy
+            // Real-time row slide: once horizontal movement passes commit threshold, move the row with the finger.
+            if let coord = coordinator,
+               swipeRemoveTargetRow >= 0,
+               swipeRemoveTargetRow != coord.currentIndex,
+               coord.queue[safe: swipeRemoveTargetRow] != nil,
+               abs(horizontalSwipeAccumulator) > Self.swipeCommitThreshold,
+               abs(horizontalSwipeAccumulator) > abs(verticalSwipeAccumulator)
+            {
+                guard let rowView = self.rowView(atRow: swipeRemoveTargetRow, makeIfNecessary: false) else {
+                    break
+                }
+                if swipeTrackedInitialOriginX == nil {
+                    swipeTrackedInitialOriginX = rowView.frame.origin.x
+                }
+                let initialX = swipeTrackedInitialOriginX!
+                let maxDrag = rowView.bounds.width * Self.swipeMaxDragFactor
+                let clamped = max(-maxDrag, min(maxDrag, horizontalSwipeAccumulator))
+                var f = rowView.frame
+                f.origin.x = initialX + clamped
+                rowView.frame = f
+            }
         case .ended, .cancelled:
             let accH = horizontalSwipeAccumulator
             let accV = verticalSwipeAccumulator
-            let point = event.locationInWindow
-            let localPoint = self.convert(point, from: nil)
-            let rowAtEnd = self.row(at: localPoint)
+            let rowAtEnd = self.row(at: self.convert(event.locationInWindow, from: nil))
             horizontalSwipeAccumulator = 0
             verticalSwipeAccumulator = 0
+
+            if let initialX = swipeTrackedInitialOriginX {
+                swipeTrackedInitialOriginX = nil
+                guard let coord = coordinator,
+                      swipeRemoveTargetRow >= 0,
+                      let song = coord.queue[safe: swipeRemoveTargetRow]
+                else {
+                    swipeRemoveTargetRow = -1
+                    super.scrollWheel(with: event)
+                    return
+                }
+                let row = swipeRemoveTargetRow
+                swipeRemoveTargetRow = -1
+                guard let rowView = self.rowView(atRow: row, makeIfNecessary: false) else {
+                    super.scrollWheel(with: event)
+                    return
+                }
+
+                let passed = CFAbsoluteTimeGetCurrent() >= swipeRemoveCooldownUntil
+                    && abs(accH) >= Self.swipeRemoveDeltaThreshold
+                    && abs(accH) > abs(accV)
+                    && row != coord.currentIndex
+
+                if passed {
+                    let slideDirection: CGFloat = accH > 0 ? 1 : -1
+                    let targetX = initialX + slideDirection * rowView.bounds.width
+                    let videoId = song.videoId
+                    swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
+                    DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\"")
+                    NSAnimationContext.runAnimationGroup { context in
+                        context.duration = 0.2
+                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                        var f = rowView.frame
+                        f.origin.x = targetX
+                        rowView.animator().frame = f
+                        rowView.animator().alphaValue = 0
+                    } completionHandler: {
+                        rowView.alphaValue = 1
+                        var f = rowView.frame
+                        f.origin.x = initialX
+                        rowView.frame = f
+                        coord.onRemove(videoId)
+                    }
+                    return
+                } else {
+                    // Cancel: animate row back to initial position.
+                    NSAnimationContext.runAnimationGroup { context in
+                        context.duration = 0.2
+                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                        var f = rowView.frame
+                        f.origin.x = initialX
+                        rowView.animator().frame = f
+                    } completionHandler: {}
+                    return
+                }
+            }
+
             if CFAbsoluteTimeGetCurrent() < swipeRemoveCooldownUntil { break }
             guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
                   abs(accH) > abs(accV)
             else { break }
             guard let coord = coordinator else { break }
             let row = swipeRemoveTargetRow >= 0 ? swipeRemoveTargetRow : rowAtEnd
+            swipeRemoveTargetRow = -1
             if row < 0 { break }
             if row == coord.currentIndex { break }
             guard let song = coord.queue[safe: row] else { break }
@@ -471,6 +555,7 @@ class DraggableTableView: NSTableView {
                 horizontalSwipeAccumulator = 0
                 verticalSwipeAccumulator = 0
                 swipeRemoveTargetRow = -1
+                swipeTrackedInitialOriginX = nil
             }
             break
         }
