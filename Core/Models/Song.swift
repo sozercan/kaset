@@ -1,4 +1,5 @@
 import Foundation
+import CoreTransferable
 
 // MARK: - Song
 
@@ -138,5 +139,13 @@ extension Song {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.videoId)
+    }
+}
+
+// MARK: - Transferable
+
+extension Song: Transferable {
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(for: Song.self, contentType: .data)
     }
 }

@@ -111,6 +111,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Display mode for the queue panel (popup vs side panel).
+    var queueDisplayMode: QueueDisplayMode = .popup
+
     /// Whether the queue panel is visible.
     var showQueue: Bool = false {
         didSet {
@@ -145,6 +148,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
+
+    /// UserDefaults key for persisting queue display mode.
+    static let queueDisplayModeKey = "kaset.queue.displayMode"
 
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
@@ -197,8 +203,31 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             }
         }
 
+        // Restore queue display mode
+        if let savedMode = UserDefaults.standard.string(forKey: Self.queueDisplayModeKey),
+           let mode = QueueDisplayMode(rawValue: savedMode) {
+            self.queueDisplayMode = mode
+            self.logger.info("Restored queue display mode: \(mode.displayName)")
+        }
+
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
+    }
+
+    /// Returns true if the given song is the current track.
+    func isCurrentTrack(_ song: Song) -> Bool {
+        self.currentTrack?.videoId == song.videoId
+    }
+
+    /// Toggles between popup and side panel queue display modes.
+    func toggleQueueDisplayMode() {
+        if self.queueDisplayMode == .popup {
+            self.queueDisplayMode = .sidepanel
+        } else {
+            self.queueDisplayMode = .popup
+        }
+        UserDefaults.standard.set(self.queueDisplayMode.rawValue, forKey: Self.queueDisplayModeKey)
+        self.logger.info("Queue display mode: \(self.queueDisplayMode.displayName)")
     }
 
     /// Loads mock player state from environment variables for UI testing.

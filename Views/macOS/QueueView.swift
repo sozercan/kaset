@@ -54,6 +54,17 @@ struct QueueView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(AccessibilityID.Queue.clearButton)
             }
+
+            Button {
+                self.playerService.toggleQueueDisplayMode()
+            } label: {
+                Image(systemName: "rectangle.expand.vertical")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Switch to side panel view")
+            .accessibilityLabel("Switch to side panel queue view")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -101,7 +112,7 @@ struct QueueView: View {
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
-                            self.playerService.removeFromQueue(videoIds: [song.videoId])
+                            self.playerService.removeFromQueue(videoIds: Set([song.videoId]))
                         },
                         onTap: {
                             Task {

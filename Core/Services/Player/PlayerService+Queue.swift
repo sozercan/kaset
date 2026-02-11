@@ -231,6 +231,34 @@ extension PlayerService {
         self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
     }
 
+    /// Reorders the queue by moving items from source indices to destination offset.
+    /// Used for drag-and-drop reordering; does not allow moving the current track.
+    /// - Parameters:
+    ///   - source: Indices of items to move.
+    ///   - destination: Index where items will be placed (after removal from source).
+    func reorderQueue(from source: IndexSet, to destination: Int) {
+        guard !source.contains(self.currentIndex) else {
+            self.logger.warning("Cannot reorder: cannot move current track")
+            return
+        }
+        guard destination != self.currentIndex else {
+            self.logger.warning("Cannot reorder: destination is current track")
+            return
+        }
+
+        var newQueue = self.queue
+        newQueue.move(fromOffsets: source, toOffset: destination)
+
+        // Adjust currentIndex if needed (current track moved in the array)
+        if let oldCurrent = self.queue[safe: self.currentIndex],
+           let newCurrentIndex = newQueue.firstIndex(where: { $0.videoId == oldCurrent.videoId }) {
+            self.currentIndex = newCurrentIndex
+        }
+
+        self.queue = newQueue
+        self.logger.info("Queue reordered: moved from \(source) to \(destination)")
+    }
+
     /// Reorders the queue based on a new order of video IDs.
     /// - Parameter videoIds: The new order of video IDs.
     func reorderQueue(videoIds: [String]) {
