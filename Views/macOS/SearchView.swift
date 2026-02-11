@@ -397,7 +397,7 @@ struct SearchView: View {
         switch item {
         case let .song(song):
             Button {
-                Task { await self.playerService.play(song: song) }
+                Task { await self.playerService.playWithRadio(song: song) }
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -467,6 +467,39 @@ struct SearchView: View {
                 self.navigationPath.append(playlist)
             } label: {
                 Label("View Album", systemImage: "square.stack")
+            }
+
+            Divider()
+
+            // Play / Play Next / Add to Queue for albums
+            Button {
+                SongActionsHelper.playAlbum(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueNext(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play Next", systemImage: "text.insert")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueLast(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
             }
 
             Divider()
