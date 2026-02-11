@@ -8,7 +8,8 @@ struct QueueSidePanelView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
 
     var body: some View {
-        // Using regular material background - GlassEffectContainer breaks drag-and-drop
+        // Use regular material: GlassEffectContainer breaks NSTableView drag-and-drop
+        // (drop target gap and acceptDrop never fire when the table is inside glass).
         VStack(spacing: 0) {
             QueueSidePanelHeader()
 
@@ -36,6 +37,11 @@ struct QueueSidePanelView: View {
                     onRemove: { videoId in
                         Task {
                             await self.playerService.removeFromQueue(videoIds: Set([videoId]))
+                        }
+                    },
+                    onStartRadio: { song in
+                        Task {
+                            await self.playerService.playWithRadio(song: song)
                         }
                     }
                 )
@@ -85,6 +91,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let onSelect: (Int) -> Void
     let onReorder: (Int, Int) -> Void
     let onRemove: (String) -> Void
+    let onStartRadio: (Song) -> Void
 
     func makeNSViewController(context: Context) -> QueueListViewController {
         let viewController = QueueListViewController()
@@ -125,7 +132,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             favoritesManager: favoritesManager,
             onSelect: onSelect,
             onReorder: onReorder,
-            onRemove: onRemove
+            onRemove: onRemove,
+            onStartRadio: onStartRadio
         )
     }
 
@@ -192,12 +200,13 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
         let onRemove: (String) -> Void
+        let onStartRadio: (Song) -> Void
         weak var viewController: QueueListViewController?
         var isDragging = false
         private let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
 
         init(queue: [Song], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
-             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (String) -> Void) {
+             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (String) -> Void, onStartRadio: @escaping (Song) -> Void) {
             self.queue = queue
             self.currentIndex = currentIndex
             self.isPlaying = isPlaying
@@ -205,7 +214,31 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.onSelect = onSelect
             self.onReorder = onReorder
             self.onRemove = onRemove
+            self.onStartRadio = onStartRadio
             super.init()
+        }
+
+        /// Removes the row with slide-out animation, then calls onRemove.
+        /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
+        func removeRowWithAnimation(row: Int, song: Song, slideDirection: CGFloat) {
+            guard let tableView = viewController?.tableView else {
+                onRemove(song.videoId)
+                return
+            }
+            guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
+                onRemove(song.videoId)
+                return
+            }
+            let videoId = song.videoId
+            let offsetX = slideDirection * rowView.bounds.width
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.25
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                rowView.animator().alphaValue = 0
+                rowView.animator().frame.origin.x += offsetX
+            } completionHandler: { [weak self] in
+                self?.onRemove(videoId)
+            }
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {
@@ -277,6 +310,77 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             isDragging = false
             return true
         }
+
+        // MARK: - Context Menu
+
+        func tableView(_ tableView: NSTableView, menuForRow row: Int, event: NSEvent) -> NSMenu? {
+            guard row >= 0, let song = queue[safe: row] else { return nil }
+            let menu = NSMenu()
+            let manager = favoritesManager
+            let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
+
+            let favoritesItem = NSMenuItem(
+                title: isPinned ? "Remove from Favorites" : "Add to Favorites",
+                action: #selector(Coordinator.contextMenuFavorites(_:)),
+                keyEquivalent: ""
+            )
+            favoritesItem.target = self
+            favoritesItem.representedObject = song
+            favoritesItem.image = NSImage(systemSymbolName: isPinned ? "heart.slash" : "heart", accessibilityDescription: nil)
+            menu.addItem(favoritesItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            let startRadioItem = NSMenuItem(title: "Start Radio", action: #selector(Coordinator.contextMenuStartRadio(_:)), keyEquivalent: "")
+            startRadioItem.target = self
+            startRadioItem.representedObject = song
+            startRadioItem.image = NSImage(systemSymbolName: "dot.radiowaves.left.and.right", accessibilityDescription: nil)
+            menu.addItem(startRadioItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            if song.shareURL != nil {
+                let shareItem = NSMenuItem(title: "Share", action: #selector(Coordinator.contextMenuShare(_:)), keyEquivalent: "")
+                shareItem.target = self
+                shareItem.representedObject = song
+                shareItem.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
+                menu.addItem(shareItem)
+                menu.addItem(NSMenuItem.separator())
+            }
+
+            if row != currentIndex {
+                let removeItem = NSMenuItem(title: "Remove from Queue", action: #selector(Coordinator.contextMenuRemove(_:)), keyEquivalent: "")
+                removeItem.target = self
+                removeItem.representedObject = song
+                removeItem.image = NSImage(systemSymbolName: "minus.circle", accessibilityDescription: nil)
+                menu.addItem(removeItem)
+            }
+
+            return menu
+        }
+
+        @objc private func contextMenuFavorites(_ sender: NSMenuItem) {
+            guard let song = sender.representedObject as? Song else { return }
+            let manager = favoritesManager
+            MainActor.assumeIsolated { manager.toggle(song: song) }
+        }
+
+        @objc private func contextMenuStartRadio(_ sender: NSMenuItem) {
+            guard let song = sender.representedObject as? Song else { return }
+            onStartRadio(song)
+        }
+
+        @objc private func contextMenuShare(_ sender: NSMenuItem) {
+            guard let song = sender.representedObject as? Song, let url = song.shareURL else { return }
+            MainActor.assumeIsolated {
+                ShareContextMenu.showSharePicker(for: url)
+            }
+        }
+
+        @objc private func contextMenuRemove(_ sender: NSMenuItem) {
+            guard let song = sender.representedObject as? Song else { return }
+            onRemove(song.videoId)
+        }
     }
 }
 
@@ -285,6 +389,16 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 @available(macOS 26.0, *)
 class DraggableTableView: NSTableView {
     weak var coordinator: QueueListControllerRepresentable.Coordinator?
+
+    /// Accumulated scroll deltas during the current gesture (used to detect swipe-to-remove).
+    private var horizontalSwipeAccumulator: CGFloat = 0
+    private var verticalSwipeAccumulator: CGFloat = 0
+    /// Row index under the cursor when the gesture *started* (.began), so we remove that row even if content scrolls by .ended.
+    private var swipeRemoveTargetRow: Int = -1
+    /// Cooldown after a remove so we don't trigger again from leftover events.
+    private var swipeRemoveCooldownUntil: CFAbsoluteTime = 0
+    private static let swipeRemoveDeltaThreshold: CGFloat = 40
+    private static let swipeRemoveCooldown: CFAbsoluteTime = 0.5
 
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -305,6 +419,79 @@ class DraggableTableView: NSTableView {
         // Enable gap feedback style for drag-and-drop
         self.draggingDestinationFeedbackStyle = .gap
     }
+
+    /// Two-finger horizontal trackpad swipe: only remove when the gesture *ends* with enough horizontal movement.
+    /// One remove per gesture, with slide-out animation. Cooldown prevents multiple removes from one swipe.
+    override func scrollWheel(with event: NSEvent) {
+        let dx = event.scrollingDeltaX
+        let dy = event.scrollingDeltaY
+
+        switch event.phase {
+        case .began:
+            horizontalSwipeAccumulator = dx
+            verticalSwipeAccumulator = dy
+            swipeRemoveTargetRow = -1
+            if let coord = coordinator {
+                let point = event.locationInWindow
+                let localPoint = self.convert(point, from: nil)
+                let rowAtStart = self.row(at: localPoint)
+                swipeRemoveTargetRow = rowAtStart
+                DiagnosticsLogger.ui.info("[SwipeRemove] began: locationInWindow=(\(point.x), \(point.y)) localInTable=(\(localPoint.x), \(localPoint.y)) row=\(rowAtStart) totalRows=\(coord.queue.count) currentIndex=\(coord.currentIndex)")
+            }
+        case .changed:
+            horizontalSwipeAccumulator += dx
+            verticalSwipeAccumulator += dy
+        case .ended, .cancelled:
+            let accH = horizontalSwipeAccumulator
+            let accV = verticalSwipeAccumulator
+            let point = event.locationInWindow
+            let localPoint = self.convert(point, from: nil)
+            let rowAtEnd = self.row(at: localPoint)
+            if let coord = coordinator {
+                DiagnosticsLogger.ui.info("[SwipeRemove] ended: phase=\(event.phase.rawValue) accH=\(accH) accV=\(accV) locationInWindow=(\(point.x), \(point.y)) localInTable=(\(localPoint.x), \(localPoint.y)) rowAtEnd=\(rowAtEnd) targetRowFromBegin=\(self.swipeRemoveTargetRow) totalRows=\(coord.queue.count) currentIndex=\(coord.currentIndex)")
+            }
+            horizontalSwipeAccumulator = 0
+            verticalSwipeAccumulator = 0
+            if CFAbsoluteTimeGetCurrent() < swipeRemoveCooldownUntil {
+                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: cooldown")
+                break
+            }
+            guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
+                  abs(accH) > abs(accV)
+            else {
+                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: threshold (accH=\(accH) accV=\(accV))")
+                break
+            }
+            guard let coord = coordinator else { break }
+            let row = swipeRemoveTargetRow >= 0 ? swipeRemoveTargetRow : rowAtEnd
+            if row < 0 {
+                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: row=\(row)")
+                break
+            }
+            if row == coord.currentIndex {
+                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: row \(row) is current track")
+                break
+            }
+            guard let song = coord.queue[safe: row] else {
+                DiagnosticsLogger.ui.info("[SwipeRemove] skipped: no song at row \(row)")
+                break
+            }
+            let slideDirection: CGFloat = accH > 0 ? 1 : -1
+            DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\" slideDirection=\(slideDirection) (accH>0 → right)")
+            swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
+            coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
+            return
+        default:
+            if event.momentumPhase == .ended || event.momentumPhase == .cancelled {
+                horizontalSwipeAccumulator = 0
+                verticalSwipeAccumulator = 0
+                swipeRemoveTargetRow = -1
+            }
+            break
+        }
+
+        super.scrollWheel(with: event)
+    }
 }
 
 // MARK: - Cell View
@@ -312,6 +499,7 @@ class DraggableTableView: NSTableView {
 @available(macOS 26.0, *)
 class QueueTableCellView: NSView {
     private var onPlay: (() -> Void)?
+    private var onRemove: (() -> Void)?
     private var isCurrentTrack: Bool = false
     private var isPlaying: Bool = false
     private var indicatorLabel = NSTextField()
@@ -413,6 +601,7 @@ class QueueTableCellView: NSView {
 
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, favoritesManager: FavoritesManager, onPlay: @escaping () -> Void, onRemove: @escaping () -> Void) {
         self.onPlay = onPlay
+        self.onRemove = onRemove
         self.isCurrentTrack = isCurrentTrack
         self.isPlaying = isPlaying
         updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
@@ -633,13 +822,13 @@ private struct QueueSidePanelHeader: View {
             Button {
                 self.playerService.toggleQueueDisplayMode()
             } label: {
-                Image(systemName: "rectangle.compress.vertical")
+                Label("Done", systemImage: "checkmark")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Switch to compact view")
-            .accessibilityLabel("Switch to compact queue view")
+            .help("Close side panel")
+            .accessibilityLabel("Close side panel")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -655,6 +844,22 @@ private struct QueueFooterActions: View {
     var body: some View {
         HStack(spacing: 12) {
             Button {
+                self.playerService.undoQueue()
+            } label: {
+                Label("Undo", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(!self.playerService.canUndoQueue)
+            .buttonStyle(.plain)
+
+            Button {
+                self.playerService.redoQueue()
+            } label: {
+                Label("Redo", systemImage: "arrow.uturn.forward")
+            }
+            .disabled(!self.playerService.canRedoQueue)
+            .buttonStyle(.plain)
+
+            Button {
                 self.playerService.shuffleQueue()
             } label: {
                 Label("Shuffle", systemImage: "shuffle")
@@ -664,14 +869,10 @@ private struct QueueFooterActions: View {
 
             Button {
                 Task {
-                    // Stop playback if something is playing
                     if self.playerService.isPlaying {
                         await self.playerService.stop()
                     }
-                    // Clear the entire queue including current track
-                    self.playerService.queue = []
-                    self.playerService.currentIndex = 0
-                    self.playerService.mixContinuationToken = nil
+                    self.playerService.clearQueueEntirely()
                 }
             } label: {
                 Label("Clear", systemImage: "trash")

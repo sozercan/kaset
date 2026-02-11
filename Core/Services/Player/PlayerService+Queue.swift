@@ -7,6 +7,7 @@ extension PlayerService {
     /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int = 0) async {
         guard !songs.isEmpty else { return }
+        self.recordQueueStateForUndo()
         let safeIndex = max(0, min(index, songs.count - 1))
         self.queue = songs
         self.currentIndex = safeIndex
@@ -15,12 +16,14 @@ extension PlayerService {
         if let song = songs[safe: safeIndex] {
             await self.play(song: song)
         }
+        self.saveQueueForPersistence()
     }
 
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async {
         self.logger.info("Playing with radio: \(song.title)")
+        self.recordQueueStateForUndo()
 
         // Clear mix continuation since this is a song radio, not a mix
         self.mixContinuationToken = nil
@@ -32,6 +35,7 @@ extension PlayerService {
 
         // Fetch radio queue in background
         await self.fetchAndApplyRadioQueue(for: song.videoId)
+        self.saveQueueForPersistence()
     }
 
     /// Plays an artist mix from a mix playlist ID.
@@ -42,6 +46,7 @@ extension PlayerService {
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(playlistId: String, startVideoId: String?) async {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
+        self.recordQueueStateForUndo()
 
         guard let client = self.ytMusicClient else {
             self.logger.warning("No YTMusicClient available for playing mix")
@@ -73,6 +78,7 @@ extension PlayerService {
             await self.play(videoId: shuffledSongs[0].videoId)
 
             self.logger.info("Mix queue loaded with \(shuffledSongs.count) songs, hasContinuation: \(result.continuationToken != nil)")
+            self.saveQueueForPersistence()
         } catch {
             self.logger.warning("Failed to fetch mix queue: \(error.localizedDescription)")
         }
@@ -114,6 +120,7 @@ extension PlayerService {
                 updatedQueue.append(contentsOf: newSongs)
                 self.queue = updatedQueue
                 self.logger.info("Added \(newSongs.count) new songs to queue, total: \(self.queue.count)")
+                self.saveQueueForPersistence()
             }
 
             // Update continuation token for next batch
@@ -169,28 +176,43 @@ extension PlayerService {
                 newQueue.append(contentsOf: radioSongs)
             }
 
+            self.recordQueueStateForUndo()
             self.queue = newQueue
             self.currentIndex = 0
             self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
+            self.saveQueueForPersistence()
         } catch {
             self.logger.warning("Failed to fetch radio queue: \(error.localizedDescription)")
         }
     }
 
+    /// Clears the entire queue and current track (for "Clear" in side panel). Records state for undo.
+    func clearQueueEntirely() {
+        self.recordQueueStateForUndo()
+        self.mixContinuationToken = nil
+        self.queue = []
+        self.currentIndex = 0
+        self.logger.info("Queue cleared entirely")
+        self.saveQueueForPersistence()
+    }
+
     /// Clears the playback queue except for the currently playing track.
     func clearQueue() {
+        self.recordQueueStateForUndo()
         // Clear mix continuation since queue is being manually cleared
         self.mixContinuationToken = nil
 
         guard let currentTrack else {
             self.queue = []
             self.currentIndex = 0
+            self.saveQueueForPersistence()
             return
         }
         // Keep only the current track
         self.queue = [currentTrack]
         self.currentIndex = 0
         self.logger.info("Queue cleared, keeping current track")
+        self.saveQueueForPersistence()
     }
 
     /// Plays a song from the queue at the specified index.
@@ -202,20 +224,24 @@ extension PlayerService {
         }
         // Check if we need to fetch more songs for infinite mix
         await self.fetchMoreMixSongsIfNeeded()
+        self.saveQueueForPersistence()
     }
 
     /// Inserts songs immediately after the current track.
     /// - Parameter songs: The songs to insert into the queue.
     func insertNextInQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
+        self.recordQueueStateForUndo()
         let insertIndex = min(self.currentIndex + 1, self.queue.count)
         self.queue.insert(contentsOf: songs, at: insertIndex)
         self.logger.info("Inserted \(songs.count) songs at position \(insertIndex)")
+        self.saveQueueForPersistence()
     }
 
     /// Removes songs from the queue by video ID.
     /// - Parameter videoIds: Set of video IDs to remove.
     func removeFromQueue(videoIds: Set<String>) {
+        self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         self.queue.removeAll { videoIds.contains($0.videoId) }
 
@@ -229,6 +255,7 @@ extension PlayerService {
         }
 
         self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
+        self.saveQueueForPersistence()
     }
 
     /// Reorders the queue by moving items from source indices to destination offset.
@@ -245,6 +272,7 @@ extension PlayerService {
             self.logger.warning("Cannot reorder: destination is current track")
             return
         }
+        self.recordQueueStateForUndo()
 
         var newQueue = self.queue
         newQueue.move(fromOffsets: source, toOffset: destination)
@@ -257,11 +285,13 @@ extension PlayerService {
 
         self.queue = newQueue
         self.logger.info("Queue reordered: moved from \(source) to \(destination)")
+        self.saveQueueForPersistence()
     }
 
     /// Reorders the queue based on a new order of video IDs.
     /// - Parameter videoIds: The new order of video IDs.
     func reorderQueue(videoIds: [String]) {
+        self.recordQueueStateForUndo()
         var reordered: [Song] = []
         var videoIdToSong: [String: Song] = [:]
 
@@ -285,11 +315,13 @@ extension PlayerService {
         }
 
         self.logger.info("Queue reordered with \(reordered.count) songs")
+        self.saveQueueForPersistence()
     }
 
     /// Shuffles the queue, keeping the current track in place at the front.
     func shuffleQueue() {
         guard self.queue.count > 1 else { return }
+        self.recordQueueStateForUndo()
 
         // Remove current track, shuffle the rest, put current track at front
         if let currentSong = queue[safe: currentIndex] {
@@ -305,32 +337,30 @@ extension PlayerService {
         }
 
         self.logger.info("Queue shuffled")
+        self.saveQueueForPersistence()
     }
 
     /// Adds songs to the end of the queue.
     /// - Parameter songs: The songs to append to the queue.
     func appendToQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
+        self.recordQueueStateForUndo()
         self.queue.append(contentsOf: songs)
         self.logger.info("Appended \(songs.count) songs to queue")
+        self.saveQueueForPersistence()
     }
 
     // MARK: - Queue Persistence
 
-    /// UserDefaults keys for queue persistence
+    /// UserDefaults keys for queue persistence (no expiry; saved queue is kept until overwritten or cleared).
     private static let savedQueueKey = "kaset.saved.queue"
     private static let savedQueueIndexKey = "kaset.saved.queueIndex"
-    private static let savedQueueTimestampKey = "kaset.saved.queueTimestamp"
-    /// Maximum age of saved queue in seconds (24 hours)
-    private static let maxQueueAge: TimeInterval = 24 * 60 * 60
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence() {
         guard !self.queue.isEmpty else {
-            // Clear saved queue if empty
             UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
             UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
-            UserDefaults.standard.removeObject(forKey: Self.savedQueueTimestampKey)
             self.logger.info("Cleared saved queue (queue is empty)")
             return
         }
@@ -340,30 +370,20 @@ extension PlayerService {
             let queueData = try encoder.encode(self.queue)
             UserDefaults.standard.set(queueData, forKey: Self.savedQueueKey)
             UserDefaults.standard.set(self.currentIndex, forKey: Self.savedQueueIndexKey)
-            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.savedQueueTimestampKey)
             self.logger.info("Saved queue with \(self.queue.count) songs at index \(self.currentIndex)")
         } catch {
             self.logger.error("Failed to save queue: \(error.localizedDescription)")
         }
     }
 
-    /// Restores the queue from UserDefaults if available and not expired.
+    /// Restores the queue from UserDefaults if available.
     /// - Returns: True if queue was restored, false otherwise.
     @discardableResult
     func restoreQueueFromPersistence() -> Bool {
         guard let queueData = UserDefaults.standard.data(forKey: Self.savedQueueKey),
-              let savedIndex = UserDefaults.standard.object(forKey: Self.savedQueueIndexKey) as? Int,
-              let timestamp = UserDefaults.standard.object(forKey: Self.savedQueueTimestampKey) as? TimeInterval
+              let savedIndex = UserDefaults.standard.object(forKey: Self.savedQueueIndexKey) as? Int
         else {
             self.logger.info("No saved queue found")
-            return false
-        }
-
-        // Check if saved queue is expired
-        let age = Date().timeIntervalSince1970 - timestamp
-        guard age < Self.maxQueueAge else {
-            self.logger.info("Saved queue expired (age: \(age)s)")
-            clearSavedQueue()
             return false
         }
 
@@ -391,7 +411,6 @@ extension PlayerService {
     func clearSavedQueue() {
         UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
         UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
-        UserDefaults.standard.removeObject(forKey: Self.savedQueueTimestampKey)
         self.logger.info("Cleared saved queue")
     }
 }

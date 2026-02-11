@@ -58,13 +58,13 @@ struct QueueView: View {
             Button {
                 self.playerService.toggleQueueDisplayMode()
             } label: {
-                Image(systemName: "rectangle.expand.vertical")
+                Label("Edit", systemImage: "square.and.pencil")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Switch to side panel view")
-            .accessibilityLabel("Switch to side panel queue view")
+            .help("Open queue in side panel")
+            .accessibilityLabel("Open queue in side panel")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
