@@ -257,7 +257,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard dropOperation == .above else { return [] }
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return [] }
-            let destRow = row > srcRow ? row - 1 : row
+            // For moving down: use row directly (move API handles the shift)
+            // For moving up: use row directly
+            let destRow = row
             guard destRow != currentIndex && srcRow != destRow else { return [] }
             return .move
         }
@@ -265,7 +267,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return false }
-            let destRow = srcRow < row ? row - 1 : row
+            // Use row directly - move(fromOffsets:toOffset:) handles the index adjustment
+            let destRow = row
             guard srcRow != currentIndex && destRow != currentIndex && srcRow != destRow else { return false }
             onReorder(srcRow, destRow)
             isDragging = false
