@@ -9,7 +9,8 @@ import SwiftUI
 @MainActor
 enum ShareContextMenu {
     /// Shows the share picker at the current mouse location.
-    private static func showSharePicker(for url: URL) {
+    /// Exposed for AppKit context menus (e.g. queue side panel) that cannot use the SwiftUI menu item.
+    static func showSharePicker(for url: URL) {
         let picker = NSSharingServicePicker(items: [url])
 
         // Get the current mouse location in screen coordinates

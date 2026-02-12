@@ -230,7 +230,11 @@ struct MainWindow: View {
                     if self.playerService.showLyrics {
                         LyricsView(client: client)
                     } else if self.playerService.showQueue {
-                        QueueView()
+                        if self.playerService.queueDisplayMode == .sidepanel {
+                            QueueSidePanelView()
+                        } else {
+                            QueueView()
+                        }
                     }
                 }
                 .frame(maxHeight: .infinity)

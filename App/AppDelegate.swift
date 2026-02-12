@@ -32,6 +32,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Register for system sleep/wake notifications
         self.registerForSleepWakeNotifications()
+
+        // Restore saved queue if available
+        self.playerService?.restoreQueueFromPersistence()
+    }
+
+    func applicationWillTerminate(_: Notification) {
+        // Save queue for persistence on next launch
+        self.playerService?.saveQueueForPersistence()
+        DiagnosticsLogger.player.info("Application will terminate - saved queue for persistence")
     }
 
     /// Registers for system sleep and wake notifications to handle playback appropriately.
