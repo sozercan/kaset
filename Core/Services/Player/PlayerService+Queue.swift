@@ -445,7 +445,7 @@ extension PlayerService {
 
     /// Identifies songs in the queue that need metadata enrichment.
     /// - Returns: Array of tuples containing index and videoId for songs needing enrichment.
-    private func identifySongsNeedingEnrichment() -> [(index: Int, videoId: String)] {
+    func identifySongsNeedingEnrichment() -> [(index: Int, videoId: String)] {
         var songsNeedingEnrichment: [(index: Int, videoId: String)] = []
 
         for (index, song) in queue.enumerated() {
