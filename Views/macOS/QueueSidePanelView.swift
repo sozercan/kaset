@@ -25,13 +25,11 @@ struct QueueSidePanelView: View {
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
                     onSelect: { index in
-                        DiagnosticsLogger.ui.info("Queue row tapped: \(index)")
                         Task {
                             await self.playerService.playFromQueue(at: index)
                         }
                     },
                     onReorder: { source, destination in
-                        DiagnosticsLogger.ui.info("Queue reorder requested: \(source) -> \(destination)")
                         self.playerService.reorderQueue(from: IndexSet(integer: source), to: destination)
                     },
                     onRemove: { videoId in
@@ -287,11 +285,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession, willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
-            DiagnosticsLogger.ui.info("Queue drag: willBeginAt (\(screenPoint.x), \(screenPoint.y))")
+            // Dragging session began
         }
 
         func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-            DiagnosticsLogger.ui.info("Queue drag: endedAt (\(screenPoint.x), \(screenPoint.y)) op: \(operation.rawValue)")
             isDragging = false
         }
 
@@ -506,7 +503,6 @@ class DraggableTableView: NSTableView {
                     let targetX = initialX + slideDirection * rowView.bounds.width
                     let videoId = song.videoId
                     swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
-                    DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\"")
                     NSAnimationContext.runAnimationGroup { context in
                         context.duration = 0.2
                         context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -546,7 +542,6 @@ class DraggableTableView: NSTableView {
             if row == coord.currentIndex { break }
             guard let song = coord.queue[safe: row] else { break }
             let slideDirection: CGFloat = accH > 0 ? 1 : -1
-            DiagnosticsLogger.ui.info("[SwipeRemove] remove row=\(row) title=\"\(song.title)\"")
             swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
             coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
             return

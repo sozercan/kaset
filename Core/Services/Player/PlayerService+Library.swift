@@ -146,6 +146,25 @@ extension PlayerService {
                 }
 
                 self.logger.info("Updated track metadata - inLibrary: \(self.currentTrackInLibrary), hasTokens: \(self.currentTrackFeedbackTokens != nil)")
+
+                // Also update the corresponding song in the queue with enriched metadata
+                // This ensures the queue displays complete info without separate API calls
+                if let queueIndex = self.queue.firstIndex(where: { $0.videoId == videoId }) {
+                    // Only update if the queue entry is missing metadata
+                    let currentQueueSong = self.queue[queueIndex]
+                    let needsUpdate = currentQueueSong.artists.isEmpty ||
+                                      currentQueueSong.artists.allSatisfy({ $0.name.isEmpty || $0.name == "Unknown Artist" }) ||
+                                      currentQueueSong.title.isEmpty ||
+                                      currentQueueSong.title == "Loading..." ||
+                                      currentQueueSong.thumbnailURL == nil
+
+                    if needsUpdate {
+                        self.queue[queueIndex] = songData
+                        self.logger.debug("Enriched queue entry at index \(queueIndex): '\(songData.title)' with artists: \(songData.artistsDisplay)")
+                        // Save the enriched queue to persistence
+                        self.saveQueueForPersistence()
+                    }
+                }
             }
         } catch {
             self.logger.warning("Failed to fetch song metadata: \(error.localizedDescription)")

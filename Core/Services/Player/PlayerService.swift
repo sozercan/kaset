@@ -152,10 +152,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// UserDefaults key for persisting queue display mode.
     static let queueDisplayModeKey = "kaset.queue.displayMode"
 
-    /// Undo/redo history for queue (up to 3 states). In-memory only.
+    /// Undo/redo history for queue (up to 10 states). In-memory only.
     private var queueUndoHistory: [([Song], Int)] = []
     private var queueRedoHistory: [([Song], Int)] = []
-    private static let queueUndoMaxCount = 3
+    private static let queueUndoMaxCount = 10
 
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
@@ -165,6 +165,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let shuffleEnabledKey = "playerShuffleEnabled"
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
+
+    /// Task handle for the background queue metadata enrichment service.
+    var enrichmentTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -217,6 +220,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
+
+        // Start queue metadata enrichment service
+        self.startQueueEnrichmentService()
     }
 
     /// Returns true if the given song is the current track.
