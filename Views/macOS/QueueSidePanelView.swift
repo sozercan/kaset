@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Main View
+// MARK: - QueueSidePanelView
 
 @available(macOS 26.0, *)
 struct QueueSidePanelView: View {
@@ -17,7 +17,7 @@ struct QueueSidePanelView: View {
                 .opacity(0.3)
 
             if self.playerService.queue.isEmpty {
-                emptyQueueView
+                self.emptyQueueView
             } else {
                 QueueListControllerRepresentable(
                     queue: self.playerService.queue,
@@ -78,7 +78,7 @@ struct QueueSidePanelView: View {
     }
 }
 
-// MARK: - NSViewController Representable
+// MARK: - QueueListControllerRepresentable
 
 @available(macOS 26.0, *)
 struct QueueListControllerRepresentable: NSViewControllerRepresentable {
@@ -99,10 +99,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     }
 
     func updateNSViewController(_ viewController: QueueListViewController, context: Context) {
-        context.coordinator.queue = queue
-        context.coordinator.currentIndex = currentIndex
-        context.coordinator.isPlaying = isPlaying
-        context.coordinator.favoritesManager = favoritesManager
+        context.coordinator.queue = self.queue
+        context.coordinator.currentIndex = self.currentIndex
+        context.coordinator.isPlaying = self.isPlaying
+        context.coordinator.favoritesManager = self.favoritesManager
 
         if !context.coordinator.isDragging {
             viewController.tableView?.reloadData()
@@ -110,11 +110,11 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         // Update current track highlighting and waveform animation
         if let tableView = viewController.tableView {
-            for row in 0..<queue.count {
+            for row in 0 ..< self.queue.count {
                 if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? QueueTableCellView {
                     cellView.updateAppearance(
-                        isCurrentTrack: row == currentIndex,
-                        isPlaying: isPlaying,
+                        isCurrentTrack: row == self.currentIndex,
+                        isPlaying: self.isPlaying,
                         index: row
                     )
                 }
@@ -124,14 +124,14 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
-            queue: queue,
-            currentIndex: currentIndex,
-            isPlaying: isPlaying,
-            favoritesManager: favoritesManager,
-            onSelect: onSelect,
-            onReorder: onReorder,
-            onRemove: onRemove,
-            onStartRadio: onStartRadio
+            queue: self.queue,
+            currentIndex: self.currentIndex,
+            isPlaying: self.isPlaying,
+            favoritesManager: self.favoritesManager,
+            onSelect: self.onSelect,
+            onReorder: self.onReorder,
+            onRemove: self.onRemove,
+            onStartRadio: self.onStartRadio
         )
     }
 
@@ -148,8 +148,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             scrollView.borderType = .noBorder
             scrollView.backgroundColor = .clear
             scrollView.drawsBackground = false
-            scrollView.hasHorizontalScroller = false  // Disable horizontal scrolling
-            scrollView.horizontalScrollElasticity = .none  // No horizontal bounce
+            scrollView.hasHorizontalScroller = false // Disable horizontal scrolling
+            scrollView.horizontalScrollElasticity = .none // No horizontal bounce
 
             let tableView = DraggableTableView()
             tableView.headerView = nil
@@ -165,13 +165,13 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             column.title = ""
             column.minWidth = 350
             column.maxWidth = 400
-            column.width = 350  // Matches container width minus scroll bar space
+            column.width = 350 // Matches container width minus scroll bar space
             tableView.addTableColumn(column)
 
             let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
             tableView.registerForDraggedTypes([dragType, .string])
             tableView.verticalMotionCanBeginDrag = true
-            tableView.draggingDestinationFeedbackStyle = .gap  // Show gap where item will be dropped
+            tableView.draggingDestinationFeedbackStyle = .gap // Show gap where item will be dropped
 
             scrollView.documentView = tableView
             self.tableView = tableView
@@ -180,10 +180,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         override func viewDidLoad() {
             super.viewDidLoad()
-            if let tableView = tableView {
-                tableView.delegate = coordinator
-                tableView.dataSource = coordinator
-                tableView.coordinator = coordinator
+            if let tableView {
+                tableView.delegate = self.coordinator
+                tableView.dataSource = self.coordinator
+                tableView.coordinator = self.coordinator
             }
         }
     }
@@ -204,7 +204,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         private let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
 
         init(queue: [Song], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
-             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (String) -> Void, onStartRadio: @escaping (Song) -> Void) {
+             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (String) -> Void, onStartRadio: @escaping (Song) -> Void)
+        {
             self.queue = queue
             self.currentIndex = currentIndex
             self.isPlaying = isPlaying
@@ -220,11 +221,11 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
         func removeRowWithAnimation(row: Int, song: Song, slideDirection: CGFloat) {
             guard let tableView = viewController?.tableView else {
-                onRemove(song.videoId)
+                self.onRemove(song.videoId)
                 return
             }
             guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
-                onRemove(song.videoId)
+                self.onRemove(song.videoId)
                 return
             }
             let videoId = song.videoId
@@ -243,81 +244,82 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }
         }
 
-        func numberOfRows(in tableView: NSTableView) -> Int {
-            return queue.count
+        func numberOfRows(in _: NSTableView) -> Int {
+            self.queue.count
         }
 
-        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        func tableView(_: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
             let cellView = QueueTableCellView()
-            let song = queue[row]
+            let song = self.queue[row]
             cellView.configure(
                 song: song,
                 index: row,
-                isCurrentTrack: row == currentIndex,
-                isPlaying: isPlaying,
-                favoritesManager: favoritesManager,
-                onPlay: { [weak self] in self?.onSelect(row) },
-                onRemove: { [weak self] in self?.onRemove(song.videoId) }
+                isCurrentTrack: row == self.currentIndex,
+                isPlaying: self.isPlaying,
+                actions: QueueCellActions(
+                    onPlay: { [weak self] in self?.onSelect(row) },
+                    onRemove: { [weak self] in self?.onRemove(song.videoId) }
+                )
             )
             return cellView
         }
 
-        func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-            return 56
+        func tableView(_: NSTableView, heightOfRow _: Int) -> CGFloat {
+            56
         }
 
         func tableViewSelectionDidChange(_ notification: Notification) {
             guard let tableView = notification.object as? NSTableView else { return }
             let selectedRow = tableView.selectedRow
             if selectedRow >= 0 {
-                onSelect(selectedRow)
+                self.onSelect(selectedRow)
                 tableView.deselectAll(nil)
             }
         }
 
-        // Drag Source
-        func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
-            guard row != currentIndex else { return nil }
+        /// Drag Source
+        func tableView(_: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+            guard row != self.currentIndex else { return nil }
             let item = NSPasteboardItem()
-            item.setString(String(row), forType: dragType)
-            isDragging = true
+            item.setString(String(row), forType: self.dragType)
+            self.isDragging = true
             return item
         }
 
-        func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession, willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
+        func tableView(_: NSTableView, draggingSession _: NSDraggingSession, willBeginAt _: NSPoint, forRowIndexes _: IndexSet) {
             // Dragging session began
         }
 
-        func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-            isDragging = false
+        func tableView(_: NSTableView, draggingSession _: NSDraggingSession, endedAt _: NSPoint, operation _: NSDragOperation) {
+            self.isDragging = false
         }
 
-        // Drop Destination
-        func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        /// Drop Destination
+        func tableView(_: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
             guard dropOperation == .above else { return [] }
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return [] }
             let destRow = row
-            guard destRow != currentIndex && srcRow != destRow else { return [] }
+            guard destRow != self.currentIndex, srcRow != destRow else { return [] }
             return .move
         }
 
-        func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+        func tableView(_: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation _: NSTableView.DropOperation) -> Bool {
             guard let str = info.draggingPasteboard.string(forType: dragType),
                   let srcRow = Int(str) else { return false }
             let destRow = row
-            guard srcRow != currentIndex && destRow != currentIndex && srcRow != destRow else { return false }
-            onReorder(srcRow, destRow)
-            isDragging = false
+            guard srcRow != self.currentIndex, destRow != self.currentIndex, srcRow != destRow else { return false }
+            self.onReorder(srcRow, destRow)
+            self.isDragging = false
             return true
         }
 
         // MARK: - Context Menu
 
-        func tableView(_ tableView: NSTableView, menuForRow row: Int, event: NSEvent) -> NSMenu? {
+        func tableView(_: NSTableView, menuForRow row: Int, event _: NSEvent) -> NSMenu? {
             guard row >= 0, let song = queue[safe: row] else { return nil }
             let menu = NSMenu()
-            let manager = favoritesManager
+            let manager = self.favoritesManager
             let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
 
             let favoritesItem = NSMenuItem(
@@ -349,7 +351,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 menu.addItem(NSMenuItem.separator())
             }
 
-            if row != currentIndex {
+            if row != self.currentIndex {
                 let removeItem = NSMenuItem(title: "Remove from Queue", action: #selector(Coordinator.contextMenuRemove(_:)), keyEquivalent: "")
                 removeItem.target = self
                 removeItem.representedObject = song
@@ -362,13 +364,13 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         @objc private func contextMenuFavorites(_ sender: NSMenuItem) {
             guard let song = sender.representedObject as? Song else { return }
-            let manager = favoritesManager
+            let manager = self.favoritesManager
             MainActor.assumeIsolated { manager.toggle(song: song) }
         }
 
         @objc private func contextMenuStartRadio(_ sender: NSMenuItem) {
             guard let song = sender.representedObject as? Song else { return }
-            onStartRadio(song)
+            self.onStartRadio(song)
         }
 
         @objc private func contextMenuShare(_ sender: NSMenuItem) {
@@ -380,12 +382,12 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         @objc private func contextMenuRemove(_ sender: NSMenuItem) {
             guard let song = sender.representedObject as? Song else { return }
-            onRemove(song.videoId)
+            self.onRemove(song.videoId)
         }
     }
 }
 
-// MARK: - Custom Table View with Drag Visual Feedback
+// MARK: - DraggableTableView
 
 @available(macOS 26.0, *)
 class DraggableTableView: NSTableView {
@@ -410,17 +412,17 @@ class DraggableTableView: NSTableView {
 
     override func awakeFromNib() {
         super.awakeFromNib()
-        setupTable()
+        self.setupTable()
     }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        setupTable()
+        self.setupTable()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupTable()
+        self.setupTable()
     }
 
     private func setupTable() {
@@ -435,471 +437,143 @@ class DraggableTableView: NSTableView {
 
         switch event.phase {
         case .began:
-            horizontalSwipeAccumulator = dx
-            verticalSwipeAccumulator = dy
-            swipeRemoveTargetRow = -1
-            swipeTrackedInitialOriginX = nil
-            if let coord = coordinator {
-                let point = event.locationInWindow
-                let localPoint = self.convert(point, from: nil)
-                let rowAtStart = self.row(at: localPoint)
-                swipeRemoveTargetRow = rowAtStart
-            }
+            self.handleSwipeBegan(dx: dx, dy: dy, event: event)
         case .changed:
-            horizontalSwipeAccumulator += dx
-            verticalSwipeAccumulator += dy
-            // Real-time row slide: once horizontal movement passes commit threshold, move the row with the finger.
-            if let coord = coordinator,
-               swipeRemoveTargetRow >= 0,
-               swipeRemoveTargetRow != coord.currentIndex,
-               coord.queue[safe: swipeRemoveTargetRow] != nil,
-               abs(horizontalSwipeAccumulator) > Self.swipeCommitThreshold,
-               abs(horizontalSwipeAccumulator) > abs(verticalSwipeAccumulator)
-            {
-                guard let rowView = self.rowView(atRow: swipeRemoveTargetRow, makeIfNecessary: false) else {
-                    break
-                }
-                if swipeTrackedInitialOriginX == nil {
-                    swipeTrackedInitialOriginX = rowView.frame.origin.x
-                }
-                let initialX = swipeTrackedInitialOriginX!
-                let maxDrag = rowView.bounds.width * Self.swipeMaxDragFactor
-                let clamped = max(-maxDrag, min(maxDrag, horizontalSwipeAccumulator))
-                var f = rowView.frame
-                f.origin.x = initialX + clamped
-                rowView.frame = f
-            }
+            self.handleSwipeChanged(dx: dx, dy: dy)
         case .ended, .cancelled:
-            let accH = horizontalSwipeAccumulator
-            let accV = verticalSwipeAccumulator
-            let rowAtEnd = self.row(at: self.convert(event.locationInWindow, from: nil))
-            horizontalSwipeAccumulator = 0
-            verticalSwipeAccumulator = 0
-
-            if let initialX = swipeTrackedInitialOriginX {
-                swipeTrackedInitialOriginX = nil
-                guard let coord = coordinator,
-                      swipeRemoveTargetRow >= 0,
-                      let song = coord.queue[safe: swipeRemoveTargetRow]
-                else {
-                    swipeRemoveTargetRow = -1
-                    super.scrollWheel(with: event)
-                    return
-                }
-                let row = swipeRemoveTargetRow
-                swipeRemoveTargetRow = -1
-                guard let rowView = self.rowView(atRow: row, makeIfNecessary: false) else {
-                    super.scrollWheel(with: event)
-                    return
-                }
-
-                let passed = CFAbsoluteTimeGetCurrent() >= swipeRemoveCooldownUntil
-                    && abs(accH) >= Self.swipeRemoveDeltaThreshold
-                    && abs(accH) > abs(accV)
-                    && row != coord.currentIndex
-
-                if passed {
-                    let slideDirection: CGFloat = accH > 0 ? 1 : -1
-                    let targetX = initialX + slideDirection * rowView.bounds.width
-                    let videoId = song.videoId
-                    swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
-                    NSAnimationContext.runAnimationGroup { context in
-                        context.duration = 0.2
-                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                        var f = rowView.frame
-                        f.origin.x = targetX
-                        rowView.animator().frame = f
-                        rowView.animator().alphaValue = 0
-                    } completionHandler: {
-                        rowView.alphaValue = 1
-                        var f = rowView.frame
-                        f.origin.x = initialX
-                        rowView.frame = f
-                        coord.onRemove(videoId)
-                    }
-                    return
-                } else {
-                    // Cancel: animate row back to initial position.
-                    NSAnimationContext.runAnimationGroup { context in
-                        context.duration = 0.2
-                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                        var f = rowView.frame
-                        f.origin.x = initialX
-                        rowView.animator().frame = f
-                    } completionHandler: {}
-                    return
-                }
-            }
-
-            if CFAbsoluteTimeGetCurrent() < swipeRemoveCooldownUntil { break }
-            guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
-                  abs(accH) > abs(accV)
-            else { break }
-            guard let coord = coordinator else { break }
-            let row = swipeRemoveTargetRow >= 0 ? swipeRemoveTargetRow : rowAtEnd
-            swipeRemoveTargetRow = -1
-            if row < 0 { break }
-            if row == coord.currentIndex { break }
-            guard let song = coord.queue[safe: row] else { break }
-            let slideDirection: CGFloat = accH > 0 ? 1 : -1
-            swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
-            coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
-            return
+            if self.handleSwipeEnded(event: event) { return }
         default:
             if event.momentumPhase == .ended || event.momentumPhase == .cancelled {
-                horizontalSwipeAccumulator = 0
-                verticalSwipeAccumulator = 0
-                swipeRemoveTargetRow = -1
-                swipeTrackedInitialOriginX = nil
+                self.horizontalSwipeAccumulator = 0
+                self.verticalSwipeAccumulator = 0
+                self.swipeRemoveTargetRow = -1
+                self.swipeTrackedInitialOriginX = nil
             }
-            break
         }
 
         super.scrollWheel(with: event)
     }
-}
 
-// MARK: - Cell View
-
-@available(macOS 26.0, *)
-class QueueTableCellView: NSView {
-    private var onPlay: (() -> Void)?
-    private var onRemove: (() -> Void)?
-    private var isCurrentTrack: Bool = false
-    private var isPlaying: Bool = false
-    private var indicatorLabel = NSTextField()
-    private var waveformView: NSView?
-    private let thumbnailImageView = NSImageView()
-    private var imageLoadTask: Task<Void, Never>?
-    private var currentSongId: String?
-    private let titleLabel = NSTextField()
-    private let artistLabel = NSTextField()
-    private let durationLabel = NSTextField()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupView()
-    }
-
-    private func setupView() {
-        wantsLayer = true
-        // Fill the row view so layout is consistent when the table reuses row views (fixes misaligned rows).
-        autoresizingMask = [.width, .height]
-
-        let stackView = NSStackView()
-        stackView.orientation = .horizontal
-        stackView.spacing = 12
-        stackView.alignment = .centerY
-        stackView.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 8)  // Reduced right padding
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-
-        // Indicator container (for number or waveform) — keep fixed so long text doesn't shift row layout
-        let indicatorContainer = NSView()
-        indicatorContainer.translatesAutoresizingMaskIntoConstraints = false
-        let indicatorWidth = indicatorContainer.widthAnchor.constraint(equalToConstant: 24)
-        indicatorWidth.priority = .required
-        indicatorWidth.isActive = true
-        indicatorContainer.heightAnchor.constraint(equalToConstant: 20).isActive = true
-        indicatorContainer.setContentHuggingPriority(.required, for: .horizontal)
-        indicatorContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        indicatorLabel.isEditable = false
-        indicatorLabel.isBordered = false
-        indicatorLabel.backgroundColor = .clear
-        indicatorLabel.alignment = .center
-        indicatorLabel.font = NSFont.systemFont(ofSize: 12)
-        indicatorLabel.translatesAutoresizingMaskIntoConstraints = false
-        indicatorContainer.addSubview(indicatorLabel)
-        NSLayoutConstraint.activate([
-            indicatorLabel.centerXAnchor.constraint(equalTo: indicatorContainer.centerXAnchor),
-            indicatorLabel.centerYAnchor.constraint(equalTo: indicatorContainer.centerYAnchor)
-        ])
-
-        thumbnailImageView.wantsLayer = true
-        thumbnailImageView.layer?.cornerRadius = 4
-        thumbnailImageView.layer?.masksToBounds = true
-        thumbnailImageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        thumbnailImageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        thumbnailImageView.setContentHuggingPriority(.required, for: .horizontal)
-        thumbnailImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        let infoStackView = NSStackView()
-        infoStackView.orientation = .vertical
-        infoStackView.spacing = 2
-        infoStackView.alignment = .leading
-
-        titleLabel.isEditable = false
-        titleLabel.isBordered = false
-        titleLabel.backgroundColor = .clear
-        titleLabel.lineBreakMode = .byTruncatingTail
-
-        artistLabel.isEditable = false
-        artistLabel.isBordered = false
-        artistLabel.backgroundColor = .clear
-        artistLabel.lineBreakMode = .byTruncatingTail
-        artistLabel.font = NSFont.systemFont(ofSize: 11)
-        artistLabel.textColor = NSColor.secondaryLabelColor
-
-        infoStackView.addArrangedSubview(titleLabel)
-        infoStackView.addArrangedSubview(artistLabel)
-
-        durationLabel.isEditable = false
-        durationLabel.isBordered = false
-        durationLabel.backgroundColor = .clear
-        durationLabel.alignment = .right
-        durationLabel.font = NSFont.systemFont(ofSize: 11)
-        durationLabel.textColor = NSColor.tertiaryLabelColor
-        durationLabel.setContentCompressionResistancePriority(.required, for: .horizontal)  // Don't compress duration
-
-        // Spacer takes all flexible space so title/artist and duration stay consistently aligned across rows
-        let spacerView = NSView()
-        spacerView.translatesAutoresizingMaskIntoConstraints = false
-        spacerView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        spacerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        infoStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)  // Truncate before spacer grows
-
-        stackView.addArrangedSubview(indicatorContainer)
-        stackView.addArrangedSubview(thumbnailImageView)
-        stackView.addArrangedSubview(infoStackView)
-        stackView.addArrangedSubview(spacerView)
-        stackView.addArrangedSubview(durationLabel)
-
-        addSubview(stackView)
-        NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
-        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
-        addGestureRecognizer(clickGesture)
-    }
-
-    override func layout() {
-        super.layout()
-        // Ensure we always fill the row view so reused rows don't keep a stale frame (fixes misaligned rows).
-        if let sv = superview, !sv.bounds.isEmpty, frame != sv.bounds {
-            frame = sv.bounds
+    /// Handles the `.began` phase of a trackpad swipe gesture.
+    private func handleSwipeBegan(dx: CGFloat, dy: CGFloat, event: NSEvent) {
+        self.horizontalSwipeAccumulator = dx
+        self.verticalSwipeAccumulator = dy
+        self.swipeRemoveTargetRow = -1
+        self.swipeTrackedInitialOriginX = nil
+        if coordinator != nil {
+            let point = event.locationInWindow
+            let localPoint = self.convert(point, from: nil)
+            let rowAtStart = self.row(at: localPoint)
+            self.swipeRemoveTargetRow = rowAtStart
         }
     }
 
-    func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, favoritesManager: FavoritesManager, onPlay: @escaping () -> Void, onRemove: @escaping () -> Void) {
-        self.onPlay = onPlay
-        self.onRemove = onRemove
-        self.isCurrentTrack = isCurrentTrack
-        self.isPlaying = isPlaying
-        updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
-
-        titleLabel.stringValue = song.title
-        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: isCurrentTrack ? .semibold : .regular)
-        titleLabel.textColor = isCurrentTrack ? NSColor.systemRed : NSColor.labelColor
-
-        artistLabel.stringValue = song.artistsDisplay.isEmpty ? "Unknown Artist" : song.artistsDisplay
-
-        if let duration = song.duration {
-            let mins = Int(duration) / 60
-            let secs = Int(duration) % 60
-            durationLabel.stringValue = String(format: "%d:%02d", mins, secs)
-        } else {
-            durationLabel.stringValue = ""
-        }
-
-        let songId = song.id
-        self.currentSongId = songId
-        imageLoadTask?.cancel()
-        if let url = song.thumbnailURL?.highQualityThumbnailURL {
-            imageLoadTask = Task { [weak self] in
-                let image = await ImageCache.shared.image(for: url, targetSize: CGSize(width: 40, height: 40))
-                guard !Task.isCancelled, self?.currentSongId == songId else { return }
-                self?.thumbnailImageView.image = image
+    /// Handles the `.changed` phase of a trackpad swipe gesture, sliding the row in real time.
+    private func handleSwipeChanged(dx: CGFloat, dy: CGFloat) {
+        self.horizontalSwipeAccumulator += dx
+        self.verticalSwipeAccumulator += dy
+        // Real-time row slide: once horizontal movement passes commit threshold, move the row with the finger.
+        if let coord = coordinator,
+           swipeRemoveTargetRow >= 0,
+           swipeRemoveTargetRow != coord.currentIndex,
+           coord.queue[safe: swipeRemoveTargetRow] != nil,
+           abs(horizontalSwipeAccumulator) > Self.swipeCommitThreshold,
+           abs(horizontalSwipeAccumulator) > abs(verticalSwipeAccumulator)
+        {
+            guard let rowView = self.rowView(atRow: swipeRemoveTargetRow, makeIfNecessary: false) else {
+                return
             }
-        } else {
-            thumbnailImageView.image = nil
+            if self.swipeTrackedInitialOriginX == nil {
+                self.swipeTrackedInitialOriginX = rowView.frame.origin.x
+            }
+            let initialX = self.swipeTrackedInitialOriginX!
+            let maxDrag = rowView.bounds.width * Self.swipeMaxDragFactor
+            let clamped = max(-maxDrag, min(maxDrag, self.horizontalSwipeAccumulator))
+            var f = rowView.frame
+            f.origin.x = initialX + clamped
+            rowView.frame = f
         }
     }
 
-    func updateAppearance(isCurrentTrack: Bool, isPlaying: Bool, index: Int) {
-        self.isCurrentTrack = isCurrentTrack
-        self.isPlaying = isPlaying
+    /// Handles the `.ended` / `.cancelled` phase of a trackpad swipe gesture. Returns `true` if the event was fully consumed.
+    private func handleSwipeEnded(event: NSEvent) -> Bool {
+        let accH = self.horizontalSwipeAccumulator
+        let accV = self.verticalSwipeAccumulator
+        let rowAtEnd = self.row(at: self.convert(event.locationInWindow, from: nil))
+        self.horizontalSwipeAccumulator = 0
+        self.verticalSwipeAccumulator = 0
 
-        if isCurrentTrack {
-            // Show animated waveform for current track
-            indicatorLabel.stringValue = ""
-            indicatorLabel.isHidden = true
+        if let initialX = swipeTrackedInitialOriginX {
+            self.swipeTrackedInitialOriginX = nil
+            guard let coord = coordinator,
+                  swipeRemoveTargetRow >= 0,
+                  let song = coord.queue[safe: swipeRemoveTargetRow]
+            else {
+                self.swipeRemoveTargetRow = -1
+                return false
+            }
+            let row = self.swipeRemoveTargetRow
+            self.swipeRemoveTargetRow = -1
+            guard let rowView = self.rowView(atRow: row, makeIfNecessary: false) else {
+                return false
+            }
 
-            // Create or update waveform view
-            if waveformView == nil {
-                let waveView = WaveformView(frame: NSRect(x: 0, y: 0, width: 24, height: 16))
-                waveView.translatesAutoresizingMaskIntoConstraints = false
-                waveformView = waveView
+            let passed = CFAbsoluteTimeGetCurrent() >= self.swipeRemoveCooldownUntil
+                && abs(accH) >= Self.swipeRemoveDeltaThreshold
+                && abs(accH) > abs(accV)
+                && row != coord.currentIndex
 
-                // Find indicator container and add waveform
-                if let indicatorContainer = indicatorLabel.superview {
-                    indicatorContainer.addSubview(waveView)
-                    NSLayoutConstraint.activate([
-                        waveView.centerXAnchor.constraint(equalTo: indicatorContainer.centerXAnchor),
-                        waveView.centerYAnchor.constraint(equalTo: indicatorContainer.centerYAnchor),
-                        waveView.widthAnchor.constraint(equalToConstant: 24),
-                        waveView.heightAnchor.constraint(equalToConstant: 16)
-                    ])
+            if passed {
+                let slideDirection: CGFloat = accH > 0 ? 1 : -1
+                let targetX = initialX + slideDirection * rowView.bounds.width
+                let videoId = song.videoId
+                self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    var f = rowView.frame
+                    f.origin.x = targetX
+                    rowView.animator().frame = f
+                    rowView.animator().alphaValue = 0
+                } completionHandler: {
+                    rowView.alphaValue = 1
+                    var f = rowView.frame
+                    f.origin.x = initialX
+                    rowView.frame = f
+                    coord.onRemove(videoId)
                 }
+                return true
+            } else {
+                // Cancel: animate row back to initial position.
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    var f = rowView.frame
+                    f.origin.x = initialX
+                    rowView.animator().frame = f
+                } completionHandler: {}
+                return true
             }
-
-            if let waveView = waveformView as? WaveformView {
-                waveView.isHidden = false
-                waveView.isAnimating = isPlaying
-                waveView.tintColor = isPlaying ? NSColor.systemRed : NSColor.tertiaryLabelColor
-            }
-
-            layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.1).cgColor
-        } else {
-            // Show number for non-current tracks
-            indicatorLabel.isHidden = false
-            indicatorLabel.stringValue = "\(index + 1)"
-            indicatorLabel.textColor = NSColor.tertiaryLabelColor
-
-            // Hide waveform
-            waveformView?.isHidden = true
-
-            layer?.backgroundColor = NSColor.clear.cgColor
         }
-    }
 
-    @objc private func handleClick() {
-        onPlay?()
-    }
-
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        imageLoadTask?.cancel()
-        imageLoadTask = nil
-        currentSongId = nil
-        thumbnailImageView.image = nil
-        waveformView?.removeFromSuperview()
-        waveformView = nil
+        if CFAbsoluteTimeGetCurrent() < self.swipeRemoveCooldownUntil { return false }
+        guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
+              abs(accH) > abs(accV)
+        else { return false }
+        guard let coord = coordinator else { return false }
+        let row = self.swipeRemoveTargetRow >= 0 ? self.swipeRemoveTargetRow : rowAtEnd
+        self.swipeRemoveTargetRow = -1
+        if row < 0 { return false }
+        if row == coord.currentIndex { return false }
+        guard let song = coord.queue[safe: row] else { return false }
+        let slideDirection: CGFloat = accH > 0 ? 1 : -1
+        self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
+        coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
+        return true
     }
 }
 
-// MARK: - Animated Waveform View
-
-@available(macOS 26.0, *)
-class WaveformView: NSView {
-    var isAnimating: Bool = false {
-        didSet {
-            updateAnimation()
-        }
-    }
-    var tintColor: NSColor = .systemRed {
-        didSet {
-            layer?.sublayers?.forEach { $0.backgroundColor = tintColor.cgColor }
-        }
-    }
-
-    private var timer: Timer?
-    private var bars: [CALayer] = []
-    private var startTime: CFTimeInterval = 0
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupBars()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupBars()
-    }
-
-    private func setupBars() {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.clear.cgColor
-
-        // Create 3 bars for the waveform
-        let barWidth: CGFloat = 3
-        let barSpacing: CGFloat = 2
-        let totalWidth = CGFloat(3) * barWidth + CGFloat(2) * barSpacing
-        let startX = (bounds.width - totalWidth) / 2
-
-        for i in 0..<3 {
-            let bar = CALayer()
-            bar.backgroundColor = tintColor.cgColor
-            bar.cornerRadius = 1
-            bar.frame = NSRect(
-                x: startX + CGFloat(i) * (barWidth + barSpacing),
-                y: bounds.height / 2 - 4,
-                width: barWidth,
-                height: 8
-            )
-            layer?.addSublayer(bar)
-            bars.append(bar)
-        }
-    }
-
-    private func updateAnimation() {
-        if isAnimating {
-            startAnimation()
-        } else {
-            stopAnimation()
-            // Reset to static middle position
-            for bar in bars {
-                bar.frame.size.height = 8
-                bar.frame.origin.y = (bounds.height - 8) / 2
-            }
-        }
-    }
-
-    private func startAnimation() {
-        guard timer == nil else { return }
-
-        startTime = CACurrentMediaTime()
-
-        // Use Timer for 30fps animation - simpler and safer than CVDisplayLink
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { [weak self] _ in
-            self?.updateBars()
-        }
-        // Add to common run loop modes to ensure it runs during tracking/dragging
-        if let timer = timer {
-            RunLoop.current.add(timer, forMode: .common)
-        }
-    }
-
-    private func stopAnimation() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    private func updateBars() {
-        guard isAnimating else { return }
-
-        let elapsed = CACurrentMediaTime() - startTime
-        let barHeights: [CGFloat] = [
-            4 + 8 * CGFloat(abs(sin(elapsed * 4))),
-            4 + 10 * CGFloat(abs(sin(elapsed * 3 + 1))),
-            4 + 6 * CGFloat(abs(sin(elapsed * 5 + 2)))
-        ]
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)  // Disable implicit animations
-        for (i, bar) in bars.enumerated() {
-            let height = min(barHeights[i], bounds.height)
-            bar.frame.size.height = height
-            bar.frame.origin.y = (bounds.height - height) / 2
-        }
-        CATransaction.commit()
-    }
-
-    deinit {
-        stopAnimation()
-    }
-}
-
-// MARK: - Header
+// MARK: - QueueSidePanelHeader
 
 @available(macOS 26.0, *)
 private struct QueueSidePanelHeader: View {
@@ -933,7 +607,7 @@ private struct QueueSidePanelHeader: View {
     }
 }
 
-// MARK: - Footer
+// MARK: - QueueFooterActions
 
 @available(macOS 26.0, *)
 private struct QueueFooterActions: View {

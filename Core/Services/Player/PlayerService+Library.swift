@@ -153,10 +153,10 @@ extension PlayerService {
                     // Only update if the queue entry is missing metadata
                     let currentQueueSong = self.queue[queueIndex]
                     let needsUpdate = currentQueueSong.artists.isEmpty ||
-                                      currentQueueSong.artists.allSatisfy({ $0.name.isEmpty || $0.name == "Unknown Artist" }) ||
-                                      currentQueueSong.title.isEmpty ||
-                                      currentQueueSong.title == "Loading..." ||
-                                      currentQueueSong.thumbnailURL == nil
+                        currentQueueSong.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" } ||
+                        currentQueueSong.title.isEmpty ||
+                        currentQueueSong.title == "Loading..." ||
+                        currentQueueSong.thumbnailURL == nil
 
                     if needsUpdate {
                         self.queue[queueIndex] = songData

@@ -182,6 +182,7 @@
 		NETM000100000001 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NETM000200000001 /* NetworkMonitor.swift */; };
 		QDM0000100000001 /* QueueDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = QDM0000200000001 /* QueueDisplayMode.swift */; };
 		QSP0000100000001 /* QueueSidePanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = QSP0000200000001 /* QueueSidePanelView.swift */; };
+		QTC0000100000001 /* QueueTableCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = QTC0000200000001 /* QueueTableCellView.swift */; };
 		RAD0000100000001 /* StartRadioContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = RAD0000200000001 /* StartRadioContextMenu.swift */; };
 		SCR0000100000001 /* Kaset.sdef in Resources */ = {isa = PBXBuildFile; fileRef = SCR0000200000001 /* Kaset.sdef */; };
 		SCR0000100000002 /* ScriptCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCR0000200000002 /* ScriptCommands.swift */; };
@@ -394,6 +395,7 @@
 		NETM000200000001 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		QDM0000200000001 /* QueueDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueDisplayMode.swift; sourceTree = "<group>"; };
 		QSP0000200000001 /* QueueSidePanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueSidePanelView.swift; sourceTree = "<group>"; };
+		QTC0000200000001 /* QueueTableCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueTableCellView.swift; sourceTree = "<group>"; };
 		RAD0000200000001 /* StartRadioContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRadioContextMenu.swift; sourceTree = "<group>"; };
 		SCR0000200000001 /* Kaset.sdef */ = {isa = PBXFileReference; lastKnownFileType = text.sdef; path = Kaset.sdef; sourceTree = "<group>"; };
 		SCR0000200000002 /* ScriptCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptCommands.swift; sourceTree = "<group>"; };
@@ -783,6 +785,7 @@
 				E50000020000000000000093 /* AccentBackground.swift */,
 				E50000020000000000000800 /* QueueView.swift */,
 				QSP0000200000001 /* QueueSidePanelView.swift */,
+				QTC0000200000001 /* QueueTableCellView.swift */,
 				01CA5C8085EDDF4F1A4CFE22 /* SharedViews */,
 				ACD98FCCD196FEFA93C2F3D2 /* CommandBarView.swift */,
 				0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */,
@@ -1069,6 +1072,7 @@
 				0A5EAC082557373484B2690F /* LyricsView.swift in Sources */,
 				E50000010000000000000800 /* QueueView.swift in Sources */,
 				QSP0000100000001 /* QueueSidePanelView.swift in Sources */,
+				QTC0000100000001 /* QueueTableCellView.swift in Sources */,
 				9757065D24FEA188EEC1C958 /* TopSongsView.swift in Sources */,
 				QDM0000100000001 /* QueueDisplayMode.swift in Sources */,
 				40975001FCBE18063AB035FF /* LoadingState.swift in Sources */,
@@ -1355,7 +1359,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 2L284UHWFM;
+				DEVELOPMENT_TEAM = 57QNR9B89Q;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1387,7 +1391,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 2L284UHWFM;
+				DEVELOPMENT_TEAM = 57QNR9B89Q;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;

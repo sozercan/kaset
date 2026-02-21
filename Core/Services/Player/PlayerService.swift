@@ -213,7 +213,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Restore queue display mode
         if let savedMode = UserDefaults.standard.string(forKey: Self.queueDisplayModeKey),
-           let mode = QueueDisplayMode(rawValue: savedMode) {
+           let mode = QueueDisplayMode(rawValue: savedMode)
+        {
             self.queueDisplayMode = mode
             self.logger.info("Restored queue display mode: \(mode.displayName)")
         }
@@ -244,10 +245,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     // MARK: - Queue Undo / Redo
 
     /// Whether queue undo is available.
-    var canUndoQueue: Bool { !self.queueUndoHistory.isEmpty }
+    var canUndoQueue: Bool {
+        !self.queueUndoHistory.isEmpty
+    }
 
     /// Whether queue redo is available.
-    var canRedoQueue: Bool { !self.queueRedoHistory.isEmpty }
+    var canRedoQueue: Bool {
+        !self.queueRedoHistory.isEmpty
+    }
 
     /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
     func recordQueueStateForUndo() {

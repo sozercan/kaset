@@ -279,7 +279,8 @@ extension PlayerService {
 
         // Adjust currentIndex if needed (current track moved in the array)
         if let oldCurrent = self.queue[safe: self.currentIndex],
-           let newCurrentIndex = newQueue.firstIndex(where: { $0.videoId == oldCurrent.videoId }) {
+           let newCurrentIndex = newQueue.firstIndex(where: { $0.videoId == oldCurrent.videoId })
+        {
             self.currentIndex = newCurrentIndex
         }
 
@@ -392,7 +393,7 @@ extension PlayerService {
             let savedQueue = try decoder.decode([Song].self, from: queueData)
             guard !savedQueue.isEmpty else {
                 self.logger.info("Saved queue is empty")
-                clearSavedQueue()
+                self.clearSavedQueue()
                 return false
             }
 
@@ -402,7 +403,7 @@ extension PlayerService {
             return true
         } catch {
             self.logger.error("Failed to restore queue: \(error.localizedDescription)")
-            clearSavedQueue()
+            self.clearSavedQueue()
             return false
         }
     }
@@ -423,7 +424,7 @@ extension PlayerService {
         enrichmentTask?.cancel()
 
         enrichmentTask = Task { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
 
             while !Task.isCancelled {
                 // Wait 30 seconds between checks
@@ -454,10 +455,10 @@ extension PlayerService {
             // 2. Title is placeholder ("Loading..." or empty)
             // 3. No thumbnail
             let needsEnrichment = song.artists.isEmpty ||
-                                  song.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" } ||
-                                  song.title.isEmpty ||
-                                  song.title == "Loading..." ||
-                                  song.thumbnailURL == nil
+                song.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" } ||
+                song.title.isEmpty ||
+                song.title == "Loading..." ||
+                song.thumbnailURL == nil
 
             if needsEnrichment {
                 songsNeedingEnrichment.append((index: index, videoId: song.videoId))
@@ -472,7 +473,7 @@ extension PlayerService {
     func enrichQueueMetadata() async {
         guard let client = self.ytMusicClient else { return }
 
-        let songsToEnrich = identifySongsNeedingEnrichment()
+        let songsToEnrich = self.identifySongsNeedingEnrichment()
 
         guard !songsToEnrich.isEmpty else { return }
 

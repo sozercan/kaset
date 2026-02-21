@@ -163,111 +163,106 @@ struct PlaylistDetailView: View {
 
                 Spacer()
 
-                HStack(spacing: 16) {
-                    // Play all button
-                    Button {
-                        let fallbackAlbum = Album(
-                            id: detail.id,
-                            title: detail.title,
-                            artists: detail.author.map { [Artist(id: "unknown", name: $0)] },
-                            thumbnailURL: detail.thumbnailURL,
-                            year: nil,
-                            trackCount: detail.tracks.count
-                        )
-                        self.playAll(detail.tracks, fallbackArtist: detail.author, fallbackAlbum: fallbackAlbum)
-                    } label: {
-                        Label("Play", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(detail.tracks.isEmpty)
-
-                    // Play Next button
-                    Button {
-                        let fallbackAlbum = Album(
-                            id: detail.id,
-                            title: detail.title,
-                            artists: detail.author.map { [Artist(id: "unknown", name: $0)] },
-                            thumbnailURL: detail.thumbnailURL,
-                            year: nil,
-                            trackCount: detail.tracks.count
-                        )
-                        SongActionsHelper.addSongsToQueueNext(
-                            detail.tracks,
-                            playerService: self.playerService,
-                            fallbackArtist: detail.author,
-                            fallbackAlbum: fallbackAlbum
-                        )
-                    } label: {
-                        Label("Play Next", systemImage: "text.insert")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(detail.tracks.isEmpty)
-
-                    // Add to Queue button
-                    Button {
-                        let fallbackAlbum = Album(
-                            id: detail.id,
-                            title: detail.title,
-                            artists: detail.author.map { [Artist(id: "unknown", name: $0)] },
-                            thumbnailURL: detail.thumbnailURL,
-                            year: nil,
-                            trackCount: detail.tracks.count
-                        )
-                        SongActionsHelper.addSongsToQueueLast(
-                            detail.tracks,
-                            playerService: self.playerService,
-                            fallbackArtist: detail.author,
-                            fallbackAlbum: fallbackAlbum
-                        )
-                    } label: {
-                        Label("Add to Queue", systemImage: "text.append")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(detail.tracks.isEmpty)
-
-                    // Add/Remove Library button
-                    let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-                    Button {
-                        self.toggleLibrary()
-                    } label: {
-                        Label(
-                            currentlyInLibrary ? "Added to Library" : "Add to Library",
-                            systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle"
-                        )
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-
-                    // Refine Playlist button (AI-powered)
-                    if !detail.isAlbum {
-                        Button {
-                            self.showRefineSheet = true
-                        } label: {
-                            Label("Refine", systemImage: "sparkles")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        .requiresIntelligence()
-                    }
-
-                    // Track count
-                    Text("\(detail.tracks.count) songs")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    if let duration = detail.duration {
-                        Text("•")
-                            .foregroundStyle(.secondary)
-                        Text(duration)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                self.headerButtons(detail)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func makeFallbackAlbum(from detail: PlaylistDetail) -> Album {
+        Album(
+            id: detail.id,
+            title: detail.title,
+            artists: detail.author.map { [Artist(id: "unknown", name: $0)] },
+            thumbnailURL: detail.thumbnailURL,
+            year: nil,
+            trackCount: detail.tracks.count
+        )
+    }
+
+    @ViewBuilder
+    private func headerButtons(_ detail: PlaylistDetail) -> some View {
+        HStack(spacing: 16) {
+            // Play all button
+            Button {
+                let fallbackAlbum = self.makeFallbackAlbum(from: detail)
+                self.playAll(detail.tracks, fallbackArtist: detail.author, fallbackAlbum: fallbackAlbum)
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(detail.tracks.isEmpty)
+
+            // Play Next button
+            Button {
+                let fallbackAlbum = self.makeFallbackAlbum(from: detail)
+                SongActionsHelper.addSongsToQueueNext(
+                    detail.tracks,
+                    playerService: self.playerService,
+                    fallbackArtist: detail.author,
+                    fallbackAlbum: fallbackAlbum
+                )
+            } label: {
+                Label("Play Next", systemImage: "text.insert")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(detail.tracks.isEmpty)
+
+            // Add to Queue button
+            Button {
+                let fallbackAlbum = self.makeFallbackAlbum(from: detail)
+                SongActionsHelper.addSongsToQueueLast(
+                    detail.tracks,
+                    playerService: self.playerService,
+                    fallbackArtist: detail.author,
+                    fallbackAlbum: fallbackAlbum
+                )
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(detail.tracks.isEmpty)
+
+            // Add/Remove Library button
+            let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
+            Button {
+                self.toggleLibrary()
+            } label: {
+                Label(
+                    currentlyInLibrary ? "Added to Library" : "Add to Library",
+                    systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle"
+                )
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+
+            // Refine Playlist button (AI-powered)
+            if !detail.isAlbum {
+                Button {
+                    self.showRefineSheet = true
+                } label: {
+                    Label("Refine", systemImage: "sparkles")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .requiresIntelligence()
+            }
+
+            // Track count
+            Text("\(detail.tracks.count) songs")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if let duration = detail.duration {
+                Text("•")
+                    .foregroundStyle(.secondary)
+                Text(duration)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -438,10 +433,10 @@ struct PlaylistDetailView: View {
             await self.playerService.playQueue(cleanedTracks, startingAt: 0)
         }
     }
-    
+
     /// Cleans track artists and applies fallback artist/album when needed.
     private func cleanTracks(_ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil) -> [Song] {
-        return tracks.map { song in
+        tracks.map { song in
             var cleanedArtists = song.artists.compactMap { artist -> Artist? in
                 if artist.name == "Album" { return nil }
                 var cleanName = artist.name
@@ -450,7 +445,7 @@ struct PlaylistDetailView: View {
                 }
                 return Artist(id: artist.id, name: cleanName)
             }
-            
+
             // Use fallback artist if artists are empty (and clean the fallback too)
             if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
                 var cleanFallback = fallback
@@ -468,12 +463,12 @@ struct PlaylistDetailView: View {
                 }
                 cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
             }
-            
+
             // Use fallback album if song doesn't have album info
             let finalAlbum = song.album ?? fallbackAlbum
             // Use fallback thumbnail if song doesn't have one
             let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
-            
+
             return Song(
                 id: song.id,
                 title: song.title,

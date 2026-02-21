@@ -78,7 +78,7 @@ struct KasetApp: App {
 
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
         // This ensures playerService is available for lifecycle events like queue restoration
-        appDelegate.playerService = player
+        self.appDelegate.playerService = player
 
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")

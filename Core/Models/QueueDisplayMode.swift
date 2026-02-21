@@ -9,15 +9,15 @@ enum QueueDisplayMode: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .popup: return "Popup"
-        case .sidepanel: return "Side Panel"
+        case .popup: "Popup"
+        case .sidepanel: "Side Panel"
         }
     }
 
     var description: String {
         switch self {
-        case .popup: return "Compact overlay view"
-        case .sidepanel: return "Full-width panel with reordering"
+        case .popup: "Compact overlay view"
+        case .sidepanel: "Full-width panel with reordering"
         }
     }
 }

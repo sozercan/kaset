@@ -254,47 +254,47 @@ enum SongActionsHelper {
                 // Fetch album tracks - albums are treated as playlists
                 let response = try await client.getPlaylist(id: album.id)
                 var songs = response.detail.tracks
-                
+
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
                 let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
                     var cleanName = artist.name
-                    
+
                     // Skip artists that are literally just "Album" (the keyword, not an artist name)
                     if cleanName == "Album" {
                         return nil
                     }
-                    
+
                     // Also clean "Album, " prefix if present
                     if cleanName.hasPrefix("Album, ") {
                         cleanName = String(cleanName.dropFirst(7))
                     }
-                    
+
                     return Artist(id: artist.id, name: cleanName)
                 }
-                
+
                 // Populate album and artist info for each song
                 songs = songs.map { song in
                     // Use song artists if available and not empty, otherwise use cleaned album artists
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-                    
+
                     // Also clean song artists - filter "Album" keyword and clean names
                     let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
                         var cleanName = artist.name
-                        
+
                         // Skip artists that are literally just "Album"
                         if cleanName == "Album" {
                             return nil
                         }
-                        
+
                         // Clean "Album, " prefix if present
                         if cleanName.hasPrefix("Album, ") {
                             cleanName = String(cleanName.dropFirst(7))
                         }
                         return Artist(id: artist.id, name: cleanName)
                     }
-                    
+
                     // Create updated song with album info and proper artists
                     return Song(
                         id: song.id,
@@ -333,47 +333,47 @@ enum SongActionsHelper {
                 // Fetch album tracks - albums are treated as playlists
                 let response = try await client.getPlaylist(id: album.id)
                 var songs = response.detail.tracks
-                
+
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
                 let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
                     var cleanName = artist.name
-                    
+
                     // Skip artists that are literally just "Album" (the keyword, not an artist name)
                     if cleanName == "Album" {
                         return nil
                     }
-                    
+
                     // Also clean "Album, " prefix if present
                     if cleanName.hasPrefix("Album, ") {
                         cleanName = String(cleanName.dropFirst(7))
                     }
-                    
+
                     return Artist(id: artist.id, name: cleanName)
                 }
-                
+
                 // Populate album and artist info for each song
                 songs = songs.map { song in
                     // Use song artists if available and not empty, otherwise use cleaned album artists
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-                    
+
                     // Also clean song artists - filter "Album" keyword and clean names
                     let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
                         var cleanName = artist.name
-                        
+
                         // Skip artists that are literally just "Album"
                         if cleanName == "Album" {
                             return nil
                         }
-                        
+
                         // Clean "Album, " prefix if present
                         if cleanName.hasPrefix("Album, ") {
                             cleanName = String(cleanName.dropFirst(7))
                         }
                         return Artist(id: artist.id, name: cleanName)
                     }
-                    
+
                     // Create updated song with album info and proper artists
                     return Song(
                         id: song.id,
@@ -400,7 +400,7 @@ enum SongActionsHelper {
             }
         }
     }
-    
+
     /// Plays an album immediately, replacing the current queue.
     static func playAlbum(
         _ album: Album,
@@ -412,47 +412,47 @@ enum SongActionsHelper {
                 // Fetch album tracks - albums are treated as playlists
                 let response = try await client.getPlaylist(id: album.id)
                 var songs = response.detail.tracks
-                
+
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
                 let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
                     var cleanName = artist.name
-                    
+
                     // Skip artists that are literally just "Album" (the keyword, not an artist name)
                     if cleanName == "Album" {
                         return nil
                     }
-                    
+
                     // Also clean "Album, " prefix if present
                     if cleanName.hasPrefix("Album, ") {
                         cleanName = String(cleanName.dropFirst(7))
                     }
-                    
+
                     return Artist(id: artist.id, name: cleanName)
                 }
-                
+
                 // Populate album and artist info for each song
                 songs = songs.map { song in
                     // Use song artists if available and not empty, otherwise use cleaned album artists
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-                    
+
                     // Also clean song artists - filter "Album" keyword and clean names
                     let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
                         var cleanName = artist.name
-                        
+
                         // Skip artists that are literally just "Album"
                         if cleanName == "Album" {
                             return nil
                         }
-                        
+
                         // Clean "Album, " prefix if present
                         if cleanName.hasPrefix("Album, ") {
                             cleanName = String(cleanName.dropFirst(7))
                         }
                         return Artist(id: artist.id, name: cleanName)
                     }
-                    
+
                     // Create album object for the song
                     let songAlbum = Album(
                         id: album.id,
@@ -462,7 +462,7 @@ enum SongActionsHelper {
                         year: album.year,
                         trackCount: songs.count
                     )
-                    
+
                     // Create updated song with album info and proper artists
                     return Song(
                         id: song.id,
@@ -536,13 +536,13 @@ struct AddToQueueContextMenu: View {
 
     var body: some View {
         Button {
-            SongActionsHelper.addToQueueNext(song, playerService: playerService)
+            SongActionsHelper.addToQueueNext(self.song, playerService: self.playerService)
         } label: {
             Label("Play Next", systemImage: "text.insert")
         }
 
         Button {
-            SongActionsHelper.addToQueueLast(song, playerService: playerService)
+            SongActionsHelper.addToQueueLast(self.song, playerService: self.playerService)
         } label: {
             Label("Add to Queue", systemImage: "text.append")
         }
