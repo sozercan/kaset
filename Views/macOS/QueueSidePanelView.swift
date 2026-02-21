@@ -570,6 +570,8 @@ class QueueTableCellView: NSView {
     private var indicatorLabel = NSTextField()
     private var waveformView: NSView?
     private let thumbnailImageView = NSImageView()
+    private var imageLoadTask: Task<Void, Never>?
+    private var currentSongId: String?
     private let titleLabel = NSTextField()
     private let artistLabel = NSTextField()
     private let durationLabel = NSTextField()
@@ -709,11 +711,15 @@ class QueueTableCellView: NSView {
             durationLabel.stringValue = ""
         }
 
+        let songId = song.id
+        self.currentSongId = songId
+        imageLoadTask?.cancel()
         if let url = song.thumbnailURL?.highQualityThumbnailURL {
-            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-                guard let data = data, let image = NSImage(data: data) else { return }
-                DispatchQueue.main.async { self?.thumbnailImageView.image = image }
-            }.resume()
+            imageLoadTask = Task { [weak self] in
+                let image = await ImageCache.shared.image(for: url, targetSize: CGSize(width: 40, height: 40))
+                guard !Task.isCancelled, self?.currentSongId == songId else { return }
+                self?.thumbnailImageView.image = image
+            }
         } else {
             thumbnailImageView.image = nil
         }
@@ -772,6 +778,9 @@ class QueueTableCellView: NSView {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        imageLoadTask?.cancel()
+        imageLoadTask = nil
+        currentSongId = nil
         thumbnailImageView.image = nil
         waveformView?.removeFromSuperview()
         waveformView = nil
