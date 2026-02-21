@@ -460,7 +460,7 @@ class DraggableTableView: NSTableView {
         self.verticalSwipeAccumulator = dy
         self.swipeRemoveTargetRow = -1
         self.swipeTrackedInitialOriginX = nil
-        if coordinator != nil {
+        if self.coordinator != nil {
             let point = event.locationInWindow
             let localPoint = self.convert(point, from: nil)
             let rowAtStart = self.row(at: localPoint)

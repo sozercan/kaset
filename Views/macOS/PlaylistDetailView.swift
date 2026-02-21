@@ -180,7 +180,6 @@ struct PlaylistDetailView: View {
         )
     }
 
-    @ViewBuilder
     private func headerButtons(_ detail: PlaylistDetail) -> some View {
         HStack(spacing: 16) {
             // Play all button
