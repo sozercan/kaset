@@ -76,6 +76,10 @@ struct KasetApp: App {
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
+        // Wire up PlayerService to AppDelegate immediately (not in onAppear)
+        // This ensures playerService is available for lifecycle events like queue restoration
+        self.appDelegate.playerService = player
+
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")
         }

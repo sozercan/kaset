@@ -111,6 +111,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Display mode for the queue panel (popup vs side panel).
+    var queueDisplayMode: QueueDisplayMode = .popup
+
     /// Whether the queue panel is visible.
     var showQueue: Bool = false {
         didSet {
@@ -146,6 +149,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
 
+    /// UserDefaults key for persisting queue display mode.
+    static let queueDisplayModeKey = "kaset.queue.displayMode"
+
+    /// Undo/redo history for queue (up to 10 states). In-memory only.
+    private var queueUndoHistory: [([Song], Int)] = []
+    private var queueRedoHistory: [([Song], Int)] = []
+    private static let queueUndoMaxCount = 10
+
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
     /// UserDefaults key for persisting volume before mute.
@@ -154,6 +165,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let shuffleEnabledKey = "playerShuffleEnabled"
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
+
+    /// Task handle for the background queue metadata enrichment service.
+    var enrichmentTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -197,8 +211,80 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             }
         }
 
+        // Restore queue display mode
+        if let savedMode = UserDefaults.standard.string(forKey: Self.queueDisplayModeKey),
+           let mode = QueueDisplayMode(rawValue: savedMode)
+        {
+            self.queueDisplayMode = mode
+            self.logger.info("Restored queue display mode: \(mode.displayName)")
+        }
+
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
+
+        // Start queue metadata enrichment service
+        self.startQueueEnrichmentService()
+    }
+
+    /// Returns true if the given song is the current track.
+    func isCurrentTrack(_ song: Song) -> Bool {
+        self.currentTrack?.videoId == song.videoId
+    }
+
+    /// Toggles between popup and side panel queue display modes.
+    func toggleQueueDisplayMode() {
+        if self.queueDisplayMode == .popup {
+            self.queueDisplayMode = .sidepanel
+        } else {
+            self.queueDisplayMode = .popup
+        }
+        UserDefaults.standard.set(self.queueDisplayMode.rawValue, forKey: Self.queueDisplayModeKey)
+        self.logger.info("Queue display mode: \(self.queueDisplayMode.displayName)")
+    }
+
+    // MARK: - Queue Undo / Redo
+
+    /// Whether queue undo is available.
+    var canUndoQueue: Bool {
+        !self.queueUndoHistory.isEmpty
+    }
+
+    /// Whether queue redo is available.
+    var canRedoQueue: Bool {
+        !self.queueRedoHistory.isEmpty
+    }
+
+    /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
+    func recordQueueStateForUndo() {
+        let state = (self.queue, self.currentIndex)
+        self.queueUndoHistory.append(state)
+        if self.queueUndoHistory.count > Self.queueUndoMaxCount {
+            self.queueUndoHistory.removeFirst()
+        }
+        self.queueRedoHistory.removeAll()
+        self.logger.debug("Recorded queue state for undo, undo count: \(self.queueUndoHistory.count)")
+    }
+
+    /// Restores the previous queue state. Does nothing if undo history is empty.
+    func undoQueue() {
+        guard let state = self.queueUndoHistory.popLast() else { return }
+        let (previousQueue, previousIndex) = state
+        self.queueRedoHistory.append((self.queue, self.currentIndex))
+        self.queue = previousQueue
+        self.currentIndex = min(previousIndex, max(0, previousQueue.count - 1))
+        self.saveQueueForPersistence()
+        self.logger.info("Undid queue to \(previousQueue.count) songs at index \(self.currentIndex)")
+    }
+
+    /// Restores the next queue state after an undo. Does nothing if redo history is empty.
+    func redoQueue() {
+        guard let state = self.queueRedoHistory.popLast() else { return }
+        let (nextQueue, nextIndex) = state
+        self.queueUndoHistory.append((self.queue, self.currentIndex))
+        self.queue = nextQueue
+        self.currentIndex = min(nextIndex, max(0, nextQueue.count - 1))
+        self.saveQueueForPersistence()
+        self.logger.info("Redid queue to \(nextQueue.count) songs at index \(self.currentIndex)")
     }
 
     /// Loads mock player state from environment variables for UI testing.
@@ -413,6 +499,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                     // Track matches our queue, update the index
                     self.currentIndex = expectedNextIndex
                     self.logger.info("Track advanced to queue index \(expectedNextIndex)")
+                    self.saveQueueForPersistence()
                 }
             }
         }
@@ -532,8 +619,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
                 }
-                // Check if we should fetch more songs
                 await self.fetchMoreMixSongsIfNeeded()
+                self.saveQueueForPersistence()
                 return
             }
 
@@ -545,12 +632,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 }
                 // Check if we should fetch more songs
                 await self.fetchMoreMixSongsIfNeeded()
+                self.saveQueueForPersistence()
             } else if self.repeatMode == .all {
                 // Loop back to start if repeat all is enabled
                 self.currentIndex = 0
                 if let firstSong = queue.first {
                     await self.play(song: firstSong)
                 }
+                self.saveQueueForPersistence()
             } else if self.mixContinuationToken != nil {
                 // At end of queue but have continuation - fetch more and continue
                 let previousCount = self.queue.count
@@ -561,6 +650,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                     if let nextSong = queue[safe: currentIndex] {
                         await self.play(song: nextSong)
                     }
+                    self.saveQueueForPersistence()
                 }
             }
             // At end of queue with repeat off and no continuation, don't do anything
@@ -591,6 +681,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 if let prevSong = queue[safe: currentIndex] {
                     await self.play(song: prevSong)
                 }
+                self.saveQueueForPersistence()
             } else {
                 // At start of queue, just restart current track
                 if self.pendingPlayVideoId != nil {

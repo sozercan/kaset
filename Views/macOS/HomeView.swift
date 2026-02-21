@@ -147,6 +147,10 @@ struct HomeView: View {
 
             Divider()
 
+            AddToQueueContextMenu(song: song, playerService: self.playerService)
+
+            Divider()
+
             if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")
@@ -176,7 +180,42 @@ struct HomeView: View {
 
             Divider()
 
+            // Play / Play Next / Add to Queue for albums
+            Button {
+                SongActionsHelper.playAlbum(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueNext(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play Next", systemImage: "text.insert")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueLast(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
+            }
+
+            Divider()
+
             FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
+
+            Divider()
 
             ShareContextMenu.menuItem(for: album)
 

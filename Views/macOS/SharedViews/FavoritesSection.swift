@@ -169,6 +169,12 @@ struct FavoritesSection: View {
 
         ShareContextMenu.menuItem(for: item)
 
+        // Add to Queue for songs
+        if case let .song(song) = item.itemType {
+            Divider()
+            AddToQueueContextMenu(song: song, playerService: self.playerService)
+        }
+
         Divider()
 
         // Navigation to related content

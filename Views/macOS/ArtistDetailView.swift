@@ -345,6 +345,10 @@ struct ArtistDetailView: View {
 
             ShareContextMenu.menuItem(for: song)
 
+            Divider()
+
+            AddToQueueContextMenu(song: song, playerService: self.playerService)
+
             // Go to Album - show if album has valid browse ID
             if let album = song.album, album.hasNavigableId {
                 Divider()
