@@ -31,6 +31,7 @@ struct KasetApp: App {
     @State private var favoritesManager = FavoritesManager.shared
     @State private var likeStatusManager = SongLikeStatusManager.shared
     @State private var accountService: AccountService?
+    @State private var scrobblingCoordinator: ScrobblingCoordinator
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -76,6 +77,16 @@ struct KasetApp: App {
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
+        // Create scrobbling coordinator
+        let lastFMService = LastFMService(credentialStore: KeychainCredentialStore())
+        let scrobblingCoordinator = ScrobblingCoordinator(
+            playerService: player,
+            services: [lastFMService]
+        )
+        scrobblingCoordinator.restoreAuthState()
+        scrobblingCoordinator.startMonitoring()
+        _scrobblingCoordinator = State(initialValue: scrobblingCoordinator)
+
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
         // This ensures playerService is available for lifecycle events like queue restoration
         self.appDelegate.playerService = player
@@ -99,6 +110,7 @@ struct KasetApp: App {
                     .environment(self.favoritesManager)
                     .environment(self.likeStatusManager)
                     .environment(self.accountService)
+                    .environment(self.scrobblingCoordinator)
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
@@ -127,6 +139,7 @@ struct KasetApp: App {
             SettingsView()
                 .environment(self.authService)
                 .environment(self.updaterService)
+                .environment(self.scrobblingCoordinator)
         }
         .commands {
             // Check for Updates command in app menu
@@ -347,6 +360,7 @@ struct KasetApp: App {
 @available(macOS 26.0, *)
 struct SettingsView: View {
     @Environment(UpdaterService.self) private var updaterService
+    @Environment(ScrobblingCoordinator.self) private var scrobblingCoordinator
 
     var body: some View {
         TabView {
@@ -358,6 +372,12 @@ struct SettingsView: View {
             IntelligenceSettingsView()
                 .tabItem {
                     Label("Intelligence", systemImage: "sparkles")
+                }
+
+            ScrobblingSettingsView()
+                .environment(self.scrobblingCoordinator)
+                .tabItem {
+                    Label("Scrobbling", systemImage: "music.note.list")
                 }
         }
         .frame(width: 450, height: 400)

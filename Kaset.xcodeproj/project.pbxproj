@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		SCB0000100000001 /* ScrobbleServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000001 /* ScrobbleServiceProtocol.swift */; };
+		SCB0000100000002 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000002 /* KeychainCredentialStore.swift */; };
+		SCB0000100000003 /* ScrobbleQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000003 /* ScrobbleQueue.swift */; };
+		SCB0000100000004 /* LastFMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000004 /* LastFMService.swift */; };
+		SCB0000100000005 /* ScrobblingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000005 /* ScrobblingCoordinator.swift */; };
+		SCB0000100000006 /* ScrobblingSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000006 /* ScrobblingSettingsView.swift */; };
+		SCB0000100000007 /* ScrobbleQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000007 /* ScrobbleQueueTests.swift */; };
+		SCB0000100000008 /* LastFMServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000008 /* LastFMServiceTests.swift */; };
+		SCB0000100000009 /* ScrobblingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000009 /* ScrobblingCoordinatorTests.swift */; };
+		SCB0000100000010 /* MockScrobbleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCB0000200000010 /* MockScrobbleService.swift */; };
 		027E18189745CEC67E6828A7 /* MusicIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CAC6AE62FD1331D6D7197DE /* MusicIntent.swift */; };
 		03DA3E6574F126D01306B99E /* SearchSuggestionsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954C4D81429D4D66DC13015A /* SearchSuggestionsParser.swift */; };
 		04F6B93812DA9A75DDF513F9 /* PodcastParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AC8367F416CA8DBAF1D2E1 /* PodcastParser.swift */; };
@@ -213,6 +223,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		SCB0000200000001 /* ScrobbleServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleServiceProtocol.swift; sourceTree = "<group>"; };
+		SCB0000200000002 /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
+		SCB0000200000003 /* ScrobbleQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleQueue.swift; sourceTree = "<group>"; };
+		SCB0000200000004 /* LastFMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFMService.swift; sourceTree = "<group>"; };
+		SCB0000200000005 /* ScrobblingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobblingCoordinator.swift; sourceTree = "<group>"; };
+		SCB0000200000006 /* ScrobblingSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScrobblingSettingsView.swift; path = Views/macOS/ScrobblingSettingsView.swift; sourceTree = "<group>"; };
+		SCB0000200000007 /* ScrobbleQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobbleQueueTests.swift; sourceTree = "<group>"; };
+		SCB0000200000008 /* LastFMServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastFMServiceTests.swift; sourceTree = "<group>"; };
+		SCB0000200000009 /* ScrobblingCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrobblingCoordinatorTests.swift; sourceTree = "<group>"; };
+		SCB0000200000010 /* MockScrobbleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockScrobbleService.swift; sourceTree = "<group>"; };
 		04E21018BFEFD7B96F998F28 /* IntelligenceModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceModifier.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E1 /* IntelligenceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntelligenceSettingsView.swift; sourceTree = "<group>"; };
 		0CE90C8E602477823742B6E2 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
@@ -501,6 +521,7 @@
 				611D0582A47EC57F44C8ED4A /* ChartsView.swift */,
 				A3F9A96409478882DDB923DB /* MoodsAndGenresView.swift */,
 				6BE87B6EFFFDDC581F4793ED /* NewReleasesView.swift */,
+				SCB0000200000006 /* ScrobblingSettingsView.swift */,
 			);
 			name = macOS;
 			sourceTree = "<group>";
@@ -652,6 +673,7 @@
 				E50000060000000000000022 /* Auth */,
 				E50000060000000000000025 /* Notification */,
 				E50000060000000000000023 /* Player */,
+				SCB0000600000001 /* Scrobbling */,
 				SCR0000600000001 /* Scripting */,
 				E50000060000000000000024 /* WebKit */,
 				E50000020000000000000200 /* Protocols.swift */,
@@ -713,6 +735,18 @@
 				E50000020000000000000090 /* NotificationService.swift */,
 			);
 			path = Notification;
+			sourceTree = "<group>";
+		};
+		SCB0000600000001 /* Scrobbling */ = {
+			isa = PBXGroup;
+			children = (
+				SCB0000200000001 /* ScrobbleServiceProtocol.swift */,
+				SCB0000200000002 /* KeychainCredentialStore.swift */,
+				SCB0000200000003 /* ScrobbleQueue.swift */,
+				SCB0000200000004 /* LastFMService.swift */,
+				SCB0000200000005 /* ScrobblingCoordinator.swift */,
+			);
+			path = Scrobbling;
 			sourceTree = "<group>";
 		};
 		E50000060000000000000026 /* Parsers */ = {
@@ -839,6 +873,9 @@
 				URL0000200000002 /* URLHandlerTests.swift */,
 				418DD8ACFEDBAD9842774030 /* VideoSupportTests.swift */,
 				SCR0000200000003 /* ScriptCommandsTests.swift */,
+				SCB0000200000007 /* ScrobbleQueueTests.swift */,
+				SCB0000200000008 /* LastFMServiceTests.swift */,
+				SCB0000200000009 /* ScrobblingCoordinatorTests.swift */,
 			);
 			path = KasetTests;
 			sourceTree = "<group>";
@@ -850,6 +887,7 @@
 				E50000020000000000000119A /* MockWebKitManager.swift */,
 				E50000020000000000000119 /* MockYTMusicClient.swift */,
 				E50000020000000000000120 /* TestFixtures.swift */,
+				SCB0000200000010 /* MockScrobbleService.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -1144,6 +1182,12 @@
 				BB9015B490D3697FF15B95C7 /* AccountRowView.swift in Sources */,
 				603D8E6C1950DADF3DDA3563 /* ToastView.swift in Sources */,
 				SCR0000100000002 /* ScriptCommands.swift in Sources */,
+				SCB0000100000001 /* ScrobbleServiceProtocol.swift in Sources */,
+				SCB0000100000002 /* KeychainCredentialStore.swift in Sources */,
+				SCB0000100000003 /* ScrobbleQueue.swift in Sources */,
+				SCB0000100000004 /* LastFMService.swift in Sources */,
+				SCB0000100000005 /* ScrobblingCoordinator.swift in Sources */,
+				SCB0000100000006 /* ScrobblingSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1186,6 +1230,10 @@
 				URL0000100000002 /* URLHandlerTests.swift in Sources */,
 				7B2A2E583CDC6227337B5532 /* VideoSupportTests.swift in Sources */,
 				SCR0000100000003 /* ScriptCommandsTests.swift in Sources */,
+				SCB0000100000007 /* ScrobbleQueueTests.swift in Sources */,
+				SCB0000100000008 /* LastFMServiceTests.swift in Sources */,
+				SCB0000100000009 /* ScrobblingCoordinatorTests.swift in Sources */,
+				SCB0000100000010 /* MockScrobbleService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
