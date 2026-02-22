@@ -92,7 +92,7 @@ struct LastFMServiceTests {
 
         for error in errors {
             #expect(error.errorDescription != nil)
-            #expect(try !(#require(error.errorDescription?.isEmpty)))
+            #expect(try !#require(error.errorDescription?.isEmpty))
         }
     }
 
