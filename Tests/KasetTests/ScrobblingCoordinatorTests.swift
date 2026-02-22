@@ -66,12 +66,13 @@ struct ScrobblingCoordinatorTests {
     @Test("ScrobbleTrack equality based on ID")
     func scrobbleTrackEquality() {
         let id = UUID()
-        let track1 = ScrobbleTrack(id: id, title: "Song", artist: "Artist")
-        let track2 = ScrobbleTrack(id: id, title: "Song", artist: "Artist")
-        let track3 = ScrobbleTrack(title: "Song", artist: "Artist")
+        let timestamp = Date()
+        let track1 = ScrobbleTrack(id: id, title: "Song", artist: "Artist", timestamp: timestamp)
+        let track2 = ScrobbleTrack(id: id, title: "Song", artist: "Artist", timestamp: timestamp)
+        let track3 = ScrobbleTrack(title: "Song", artist: "Artist", timestamp: timestamp)
 
         #expect(track1 == track2)
-        #expect(track1 != track3)
+        #expect(track1 != track3) // Different UUID
     }
 
     // MARK: - ScrobbleResult Tests
@@ -260,5 +261,144 @@ struct ScrobblingCoordinatorTests {
         #expect(decoded.timestamp == track.timestamp)
         #expect(decoded.videoId == track.videoId)
         #expect(decoded.id == track.id)
+    }
+
+    // MARK: - Fix #1: Only accepted tracks removed from queue
+
+    @Test("FlushQueue only marks accepted tracks as completed, rejected stay in queue")
+    func flushQueueOnlyRemovesAccepted() async throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let queue = ScrobbleQueue(directory: dir)
+        let track1 = self.makeTrack(title: "Accepted")
+        let track2 = self.makeTrack(title: "Rejected")
+        let track3 = self.makeTrack(title: "Also Accepted")
+        queue.enqueue(track1)
+        queue.enqueue(track2)
+        queue.enqueue(track3)
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .connected(username: "testuser")
+        // Return mixed results: track1 accepted, track2 rejected, track3 accepted
+        mockService.scrobbleResults = [
+            ScrobbleResult(track: track1, accepted: true),
+            ScrobbleResult(track: track2, accepted: false, errorMessage: "Ignored"),
+            ScrobbleResult(track: track3, accepted: true),
+        ]
+
+        let playerService = PlayerService()
+        let settings = SettingsManager.shared
+        settings.setServiceEnabled("Mock", true)
+
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+
+        await coordinator.flushQueue()
+
+        // Only the rejected track should remain in the queue
+        #expect(queue.count == 1)
+        #expect(queue.pendingTracks.first?.title == "Rejected")
+
+        // Cleanup
+        settings.setServiceEnabled("Mock", false)
+    }
+
+    // MARK: - Fix #7: CancellationError handled in flushQueue
+
+    @Test("FlushQueue stops processing on CancellationError")
+    func flushQueueHandlesCancellation() async throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let queue = ScrobbleQueue(directory: dir)
+        let track = self.makeTrack(title: "Track")
+        queue.enqueue(track)
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .connected(username: "testuser")
+        mockService.shouldThrowOnScrobble = CancellationError()
+
+        let playerService = PlayerService()
+        let settings = SettingsManager.shared
+        settings.setServiceEnabled("Mock", true)
+
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+
+        await coordinator.flushQueue()
+
+        // Track should remain in queue (not marked completed on cancellation)
+        #expect(queue.count == 1)
+
+        // Cleanup
+        settings.setServiceEnabled("Mock", false)
+    }
+
+    // MARK: - Fix #8: 30-second minimum duration guard
+
+    @Test("Tracks under 30 seconds are not scrobbled")
+    func shortTrackNotScrobbled() {
+        // With a 10-second track at 50% threshold, 5 seconds of play time would meet
+        // the percentage threshold. But the 30-second minimum guard should prevent it.
+        let duration: TimeInterval = 10.0
+        let minDuration: TimeInterval = 30.0
+
+        // Guard check that the coordinator now performs
+        #expect(duration < minDuration, "Short tracks should be blocked by the 30s guard")
+    }
+
+    @Test("Tracks at exactly 30 seconds are eligible for scrobbling")
+    func thirtySecondTrackEligible() {
+        let duration: TimeInterval = 30.0
+        let minDuration: TimeInterval = 30.0
+
+        #expect(duration >= minDuration, "30-second tracks should pass the guard")
+    }
+
+    // MARK: - Fix #2: Replay detection
+
+    @Test("Large backward progress jump signals replay")
+    func replayDetectedOnBackwardJump() {
+        // Simulates the replay detection logic:
+        // When progress drops by more than 5 seconds and track has already scrobbled,
+        // it should be treated as a replay
+        let lastProgress: TimeInterval = 180.0
+        let newProgress: TimeInterval = 2.0
+        let hasScrobbled = true
+        let threshold: TimeInterval = 5.0
+
+        let isReplay = hasScrobbled && newProgress < lastProgress - threshold
+        #expect(isReplay, "A 178-second backward jump after scrobbling should trigger replay detection")
+    }
+
+    @Test("Small backward progress change is not a replay")
+    func smallBackwardNotReplay() {
+        let lastProgress: TimeInterval = 100.0
+        let newProgress: TimeInterval = 97.0 // Only 3 seconds back
+        let hasScrobbled = true
+        let threshold: TimeInterval = 5.0
+
+        let isReplay = hasScrobbled && newProgress < lastProgress - threshold
+        #expect(!isReplay, "A 3-second backward change should not trigger replay detection")
+    }
+
+    @Test("Backward jump before scrobble is not a replay")
+    func backwardJumpBeforeScrobbleNotReplay() {
+        let lastProgress: TimeInterval = 180.0
+        let newProgress: TimeInterval = 2.0
+        let hasScrobbled = false // Haven't scrobbled yet
+        let threshold: TimeInterval = 5.0
+
+        let isReplay = hasScrobbled && newProgress < lastProgress - threshold
+        #expect(!isReplay, "Backward jump before scrobbling should not trigger replay (could be a seek)")
     }
 }

@@ -350,7 +350,7 @@ final class LastFMService: ScrobbleServiceProtocol {
     // MARK: - Response Parsing
 
     // swiftformat:disable modifierOrder
-    nonisolated private static func parseScrobbleResponse(
+    nonisolated static func parseScrobbleResponse(
         _ response: [String: Any],
         tracks: [ScrobbleTrack]
     ) -> [ScrobbleResult] {
