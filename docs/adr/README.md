@@ -44,3 +44,4 @@ What becomes easier or more difficult because of this change?
 | [0007](0007-sparkle-auto-updates.md) | Sparkle Auto-Updates | Accepted |
 | [0008](0008-nonisolated-network-helpers.md) | Nonisolated Network Helpers for MainActor Classes | Accepted |
 | [0009](0009-prompt-request-workflow.md) | Prompt Request Workflow | Accepted |
+| [0011](0011-scrobbling-support.md) | Scrobbling Support (Last.fm) | Accepted |
