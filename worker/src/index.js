@@ -69,33 +69,17 @@ async function lastfmRequest(params, env, method = "POST") {
 }
 
 /**
- * CORS headers for responses.
- */
-function corsHeaders() {
-	return {
-		"Access-Control-Allow-Origin": "*",
-		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type",
-	};
-}
-
-/**
  * JSON error response helper.
  */
 function errorResponse(message, status = 400) {
 	return new Response(JSON.stringify({ error: message }), {
 		status,
-		headers: { "Content-Type": "application/json", ...corsHeaders() },
+		headers: { "Content-Type": "application/json" },
 	});
 }
 
 export default {
 	async fetch(request, env, ctx) {
-		// Handle CORS preflight
-		if (request.method === "OPTIONS") {
-			return new Response(null, { status: 204, headers: corsHeaders() });
-		}
-
 		const url = new URL(request.url);
 		const path = url.pathname;
 
@@ -108,7 +92,7 @@ export default {
 		if (path === "/health" && request.method === "GET") {
 			return new Response(
 				JSON.stringify({ status: "ok", service: "kaset-lastfm-proxy" }),
-				{ status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+				{ status: 200, headers: { "Content-Type": "application/json" } },
 			);
 		}
 
@@ -119,7 +103,7 @@ export default {
 			const data = await response.text();
 			return new Response(data, {
 				status: response.status,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 
@@ -135,23 +119,29 @@ export default {
 			const data = await response.text();
 			return new Response(data, {
 				status: response.status,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 
-		// --- GET /auth/validate?sk=X — Validate an existing session key ---
-		if (path === "/auth/validate" && request.method === "GET") {
-			const sk = url.searchParams.get("sk");
-			if (!sk) {
-				return errorResponse("Missing 'sk' parameter");
+		// --- POST /auth/validate — Validate an existing session key ---
+		if (path === "/auth/validate" && request.method === "POST") {
+			let body;
+			try {
+				body = await request.json();
+			} catch {
+				return errorResponse("Invalid JSON body");
 			}
 
-			const params = { method: "user.getInfo", sk };
+			if (!body.sk) {
+				return errorResponse("Missing required field: sk");
+			}
+
+			const params = { method: "user.getInfo", sk: body.sk };
 			const response = await lastfmRequest(params, env, "GET");
 			const data = await response.text();
 			return new Response(data, {
 				status: response.status,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 
@@ -165,7 +155,7 @@ export default {
 			const authUrl = `https://www.last.fm/api/auth/?api_key=${env.LASTFM_API_KEY}&token=${token}`;
 			return new Response(JSON.stringify({ url: authUrl }), {
 				status: 200,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 
@@ -196,7 +186,7 @@ export default {
 			const data = await response.text();
 			return new Response(data, {
 				status: response.status,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 
@@ -245,7 +235,7 @@ export default {
 			const data = await response.text();
 			return new Response(data, {
 				status: response.status,
-				headers: { "Content-Type": "application/json", ...corsHeaders() },
+				headers: { "Content-Type": "application/json" },
 			});
 		}
 

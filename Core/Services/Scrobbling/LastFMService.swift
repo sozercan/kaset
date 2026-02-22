@@ -187,27 +187,20 @@ final class LastFMService: ScrobbleServiceProtocol {
             return false
         }
 
-        let url = self.workerBaseURL
-            .appendingPathComponent("auth/validate")
-            .appending(queryItems: [URLQueryItem(name: "sk", value: sessionKey)])
+        let body: [String: Any] = ["sk": sessionKey]
+        let bodyData = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, httpResponse) = try await self.session.data(from: url)
-        guard let response = httpResponse as? HTTPURLResponse else {
-            throw ScrobbleError.invalidResponse("Non-HTTP response")
-        }
-
-        if response.statusCode == 200 {
+        do {
+            let response = try await self.postJSON(endpoint: "auth/validate", bodyData: bodyData, baseURL: self.workerBaseURL)
             // Check for Last.fm error in response body
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               json["error"] != nil
-            {
+            if response["error"] != nil {
                 self.logger.warning("Session validation failed")
                 return false
             }
             return true
+        } catch {
+            return false
         }
-
-        return false
     }
 
     // MARK: - Auth Helpers
@@ -279,9 +272,9 @@ final class LastFMService: ScrobbleServiceProtocol {
                    let key = session["key"] as? String,
                    let name = session["name"] as? String
                 {
-                    self.sessionKey = key
                     try self.credentialStore.saveLastFMSessionKey(key)
                     try self.credentialStore.saveLastFMUsername(name)
+                    self.sessionKey = key
                     self.authState = .connected(username: name)
                     self.logger.info("Successfully authenticated as: \(name)")
                     return
@@ -384,14 +377,20 @@ final class LastFMService: ScrobbleServiceProtocol {
                 let ignoredMessage = (entry["ignoredMessage"] as? [String: Any])?["#text"] as? String
                 let accepted = ignoredMessage == nil || ignoredMessage?.isEmpty == true
 
-                let correctedArtist = (entry["artist"] as? [String: Any])?["corrected"] as? String
-                let correctedTrack = (entry["track"] as? [String: Any])?["corrected"] as? String
+                let correctedArtistFlag = (entry["artist"] as? [String: Any])?["corrected"] as? String
+                let correctedTrackFlag = (entry["track"] as? [String: Any])?["corrected"] as? String
+                let correctedArtist = correctedArtistFlag == "1"
+                    ? (entry["artist"] as? [String: Any])?["#text"] as? String
+                    : nil
+                let correctedTrack = correctedTrackFlag == "1"
+                    ? (entry["track"] as? [String: Any])?["#text"] as? String
+                    : nil
 
                 results.append(ScrobbleResult(
                     track: track,
                     accepted: accepted,
-                    correctedArtist: correctedArtist == "0" ? nil : correctedArtist,
-                    correctedTrack: correctedTrack == "0" ? nil : correctedTrack,
+                    correctedArtist: correctedArtist,
+                    correctedTrack: correctedTrack,
                     errorMessage: accepted ? nil : ignoredMessage
                 ))
             } else {

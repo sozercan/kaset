@@ -47,6 +47,9 @@ final class ScrobblingCoordinator {
 
     /// Queue flush task, cancelled in deinit.
     nonisolated(unsafe) private var flushTask: Task<Void, Never>?
+
+    /// Now-playing tasks, cancelled in stopMonitoring/deinit.
+    nonisolated(unsafe) private var nowPlayingTasks: [Task<Void, Never>] = []
     // swiftformat:enable modifierOrder
 
     /// Whether the coordinator is actively monitoring.
@@ -75,6 +78,7 @@ final class ScrobblingCoordinator {
     deinit {
         pollingTask?.cancel()
         flushTask?.cancel()
+        nowPlayingTasks.forEach { $0.cancel() }
     }
 
     // MARK: - Service Helpers
@@ -111,6 +115,8 @@ final class ScrobblingCoordinator {
         self.pollingTask = nil
         self.flushTask?.cancel()
         self.flushTask = nil
+        self.nowPlayingTasks.forEach { $0.cancel() }
+        self.nowPlayingTasks.removeAll()
         self.isMonitoring = false
         self.logger.info("Scrobbling coordinator stopped monitoring")
     }
@@ -150,6 +156,13 @@ final class ScrobblingCoordinator {
         if let track = currentTrack {
             if track.videoId != self.currentTrackVideoId {
                 // Track changed — finalize previous, start tracking new
+                self.finalizeCurrentTrack()
+                self.startTrackingNewTrack(track)
+            } else if track.videoId == self.currentTrackVideoId,
+                      self.hasScrobbled,
+                      progress < self.lastProgress - 5.0
+            {
+                // Same track but progress jumped backward significantly — replay detected
                 self.finalizeCurrentTrack()
                 self.startTrackingNewTrack(track)
             }
@@ -232,6 +245,9 @@ final class ScrobblingCoordinator {
     // MARK: - Scrobble Threshold
 
     private func checkScrobbleThreshold(track: Song, duration: TimeInterval) {
+        // Last.fm requires tracks to be at least 30 seconds long
+        guard duration >= 30 else { return }
+
         let percentThreshold = self.settingsManager.scrobblePercentThreshold
         let minSeconds = self.settingsManager.scrobbleMinSeconds
 
@@ -263,16 +279,23 @@ final class ScrobblingCoordinator {
 
         let scrobbleTrack = ScrobbleTrack(from: track, timestamp: startTime)
 
-        // Fire-and-forget to all enabled+connected services — now playing failures are not critical
+        // Cancel any in-flight now-playing tasks from a previous track
+        self.nowPlayingTasks.forEach { $0.cancel() }
+        self.nowPlayingTasks.removeAll()
+
+        // Send now-playing to all enabled+connected services
         for service in self.enabledConnectedServices {
-            Task { @MainActor [weak self] in
+            let task = Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
                     try await service.updateNowPlaying(scrobbleTrack)
+                } catch is CancellationError {
+                    // Expected when coordinator stops or track changes
                 } catch {
                     self.logger.debug("Now playing update failed for \(service.serviceName) (non-critical): \(error.localizedDescription)")
                 }
             }
+            self.nowPlayingTasks.append(task)
         }
     }
 
@@ -308,16 +331,16 @@ final class ScrobblingCoordinator {
 
         // Submit to all enabled+connected services. Services deduplicate, so
         // re-submitting to a service that already accepted is safe (Option A).
-        var anyServiceSucceeded = false
+        var acceptedIds = Set<UUID>()
 
         for service in self.enabledConnectedServices {
             do {
                 let results = try await service.scrobble(batch)
 
-                let acceptedCount = results.filter(\.accepted).count
-                if acceptedCount > 0 {
-                    anyServiceSucceeded = true
-                    self.logger.info("Flushed \(acceptedCount)/\(batch.count) scrobbles to \(service.serviceName)")
+                let accepted = results.filter(\.accepted)
+                if !accepted.isEmpty {
+                    acceptedIds.formUnion(accepted.map(\.track.id))
+                    self.logger.info("Flushed \(accepted.count)/\(batch.count) scrobbles to \(service.serviceName)")
                 }
 
                 // Log rejected scrobbles
@@ -325,6 +348,8 @@ final class ScrobblingCoordinator {
                 for result in rejected {
                     self.logger.warning("Scrobble rejected by \(service.serviceName): \(result.track.title) - \(result.errorMessage ?? "unknown reason")")
                 }
+            } catch is CancellationError {
+                return
             } catch let error as ScrobbleError {
                 switch error {
                 case .rateLimited:
@@ -339,11 +364,9 @@ final class ScrobblingCoordinator {
             }
         }
 
-        // Only mark completed if at least one service accepted the batch.
-        // On next cycle, services that already accepted will deduplicate.
-        if anyServiceSucceeded {
-            let completedIds = Set(batch.map(\.id))
-            self.queue.markCompleted(completedIds)
+        // Only mark accepted tracks as completed; rejected tracks remain in the queue for retry.
+        if !acceptedIds.isEmpty {
+            self.queue.markCompleted(acceptedIds)
         }
     }
 }
