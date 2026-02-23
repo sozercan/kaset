@@ -99,7 +99,7 @@ struct KasetApp: App {
     var body: some Scene {
         Window("Kaset", id: "main") {
             // Keep NotificationService alive by referencing it in the view body
-            let _ = self.notificationService
+            _ = self.notificationService
 
             // Skip UI during unit tests to prevent window spam
             if UITestConfig.isRunningUnitTests, !UITestConfig.isUITestMode {
