@@ -12,7 +12,9 @@ final class NotificationService {
     /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
     nonisolated(unsafe) private var observationTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
-    private var lastNotifiedTrackId: String?
+    /// Tracks the last notified track to prevent duplicate notifications.
+    /// Internal for testing.
+    private(set) var lastNotifiedTrackId: String?
 
     init(playerService: PlayerService, settingsManager: SettingsManager = .shared) {
         self.playerService = playerService
@@ -91,6 +93,14 @@ final class NotificationService {
         } catch {
             self.logger.error("Failed to post notification: \(error.localizedDescription)")
         }
+    }
+
+    /// Whether the observation loop is actively running.
+    var isObserving: Bool {
+        if let task = self.observationTask {
+            return !task.isCancelled
+        }
+        return false
     }
 
     func stopObserving() {
