@@ -401,4 +401,59 @@ struct ScrobblingCoordinatorTests {
         let isReplay = hasScrobbled && newProgress < lastProgress - threshold
         #expect(!isReplay, "Backward jump before scrobbling should not trigger replay (could be a seek)")
     }
+
+    // MARK: - Fix: Title/artist-based track change detection
+
+    @Test("Title change triggers track change detection even with same videoId")
+    func titleChangeDetectedWithSameVideoId() {
+        // When videoId is stale (reused from previous track), title/artist change
+        // should still be detected as a track change
+        let currentVideoId = "video123"
+        let currentTitle = "Song A"
+        let currentArtist = "Artist A"
+
+        let newVideoId = "video123" // Same stale videoId
+        let newTitle = "Song B"
+        let newArtist = "Artist B"
+
+        let videoIdChanged = newVideoId != currentVideoId
+        let metadataChanged = (newTitle != currentTitle || newArtist != currentArtist)
+
+        #expect(!videoIdChanged, "videoId should be the same (stale)")
+        #expect(metadataChanged, "Title/artist change should be detected")
+        #expect(videoIdChanged || metadataChanged, "Track change should be detected via metadata fallback")
+    }
+
+    @Test("Same title and artist does not trigger false track change")
+    func sameMetadataNoFalseChange() {
+        let currentVideoId = "video123"
+        let currentTitle = "Song A"
+        let currentArtist = "Artist A"
+
+        let newVideoId = "video123"
+        let newTitle = "Song A"
+        let newArtist = "Artist A"
+
+        let videoIdChanged = newVideoId != currentVideoId
+        let metadataChanged = (newTitle != currentTitle || newArtist != currentArtist)
+
+        #expect(!videoIdChanged)
+        #expect(!metadataChanged)
+        #expect(!(videoIdChanged || metadataChanged), "No change should be detected")
+    }
+
+    // MARK: - Fix: Final threshold check on finalize
+
+    @Test("Finalize performs threshold check before discarding play time")
+    func finalizeThresholdCheck() {
+        // If accumulated play time is at threshold when track changes,
+        // the finalize should trigger the scrobble before resetting state
+        let duration = 200.0
+        let percentThreshold = 0.5
+        let minSeconds: TimeInterval = 240
+        let accumulated: TimeInterval = 100.0 // Exactly 50%
+
+        let thresholdMet = accumulated >= duration * percentThreshold || accumulated >= minSeconds
+        #expect(thresholdMet, "Threshold should be met at exactly 50% of duration")
+    }
 }

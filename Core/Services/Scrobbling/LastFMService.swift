@@ -325,25 +325,29 @@ final class LastFMService: ScrobbleServiceProtocol {
 
     // swiftformat:disable modifierOrder
     nonisolated private func checkForErrors(_ response: [String: Any]) throws {
-        guard let errorCode = response["error"] as? Int else {
-            return // No error
+        // Handle Last.fm integer error codes
+        if let errorCode = response["error"] as? Int {
+            let message = response["message"] as? String ?? "Unknown error"
+
+            switch errorCode {
+            case 4:
+                throw ScrobbleError.sessionExpired
+            case 9:
+                throw ScrobbleError.invalidCredentials
+            case 11, 16:
+                throw ScrobbleError.serviceUnavailable
+            case 17:
+                throw ScrobbleError.serviceUnavailable
+            case 29:
+                throw ScrobbleError.rateLimited(retryAfter: nil)
+            default:
+                throw ScrobbleError.invalidResponse("Last.fm error \(errorCode): \(message)")
+            }
         }
 
-        let message = response["message"] as? String ?? "Unknown error"
-
-        switch errorCode {
-        case 4:
-            throw ScrobbleError.sessionExpired
-        case 9:
-            throw ScrobbleError.invalidCredentials
-        case 11, 16:
-            throw ScrobbleError.serviceUnavailable
-        case 17:
-            throw ScrobbleError.serviceUnavailable
-        case 29:
-            throw ScrobbleError.rateLimited(retryAfter: nil)
-        default:
-            throw ScrobbleError.invalidResponse("Last.fm error \(errorCode): \(message)")
+        // Handle string errors from the Cloudflare Worker proxy
+        if let errorMessage = response["error"] as? String {
+            throw ScrobbleError.invalidResponse("Worker error: \(errorMessage)")
         }
     }
 
@@ -356,8 +360,8 @@ final class LastFMService: ScrobbleServiceProtocol {
     ) -> [ScrobbleResult] {
         // Last.fm returns scrobbles.scrobble (single object or array)
         guard let scrobblesWrapper = response["scrobbles"] as? [String: Any] else {
-            // If no scrobbles key, assume all accepted
-            return tracks.map { ScrobbleResult(track: $0, accepted: true) }
+            // No scrobbles key — response is malformed; mark all as rejected for retry
+            return tracks.map { ScrobbleResult(track: $0, accepted: false, errorMessage: "Malformed response: missing scrobbles key") }
         }
 
         // Normalize to array
@@ -374,8 +378,11 @@ final class LastFMService: ScrobbleServiceProtocol {
         for (index, track) in tracks.enumerated() {
             if index < scrobbleEntries.count {
                 let entry = scrobbleEntries[index]
-                let ignoredMessage = (entry["ignoredMessage"] as? [String: Any])?["#text"] as? String
-                let accepted = ignoredMessage == nil || ignoredMessage?.isEmpty == true
+                let ignoredObj = entry["ignoredMessage"] as? [String: Any]
+                let ignoredCode = ignoredObj?["code"] as? String
+                let ignoredText = ignoredObj?["#text"] as? String
+                // Code "0" means accepted; any other code means rejected
+                let accepted = ignoredCode == nil || ignoredCode == "0"
 
                 let correctedArtistFlag = (entry["artist"] as? [String: Any])?["corrected"] as? String
                 let correctedTrackFlag = (entry["track"] as? [String: Any])?["corrected"] as? String
@@ -391,7 +398,7 @@ final class LastFMService: ScrobbleServiceProtocol {
                     accepted: accepted,
                     correctedArtist: correctedArtist,
                     correctedTrack: correctedTrack,
-                    errorMessage: accepted ? nil : ignoredMessage
+                    errorMessage: accepted ? nil : (ignoredText?.isEmpty == false ? ignoredText : "Ignored (code \(ignoredCode ?? "unknown"))")
                 ))
             } else {
                 results.append(ScrobbleResult(track: track, accepted: true))

@@ -239,7 +239,7 @@ struct LastFMServiceTests {
         #expect(results[0].correctedTrack == nil)
     }
 
-    @Test("parseScrobbleResponse detects rejected scrobbles via ignoredMessage")
+    @Test("parseScrobbleResponse detects rejected scrobbles via ignoredMessage code")
     func parseScrobbleResponseRejected() {
         let track = ScrobbleTrack(title: "Song", artist: "Artist")
 
@@ -259,6 +259,62 @@ struct LastFMServiceTests {
         #expect(results[0].errorMessage == "Track was ignored")
     }
 
+    @Test("parseScrobbleResponse accepts when ignoredMessage code is 0")
+    func parseScrobbleResponseAcceptedWithCode0() {
+        let track = ScrobbleTrack(title: "Song", artist: "Artist")
+
+        let response: [String: Any] = [
+            "scrobbles": [
+                "scrobble": [
+                    "artist": ["corrected": "0", "#text": "Artist"],
+                    "track": ["corrected": "0", "#text": "Song"],
+                    "ignoredMessage": ["#text": "", "code": "0"],
+                ] as [String: Any],
+            ] as [String: Any],
+        ]
+
+        let results = LastFMService.parseScrobbleResponse(response, tracks: [track])
+
+        #expect(results[0].accepted)
+        #expect(results[0].errorMessage == nil)
+    }
+
+    @Test("parseScrobbleResponse rejects when ignoredMessage code is non-zero with empty text")
+    func parseScrobbleResponseRejectedEmptyText() {
+        let track = ScrobbleTrack(title: "Song", artist: "Artist")
+
+        let response: [String: Any] = [
+            "scrobbles": [
+                "scrobble": [
+                    "artist": ["corrected": "0", "#text": "Artist"],
+                    "track": ["corrected": "0", "#text": "Song"],
+                    "ignoredMessage": ["#text": "", "code": "2"],
+                ] as [String: Any],
+            ] as [String: Any],
+        ]
+
+        let results = LastFMService.parseScrobbleResponse(response, tracks: [track])
+
+        #expect(!results[0].accepted)
+        #expect(results[0].errorMessage?.contains("code 2") == true)
+    }
+
+    @Test("parseScrobbleResponse marks all rejected when scrobbles key is missing")
+    func parseScrobbleResponseMissingScrobblesKey() {
+        let track = ScrobbleTrack(title: "Song", artist: "Artist")
+
+        // Malformed response (e.g., worker error that passed checkForErrors)
+        let response: [String: Any] = [
+            "status": "ok",
+        ]
+
+        let results = LastFMService.parseScrobbleResponse(response, tracks: [track])
+
+        #expect(results.count == 1)
+        #expect(!results[0].accepted)
+        #expect(results[0].errorMessage?.contains("Malformed") == true)
+    }
+
     @Test("parseScrobbleResponse handles batch with mixed results")
     func parseScrobbleResponseBatch() {
         let tracks = [
@@ -272,12 +328,12 @@ struct LastFMServiceTests {
                     [
                         "artist": ["corrected": "0", "#text": "Artist"],
                         "track": ["corrected": "0", "#text": "Accepted Song"],
-                        "ignoredMessage": ["#text": ""],
+                        "ignoredMessage": ["#text": "", "code": "0"],
                     ] as [String: Any],
                     [
                         "artist": ["corrected": "0", "#text": "Artist"],
                         "track": ["corrected": "0", "#text": "Rejected Song"],
-                        "ignoredMessage": ["#text": "Artist was ignored"],
+                        "ignoredMessage": ["#text": "Artist was ignored", "code": "1"],
                     ] as [String: Any],
                 ] as [[String: Any]],
             ] as [String: Any],

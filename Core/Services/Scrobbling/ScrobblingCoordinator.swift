@@ -23,6 +23,15 @@ final class ScrobblingCoordinator {
     /// The video ID of the track currently being tracked.
     private var currentTrackVideoId: String?
 
+    /// Title of the track currently being tracked (for change detection when videoId is stale).
+    private var currentTrackTitle: String?
+
+    /// Artist of the track currently being tracked (for change detection when videoId is stale).
+    private var currentTrackArtist: String?
+
+    /// Snapshot of the tracked Song at the time tracking started (for finalization).
+    private var trackedSong: Song?
+
     /// When the current track started playing (for scrobble timestamp).
     private var trackStartTime: Date?
 
@@ -154,7 +163,12 @@ final class ScrobblingCoordinator {
 
         // Track change detection
         if let track = currentTrack {
-            if track.videoId != self.currentTrackVideoId {
+            let videoIdChanged = track.videoId != self.currentTrackVideoId
+            // Also detect by title/artist for natural transitions where videoId is stale
+            let metadataChanged = self.currentTrackVideoId != nil
+                && (track.title != self.currentTrackTitle || track.artistsDisplay != self.currentTrackArtist)
+
+            if videoIdChanged || metadataChanged {
                 // Track changed — finalize previous, start tracking new
                 self.finalizeCurrentTrack()
                 self.startTrackingNewTrack(track)
@@ -194,6 +208,9 @@ final class ScrobblingCoordinator {
 
     private func startTrackingNewTrack(_ track: Song) {
         self.currentTrackVideoId = track.videoId
+        self.currentTrackTitle = track.title
+        self.currentTrackArtist = track.artistsDisplay
+        self.trackedSong = track
         self.trackStartTime = Date()
         self.accumulatedPlayTime = 0
         self.lastProgress = self.playerService.progress
@@ -207,10 +224,21 @@ final class ScrobblingCoordinator {
         // Nothing to finalize if no track was being tracked
         guard self.currentTrackVideoId != nil else { return }
 
+        // Final threshold check before discarding accumulated play time
+        if !self.hasScrobbled, let song = self.trackedSong {
+            let duration = song.duration ?? self.playerService.duration
+            if duration > 0 {
+                self.checkScrobbleThreshold(track: song, duration: duration)
+            }
+        }
+
         self.logger.debug("Finalized track (accumulated: \(String(format: "%.1f", self.accumulatedPlayTime))s, scrobbled: \(self.hasScrobbled))")
 
         // Reset tracking state
         self.currentTrackVideoId = nil
+        self.currentTrackTitle = nil
+        self.currentTrackArtist = nil
+        self.trackedSong = nil
         self.trackStartTime = nil
         self.accumulatedPlayTime = 0
         self.lastProgress = 0
