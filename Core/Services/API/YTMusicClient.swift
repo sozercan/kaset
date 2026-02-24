@@ -750,41 +750,48 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         // Artist page top songs don't include duration — fetch via queue endpoint (best-effort)
         let songsNeedingDuration = detail.songs.filter { $0.duration == nil }
-        if !songsNeedingDuration.isEmpty, let durations = try? await self.fetchSongDurations(videoIds: songsNeedingDuration.map(\.videoId)) {
-            let enrichedSongs = detail.songs.map { song -> Song in
-                if song.duration == nil, let duration = durations[song.videoId] {
-                    return Song(
-                        id: song.id,
-                        title: song.title,
-                        artists: song.artists,
-                        album: song.album,
-                        duration: duration,
-                        thumbnailURL: song.thumbnailURL,
-                        videoId: song.videoId,
-                        hasVideo: song.hasVideo,
-                        musicVideoType: song.musicVideoType,
-                        likeStatus: song.likeStatus,
-                        isInLibrary: song.isInLibrary,
-                        feedbackTokens: song.feedbackTokens
-                    )
+        if !songsNeedingDuration.isEmpty {
+            do {
+                let durations = try await self.fetchSongDurations(videoIds: songsNeedingDuration.map(\.videoId))
+                let enrichedSongs = detail.songs.map { song -> Song in
+                    if song.duration == nil, let duration = durations[song.videoId] {
+                        return Song(
+                            id: song.id,
+                            title: song.title,
+                            artists: song.artists,
+                            album: song.album,
+                            duration: duration,
+                            thumbnailURL: song.thumbnailURL,
+                            videoId: song.videoId,
+                            hasVideo: song.hasVideo,
+                            musicVideoType: song.musicVideoType,
+                            likeStatus: song.likeStatus,
+                            isInLibrary: song.isInLibrary,
+                            feedbackTokens: song.feedbackTokens
+                        )
+                    }
+                    return song
                 }
-                return song
+                detail = ArtistDetail(
+                    artist: detail.artist,
+                    description: detail.description,
+                    songs: enrichedSongs,
+                    albums: detail.albums,
+                    thumbnailURL: detail.thumbnailURL,
+                    channelId: detail.channelId,
+                    isSubscribed: detail.isSubscribed,
+                    subscriberCount: detail.subscriberCount,
+                    hasMoreSongs: detail.hasMoreSongs,
+                    songsBrowseId: detail.songsBrowseId,
+                    songsParams: detail.songsParams,
+                    mixPlaylistId: detail.mixPlaylistId,
+                    mixVideoId: detail.mixVideoId
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                self.logger.debug("Best-effort duration fetch failed: \(error.localizedDescription)")
             }
-            detail = ArtistDetail(
-                artist: detail.artist,
-                description: detail.description,
-                songs: enrichedSongs,
-                albums: detail.albums,
-                thumbnailURL: detail.thumbnailURL,
-                channelId: detail.channelId,
-                isSubscribed: detail.isSubscribed,
-                subscriberCount: detail.subscriberCount,
-                hasMoreSongs: detail.hasMoreSongs,
-                songsBrowseId: detail.songsBrowseId,
-                songsParams: detail.songsParams,
-                mixPlaylistId: detail.mixPlaylistId,
-                mixVideoId: detail.mixVideoId
-            )
         }
 
         self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs and \(detail.albums.count) albums")
