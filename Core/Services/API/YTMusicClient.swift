@@ -748,11 +748,9 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         var detail = ArtistParser.parseArtistDetail(data, artistId: id)
 
-        // Artist page top songs don't include duration — fetch via queue endpoint
+        // Artist page top songs don't include duration — fetch via queue endpoint (best-effort)
         let songsNeedingDuration = detail.songs.filter { $0.duration == nil }
-        if !songsNeedingDuration.isEmpty {
-            let videoIds = songsNeedingDuration.map(\.videoId)
-            let durations = try await self.fetchSongDurations(videoIds: videoIds)
+        if !songsNeedingDuration.isEmpty, let durations = try? await self.fetchSongDurations(videoIds: songsNeedingDuration.map(\.videoId)) {
             let enrichedSongs = detail.songs.map { song -> Song in
                 if song.duration == nil, let duration = durations[song.videoId] {
                     return Song(
@@ -762,7 +760,12 @@ final class YTMusicClient: YTMusicClientProtocol {
                         album: song.album,
                         duration: duration,
                         thumbnailURL: song.thumbnailURL,
-                        videoId: song.videoId
+                        videoId: song.videoId,
+                        hasVideo: song.hasVideo,
+                        musicVideoType: song.musicVideoType,
+                        likeStatus: song.likeStatus,
+                        isInLibrary: song.isInLibrary,
+                        feedbackTokens: song.feedbackTokens
                     )
                 }
                 return song

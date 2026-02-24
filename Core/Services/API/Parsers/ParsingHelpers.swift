@@ -235,8 +235,10 @@ enum ParsingHelpers {
                    let runs = text["runs"] as? [[String: Any]]
                 {
                     // Check all runs (duration is often the last run in "Artist • Album • 3:45")
+                    // Skip runs with navigationEndpoint to avoid matching album titles like "4:44"
                     for run in runs.reversed() {
                         if let durationText = run["text"] as? String,
+                           run["navigationEndpoint"] == nil,
                            let duration = self.parseDuration(durationText)
                         {
                             return duration
