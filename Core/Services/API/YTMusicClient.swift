@@ -801,8 +801,19 @@ final class YTMusicClient: YTMusicClientProtocol {
         var durations: [String: TimeInterval] = [:]
         if let queueDatas = data["queueDatas"] as? [[String: Any]] {
             for queueData in queueDatas {
-                if let content = queueData["content"] as? [String: Any],
-                   let renderer = content["playlistPanelVideoRenderer"] as? [String: Any],
+                guard let content = queueData["content"] as? [String: Any] else { continue }
+                // Handle both direct and wrapped renderer structures
+                let renderer: [String: Any]? = if let direct = content["playlistPanelVideoRenderer"] as? [String: Any] {
+                    direct
+                } else if let wrapper = content["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+                          let primary = wrapper["primaryRenderer"] as? [String: Any],
+                          let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+                {
+                    wrapped
+                } else {
+                    nil
+                }
+                if let renderer,
                    let videoId = renderer["videoId"] as? String,
                    let lengthText = renderer["lengthText"] as? [String: Any],
                    let runs = lengthText["runs"] as? [[String: Any]],
