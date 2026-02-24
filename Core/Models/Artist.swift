@@ -14,10 +14,11 @@ struct Artist: Identifiable, Codable, Hashable, Sendable {
         self.thumbnailURL = thumbnailURL
     }
 
-    /// Whether this artist has a valid navigable ID (not a generated UUID).
-    /// YouTube Music artist IDs are channel IDs like "UCxxxxxxx" and don't contain hyphens.
+    /// Whether this artist has a valid navigable ID (a real YouTube Music channel ID).
+    /// Valid artist IDs are channel IDs starting with "UC" (e.g., "UCxxxxxxx").
+    /// Generated IDs (UUIDs with hyphens, SHA256 hashes) are not navigable.
     var hasNavigableId: Bool {
-        !self.id.isEmpty && !self.id.contains("-")
+        self.id.hasPrefix("UC")
     }
 }
 

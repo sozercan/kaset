@@ -180,7 +180,7 @@ struct FavoritesSection: View {
         // Navigation to related content
         switch item.itemType {
         case let .song(song):
-            if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
+            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 Button {
                     self.onNavigate?(artist)
                 } label: {
