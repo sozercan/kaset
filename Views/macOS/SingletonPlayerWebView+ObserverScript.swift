@@ -58,6 +58,9 @@ extension SingletonPlayerWebView {
 
                     video.addEventListener('play', startPolling);
                     video.addEventListener('playing', startPolling);
+                    // Enforce volume on playing event to catch all track changes
+                    // (auto-advance, SPA navigation, button clicks)
+                    video.addEventListener('playing', () => enforceVolumeNow());
                     video.addEventListener('pause', stopPolling);
                     video.addEventListener('ended', stopPolling);
                     video.addEventListener('waiting', () => sendUpdate()); // Buffer state

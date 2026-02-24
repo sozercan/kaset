@@ -438,6 +438,17 @@ final class SingletonPlayerWebView {
                         video.volume = \(savedVolume);
                     }
 
+                    // Sync YouTube's internal player APIs to prevent overrides
+                    const ytVolume = Math.round(\(savedVolume) * 100);
+                    const player = document.querySelector('ytmusic-player');
+                    if (player && player.playerApi) {
+                        player.playerApi.setVolume(ytVolume);
+                    }
+                    const moviePlayer = document.getElementById('movie_player');
+                    if (moviePlayer && moviePlayer.setVolume) {
+                        moviePlayer.setVolume(ytVolume);
+                    }
+
                     // Clear flag after a moment
                     setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
 
