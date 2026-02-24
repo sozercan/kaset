@@ -227,19 +227,20 @@ enum ParsingHelpers {
             }
         }
 
-        // Try flexColumns (artist page top songs often have duration in the last column)
+        // Try flexColumns (artist page top songs often have duration in a combined column)
         if let flexColumns = data["flexColumns"] as? [[String: Any]] {
-            // Check last flex column for duration (common pattern on artist pages)
             for column in flexColumns.reversed() {
                 if let renderer = column["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
                    let text = renderer["text"] as? [String: Any],
-                   let runs = text["runs"] as? [[String: Any]],
-                   let firstRun = runs.first,
-                   let durationText = firstRun["text"] as? String
+                   let runs = text["runs"] as? [[String: Any]]
                 {
-                    // Check if this looks like a duration (e.g., "3:45" or "1:23:45")
-                    if let duration = parseDuration(durationText) {
-                        return duration
+                    // Check all runs (duration is often the last run in "Artist • Album • 3:45")
+                    for run in runs.reversed() {
+                        if let durationText = run["text"] as? String,
+                           let duration = self.parseDuration(durationText)
+                        {
+                            return duration
+                        }
                     }
                 }
             }
