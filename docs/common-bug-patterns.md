@@ -168,3 +168,23 @@ class YTMusicClient {
     }
 }
 ```
+
+## ❌ Treating Generated IDs as Navigable API IDs
+
+```swift
+// ❌ BAD: Hash/UUID IDs pass this check but aren't real channel IDs
+if !artist.id.isEmpty, !artist.id.contains("-") {
+    navigateToArtist(artist)  // 400 error from API!
+}
+
+// ✅ GOOD: Check for the actual YouTube channel ID prefix
+if artist.hasNavigableId {  // Checks id.hasPrefix("UC")
+    navigateToArtist(artist)
+}
+```
+
+Home page items often have subtitle runs with no `navigationEndpoint`, causing
+`ParsingHelpers.extractArtists()` to generate SHA256 hash IDs. These hex strings
+have no hyphens and pass naive `!contains("-")` checks, but fail when used as
+API parameters. Always use `hasNavigableId` which validates the `UC` prefix for
+artists (or `MPRE`/`OLAK` for albums, `MPSPP` for podcasts).

@@ -95,8 +95,8 @@ extension Artist: Shareable {
     }
 
     var shareURL: URL? {
-        // Valid artist IDs start with "UC" and don't contain hyphens (UUIDs)
-        guard self.id.hasPrefix("UC"), !self.id.contains("-") else { return nil }
+        // Valid artist IDs are YouTube channel IDs starting with "UC"
+        guard self.id.hasPrefix("UC") else { return nil }
         guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }

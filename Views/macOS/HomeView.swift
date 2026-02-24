@@ -151,7 +151,7 @@ struct HomeView: View {
 
             Divider()
 
-            if let artist = song.artists.first, !artist.id.isEmpty, !artist.id.contains("-") {
+            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")
                 }
