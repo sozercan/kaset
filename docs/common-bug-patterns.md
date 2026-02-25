@@ -188,3 +188,28 @@ Home page items often have subtitle runs with no `navigationEndpoint`, causing
 have no hyphens and pass naive `!contains("-")` checks, but fail when used as
 API parameters. Always use `hasNavigableId` which validates the `UC` prefix for
 artists (or `MPRE`/`OLAK` for albums, `MPSPP` for podcasts).
+
+## Pre-Submit Checklists
+
+### Performance
+
+> See [architecture.md#performance-guidelines](architecture.md#performance-guidelines) for detailed patterns.
+
+- [ ] No `await` calls inside loops or `ForEach`
+- [ ] Lists use `LazyVStack`/`LazyHStack` for large datasets
+- [ ] Network calls cancelled on view disappear (`.task` handles this)
+- [ ] Parsers have `measure {}` tests if processing large payloads
+- [ ] Images use `ImageCache` with appropriate `targetSize`
+- [ ] Search input is debounced
+- [ ] ForEach uses stable identity
+
+### Concurrency Safety
+
+- [ ] No fire-and-forget `Task { }` without error handling
+- [ ] Optimistic updates handle `CancellationError` explicitly
+- [ ] Background tasks cancelled in `deinit`
+- [ ] Using `.task` instead of `.onAppear { Task { } }`
+- [ ] Continuation tokens scoped per-request (not shared across types)
+- [ ] No `static var shared` pattern with mutable assignment in `init`
+- [ ] WebView message handlers removed in `dismantleNSView`
+- [ ] `WKNavigationDelegate` implements `webViewWebContentProcessDidTerminate`
