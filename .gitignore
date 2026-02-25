@@ -57,4 +57,5 @@ Thumbs.db
 .env.local
 *.pem
 
-TEMP_*build/
+TEMP_*
+build/
