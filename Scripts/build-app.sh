@@ -191,11 +191,15 @@ if [[ -f "$SDEF_PATH" ]]; then
   cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
 fi
 
-# Copy app icon (.icon bundle for macOS 26+ Liquid Glass)
+# Copy app icon (.icon bundle for macOS 26+ Liquid Glass, .icns as fallback)
 ICON_SOURCE="$ROOT/Sources/Kaset/Resources/kaset.icon"
 if [[ -d "$ICON_SOURCE" ]]; then
   echo "🎨 Copying app icon..."
   cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
+fi
+ICNS_PATH="$ROOT/Sources/Kaset/Resources/AppIcon.icns"
+if [[ -f "$ICNS_PATH" ]]; then
+  cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
 # Embed Sparkle.framework
