@@ -191,13 +191,11 @@ if [[ -f "$SDEF_PATH" ]]; then
   cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
 fi
 
-# Convert .icon bundle to .icns if present
+# Copy app icon (.icon bundle for macOS 26+ Liquid Glass)
 ICON_SOURCE="$ROOT/Sources/Kaset/Resources/kaset.icon"
 if [[ -d "$ICON_SOURCE" ]]; then
-  echo "🎨 Converting app icon..."
-  iconutil --convert icns --output "$APP_BUNDLE/Contents/Resources/AppIcon.icns" "$ICON_SOURCE" 2>/dev/null || {
-    echo "WARN: iconutil conversion failed; icon may not display correctly."
-  }
+  echo "🎨 Copying app icon..."
+  cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
 fi
 
 # Embed Sparkle.framework
