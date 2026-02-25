@@ -18,47 +18,52 @@ git clone https://github.com/sozercan/kaset.git
 cd kaset
 
 # Build from command line
-xcodebuild -scheme Kaset -destination 'platform=macOS' build
+swift build
 
 # Run tests
-xcodebuild -scheme Kaset -destination 'platform=macOS' test
+swift test
+
+# Package and run the app
+Scripts/compile_and_run.sh
 
 # Lint & Format
 swiftlint --strict && swiftformat .
 ```
 
-Or open `Kaset.xcodeproj` in Xcode and press ⌘R.
+Or open `Package.swift` in Xcode to work in the IDE.
 
 ## Project Structure
 
 ```
-App/                → App entry point, AppDelegate (window lifecycle)
-Core/
-  ├── Models/       → Data models (Song, Playlist, Album, Artist, etc.)
-  ├── Services/
-  │   ├── API/      → YTMusicClient (YouTube Music API calls)
-  │   ├── Auth/     → AuthService (login state machine)
-  │   ├── Player/   → PlayerService, NowPlayingManager (playback, media keys)
-  │   └── WebKit/   → WebKitManager (cookie store, persistent login)
-  ├── ViewModels/   → HomeViewModel, LibraryViewModel, SearchViewModel
-  └── Utilities/    → DiagnosticsLogger, extensions
-Views/
-  └── macOS/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
-Tests/              → Unit tests (KasetTests/)
-docs/               → Detailed documentation
+Package.swift           → SPM manifest (build configuration)
+Sources/
+  └── Kaset/            → Main app target
+      ├── Models/       → Data models (Song, Playlist, Album, Artist, etc.)
+      ├── Services/
+      │   ├── API/      → YTMusicClient (YouTube Music API calls)
+      │   ├── Auth/     → AuthService (login state machine)
+      │   ├── Player/   → PlayerService, NowPlayingManager (playback, media keys)
+      │   └── WebKit/   → WebKitManager (cookie store, persistent login)
+      ├── ViewModels/   → HomeViewModel, LibraryViewModel, SearchViewModel
+      ├── Utilities/    → DiagnosticsLogger, extensions
+      └── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
+  └── APIExplorer/      → API explorer CLI tool
+Tests/                  → Unit tests (KasetTests/)
+Scripts/                → Build scripts
+docs/                   → Detailed documentation
 ```
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `App/AppDelegate.swift` | Window lifecycle, background audio support |
-| `Core/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
-| `Core/Services/Auth/AuthService.swift` | Login state machine |
-| `Core/Services/Player/PlayerService.swift` | Playback state & control |
-| `Views/macOS/MiniPlayerWebView.swift` | Singleton WebView, playback UI |
-| `Views/macOS/MainWindow.swift` | Main app window |
-| `Core/Utilities/DiagnosticsLogger.swift` | Logging |
+| `Sources/Kaset/AppDelegate.swift` | Window lifecycle, background audio support |
+| `Sources/Kaset/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
+| `Sources/Kaset/Services/Auth/AuthService.swift` | Login state machine |
+| `Sources/Kaset/Services/Player/PlayerService.swift` | Playback state & control |
+| `Sources/Kaset/Views/MiniPlayerWebView.swift` | Singleton WebView, playback UI |
+| `Sources/Kaset/Views/MainWindow.swift` | Main app window |
+| `Sources/Kaset/Utilities/DiagnosticsLogger.swift` | Logging |
 
 ## Architecture
 
@@ -182,8 +187,8 @@ final class MyServiceTests: XCTestCase {
 ## Pull Request Guidelines
 
 1. **No Third-Party Frameworks** — Do not introduce third-party dependencies without discussion first
-2. **Build Must Pass** — Run `xcodebuild -scheme Kaset -destination 'platform=macOS' build`
-3. **Tests Must Pass** — Run `xcodebuild -scheme Kaset -destination 'platform=macOS' test`
+2. **Build Must Pass** — Run `swift build`
+3. **Tests Must Pass** — Run `swift test`
 4. **Linting** — Run `swiftlint --strict && swiftformat .` before submitting
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
@@ -233,18 +238,17 @@ Requirements:
 - Follow existing haptic patterns used in volume controls
 - Add unit test in PlayerServiceTests.swift
 
-Reference: Core/Services/HapticService.swift for existing patterns
+Reference: Sources/Kaset/Services/HapticService.swift for existing patterns
 ```
 
 ## Testing
 
 ```bash
 # Run all tests
-xcodebuild -scheme Kaset -destination 'platform=macOS' test
+swift test
 
-# Run specific test class
-xcodebuild -scheme Kaset -destination 'platform=macOS' \
-  test -only-testing:KasetTests/PlayerServiceTests
+# Run specific test (use --filter)
+swift test --filter PlayerServiceTests
 ```
 
 See [docs/testing.md](docs/testing.md) for detailed testing patterns and debugging tips.

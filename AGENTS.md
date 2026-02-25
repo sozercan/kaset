@@ -20,22 +20,27 @@ A native **macOS** YouTube Music client built with **Swift** and **SwiftUI**.
 ## Project Structure
 
 ```
-App/                → App entry point, AppDelegate (window lifecycle)
-Core/
-  ├── Models/       → Data models (Song, Playlist, Album, Artist, etc.)
-  ├── Services/
-  │   ├── API/      → YTMusicClient, Parsers/ (response parsing)
-  │   ├── Auth/     → AuthService (login state machine)
-  │   ├── Player/   → PlayerService, NowPlayingManager (playback, media keys)
-  │   └── WebKit/   → WebKitManager (cookie store, persistent login)
-  ├── ViewModels/   → HomeViewModel, LibraryViewModel, SearchViewModel
-  └── Utilities/    → DiagnosticsLogger, extensions
-Views/
-  └── macOS/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
-Tests/              → Unit tests (KasetTests/)
-Tools/              → Standalone CLI tools (api-explorer.swift)
-docs/               → Detailed documentation
-  └── adr/          → Architecture Decision Records
+Package.swift           → SPM manifest (build configuration)
+Sources/
+  └── Kaset/            → Main app target
+      ├── KasetApp.swift    → @main entry point
+      ├── AppDelegate.swift → Window lifecycle, background audio
+      ├── Models/       → Data models (Song, Playlist, Album, Artist, etc.)
+      ├── Services/
+      │   ├── API/      → YTMusicClient, Parsers/ (response parsing)
+      │   ├── Auth/     → AuthService (login state machine)
+      │   ├── Player/   → PlayerService, NowPlayingManager (playback, media keys)
+      │   └── WebKit/   → WebKitManager (cookie store, persistent login)
+      ├── ViewModels/   → HomeViewModel, LibraryViewModel, SearchViewModel
+      ├── Utilities/    → DiagnosticsLogger, extensions
+      ├── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
+      └── Resources/    → Assets.xcassets, Kaset.sdef, app icon
+  └── APIExplorer/      → Standalone API explorer CLI tool
+Tests/
+  └── KasetTests/       → Unit tests
+Scripts/                → Build scripts, dev tools
+docs/                   → Detailed documentation
+  └── adr/              → Architecture Decision Records
 ```
 
 ## Documentation
@@ -58,13 +63,13 @@ For detailed information, see the `docs/` folder:
 
 ### API Discovery Workflow
 
-> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using `./Tools/api-explorer.swift`. Do NOT guess or assume API response structures. See [docs/api-discovery.md](docs/api-discovery.md) for full workflow, auth setup, and endpoint reference.
+> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using the API explorer. Do NOT guess or assume API response structures. See [docs/api-discovery.md](docs/api-discovery.md) for full workflow, auth setup, and endpoint reference.
 
 Quick start:
 ```bash
-./Tools/api-explorer.swift auth          # Check auth status
-./Tools/api-explorer.swift list          # List known endpoints
-./Tools/api-explorer.swift browse FEmusic_home -v  # Explore with verbose output
+swift run api-explorer auth          # Check auth status
+swift run api-explorer list          # List known endpoints
+swift run api-explorer browse FEmusic_home -v  # Explore with verbose output
 ```
 
 ## Critical Rules
@@ -83,16 +88,22 @@ Quick start:
 
 > ⚡ **Performance Awareness** — For non-trivial features, run performance tests and verify no anti-patterns. When adding parsers or API calls, include `measure {}` tests.
 
-> 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Tools/api-explorer.swift`** instead of writing temporary scripts.
+> 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Sources/APIExplorer/main.swift`** instead of writing temporary scripts.
 
 ## Build & Code Quality
 
 ```bash
 # Build
-xcodebuild -scheme Kaset -destination 'platform=macOS' build
+swift build
 
 # Unit Tests (never combine with UI tests)
-xcodebuild -scheme Kaset -destination 'platform=macOS' test -only-testing:KasetTests
+swift test
+
+# Package app bundle
+Scripts/build-app.sh
+
+# Dev loop (kill → build → package → launch → verify)
+Scripts/compile_and_run.sh
 
 # Lint & Format
 swiftlint --strict && swiftformat .
@@ -149,14 +160,17 @@ swiftlint --strict && swiftformat .
 
 | File | Purpose |
 |------|---------|
-| `Tools/api-explorer.swift` | **Standalone API explorer CLI** (run before implementing API features) |
-| `App/AppDelegate.swift` | Window lifecycle, background audio support |
-| `Core/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
-| `Core/Services/Auth/AuthService.swift` | Login state machine |
-| `Core/Services/Player/PlayerService.swift` | Playback state & control |
-| `Views/macOS/MiniPlayerWebView.swift` | Singleton WebView, playback UI |
-| `Views/macOS/MainWindow.swift` | Main app window |
-| `Core/Utilities/DiagnosticsLogger.swift` | Logging |
+| `Package.swift` | **SPM build manifest** (targets, dependencies, settings) |
+| `Sources/APIExplorer/main.swift` | **API explorer CLI** (run with `swift run api-explorer`) |
+| `Sources/Kaset/AppDelegate.swift` | Window lifecycle, background audio support |
+| `Sources/Kaset/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
+| `Sources/Kaset/Services/Auth/AuthService.swift` | Login state machine |
+| `Sources/Kaset/Services/Player/PlayerService.swift` | Playback state & control |
+| `Sources/Kaset/Views/MiniPlayerWebView.swift` | Singleton WebView, playback UI |
+| `Sources/Kaset/Views/MainWindow.swift` | Main app window |
+| `Sources/Kaset/Utilities/DiagnosticsLogger.swift` | Logging |
+| `Scripts/build-app.sh` | App bundle assembly (Sparkle, signing, Info.plist) |
+| `Scripts/compile_and_run.sh` | Dev loop: kill → build → package → launch → verify |
 
 ## Architecture Overview
 
@@ -199,4 +213,4 @@ swiftlint --strict && swiftformat .
 
 > ⚠️ **Never implement without an approved plan.** See [docs/task-planning.md](docs/task-planning.md) for the full phase-based workflow with exit criteria.
 
-For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Write research findings to a persistent file. Run `xcodebuild build` continuously during implementation. Mark progress as you go. If things go wrong, revert and re-scope rather than patching.
+For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Write research findings to a persistent file. Run `swift build` continuously during implementation. Mark progress as you go. If things go wrong, revert and re-scope rather than patching.

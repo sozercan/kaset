@@ -393,7 +393,7 @@ struct PodcastShowView: View {
                             .fontWeight(.medium)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
                 }
             }
 

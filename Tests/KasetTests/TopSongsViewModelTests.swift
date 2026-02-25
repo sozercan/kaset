@@ -11,10 +11,11 @@ struct TopSongsViewModelTests {
     func initialStateIncludesSongsFromDestination() {
         let mockClient = MockYTMusicClient()
         let songs = [
-            TestFixtures.makeSong(videoId: "song-1", title: "Song 1"),
-            TestFixtures.makeSong(videoId: "song-2", title: "Song 2"),
+            TestFixtures.makeSong(id: "song-1", title: "Song 1"),
+            TestFixtures.makeSong(id: "song-2", title: "Song 2"),
         ]
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: songs,
             songsBrowseId: nil,
@@ -34,8 +35,9 @@ struct TopSongsViewModelTests {
     @Test("Load without browse ID immediately sets loaded state")
     func loadWithoutBrowseIdSetsLoadedImmediately() async {
         let mockClient = MockYTMusicClient()
-        let songs = [TestFixtures.makeSong(videoId: "song-1", title: "Initial")]
+        let songs = [TestFixtures.makeSong(id: "song-1", title: "Initial")]
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: songs,
             songsBrowseId: nil,
@@ -55,8 +57,9 @@ struct TopSongsViewModelTests {
     @Test("Load with browse ID fetches all songs")
     func loadWithBrowseIdFetchesAllSongs() async {
         let mockClient = MockYTMusicClient()
-        let initialSongs = [TestFixtures.makeSong(videoId: "song-1", title: "Initial")]
+        let initialSongs = [TestFixtures.makeSong(id: "song-1", title: "Initial")]
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: initialSongs,
             songsBrowseId: "browse-id-123",
@@ -65,9 +68,9 @@ struct TopSongsViewModelTests {
         let viewModel = TopSongsViewModel(destination: destination, client: mockClient)
 
         mockClient.artistSongsResponse = [
-            TestFixtures.makeSong(videoId: "song-1", title: "Song 1"),
-            TestFixtures.makeSong(videoId: "song-2", title: "Song 2"),
-            TestFixtures.makeSong(videoId: "song-3", title: "Song 3"),
+            TestFixtures.makeSong(id: "song-1", title: "Song 1"),
+            TestFixtures.makeSong(id: "song-2", title: "Song 2"),
+            TestFixtures.makeSong(id: "song-3", title: "Song 3"),
         ]
 
         await viewModel.load()
@@ -82,10 +85,11 @@ struct TopSongsViewModelTests {
     func loadWithBrowseIdKeepsInitialSongsOnError() async {
         let mockClient = MockYTMusicClient()
         let initialSongs = [
-            TestFixtures.makeSong(videoId: "song-1", title: "Initial 1"),
-            TestFixtures.makeSong(videoId: "song-2", title: "Initial 2"),
+            TestFixtures.makeSong(id: "song-1", title: "Initial 1"),
+            TestFixtures.makeSong(id: "song-2", title: "Initial 2"),
         ]
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: initialSongs,
             songsBrowseId: "browse-id-123",
@@ -108,8 +112,9 @@ struct TopSongsViewModelTests {
     @Test("Load with browse ID keeps initial songs when API returns empty")
     func loadWithBrowseIdKeepsInitialSongsWhenEmpty() async {
         let mockClient = MockYTMusicClient()
-        let initialSongs = [TestFixtures.makeSong(videoId: "song-1", title: "Initial")]
+        let initialSongs = [TestFixtures.makeSong(id: "song-1", title: "Initial")]
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: initialSongs,
             songsBrowseId: "browse-id-123",
@@ -130,6 +135,7 @@ struct TopSongsViewModelTests {
     func loadPreventsConncurrentCalls() async {
         let mockClient = MockYTMusicClient()
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: [],
             songsBrowseId: "browse-id-123",
@@ -137,8 +143,7 @@ struct TopSongsViewModelTests {
         )
         let viewModel = TopSongsViewModel(destination: destination, client: mockClient)
 
-        mockClient.artistSongsResponse = [TestFixtures.makeSong(videoId: "song-1", title: "Song 1")]
-        mockClient.apiDelay = 0.1
+        mockClient.artistSongsResponse = [TestFixtures.makeSong(id: "song-1", title: "Song 1")]
 
         // Start first load
         let task1 = Task {
@@ -163,6 +168,7 @@ struct TopSongsViewModelTests {
     func clientIsExposed() {
         let mockClient = MockYTMusicClient()
         let destination = TopSongsDestination(
+            artistId: "artist-1",
             artistName: "Test Artist",
             songs: [],
             songsBrowseId: nil,

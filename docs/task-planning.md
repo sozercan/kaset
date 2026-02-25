@@ -82,7 +82,7 @@ Phase 4: QA
 
 ## Implementation Discipline
 
-- **Reference existing code for consistency** — When building features similar to existing ones, explicitly find and match existing implementations. A new detail view should match the patterns in existing detail views. A new parser should follow the structure in `Core/Services/API/Parsers/`. Point to the reference file and replicate its patterns rather than designing from scratch.
+- **Reference existing code for consistency** — When building features similar to existing ones, explicitly find and match existing implementations. A new detail view should match the patterns in existing detail views. A new parser should follow the structure in `Sources/Kaset/Services/API/Parsers/`. Point to the reference file and replicate its patterns rather than designing from scratch.
 - **Revert and re-scope on wrong direction** — If implementation goes wrong, don't try to incrementally patch a bad approach. Revert git changes and narrow the scope. A clean restart with tighter scope almost always produces better results than fixing a broken chain of changes.
 - **Protect existing interfaces** — Do not change public function signatures, protocols, or model types unless the plan explicitly calls for it. When in doubt, make the new code adapt to existing interfaces, not the other way around.
 

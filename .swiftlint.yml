@@ -26,9 +26,7 @@ opt_in_rules:
   - yoda_condition
 
 included:
-  - App
-  - Core
-  - Views
+  - Sources
   - Tests
 
 excluded:
@@ -81,7 +79,7 @@ custom_rules:
     message: "Use Swift concurrency (async/await, MainActor) instead of DispatchQueue"
     severity: error
     excluded:
-      - "Core/Services/NetworkMonitor.swift"  # NWPathMonitor requires DispatchQueue
+      - "Sources/Kaset/Services/NetworkMonitor.swift"  # NWPathMonitor requires DispatchQueue
 
   no_print:
     name: "No print statements"

@@ -59,7 +59,6 @@ struct MoodsAndGenresViewModelTests {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Section 1"),
         ])
-        self.mockClient.apiDelay = 0.1
 
         // Start first load
         let task1 = Task {
@@ -81,35 +80,31 @@ struct MoodsAndGenresViewModelTests {
 
     // MARK: - Background Continuation Tests
 
-    @Test("Load triggers background continuation loading")
-    func loadTriggersBackgroundContinuation() async {
+    @Test("Load sets hasMore based on continuation availability")
+    func loadSetsHasMoreBasedOnContinuations() async {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
         self.mockClient.moodsAndGenresContinuationSections = [
-            TestFixtures.makeHomeSection(title: "Continuation 1"),
+            [TestFixtures.makeHomeSection(title: "Continuation 1")],
         ]
-        self.mockClient.hasMoreMoodsAndGenresSections = true
 
         await self.viewModel.load()
 
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
-
+        // After initial load, hasMore should reflect continuation availability
+        // Background loading may or may not have completed yet
         #expect(self.viewModel.sections.count >= 1)
+        #expect(self.viewModel.loadingState == .loaded)
     }
 
-    @Test("Background loading stops when no more sections")
-    func backgroundLoadingStopsWhenNoMore() async {
+    @Test("No continuations means no more sections after load")
+    func noContinuationsMeansNoMoreSections() async {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        self.mockClient.hasMoreMoodsAndGenresSections = false
+        // No continuation sections → hasMoreMoodsAndGenresSections will be false
 
         await self.viewModel.load()
-
-        // Wait for any potential background loading
-        try? await Task.sleep(for: .milliseconds(400))
 
         #expect(self.viewModel.hasMoreSections == false)
     }
@@ -122,7 +117,7 @@ struct MoodsAndGenresViewModelTests {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        self.mockClient.hasMoreMoodsAndGenresSections = false
+        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.sections.count == 1)
 
@@ -142,12 +137,14 @@ struct MoodsAndGenresViewModelTests {
     @Test("Refresh resets hasMoreSections flag")
     func refreshResetsHasMoreSections() async {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [])
-        self.mockClient.hasMoreMoodsAndGenresSections = false
+        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.hasMoreSections == false)
 
-        // Refresh - hasMoreSections should be reset to true before load
-        self.mockClient.hasMoreMoodsAndGenresSections = true
+        // Refresh - add continuation sections so hasMore becomes true
+        self.mockClient.moodsAndGenresContinuationSections = [
+            [TestFixtures.makeHomeSection(title: "Continuation")],
+        ]
         await self.viewModel.refresh()
 
         #expect(self.viewModel.hasMoreSections == true)

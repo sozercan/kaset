@@ -7,19 +7,25 @@ This document covers testing strategies, commands, and best practices for Kaset.
 ### Unit Tests
 
 ```bash
-xcodebuild -scheme Kaset -destination 'platform=macOS' test -only-testing:KasetTests
-```
-
-### Full Suite
-
-```bash
-xcodebuild -scheme Kaset -destination 'platform=macOS' test
+swift test
 ```
 
 ### Build Only
 
 ```bash
-xcodebuild -scheme Kaset -destination 'platform=macOS' build
+swift build
+```
+
+### Package App
+
+```bash
+Scripts/build-app.sh
+```
+
+### Dev Loop (Build + Run)
+
+```bash
+Scripts/compile_and_run.sh
 ```
 
 ### Lint & Format
@@ -48,7 +54,7 @@ Tests/KasetTests/
 
 ## Unit Test Requirements
 
-New code in `Core/` (Services, Models, ViewModels, Utilities) must include unit tests.
+New code in `Sources/Kaset/` (Services, Models, ViewModels, Utilities) must include unit tests.
 
 ### Creating a Test File
 

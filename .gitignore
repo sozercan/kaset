@@ -10,15 +10,15 @@ DerivedData/
 *.dSYM
 *.profraw
 
-# Xcode user data
+# Xcode (auto-generated from Package.swift)
+*.xcodeproj/
+*.xcworkspace/
 *.xcuserdata/
 xcuserdata/
 
-# Xcode schemes
-!*.xcscheme
-
 # Swift Package Manager
 /.swiftpm
+!/.swiftpm/xcode/xcshareddata/
 Packages/
 Package.pins
 Package.resolved
@@ -57,4 +57,4 @@ Thumbs.db
 .env.local
 *.pem
 
-TEMP_*
+TEMP_*build/

@@ -33,6 +33,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var lyricsResponses: [String: Lyrics] = [:]
     var radioQueueSongs: [String: [Song]] = [:]
     var songResponses: [String: Song] = [:]
+    var accountsListResponse: AccountsListResponse = .init(googleEmail: "test@gmail.com", accounts: [])
 
     // MARK: - Call Tracking
 
@@ -624,7 +625,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     func fetchAccountsList() async throws -> AccountsListResponse {
         if let error = shouldThrowError { throw error }
-        return AccountsListResponse(googleEmail: "test@gmail.com", accounts: [])
+        return self.accountsListResponse
     }
 
     // MARK: - Helper Methods

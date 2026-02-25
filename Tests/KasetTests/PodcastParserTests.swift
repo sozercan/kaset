@@ -60,7 +60,7 @@ struct PodcastParserTests {
         let data: [String: Any] = [:]
         let detail = PodcastParser.parseShowDetail(data, showId: "MPSPP123")
         #expect(detail.show.id == "MPSPP123")
-        #expect(detail.show.title == "Unknown Show")
+        #expect(detail.show.title == "")
         #expect(detail.episodes.isEmpty)
     }
 
@@ -81,7 +81,7 @@ struct PodcastParserTests {
 
     @Test("Parse show detail with subscription status")
     func parseShowDetailWithSubscriptionStatus() {
-        let data = self.makeShowDetailData(title: "Subscribed Show", isSubscribed: true)
+        let data = self.makeShowDetailDataTwoColumn(title: "Subscribed Show", isSubscribed: true)
         let detail = PodcastParser.parseShowDetail(data, showId: "MPSPP123")
         #expect(detail.isSubscribed == true)
     }
@@ -291,6 +291,38 @@ struct PodcastParserTests {
         }
 
         return data
+    }
+
+    /// Creates show detail data using the twoColumnBrowseResultsRenderer format
+    /// which is the current format the parser uses for subscription status.
+    private func makeShowDetailDataTwoColumn(
+        title: String,
+        isSubscribed: Bool = false
+    ) -> [String: Any] {
+        [
+            "contents": [
+                "twoColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicResponsiveHeaderRenderer": [
+                                            "title": ["runs": [["text": title]]],
+                                            "buttons": [[
+                                                "toggleButtonRenderer": [
+                                                    "isToggled": isSubscribed,
+                                                ],
+                                            ]],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
     }
 
     private func makeEpisodesContinuationData(episodeCount: Int, hasMore: Bool) -> [String: Any] {

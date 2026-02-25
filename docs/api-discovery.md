@@ -858,7 +858,7 @@ if let watchEndpoint = navEndpoint["watchEndpoint"] as? [String: Any],
 
 ## Parsers Reference
 
-All parsers are located in `Core/Services/API/Parsers/`. Each parser is responsible for extracting structured data from raw API JSON responses.
+All parsers are located in `Sources/Kaset/Services/API/Parsers/`. Each parser is responsible for extracting structured data from raw API JSON responses.
 
 | Parser | File | Input | Output | Used By |
 |--------|------|-------|--------|--------|
@@ -1130,9 +1130,9 @@ The `musicVideoType` field distinguishes between actual music videos and audio-o
 | Podcast Episode | `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` | Audio podcast | ❌ No |
 
 **Implementation**: The `MusicVideoType` enum and parsing are implemented in:
-- [Core/Models/MusicVideoType.swift](../Core/Models/MusicVideoType.swift) - Enum definition
-- [Core/Models/Song.swift](../Core/Models/Song.swift) - `musicVideoType` property
-- [Core/Services/API/Parsers/SongMetadataParser.swift](../Core/Services/API/Parsers/SongMetadataParser.swift) - Parsing logic
+- [Sources/Kaset/Models/MusicVideoType.swift](../Sources/Kaset/Models/MusicVideoType.swift) - Enum definition
+- [Sources/Kaset/Models/Song.swift](../Sources/Kaset/Models/Song.swift) - `musicVideoType` property
+- [Sources/Kaset/Services/API/Parsers/SongMetadataParser.swift](../Sources/Kaset/Services/API/Parsers/SongMetadataParser.swift) - Parsing logic
 
 **Location in `next` response**:
 ```

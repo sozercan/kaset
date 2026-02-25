@@ -7,23 +7,25 @@ This document provides detailed information about Kaset's architecture, services
 The codebase follows a clean architecture pattern:
 
 ```
-App/                → App entry point, AppDelegate
-Core/               → Shared logic (platform-independent)
-  ├── Models/       → Data types (Song, Playlist, Album, Artist, etc.)
-  ├── Services/     → Business logic
-  │   ├── API/      → YTMusicClient, Parsers/
-  │   ├── Auth/     → AuthService (login state machine)
-  │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
-  │   ├── Scripting/→ ScriptCommands (AppleScript integration)
-  │   ├── WebKit/   → WebKitManager (cookie persistence)
-  │   └── HapticService.swift → Force Touch trackpad haptic feedback
-  ├── ViewModels/   → State management (HomeViewModel, etc.)
-  └── Utilities/    → Helpers (DiagnosticsLogger, extensions)
-Views/
-  └── macOS/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
-Tests/              → Unit tests (KasetTests/)
-docs/               → Documentation
-  └── adr/          → Architecture Decision Records
+Sources/
+  └── Kaset/            → Main app target
+      ├── KasetApp.swift    → App entry point
+      ├── AppDelegate.swift → Window lifecycle
+      ├── Models/       → Data types (Song, Playlist, Album, Artist, etc.)
+      ├── Services/     → Business logic
+      │   ├── API/      → YTMusicClient, Parsers/
+      │   ├── Auth/     → AuthService (login state machine)
+      │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
+      │   ├── Scripting/→ ScriptCommands (AppleScript integration)
+      │   ├── WebKit/   → WebKitManager (cookie persistence)
+      │   └── HapticService.swift → Force Touch trackpad haptic feedback
+      ├── ViewModels/   → State management (HomeViewModel, etc.)
+      ├── Utilities/    → Helpers (DiagnosticsLogger, extensions)
+      └── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
+  └── APIExplorer/      → API explorer CLI tool
+Tests/                  → Unit tests (KasetTests/)
+docs/                   → Documentation
+  └── adr/              → Architecture Decision Records
 ```
 
 ## Service Protocols
@@ -31,7 +33,7 @@ docs/               → Documentation
 All major services have protocol definitions for testability:
 
 ```swift
-// Core/Services/Protocols.swift
+// Sources/Kaset/Services/Protocols.swift
 protocol YTMusicClientProtocol: Sendable { ... }
 protocol AuthServiceProtocol { ... }
 protocol PlayerServiceProtocol { ... }
@@ -60,7 +62,7 @@ final class HomeViewModel {
 
 ### WebKitManager
 
-**File**: `Core/Services/WebKit/WebKitManager.swift`
+**File**: `Sources/Kaset/Services/WebKit/WebKitManager.swift`
 
 Manages WebKit infrastructure for the app:
 
@@ -82,7 +84,7 @@ final class WebKitManager {
 
 ### AuthService
 
-**File**: `Core/Services/Auth/AuthService.swift`
+**File**: `Sources/Kaset/Services/Auth/AuthService.swift`
 
 Manages authentication state:
 
@@ -99,7 +101,7 @@ Manages authentication state:
 
 ### YTMusicClient
 
-**File**: `Core/Services/API/YTMusicClient.swift`
+**File**: `Sources/Kaset/Services/API/YTMusicClient.swift`
 
 Makes authenticated requests to YouTube Music's internal API:
 
@@ -126,7 +128,7 @@ Makes authenticated requests to YouTube Music's internal API:
 
 ### API Parsers
 
-**Directory**: `Core/Services/API/Parsers/`
+**Directory**: `Sources/Kaset/Services/API/Parsers/`
 
 Response parsing is extracted into specialized modules:
 
@@ -145,7 +147,7 @@ Response parsing is extracted into specialized modules:
 
 ### PlayerService
 
-**File**: `Core/Services/Player/PlayerService.swift`
+**File**: `Sources/Kaset/Services/Player/PlayerService.swift`
 
 Controls audio playback via singleton WebView:
 
@@ -166,7 +168,7 @@ Controls audio playback via singleton WebView:
 
 ### SingletonPlayerWebView
 
-**File**: `Views/macOS/MiniPlayerWebView.swift`
+**File**: `Sources/Kaset/Views/MiniPlayerWebView.swift`
 
 Manages the singleton WebView for playback:
 
@@ -187,7 +189,7 @@ final class SingletonPlayerWebView {
 
 ### NowPlayingManager
 
-**File**: `Core/Services/Player/NowPlayingManager.swift`
+**File**: `Sources/Kaset/Services/Player/NowPlayingManager.swift`
 
 Remote command center integration for media key support:
 
@@ -199,7 +201,7 @@ Remote command center integration for media key support:
 
 ### HapticService
 
-**File**: `Core/Services/HapticService.swift`
+**File**: `Sources/Kaset/Services/HapticService.swift`
 
 Provides tactile feedback on Macs with Force Touch trackpads:
 
@@ -216,7 +218,7 @@ Provides tactile feedback on Macs with Force Touch trackpads:
 
 ### FavoritesManager
 
-**File**: `Core/Services/FavoritesManager.swift`
+**File**: `Sources/Kaset/Services/FavoritesManager.swift`
 
 Manages user-curated Favorites section on Home view:
 
@@ -241,13 +243,13 @@ Manages user-curated Favorites section on Home view:
 - **Reads**: Synchronous at init (one-time on app launch)
 
 **Related Files**:
-- `Core/Models/FavoriteItem.swift` — Data model with `ItemType` enum
-- `Views/macOS/SharedViews/FavoritesSection.swift` — Horizontal scrolling UI
-- `Views/macOS/SharedViews/FavoritesContextMenu.swift` — Shared context menu items
+- `Sources/Kaset/Models/FavoriteItem.swift` — Data model with `ItemType` enum
+- `Sources/Kaset/Views/SharedViews/FavoritesSection.swift` — Horizontal scrolling UI
+- `Sources/Kaset/Views/SharedViews/FavoritesContextMenu.swift` — Shared context menu items
 
 ### NotificationService
 
-**File**: `Core/Services/Notification/NotificationService.swift`
+**File**: `Sources/Kaset/Services/Notification/NotificationService.swift`
 
 Posts local notifications when the current track changes:
 
@@ -260,7 +262,7 @@ Posts local notifications when the current track changes:
 
 ### NetworkMonitor
 
-**File**: `Core/Services/NetworkMonitor.swift`
+**File**: `Sources/Kaset/Services/NetworkMonitor.swift`
 
 Monitors network connectivity using `NWPathMonitor`:
 
@@ -276,7 +278,7 @@ Monitors network connectivity using `NWPathMonitor`:
 
 ### SettingsManager
 
-**File**: `Core/Services/SettingsManager.swift`
+**File**: `Sources/Kaset/Services/SettingsManager.swift`
 
 Manages user preferences persisted via `UserDefaults`:
 
@@ -291,7 +293,7 @@ Manages user preferences persisted via `UserDefaults`:
 
 ### ShareService
 
-**File**: `Core/Services/ShareService.swift`
+**File**: `Sources/Kaset/Services/ShareService.swift`
 
 Provides share sheet functionality via the `Shareable` protocol:
 
@@ -309,7 +311,7 @@ protocol Shareable {
 
 ### SongLikeStatusManager
 
-**File**: `Core/Services/SongLikeStatusManager.swift`
+**File**: `Sources/Kaset/Services/SongLikeStatusManager.swift`
 
 Caches and syncs like/dislike status for songs:
 
@@ -324,7 +326,7 @@ Caches and syncs like/dislike status for songs:
 
 ### URLHandler
 
-**File**: `Core/Services/URLHandler.swift`
+**File**: `Sources/Kaset/Services/URLHandler.swift`
 
 Parses YouTube Music and custom `kaset://` URLs:
 
@@ -343,7 +345,7 @@ Parses YouTube Music and custom `kaset://` URLs:
 
 ### ScriptCommands (AppleScript)
 
-**File**: `Core/Services/Scripting/ScriptCommands.swift`
+**File**: `Sources/Kaset/Services/Scripting/ScriptCommands.swift`
 
 Provides AppleScript support for external automation via NSScriptCommand subclasses:
 
@@ -371,8 +373,8 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 - Logging via `DiagnosticsLogger.scripting`
 
 **Related Files**:
-- `App/Kaset.sdef` — AppleScript dictionary definition
-- `App/Info.plist` — `NSAppleScriptEnabled` and `OSAScriptingDefinition` keys
+- `Sources/Kaset/Kaset.sdef` — AppleScript dictionary definition
+- `Sources/Kaset/Info.plist` — `NSAppleScriptEnabled` and `OSAScriptingDefinition` keys
 
 **Usage**:
 ```applescript
@@ -385,7 +387,7 @@ end tell
 
 ### UpdaterService
 
-**File**: `Core/Services/UpdaterService.swift`
+**File**: `Sources/Kaset/Services/UpdaterService.swift`
 
 Manages application updates via Sparkle framework:
 
@@ -401,7 +403,7 @@ See [ADR-0007: Sparkle Auto-Updates](adr/0007-sparkle-auto-updates.md) for desig
 
 ### AppDelegate
 
-**File**: `App/AppDelegate.swift`
+**File**: `Sources/Kaset/AppDelegate.swift`
 
 Application lifecycle management:
 
@@ -542,7 +544,7 @@ User closes window (⌘W or red button)
 
 ### YTMusicError
 
-**File**: `Core/Models/YTMusicError.swift`
+**File**: `Sources/Kaset/Models/YTMusicError.swift`
 
 Unified error type for the app:
 
@@ -579,11 +581,11 @@ DiagnosticsLogger.auth.error("Cookie extraction failed")
 
 ## Utilities
 
-The `Core/Utilities/` folder contains shared helper components.
+The `Sources/Kaset/Utilities/` folder contains shared helper components.
 
 ### ImageCache
 
-**File**: `Core/Utilities/ImageCache.swift`
+**File**: `Sources/Kaset/Utilities/ImageCache.swift`
 
 Thread-safe actor with memory and disk caching:
 
@@ -600,7 +602,7 @@ Thread-safe actor with memory and disk caching:
 
 ### ColorExtractor
 
-**File**: `Core/Utilities/ColorExtractor.swift`
+**File**: `Sources/Kaset/Utilities/ColorExtractor.swift`
 
 Extracts dominant colors from album art for dynamic theming:
 
@@ -610,7 +612,7 @@ Extracts dominant colors from album art for dynamic theming:
 
 ### AnimationConfiguration
 
-**File**: `Core/Utilities/AnimationConfiguration.swift`
+**File**: `Sources/Kaset/Utilities/AnimationConfiguration.swift`
 
 Standardized animation timing for consistent motion design:
 
@@ -622,7 +624,7 @@ Standardized animation timing for consistent motion design:
 
 ### AccessibilityIdentifiers
 
-**File**: `Core/Utilities/AccessibilityIdentifiers.swift`
+**File**: `Sources/Kaset/Utilities/AccessibilityIdentifiers.swift`
 
 Centralized UI test identifiers organized by feature:
 
@@ -638,7 +640,7 @@ enum AccessibilityID {
 
 ### IntelligenceModifier
 
-**File**: `Core/Utilities/IntelligenceModifier.swift`
+**File**: `Sources/Kaset/Utilities/IntelligenceModifier.swift`
 
 SwiftUI modifier to hide AI features when unavailable:
 
@@ -650,7 +652,7 @@ Checks `FoundationModelsService.shared.isAvailable` and applies opacity/disabled
 
 ### RetryPolicy
 
-**File**: `Core/Utilities/RetryPolicy.swift`
+**File**: `Sources/Kaset/Utilities/RetryPolicy.swift`
 
 Exponential backoff for network retries:
 
@@ -670,7 +672,7 @@ This section documents performance patterns and optimizations used throughout th
 
 ### Network Optimization
 
-**File**: `Core/Services/API/YTMusicClient.swift`
+**File**: `Sources/Kaset/Services/API/YTMusicClient.swift`
 
 The API client uses an optimized `URLSession` configuration:
 
@@ -683,7 +685,7 @@ configuration.timeoutIntervalForRequest = 15      // Fail fast
 
 ### API Caching
 
-**File**: `Core/Services/API/APICache.swift`
+**File**: `Sources/Kaset/Services/API/APICache.swift`
 
 In-memory cache with TTL and LRU eviction:
 
@@ -702,7 +704,7 @@ In-memory cache with TTL and LRU eviction:
 
 ### Image Caching
 
-**File**: `Core/Utilities/ImageCache.swift`
+**File**: `Sources/Kaset/Utilities/ImageCache.swift`
 
 Thread-safe actor with memory and disk caching:
 
@@ -861,17 +863,17 @@ User Input (natural language)
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `FoundationModelsService` | `Core/Services/AI/` | Singleton managing AI availability and sessions |
-| `@Generable` Models | `Core/Models/AI/` | Type-safe structured outputs (`MusicIntent`, `LyricsSummary`, etc.) |
-| Tools | `Core/Services/AI/Tools/` | Ground AI responses in real catalog data |
-| `AIErrorHandler` | `Core/Services/AI/` | User-friendly error messages |
-| `RequiresIntelligenceModifier` | `Core/Utilities/` | Hide AI features when unavailable |
+| `FoundationModelsService` | `Sources/Kaset/Services/AI/` | Singleton managing AI availability and sessions |
+| `@Generable` Models | `Sources/Kaset/Models/AI/` | Type-safe structured outputs (`MusicIntent`, `LyricsSummary`, etc.) |
+| Tools | `Sources/Kaset/Services/AI/Tools/` | Ground AI responses in real catalog data |
+| `AIErrorHandler` | `Sources/Kaset/Services/AI/` | User-friendly error messages |
+| `RequiresIntelligenceModifier` | `Sources/Kaset/Utilities/` | Hide AI features when unavailable |
 
 ### AI Tools
 
 Tools ground AI responses in real data from the YouTube Music catalog, preventing hallucination.
 
-**MusicSearchTool** (`Core/Services/AI/Tools/MusicSearchTool.swift`)
+**MusicSearchTool** (`Sources/Kaset/Services/AI/Tools/MusicSearchTool.swift`)
 
 Searches the YouTube Music catalog for songs, artists, and albums:
 
@@ -884,7 +886,7 @@ struct MusicSearchResult {
 }
 ```
 
-**QueueTool** (`Core/Services/AI/Tools/QueueTool.swift`)
+**QueueTool** (`Sources/Kaset/Services/AI/Tools/QueueTool.swift`)
 
 Provides access to the current playback queue for AI-driven queue management:
 
@@ -898,9 +900,9 @@ Type-safe structured outputs for AI responses:
 
 | Model | File | Purpose |
 |-------|------|---------|
-| `MusicIntent` | `Core/Models/AI/MusicIntent.swift` | Parsed user commands (play, pause, search, etc.) |
-| `LyricsSummary` | `Core/Models/AI/LyricsSummary.swift` | Lyrics explanation with themes and mood |
-| `PlaylistChanges` | `Core/Models/AI/PlaylistChanges.swift` | Queue refinement operations |
+| `MusicIntent` | `Sources/Kaset/Models/AI/MusicIntent.swift` | Parsed user commands (play, pause, search, etc.) |
+| `LyricsSummary` | `Sources/Kaset/Models/AI/LyricsSummary.swift` | Lyrics explanation with themes and mood |
+| `PlaylistChanges` | `Sources/Kaset/Models/AI/PlaylistChanges.swift` | Queue refinement operations |
 
 ### AI Features
 
@@ -925,7 +927,7 @@ This section documents key SwiftUI views and their integration patterns.
 
 ### QueueView
 
-**File**: `Views/macOS/QueueView.swift`
+**File**: `Sources/Kaset/Views/QueueView.swift`
 
 Right sidebar panel displaying the playback queue:
 
@@ -938,7 +940,7 @@ Right sidebar panel displaying the playback queue:
 
 ### LyricsView
 
-**File**: `Views/macOS/LyricsView.swift`
+**File**: `Sources/Kaset/Views/LyricsView.swift`
 
 Right sidebar panel displaying song lyrics:
 
@@ -951,7 +953,7 @@ Right sidebar panel displaying song lyrics:
 
 ### CommandBarView
 
-**File**: `Views/macOS/CommandBarView.swift`
+**File**: `Sources/Kaset/Views/CommandBarView.swift`
 
 Spotlight-style command palette triggered by ⌘K:
 
@@ -964,7 +966,7 @@ Spotlight-style command palette triggered by ⌘K:
 
 ### ToastView
 
-**File**: `Views/macOS/ToastView.swift`
+**File**: `Sources/Kaset/Views/ToastView.swift`
 
 Temporary notification overlay for user feedback:
 
@@ -978,7 +980,7 @@ Temporary notification overlay for user feedback:
 
 ### SharedViews
 
-**Directory**: `Views/macOS/SharedViews/`
+**Directory**: `Sources/Kaset/Views/SharedViews/`
 
 Reusable components used across the app:
 
@@ -1000,7 +1002,7 @@ Reusable components used across the app:
 
 ### PlayerBar
 
-**File**: `Views/macOS/PlayerBar.swift`
+**File**: `Sources/Kaset/Views/PlayerBar.swift`
 
 A floating capsule-shaped player bar at the bottom of the content area:
 
@@ -1051,7 +1053,7 @@ The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`:
 
 ### Sidebar
 
-**File**: `Views/macOS/Sidebar.swift`
+**File**: `Sources/Kaset/Views/Sidebar.swift`
 
 Clean, minimal sidebar with only functional navigation:
 

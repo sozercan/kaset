@@ -15,7 +15,7 @@ This document details the proposed enhancements to the Queue (Up Next) feature i
 ### Issues and Corrections
 
 1. **API Explorer (mandatory)**  
-   Per AGENTS.md, before implementing **Save as Playlist** or **Add to Playlist**, the following must be explored with `Tools/api-explorer.swift` and documented in `docs/api-discovery.md`:
+   Per AGENTS.md, before implementing **Save as Playlist** or **Add to Playlist**, the following must be explored with `Sources/APIExplorer/main.swift` and documented in `docs/api-discovery.md`:
    - `playlist/create` — request/response shape, error codes (quota, auth).
    - `playlist/get_add_to_playlist` — structure of playlists returned for "Add to" menu.
    - `browse/edit_playlist` — how to add videos to an existing playlist.  
@@ -94,7 +94,7 @@ This document details the proposed enhancements to the Queue (Up Next) feature i
 
 ### Current Queue Data Model
 
-**PlayerService State** (`Core/Services/Player/PlayerService.swift:79-84`):
+**PlayerService State** (`Sources/Kaset/Services/Player/PlayerService.swift:79-84`):
 ```swift
 @MainActor
 @Observable
@@ -105,7 +105,7 @@ class PlayerService {
 }
 ```
 
-**Song Model** (`Core/Models/Song.swift:6-71`):
+**Song Model** (`Sources/Kaset/Models/Song.swift:6-71`):
 ```swift
 struct Song: Identifiable, Codable, Hashable, Sendable {
     let id: String
@@ -854,23 +854,23 @@ extension UserDefaults {
 
 | File | Purpose |
 |------|---------|
-| `Views/macOS/QueueSidePanelView.swift` | Side panel container |
-| `Views/macOS/QueueRowView+Drag.swift` | Drag/drop modifiers for rows |
-| `Views/macOS/QueueFooterActions.swift` | Footer with Shuffle/Save/Clear |
-| `Views/macOS/QueueContextMenu+Actions.swift` | Extended context menu |
-| `Views/macOS/AddToPlaylistMenu.swift` | Add to playlist submenu |
-| `Views/macOS/SaveQueueAsPlaylistSheet.swift` | Save dialog |
-| `Views/macOS/QueueSidePanelHeader.swift` | Side panel header |
+| `Sources/Kaset/Views/QueueSidePanelView.swift` | Side panel container |
+| `Sources/Kaset/Views/QueueRowView+Drag.swift` | Drag/drop modifiers for rows |
+| `Sources/Kaset/Views/QueueFooterActions.swift` | Footer with Shuffle/Save/Clear |
+| `Sources/Kaset/Views/QueueContextMenu+Actions.swift` | Extended context menu |
+| `Sources/Kaset/Views/AddToPlaylistMenu.swift` | Add to playlist submenu |
+| `Sources/Kaset/Views/SaveQueueAsPlaylistSheet.swift` | Save dialog |
+| `Sources/Kaset/Views/QueueSidePanelHeader.swift` | Side panel header |
 
 ### Modified Files
 
 | File | Changes |
 |------|---------|
-| `Core/Services/Player/PlayerService.swift` | Add `queueDisplayMode`, `isSidePanelPresented` |
-| `Core/Services/Player/PlayerService+Queue.swift` | Add `reorderQueue(from:to:)` overload |
-| `Views/macOS/QueueView.swift` | Add toggle button, header improvements |
-| `Views/macOS/SharedViews/QueueRowView.swift` | Add draggable, new layout options |
-| `Views/macOS/SharedViews/SongActionsHelper.swift` | Add `playNext`, `addToBottom` |
+| `Sources/Kaset/Services/Player/PlayerService.swift` | Add `queueDisplayMode`, `isSidePanelPresented` |
+| `Sources/Kaset/Services/Player/PlayerService+Queue.swift` | Add `reorderQueue(from:to:)` overload |
+| `Sources/Kaset/Views/QueueView.swift` | Add toggle button, header improvements |
+| `Sources/Kaset/Views/SharedViews/QueueRowView.swift` | Add draggable, new layout options |
+| `Sources/Kaset/Views/SharedViews/SongActionsHelper.swift` | Add `playNext`, `addToBottom` |
 
 ---
 
