@@ -746,9 +746,97 @@ final class YTMusicClient: YTMusicClientProtocol {
         let topKeys = Array(data.keys)
         self.logger.debug("Artist response top-level keys: \(topKeys)")
 
-        let detail = ArtistParser.parseArtistDetail(data, artistId: id)
+        var detail = ArtistParser.parseArtistDetail(data, artistId: id)
+
+        // Artist page top songs don't include duration — fetch via queue endpoint (best-effort)
+        let songsNeedingDuration = detail.songs.filter { $0.duration == nil }
+        if !songsNeedingDuration.isEmpty {
+            do {
+                let durations = try await self.fetchSongDurations(videoIds: songsNeedingDuration.map(\.videoId))
+                let enrichedSongs = detail.songs.map { song -> Song in
+                    if song.duration == nil, let duration = durations[song.videoId] {
+                        return Song(
+                            id: song.id,
+                            title: song.title,
+                            artists: song.artists,
+                            album: song.album,
+                            duration: duration,
+                            thumbnailURL: song.thumbnailURL,
+                            videoId: song.videoId,
+                            hasVideo: song.hasVideo,
+                            musicVideoType: song.musicVideoType,
+                            likeStatus: song.likeStatus,
+                            isInLibrary: song.isInLibrary,
+                            feedbackTokens: song.feedbackTokens
+                        )
+                    }
+                    return song
+                }
+                detail = ArtistDetail(
+                    artist: detail.artist,
+                    description: detail.description,
+                    songs: enrichedSongs,
+                    albums: detail.albums,
+                    thumbnailURL: detail.thumbnailURL,
+                    channelId: detail.channelId,
+                    isSubscribed: detail.isSubscribed,
+                    subscriberCount: detail.subscriberCount,
+                    hasMoreSongs: detail.hasMoreSongs,
+                    songsBrowseId: detail.songsBrowseId,
+                    songsParams: detail.songsParams,
+                    mixPlaylistId: detail.mixPlaylistId,
+                    mixVideoId: detail.mixVideoId
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                self.logger.debug("Best-effort duration fetch failed: \(error.localizedDescription)")
+            }
+        }
+
         self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs and \(detail.albums.count) albums")
         return detail
+    }
+
+    /// Fetches durations for a batch of video IDs using the queue endpoint.
+    private func fetchSongDurations(videoIds: [String]) async throws -> [String: TimeInterval] {
+        guard !videoIds.isEmpty else { return [:] }
+
+        let body: [String: Any] = [
+            "videoIds": videoIds,
+        ]
+
+        let data = try await request("music/get_queue", body: body, ttl: APICache.TTL.artist)
+
+        var durations: [String: TimeInterval] = [:]
+        if let queueDatas = data["queueDatas"] as? [[String: Any]] {
+            for queueData in queueDatas {
+                guard let content = queueData["content"] as? [String: Any] else { continue }
+                // Handle both direct and wrapped renderer structures
+                let renderer: [String: Any]? = if let direct = content["playlistPanelVideoRenderer"] as? [String: Any] {
+                    direct
+                } else if let wrapper = content["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+                          let primary = wrapper["primaryRenderer"] as? [String: Any],
+                          let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+                {
+                    wrapped
+                } else {
+                    nil
+                }
+                if let renderer,
+                   let videoId = renderer["videoId"] as? String,
+                   let lengthText = renderer["lengthText"] as? [String: Any],
+                   let runs = lengthText["runs"] as? [[String: Any]],
+                   let durationText = runs.first?["text"] as? String,
+                   let duration = ParsingHelpers.parseDuration(durationText)
+                {
+                    durations[videoId] = duration
+                }
+            }
+        }
+
+        self.logger.debug("Fetched durations for \(durations.count)/\(videoIds.count) songs")
+        return durations
     }
 
     /// Fetches all songs for an artist using the songs browse endpoint.

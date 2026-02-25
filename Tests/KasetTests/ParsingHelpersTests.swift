@@ -298,4 +298,37 @@ struct ParsingHelpersTests {
         #expect(artists.first?.name == "Artist Name")
         #expect(artists.first?.id == "UC123")
     }
+
+    // MARK: - Duration from Flex Columns (Artist Page)
+
+    @Test("Extract duration from combined flex column runs (artist top songs)")
+    func extractDurationFromCombinedFlexRuns() {
+        // Artist page top songs have duration as the last run in a combined flex column:
+        // "Artist • Album • 4:55"
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Billie Jean"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": "Michael Jackson", "navigationEndpoint": ["browseEndpoint": ["browseId": "UC123"]]],
+                                ["text": " • "],
+                                ["text": "Thriller", "navigationEndpoint": ["browseEndpoint": ["browseId": "MPRE456"]]],
+                                ["text": " • "],
+                                ["text": "4:55"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
+        #expect(duration == 295.0) // 4 * 60 + 55
+    }
 }
