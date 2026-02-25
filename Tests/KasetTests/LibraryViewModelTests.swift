@@ -18,6 +18,7 @@ struct LibraryViewModelTests {
     func initialState() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.playlists.isEmpty)
+        #expect(self.viewModel.artists.isEmpty)
         #expect(self.viewModel.selectedPlaylistDetail == nil)
     }
 
@@ -94,7 +95,95 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.playlists.count == 2)
     }
 
-    // MARK: - Podcast Library Tests
+    // MARK: - Artist Library Tests
+
+    @Test("Load success sets artists")
+    func loadSuccessSetsArtists() async {
+        self.mockClient.libraryArtists = [
+            TestFixtures.makeArtist(id: "UC1", name: "Artist One"),
+            TestFixtures.makeArtist(id: "UC2", name: "Artist Two"),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.mockClient.getLibraryArtistsCalled == true)
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.artists.count == 2)
+        #expect(self.viewModel.artists[0].name == "Artist One")
+        #expect(self.viewModel.libraryArtistIds.contains("UC1") == true)
+        #expect(self.viewModel.libraryArtistIds.contains("UC2") == true)
+    }
+
+    @Test("addToLibrary inserts artist at beginning and updates ID set")
+    func addToLibraryInsertsArtist() {
+        let artist = TestFixtures.makeArtist(id: "UC100", name: "New Artist")
+
+        self.viewModel.addToLibrary(artist: artist)
+
+        #expect(self.viewModel.libraryArtistIds.contains("UC100") == true)
+        #expect(self.viewModel.artists.first?.id == "UC100")
+        #expect(self.viewModel.artists.first?.name == "New Artist")
+    }
+
+    @Test("addToLibrary does not duplicate existing artist")
+    func addToLibraryNoDuplicateArtist() {
+        let artist = TestFixtures.makeArtist(id: "UC100", name: "New Artist")
+
+        self.viewModel.addToLibrary(artist: artist)
+        self.viewModel.addToLibrary(artist: artist)
+
+        #expect(self.viewModel.artists.count(where: { $0.id == "UC100" }) == 1)
+        #expect(self.viewModel.libraryArtistIds.count == 1)
+    }
+
+    @Test("removeFromLibrary removes artist from both set and array")
+    func removeFromLibraryRemovesArtist() {
+        let artist = TestFixtures.makeArtist(id: "UC100", name: "New Artist")
+        self.viewModel.addToLibrary(artist: artist)
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.libraryArtistIds.count == 1)
+
+        self.viewModel.removeFromLibrary(artistId: "UC100")
+
+        #expect(self.viewModel.artists.isEmpty)
+        #expect(self.viewModel.libraryArtistIds.isEmpty)
+    }
+
+    @Test("removeFromLibrary handles non-existent artist gracefully")
+    func removeFromLibraryNonExistentArtist() {
+        self.viewModel.removeFromLibrary(artistId: "UCnonexistent")
+
+        #expect(self.viewModel.artists.isEmpty)
+        #expect(self.viewModel.libraryArtistIds.isEmpty)
+    }
+
+    @Test("isInLibrary returns true for added artist")
+    func isInLibraryForAddedArtist() {
+        let artist = TestFixtures.makeArtist(id: "UC100", name: "New Artist")
+        self.viewModel.addToLibrary(artist: artist)
+
+        #expect(self.viewModel.isInLibrary(artistId: "UC100") == true)
+    }
+
+    @Test("isInLibrary returns false for non-added artist")
+    func isInLibraryForNonAddedArtist() {
+        #expect(self.viewModel.isInLibrary(artistId: "UC100") == false)
+    }
+
+    @Test("Refresh clears artists and reloads")
+    func refreshClearsArtistsAndReloads() async {
+        self.mockClient.libraryArtists = [TestFixtures.makeArtist(id: "UC1")]
+        await self.viewModel.load()
+        #expect(self.viewModel.artists.count == 1)
+
+        self.mockClient.libraryArtists = [
+            TestFixtures.makeArtist(id: "UC2"),
+            TestFixtures.makeArtist(id: "UC3"),
+        ]
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.artists.count == 2)
+    }
 
     @Test("addToLibrary inserts podcast at beginning and updates ID set")
     func addToLibraryInsertsPodcast() {

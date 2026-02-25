@@ -247,7 +247,12 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         try? await Task.sleep(for: .milliseconds(100))
-        return PlaylistParser.LibraryContent(playlists: self.playlists, podcastShows: [])
+        return PlaylistParser.LibraryContent(playlists: self.playlists, podcastShows: [], artists: [])
+    }
+
+    func getLibraryArtists() async throws -> [Artist] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return []
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {

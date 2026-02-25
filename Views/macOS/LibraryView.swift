@@ -6,6 +6,7 @@ import SwiftUI
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
+    case artists = "Artists"
     case podcasts = "Podcasts"
 
     var id: String {
@@ -16,6 +17,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: "square.grid.2x2"
         case .playlists: "music.note.list"
+        case .artists: "music.microphone"
         case .podcasts: "mic.fill"
         }
     }
@@ -65,6 +67,15 @@ struct LibraryView: View {
                     playlist: playlist,
                     viewModel: PlaylistDetailViewModel(
                         playlist: playlist,
+                        client: self.viewModel.client
+                    )
+                )
+            }
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailView(
+                    artist: artist,
+                    viewModel: ArtistDetailViewModel(
+                        artist: artist,
                         client: self.viewModel.client
                     )
                 )
@@ -139,11 +150,14 @@ struct LibraryView: View {
 
         switch self.selectedFilter {
         case .all:
-            // Interleave playlists and podcasts for variety
+            // Interleave playlists, artists, and podcasts for variety
             items = self.viewModel.playlists.map { .playlist($0) }
+                + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:
             items = self.viewModel.playlists.map { .playlist($0) }
+        case .artists:
+            items = self.viewModel.artists.map { .artist($0) }
         case .podcasts:
             items = self.viewModel.podcastShows.map { .podcast($0) }
         }
@@ -163,6 +177,8 @@ struct LibraryView: View {
                         switch item {
                         case let .playlist(playlist):
                             self.playlistCard(playlist)
+                        case let .artist(artist):
+                            self.artistCard(artist)
                         case let .podcast(show):
                             self.podcastCard(show)
                         }
@@ -197,6 +213,8 @@ struct LibraryView: View {
             "Your library is empty"
         case .playlists:
             "No playlists yet"
+        case .artists:
+            "No artists yet"
         case .podcasts:
             "No podcasts yet"
         }
@@ -205,9 +223,11 @@ struct LibraryView: View {
     private var emptyStateMessage: String {
         switch self.selectedFilter {
         case .all:
-            "Save playlists and subscribe to podcasts on YouTube Music to see them here."
+            "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here."
         case .playlists:
             "Create or save playlists on YouTube Music to see them here."
+        case .artists:
+            "Follow artists on YouTube Music to see them here."
         case .podcasts:
             "Subscribe to podcasts on YouTube Music to see them here."
         }
@@ -248,6 +268,44 @@ struct LibraryView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func artistCard(_ artist: Artist) -> some View {
+        Button {
+            self.navigationPath.append(artist)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                // Thumbnail (circular for artists)
+                CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "music.microphone")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 160, height: 160)
+                .clipShape(.circle)
+
+                // Name
+                Text(artist.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 160, alignment: .leading)
+
+                // Type label
+                Text("Artist")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
         .buttonStyle(.plain)
@@ -300,15 +358,18 @@ struct LibraryView: View {
 
 // MARK: - LibraryItem
 
-/// Represents a library item that can be either a playlist or a podcast show.
+/// Represents a library item that can be a playlist, an artist, or a podcast show.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
+    case artist(Artist)
     case podcast(PodcastShow)
 
     var id: String {
         switch self {
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .artist(artist):
+            "artist-\(artist.id)"
         case let .podcast(show):
             "podcast-\(show.id)"
         }

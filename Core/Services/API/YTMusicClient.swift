@@ -567,6 +567,22 @@ final class YTMusicClient: YTMusicClientProtocol {
         return PlaylistParser.parseLibraryContent(data)
     }
 
+    /// Fetches the user's subscribed artists from the library.
+    /// Uses FEmusic_library_corpus_track_artists which is the artists filter chip
+    /// from FEmusic_library_landing and does not require additional params.
+    func getLibraryArtists() async throws -> [Artist] {
+        self.logger.info("Fetching library artists")
+
+        let body: [String: Any] = [
+            "browseId": "FEmusic_library_corpus_track_artists",
+        ]
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.library)
+        let artists = PlaylistParser.parseLibraryArtists(data)
+        self.logger.info("Parsed \(artists.count) library artists")
+        return artists
+    }
+
     // MARK: - Liked Songs with Pagination
 
     /// Continuation token for liked songs pagination.
