@@ -22,6 +22,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
+    var libraryArtists: [Artist] = []
     var likedSongs: [Song] = []
     var likedSongsContinuationSongs: [[Song]] = []
     var playlistDetails: [String: PlaylistDetail] = [:]
@@ -107,6 +108,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var getSearchSuggestionsCalled = false
     private(set) var getSearchSuggestionsQueries: [String] = []
     private(set) var getLibraryPlaylistsCalled = false
+    private(set) var getLibraryArtistsCalled = false
     private(set) var getLikedSongsCalled = false
     private(set) var getLikedSongsContinuationCalled = false
     private(set) var getLikedSongsContinuationCallCount = 0
@@ -426,7 +428,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.getLibraryPlaylistsCalled = true
         if let error = shouldThrowError { throw error }
-        return PlaylistParser.LibraryContent(playlists: self.libraryPlaylists, podcastShows: [])
+        return PlaylistParser.LibraryContent(playlists: self.libraryPlaylists, podcastShows: [], artists: [])
+    }
+
+    func getLibraryArtists() async throws -> [Artist] {
+        self.getLibraryArtistsCalled = true
+        if let error = shouldThrowError { throw error }
+        return self.libraryArtists
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {

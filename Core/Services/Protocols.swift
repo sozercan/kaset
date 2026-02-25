@@ -146,6 +146,9 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches the user's library content including playlists and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent
 
+    /// Fetches the user's subscribed artists from the library.
+    func getLibraryArtists() async throws -> [Artist]
+
     /// Fetches the user's liked songs with pagination support.
     func getLikedSongs() async throws -> LikedSongsResponse
 

@@ -21,22 +21,24 @@ enum PlaylistParser {
         self.parseLibraryContent(data).playlists
     }
 
-    /// Result type for library content parsing containing both playlists and podcast shows.
+    /// Result type for library content parsing containing playlists, podcast shows, and artists.
     struct LibraryContent {
         let playlists: [Playlist]
         let podcastShows: [PodcastShow]
+        let artists: [Artist]
     }
 
-    /// Parses library content from browse response, returning both playlists and podcast shows.
+    /// Parses library content from browse response, returning playlists, podcast shows, and artists.
     static func parseLibraryContent(_ data: [String: Any]) -> LibraryContent {
         var playlists: [Playlist] = []
         var podcastShows: [PodcastShow] = []
+        var artists: [Artist] = []
 
         // Navigate to contents
         guard let contents = data["contents"] as? [String: Any],
               let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any]
         else {
-            return LibraryContent(playlists: [], podcastShows: [])
+            return LibraryContent(playlists: [], podcastShows: [], artists: [])
         }
 
         guard let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -46,7 +48,7 @@ enum PlaylistParser {
               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
-            return LibraryContent(playlists: [], podcastShows: [])
+            return LibraryContent(playlists: [], podcastShows: [], artists: [])
         }
 
         for sectionData in sectionContents {
@@ -59,7 +61,8 @@ enum PlaylistParser {
                         Self.parseLibraryItem(
                             twoRowRenderer,
                             playlists: &playlists,
-                            podcastShows: &podcastShows
+                            podcastShows: &podcastShows,
+                            artists: &artists
                         )
                     }
                 }
@@ -78,7 +81,8 @@ enum PlaylistParser {
                                 Self.parseLibraryItemFromResponsive(
                                     responsiveRenderer,
                                     playlists: &playlists,
-                                    podcastShows: &podcastShows
+                                    podcastShows: &podcastShows,
+                                    artists: &artists
                                 )
                             }
                         }
@@ -95,21 +99,83 @@ enum PlaylistParser {
                         Self.parseLibraryItemFromResponsive(
                             responsiveRenderer,
                             playlists: &playlists,
-                            podcastShows: &podcastShows
+                            podcastShows: &podcastShows,
+                            artists: &artists
                         )
                     }
                 }
             }
         }
 
-        return LibraryContent(playlists: playlists, podcastShows: podcastShows)
+        return LibraryContent(playlists: playlists, podcastShows: podcastShows, artists: artists)
+    }
+
+    /// Parses subscribed artists from a library artists browse response.
+    /// Used by getLibraryArtists() which browses FEmusic_library_corpus_track_artists.
+    static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
+        var artists: [Artist] = []
+
+        guard let contents = data["contents"] as? [String: Any],
+              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        for sectionData in sectionContents {
+            // Try gridRenderer (common for artist chips view)
+            if let gridRenderer = sectionData["gridRenderer"] as? [String: Any],
+               let items = gridRenderer["items"] as? [[String: Any]]
+            {
+                for itemData in items {
+                    if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any],
+                       let navigationEndpoint = twoRowRenderer["navigationEndpoint"] as? [String: Any],
+                       let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+                       let browseId = browseEndpoint["browseId"] as? String,
+                       browseId.hasPrefix("UC")
+                    {
+                        let title = ParsingHelpers.extractTitle(from: twoRowRenderer) ?? "Unknown"
+                        let thumbnails = ParsingHelpers.extractThumbnails(from: twoRowRenderer)
+                        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+                        artists.append(Artist(id: browseId, name: title, thumbnailURL: thumbnailURL))
+                    }
+                }
+            }
+
+            // Try musicShelfRenderer (responsive list format)
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            {
+                for shelfItem in shelfContents {
+                    if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any],
+                       let navigationEndpoint = responsiveRenderer["navigationEndpoint"] as? [String: Any],
+                       let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+                       let browseId = browseEndpoint["browseId"] as? String,
+                       browseId.hasPrefix("UC")
+                    {
+                        let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
+                        let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
+                        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+                        artists.append(Artist(id: browseId, name: title, thumbnailURL: thumbnailURL))
+                    }
+                }
+            }
+        }
+
+        return artists
     }
 
     /// Parses a library item from twoRowRenderer, adding to the appropriate array.
     private static func parseLibraryItem(
         _ data: [String: Any],
         playlists: inout [Playlist],
-        podcastShows: inout [PodcastShow]
+        podcastShows: inout [PodcastShow],
+        artists: inout [Artist]
     ) {
         guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
@@ -138,6 +204,11 @@ enum PlaylistParser {
             )
             podcastShows.append(show)
             Self.logger.info("parseLibraryItem: Added podcast show: \(title)")
+        } else if browseId.hasPrefix("UC") {
+            // Artist (UC prefix = YouTube channel ID)
+            let artist = Artist(id: browseId, name: title, thumbnailURL: thumbnailURL)
+            artists.append(artist)
+            Self.logger.info("parseLibraryItem: Added artist: \(title)")
         } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") || browseId.hasPrefix("RDCLAK") {
             // Playlist (VL prefix for saved playlists, PL for playlist IDs, RDCLAK for radio playlists)
             let playlist = Playlist(
@@ -157,7 +228,8 @@ enum PlaylistParser {
     private static func parseLibraryItemFromResponsive(
         _ data: [String: Any],
         playlists: inout [Playlist],
-        podcastShows: inout [PodcastShow]
+        podcastShows: inout [PodcastShow],
+        artists: inout [Artist]
     ) {
         guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
@@ -186,6 +258,11 @@ enum PlaylistParser {
             )
             podcastShows.append(show)
             Self.logger.info("parseLibraryItemFromResponsive: Added podcast show: \(title)")
+        } else if browseId.hasPrefix("UC") {
+            // Artist (UC prefix = YouTube channel ID)
+            let artist = Artist(id: browseId, name: title, thumbnailURL: thumbnailURL)
+            artists.append(artist)
+            Self.logger.info("parseLibraryItemFromResponsive: Added artist: \(title)")
         } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
             // Playlist
             let playlist = Playlist(

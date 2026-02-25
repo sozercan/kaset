@@ -15,11 +15,17 @@ final class LibraryViewModel {
     /// User's subscribed podcast shows.
     private(set) var podcastShows: [PodcastShow] = []
 
+    /// User's subscribed artists.
+    private(set) var artists: [Artist] = []
+
     /// Set of playlist IDs that are in the user's library (for quick lookup).
     private(set) var libraryPlaylistIds: Set<String> = []
 
     /// Set of podcast show IDs that are in the user's library (for quick lookup).
     private(set) var libraryPodcastIds: Set<String> = []
+
+    /// Set of artist IDs that are in the user's library (for quick lookup).
+    private(set) var libraryArtistIds: Set<String> = []
 
     /// Selected playlist detail.
     private(set) var selectedPlaylistDetail: PlaylistDetail?
@@ -48,6 +54,11 @@ final class LibraryViewModel {
     /// Checks if a podcast show is in the user's library.
     func isInLibrary(podcastId: String) -> Bool {
         self.libraryPodcastIds.contains(podcastId)
+    }
+
+    /// Checks if an artist is in the user's library.
+    func isInLibrary(artistId: String) -> Bool {
+        self.libraryArtistIds.contains(artistId)
     }
 
     /// Adds a playlist ID to the library set (called after successful add to library).
@@ -93,7 +104,23 @@ final class LibraryViewModel {
         self.libraryPodcastIds.remove(podcastId)
     }
 
-    /// Loads library content (playlists and podcasts).
+    /// Adds an artist to the library (called after successful subscription).
+    /// Updates both the ID set and the artists array for immediate UI update.
+    func addToLibrary(artist: Artist) {
+        self.libraryArtistIds.insert(artist.id)
+        if !self.artists.contains(where: { $0.id == artist.id }) {
+            self.artists.insert(artist, at: 0)
+        }
+    }
+
+    /// Removes an artist from the library (called after successful unsubscribe).
+    /// Updates both the ID set and the artists array for immediate UI update.
+    func removeFromLibrary(artistId: String) {
+        self.libraryArtistIds.remove(artistId)
+        self.artists.removeAll { $0.id == artistId }
+    }
+
+    /// Loads library content (playlists, podcasts, and artists).
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -101,14 +128,19 @@ final class LibraryViewModel {
         self.logger.info("Loading library content")
 
         do {
-            let content = try await client.getLibraryContent()
+            async let contentTask = client.getLibraryContent()
+            async let artistsTask = client.getLibraryArtists()
+
+            let (content, fetchedArtists) = try await (contentTask, artistsTask)
             self.playlists = content.playlists
             self.podcastShows = content.podcastShows
+            self.artists = fetchedArtists
             // Update the sets for quick lookup
             self.libraryPlaylistIds = Set(content.playlists.map(\.id))
             self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
+            self.libraryArtistIds = Set(fetchedArtists.map(\.id))
             self.loadingState = .loaded
-            self.logger.info("Loaded \(content.playlists.count) playlists and \(content.podcastShows.count) podcasts")
+            self.logger.info("Loaded \(content.playlists.count) playlists, \(content.podcastShows.count) podcasts, and \(fetchedArtists.count) artists")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Library load cancelled")
@@ -152,6 +184,7 @@ final class LibraryViewModel {
     func refresh() async {
         self.playlists = []
         self.podcastShows = []
+        self.artists = []
         await self.load()
     }
 }
