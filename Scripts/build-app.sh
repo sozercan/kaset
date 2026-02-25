@@ -111,9 +111,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key>
     <string>${APP_NAME}</string>
     <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
+    <string>kaset</string>
     <key>CFBundleIconName</key>
-    <string>AppIcon</string>
+    <string>kaset</string>
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -195,11 +195,21 @@ fi
 ICON_SOURCE="$ROOT/Sources/Kaset/Resources/kaset.icon"
 if [[ -d "$ICON_SOURCE" ]]; then
   echo "🎨 Copying app icon..."
-  cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
+  cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/kaset.icon"
 fi
-ICNS_PATH="$ROOT/Sources/Kaset/Resources/AppIcon.icns"
+ICNS_PATH="$ROOT/Sources/Kaset/Resources/kaset.icns"
 if [[ -f "$ICNS_PATH" ]]; then
-  cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+  cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/kaset.icns"
+fi
+
+# Compile asset catalog if actool is available
+XCASSETS_PATH="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
+if [[ -d "$XCASSETS_PATH" ]] && command -v actool &>/dev/null; then
+  echo "🎨 Compiling asset catalog..."
+  actool --compile "$APP_BUNDLE/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target 26.0 \
+    "$XCASSETS_PATH" 2>/dev/null || true
 fi
 
 # Embed Sparkle.framework
