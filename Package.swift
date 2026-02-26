@@ -11,10 +11,12 @@ let package = Package(
     products: [
         .executable(
             name: "Kaset",
-            targets: ["Kaset"]),
+            targets: ["Kaset"]
+        ),
         .executable(
             name: "api-explorer",
-            targets: ["APIExplorer"]),
+            targets: ["APIExplorer"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.8.1"),
@@ -32,13 +34,15 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .enableExperimentalFeature("StrictConcurrency"),
-            ]),
+            ]
+        ),
         // API Explorer CLI tool
         .executableTarget(
             name: "APIExplorer",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
-            ]),
+            ]
+        ),
         // Unit tests
         .testTarget(
             name: "KasetTests",
@@ -48,12 +52,15 @@ let package = Package(
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
-            ]),
+            ]
+        ),
         // UI tests (run via xcodebuild, not swift test)
         .testTarget(
             name: "KasetUITests",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
-            ]),
+            ]
+        ),
     ],
-    swiftLanguageModes: [.v6])
+    swiftLanguageModes: [.v6]
+)

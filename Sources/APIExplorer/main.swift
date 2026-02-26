@@ -1,6 +1,6 @@
 #!/usr/bin/env swift
 //
-//  api-explorer.swift
+//  main.swift
 //  Standalone API Explorer for YouTube Music
 //
 //  A unified tool for exploring both public and authenticated YouTube Music API endpoints.
