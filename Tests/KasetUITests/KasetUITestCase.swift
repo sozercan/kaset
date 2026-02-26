@@ -119,6 +119,10 @@ class KasetUITestCase: XCTestCase {
         self.app.launchArguments.append("-UITestMode")
         self.app.launchArguments.append("-SkipAuth")
 
+        // Also set via environment (more reliable with XCUIApplication(url:))
+        self.app.launchEnvironment["UI_TEST_MODE"] = "1"
+        self.app.launchEnvironment["SKIP_AUTH"] = "1"
+
         // Disable animations for faster, more reliable tests
         self.app.launchArguments.append("-UIAnimationsDisabled")
     }
