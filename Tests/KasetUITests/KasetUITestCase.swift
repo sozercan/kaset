@@ -1,4 +1,4 @@
-import XCTest
+@preconcurrency import XCTest
 
 // MARK: - TestAccessibilityID
 
@@ -107,9 +107,13 @@ class KasetUITestCase: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance — use bundle ID so UI tests work with both
-        // xcodeproj (legacy) and SPM builds where the app is pre-installed
-        self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
+        // Create new app instance pointing to installed Kaset.app
+        let appURL = URL(fileURLWithPath: "/Applications/Kaset.app")
+        if FileManager.default.fileExists(atPath: appURL.path) {
+            self.app = XCUIApplication(url: appURL)
+        } else {
+            self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
+        }
 
         // Add UI test mode arguments
         self.app.launchArguments.append("-UITestMode")
