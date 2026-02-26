@@ -58,7 +58,7 @@ jobs:
       - name: Build app bundle for UI tests
         env:
           KASET_SIGNING: adhoc
-        run: Scripts/build-app.sh release
+        run: Scripts/build-app.sh debug
 
       - name: Install app for UI tests
         run: |
