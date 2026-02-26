@@ -61,7 +61,10 @@ jobs:
         run: Scripts/build-app.sh release
 
       - name: Install app for UI tests
-        run: cp -R .build/app/Kaset.app /tmp/Kaset.app
+        run: |
+          sudo cp -R .build/app/Kaset.app /Applications/Kaset.app
+          # Register with Launch Services so XCUIApplication can find it
+          /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/Kaset.app
 
       - name: Run UI tests
         run: |
@@ -74,7 +77,6 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            TEST_HOST="/tmp/Kaset.app/Contents/MacOS/Kaset" \
             test
 
       - name: Upload test results on failure

@@ -107,8 +107,9 @@ class KasetUITestCase: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance
-        self.app = XCUIApplication()
+        // Create new app instance — use bundle ID so UI tests work with both
+        // xcodeproj (legacy) and SPM builds where the app is pre-installed
+        self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
 
         // Add UI test mode arguments
         self.app.launchArguments.append("-UITestMode")
