@@ -60,7 +60,7 @@ struct PodcastParserTests {
         let data: [String: Any] = [:]
         let detail = PodcastParser.parseShowDetail(data, showId: "MPSPP123")
         #expect(detail.show.id == "MPSPP123")
-        #expect(detail.show.title == "")
+        #expect(detail.show.title.isEmpty)
         #expect(detail.episodes.isEmpty)
     }
 
