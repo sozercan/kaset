@@ -12,13 +12,13 @@ DerivedData/
 
 # Xcode (auto-generated from Package.swift)
 *.xcodeproj/
+!KasetUITests.xcodeproj/
 *.xcworkspace/
 *.xcuserdata/
 xcuserdata/
 
 # Swift Package Manager
 /.swiftpm
-!/.swiftpm/xcode/xcshareddata/
 Packages/
 Package.pins
 Package.resolved

@@ -55,19 +55,27 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Build app bundle for UI tests
+        env:
+          KASET_SIGNING: adhoc
+        run: Scripts/build-app.sh release
+
+      - name: Install app for UI tests
+        run: cp -R .build/app/Kaset.app /tmp/Kaset.app
+
       - name: Run UI tests
         run: |
           set -o pipefail
           xcodebuild \
-            -scheme Kaset \
+            -project KasetUITests.xcodeproj \
+            -scheme KasetUITests \
             -destination 'platform=macOS' \
             -derivedDataPath ./build \
-            -only-testing:KasetUITests \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            TEST_HOST="/tmp/Kaset.app/Contents/MacOS/Kaset" \
             test
-        continue-on-error: true
 
       - name: Upload test results on failure
         if: failure()

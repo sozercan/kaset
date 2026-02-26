@@ -54,13 +54,6 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
-        // UI tests (run via xcodebuild, not swift test)
-        .testTarget(
-            name: "KasetUITests",
-            swiftSettings: [
-                .swiftLanguageMode(.v6),
-            ]
-        ),
     ],
     swiftLanguageModes: [.v6]
 )
