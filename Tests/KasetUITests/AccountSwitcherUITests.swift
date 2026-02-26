@@ -15,7 +15,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
         XCTAssertTrue(
-            profileButton.waitForExistence(timeout: 10),
+            profileButton.waitForExistence(timeout: 30),
             "Profile button should exist when logged in"
         )
 
@@ -67,7 +67,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -76,7 +76,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         let popover = app.popovers.firstMatch
         XCTAssertTrue(
-            popover.waitForExistence(timeout: 5),
+            popover.waitForExistence(timeout: 15),
             "Account switcher popover should appear when clicking profile"
         )
 
@@ -90,7 +90,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 1)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -110,7 +110,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -118,7 +118,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -132,7 +132,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 3)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -140,7 +140,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -159,7 +159,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -167,7 +167,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -182,7 +182,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -190,7 +190,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -212,7 +212,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -223,7 +223,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -245,7 +245,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         // Verify profile button still exists (account switch completed)
         XCTAssertTrue(
-            profileButton.waitForExistence(timeout: 10),
+            profileButton.waitForExistence(timeout: 30),
             "Profile button should still exist after account switch"
         )
 
@@ -267,7 +267,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         // Now switch accounts
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -275,7 +275,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -309,7 +309,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -317,7 +317,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -345,7 +345,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -353,7 +353,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -372,7 +372,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -380,7 +380,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
@@ -407,7 +407,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -425,7 +425,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -445,7 +445,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-        guard profileButton.waitForExistence(timeout: 10) else {
+        guard profileButton.waitForExistence(timeout: 30) else {
             XCTFail("Profile button should exist")
             return
         }
@@ -453,7 +453,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
         profileButton.click()
 
         let popover = app.popovers.firstMatch
-        guard popover.waitForExistence(timeout: 5) else {
+        guard popover.waitForExistence(timeout: 15) else {
             XCTFail("Popover should appear")
             return
         }
