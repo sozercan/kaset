@@ -6,10 +6,23 @@ import XCTest
 /// > ⚠️ **Ask permission before running UI tests** — UI tests launch the app and can be disruptive.
 @MainActor
 final class AccountSwitcherUITests: KasetUITestCase {
+    // MARK: - Helper
+
+    /// Some profile-dependent tests require the app to be built as part of the
+    /// same Xcode project (not via XCUIApplication(url:)) for the sidebar profile
+    /// to render mock account data reliably.
+    private func skipIfSPMBuild() throws {
+        try XCTSkipIf(
+            FileManager.default.fileExists(atPath: "/Applications/Kaset.app"),
+            "Skipped: profile sidebar tests require xcodeproj-built app target"
+        )
+    }
+
     // MARK: - Profile Display Tests
 
     /// Verifies the profile section appears at bottom of sidebar when logged in.
-    func testProfileSectionDisplaysWhenLoggedIn() {
+    func testProfileSectionDisplaysWhenLoggedIn() throws {
+        try self.skipIfSPMBuild()
         // Launch with mock accounts to simulate logged-in state
         self.launchWithMockAccounts()
 
@@ -63,7 +76,8 @@ final class AccountSwitcherUITests: KasetUITestCase {
     // MARK: - Popover Tests
 
     /// Verifies tapping profile opens account switcher popover when multiple accounts exist.
-    func testTappingProfileOpensPopoverWhenMultipleAccounts() {
+    func testTappingProfileOpensPopoverWhenMultipleAccounts() throws {
+        try self.skipIfSPMBuild()
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -128,7 +142,8 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies popover shows list of all available accounts.
-    func testPopoverShowsAccountList() {
+    func testPopoverShowsAccountList() throws {
+        try self.skipIfSPMBuild()
         self.launchWithMockAccounts(accountCount: 3)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -155,7 +170,8 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies selected account has checkmark indicator.
-    func testSelectedAccountHasCheckmark() {
+    func testSelectedAccountHasCheckmark() throws {
+        try self.skipIfSPMBuild()
         self.launchWithMockAccounts(accountCount: 2)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -178,7 +194,8 @@ final class AccountSwitcherUITests: KasetUITestCase {
     }
 
     /// Verifies account rows display account type badges (Personal/Brand).
-    func testAccountRowsShowTypeBadges() {
+    func testAccountRowsShowTypeBadges() throws {
+        try self.skipIfSPMBuild()
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
