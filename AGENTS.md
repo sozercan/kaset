@@ -18,7 +18,7 @@ Kaset is a native macOS YouTube Music client (Swift/SwiftUI) using a hidden WebV
 
 > ⚠️ **Prefer API over WebView** — Always use `YTMusicClient` API calls when functionality exists. Only use WebView for playback (DRM-protected audio) and authentication.
 
-> 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Tools/api-explorer.swift`** instead of writing temporary scripts.
+> 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Sources/APIExplorer/main.swift`** instead of writing temporary scripts.
 
 > 📝 **Document Architectural Decisions** — For significant design changes, create an ADR in `docs/adr/`.
 
@@ -26,10 +26,10 @@ Kaset is a native macOS YouTube Music client (Swift/SwiftUI) using a hidden WebV
 
 ```bash
 # Build
-xcodebuild -scheme Kaset -destination 'platform=macOS' build
+swift build
 
 # Unit Tests (never combine with UI tests)
-xcodebuild -scheme Kaset -destination 'platform=macOS' test -only-testing:KasetTests
+swift test --skip KasetUITests
 
 # Lint & Format
 swiftlint --strict && swiftformat .
@@ -43,12 +43,12 @@ swiftlint --strict && swiftformat .
 
 ## API Discovery
 
-> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using `./Tools/api-explorer.swift`. Do NOT guess or assume API response structures.
+> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using `swift run api-explorer`. Do NOT guess or assume API response structures.
 
 ```bash
-./Tools/api-explorer.swift auth          # Check auth status
-./Tools/api-explorer.swift list          # List known endpoints
-./Tools/api-explorer.swift browse FEmusic_home -v  # Explore with verbose output
+swift run api-explorer auth          # Check auth status
+swift run api-explorer list          # List known endpoints
+swift run api-explorer browse FEmusic_home -v  # Explore with verbose output
 ```
 
 ## Coding Rules
@@ -70,4 +70,4 @@ These are project-specific rules that differ from standard Swift/SwiftUI convent
 
 ## Task Planning
 
-For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Run `xcodebuild build` continuously during implementation. If things go wrong, revert and re-scope rather than patching.
+For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Run `swift build` continuously during implementation. If things go wrong, revert and re-scope rather than patching.

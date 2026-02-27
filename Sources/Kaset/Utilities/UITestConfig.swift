@@ -51,6 +51,7 @@ enum UITestConfig {
     /// Returns true if the app was launched in UI test mode.
     static var isUITestMode: Bool {
         CommandLine.arguments.contains(uiTestModeArgument)
+            || ProcessInfo.processInfo.environment["UI_TEST_MODE"] == "1"
     }
 
     /// Returns true if running inside XCTest (unit tests).
@@ -62,6 +63,7 @@ enum UITestConfig {
     /// Returns true if auth should be skipped (simulate logged in).
     static var shouldSkipAuth: Bool {
         CommandLine.arguments.contains(skipAuthArgument)
+            || ProcessInfo.processInfo.environment["SKIP_AUTH"] == "1"
     }
 
     /// Returns environment value for given key.

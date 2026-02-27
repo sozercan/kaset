@@ -232,7 +232,7 @@ struct ArtistDetailView: View {
                             .font(.subheadline)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
                 }
             }
 

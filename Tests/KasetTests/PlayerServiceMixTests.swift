@@ -230,11 +230,11 @@ struct PlayerServiceMixTests {
         // [video-0, video-1*, video-2, video-3] - current is video-1 at index 1
         self.playerService.reorderQueue(from: IndexSet(integer: 0), to: 3)
 
-        // video-0 moves to index 3: [video-1, video-2, video-3, video-0]
+        // move(fromOffsets:toOffset:) inserts before toOffset: [video-1, video-2, video-0, video-3]
         #expect(self.playerService.queue[0].videoId == "video-1")
         #expect(self.playerService.queue[1].videoId == "video-2")
-        #expect(self.playerService.queue[2].videoId == "video-3")
-        #expect(self.playerService.queue[3].videoId == "video-0")
+        #expect(self.playerService.queue[2].videoId == "video-0")
+        #expect(self.playerService.queue[3].videoId == "video-3")
         #expect(self.playerService.currentIndex == 0)
     }
 

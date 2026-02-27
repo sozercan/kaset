@@ -10,12 +10,12 @@ DerivedData/
 *.dSYM
 *.profraw
 
-# Xcode user data
+# Xcode (auto-generated from Package.swift)
+*.xcodeproj/
+!KasetUITests.xcodeproj/
+*.xcworkspace/
 *.xcuserdata/
 xcuserdata/
-
-# Xcode schemes
-!*.xcscheme
 
 # Swift Package Manager
 /.swiftpm
@@ -58,3 +58,4 @@ Thumbs.db
 *.pem
 
 TEMP_*
+build/

@@ -28,13 +28,13 @@ This follows the existing pattern used for play/pause, volume, seek, and other p
 
 ### Files to Modify
 
-1. **`Views/macOS/SingletonPlayerWebView+PlaybackControls.swift`** - Add `showAirPlayPicker()` method
-2. **`Views/macOS/PlayerBar.swift`** - Replace `AVRoutePickerView` with custom button
-3. **`Core/Services/Player/PlayerService.swift`** - Add `showAirPlayPicker()` method to call through to SingletonPlayerWebView
+1. **`Sources/Kaset/Views/SingletonPlayerWebView+PlaybackControls.swift`** - Add `showAirPlayPicker()` method
+2. **`Sources/Kaset/Views/PlayerBar.swift`** - Replace `AVRoutePickerView` with custom button
+3. **`Sources/Kaset/Services/Player/PlayerService.swift`** - Add `showAirPlayPicker()` method to call through to SingletonPlayerWebView
 
 ### Step 1: Add JavaScript injection method
 
-**File:** `Views/macOS/SingletonPlayerWebView+PlaybackControls.swift`
+**File:** `Sources/Kaset/Views/SingletonPlayerWebView+PlaybackControls.swift`
 
 ```swift
 /// Show the native AirPlay picker for the WebView's video element.
@@ -63,7 +63,7 @@ func showAirPlayPicker() {
 
 ### Step 2: Add PlayerService method
 
-**File:** `Core/Services/Player/PlayerService.swift`
+**File:** `Sources/Kaset/Services/Player/PlayerService.swift`
 
 ```swift
 /// Show the AirPlay picker for selecting audio output devices.
@@ -76,7 +76,7 @@ Note: No `Task` wrapper needed since `PlayerService` is already `@MainActor`.
 
 ### Step 3: Replace AirPlayButton in PlayerBar
 
-**File:** `Views/macOS/PlayerBar.swift`
+**File:** `Sources/Kaset/Views/PlayerBar.swift`
 
 Replace the `AVRoutePickerView`-based `AirPlayButton` with:
 
@@ -102,7 +102,7 @@ Notes:
 
 ### Step 4: Add accessibility identifier constant
 
-**File:** Wherever `AccessibilityID.PlayerBar` is defined (likely `Core/Constants/AccessibilityID.swift` or similar)
+**File:** Wherever `AccessibilityID.PlayerBar` is defined (likely `Sources/Kaset/Constants/AccessibilityID.swift` or similar)
 
 ```swift
 static let airplayButton = "playerBar.airplayButton"

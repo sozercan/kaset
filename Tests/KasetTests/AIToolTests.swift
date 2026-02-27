@@ -5,7 +5,6 @@ import Testing
 // MARK: - MusicSearchToolTests
 
 /// Tests for MusicSearchTool output formatting and behavior.
-@available(macOS 26.0, *)
 @Suite("MusicSearchTool", .tags(.api), .serialized)
 @MainActor
 struct MusicSearchToolTests {
@@ -119,7 +118,7 @@ struct MusicSearchToolTests {
     @Test("Search propagates errors")
     func searchPropagatesErrors() async throws {
         self.mockClient.shouldThrowError = YTMusicError.networkError(
-            message: "Connection failed"
+            underlying: URLError(.notConnectedToInternet)
         )
 
         let args = MusicSearchTool.Arguments(query: "test", filter: "songs")
@@ -136,7 +135,6 @@ struct MusicSearchToolTests {
 // MARK: - QueueToolTests
 
 /// Tests for QueueTool output formatting and behavior.
-@available(macOS 26.0, *)
 @Suite("QueueTool Unit", .tags(.api))
 struct QueueToolTests {
     @Test("Tool has correct name and description")

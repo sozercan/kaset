@@ -30,6 +30,8 @@ final class NotificationService {
     // MARK: - Authorization
 
     private func requestAuthorization() {
+        // UNUserNotificationCenter crashes without an app bundle (e.g., swift test)
+        guard Bundle.main.bundleIdentifier != nil else { return }
         Task {
             do {
                 let granted = try await UNUserNotificationCenter.current()
@@ -70,6 +72,8 @@ final class NotificationService {
     // MARK: - Notification
 
     private func postTrackNotification(_ track: Song) async {
+        // UNUserNotificationCenter crashes without an app bundle (e.g., swift test)
+        guard Bundle.main.bundleIdentifier != nil else { return }
         // Check if notifications are enabled in settings
         guard self.settingsManager.showNowPlayingNotifications else {
             self.logger.debug("Notifications disabled in settings, skipping: \(track.title)")

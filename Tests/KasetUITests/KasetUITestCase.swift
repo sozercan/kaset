@@ -1,4 +1,4 @@
-import XCTest
+@preconcurrency import XCTest
 
 // MARK: - TestAccessibilityID
 
@@ -107,12 +107,21 @@ class KasetUITestCase: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance
-        self.app = XCUIApplication()
+        // Create new app instance pointing to installed Kaset.app
+        let appURL = URL(fileURLWithPath: "/Applications/Kaset.app")
+        if FileManager.default.fileExists(atPath: appURL.path) {
+            self.app = XCUIApplication(url: appURL)
+        } else {
+            self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
+        }
 
         // Add UI test mode arguments
         self.app.launchArguments.append("-UITestMode")
         self.app.launchArguments.append("-SkipAuth")
+
+        // Also set via environment (more reliable with XCUIApplication(url:))
+        self.app.launchEnvironment["UI_TEST_MODE"] = "1"
+        self.app.launchEnvironment["SKIP_AUTH"] = "1"
 
         // Disable animations for faster, more reliable tests
         self.app.launchArguments.append("-UIAnimationsDisabled")

@@ -12,10 +12,10 @@ Video Mode allows users to watch music videos in a floating window while using o
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `VideoWindowController` | `App/VideoWindowController.swift` | Manages the floating video window lifecycle |
-| `VideoPlayerWindow` | `Views/macOS/VideoPlayerWindow.swift` | SwiftUI view for video display |
-| `VideoContainerView` | `Views/macOS/VideoPlayerWindow.swift` | NSView container that hosts the WebView |
-| `SingletonPlayerWebView+VideoMode` | `Views/macOS/SingletonPlayerWebView+VideoMode.swift` | CSS injection for video extraction |
+| `VideoWindowController` | `Sources/Kaset/VideoWindowController.swift` | Manages the floating video window lifecycle |
+| `VideoPlayerWindow` | `Sources/Kaset/Views/VideoPlayerWindow.swift` | SwiftUI view for video display |
+| `VideoContainerView` | `Sources/Kaset/Views/VideoPlayerWindow.swift` | NSView container that hosts the WebView |
+| `SingletonPlayerWebView+VideoMode` | `Sources/Kaset/Views/SingletonPlayerWebView+VideoMode.swift` | CSS injection for video extraction |
 
 ### Display Modes
 
@@ -189,9 +189,9 @@ The `MusicVideoType` enum classifies content:
 Only Official Music Videos (OMV) have actual video content. ATV tracks show a static album art "video."
 
 **Files**:
-- [Core/Models/MusicVideoType.swift](../Core/Models/MusicVideoType.swift) — Enum definition with `hasVideoContent` property
-- [Core/Services/API/Parsers/SongMetadataParser.swift](../Core/Services/API/Parsers/SongMetadataParser.swift) — `parseMusicVideoType(from:)` method
-- [Core/Services/Player/PlayerService+Library.swift](../Core/Services/Player/PlayerService+Library.swift) — Calls `updateVideoAvailability(hasVideo:)` after parsing
+- [Sources/Kaset/Models/MusicVideoType.swift](../Sources/Kaset/Models/MusicVideoType.swift) — Enum definition with `hasVideoContent` property
+- [Sources/Kaset/Services/API/Parsers/SongMetadataParser.swift](../Sources/Kaset/Services/API/Parsers/SongMetadataParser.swift) — `parseMusicVideoType(from:)` method
+- [Sources/Kaset/Services/Player/PlayerService+Library.swift](../Sources/Kaset/Services/Player/PlayerService+Library.swift) — Calls `updateVideoAvailability(hasVideo:)` after parsing
 
 ### 2. DOM-Based Detection (Fast Fallback)
 
@@ -208,7 +208,7 @@ This is a **fallback** mechanism because:
 - API detection requires a network round-trip to the `next` endpoint
 - DOM detection can be unreliable when video mode CSS is injected
 
-**File**: [Views/macOS/SingletonPlayerWebView+ObserverScript.swift](../Views/macOS/SingletonPlayerWebView+ObserverScript.swift)
+**File**: [Sources/Kaset/Views/SingletonPlayerWebView+ObserverScript.swift](../Sources/Kaset/Views/SingletonPlayerWebView+ObserverScript.swift)
 
 ### Detection Flow
 

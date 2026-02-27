@@ -9,16 +9,18 @@ on:
     branches: [main]
     paths:
       - "**.swift"
-      - "**.xcodeproj/**"
-      - "**.xcworkspace/**"
-      - "Assets.xcassets/**"
+      - "Package.swift"
+      - "Sources/**"
+      - "Tests/**"
+      - "Scripts/**"
       - ".github/workflows/dev-build.yml"
   pull_request:
     paths:
       - "**.swift"
-      - "**.xcodeproj/**"
-      - "**.xcworkspace/**"
-      - "Assets.xcassets/**"
+      - "Package.swift"
+      - "Sources/**"
+      - "Tests/**"
+      - "Scripts/**"
       - ".github/workflows/dev-build.yml"
   workflow_dispatch:
 
@@ -34,45 +36,29 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Swift version
+        run: swift --version
 
       - name: Get short SHA
         id: slug
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build app
+        env:
+          KASET_SIGNING: adhoc
+          ARCHES: "arm64 x86_64"
         run: |
-          xcodebuild -project Kaset.xcodeproj \
-            -scheme Kaset \
-            -configuration Release \
-            -derivedDataPath ./build \
-            -destination 'platform=macOS' \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ARCHS="arm64 x86_64" \
-            ONLY_ACTIVE_ARCH=NO \
-            MARKETING_VERSION="0.0.0-dev.${{ steps.slug.outputs.sha_short }}" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+          # Override version for dev builds
+          echo "MARKETING_VERSION=0.0.0-dev.${{ steps.slug.outputs.sha_short }}" > version.env
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
+          Scripts/build-app.sh release
 
       - name: Create DMG
         run: |
-          APP_NAME="Kaset.app"
-          BUILD_DIR="./build/Build/Products/Release"
+          APP_PATH=".build/app/Kaset.app"
 
-          # debug: show what's in the build folder
-          echo "Contents of $BUILD_DIR:"
-          ls -la "$BUILD_DIR" || true
-
-          # clean previous artifacts
-          rm -rf dmg_contents kaset-dev.dmg
-
-          # find the main app explicitly by name
-          APP_PATH=$(find "$BUILD_DIR" -type d -name "$APP_NAME" | head -n 1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find $APP_NAME in $BUILD_DIR"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: Could not find Kaset.app"
             exit 1
           fi
 

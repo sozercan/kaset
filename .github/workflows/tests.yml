@@ -9,15 +9,17 @@ on:
     branches: [main]
     paths:
       - "**.swift"
-      - "**.xcodeproj/**"
-      - "**.xcworkspace/**"
+      - "Package.swift"
+      - "Sources/**"
+      - "Tests/**"
       - ".github/workflows/tests.yml"
   pull_request:
     branches: [main]
     paths:
       - "**.swift"
-      - "**.xcodeproj/**"
-      - "**.xcworkspace/**"
+      - "Package.swift"
+      - "Sources/**"
+      - "Tests/**"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
@@ -33,30 +35,11 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Swift version
+        run: swift --version
 
       - name: Run unit tests
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -project Kaset.xcodeproj \
-            -scheme Kaset \
-            -destination 'platform=macOS' \
-            -derivedDataPath ./build \
-            -only-testing:KasetTests \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            test
-
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
-        with:
-          name: macOS-TestResults
-          path: ./build/*.xcresult
-          retention-days: 7
+        run: swift test -q --skip KasetUITests
 
   macos_ui_tests:
     name: macOS UI Tests
@@ -72,16 +55,26 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Build app bundle for UI tests
+        env:
+          KASET_SIGNING: adhoc
+        run: Scripts/build-app.sh debug
+
+      - name: Install app for UI tests
+        run: |
+          sudo cp -R .build/app/Kaset.app /Applications/Kaset.app
+          # Register with Launch Services so XCUIApplication can find it
+          /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/Kaset.app
+
       - name: Run UI tests
         run: |
           set -o pipefail
           xcodebuild \
-            -project Kaset.xcodeproj \
-            -scheme Kaset \
+            -project KasetUITests.xcodeproj \
+            -scheme KasetUITests \
             -destination 'platform=macOS' \
             -derivedDataPath ./build \
-            -only-testing:KasetUITests \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             test
