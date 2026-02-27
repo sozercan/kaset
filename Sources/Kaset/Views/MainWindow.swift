@@ -10,6 +10,7 @@ struct MainWindow: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(\.showCommandBar) private var showCommandBar
+    @Environment(\.showWhatsNew) private var showWhatsNew
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -19,6 +20,7 @@ struct MainWindow: View {
 
     @State private var showLoginSheet = false
     @State private var showCommandBarSheet = false
+    @State private var whatsNewToPresent: WhatsNew?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -106,6 +108,12 @@ struct MainWindow: View {
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
+        .sheet(item: self.$whatsNewToPresent) { whatsNew in
+            WhatsNewView(whatsNew: whatsNew) {
+                WhatsNewVersionStore().markPresented(whatsNew.version)
+                self.whatsNewToPresent = nil
+            }
+        }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
             if self.showCommandBarSheet {
@@ -133,6 +141,19 @@ struct MainWindow: View {
             if newValue {
                 self.showCommandBarSheet = true
                 self.showCommandBar.wrappedValue = false
+            }
+        }
+        .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
+            if newValue {
+                // Manual trigger from Help menu — fetch release notes, bypass version store
+                Task {
+                    let version = WhatsNew.Version.current()
+                    // Try fetching dynamic release notes first, then fall back to static
+                    let whatsNew = await WhatsNewProvider.fetchWhatsNew(for: version, store: WhatsNewVersionStore(defaults: .init()))
+                        ?? WhatsNewProvider.fallbackCollection.first
+                    self.whatsNewToPresent = whatsNew
+                }
+                self.showWhatsNew.wrappedValue = false
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in
@@ -311,6 +332,12 @@ struct MainWindow: View {
             self.showLoginSheet = true
         case .loggedIn:
             self.showLoginSheet = false
+            // Auto-present "What's New" — fetch from GitHub release notes
+            if self.whatsNewToPresent == nil {
+                Task {
+                    self.whatsNewToPresent = await WhatsNewProvider.fetchWhatsNew()
+                }
+            }
             Task {
                 await self.accountService.fetchAccounts()
             }
