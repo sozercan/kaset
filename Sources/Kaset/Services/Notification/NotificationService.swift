@@ -7,11 +7,8 @@ final class NotificationService {
     private let playerService: PlayerService
     private let settingsManager: SettingsManager
     private let logger = DiagnosticsLogger.notification
-    // swiftformat:disable modifierOrder
     /// Task for observing player changes, cancelled in deinit.
-    /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
-    nonisolated(unsafe) private var observationTask: Task<Void, Never>?
-    // swiftformat:enable modifierOrder
+    nonisolated private var observationTask: Task<Void, Never>?
     /// Tracks the last notified track to prevent duplicate notifications.
     /// Internal for testing.
     private(set) var lastNotifiedTrackId: String?

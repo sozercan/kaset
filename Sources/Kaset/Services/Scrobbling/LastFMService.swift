@@ -23,10 +23,8 @@ final class LastFMService: ScrobbleServiceProtocol {
     /// Session key for authenticated Last.fm API calls.
     private var sessionKey: String?
 
-    // swiftformat:disable modifierOrder
     /// Task for polling auth session, cancelled on deinit or disconnect.
-    nonisolated(unsafe) private var authPollingTask: Task<Void, Never>?
-    // swiftformat:enable modifierOrder
+    nonisolated private var authPollingTask: Task<Void, Never>?
 
     /// Creates a LastFMService with the given credential store and worker URL.
     /// - Parameters:

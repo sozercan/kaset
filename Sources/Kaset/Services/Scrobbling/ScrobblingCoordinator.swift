@@ -50,16 +50,14 @@ final class ScrobblingCoordinator {
     /// Whether "now playing" has been sent for this track.
     private var hasSentNowPlaying = false
 
-    // swiftformat:disable modifierOrder
     /// Polling task, cancelled in deinit.
-    nonisolated(unsafe) private var pollingTask: Task<Void, Never>?
+    nonisolated private var pollingTask: Task<Void, Never>?
 
     /// Queue flush task, cancelled in deinit.
-    nonisolated(unsafe) private var flushTask: Task<Void, Never>?
+    nonisolated private var flushTask: Task<Void, Never>?
 
     /// Now-playing tasks, cancelled in stopMonitoring/deinit.
-    nonisolated(unsafe) private var nowPlayingTasks: [Task<Void, Never>] = []
-    // swiftformat:enable modifierOrder
+    nonisolated private var nowPlayingTasks: [Task<Void, Never>] = []
 
     /// Whether the coordinator is actively monitoring.
     private(set) var isMonitoring = false
