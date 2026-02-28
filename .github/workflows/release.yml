@@ -38,22 +38,14 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -project Kaset.xcodeproj \
-            -scheme Kaset \
-            -destination 'platform=macOS' \
-            -derivedDataPath ./build \
-            -only-testing:KasetTests \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            test
+        run: swift test -q --skip KasetUITests
 
       - name: Determine version from tag
         id: version
@@ -69,46 +61,30 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Using version: $VERSION"
 
-      - name: Build release configuration
+      - name: Build release app
+        env:
+          KASET_SIGNING: adhoc
+          ARCHES: "arm64 x86_64"
         run: |
-          xcodebuild -project Kaset.xcodeproj \
-            -scheme Kaset \
-            -configuration Release \
-            -destination 'platform=macOS' \
-            -derivedDataPath ./build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ARCHS="arm64 x86_64" \
-            ONLY_ACTIVE_ARCH=NO \
-            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            build
+          # Set version from tag
+          echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
+          Scripts/build-app.sh release
 
       - name: Install create-dmg
         run: brew install create-dmg
 
       - name: Create DMG
         run: |
-          APP_NAME="Kaset.app"
-          BUILD_DIR="./build/Build/Products/Release"
+          APP_PATH=".build/app/Kaset.app"
 
-          # debug: show what's in the build folder
-          echo "Contents of $BUILD_DIR:"
-          ls -la "$BUILD_DIR" || true
-
-          # clean previous artifact
-          rm -f kaset.dmg || true
-
-          # find the main app explicitly by name to avoid Sparkle Updater.app
-          APP_PATH=$(find "$BUILD_DIR" -type d -name "$APP_NAME" | head -n 1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find $APP_NAME in $BUILD_DIR"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: Could not find Kaset.app"
             exit 1
           fi
 
           echo "Found app at: $APP_PATH"
+          rm -f kaset.dmg || true
 
           # Verify app version matches expected version
           PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
@@ -192,7 +168,7 @@ jobs:
           fi
 
           # Find Sparkle's sign_update binary
-          SIGN_UPDATE=$(find ./build -name "sign_update" -type f 2>/dev/null | head -1)
+          SIGN_UPDATE=$(find ./.build -name "sign_update" -type f 2>/dev/null | head -1)
           if [ -z "$SIGN_UPDATE" ]; then
             echo "Warning: sign_update not found, skipping Sparkle signing"
             echo "signature=" >> "$GITHUB_OUTPUT"

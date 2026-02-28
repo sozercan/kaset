@@ -5,14 +5,14 @@ import XCTest
 final class AppLaunchUITests: KasetUITestCase {
     // MARK: - App Launch
 
-    func testAppLaunchesSuccessfully() throws {
+    func testAppLaunchesSuccessfully() {
         launchDefault()
 
         // App should launch and show main window
         XCTAssertGreaterThan(app.windows.count, 0, "App should have at least one window")
     }
 
-    func testAppShowsMainWindowAfterLaunch() throws {
+    func testAppShowsMainWindowAfterLaunch() {
         launchDefault()
 
         // Wait for main window content
@@ -27,7 +27,7 @@ final class AppLaunchUITests: KasetUITestCase {
         XCTAssertTrue(sidebarExists || homeExists, "Sidebar should be visible")
     }
 
-    func testAppDefaultsToHomeView() throws {
+    func testAppDefaultsToHomeView() {
         launchDefault()
 
         // Home is the default selected view
@@ -37,7 +37,7 @@ final class AppLaunchUITests: KasetUITestCase {
 
     // MARK: - Window Properties
 
-    func testWindowHasMinimumSize() throws {
+    func testWindowHasMinimumSize() {
         launchDefault()
 
         guard let window = app.windows.firstMatch.frame as CGRect? else {
@@ -52,7 +52,7 @@ final class AppLaunchUITests: KasetUITestCase {
 
     // MARK: - UI Test Mode Verification
 
-    func testAppRunsInUITestMode() throws {
+    func testAppRunsInUITestMode() {
         // This test verifies the app responds to UI test launch arguments
         app.launchArguments.append("-UITestMode")
         app.launchArguments.append("-SkipAuth")
@@ -65,7 +65,7 @@ final class AppLaunchUITests: KasetUITestCase {
 
     // MARK: - Mock Data Loading
 
-    func testAppAcceptsMockEnvironmentVariables() throws {
+    func testAppAcceptsMockEnvironmentVariables() {
         // Configure mock home data
         app.launchArguments.append("-UITestMode")
         app.launchArguments.append("-SkipAuth")
@@ -89,7 +89,7 @@ final class AppLaunchUITests: KasetUITestCase {
 
     // MARK: - Keyboard Shortcuts
 
-    func testKeyboardShortcutNavigation() throws {
+    func testKeyboardShortcutNavigation() {
         launchDefault()
 
         // Wait for app to be ready

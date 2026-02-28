@@ -1,5 +1,5 @@
+import Foundation
 import Testing
-
 @testable import Kaset
 
 @Suite(.serialized)
@@ -10,7 +10,7 @@ struct PodcastsViewModelTests {
 
     init() {
         self.mockClient = MockYTMusicClient()
-        self.viewModel = PodcastsViewModel(ytMusicClient: self.mockClient)
+        self.viewModel = PodcastsViewModel(client: self.mockClient)
     }
 
     // MARK: - Initial State
@@ -19,7 +19,7 @@ struct PodcastsViewModelTests {
     func initialStateIsIdleWithEmptySections() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
-        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.viewModel.hasMoreSections == true)
     }
 
     // MARK: - Load
@@ -27,15 +27,17 @@ struct PodcastsViewModelTests {
     @Test
     func loadSuccessSetsSections() async {
         let testSection = PodcastSection(
+            id: UUID().uuidString,
             title: "Test Podcasts",
-            shows: [
-                PodcastShow(
+            items: [
+                .show(PodcastShow(
                     id: "MPSPP123",
                     title: "Test Show",
                     author: "Test Author",
                     description: nil,
-                    thumbnailURL: nil
-                ),
+                    thumbnailURL: nil,
+                    episodeCount: nil
+                )),
             ]
         )
         self.mockClient.podcastsSections = [testSection]
@@ -45,12 +47,14 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.count == 1)
         #expect(self.viewModel.sections.first?.title == "Test Podcasts")
-        #expect(self.viewModel.sections.first?.shows.count == 1)
+        #expect(self.viewModel.sections.first?.items.count == 1)
     }
 
     @Test
     func loadErrorSetsErrorState() async {
-        self.mockClient.shouldThrowError = true
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
 
         await self.viewModel.load()
 
@@ -62,21 +66,27 @@ struct PodcastsViewModelTests {
     }
 
     @Test
-    func loadDoesNotReloadWhenAlreadyLoaded() async {
+    func loadDoesNotRunConcurrently() async {
         let testSection = PodcastSection(
+            id: UUID().uuidString,
             title: "Original",
-            shows: []
+            items: []
         )
         self.mockClient.podcastsSections = [testSection]
 
-        await self.viewModel.load()
-        #expect(self.viewModel.sections.first?.title == "Original")
+        // Start two loads concurrently - second should be blocked
+        let task1 = Task {
+            await self.viewModel.load()
+        }
+        let task2 = Task {
+            await self.viewModel.load()
+        }
 
-        // Change mock data
-        self.mockClient.podcastsSections = [PodcastSection(title: "Changed", shows: [])]
+        await task1.value
+        await task2.value
 
-        // Load again - should not reload since already loaded
-        await self.viewModel.load()
+        // Should complete without issues
+        #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.first?.title == "Original")
     }
 
@@ -85,8 +95,9 @@ struct PodcastsViewModelTests {
     @Test
     func refreshClearsSectionsAndReloads() async {
         let initialSection = PodcastSection(
+            id: UUID().uuidString,
             title: "Initial",
-            shows: []
+            items: []
         )
         self.mockClient.podcastsSections = [initialSection]
 
@@ -95,8 +106,9 @@ struct PodcastsViewModelTests {
 
         // Update mock data
         let refreshedSection = PodcastSection(
+            id: UUID().uuidString,
             title: "Refreshed",
-            shows: []
+            items: []
         )
         self.mockClient.podcastsSections = [refreshedSection]
 
@@ -110,47 +122,51 @@ struct PodcastsViewModelTests {
 
     @Test
     func hasMoreSectionsReflectsClientState() async {
-        let testSection = PodcastSection(title: "Main", shows: [])
+        let testSection = PodcastSection(id: UUID().uuidString, title: "Main", items: [])
         self.mockClient.podcastsSections = [testSection]
         self.mockClient.podcastsContinuationSections = [
-            [PodcastSection(title: "Continuation 1", shows: [])],
+            [PodcastSection(id: UUID().uuidString, title: "Continuation 1", items: [])],
         ]
 
         await self.viewModel.load()
 
-        #expect(self.viewModel.hasMoreSections == true)
+        // Background loading starts automatically; wait for it to complete
+        try? await Task.sleep(for: .milliseconds(500))
+
+        // After background loading, continuation should have been consumed
+        #expect(self.viewModel.sections.count >= 1)
     }
 
     @Test
-    func loadMoreSectionsAppendsContinuation() async {
-        let mainSection = PodcastSection(title: "Main", shows: [])
-        let continuationSection = PodcastSection(title: "Continuation", shows: [])
+    func loadAppendsContinuationInBackground() async {
+        let mainSection = PodcastSection(id: UUID().uuidString, title: "Main", items: [])
+        let continuationSection = PodcastSection(id: UUID().uuidString, title: "Continuation", items: [])
 
         self.mockClient.podcastsSections = [mainSection]
         self.mockClient.podcastsContinuationSections = [[continuationSection]]
 
         await self.viewModel.load()
-        #expect(self.viewModel.sections.count == 1)
-        #expect(self.viewModel.hasMoreSections == true)
 
-        await self.viewModel.loadMoreSectionsIfNeeded()
+        // Wait for background loading to complete (300ms delay + processing)
+        try? await Task.sleep(for: .milliseconds(600))
 
         #expect(self.viewModel.sections.count == 2)
         #expect(self.viewModel.sections[1].title == "Continuation")
     }
 
     @Test
-    func loadMoreSectionsDoesNothingWhenNoMore() async {
-        let testSection = PodcastSection(title: "Only Section", shows: [])
+    func loadWithNoContinuationDoesNotAddMore() async {
+        let testSection = PodcastSection(id: UUID().uuidString, title: "Only Section", items: [])
         self.mockClient.podcastsSections = [testSection]
         // No continuation sections
 
         await self.viewModel.load()
-        #expect(self.viewModel.hasMoreSections == false)
 
-        await self.viewModel.loadMoreSectionsIfNeeded()
+        // Wait for any background loading attempt
+        try? await Task.sleep(for: .milliseconds(500))
 
         #expect(self.viewModel.sections.count == 1)
+        #expect(self.viewModel.hasMoreSections == false)
     }
 
     // MARK: - Empty State

@@ -5,7 +5,7 @@ import XCTest
 final class LikedMusicViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
-    func testLikedMusicViewDisplaysTitle() throws {
+    func testLikedMusicViewDisplaysTitle() {
         launchDefault()
 
         navigateToLikedMusic()
@@ -14,7 +14,7 @@ final class LikedMusicViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(title), "Liked Music title should be visible")
     }
 
-    func testLikedMusicViewShowsEmptyState() throws {
+    func testLikedMusicViewShowsEmptyState() {
         launchDefault()
 
         navigateToLikedMusic()
@@ -26,7 +26,7 @@ final class LikedMusicViewUITests: KasetUITestCase {
 
     // MARK: - Navigation
 
-    func testLikedMusicNavigationFromSidebar() throws {
+    func testLikedMusicNavigationFromSidebar() {
         launchDefault()
 
         navigateToLikedMusic()
@@ -37,7 +37,7 @@ final class LikedMusicViewUITests: KasetUITestCase {
 
     // MARK: - Player Bar Integration
 
-    func testLikedMusicViewShowsPlayerBar() throws {
+    func testLikedMusicViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToLikedMusic()

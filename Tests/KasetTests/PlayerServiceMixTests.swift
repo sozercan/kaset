@@ -222,6 +222,35 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.currentIndex == 2)
     }
 
+    @Test("reorderQueue(from:to:) moves item and maintains current track")
+    func reorderQueueFromTo() async {
+        let queue = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(queue, startingAt: 1)
+
+        // [video-0, video-1*, video-2, video-3] - current is video-1 at index 1
+        self.playerService.reorderQueue(from: IndexSet(integer: 0), to: 3)
+
+        // move(fromOffsets:toOffset:) inserts before toOffset: [video-1, video-2, video-0, video-3]
+        #expect(self.playerService.queue[0].videoId == "video-1")
+        #expect(self.playerService.queue[1].videoId == "video-2")
+        #expect(self.playerService.queue[2].videoId == "video-0")
+        #expect(self.playerService.queue[3].videoId == "video-3")
+        #expect(self.playerService.currentIndex == 0)
+    }
+
+    @Test("reorderQueue(from:to:) from current index fails gracefully")
+    func reorderQueueFromCurrentIndexFails() async {
+        let queue = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(queue, startingAt: 0)
+
+        self.playerService.reorderQueue(from: IndexSet(integer: 0), to: 1)
+
+        #expect(self.playerService.queue[0].videoId == "video-0")
+        #expect(self.playerService.queue[1].videoId == "video-1")
+        #expect(self.playerService.queue[2].videoId == "video-2")
+        #expect(self.playerService.currentIndex == 0)
+    }
+
     // MARK: - shuffleQueue Tests
 
     @Test("shuffleQueue keeps current track at front")

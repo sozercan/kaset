@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-
 @testable import Kaset
 
 @Suite("MoodCategoryViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
@@ -12,10 +11,9 @@ struct MoodCategoryViewModelTests {
     init() {
         self.mockClient = MockYTMusicClient()
         let category = MoodCategory(
-            title: "Chill",
             browseId: "FEmusic_moods_and_genres_category",
             params: "chill-params",
-            thumbnailURL: URL(string: "https://example.com/chill.jpg")
+            title: "Chill"
         )
         self.viewModel = MoodCategoryViewModel(category: category, client: self.mockClient)
     }
@@ -89,7 +87,6 @@ struct MoodCategoryViewModelTests {
         self.mockClient.moodCategoryResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Section 1"),
         ])
-        self.mockClient.apiDelay = 0.1
 
         // Start first load
         let task1 = Task {

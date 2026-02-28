@@ -5,7 +5,7 @@ import XCTest
 final class LibraryViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
-    func testLibraryViewDisplaysTitle() throws {
+    func testLibraryViewDisplaysTitle() {
         launchDefault()
 
         navigateToLibrary()
@@ -15,7 +15,7 @@ final class LibraryViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(title), "Library title should be visible")
     }
 
-    func testLibraryViewShowsLoadingState() throws {
+    func testLibraryViewShowsLoadingState() {
         launchDefault()
 
         navigateToLibrary()
@@ -27,7 +27,7 @@ final class LibraryViewUITests: KasetUITestCase {
 
     // MARK: - Playlist Display
 
-    func testLibraryViewWithMockPlaylists() throws {
+    func testLibraryViewWithMockPlaylists() {
         launchWithMockLibrary(playlistCount: 5)
 
         navigateToLibrary()
@@ -37,7 +37,7 @@ final class LibraryViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(scrollView, timeout: 10))
     }
 
-    func testLibraryViewIsScrollable() throws {
+    func testLibraryViewIsScrollable() {
         launchWithMockLibrary(playlistCount: 20)
 
         navigateToLibrary()
@@ -51,7 +51,7 @@ final class LibraryViewUITests: KasetUITestCase {
 
     // MARK: - Navigation Integration
 
-    func testLibraryNavigationFromSidebar() throws {
+    func testLibraryNavigationFromSidebar() {
         launchDefault()
 
         // Navigate to Library via sidebar using accessibility identifier
@@ -63,7 +63,7 @@ final class LibraryViewUITests: KasetUITestCase {
 
     // MARK: - Player Bar Integration
 
-    func testLibraryViewShowsPlayerBar() throws {
+    func testLibraryViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToLibrary()

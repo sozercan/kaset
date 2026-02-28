@@ -5,7 +5,7 @@ import XCTest
 final class SearchViewUITests: KasetUITestCase {
     // MARK: - Search Field
 
-    func testSearchFieldExists() throws {
+    func testSearchFieldExists() {
         launchDefault()
 
         navigateToSearch()
@@ -15,7 +15,7 @@ final class SearchViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(searchField), "Search field should exist")
     }
 
-    func testSearchFieldAcceptsInput() throws {
+    func testSearchFieldAcceptsInput() {
         launchDefault()
 
         navigateToSearch()
@@ -31,7 +31,7 @@ final class SearchViewUITests: KasetUITestCase {
         XCTAssertEqual(searchField.value as? String, "test query")
     }
 
-    func testClearButtonAppearsWithText() throws {
+    func testClearButtonAppearsWithText() {
         launchDefault()
 
         navigateToSearch()
@@ -52,7 +52,7 @@ final class SearchViewUITests: KasetUITestCase {
 
     // MARK: - Empty State
 
-    func testEmptyStateShownInitially() throws {
+    func testEmptyStateShownInitially() {
         launchDefault()
 
         navigateToSearch()
@@ -64,7 +64,7 @@ final class SearchViewUITests: KasetUITestCase {
 
     // MARK: - Search Execution
 
-    func testSearchSubmitTriggersSearch() throws {
+    func testSearchSubmitTriggersSearch() {
         launchWithMockSearch(songCount: 5)
 
         navigateToSearch()
@@ -82,7 +82,7 @@ final class SearchViewUITests: KasetUITestCase {
 
     // MARK: - Filter Chips
 
-    func testFilterChipsExistAfterSearch() throws {
+    func testFilterChipsExistAfterSearch() {
         launchWithMockSearch(songCount: 5)
 
         navigateToSearch()
@@ -104,7 +104,7 @@ final class SearchViewUITests: KasetUITestCase {
 
     // MARK: - Keyboard Navigation
 
-    func testSearchFieldIsFocusedOnAppear() throws {
+    func testSearchFieldIsFocusedOnAppear() {
         launchDefault()
 
         navigateToSearch()
@@ -122,7 +122,7 @@ final class SearchViewUITests: KasetUITestCase {
 
     // MARK: - Navigation Integration
 
-    func testSearchNavigationTitle() throws {
+    func testSearchNavigationTitle() {
         launchDefault()
 
         navigateToSearch()

@@ -5,7 +5,7 @@ import XCTest
 final class HomeViewUITests: KasetUITestCase {
     // MARK: - Basic Display
 
-    func testHomeViewDisplaysTitle() throws {
+    func testHomeViewDisplaysTitle() {
         launchWithMockHome()
 
         navigateToHome()
@@ -15,7 +15,7 @@ final class HomeViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(title), "Home title should be visible")
     }
 
-    func testHomeViewShowsLoadingState() throws {
+    func testHomeViewShowsLoadingState() {
         // Launch without mock data to see loading state
         launchDefault()
 
@@ -29,7 +29,7 @@ final class HomeViewUITests: KasetUITestCase {
 
     // MARK: - Content Display
 
-    func testHomeViewDisplaysSections() throws {
+    func testHomeViewDisplaysSections() {
         launchWithMockHome(sectionCount: 3, itemsPerSection: 5)
 
         navigateToHome()
@@ -40,7 +40,7 @@ final class HomeViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(scrollView, timeout: 10), "Scroll view should exist")
     }
 
-    func testHomeViewIsScrollable() throws {
+    func testHomeViewIsScrollable() {
         launchWithMockHome(sectionCount: 5, itemsPerSection: 10)
 
         navigateToHome()
@@ -55,7 +55,7 @@ final class HomeViewUITests: KasetUITestCase {
 
     // MARK: - Player Bar Presence
 
-    func testHomeViewShowsPlayerBar() throws {
+    func testHomeViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -70,7 +70,7 @@ final class HomeViewUITests: KasetUITestCase {
 
     // MARK: - Navigation from Home
 
-    func testCanNavigateFromHomeToOtherViews() throws {
+    func testCanNavigateFromHomeToOtherViews() {
         launchWithMockHome()
 
         navigateToHome()

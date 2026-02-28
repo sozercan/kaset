@@ -35,12 +35,12 @@ Use Apple's `@Generable` macro for type-safe AI responses:
 
 | Model | Purpose | File |
 |-------|---------|------|
-| `MusicIntent` | Parse natural language commands (play, queue, shuffle) | `Core/Models/AI/MusicIntent.swift` |
-| `MusicQuery` | Structured search queries with filters | `Core/Models/AI/MusicQuery.swift` |
-| `QueueIntent` | Queue-specific commands (add, remove, reorder) | `Core/Models/AI/QueueIntent.swift` |
-| `QueueChanges` | AI-suggested queue modifications | `Core/Models/AI/QueueChanges.swift` |
-| `LyricsSummary` | Lyrics analysis (themes, mood, explanation) | `Core/Models/AI/LyricsSummary.swift` |
-| `PlaylistChanges` | Playlist refinement suggestions | `Core/Models/AI/PlaylistChanges.swift` |
+| `MusicIntent` | Parse natural language commands (play, queue, shuffle) | `Sources/Kaset/Models/AI/MusicIntent.swift` |
+| `MusicQuery` | Structured search queries with filters | `Sources/Kaset/Models/AI/MusicQuery.swift` |
+| `QueueIntent` | Queue-specific commands (add, remove, reorder) | `Sources/Kaset/Models/AI/QueueIntent.swift` |
+| `QueueChanges` | AI-suggested queue modifications | `Sources/Kaset/Models/AI/QueueChanges.swift` |
+| `LyricsSummary` | Lyrics analysis (themes, mood, explanation) | `Sources/Kaset/Models/AI/LyricsSummary.swift` |
+| `PlaylistChanges` | Playlist refinement suggestions | `Sources/Kaset/Models/AI/PlaylistChanges.swift` |
 
 **Rationale**: `@Generable` provides compile-time safety and automatic JSON schema generation. Models are `Sendable` for safe concurrent use.
 
@@ -50,11 +50,11 @@ Implement `Tool` protocol for AI to access real data:
 
 | Tool | Purpose | File |
 |------|---------|------|
-| `MusicSearchTool` | Search YouTube Music catalog | `Core/Services/AI/Tools/MusicSearchTool.swift` |
-| `QueueTool` | Get current queue state | `Core/Services/AI/Tools/QueueTool.swift` |
-| `NowPlayingTool` | Get currently playing track | `Core/Services/AI/Tools/NowPlayingTool.swift` |
-| `PlaylistTool` | Get playlist contents | `Core/Services/AI/Tools/PlaylistTool.swift` |
-| `LibraryTool` | Access user's library | `Core/Services/AI/Tools/LibraryTool.swift` |
+| `MusicSearchTool` | Search YouTube Music catalog | `Sources/Kaset/Services/AI/Tools/MusicSearchTool.swift` |
+| `QueueTool` | Get current queue state | `Sources/Kaset/Services/AI/Tools/QueueTool.swift` |
+| `NowPlayingTool` | Get currently playing track | `Sources/Kaset/Services/AI/Tools/NowPlayingTool.swift` |
+| `PlaylistTool` | Get playlist contents | `Sources/Kaset/Services/AI/Tools/PlaylistTool.swift` |
+| `LibraryTool` | Access user's library | `Sources/Kaset/Services/AI/Tools/LibraryTool.swift` |
 
 **Rationale**: Tools ground AI responses in real catalog data, preventing hallucination of song IDs or incorrect metadata.
 

@@ -3,8 +3,8 @@
 //
 // Tests for AccountService using Swift Testing framework.
 
+import Foundation
 import Testing
-
 @testable import Kaset
 
 // MARK: - AccountServiceTests
@@ -14,102 +14,97 @@ struct AccountServiceTests {
     // MARK: - Initial State Tests
 
     @Test @MainActor func initialStateIsEmpty() {
-        let service = Self.createService().account
+        let services = Self.createService()
 
-        #expect(service.accounts.isEmpty)
-        #expect(service.currentAccount == nil)
-        #expect(service.hasBrandAccounts == false)
-        #expect(service.currentBrandId == nil)
-        #expect(service.isLoading == false)
-        #expect(service.lastError == nil)
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.hasBrandAccounts == false)
+        #expect(services.account.currentBrandId == nil)
+        #expect(services.account.isLoading == false)
+        #expect(services.account.lastError == nil)
     }
 
-    @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() {
-        let service = Self.createService().account
+    @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() async {
+        let services = Self.createService()
 
-        // Simulate single account scenario
-        service.setAccountsForTesting([MockUserAccountData.primaryAccount])
+        // Populate with single account via fetchAccounts
+        await Self.populateAccounts(services, accounts: [MockUserAccountData.primaryAccount])
 
-        #expect(service.hasBrandAccounts == false)
+        #expect(services.account.hasBrandAccounts == false)
     }
 
-    @Test @MainActor func hasBrandAccountsReturnsTrueForMultipleAccounts() {
-        let service = Self.createService().account
+    @Test @MainActor func hasBrandAccountsReturnsTrueForMultipleAccounts() async {
+        let services = Self.createService()
 
-        // Simulate multiple accounts scenario
-        service.setAccountsForTesting([
+        // Populate with multiple accounts via fetchAccounts
+        await Self.populateAccounts(services, accounts: [
             MockUserAccountData.primaryAccount,
             MockUserAccountData.brandAccount,
         ])
 
-        #expect(service.hasBrandAccounts == true)
+        #expect(services.account.hasBrandAccounts == true)
     }
 
     // MARK: - Switch Account Tests
 
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
-        let service = Self.createService().account
+        let services = Self.createService()
 
-        // Setup initial state with multiple accounts
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        service.setAccountsForTesting([primaryAccount, brandAccount])
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
-        #expect(service.currentAccount == primaryAccount)
+        #expect(services.account.currentAccount == primaryAccount)
 
         // Switch to brand account
-        try await service.switchAccount(to: brandAccount)
+        try await services.account.switchAccount(to: brandAccount)
 
-        #expect(service.currentAccount == brandAccount)
-        #expect(service.currentBrandId == brandAccount.brandId)
+        #expect(services.account.currentAccount == brandAccount)
+        #expect(services.account.currentBrandId == brandAccount.brandId)
     }
 
     @Test @MainActor func switchAccountToSameAccountIsNoOp() async throws {
-        let service = Self.createService().account
+        let services = Self.createService()
 
         let primaryAccount = MockUserAccountData.primaryAccount
-        service.setAccountsForTesting([primaryAccount])
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount])
 
         // Attempt to switch to the same account
-        try await service.switchAccount(to: primaryAccount)
+        try await services.account.switchAccount(to: primaryAccount)
 
         // Should still be the same account (no error thrown)
-        #expect(service.currentAccount == primaryAccount)
+        #expect(services.account.currentAccount == primaryAccount)
     }
 
     @Test @MainActor func switchAccountUpdatesBrandId() async throws {
-        let service = Self.createService().account
+        let services = Self.createService()
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        service.setAccountsForTesting([primaryAccount, brandAccount])
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
         // Primary account should have nil brandId
-        #expect(service.currentBrandId == nil)
+        #expect(services.account.currentBrandId == nil)
 
         // Switch to brand account
-        try await service.switchAccount(to: brandAccount)
+        try await services.account.switchAccount(to: brandAccount)
 
         // Brand account should have brandId
-        #expect(service.currentBrandId == brandAccount.brandId)
-        #expect(service.currentBrandId == "123456789012345678901")
+        #expect(services.account.currentBrandId == brandAccount.brandId)
+        #expect(services.account.currentBrandId == "123456789012345678901")
     }
 
     // MARK: - Persistence Tests
 
     @Test @MainActor func switchAccountPersistsSelection() async throws {
-        let service = Self.createService().account
+        let services = Self.createService()
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        service.setAccountsForTesting([primaryAccount, brandAccount])
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
         // Switch to brand account
-        try await service.switchAccount(to: brandAccount)
+        try await services.account.switchAccount(to: brandAccount)
 
         // Verify UserDefaults was updated
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
@@ -120,15 +115,15 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func switchToPrimaryAccountPersistsPrimaryId() async throws {
-        let service = Self.createService().account
+        let services = Self.createService()
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        service.setAccountsForTesting([primaryAccount, brandAccount])
-        service.setCurrentAccountForTesting(brandAccount)
+        // First select the brand account via fetchAccounts
+        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount], selectedIndex: 1)
 
         // Switch back to primary account
-        try await service.switchAccount(to: primaryAccount)
+        try await services.account.switchAccount(to: primaryAccount)
 
         // Verify UserDefaults has "primary" as the ID
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
@@ -140,25 +135,23 @@ struct AccountServiceTests {
 
     // MARK: - Clear Accounts Tests
 
-    @Test @MainActor func clearAccountsResetsState() {
-        let service = Self.createService().account
+    @Test @MainActor func clearAccountsResetsState() async {
+        let services = Self.createService()
 
-        // Setup initial state
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        service.setAccountsForTesting([primaryAccount, brandAccount])
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
         // Set a persisted selection
         UserDefaults.standard.set("primary", forKey: "selectedBrandId")
 
         // Clear accounts
-        service.clearAccounts()
+        services.account.clearAccounts()
 
-        #expect(service.accounts.isEmpty)
-        #expect(service.currentAccount == nil)
-        #expect(service.hasBrandAccounts == false)
-        #expect(service.currentBrandId == nil)
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.hasBrandAccounts == false)
+        #expect(services.account.currentBrandId == nil)
 
         // Verify persistence was cleared
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
@@ -167,47 +160,82 @@ struct AccountServiceTests {
 
     // MARK: - Error Handling Tests
 
-    @Test @MainActor func clearErrorResetsLastError() {
-        let service = Self.createService().account
+    @Test @MainActor func clearErrorResetsLastError() async {
+        let services = Self.createService()
 
-        // Simulate an error state
-        service.setLastErrorForTesting(YTMusicError.apiError("Test error"))
+        // Trigger an error by making fetchAccounts fail
+        services.client.shouldThrowError = YTMusicError.apiError(message: "Test error", code: nil)
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
 
-        #expect(service.lastError != nil)
+        #expect(services.account.lastError != nil)
 
         // Clear the error
-        service.clearError()
+        services.account.clearError()
 
-        #expect(service.lastError == nil)
+        #expect(services.account.lastError == nil)
     }
 
     // MARK: - Computed Properties Tests
 
-    @Test @MainActor func currentBrandIdReturnsNilForPrimaryAccount() {
-        let service = Self.createService().account
+    @Test @MainActor func currentBrandIdReturnsNilForPrimaryAccount() async {
+        let services = Self.createService()
 
         let primaryAccount = MockUserAccountData.primaryAccount
-        service.setCurrentAccountForTesting(primaryAccount)
+        await Self.populateAccounts(services, accounts: [primaryAccount])
 
-        #expect(service.currentBrandId == nil)
+        #expect(services.account.currentBrandId == nil)
     }
 
-    @Test @MainActor func currentBrandIdReturnsBrandIdForBrandAccount() {
-        let service = Self.createService().account
+    @Test @MainActor func currentBrandIdReturnsBrandIdForBrandAccount() async {
+        let services = Self.createService()
 
         let brandAccount = MockUserAccountData.brandAccount
-        service.setCurrentAccountForTesting(brandAccount)
+        // Use brand account as selected
+        await Self.populateAccounts(services, accounts: [brandAccount], selectedIndex: 0)
 
-        #expect(service.currentBrandId == "123456789012345678901")
+        #expect(services.account.currentBrandId == "123456789012345678901")
     }
 
     // MARK: - Helper Methods
 
+    @MainActor
     private static func createService() -> TestServices {
         let authService = AuthService()
         let mockClient = MockYTMusicClient()
         let service = AccountService(ytMusicClient: mockClient, authService: authService)
         return TestServices(account: service, client: mockClient, auth: authService)
+    }
+
+    /// Populates the AccountService with accounts by going through fetchAccounts().
+    @MainActor
+    private static func populateAccounts(
+        _ services: TestServices,
+        accounts: [UserAccount],
+        selectedIndex: Int = 0
+    ) async {
+        // Mark the desired account as selected
+        let accountsWithSelection = accounts.enumerated().map { index, account in
+            UserAccount(
+                id: account.id,
+                name: account.name,
+                handle: account.handle,
+                brandId: account.brandId,
+                thumbnailURL: account.thumbnailURL,
+                isSelected: index == selectedIndex
+            )
+        }
+
+        // Clear any saved brand ID to avoid stale state
+        UserDefaults.standard.removeObject(forKey: "selectedBrandId")
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "test@gmail.com",
+            accounts: accountsWithSelection
+        )
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        services.client.shouldThrowError = nil
+        await services.account.fetchAccounts()
     }
 }
 
@@ -218,26 +246,4 @@ private struct TestServices {
     let account: AccountService
     let client: MockYTMusicClient
     let auth: AuthService
-}
-
-// MARK: - AccountService Test Helpers
-
-extension AccountService {
-    /// Sets accounts directly for testing purposes.
-    /// - Parameter accounts: The accounts to set.
-    func setAccountsForTesting(_ accounts: [UserAccount]) {
-        self.accounts = accounts
-    }
-
-    /// Sets the current account directly for testing purposes.
-    /// - Parameter account: The account to set as current.
-    func setCurrentAccountForTesting(_ account: UserAccount?) {
-        self.currentAccount = account
-    }
-
-    /// Sets the last error directly for testing purposes.
-    /// - Parameter error: The error to set.
-    func setLastErrorForTesting(_ error: Error?) {
-        self.lastError = error
-    }
 }

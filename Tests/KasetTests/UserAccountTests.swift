@@ -3,8 +3,8 @@
 //
 // Tests for UserAccount model using Swift Testing framework.
 
+import Foundation
 import Testing
-
 @testable import Kaset
 
 // MARK: - UserAccountTests

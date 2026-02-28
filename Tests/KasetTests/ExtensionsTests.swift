@@ -87,31 +87,31 @@ struct ExtensionsTests {
     // MARK: - URL High Quality Thumbnail Tests
 
     @Test("Upgrades ytimg URL to high quality")
-    func highQualityThumbnailYtimg() {
-        let url = URL(string: "https://i.ytimg.com/vi/abc/w60-h60-l90-rj")!
+    func highQualityThumbnailYtimg() throws {
+        let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/w60-h60-l90-rj"))
         let highQuality = url.highQualityThumbnailURL
         #expect(highQuality != nil)
-        #expect(highQuality!.absoluteString.contains("w226-h226"))
+        #expect(try #require(highQuality?.absoluteString.contains("w226-h226")))
     }
 
     @Test("Upgrades googleusercontent URL to high quality")
-    func highQualityThumbnailGoogleusercontent() {
-        let url = URL(string: "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj")!
+    func highQualityThumbnailGoogleusercontent() throws {
+        let url = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj"))
         let highQuality = url.highQualityThumbnailURL
         #expect(highQuality != nil)
-        #expect(highQuality!.absoluteString.contains("w226-h226"))
+        #expect(try #require(highQuality?.absoluteString.contains("w226-h226")))
     }
 
     @Test("Returns original URL for non-YouTube URLs")
-    func highQualityThumbnailNonYouTubeURL() {
-        let url = URL(string: "https://example.com/image.jpg")!
+    func highQualityThumbnailNonYouTubeURL() throws {
+        let url = try #require(URL(string: "https://example.com/image.jpg"))
         let highQuality = url.highQualityThumbnailURL
         #expect(highQuality == url)
     }
 
     @Test("Returns same URL for already high quality thumbnails")
-    func highQualityThumbnailAlreadyHighQuality() {
-        let url = URL(string: "https://i.ytimg.com/vi/abc/w400-h400-l90-rj")!
+    func highQualityThumbnailAlreadyHighQuality() throws {
+        let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/w400-h400-l90-rj"))
         let highQuality = url.highQualityThumbnailURL
         #expect(highQuality?.absoluteString == "https://i.ytimg.com/vi/abc/w400-h400-l90-rj")
     }

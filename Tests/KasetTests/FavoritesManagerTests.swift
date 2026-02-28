@@ -6,7 +6,7 @@ import Testing
 @Suite("FavoritesManager", .serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
 struct FavoritesManagerTests {
-    // Use a fresh manager for each test (skipLoad to avoid disk state)
+    /// Use a fresh manager for each test (skipLoad to avoid disk state)
     var manager: FavoritesManager
 
     init() {

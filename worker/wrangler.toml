@@ -1,0 +1,10 @@
+name = "kaset-lastfm"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# Environment variables (set via `wrangler secret put`):
+# - LASTFM_API_KEY: Last.fm API key
+# - LASTFM_SHARED_SECRET: Last.fm shared secret
+
+[observability]
+enabled = true

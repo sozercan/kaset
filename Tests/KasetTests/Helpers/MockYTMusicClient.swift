@@ -32,6 +32,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var moodCategoryResponse: HomeResponse = .init(sections: [])
     var lyricsResponses: [String: Lyrics] = [:]
     var radioQueueSongs: [String: [Song]] = [:]
+    var songResponses: [String: Song] = [:]
+    var accountsListResponse: AccountsListResponse = .init(googleEmail: "test@gmail.com", accounts: [])
+
+    // MARK: - Call Tracking
+
+    private(set) var getSongCalled = false
+    private(set) var getSongVideoIds: [String] = []
 
     // MARK: - Continuation State
 
@@ -581,8 +588,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     func getSong(videoId: String) async throws -> Song {
+        self.getSongCalled = true
+        self.getSongVideoIds.append(videoId)
         if let error = shouldThrowError { throw error }
-        return Song(
+        return self.songResponses[videoId] ?? Song(
             id: videoId,
             title: "Mock Song",
             artists: [Artist(id: "mock-artist", name: "Mock Artist")],
@@ -616,7 +625,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     func fetchAccountsList() async throws -> AccountsListResponse {
         if let error = shouldThrowError { throw error }
-        return AccountsListResponse(googleEmail: "test@gmail.com", accounts: [])
+        return self.accountsListResponse
     }
 
     // MARK: - Helper Methods
