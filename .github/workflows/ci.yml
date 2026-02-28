@@ -1,0 +1,175 @@
+name: CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  swiftlint:
+    name: Swift Lint
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - run: brew install swiftlint
+      - name: Run SwiftLint
+        run: |
+          swiftlint lint --strict --reporter github-actions-logging
+
+  swiftformat:
+    name: Swift Format
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - run: brew install swiftformat
+      - name: Check formatting
+        run: |
+          swiftformat --lint . 2>&1 || {
+            echo "::error::Code is not formatted. Run 'swiftformat .' locally and commit the changes."
+            exit 1
+          }
+
+  macos_unit_tests:
+    name: macOS Unit Tests
+    timeout-minutes: 20
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Show Swift version
+        run: swift --version
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+      - name: Run unit tests
+        run: swift test -q --skip KasetUITests
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: macOS-TestResults
+          path: ./build/*.xcresult
+          retention-days: 7
+
+  macos_ui_tests:
+    name: macOS UI Tests
+    timeout-minutes: 30
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+      - name: Build app bundle for UI tests
+        env:
+          KASET_SIGNING: adhoc
+        run: Scripts/build-app.sh debug
+      - name: Install app for UI tests
+        run: |
+          sudo cp -R .build/app/Kaset.app /Applications/Kaset.app
+          # Register with Launch Services so XCUIApplication can find it
+          /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/Kaset.app
+      - name: Run UI tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project KasetUITests.xcodeproj \
+            -scheme KasetUITests \
+            -destination 'platform=macOS' \
+            -derivedDataPath ./build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: macOS-UITestResults
+          path: ./build/*.xcresult
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+      - name: Show Swift version
+        run: swift --version
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+      - name: Get short SHA
+        id: slug
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Build app
+        env:
+          KASET_SIGNING: adhoc
+          ARCHES: "arm64 x86_64"
+        run: |
+          # Override version for dev builds
+          echo "MARKETING_VERSION=0.0.0-dev.${{ steps.slug.outputs.sha_short }}" > version.env
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
+          Scripts/build-app.sh release
+
+      - name: Create DMG
+        run: |
+          APP_PATH=".build/app/Kaset.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: Could not find Kaset.app"
+            exit 1
+          fi
+
+          echo "Found app at: $APP_PATH"
+
+          # Create a temporary directory for DMG contents
+          mkdir -p dmg_contents
+          cp -R "$APP_PATH" dmg_contents/
+
+          # Create DMG
+          hdiutil create -volname "Kaset-dev" \
+            -srcfolder dmg_contents \
+            -ov -format UDZO \
+            kaset-dev.dmg
+      - name: Upload DMG
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: github.event_name != 'pull_request'
+        with:
+          name: kaset-dev-${{ steps.slug.outputs.sha_short }}
+          path: kaset-dev.dmg
+          retention-days: 30
+
+  # Status check that is required in branch protection rules.
+  final-status:
+    name: Final Status
+    needs:
+      - swiftlint
+      - swiftformat
+      - macos_unit_tests
+      - macos_ui_tests
+      - build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check
+        run: |
+          results=$(tr -d '\n' <<< '${{ toJSON(needs.*.result) }}')
+          if ! grep -q -v -E '(failure|cancelled)' <<< "$results"; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+          echo "All required jobs completed successfully."
