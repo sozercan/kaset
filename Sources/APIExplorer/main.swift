@@ -44,10 +44,10 @@ let baseURL = "https://music.youtube.com/youtubei/v1"
 let origin = "https://music.youtube.com"
 
 /// Global auth user index (0 = primary account, 1+ = brand accounts)
-nonisolated var globalAuthUserIndex = 0
+nonisolated(unsafe) var globalAuthUserIndex = 0
 
 /// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
-nonisolated var globalBrandAccountId: String?
+nonisolated(unsafe) var globalBrandAccountId: String?
 
 // MARK: - Cookie Management
 

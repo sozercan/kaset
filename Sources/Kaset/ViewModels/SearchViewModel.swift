@@ -98,9 +98,12 @@ final class SearchViewModel {
 
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
+    // swiftformat:disable modifierOrder
     /// Tasks for search operations, cancelled in deinit.
-    nonisolated private var searchTask: Task<Void, Never>?
-    nonisolated private var suggestionsTask: Task<Void, Never>?
+    /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
+    nonisolated(unsafe) private var searchTask: Task<Void, Never>?
+    nonisolated(unsafe) private var suggestionsTask: Task<Void, Never>?
+    // swiftformat:enable modifierOrder
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
