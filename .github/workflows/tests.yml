@@ -38,6 +38,9 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+
       - name: Run unit tests
         run: swift test -q --skip KasetUITests
 
@@ -54,6 +57,9 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Clear SPM artifacts cache
+        run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Build app bundle for UI tests
         env:
