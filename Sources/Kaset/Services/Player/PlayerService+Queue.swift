@@ -399,6 +399,17 @@ extension PlayerService {
 
             self.queue = savedQueue
             self.currentIndex = min(savedIndex, savedQueue.count - 1)
+            self.currentTrack = savedQueue[safe: self.currentIndex]
+
+            // Synchronize track metadata so the UI (like/library status) reflects the restored song
+            if let song = self.currentTrack, let tokens = song.feedbackTokens {
+                self.currentTrackFeedbackTokens = tokens
+                self.currentTrackInLibrary = song.isInLibrary ?? false
+                if let likeStatus = song.likeStatus {
+                    self.currentTrackLikeStatus = likeStatus
+                }
+            }
+
             self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
             return true
         } catch {

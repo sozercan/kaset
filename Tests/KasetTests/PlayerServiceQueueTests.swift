@@ -230,6 +230,7 @@ struct PlayerServiceQueueTests {
         #expect(newService.queue.count == 3)
         #expect(newService.currentIndex == 1)
         #expect(newService.queue[0].title == "Song 0")
+        #expect(newService.currentTrack?.title == "Song 1")
     }
 
     @Test("Clear saved queue removes persistence data")
