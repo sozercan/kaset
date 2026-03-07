@@ -89,9 +89,8 @@ struct CommandBarView: View {
             }
         }
         .frame(width: 500)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.12), radius: 24, y: 8)
         .onAppear {
             self.isInputFocused = true
         }
