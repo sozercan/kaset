@@ -110,8 +110,8 @@ struct MainWindow: View {
             // Command bar overlay - dismisses when clicking outside
             if self.showCommandBarSheet {
                 ZStack {
-                    // Background tap area to dismiss
-                    Color.black.opacity(0.3)
+                    // Transparent tap area to dismiss (no dim overlay)
+                    Color.clear
                         .ignoresSafeArea()
                         .onTapGesture {
                             self.showCommandBarSheet = false
