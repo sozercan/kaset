@@ -399,7 +399,8 @@ extension PlayerService {
 
             self.queue = savedQueue
             self.currentIndex = min(savedIndex, savedQueue.count - 1)
-            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
+            self.currentTrack = savedQueue[self.currentIndex]
+            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex), current track: \(savedQueue[self.currentIndex].title)")
             return true
         } catch {
             self.logger.error("Failed to restore queue: \(error.localizedDescription)")
