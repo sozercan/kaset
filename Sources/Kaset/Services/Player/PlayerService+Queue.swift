@@ -399,6 +399,7 @@ extension PlayerService {
 
             self.queue = savedQueue
             self.currentIndex = min(savedIndex, savedQueue.count - 1)
+            self.currentTrack = savedQueue[safe: self.currentIndex]
             self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
             return true
         } catch {
