@@ -53,6 +53,11 @@
 --xcodeindentation disabled
 --yodaswap always
 
+# Disable rules introduced or changed in swiftformat 0.60.0 that require code migration
+--disable swiftTestingTestCaseNames
+--disable redundantSwiftTestingSuite
+--disable redundantSendable
+
 # Rules
 --enable isEmpty
 --enable redundantSelf

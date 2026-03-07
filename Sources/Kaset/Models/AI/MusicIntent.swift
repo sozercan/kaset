@@ -171,10 +171,10 @@ struct MusicIntent: Sendable {
     /// Removes redundant terms from query for appending.
     private func cleanQueryForAppending(_ query: String) -> String {
         let words = query.lowercased().split(separator: " ")
-        let skipWords: Set<String> = [
+        let skipWords = Set([
             "play", "some", "the", "a", "an", "me", "from", "of",
             "songs", "music", "tracks", "hits", "hit", "best", "greatest", "top",
-        ]
+        ])
         let filtered = words.filter { !skipWords.contains(String($0)) }
         return filtered.joined(separator: " ")
     }
