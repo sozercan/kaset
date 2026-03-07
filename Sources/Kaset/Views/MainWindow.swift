@@ -119,9 +119,7 @@ struct MainWindow: View {
 
                     // Command bar centered
                     CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
-                .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
             }
         }
         .overlay(alignment: .top) {
