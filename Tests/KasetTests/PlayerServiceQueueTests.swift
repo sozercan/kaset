@@ -13,6 +13,7 @@ struct PlayerServiceQueueTests {
         // Clean up UserDefaults before each test
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queue")
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackPosition")
 
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
@@ -263,6 +264,74 @@ struct PlayerServiceQueueTests {
 
         // Assert
         #expect(restored == false)
+    }
+
+    @Test("Save queue persists playback position")
+    func saveQueuePersistsPosition() async {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        // Simulate progress via updatePlaybackState
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42.5, duration: 180.0)
+
+        // Act
+        self.playerService.saveQueueForPersistence()
+
+        // Assert persisted value
+        let savedPosition = UserDefaults.standard.double(forKey: "kaset.saved.playbackPosition")
+        #expect(savedPosition == 42.5)
+    }
+
+    @Test("Restore queue recovers saved playback position")
+    func restoreQueueRestoresPosition() async {
+        // Arrange - save a queue with a known position
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 99.0, duration: 200.0)
+        self.playerService.saveQueueForPersistence()
+
+        // Act - restore into a fresh service
+        let newService = PlayerService()
+        newService.setYTMusicClient(self.mockClient)
+        let restored = newService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(newService.restoredPlaybackPosition == 99.0)
+    }
+
+    @Test("Clear saved queue removes persisted playback position")
+    func clearSavedQueueRemovesPosition() async {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 15.0, duration: 180.0)
+        self.playerService.saveQueueForPersistence()
+
+        // Act
+        self.playerService.clearSavedQueue()
+
+        // Assert position key is removed
+        let savedPosition = UserDefaults.standard.object(forKey: "kaset.saved.playbackPosition")
+        #expect(savedPosition == nil)
+    }
+
+    @Test("Restore queue with no saved position defaults to zero")
+    func restoreQueueDefaultsPositionToZero() async {
+        // Arrange - save queue but manually remove position key
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.saveQueueForPersistence()
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackPosition")
+
+        // Act
+        let newService = PlayerService()
+        newService.setYTMusicClient(self.mockClient)
+        let restored = newService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(newService.restoredPlaybackPosition == 0)
     }
 
     // MARK: - Metadata Enrichment Tests

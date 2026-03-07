@@ -356,6 +356,7 @@ extension PlayerService {
     /// UserDefaults keys for queue persistence (no expiry; saved queue is kept until overwritten or cleared).
     private static let savedQueueKey = "kaset.saved.queue"
     private static let savedQueueIndexKey = "kaset.saved.queueIndex"
+    private static let savedPlaybackPositionKey = "kaset.saved.playbackPosition"
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence() {
@@ -371,7 +372,8 @@ extension PlayerService {
             let queueData = try encoder.encode(self.queue)
             UserDefaults.standard.set(queueData, forKey: Self.savedQueueKey)
             UserDefaults.standard.set(self.currentIndex, forKey: Self.savedQueueIndexKey)
-            self.logger.info("Saved queue with \(self.queue.count) songs at index \(self.currentIndex)")
+            UserDefaults.standard.set(self.progress, forKey: Self.savedPlaybackPositionKey)
+            self.logger.info("Saved queue with \(self.queue.count) songs at index \(self.currentIndex), position \(self.progress)s")
         } catch {
             self.logger.error("Failed to save queue: \(error.localizedDescription)")
         }
@@ -399,7 +401,9 @@ extension PlayerService {
 
             self.queue = savedQueue
             self.currentIndex = min(savedIndex, savedQueue.count - 1)
-            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
+            let savedPosition = UserDefaults.standard.double(forKey: Self.savedPlaybackPositionKey)
+            self.restoredPlaybackPosition = savedPosition
+            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex), position \(savedPosition)s")
             return true
         } catch {
             self.logger.error("Failed to restore queue: \(error.localizedDescription)")
@@ -412,6 +416,7 @@ extension PlayerService {
     func clearSavedQueue() {
         UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
         UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
+        UserDefaults.standard.removeObject(forKey: Self.savedPlaybackPositionKey)
         self.logger.info("Cleared saved queue")
     }
 

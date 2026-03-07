@@ -33,8 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Register for system sleep/wake notifications
         self.registerForSleepWakeNotifications()
 
-        // Restore saved queue if available
-        self.playerService?.restoreQueueFromPersistence()
+        // Restore saved queue if available; if successful, load the current song for resume
+        if let playerService = self.playerService, playerService.restoreQueueFromPersistence() {
+            DiagnosticsLogger.player.info("Queue restored, loading current song for resume at position \(playerService.restoredPlaybackPosition)s")
+            Task { @MainActor in
+                if let song = playerService.queue[safe: playerService.currentIndex] {
+                    await playerService.loadForResume(song: song, at: playerService.restoredPlaybackPosition)
+                }
+            }
+        }
     }
 
     func applicationWillTerminate(_: Notification) {

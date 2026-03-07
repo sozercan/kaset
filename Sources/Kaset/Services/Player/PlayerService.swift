@@ -56,6 +56,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Current playback position in seconds.
     private(set) var progress: TimeInterval = 0
 
+    /// Playback position saved from the last session, used for resume on launch.
+    private(set) var restoredPlaybackPosition: TimeInterval = 0
+
+    /// Pending seek position to apply once the resumed video starts reporting state.
+    private var resumeSeekPosition: TimeInterval?
+
     /// Total duration of current track in seconds.
     private(set) var duration: TimeInterval = 0
 
@@ -423,6 +429,22 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Loads a song into the player at the specified position without auto-playing.
+    /// Used to restore playback state on app launch. The video begins loading in the WebView;
+    /// once it reports a valid duration, it is seeked to `position` and paused.
+    func loadForResume(song: Song, at position: TimeInterval) async {
+        self.logger.info("Loading for resume: \(song.title) at \(position)s")
+        self.currentTrack = song
+        self.pendingPlayVideoId = song.videoId
+        self.state = .loading
+        self.resumeSeekPosition = position > 0 ? position : nil
+        // Mark the user as having interacted so the WebView loads immediately without the popup.
+        // A restored queue implies prior user interaction.
+        self.hasUserInteractedThisSession = true
+        self.showMiniPlayer = false
+        SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId)
+    }
+
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
         let previousProgress = self.progress
@@ -432,6 +454,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.state = .playing
         } else if self.state == .playing {
             self.state = .paused
+        }
+
+        // Handle resume seek: once the loaded video reports a valid duration, seek to the
+        // saved position and immediately pause (restoring the paused state from last session).
+        if let seekTo = self.resumeSeekPosition, duration > 0 {
+            SingletonPlayerWebView.shared.seek(to: seekTo)
+            SingletonPlayerWebView.shared.pause()
+            self.progress = seekTo
+            self.state = .paused
+            self.resumeSeekPosition = nil
         }
 
         // Detect when song is about to end (within last 2 seconds)
