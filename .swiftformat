@@ -68,3 +68,5 @@
 --enable redundantReturn
 --enable redundantFileprivate
 --enable braces
+--disable swiftTestingTestCaseNames
+--disable redundantSwiftTestingSuite
