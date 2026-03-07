@@ -70,3 +70,5 @@
 --enable braces
 --disable swiftTestingTestCaseNames
 --disable redundantSwiftTestingSuite
+--disable redundantSendable
+--disable redundantType
