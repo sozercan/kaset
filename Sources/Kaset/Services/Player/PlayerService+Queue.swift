@@ -363,6 +363,7 @@ extension PlayerService {
         guard !self.queue.isEmpty else {
             UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
             UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
+            UserDefaults.standard.removeObject(forKey: Self.savedPlaybackPositionKey)
             self.logger.info("Cleared saved queue (queue is empty)")
             return
         }

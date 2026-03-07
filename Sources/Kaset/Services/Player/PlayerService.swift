@@ -345,6 +345,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func play(videoId: String) async {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
+        self.resumeSeekPosition = nil
         self.state = .loading
 
         // Create a minimal Song object for now
@@ -379,6 +380,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Plays a song.
     func play(song: Song) async {
         self.logger.info("Playing song: \(song.title)")
+        self.resumeSeekPosition = nil
         self.state = .loading
         self.currentTrack = song
 
