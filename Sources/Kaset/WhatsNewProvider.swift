@@ -45,91 +45,105 @@ enum WhatsNewProvider {
     /// Falls back to the static collection if the network request fails.
     static func fetchWhatsNew(
         for currentVersion: WhatsNew.Version = .current(),
-        store: WhatsNewVersionStore = WhatsNewVersionStore()
+        store: WhatsNewVersionStore = WhatsNewVersionStore(),
+        respectingPresentedVersions: Bool = true,
+        session: URLSession = .shared
     ) async -> WhatsNew? {
-        guard !store.hasPresented(currentVersion) else {
+        if respectingPresentedVersions, store.hasPresented(currentVersion) {
             return nil
         }
 
         // Try fetching from GitHub releases
-        if let dynamic = await self.fetchFromGitHub(for: currentVersion) {
+        if let dynamic = await Self.fetchFromGitHub(for: currentVersion, session: session) {
             return dynamic
         }
 
         // Fall back to static collection
-        return self.staticWhatsNew(for: currentVersion, store: store)
+        return Self.staticWhatsNew(
+            for: currentVersion,
+            store: store,
+            respectingPresentedVersions: respectingPresentedVersions
+        )
     }
 
     /// Version-gating against the static fallback collection (synchronous).
     static func staticWhatsNew(
         for currentVersion: WhatsNew.Version = .current(),
-        store: WhatsNewVersionStore = WhatsNewVersionStore()
+        store: WhatsNewVersionStore = WhatsNewVersionStore(),
+        respectingPresentedVersions: Bool = true
     ) -> WhatsNew? {
-        guard !store.hasPresented(currentVersion) else {
+        if respectingPresentedVersions, store.hasPresented(currentVersion) {
             return nil
         }
 
-        if let exact = self.fallbackCollection.first(where: { $0.version == currentVersion }) {
+        if let exact = Self.fallbackCollection.first(where: { $0.version == currentVersion }) {
             return exact
         }
 
         let minorVersion = currentVersion.minorRelease
-        guard !store.hasPresented(minorVersion) else {
+        if respectingPresentedVersions, store.hasPresented(minorVersion) {
             return nil
         }
 
-        return self.fallbackCollection.first { $0.version == minorVersion }
+        return Self.fallbackCollection.first { $0.version == minorVersion }
     }
 
     // MARK: - GitHub API
 
-    private static func fetchFromGitHub(for version: WhatsNew.Version) async -> WhatsNew? {
+    private static func fetchFromGitHub(
+        for version: WhatsNew.Version,
+        session: URLSession = .shared
+    ) async -> WhatsNew? {
         // Try exact tag (v1.2.3), then minor (v1.2.0)
-        let tags = [
-            "v\(version.description)",
-            "v\(version.minorRelease.description)",
-        ]
+        var tags: [String] = []
+
+        for candidate in [version, version.minorRelease] {
+            let tag = "v\(candidate.description)"
+            if !tags.contains(tag) {
+                tags.append(tag)
+            }
+        }
 
         for tag in tags {
-            if let whatsNew = await self.fetchRelease(tag: tag) {
+            if let whatsNew = await Self.fetchRelease(tag: tag, session: session) {
                 return whatsNew
             }
         }
 
         // Try latest release as last resort
-        return await self.fetchLatestRelease()
+        return await Self.fetchLatestRelease(session: session)
     }
 
     /// Fetches a release by tag — useful for testing a specific version.
-    static func fetchForTag(_ tag: String) async -> WhatsNew? {
-        let urlString = "https://api.github.com/repos/\(self.owner)/\(self.repo)/releases/tags/\(tag)"
+    static func fetchForTag(_ tag: String, session: URLSession = .shared) async -> WhatsNew? {
+        let urlString = "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/tags/\(tag)"
         guard let url = URL(string: urlString) else { return nil }
-        return await self.performRequest(url: url)
+        return await Self.performRequest(url: url, session: session)
     }
 
-    private static func fetchRelease(tag: String) async -> WhatsNew? {
-        await self.fetchForTag(tag)
+    private static func fetchRelease(tag: String, session: URLSession = .shared) async -> WhatsNew? {
+        await Self.fetchForTag(tag, session: session)
     }
 
-    private static func fetchLatestRelease() async -> WhatsNew? {
-        let urlString = "https://api.github.com/repos/\(self.owner)/\(self.repo)/releases/latest"
+    private static func fetchLatestRelease(session: URLSession = .shared) async -> WhatsNew? {
+        let urlString = "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/latest"
         guard let url = URL(string: urlString) else { return nil }
-        return await self.performRequest(url: url)
+        return await Self.performRequest(url: url, session: session)
     }
 
-    private static func performRequest(url: URL) async -> WhatsNew? {
+    private static func performRequest(url: URL, session: URLSession = .shared) async -> WhatsNew? {
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 10
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200
             else {
                 return nil
             }
-            return self.parseRelease(data: data)
+            return Self.parseRelease(data: data)
         } catch {
             DiagnosticsLogger.app.debug("Failed to fetch release notes: \(error.localizedDescription)")
             return nil
@@ -153,8 +167,51 @@ enum WhatsNewProvider {
         return WhatsNew(
             version: version,
             title: title,
-            releaseNotes: body,
+            releaseNotes: Self.cleanReleaseBody(body),
             learnMoreURL: URL(string: htmlURL)
         )
+    }
+
+    /// Cleans up GitHub release body by removing boilerplate sections
+    /// and redundant headings that the sheet UI already provides.
+    private static func cleanReleaseBody(_ body: String) -> String {
+        let hiddenHeadings: Set = [
+            "what's new",
+            "installation",
+            "verification",
+            "new contributors",
+            "full changelog",
+        ]
+
+        let lines = body.components(separatedBy: "\n")
+        var result: [String] = []
+        var skipping = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix("## ") || trimmed.hasPrefix("### ") {
+                let headingText = trimmed
+                    .drop(while: { $0 == "#" || $0 == " " })
+                    .trimmingCharacters(in: .whitespaces)
+                    .lowercased()
+                skipping = hiddenHeadings.contains(headingText)
+                if !skipping {
+                    result.append(line)
+                }
+            } else if !skipping {
+                result.append(line)
+            }
+        }
+
+        // Trim leading/trailing blank lines
+        while result.first?.trimmingCharacters(in: .whitespaces).isEmpty == true {
+            result.removeFirst()
+        }
+        while result.last?.trimmingCharacters(in: .whitespaces).isEmpty == true {
+            result.removeLast()
+        }
+
+        return result.joined(separator: "\n")
     }
 }

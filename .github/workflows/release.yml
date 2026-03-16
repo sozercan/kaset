@@ -218,27 +218,6 @@ jobs:
           ## What's New
 
           ${CHANGELOG}
-
-          ## Installation
-
-          ### Homebrew (recommended)
-          \`\`\`bash
-          brew install sozercan/repo/kaset
-          \`\`\`
-
-          ### Manual Download
-          1. Download \`${{ steps.artifact.outputs.filename }}\`
-          2. Open the DMG and drag Kaset to Applications
-          3. Remove the quarantine attribute (required for unsigned apps):
-             \`\`\`bash
-             xattr -d com.apple.quarantine /Applications/Kaset.app
-             \`\`\`
-
-          ## Verification
-
-          **SHA256:** \`${SHA256}\`
-
-          Verify with: \`shasum -a 256 ${{ steps.artifact.outputs.filename }}\`
           EOF
           )
 

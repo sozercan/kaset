@@ -4,7 +4,7 @@ import Testing
 
 // MARK: - WhatsNewVersionTests
 
-@Suite("WhatsNew.Version", .tags(.model))
+@Suite(.tags(.model))
 struct WhatsNewVersionTests {
     @Test("Parses full semver string")
     func parsesFullSemver() {
@@ -12,6 +12,21 @@ struct WhatsNewVersionTests {
         #expect(version.major == 1)
         #expect(version.minor == 2)
         #expect(version.patch == 3)
+    }
+
+    @Test("Preserves prerelease suffixes")
+    func preservesPrereleaseSuffix() {
+        let version: WhatsNew.Version = "1.0.0-beta.1"
+        #expect(version.major == 1)
+        #expect(version.minor == 0)
+        #expect(version.patch == 0)
+        #expect(version.description == "1.0.0-beta.1")
+    }
+
+    @Test("Preserves dev suffixes")
+    func preservesDevSuffix() {
+        let version: WhatsNew.Version = "0.0.0-dev.abc123"
+        #expect(version.description == "0.0.0-dev.abc123")
     }
 
     @Test("Parses two-component version")
@@ -72,6 +87,12 @@ struct WhatsNewVersionTests {
         #expect(minor == WhatsNew.Version(major: 1, minor: 2, patch: 0))
     }
 
+    @Test("minorRelease drops prerelease suffix")
+    func minorReleaseDropsSuffix() {
+        let version: WhatsNew.Version = "1.0.0-beta.1"
+        #expect(version.minorRelease.description == "1.0.0")
+    }
+
     @Test("Version is Codable")
     func codable() throws {
         let version = WhatsNew.Version(major: 2, minor: 3, patch: 4)
@@ -83,7 +104,7 @@ struct WhatsNewVersionTests {
 
 // MARK: - WhatsNewVersionStoreTests
 
-@Suite("WhatsNewVersionStore", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 struct WhatsNewVersionStoreTests {
     private let defaults = UserDefaults(suiteName: "com.kaset.test.WhatsNewVersionStore")!
 
@@ -119,6 +140,17 @@ struct WhatsNewVersionStoreTests {
         #expect(!store.hasPresented(v110))
     }
 
+    @Test("Prerelease versions round-trip through the store")
+    func prereleaseVersionRoundTrip() {
+        let store = WhatsNewVersionStore(defaults: self.defaults)
+        let version: WhatsNew.Version = "1.0.0-beta.1"
+
+        store.markPresented(version)
+
+        #expect(store.hasPresented(version))
+        #expect(store.presentedVersions.contains(version))
+    }
+
     @Test("presentedVersions returns all marked versions")
     func presentedVersions() {
         let store = WhatsNewVersionStore(defaults: self.defaults)
@@ -137,7 +169,7 @@ struct WhatsNewVersionStoreTests {
 
 // MARK: - WhatsNewProviderTests
 
-@Suite("WhatsNewProvider", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 struct WhatsNewProviderTests {
     private let defaults = UserDefaults(suiteName: "com.kaset.test.WhatsNewProvider")!
 
@@ -194,5 +226,110 @@ struct WhatsNewProviderTests {
         for entry in WhatsNewProvider.fallbackCollection {
             #expect(!entry.features.isEmpty, "WhatsNew entry for \(entry.version.description) has no features")
         }
+    }
+
+    @Test("Can bypass presented-version gating for manual reopen")
+    func bypassesPresentedVersionGating() async {
+        let store = WhatsNewVersionStore(defaults: self.defaults)
+        let session = MockURLProtocol.makeMockSession()
+        store.markPresented("1.0.0")
+
+        MockURLProtocol.requestHandler = { request in
+            guard let url = request.url else {
+                throw URLError(.badURL)
+            }
+
+            let body: [String: Any]
+            let statusCode: Int
+
+            if url.path == "/repos/sozercan/kaset/releases/tags/v1.0.0" {
+                body = [
+                    "tag_name": "v1.0.0",
+                    "name": "What's New in Kaset 1.0.0",
+                    "body": "Release notes",
+                    "html_url": "https://github.com/sozercan/kaset/releases/tag/v1.0.0",
+                ]
+                statusCode = 200
+            } else {
+                body = [:]
+                statusCode = 404
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: body)
+            guard let response = HTTPURLResponse(
+                url: url,
+                statusCode: statusCode,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            ) else {
+                throw URLError(.badServerResponse)
+            }
+
+            return (response, data)
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let result = await WhatsNewProvider.fetchWhatsNew(
+            for: "1.0.0",
+            store: store,
+            respectingPresentedVersions: false,
+            session: session
+        )
+
+        #expect(result?.version == "1.0.0")
+        #expect(result?.releaseNotes == "Release notes")
+    }
+
+    @Test("Fetches the exact prerelease tag")
+    func fetchesExactPrereleaseTag() async {
+        let session = MockURLProtocol.makeMockSession()
+
+        MockURLProtocol.requestHandler = { request in
+            guard let url = request.url else {
+                throw URLError(.badURL)
+            }
+
+            let body: [String: Any]
+            let statusCode: Int
+
+            if url.path == "/repos/sozercan/kaset/releases/tags/v1.0.0-beta.1" {
+                body = [
+                    "tag_name": "v1.0.0-beta.1",
+                    "name": "1.0.0-beta.1",
+                    "body": "Beta notes",
+                    "html_url": "https://github.com/sozercan/kaset/releases/tag/v1.0.0-beta.1",
+                ]
+                statusCode = 200
+            } else {
+                body = [:]
+                statusCode = 404
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: body)
+            guard let response = HTTPURLResponse(
+                url: url,
+                statusCode: statusCode,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            ) else {
+                throw URLError(.badServerResponse)
+            }
+
+            return (response, data)
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let result = await WhatsNewProvider.fetchWhatsNew(
+            for: "1.0.0-beta.1",
+            store: WhatsNewVersionStore(defaults: self.defaults),
+            session: session
+        )
+
+        #expect(result?.version.description == "1.0.0-beta.1")
+        #expect(result?.releaseNotes == "Beta notes")
     }
 }

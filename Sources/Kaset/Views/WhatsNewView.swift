@@ -87,7 +87,7 @@ private struct MarkdownContentView: View {
     let markdown: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(self.blocks.enumerated()), id: \.offset) { _, block in
                 block
             }
@@ -100,40 +100,45 @@ private struct MarkdownContentView: View {
         let lines = self.markdown.components(separatedBy: "\n")
         var result: [AnyView] = []
         var i = 0
+        var lastWasBlank = false
 
         while i < lines.count {
             let line = lines[i]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 
             if trimmed.isEmpty {
-                // Blank line — small spacer
-                result.append(AnyView(Spacer().frame(height: 4)))
+                // Skip blank lines — VStack spacing handles gaps between blocks
+                lastWasBlank = true
                 i += 1
             } else if trimmed.hasPrefix("### ") {
+                lastWasBlank = false
                 let text = String(trimmed.dropFirst(4))
                 result.append(AnyView(
                     Text(Self.inlineMarkdown(text))
                         .font(.headline)
-                        .padding(.top, 4)
+                        .padding(.top, 2)
                 ))
                 i += 1
             } else if trimmed.hasPrefix("## ") {
+                lastWasBlank = false
                 let text = String(trimmed.dropFirst(3))
                 result.append(AnyView(
                     Text(Self.inlineMarkdown(text))
                         .font(.title3.bold())
-                        .padding(.top, 6)
+                        .padding(.top, 4)
                 ))
                 i += 1
             } else if trimmed.hasPrefix("# ") {
+                lastWasBlank = false
                 let text = String(trimmed.dropFirst(2))
                 result.append(AnyView(
                     Text(Self.inlineMarkdown(text))
                         .font(.title2.bold())
-                        .padding(.top, 8)
+                        .padding(.top, 6)
                 ))
                 i += 1
             } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+                lastWasBlank = false
                 // Collect consecutive list items
                 var items: [String] = []
                 while i < lines.count {
@@ -160,6 +165,7 @@ private struct MarkdownContentView: View {
                     }
                 ))
             } else if trimmed.hasPrefix("```") {
+                lastWasBlank = false
                 // Code block — collect until closing ```
                 i += 1
                 var codeLines: [String] = []
@@ -178,6 +184,7 @@ private struct MarkdownContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 ))
             } else {
+                lastWasBlank = false
                 // Regular paragraph
                 result.append(AnyView(
                     Text(Self.inlineMarkdown(trimmed))

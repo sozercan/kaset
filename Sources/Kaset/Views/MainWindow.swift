@@ -5,6 +5,15 @@ import SwiftUI
 /// Main application window with sidebar navigation and player bar.
 @available(macOS 26.0, *)
 struct MainWindow: View {
+    private struct PresentedWhatsNew: Identifiable {
+        let whatsNew: WhatsNew
+        let requestedVersion: WhatsNew.Version
+
+        var id: String {
+            "\(self.requestedVersion.description)::\(self.whatsNew.version.description)"
+        }
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
@@ -20,7 +29,7 @@ struct MainWindow: View {
 
     @State private var showLoginSheet = false
     @State private var showCommandBarSheet = false
-    @State private var whatsNewToPresent: WhatsNew?
+    @State private var whatsNewToPresent: PresentedWhatsNew?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -108,10 +117,9 @@ struct MainWindow: View {
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
-        .sheet(item: self.$whatsNewToPresent) { whatsNew in
-            WhatsNewView(whatsNew: whatsNew) {
-                WhatsNewVersionStore().markPresented(whatsNew.version)
-                self.whatsNewToPresent = nil
+        .sheet(item: self.$whatsNewToPresent) { presentedWhatsNew in
+            WhatsNewView(whatsNew: presentedWhatsNew.whatsNew) {
+                self.dismissWhatsNew(presentedWhatsNew)
             }
         }
         .overlay {
@@ -146,12 +154,11 @@ struct MainWindow: View {
         .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
             if newValue {
                 // Manual trigger from Help menu — fetch release notes, bypass version store
-                Task {
-                    let version = WhatsNew.Version.current()
-                    // Try fetching dynamic release notes first, then fall back to static
-                    let whatsNew = await WhatsNewProvider.fetchWhatsNew(for: version, store: WhatsNewVersionStore(defaults: .init()))
-                        ?? WhatsNewProvider.fallbackCollection.first
-                    self.whatsNewToPresent = whatsNew
+                Task { @MainActor in
+                    await self.presentCurrentWhatsNew(
+                        respectingPresentedVersions: false,
+                        allowsGenericFallback: true
+                    )
                 }
                 self.showWhatsNew.wrappedValue = false
             }
@@ -334,8 +341,8 @@ struct MainWindow: View {
             self.showLoginSheet = false
             // Auto-present "What's New" — fetch from GitHub release notes
             if self.whatsNewToPresent == nil {
-                Task {
-                    self.whatsNewToPresent = await WhatsNewProvider.fetchWhatsNew()
+                Task { @MainActor in
+                    await self.presentCurrentWhatsNew()
                 }
             }
             Task {
@@ -357,6 +364,31 @@ struct MainWindow: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func dismissWhatsNew(_ whatsNew: PresentedWhatsNew) {
+        WhatsNewVersionStore().markPresented(whatsNew.requestedVersion)
+        self.whatsNewToPresent = nil
+    }
+
+    @MainActor
+    private func presentCurrentWhatsNew(
+        respectingPresentedVersions: Bool = true,
+        allowsGenericFallback: Bool = false
+    ) async {
+        let currentVersion = WhatsNew.Version.current()
+        let whatsNew = await WhatsNewProvider.fetchWhatsNew(
+            for: currentVersion,
+            respectingPresentedVersions: respectingPresentedVersions
+        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
+
+        guard let whatsNew else { return }
+
+        self.whatsNewToPresent = PresentedWhatsNew(
+            whatsNew: whatsNew,
+            requestedVersion: currentVersion
+        )
     }
 
     /// Refreshes all content when switching accounts.
