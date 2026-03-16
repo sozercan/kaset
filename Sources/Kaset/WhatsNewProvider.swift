@@ -54,7 +54,7 @@ enum WhatsNewProvider {
         }
 
         // Try fetching from GitHub releases
-        if let dynamic = await Self.fetchFromGitHub(for: currentVersion, session: session) {
+        if let dynamic = await fetchFromGitHub(for: currentVersion, session: session) {
             return dynamic
         }
 
@@ -76,7 +76,7 @@ enum WhatsNewProvider {
             return nil
         }
 
-        if let exact = Self.fallbackCollection.first(where: { $0.version == currentVersion }) {
+        if let exact = fallbackCollection.first(where: { $0.version == currentVersion }) {
             return exact
         }
 
@@ -122,7 +122,7 @@ enum WhatsNewProvider {
     }
 
     private static func fetchRelease(tag: String, session: URLSession = .shared) async -> WhatsNew? {
-        await Self.fetchForTag(tag, session: session)
+        await self.fetchForTag(tag, session: session)
     }
 
     private static func fetchLatestRelease(session: URLSession = .shared) async -> WhatsNew? {

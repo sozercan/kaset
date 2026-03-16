@@ -66,7 +66,7 @@ extension WhatsNew {
             if lhs.major != rhs.major { return lhs.major < rhs.major }
             if lhs.minor != rhs.minor { return lhs.minor < rhs.minor }
             if lhs.patch != rhs.patch { return lhs.patch < rhs.patch }
-            return Self.compareSuffix(lhs.suffix, rhs.suffix)
+            return self.compareSuffix(lhs.suffix, rhs.suffix)
         }
 
         // MARK: CustomStringConvertible
@@ -108,7 +108,7 @@ extension WhatsNew.Version: ExpressibleByStringLiteral {
 
     private static func parse(_ value: String) -> ParsedComponents {
         guard !value.isEmpty,
-              let match = Self.parser?.firstMatch(in: value, range: NSRange(value.startIndex..., in: value))
+              let match = parser?.firstMatch(in: value, range: NSRange(value.startIndex..., in: value))
         else {
             return ParsedComponents(major: 0, minor: 0, patch: 0, suffix: "")
         }
@@ -122,7 +122,7 @@ extension WhatsNew.Version: ExpressibleByStringLiteral {
     }
 
     private static func intCapture(in value: String, match: NSTextCheckingResult, at index: Int) -> Int {
-        Int(Self.stringCapture(in: value, match: match, at: index)) ?? 0
+        Int(self.stringCapture(in: value, match: match, at: index)) ?? 0
     }
 
     private static func stringCapture(in value: String, match: NSTextCheckingResult, at index: Int) -> String {
