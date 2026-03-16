@@ -199,13 +199,12 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
 
-                // Mute - ⌘⇧M
+                // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
                     Task {
                         await self.playerService.toggleMute()
                     }
                 }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
 
                 Divider()
 
