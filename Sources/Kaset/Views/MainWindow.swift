@@ -207,7 +207,7 @@ struct MainWindow: View {
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                 }
                 .keyboardShortcut("k", modifiers: .command)
                 .help("Ask AI (⌘K)")
