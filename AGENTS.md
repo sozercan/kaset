@@ -22,6 +22,8 @@ Kaset is a native macOS YouTube Music client (Swift/SwiftUI) using a hidden WebV
 
 > 📝 **Document Architectural Decisions** — For significant design changes, create an ADR in `docs/adr/`.
 
+> ⌨️ **Preserve Standard macOS Shortcuts** — Do not override standard app/window shortcuts such as `⌘M`, `⌘W`, `⌘Q`, `⌘H`, or `⌘,` unless the human explicitly asks for it. When adding media shortcuts, prefer native macOS and Apple Music conventions, and update `docs/keyboard-shortcuts.md`.
+
 ## Build & Code Quality
 
 ```bash
