@@ -7,7 +7,7 @@ import os
 @Observable
 final class AuthService: AuthServiceProtocol {
     /// Authentication states.
-    enum State: Equatable, Sendable {
+    enum State: Equatable {
         case initializing
         case loggedOut
         case loggingIn

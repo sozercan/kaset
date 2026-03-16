@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SongLikeStatusManager.
-@Suite("SongLikeStatusManager", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct SongLikeStatusManagerTests {
     var manager: SongLikeStatusManager

@@ -4,7 +4,7 @@ import Testing
 
 // MARK: - PlaylistChangesTests
 
-@Suite("PlaylistChanges Unit", .tags(.model))
+@Suite(.tags(.model))
 struct PlaylistChangesTests {
     @Test("PlaylistChanges with empty removals")
     func emptyRemovals() {
@@ -59,7 +59,7 @@ struct PlaylistChangesTests {
 
 // MARK: - LyricsSummaryTests
 
-@Suite("LyricsSummary Unit", .tags(.model))
+@Suite(.tags(.model))
 struct LyricsSummaryTests {
     @Test("LyricsSummary with minimal themes")
     func minimalThemes() {

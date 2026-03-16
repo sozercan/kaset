@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SettingsManager.
-@Suite("SettingsManager", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct SettingsManagerTests {
     // Note: These tests use a fresh UserDefaults domain to avoid affecting real settings

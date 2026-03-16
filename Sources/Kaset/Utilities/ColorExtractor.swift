@@ -13,7 +13,7 @@ enum ColorExtractor {
     }
 
     /// Represents extracted color palette from an image.
-    struct ColorPalette: Equatable, Sendable {
+    struct ColorPalette: Equatable {
         /// Dark mode primary color (darker, saturated).
         let primary: Color
         /// Dark mode secondary color (even darker).

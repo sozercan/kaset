@@ -3,7 +3,7 @@ import Foundation
 // MARK: - LikeStatus
 
 /// Represents the like/dislike status of a song in YouTube Music.
-enum LikeStatus: String, Codable, Sendable, Equatable {
+enum LikeStatus: String, Codable, Equatable {
     /// Song is liked (thumbs up).
     case like = "LIKE"
 
@@ -28,7 +28,7 @@ enum LikeStatus: String, Codable, Sendable, Equatable {
 
 /// Tokens used for library add/remove operations.
 /// These are obtained from song metadata in API responses.
-struct FeedbackTokens: Codable, Hashable, Sendable {
+struct FeedbackTokens: Codable, Hashable {
     /// Token to add the song to library.
     let add: String?
 

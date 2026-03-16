@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SongMetadataParser.
-@Suite("SongMetadataParser", .tags(.parser))
+@Suite(.tags(.parser))
 struct SongMetadataParserTests {
     // MARK: - Parse Title Tests
 

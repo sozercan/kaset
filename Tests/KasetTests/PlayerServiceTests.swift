@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService.
-@Suite("PlayerService", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceTests {
     var playerService: PlayerService

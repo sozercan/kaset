@@ -1,4 +1,3 @@
-import CoreTransferable
 import Foundation
 import Observation
 
@@ -259,13 +258,5 @@ final class FavoritesManager {
     func reset(with items: [FavoriteItem]) {
         self.items = items
         self.save()
-    }
-}
-
-// MARK: - FavoriteItem + Transferable
-
-extension FavoriteItem: Transferable {
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(for: FavoriteItem.self, contentType: .data)
     }
 }

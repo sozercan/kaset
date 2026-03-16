@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService+Queue mix functionality.
-@Suite("PlayerService+Mix", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceMixTests {
     var playerService: PlayerService

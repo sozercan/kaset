@@ -3,7 +3,7 @@ import Foundation
 // MARK: - HomeSection
 
 /// Represents a section on the YouTube Music home page.
-struct HomeSection: Identifiable, Sendable {
+struct HomeSection: Identifiable {
     let id: String
     let title: String
     let items: [HomeSectionItem]
@@ -22,7 +22,7 @@ struct HomeSection: Identifiable, Sendable {
 // MARK: - HomeSectionItem
 
 /// An item within a home section (can be song, album, playlist, or artist).
-enum HomeSectionItem: Identifiable, Sendable {
+enum HomeSectionItem: Identifiable {
     case song(Song)
     case album(Album)
     case playlist(Playlist)

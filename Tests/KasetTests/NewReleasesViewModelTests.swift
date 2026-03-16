@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@Suite("NewReleasesViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
+@Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct NewReleasesViewModelTests {
     var mockClient: MockYTMusicClient

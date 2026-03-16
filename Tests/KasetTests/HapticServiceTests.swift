@@ -2,7 +2,7 @@ import Testing
 @testable import Kaset
 
 /// Unit tests for HapticService.
-@Suite("HapticService", .tags(.service))
+@Suite(.tags(.service))
 struct HapticServiceTests {
     // MARK: - FeedbackType Pattern Mapping Tests
 

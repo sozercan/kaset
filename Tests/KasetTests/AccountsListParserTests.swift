@@ -8,7 +8,6 @@ import Testing
 
 // MARK: - AccountsListParserTests
 
-@Suite
 struct AccountsListParserTests {
     // MARK: - Empty/Invalid Response Tests
 

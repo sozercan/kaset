@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for FavoritesManager using Swift Testing.
-@Suite("FavoritesManager", .serialized, .tags(.service), .timeLimit(.minutes(1)))
+@Suite(.serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
 struct FavoritesManagerTests {
     /// Use a fresh manager for each test (skipLoad to avoid disk state)

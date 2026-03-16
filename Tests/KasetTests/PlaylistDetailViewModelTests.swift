@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlaylistDetailViewModel using mock client.
-@Suite("PlaylistDetailViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
+@Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct PlaylistDetailViewModelTests {
     var mockClient: MockYTMusicClient

@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for ArtistDetail.
-@Suite("ArtistDetail", .tags(.viewModel))
+@Suite(.tags(.viewModel))
 struct ArtistDetailTests {
     @Test("ArtistDetail initialization")
     func artistDetailInit() {

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@Suite("ScrobbleQueue", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct ScrobbleQueueTests {
     /// Creates a temporary directory for queue file storage during tests.

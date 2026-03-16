@@ -5,7 +5,7 @@ import FoundationModels
 /// Generated when the user asks to "refine" or "clean up" a playlist.
 @available(macOS 26.0, *)
 @Generable
-struct PlaylistChanges: Sendable {
+struct PlaylistChanges {
     /// Video IDs of tracks to remove from the playlist.
     @Guide(description: "List of video IDs (not titles) to remove from the playlist. Empty if no removals.")
     let removals: [String]

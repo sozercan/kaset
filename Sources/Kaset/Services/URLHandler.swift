@@ -18,7 +18,7 @@ enum URLHandler {
     // MARK: - Types
 
     /// Represents the type of content from a parsed URL.
-    enum ParsedContent: Sendable, Equatable {
+    enum ParsedContent: Equatable {
         /// A song/video to play.
         case song(videoId: String)
 

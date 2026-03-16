@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for WebKitManager.
-@Suite("WebKitManager", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct WebKitManagerTests {
     var webKitManager: WebKitManager

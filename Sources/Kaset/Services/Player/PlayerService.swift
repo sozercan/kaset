@@ -19,7 +19,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// to the caller, as there's a brief window during app launch before initialization completes.
     static var shared: PlayerService?
     /// Current playback state.
-    enum PlaybackState: Equatable, Sendable {
+    enum PlaybackState: Equatable {
         case idle
         case loading
         case playing
@@ -34,7 +34,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Repeat mode for playback.
-    enum RepeatMode: Sendable {
+    enum RepeatMode {
         case off
         case all
         case one

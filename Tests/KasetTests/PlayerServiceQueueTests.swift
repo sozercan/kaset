@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService queue operations, undo/redo, and metadata enrichment.
-@Suite("PlayerService Queue", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceQueueTests {
     var playerService: PlayerService
