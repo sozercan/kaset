@@ -459,6 +459,22 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentTrack?.videoId == "v2")
     }
 
+    @Test("Track end wraps to the first queue song when repeat all is enabled")
+    func trackEndWrapsToStartWhenRepeatAllIsEnabled() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        await self.playerService.handleTrackEnded(observedVideoId: "v2")
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.currentTrack?.title == "Song 1")
+    }
+
     @Test("Track end advances native queue before Web autoplay can take over")
     func trackEndAdvancesNativeQueueImmediately() async {
         let songs = [

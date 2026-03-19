@@ -420,7 +420,8 @@ final class SingletonPlayerWebView {
 
                     // Close video window on track change, but skip during grace period
                     // (grace period prevents false positives during initial video mode setup)
-                    // Note: trackChanged detection uses title/artist comparison from the observer script
+                    // Note: trackChanged detection now uses videoId changes too, so this
+                    // can fire before the player bar text has caught up to the new track.
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
                             "trackChanged to '\(title)' while video shown - closing video window"
