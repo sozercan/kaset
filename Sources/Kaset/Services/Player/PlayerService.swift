@@ -340,6 +340,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.state = .loading
+        self.songNearingEnd = false
 
         // Create a minimal Song object for now
         self.currentTrack = Song(
@@ -374,6 +375,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func play(song: Song) async {
         self.logger.info("Playing song: \(song.title)")
         self.state = .loading
+        self.songNearingEnd = false
         self.currentTrack = song
 
         // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
@@ -441,84 +443,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    func markPlaybackEnded() {
+        self.state = .ended
+    }
+
     /// Flag to track when a song is nearing its end.
-    private var songNearingEnd: Bool = false
+    var songNearingEnd: Bool = false
 
     /// Flag to track when we initiated a track change (to correct YouTube's autoplay interference).
     /// This is set when we call play() and cleared after the track loads.
-    private var isKasetInitiatedPlayback: Bool = false
-
-    /// Updates track metadata when track changes (e.g., via next/previous).
-    /// Also handles enforcing our queue when YouTube autoplay kicks in.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
-        self.logger.debug("Track metadata updated: \(title) - \(artist)")
-
-        let thumbnailURL = URL(string: thumbnailUrl)
-        let artistObj = Artist(id: "unknown", name: artist)
-
-        // Preserve videoId if we have it
-        let videoId = self.currentTrack?.videoId ?? self.pendingPlayVideoId ?? "unknown"
-
-        // Check if track actually changed
-        let trackChanged = self.currentTrack?.title != title || self.currentTrack?.artistsDisplay != artist
-
-        // If we initiated playback (e.g., via next() with shuffle), check if YouTube loaded a different track
-        // This happens when the WebView's media session intercepts media keys and triggers YouTube's own next
-        if trackChanged, self.isKasetInitiatedPlayback, !self.queue.isEmpty {
-            // Get the song we intended to play and compare using videoId to detect mismatched tracks
-            if let intendedSong = queue[safe: currentIndex], intendedSong.videoId != videoId {
-                self.logger.info("YouTube loaded different track '\(title)' (\(videoId)), re-playing intended track '\(intendedSong.title)'")
-                // Clear the flag to prevent infinite loop
-                self.isKasetInitiatedPlayback = false
-                Task {
-                    await self.play(song: intendedSong)
-                }
-                return
-            }
-            // Track matches what we wanted, clear the flag
-            self.isKasetInitiatedPlayback = false
-        }
-
-        // If track changed and we have a queue, check if YouTube autoplay kicked in (song ending naturally)
-        if trackChanged, !self.queue.isEmpty, self.songNearingEnd {
-            self.songNearingEnd = false
-
-            // Check if the new track matches our expected next track in queue
-            let expectedNextIndex = self.currentIndex + 1
-            if expectedNextIndex < self.queue.count {
-                let expectedNextTrack = self.queue[expectedNextIndex]
-                // If title doesn't match expected next track, YouTube autoplay overrode our queue
-                if title != expectedNextTrack.title {
-                    self.logger.info("YouTube autoplay detected, overriding with queue track")
-                    // Play our queue's next track instead
-                    Task {
-                        await self.next()
-                    }
-                    return
-                } else {
-                    // Track matches our queue, update the index
-                    self.currentIndex = expectedNextIndex
-                    self.logger.info("Track advanced to queue index \(expectedNextIndex)")
-                    self.saveQueueForPersistence()
-                }
-            }
-        }
-
-        self.currentTrack = Song(
-            id: videoId,
-            title: title,
-            artists: [artistObj],
-            album: nil,
-            duration: self.duration > 0 ? self.duration : nil,
-            thumbnailURL: thumbnailURL,
-            videoId: videoId
-        )
-
-        // Reset like/library status when track changes
-        if trackChanged {
-            self.resetTrackStatus()
-        }
-    }
+    var isKasetInitiatedPlayback: Bool = false
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     private var videoWindowOpenedAt: ContinuousClock.Instant?
@@ -790,6 +724,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.debug("Stopping playback")
         await self.evaluatePlayerCommand("pauseVideo()")
         self.state = .idle
+        self.songNearingEnd = false
+        self.isKasetInitiatedPlayback = false
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0

@@ -345,6 +345,19 @@ final class SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
+            let observedVideoId: String? = if let videoId = body["videoId"] as? String, !videoId.isEmpty {
+                videoId
+            } else {
+                nil
+            }
+
+            if type == "TRACK_ENDED" {
+                Task { @MainActor in
+                    await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
+                }
+                return
+            }
+
             // Handle AirPlay status updates
             if type == "AIRPLAY_STATUS" {
                 let isConnected = body["isConnected"] as? Bool ?? false
@@ -397,11 +410,12 @@ final class SingletonPlayerWebView {
                 }
 
                 // Update track metadata if track changed
-                if trackChanged, !title.isEmpty {
+                if trackChanged, observedVideoId != nil || !title.isEmpty {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,
-                        thumbnailUrl: thumbnailUrl
+                        thumbnailUrl: thumbnailUrl,
+                        videoId: observedVideoId
                     )
 
                     // Close video window on track change, but skip during grace period
