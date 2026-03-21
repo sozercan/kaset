@@ -341,6 +341,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.info("Playing video: \(videoId)")
         self.state = .loading
         self.songNearingEnd = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
 
         // Create a minimal Song object for now
         self.currentTrack = Song(
@@ -376,6 +377,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.info("Playing song: \(song.title)")
         self.state = .loading
         self.songNearingEnd = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
 
         // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
@@ -453,6 +455,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Flag to track when we initiated a track change (to correct YouTube's autoplay interference).
     /// This is set when we call play() and cleared after the track loads.
     var isKasetInitiatedPlayback: Bool = false
+
+    /// Flag to suppress YouTube autoplay after the native queue has finished.
+    var shouldSuppressAutoplayAfterQueueEnd: Bool = false
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     private var videoWindowOpenedAt: ContinuousClock.Instant?
@@ -726,6 +731,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.state = .idle
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
