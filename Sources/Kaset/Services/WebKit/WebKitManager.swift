@@ -7,41 +7,44 @@ import WebKit
 
 /// Tracks the last persisted archive so identical cookie backups can be skipped safely.
 final class CookieArchiveWriteCoordinator: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.kaset.keychain-cookie-storage.write-state")
+    private let lock = NSLock()
     private var lastSavedArchiveData: Data?
     private var pendingArchiveData: Data?
 
     @discardableResult
     func beginSaveIfNeeded(_ data: Data) -> Bool {
-        self.queue.sync {
-            guard self.pendingArchiveData != data, self.lastSavedArchiveData != data else {
-                return false
-            }
+        self.lock.lock()
+        defer { self.lock.unlock() }
 
-            self.pendingArchiveData = data
-            return true
+        guard self.pendingArchiveData != data, self.lastSavedArchiveData != data else {
+            return false
         }
+
+        self.pendingArchiveData = data
+        return true
     }
 
     func finishSave(_ data: Data, success: Bool) {
-        self.queue.sync {
-            if self.pendingArchiveData == data {
-                self.pendingArchiveData = nil
-            }
+        self.lock.lock()
+        defer { self.lock.unlock() }
 
-            if success {
-                self.lastSavedArchiveData = data
-            }
+        if self.pendingArchiveData == data {
+            self.pendingArchiveData = nil
+        }
+
+        if success {
+            self.lastSavedArchiveData = data
         }
     }
 
     func seedPersistedArchive(_ data: Data?) {
-        self.queue.sync {
-            self.lastSavedArchiveData = data
+        self.lock.lock()
+        defer { self.lock.unlock() }
 
-            if data == nil || self.pendingArchiveData == data {
-                self.pendingArchiveData = nil
-            }
+        self.lastSavedArchiveData = data
+
+        if data == nil || self.pendingArchiveData == data {
+            self.pendingArchiveData = nil
         }
     }
 }
@@ -123,8 +126,8 @@ enum KeychainCookieStorage {
     /// Saves an already-serialized cookie archive to the Keychain.
     @discardableResult
     static func saveArchiveData(_ data: Data, cookieCount: Int) -> Bool {
-        guard Self.writeCoordinator.beginSaveIfNeeded(data) else {
-            self.logger.debug("Skipping Keychain cookie save because archive is unchanged")
+        guard self.writeCoordinator.beginSaveIfNeeded(data) else {
+            self.logger.debug("Skipping Keychain cookie save because archive is already saved or a write is in progress")
             return false
         }
 
@@ -154,10 +157,10 @@ enum KeychainCookieStorage {
         Self.writeCoordinator.finishSave(data, success: didSave)
 
         if didSave {
-            self.logger.debug("Saved \(cookieCount) auth cookies to Keychain")
+            Self.logger.debug("Saved \(cookieCount) auth cookies to Keychain")
             return true
         } else {
-            self.logger.error("Failed to save cookies to Keychain: \(status)")
+            Self.logger.error("Failed to save cookies to Keychain: \(status)")
             return false
         }
     }
@@ -261,9 +264,9 @@ enum KeychainCookieStorage {
         Self.writeCoordinator.seedPersistedArchive(nil)
 
         if status == errSecSuccess {
-            self.logger.info("Deleted cookies from Keychain")
+            Self.logger.info("Deleted cookies from Keychain")
         } else if status != errSecItemNotFound {
-            self.logger.error("Failed to delete cookies from Keychain: \(status)")
+            Self.logger.error("Failed to delete cookies from Keychain: \(status)")
         }
     }
 }
@@ -527,6 +530,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             return
         }
 
+        #if DEBUG
+            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
+        #endif
+
         self.logger.info("Restoring \(keychainCookies.count) auth cookies from Keychain")
 
         // Set each cookie in WebKit
@@ -710,11 +717,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Perform Keychain/file I/O off the main actor.
         // Fire-and-forget: failures are handled inside KeychainCookieStorage.
         Task(priority: .utility) {
-            let didSave = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
+            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
             #if DEBUG
-                if didSave {
-                    DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
-                }
+                DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
             #endif
         }
     }
@@ -764,11 +769,9 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
 
         // Perform Keychain/file I/O off the main thread.
         Task.detached(priority: .utility) {
-            let didSave = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
+            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
             #if DEBUG
-                if didSave {
-                    DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
-                }
+                DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
             #endif
         }
     }
