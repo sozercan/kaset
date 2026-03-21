@@ -4,7 +4,6 @@ import Testing
 
 // MARK: - URLHandlerTests
 
-@Suite("URL Handler Tests")
 struct URLHandlerTests {
     // MARK: - YouTube Music URL Tests
 

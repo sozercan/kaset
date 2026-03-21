@@ -19,7 +19,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// to the caller, as there's a brief window during app launch before initialization completes.
     static var shared: PlayerService?
     /// Current playback state.
-    enum PlaybackState: Equatable, Sendable {
+    enum PlaybackState: Equatable {
         case idle
         case loading
         case playing
@@ -34,7 +34,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Repeat mode for playback.
-    enum RepeatMode: Sendable {
+    enum RepeatMode {
         case off
         case all
         case one
@@ -43,7 +43,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     // MARK: - Observable State
 
     /// Current playback state.
-    private(set) var state: PlaybackState = .idle
+    var state: PlaybackState = .idle
 
     /// Currently playing track.
     var currentTrack: Song?
@@ -54,10 +54,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Current playback position in seconds.
-    private(set) var progress: TimeInterval = 0
+    var progress: TimeInterval = 0
 
     /// Total duration of current track in seconds.
-    private(set) var duration: TimeInterval = 0
+    var duration: TimeInterval = 0
 
     /// Current volume (0.0 - 1.0).
     private(set) var volume: Double = 1.0
@@ -86,11 +86,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var showMiniPlayer: Bool = false
 
     /// The video ID that needs to be played in the mini player.
-    private(set) var pendingPlayVideoId: String?
+    var pendingPlayVideoId: String?
 
     /// Whether the user has successfully interacted at least once this session.
     /// After first successful playback, we can auto-play without showing the popup.
     private(set) var hasUserInteractedThisSession: Bool = false
+
+    /// Saved seek position to apply once a restored session finishes loading.
+    var pendingRestoredSeek: TimeInterval?
+
+    /// Whether a restored session is waiting for an explicit user-triggered load.
+    var isPendingRestoredLoadDeferred: Bool = false
+
+    /// Whether launch-time session restoration is still reconciling with the player observer.
+    var isRestoringPlaybackSession: Bool = false
+
+    /// Whether a restored load should automatically resume after seeking to the saved position.
+    var shouldAutoResumeAfterRestoredLoad: Bool = false
 
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus = .indifferent
@@ -125,7 +137,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Whether the current track has video available.
-    private(set) var currentTrackHasVideo: Bool = false
+    var currentTrackHasVideo: Bool = false
 
     /// Whether video mode is active (user has opened video window).
     /// Note: We don't auto-close based on currentTrackHasVideo here because
@@ -229,6 +241,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Returns true if the given song is the current track.
     func isCurrentTrack(_ song: Song) -> Bool {
         self.currentTrack?.videoId == song.videoId
+    }
+
+    /// Whether the persistent player should navigate to the pending video immediately.
+    var shouldAutoloadPendingVideo: Bool {
+        !self.isPendingRestoredLoadDeferred
     }
 
     /// Toggles between popup and side panel queue display modes.
@@ -339,7 +356,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func play(videoId: String) async {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
+        self.clearRestoredPlaybackSessionState()
         self.state = .loading
+        self.songNearingEnd = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
 
         // Create a minimal Song object for now
         self.currentTrack = Song(
@@ -373,7 +393,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Plays a song.
     func play(song: Song) async {
         self.logger.info("Playing song: \(song.title)")
+        self.clearRestoredPlaybackSessionState()
         self.state = .loading
+        self.songNearingEnd = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
 
         // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
@@ -423,102 +446,19 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-    /// Updates playback state from the persistent WebView observer.
-    func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
-        let previousProgress = self.progress
-        self.progress = progress
-        self.duration = duration
-        if isPlaying {
-            self.state = .playing
-        } else if self.state == .playing {
-            self.state = .paused
-        }
-
-        // Detect when song is about to end (within last 2 seconds)
-        // This helps us prepare to play the next track from our queue
-        if duration > 0, progress >= duration - 2, previousProgress < duration - 2 {
-            self.songNearingEnd = true
-        }
+    func markPlaybackEnded() {
+        self.state = .ended
     }
 
     /// Flag to track when a song is nearing its end.
-    private var songNearingEnd: Bool = false
+    var songNearingEnd: Bool = false
 
     /// Flag to track when we initiated a track change (to correct YouTube's autoplay interference).
     /// This is set when we call play() and cleared after the track loads.
-    private var isKasetInitiatedPlayback: Bool = false
+    var isKasetInitiatedPlayback: Bool = false
 
-    /// Updates track metadata when track changes (e.g., via next/previous).
-    /// Also handles enforcing our queue when YouTube autoplay kicks in.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
-        self.logger.debug("Track metadata updated: \(title) - \(artist)")
-
-        let thumbnailURL = URL(string: thumbnailUrl)
-        let artistObj = Artist(id: "unknown", name: artist)
-
-        // Preserve videoId if we have it
-        let videoId = self.currentTrack?.videoId ?? self.pendingPlayVideoId ?? "unknown"
-
-        // Check if track actually changed
-        let trackChanged = self.currentTrack?.title != title || self.currentTrack?.artistsDisplay != artist
-
-        // If we initiated playback (e.g., via next() with shuffle), check if YouTube loaded a different track
-        // This happens when the WebView's media session intercepts media keys and triggers YouTube's own next
-        if trackChanged, self.isKasetInitiatedPlayback, !self.queue.isEmpty {
-            // Get the song we intended to play and compare using videoId to detect mismatched tracks
-            if let intendedSong = queue[safe: currentIndex], intendedSong.videoId != videoId {
-                self.logger.info("YouTube loaded different track '\(title)' (\(videoId)), re-playing intended track '\(intendedSong.title)'")
-                // Clear the flag to prevent infinite loop
-                self.isKasetInitiatedPlayback = false
-                Task {
-                    await self.play(song: intendedSong)
-                }
-                return
-            }
-            // Track matches what we wanted, clear the flag
-            self.isKasetInitiatedPlayback = false
-        }
-
-        // If track changed and we have a queue, check if YouTube autoplay kicked in (song ending naturally)
-        if trackChanged, !self.queue.isEmpty, self.songNearingEnd {
-            self.songNearingEnd = false
-
-            // Check if the new track matches our expected next track in queue
-            let expectedNextIndex = self.currentIndex + 1
-            if expectedNextIndex < self.queue.count {
-                let expectedNextTrack = self.queue[expectedNextIndex]
-                // If title doesn't match expected next track, YouTube autoplay overrode our queue
-                if title != expectedNextTrack.title {
-                    self.logger.info("YouTube autoplay detected, overriding with queue track")
-                    // Play our queue's next track instead
-                    Task {
-                        await self.next()
-                    }
-                    return
-                } else {
-                    // Track matches our queue, update the index
-                    self.currentIndex = expectedNextIndex
-                    self.logger.info("Track advanced to queue index \(expectedNextIndex)")
-                    self.saveQueueForPersistence()
-                }
-            }
-        }
-
-        self.currentTrack = Song(
-            id: videoId,
-            title: title,
-            artists: [artistObj],
-            album: nil,
-            duration: self.duration > 0 ? self.duration : nil,
-            thumbnailURL: thumbnailURL,
-            videoId: videoId
-        )
-
-        // Reset like/library status when track changes
-        if trackChanged {
-            self.resetTrackStatus()
-        }
-    }
+    /// Flag to suppress YouTube autoplay after the native queue has finished.
+    var shouldSuppressAutoplayAfterQueueEnd: Bool = false
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     private var videoWindowOpenedAt: ContinuousClock.Instant?
@@ -569,6 +509,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func playPause() async {
         self.logger.debug("Toggle play/pause")
 
+        if self.isPendingRestoredLoadDeferred || self.pendingPlayVideoId != nil && self.shouldLoadPendingVideoBeforePlayback {
+            await self.resume()
+            return
+        }
+
+        self.clearRestoredPlaybackSessionState()
+
         // Use singleton WebView if we have a pending video
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.playPause()
@@ -582,6 +529,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Pauses playback.
     func pause() async {
         self.logger.debug("Pausing playback")
+
+        if self.isPendingRestoredLoadDeferred {
+            self.state = .paused
+            return
+        }
+
+        self.clearRestoredPlaybackSessionState()
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.pause()
         } else {
@@ -592,6 +546,32 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Resumes playback.
     func resume() async {
         self.logger.debug("Resuming playback")
+
+        guard let pendingPlayVideoId = self.pendingPlayVideoId else {
+            self.clearRestoredPlaybackSessionState()
+            await self.evaluatePlayerCommand("play")
+            return
+        }
+
+        let shouldLoadPendingVideo = self.shouldLoadPendingVideoBeforePlayback
+        if self.isPendingRestoredLoadDeferred {
+            self.beginRestoredPlaybackLoad(autoResumeAfterSeek: self.hasUserInteractedThisSession)
+        } else {
+            self.clearRestoredPlaybackSessionState()
+        }
+
+        if shouldLoadPendingVideo {
+            if self.hasUserInteractedThisSession {
+                self.showMiniPlayer = false
+                self.state = .loading
+                SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId)
+            } else {
+                self.showMiniPlayer = true
+                self.logger.info("Showing mini player so the user can resume playback")
+            }
+            return
+        }
+
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.play()
         } else {
@@ -602,6 +582,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Skips to next track.
     func next() async {
         self.logger.debug("Skipping to next track")
+        self.clearRestoredPlaybackSessionState()
 
         // Prioritize local queue if we have one
         if !self.queue.isEmpty {
@@ -666,6 +647,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Goes to previous track.
     func previous() async {
         self.logger.debug("Going to previous track")
+        self.clearRestoredPlaybackSessionState()
 
         // Prioritize local queue if we have one
         if !self.queue.isEmpty {
@@ -707,12 +689,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Seeks to a specific time.
     func seek(to time: TimeInterval) async {
-        self.logger.debug("Seeking to \(time)")
+        let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
+        self.logger.debug("Seeking to \(clampedTime)")
+
+        if self.isPendingRestoredLoadDeferred {
+            self.progress = clampedTime
+            self.pendingRestoredSeek = clampedTime
+            return
+        }
+
+        self.clearRestoredPlaybackSessionState()
         if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.seek(to: time)
-            self.progress = time
+            SingletonPlayerWebView.shared.seek(to: clampedTime)
+            self.progress = clampedTime
         } else {
-            await self.evaluatePlayerCommand("seekTo(\(time), true)")
+            await self.evaluatePlayerCommand("seekTo(\(clampedTime), true)")
         }
     }
 
@@ -788,8 +779,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Stops playback and clears state.
     func stop() async {
         self.logger.debug("Stopping playback")
+        self.clearRestoredPlaybackSessionState()
         await self.evaluatePlayerCommand("pauseVideo()")
         self.state = .idle
+        self.songNearingEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0

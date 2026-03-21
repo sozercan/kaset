@@ -9,7 +9,6 @@ import Testing
 
 // MARK: - UserAccountTests
 
-@Suite
 struct UserAccountTests {
     // MARK: - Primary Account Tests
 

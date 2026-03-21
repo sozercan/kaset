@@ -64,7 +64,7 @@ final class SearchViewModel {
     }
 
     /// Available filters.
-    enum SearchFilter: String, CaseIterable, Identifiable, Sendable {
+    enum SearchFilter: String, CaseIterable, Identifiable {
         case all = "All"
         case songs = "Songs"
         case albums = "Albums"

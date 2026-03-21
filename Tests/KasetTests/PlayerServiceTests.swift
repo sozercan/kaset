@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService.
-@Suite("PlayerService", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceTests {
     var playerService: PlayerService
@@ -100,7 +100,8 @@ struct PlayerServiceTests {
         self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
-            thumbnailUrl: "https://example.com/thumb.jpg"
+            thumbnailUrl: "https://example.com/thumb.jpg",
+            videoId: nil
         )
 
         #expect(self.playerService.currentTrack != nil)
@@ -114,7 +115,8 @@ struct PlayerServiceTests {
         self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
-            thumbnailUrl: ""
+            thumbnailUrl: "",
+            videoId: nil
         )
 
         #expect(self.playerService.currentTrack != nil)
@@ -370,16 +372,223 @@ struct PlayerServiceTests {
         self.playerService.updateTrackMetadata(
             title: "YouTube Autoplay Song",
             artist: "Random Artist",
-            thumbnailUrl: ""
+            thumbnailUrl: "",
+            videoId: "youtube-autoplay"
         )
 
         // Give async correction task time to run
         try? await Task.sleep(for: .milliseconds(100))
 
-        // The current track should still be the intended song from our queue
-        // (or a re-played version of it)
-        let validVideoIds = Set(songs.map(\.videoId))
-        #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Track should be from our queue, not YouTube autoplay")
+        #expect(self.playerService.currentTrack?.videoId == intendedSong.videoId)
+        #expect(self.playerService.currentTrack?.title == intendedSong.title)
+    }
+
+    @Test("UpdateTrackMetadata keeps queue song when Web metadata is stale")
+    func updateTrackMetadataKeepsQueueSongWhenMetadataIsStale() async {
+        let songs = [
+            Song(
+                id: "v1",
+                title: "You Make My Dreams (Come True)",
+                artists: [Artist(id: "artist-1", name: "Daryl Hall & John Oates")],
+                album: nil,
+                duration: 180,
+                thumbnailURL: nil,
+                videoId: "v1"
+            ),
+            Song(id: "v2", title: "Come Together", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+
+        self.playerService.updateTrackMetadata(
+            title: "Private Eyes",
+            artist: "Daryl Hall & John Oates",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.currentTrack?.title == "You Make My Dreams (Come True)")
+        #expect(self.playerService.isKasetInitiatedPlayback == false)
+    }
+
+    @Test("Near-end videoId-only transition keeps expected queue song visible")
+    func nearEndVideoIdOnlyTransitionKeepsExpectedQueueSongVisible() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [Artist(id: "artist-1", name: "Artist 1")], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [Artist(id: "artist-2", name: "Artist 2")], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [Artist(id: "artist-3", name: "Artist 3")], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 179, duration: 180)
+
+        self.playerService.updateTrackMetadata(
+            title: "",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v2"
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.currentTrack?.title == "Song 2")
+        #expect(self.playerService.currentTrack?.artistsDisplay == "Artist 2")
+    }
+
+    @Test("Unexpected autoplay at end of queue is stopped")
+    func unexpectedAutoplayAtEndOfQueueIsStopped() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 199, duration: 200)
+
+        self.playerService.updateTrackMetadata(
+            title: "Unexpected Song",
+            artist: "Random Artist",
+            thumbnailUrl: "",
+            videoId: "unexpected"
+        )
+
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("Autoplay after native queue end is suppressed")
+    func autoplayAfterQueueEndIsSuppressed() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.isKasetInitiatedPlayback = false
+
+        await self.playerService.handleTrackEnded(observedVideoId: "v2")
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 0, duration: 180)
+        self.playerService.updateTrackMetadata(
+            title: "Unexpected Song",
+            artist: "Random Artist",
+            thumbnailUrl: "",
+            videoId: "unexpected"
+        )
+
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("Unexpected mid-track autoplay is corrected after playback confirmation")
+    func unexpectedMidTrackAutoplayIsCorrected() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.updateTrackMetadata(
+            title: "Song 2",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v2"
+        )
+
+        #expect(self.playerService.isKasetInitiatedPlayback == false)
+
+        self.playerService.updateTrackMetadata(
+            title: "Best Song Ever",
+            artist: "One Direction",
+            thumbnailUrl: "",
+            videoId: "unexpected"
+        )
+
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.currentTrack?.title == "Song 2")
+    }
+
+    @Test("Observed in-queue track realigns current index")
+    func observedInQueueTrackRealignsCurrentIndex() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updateTrackMetadata(
+            title: "Song 1",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+
+        self.playerService.updateTrackMetadata(
+            title: "Song 3",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v3"
+        )
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+        #expect(self.playerService.currentTrack?.title == "Song 3")
+    }
+
+    @Test("Track end wraps to the first queue song when repeat all is enabled")
+    func trackEndWrapsToStartWhenRepeatAllIsEnabled() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        await self.playerService.handleTrackEnded(observedVideoId: "v2")
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.currentTrack?.title == "Song 1")
+    }
+
+    @Test("Track end advances native queue before Web autoplay can take over")
+    func trackEndAdvancesNativeQueueImmediately() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.currentTrack?.title == "Song 2")
+    }
+
+    @Test("Stale track-ended events do not double-advance the queue")
+    func staleTrackEndedEventIsIgnored() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
     }
 
     // MARK: - Play From Queue Tests

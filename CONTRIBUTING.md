@@ -178,6 +178,12 @@ final class MyServiceTests: XCTestCase {
 - Use `SingletonPlayerWebView.shared` for playback (never create multiple WebViews)
 - Compute `SAPISIDHASH` fresh per request using current cookies
 
+### Keyboard Shortcuts
+
+- Preserve standard macOS app/window shortcuts such as `⌘M`, `⌘W`, `⌘Q`, `⌘H`, and `⌘,` unless there is explicit product direction to change them
+- Prefer native macOS and Apple Music shortcut conventions for playback actions
+- Update `docs/keyboard-shortcuts.md` whenever shortcut behavior changes
+
 ### Error Handling
 
 - Throw `YTMusicError.authExpired` on HTTP 401/403

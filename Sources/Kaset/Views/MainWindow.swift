@@ -14,6 +14,10 @@ struct MainWindow: View {
         }
     }
 
+    private enum Layout {
+        static let commandBarTopPadding: CGFloat = 72
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
@@ -28,7 +32,7 @@ struct MainWindow: View {
     let client: any YTMusicClientProtocol
 
     @State private var showLoginSheet = false
-    @State private var showCommandBarSheet = false
+    @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
 
     // MARK: - Cached ViewModels (persist across tab switches)
@@ -124,20 +128,28 @@ struct MainWindow: View {
         }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.showCommandBarSheet {
+            if self.isCommandBarPresented {
                 ZStack {
                     // Background tap area to dismiss
-                    Color.black.opacity(0.3)
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
                         .ignoresSafeArea()
+                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarOverlay)
                         .onTapGesture {
-                            self.showCommandBarSheet = false
+                            self.isCommandBarPresented = false
                         }
 
-                    // Command bar centered
-                    CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    VStack(spacing: 0) {
+                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, Self.Layout.commandBarTopPadding)
                 }
-                .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
+                .animation(.easeInOut(duration: 0.15), value: self.isCommandBarPresented)
             }
         }
         .overlay(alignment: .top) {
@@ -147,7 +159,7 @@ struct MainWindow: View {
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
-                self.showCommandBarSheet = true
+                self.isCommandBarPresented = true
                 self.showCommandBar.wrappedValue = false
             }
         }
@@ -231,11 +243,11 @@ struct MainWindow: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    self.showCommandBarSheet = true
+                    self.isCommandBarPresented = true
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                 }
                 .keyboardShortcut("k", modifiers: .command)
                 .help("Ask AI (⌘K)")

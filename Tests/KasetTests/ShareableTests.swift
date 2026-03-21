@@ -3,7 +3,6 @@ import Testing
 
 // MARK: - ShareableTests
 
-@Suite("Shareable Protocol Tests")
 struct ShareableTests {
     // MARK: - Song Tests
 

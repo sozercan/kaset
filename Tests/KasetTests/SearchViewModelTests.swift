@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SearchViewModel using mock client.
-@Suite("SearchViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
+@Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct SearchViewModelTests {
     var mockClient: MockYTMusicClient

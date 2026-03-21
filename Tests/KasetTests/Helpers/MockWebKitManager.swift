@@ -17,10 +17,14 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var getCookiesForDomains: [String] = []
     private(set) var cookieHeaderCalled = false
     private(set) var getSAPISIDCalled = false
+    private(set) var getSAPISIDCallCount = 0
     private(set) var hasAuthCookiesCalled = false
     private(set) var clearAllDataCalled = false
     private(set) var forceBackupCookiesCalled = false
+    private(set) var waitForInitialCookieRestoreCalled = false
+    private(set) var waitForInitialCookieRestoreCallCount = 0
     private(set) var logAuthCookiesCalled = false
+    private(set) var callSequence: [String] = []
 
     // MARK: - Protocol Implementation
 
@@ -47,6 +51,8 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     func getSAPISID() async -> String? {
         self.getSAPISIDCalled = true
+        self.getSAPISIDCallCount += 1
+        self.callSequence.append("getSAPISID")
         return self.sapisidValue
     }
 
@@ -67,6 +73,12 @@ final class MockWebKitManager: WebKitManagerProtocol {
         // Does NOT interact with real file storage
     }
 
+    func waitForInitialCookieRestore() async {
+        self.waitForInitialCookieRestoreCalled = true
+        self.waitForInitialCookieRestoreCallCount += 1
+        self.callSequence.append("waitForInitialCookieRestore")
+    }
+
     func logAuthCookies() async {
         self.logAuthCookiesCalled = true
         // No-op in mock
@@ -81,10 +93,14 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.getCookiesForDomains = []
         self.cookieHeaderCalled = false
         self.getSAPISIDCalled = false
+        self.getSAPISIDCallCount = 0
         self.hasAuthCookiesCalled = false
         self.clearAllDataCalled = false
         self.forceBackupCookiesCalled = false
+        self.waitForInitialCookieRestoreCalled = false
+        self.waitForInitialCookieRestoreCallCount = 0
         self.logAuthCookiesCalled = false
+        self.callSequence = []
         self.allCookies = []
         self.sapisidValue = nil
     }

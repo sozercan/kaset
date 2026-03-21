@@ -3,7 +3,7 @@ import Foundation
 // MARK: - ArtistDetail
 
 /// Contains detailed artist information including their songs.
-struct ArtistDetail: Sendable {
+struct ArtistDetail {
     let artist: Artist
     let description: String?
     let songs: [Song]

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - SearchResponse
 
 /// Response from a YouTube Music search query.
-struct SearchResponse: Sendable {
+struct SearchResponse {
     let songs: [Song]
     let albums: [Album]
     let artists: [Artist]
@@ -76,7 +76,7 @@ struct SearchResponse: Sendable {
 // MARK: - SearchResultItem
 
 /// A search result item (can be any content type).
-enum SearchResultItem: Identifiable, Sendable {
+enum SearchResultItem: Identifiable {
     case song(Song)
     case album(Album)
     case artist(Artist)

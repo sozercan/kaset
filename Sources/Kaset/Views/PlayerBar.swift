@@ -93,13 +93,6 @@ struct PlayerBar: View {
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
                 .opacity(0)
-
-                // Command + M: Toggle mute
-                Button("") {
-                    Task { await self.playerService.toggleMute() }
-                }
-                .keyboardShortcut("m", modifiers: .command)
-                .opacity(0)
             }
         }
         .onChange(of: self.playerService.progress) { _, newValue in

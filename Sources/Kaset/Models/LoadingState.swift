@@ -3,7 +3,7 @@ import Foundation
 // MARK: - LoadingState
 
 /// Shared loading state for ViewModels.
-enum LoadingState: Sendable {
+enum LoadingState {
     case idle
     case loading
     case loaded
@@ -15,7 +15,7 @@ enum LoadingState: Sendable {
 
 /// Wraps error information for display in views.
 /// Provides user-friendly messages and retry capability.
-struct LoadingError: Sendable {
+struct LoadingError {
     let title: String
     let message: String
     let isRetryable: Bool

@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for WebKitManager.
-@Suite("WebKitManager", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct WebKitManagerTests {
     var webKitManager: WebKitManager
@@ -58,5 +58,28 @@ struct WebKitManagerTests {
         let hasAuth = await webKitManager.hasAuthCookies()
         // Just verify the method works and returns a Bool
         #expect(hasAuth == true || hasAuth == false)
+    }
+
+    @Test("Cookie archive write coordinator skips duplicate pending saves and retries after failure")
+    func cookieArchiveWriteCoordinatorRetriesAfterFailure() {
+        let coordinator = CookieArchiveWriteCoordinator()
+        let archive = Data([0x01, 0x02, 0x03])
+
+        #expect(coordinator.beginSaveIfNeeded(archive) == true)
+        #expect(coordinator.beginSaveIfNeeded(archive) == false)
+
+        coordinator.finishSave(archive, success: false)
+
+        #expect(coordinator.beginSaveIfNeeded(archive) == true)
+    }
+
+    @Test("Cookie archive write coordinator skips archives already persisted")
+    func cookieArchiveWriteCoordinatorSkipsPersistedArchive() {
+        let coordinator = CookieArchiveWriteCoordinator()
+        let archive = Data([0x04, 0x05, 0x06])
+
+        coordinator.seedPersistedArchive(archive)
+
+        #expect(coordinator.beginSaveIfNeeded(archive) == false)
     }
 }

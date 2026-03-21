@@ -4,7 +4,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for YTMusicClient.
-@Suite("YTMusicClient", .tags(.api))
+@Suite(.tags(.api))
 struct YTMusicClientTests {
     @Test("SAPISIDHASH format is correct")
     func sapisidhashFormat() {

@@ -10,7 +10,7 @@ import Foundation
 ///
 /// - Note: Only `.omv` (Official Music Video) should display the video toggle
 ///   button, as other types have either static images or no meaningful video.
-enum MusicVideoType: String, Codable, Sendable {
+enum MusicVideoType: String, Codable {
     /// Official Music Video - Full video content from the artist/label.
     /// These have actual video content and should show the video toggle.
     case omv = "MUSIC_VIDEO_TYPE_OMV"

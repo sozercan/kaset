@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for APICache.
-@Suite("APICache", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct APICacheTests {
     var cache: APICache

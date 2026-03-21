@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for utility extensions.
-@Suite("Extensions", .tags(.model))
+@Suite(.tags(.model))
 struct ExtensionsTests {
     // MARK: - Collection Safe Subscript Tests
 
