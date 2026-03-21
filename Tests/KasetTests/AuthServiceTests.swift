@@ -72,6 +72,32 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.clearAllDataCalled == true)
     }
 
+    @Test("Check login status waits for restore and logs in from SAPISID")
+    func checkLoginStatusLogsIn() async {
+        self.authService.needsReauth = true
+        self.mockWebKitManager.sapisidValue = "persisted-sapisid"
+
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggedIn(sapisid: "persisted-sapisid"))
+        #expect(self.authService.needsReauth == false)
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCalled == true)
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 1)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 1)
+        #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore", "getSAPISID"])
+    }
+
+    @Test("Check login status waits for restore and logs out when SAPISID is missing")
+    func checkLoginStatusLogsOut() async {
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCalled == true)
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 1)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 1)
+        #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore", "getSAPISID"])
+    }
+
     @Test("State equality")
     func stateEquatable() {
         let state1 = AuthService.State.loggedOut

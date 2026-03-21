@@ -27,6 +27,9 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Forces an immediate backup of all YouTube/Google cookies.
     func forceBackupCookies() async
 
+    /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
+    func waitForInitialCookieRestore() async
+
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
 }
