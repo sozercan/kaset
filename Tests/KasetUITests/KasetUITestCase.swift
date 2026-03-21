@@ -18,6 +18,13 @@ enum TestAccessibilityID {
         static let container = "homeView"
     }
 
+    enum MainWindow {
+        static let container = "mainWindow"
+        static let commandBar = "mainWindow.commandBar"
+        static let commandBarOverlay = "mainWindow.commandBarOverlay"
+        static let commandBarInput = "mainWindow.commandBarInput"
+    }
+
     enum PlayerBar {
         static let videoButton = "playerBar.video"
     }
@@ -439,6 +446,25 @@ class KasetUITestCase: XCTestCase {
                 file: file,
                 line: line
             )
+            return false
+        }
+        return true
+    }
+
+    /// Waits for an element to disappear with a timeout.
+    @discardableResult
+    func waitForElementToDisappear(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 5,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+
+        if result != .completed {
+            XCTFail("Timed out waiting for element to disappear: \(element)", file: file, line: line)
             return false
         }
         return true

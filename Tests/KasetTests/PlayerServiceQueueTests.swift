@@ -13,6 +13,8 @@ struct PlayerServiceQueueTests {
         // Clean up UserDefaults before each test
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queue")
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+        SingletonPlayerWebView.shared.currentVideoId = nil
 
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
@@ -232,6 +234,63 @@ struct PlayerServiceQueueTests {
         #expect(newService.queue[0].title == "Song 0")
     }
 
+    @Test("Save and restore playback session preserves paused resume state")
+    func playbackSessionPersistence() async {
+        // Arrange
+        var songs = TestFixtures.makeSongs(count: 3)
+        songs[1].hasVideo = true
+        songs[1].musicVideoType = .omv
+        songs[1].likeStatus = .like
+        songs[1].isInLibrary = true
+        songs[1].feedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.updatePlaybackState(isPlaying: false, progress: 42, duration: 240)
+
+        // Act
+        self.playerService.saveQueueForPersistence()
+
+        let newService = PlayerService()
+        newService.setYTMusicClient(self.mockClient)
+        let restored = newService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(newService.currentIndex == 1)
+        #expect(newService.currentTrack?.videoId == songs[1].videoId)
+        #expect(newService.pendingPlayVideoId == songs[1].videoId)
+        #expect(newService.progress == 42)
+        #expect(newService.duration == 240)
+        #expect(newService.state == .paused)
+        #expect(newService.showMiniPlayer == false)
+        #expect(newService.shouldAutoloadPendingVideo == false)
+        #expect(newService.currentTrackHasVideo == true)
+        #expect(newService.currentTrackLikeStatus == .like)
+        #expect(newService.currentTrackInLibrary == true)
+        #expect(newService.currentTrackFeedbackTokens == songs[1].feedbackTokens)
+    }
+
+    @Test("Resume on a restored session reveals the mini player before loading playback")
+    func resumeDeferredRestoredSession() async {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 2)
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 1,
+            progress: 42,
+            duration: 240
+        )
+
+        // Act
+        await self.playerService.resume()
+
+        // Assert
+        #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
+        #expect(self.playerService.progress == 42)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.showMiniPlayer == true)
+        #expect(self.playerService.shouldAutoloadPendingVideo == true)
+    }
+
     @Test("Clear saved queue removes persistence data")
     func clearSavedQueue() async {
         // Arrange
@@ -257,12 +316,35 @@ struct PlayerServiceQueueTests {
         // Arrange - Put invalid data in UserDefaults
         UserDefaults.standard.set(Data("invalid data".utf8), forKey: "kaset.saved.queue")
         UserDefaults.standard.set(0, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
 
         // Act
         let restored = self.playerService.restoreQueueFromPersistence()
 
         // Assert
         #expect(restored == false)
+    }
+
+    @Test("Restore queue falls back to legacy queue payload when playback session is missing")
+    func legacyQueuePersistenceFallback() throws {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 2)
+        let queueData = try JSONEncoder().encode(songs)
+        UserDefaults.standard.set(queueData, forKey: "kaset.saved.queue")
+        UserDefaults.standard.set(1, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+
+        // Act
+        let restored = self.playerService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+        #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
+        #expect(self.playerService.progress == 0)
+        #expect(self.playerService.duration == songs[1].duration)
+        #expect(self.playerService.state == .paused)
     }
 
     // MARK: - Metadata Enrichment Tests
