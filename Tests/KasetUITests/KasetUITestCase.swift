@@ -451,6 +451,25 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
+    /// Waits for an element to disappear with a timeout.
+    @discardableResult
+    func waitForElementToDisappear(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 5,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+
+        if result != .completed {
+            XCTFail("Timed out waiting for element to disappear: \(element)", file: file, line: line)
+            return false
+        }
+        return true
+    }
+
     // MARK: - Navigation Helpers
 
     /// Navigates to a sidebar item by accessibility identifier.
