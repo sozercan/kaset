@@ -111,14 +111,17 @@ struct MainWindow: View {
             if self.showCommandBarSheet {
                 ZStack {
                     // Background tap area to dismiss
-                    Color.black.opacity(0.3)
+                    Color.black.opacity(0.16)
+                        .contentShape(Rectangle())
                         .ignoresSafeArea()
+                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarOverlay)
                         .onTapGesture {
                             self.showCommandBarSheet = false
                         }
 
                     // Command bar centered
                     CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
+                        .offset(y: -84)
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
                 .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)

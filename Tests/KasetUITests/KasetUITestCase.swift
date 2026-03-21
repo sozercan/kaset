@@ -18,6 +18,13 @@ enum TestAccessibilityID {
         static let container = "homeView"
     }
 
+    enum MainWindow {
+        static let container = "mainWindow"
+        static let commandBar = "mainWindow.commandBar"
+        static let commandBarOverlay = "mainWindow.commandBarOverlay"
+        static let commandBarInput = "mainWindow.commandBarInput"
+    }
+
     enum PlayerBar {
         static let videoButton = "playerBar.video"
     }
