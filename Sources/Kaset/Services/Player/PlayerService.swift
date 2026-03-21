@@ -43,7 +43,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     // MARK: - Observable State
 
     /// Current playback state.
-    private(set) var state: PlaybackState = .idle
+    var state: PlaybackState = .idle
 
     /// Currently playing track.
     var currentTrack: Song?
@@ -54,10 +54,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Current playback position in seconds.
-    private(set) var progress: TimeInterval = 0
+    var progress: TimeInterval = 0
 
     /// Total duration of current track in seconds.
-    private(set) var duration: TimeInterval = 0
+    var duration: TimeInterval = 0
 
     /// Current volume (0.0 - 1.0).
     private(set) var volume: Double = 1.0
@@ -86,23 +86,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var showMiniPlayer: Bool = false
 
     /// The video ID that needs to be played in the mini player.
-    private(set) var pendingPlayVideoId: String?
+    var pendingPlayVideoId: String?
 
     /// Whether the user has successfully interacted at least once this session.
     /// After first successful playback, we can auto-play without showing the popup.
     private(set) var hasUserInteractedThisSession: Bool = false
 
     /// Saved seek position to apply once a restored session finishes loading.
-    private var pendingRestoredSeek: TimeInterval?
+    var pendingRestoredSeek: TimeInterval?
 
     /// Whether a restored session is waiting for an explicit user-triggered load.
-    private var isPendingRestoredLoadDeferred: Bool = false
+    var isPendingRestoredLoadDeferred: Bool = false
 
     /// Whether launch-time session restoration is still reconciling with the player observer.
-    private var isRestoringPlaybackSession: Bool = false
+    var isRestoringPlaybackSession: Bool = false
 
     /// Whether a restored load should automatically resume after seeking to the saved position.
-    private var shouldAutoResumeAfterRestoredLoad: Bool = false
+    var shouldAutoResumeAfterRestoredLoad: Bool = false
 
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus = .indifferent
@@ -137,7 +137,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Whether the current track has video available.
-    private(set) var currentTrackHasVideo: Bool = false
+    var currentTrackHasVideo: Bool = false
 
     /// Whether video mode is active (user has opened video window).
     /// Note: We don't auto-close based on currentTrackHasVideo here because
@@ -442,111 +442,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-    /// Updates playback state from the persistent WebView observer.
-    func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
-        let previousProgress = self.progress
-
-        if self.isRestoringPlaybackSession {
-            let resolvedDuration = duration > 0 ? duration : self.duration
-            self.duration = resolvedDuration
-
-            if let targetProgress = self.pendingRestoredSeek {
-                let clampedTargetProgress: TimeInterval
-                if resolvedDuration > 0 {
-                    clampedTargetProgress = min(max(targetProgress, 0), resolvedDuration)
-                } else {
-                    clampedTargetProgress = max(targetProgress, 0)
-                }
-
-                self.progress = clampedTargetProgress
-
-                guard resolvedDuration > 0 || clampedTargetProgress == 0 else {
-                    self.state = self.shouldAutoResumeAfterRestoredLoad ? .loading : .paused
-                    return
-                }
-
-                let tolerance: TimeInterval = 1.5
-                let isAtRestoredPosition = abs(progress - clampedTargetProgress) <= tolerance
-
-                if !isAtRestoredPosition, resolvedDuration > 0 {
-                    SingletonPlayerWebView.shared.seek(to: clampedTargetProgress)
-                }
-
-                if self.shouldAutoResumeAfterRestoredLoad {
-                    self.state = .loading
-
-                    if isAtRestoredPosition || clampedTargetProgress == 0 {
-                        self.progress = isAtRestoredPosition ? progress : clampedTargetProgress
-                        let shouldIssuePlay = !isPlaying
-                        self.clearRestoredPlaybackSessionState()
-
-                        if shouldIssuePlay {
-                            SingletonPlayerWebView.shared.play()
-                        } else {
-                            self.state = .playing
-                        }
-                    } else if isPlaying {
-                        SingletonPlayerWebView.shared.pause()
-                    }
-                    return
-                }
-
-                self.state = .paused
-
-                if isPlaying {
-                    SingletonPlayerWebView.shared.pause()
-                }
-
-                if !isPlaying, (isAtRestoredPosition || clampedTargetProgress == 0) {
-                    self.progress = isAtRestoredPosition ? progress : clampedTargetProgress
-                    self.clearRestoredPlaybackSessionState()
-                }
-                return
-            }
-
-            self.progress = progress > 0 ? progress : previousProgress
-
-            if self.shouldAutoResumeAfterRestoredLoad {
-                self.state = .loading
-                if isPlaying {
-                    self.clearRestoredPlaybackSessionState()
-                    self.state = .playing
-                } else if resolvedDuration > 0 {
-                    self.clearRestoredPlaybackSessionState()
-                    SingletonPlayerWebView.shared.play()
-                }
-                return
-            }
-
-            self.state = .paused
-
-            if !isPlaying, resolvedDuration > 0 {
-                self.clearRestoredPlaybackSessionState()
-            }
-            return
-        }
-
-        self.progress = progress
-        self.duration = duration
-        if isPlaying {
-            self.state = .playing
-        } else if self.state == .playing {
-            self.state = .paused
-        }
-
-        // Detect when song is about to end (within last 2 seconds)
-        // This helps us prepare to play the next track from our queue
-        if duration > 0, progress >= duration - 2, previousProgress < duration - 2 {
-            self.songNearingEnd = true
-        }
-    }
-
     /// Flag to track when a song is nearing its end.
-    private var songNearingEnd: Bool = false
+    var songNearingEnd: Bool = false
 
     /// Flag to track when we initiated a track change (to correct YouTube's autoplay interference).
     /// This is set when we call play() and cleared after the track loads.
-    private var isKasetInitiatedPlayback: Bool = false
+    var isKasetInitiatedPlayback: Bool = false
 
     /// Updates track metadata when track changes (e.g., via next/previous).
     /// Also handles enforcing our queue when YouTube autoplay kicks in.
@@ -669,7 +570,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func playPause() async {
         self.logger.debug("Toggle play/pause")
 
-        if self.isPendingRestoredLoadDeferred || (self.pendingPlayVideoId != nil && self.shouldLoadPendingVideoBeforePlayback) {
+        if self.isPendingRestoredLoadDeferred || self.pendingPlayVideoId != nil && self.shouldLoadPendingVideoBeforePlayback {
             await self.resume()
             return
         }
@@ -962,69 +863,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     // MARK: - Private Methods
-
-    /// Applies a previously persisted playback session in a paused, resume-ready state.
-    func applyRestoredPlaybackSession(
-        queue: [Song],
-        currentIndex: Int,
-        progress: TimeInterval,
-        duration: TimeInterval
-    ) {
-        guard let currentSong = queue[safe: currentIndex] else { return }
-
-        self.clearRestoredPlaybackSessionState()
-        self.queue = queue
-        self.currentIndex = currentIndex
-        self.currentTrack = currentSong
-        self.pendingPlayVideoId = currentSong.videoId
-        self.currentTrackHasVideo = currentSong.musicVideoType?.hasVideoContent ?? currentSong.hasVideo ?? false
-        self.showMiniPlayer = false
-        self.songNearingEnd = false
-        self.isKasetInitiatedPlayback = false
-
-        let resolvedDuration = max(duration, currentSong.duration ?? 0)
-        let clampedProgress = resolvedDuration > 0
-            ? min(max(progress, 0), resolvedDuration)
-            : max(progress, 0)
-
-        self.progress = clampedProgress
-        self.duration = resolvedDuration
-        self.state = .paused
-        self.pendingRestoredSeek = clampedProgress
-        self.isPendingRestoredLoadDeferred = true
-
-        if let tokens = currentSong.feedbackTokens {
-            self.currentTrackFeedbackTokens = tokens
-            self.currentTrackInLibrary = currentSong.isInLibrary ?? false
-            self.currentTrackLikeStatus = currentSong.likeStatus ?? .indifferent
-        } else {
-            self.resetTrackStatus()
-        }
-    }
-
-    /// Clears one-shot state used while reconciling a restored playback session.
-    private func clearRestoredPlaybackSessionState() {
-        self.pendingRestoredSeek = nil
-        self.isPendingRestoredLoadDeferred = false
-        self.isRestoringPlaybackSession = false
-        self.shouldAutoResumeAfterRestoredLoad = false
-    }
-
-    /// Starts loading a restored session into the WebView without discarding the saved seek target.
-    private func beginRestoredPlaybackLoad(autoResumeAfterSeek: Bool) {
-        self.isPendingRestoredLoadDeferred = false
-        self.isRestoringPlaybackSession = true
-        self.shouldAutoResumeAfterRestoredLoad = autoResumeAfterSeek
-        if autoResumeAfterSeek {
-            self.state = .loading
-        }
-    }
-
-    /// Whether the pending track must be loaded into the WebView before playback can resume.
-    private var shouldLoadPendingVideoBeforePlayback: Bool {
-        guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
-        return SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
-    }
 
     /// Legacy method for evaluating player commands - now delegates to SingletonPlayerWebView.
     private func evaluatePlayerCommand(_ command: String) async {

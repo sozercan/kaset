@@ -316,6 +316,7 @@ struct PlayerServiceQueueTests {
         // Arrange - Put invalid data in UserDefaults
         UserDefaults.standard.set(Data("invalid data".utf8), forKey: "kaset.saved.queue")
         UserDefaults.standard.set(0, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
 
         // Act
         let restored = self.playerService.restoreQueueFromPersistence()
