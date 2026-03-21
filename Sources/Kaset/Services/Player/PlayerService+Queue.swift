@@ -353,27 +353,54 @@ extension PlayerService {
 
     // MARK: - Queue Persistence
 
+    /// Serialized playback session persisted across launches.
+    private struct PersistedPlaybackSession: Codable {
+        let queue: [Song]
+        let currentIndex: Int
+        let currentVideoId: String?
+        let progress: TimeInterval
+        let duration: TimeInterval
+    }
+
     /// UserDefaults keys for queue persistence (no expiry; saved queue is kept until overwritten or cleared).
     private static let savedQueueKey = "kaset.saved.queue"
     private static let savedQueueIndexKey = "kaset.saved.queueIndex"
+    private static let savedPlaybackSessionKey = "kaset.saved.playbackSession"
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence() {
         guard !self.queue.isEmpty else {
-            UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
-            UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
-            self.logger.info("Cleared saved queue (queue is empty)")
+            self.removeSavedPlaybackSession()
+            self.logger.info("Cleared saved playback session (queue is empty)")
             return
         }
 
         do {
             let encoder = JSONEncoder()
+            let safeIndex = min(max(self.currentIndex, 0), self.queue.count - 1)
+            let currentVideoId = self.currentTrack?.videoId ?? self.queue[safe: safeIndex]?.videoId
+            let resolvedDuration = max(self.duration, self.currentTrack?.duration ?? self.queue[safe: safeIndex]?.duration ?? 0)
+            let clampedProgress = resolvedDuration > 0
+                ? min(max(self.progress, 0), resolvedDuration)
+                : max(self.progress, 0)
+
             let queueData = try encoder.encode(self.queue)
+            let sessionData = try encoder.encode(
+                PersistedPlaybackSession(
+                    queue: self.queue,
+                    currentIndex: safeIndex,
+                    currentVideoId: currentVideoId,
+                    progress: clampedProgress,
+                    duration: resolvedDuration
+                )
+            )
+
             UserDefaults.standard.set(queueData, forKey: Self.savedQueueKey)
-            UserDefaults.standard.set(self.currentIndex, forKey: Self.savedQueueIndexKey)
-            self.logger.info("Saved queue with \(self.queue.count) songs at index \(self.currentIndex)")
+            UserDefaults.standard.set(safeIndex, forKey: Self.savedQueueIndexKey)
+            UserDefaults.standard.set(sessionData, forKey: Self.savedPlaybackSessionKey)
+            self.logger.info("Saved playback session with \(self.queue.count) songs at index \(safeIndex)")
         } catch {
-            self.logger.error("Failed to save queue: \(error.localizedDescription)")
+            self.logger.error("Failed to save playback session: \(error.localizedDescription)")
         }
     }
 
@@ -381,6 +408,50 @@ extension PlayerService {
     /// - Returns: True if queue was restored, false otherwise.
     @discardableResult
     func restoreQueueFromPersistence() -> Bool {
+        let decoder = JSONDecoder()
+
+        if let sessionData = UserDefaults.standard.data(forKey: Self.savedPlaybackSessionKey) {
+            do {
+                let savedSession = try decoder.decode(PersistedPlaybackSession.self, from: sessionData)
+                guard !savedSession.queue.isEmpty else {
+                    self.logger.info("Saved playback session is empty")
+                    UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
+                    return self.restoreLegacyQueueFromPersistence(using: decoder)
+                }
+
+                let resolvedIndex = self.resolvedPersistedQueueIndex(
+                    savedIndex: savedSession.currentIndex,
+                    currentVideoId: savedSession.currentVideoId,
+                    in: savedSession.queue
+                )
+
+                self.applyRestoredPlaybackSession(
+                    queue: savedSession.queue,
+                    currentIndex: resolvedIndex,
+                    progress: savedSession.progress,
+                    duration: savedSession.duration
+                )
+                self.logger.info(
+                    "Restored playback session with \(savedSession.queue.count) songs at index \(resolvedIndex)"
+                )
+                return true
+            } catch {
+                self.logger.error("Failed to restore playback session: \(error.localizedDescription)")
+                UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
+            }
+        }
+
+        return self.restoreLegacyQueueFromPersistence(using: decoder)
+    }
+
+    /// Clears the saved queue from UserDefaults.
+    func clearSavedQueue() {
+        self.removeSavedPlaybackSession()
+        self.logger.info("Cleared saved queue")
+    }
+
+    /// Restores the legacy queue/index payload when no playback session is available.
+    private func restoreLegacyQueueFromPersistence(using decoder: JSONDecoder) -> Bool {
         guard let queueData = UserDefaults.standard.data(forKey: Self.savedQueueKey),
               let savedIndex = UserDefaults.standard.object(forKey: Self.savedQueueIndexKey) as? Int
         else {
@@ -389,7 +460,6 @@ extension PlayerService {
         }
 
         do {
-            let decoder = JSONDecoder()
             let savedQueue = try decoder.decode([Song].self, from: queueData)
             guard !savedQueue.isEmpty else {
                 self.logger.info("Saved queue is empty")
@@ -397,22 +467,48 @@ extension PlayerService {
                 return false
             }
 
-            self.queue = savedQueue
-            self.currentIndex = min(savedIndex, savedQueue.count - 1)
-            self.logger.info("Restored queue with \(savedQueue.count) songs at index \(self.currentIndex)")
+            let resolvedIndex = self.resolvedPersistedQueueIndex(
+                savedIndex: savedIndex,
+                currentVideoId: nil,
+                in: savedQueue
+            )
+            let restoredDuration = savedQueue[safe: resolvedIndex]?.duration ?? 0
+
+            self.applyRestoredPlaybackSession(
+                queue: savedQueue,
+                currentIndex: resolvedIndex,
+                progress: 0,
+                duration: restoredDuration
+            )
+            self.logger.info("Restored legacy queue with \(savedQueue.count) songs at index \(resolvedIndex)")
             return true
         } catch {
-            self.logger.error("Failed to restore queue: \(error.localizedDescription)")
+            self.logger.error("Failed to restore legacy queue: \(error.localizedDescription)")
             self.clearSavedQueue()
             return false
         }
     }
 
-    /// Clears the saved queue from UserDefaults.
-    func clearSavedQueue() {
+    /// Removes all persisted queue/session payloads.
+    private func removeSavedPlaybackSession() {
         UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
         UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
-        self.logger.info("Cleared saved queue")
+        UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
+    }
+
+    /// Resolves the queue index from saved metadata, preferring the saved video ID when available.
+    private func resolvedPersistedQueueIndex(
+        savedIndex: Int,
+        currentVideoId: String?,
+        in queue: [Song]
+    ) -> Int {
+        if let currentVideoId,
+           let matchingIndex = queue.firstIndex(where: { $0.videoId == currentVideoId })
+        {
+            return matchingIndex
+        }
+
+        return min(max(savedIndex, 0), queue.count - 1)
     }
 
     // MARK: - Queue Metadata Enrichment
