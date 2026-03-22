@@ -325,7 +325,221 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentIndex == 0)
     }
 
+    // MARK: - Forward skip / Previous stack
+
+    @Test("Previous seeks to start first when progress > 3; second Previous undoes next skip")
+    func previousSeeksToStartBeforeUndoingForwardSkip() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.progress = 100
+        await self.playerService.next()
+        #expect(self.playerService.currentIndex == 1)
+        self.playerService.progress = 100
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.progress <= 3)
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Two next presses then two previous presses restore original index")
+    func chainedNextPreviousWalksBackThroughStack() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        await self.playerService.next()
+        await self.playerService.next()
+        #expect(self.playerService.currentIndex == 2)
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 1)
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
     // MARK: - Next with Shuffle Tests
+
+    @Test("Next with repeat one advances to the following queue song")
+    func nextWithRepeatOneAdvancesToFollowingQueueSong() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+
+        #expect(self.playerService.currentIndex == 1)
+
+        await self.playerService.next()
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.pendingPlayVideoId == songs[2].videoId)
+        #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Next with shuffle and repeat one still picks random tracks (shuffle wins over repeat one for Next)")
+    func nextWithShuffleAndRepeatOneUsesShuffle() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.toggleShuffle()
+        #expect(self.playerService.shuffleEnabled == true)
+
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+
+        var sawNonStartIndex = false
+        for _ in 0 ..< 18 {
+            await self.playerService.next()
+            if self.playerService.currentIndex != 1 {
+                sawNonStartIndex = true
+                break
+            }
+        }
+        #expect(sawNonStartIndex)
+    }
+
+    @Test("Near-end autoplay while repeat one does not advance queue index")
+    func nearEndAutoplayWithRepeatOneDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.songNearingEnd = true
+
+        self.playerService.updateTrackMetadata(
+            title: "Autoplay Suggestion",
+            artist: "Someone Else",
+            thumbnailUrl: "",
+            videoId: "v3"
+        )
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Repeat one does not realign queue when YouTube loads another in-queue video")
+    func repeatOneDoesNotRealignQueueWhenYouTubeLoadsAnotherInQueueVideo() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+        self.playerService.isKasetInitiatedPlayback = false
+
+        self.playerService.updateTrackMetadata(
+            title: "Song 3",
+            artist: "Artist",
+            thumbnailUrl: "",
+            videoId: "v3"
+        )
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Track ended with repeat one advances via same song reload")
+    func trackEndedRepeatOneReloadsSameSong() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Repeat one recovers when title drifts before videoId is sent")
+    func repeatOneRecoversWhenTitleDriftsBeforeVideoId() async {
+        let songs = [
+            Song(
+                id: "1",
+                title: "Song 1",
+                artists: [Artist(id: "a1", name: "Artist 1")],
+                album: nil,
+                duration: 180,
+                thumbnailURL: nil,
+                videoId: "v1"
+            ),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+        self.playerService.isKasetInitiatedPlayback = false
+
+        self.playerService.updateTrackMetadata(
+            title: "Autoplay Suggestion",
+            artist: "Someone Else",
+            thumbnailUrl: "",
+            videoId: nil
+        )
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Track ended with repeat one still runs when WebView reports autoplay video id")
+    func trackEndedRepeatOneRunsWhenObservedIdIsAutoplayNotQueueTrack() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+
+        await self.playerService.handleTrackEnded(observedVideoId: "youtubeAutoplayOther")
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
 
     @Test("Next with shuffle picks random song from queue")
     func nextWithShufflePicksFromQueue() async {

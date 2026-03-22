@@ -42,7 +42,11 @@ extension PlayerService {
     }
 
     private func expectedQueueIndexAfterCurrentTrack() -> Int? {
-        guard !self.queue.isEmpty, !self.shuffleEnabled, self.repeatMode != .one else { return nil }
+        guard !self.queue.isEmpty else { return nil }
+        if self.repeatMode == .one {
+            return self.currentIndex
+        }
+        guard !self.shuffleEnabled else { return nil }
         if self.currentIndex < self.queue.count - 1 {
             return self.currentIndex + 1
         }
@@ -146,7 +150,7 @@ extension PlayerService {
         )
         self.isKasetInitiatedPlayback = false
         Task {
-            await self.play(song: intendedSong)
+            await self.play(song: intendedSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
         }
         return true
     }
@@ -172,6 +176,16 @@ extension PlayerService {
                 artist: artist,
                 song: expectedNextTrack
             ) {
+                // Repeat one: "expected next" is still the current row — do not call `next()` (that advances the queue).
+                if self.repeatMode == .one {
+                    self.logger.info(
+                        "YouTube autoplay near end during repeat one; re-asserting current queue track (not advancing)"
+                    )
+                    Task {
+                        await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd()
+                    }
+                    return true
+                }
                 self.logger.info("YouTube autoplay detected, overriding with queue track")
                 Task {
                     await self.next()
@@ -194,6 +208,13 @@ extension PlayerService {
         }
 
         if self.canAdvanceNativeQueueAfterTrackEnd {
+            if self.repeatMode == .one {
+                self.logger.info("Near-end track change with repeat one; re-asserting current queue track")
+                Task {
+                    await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd()
+                }
+                return true
+            }
             self.logger.info("Near-end track change detected, advancing native queue to enforce playback order")
             Task {
                 await self.next()
@@ -209,6 +230,52 @@ extension PlayerService {
         return true
     }
 
+    /// Last-line repeat-one enforcement: WebView metadata is lossy/out-of-order; earlier handlers can miss a frame.
+    /// This does **not** guarantee recovery if the bridge stops firing — only consolidates what we can observe here.
+    private func finalRepeatOneSafetyNetIfNeeded(
+        observedVideoId: String?,
+        title: String,
+        artist: String,
+        thumbnailUrl: String,
+        trackChanged: Bool
+    ) -> Bool {
+        guard self.repeatMode == .one,
+              self.hasUserInteractedThisSession,
+              let queued = self.queue[safe: self.currentIndex]
+        else {
+            return false
+        }
+
+        let observedNorm = self.normalizedObservedVideoId(observedVideoId)
+        let videoMismatch = observedNorm.map { $0 != queued.videoId } ?? false
+        let titleDriftWithoutVideoId =
+            observedNorm == nil
+            && !title.isEmpty
+            && trackChanged
+            && !self.metadataMatchesSong(title: title, artist: artist, song: queued)
+
+        guard videoMismatch || titleDriftWithoutVideoId else {
+            return false
+        }
+
+        self.keepQueueSongVisible(queued, thumbnailUrl: thumbnailUrl)
+
+        let now = ContinuousClock.now
+        if let last = self.lastRepeatOneRecoveryInstant,
+           now - last < .milliseconds(450)
+        {
+            self.logger.debug("Repeat one: safety net throttled (bursty metadata)")
+            return true
+        }
+        self.lastRepeatOneRecoveryInstant = now
+
+        self.logger.info("Repeat one: safety net re-asserting queue track (observed=\(observedNorm ?? "nil"))")
+        Task {
+            await self.play(song: queued, webLoadStrategy: .forceFullPageWhenSameVideoId)
+        }
+        return true
+    }
+
     private func handleUnexpectedQueueDriftIfNeeded(
         observedVideoId: String?,
         title: String,
@@ -216,13 +283,30 @@ extension PlayerService {
         thumbnailUrl: String,
         trackChanged: Bool
     ) -> Bool {
-        guard trackChanged,
-              !self.queue.isEmpty,
+        guard !self.queue.isEmpty,
               let observedVideoId = self.normalizedObservedVideoId(observedVideoId),
               let currentQueueSong = self.queue[safe: self.currentIndex],
               currentQueueSong.videoId != observedVideoId
         else {
             return false
+        }
+
+        // Repeat one: autoplay can swap the video before title/artist update, so `trackChanged` may still be false.
+        // Without this branch we fall through and assign `currentTrack` from YouTube, breaking UI sync.
+        guard trackChanged || self.repeatMode == .one else {
+            return false
+        }
+
+        // Repeat one: never realign `currentIndex` to another queue item when YouTube briefly loads
+        // a different in-queue video (autoplay); that would break repeat and jump the queue pointer.
+        if self.repeatMode == .one {
+            self.logger.info(
+                "Repeat one: observed \(observedVideoId) diverged from queue; re-playing without advancing queue index"
+            )
+            Task {
+                await self.play(song: currentQueueSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
+            }
+            return true
         }
 
         if let matchingIndex = self.queue.firstIndex(where: { $0.videoId == observedVideoId }),
@@ -249,9 +333,25 @@ extension PlayerService {
             "Observed track \(observedVideoId) diverged from native queue track \(currentQueueSong.videoId); re-playing intended queue track"
         )
         Task {
-            await self.play(song: currentQueueSong)
+            await self.play(song: currentQueueSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
         }
         return true
+    }
+
+    /// Replays the current queue song after a natural `ended` event. User-initiated **Next** uses ``PlayerService/next()`` instead.
+    private func replayCurrentQueueSongForRepeatOneAfterTrackEnd() async {
+        guard let currentSong = self.queue[safe: self.currentIndex] else { return }
+        self.songNearingEnd = false
+        let kasetAlignedWithQueue = self.pendingPlayVideoId == currentSong.videoId
+            && SingletonPlayerWebView.shared.currentVideoId == currentSong.videoId
+        if self.hasUserInteractedThisSession, kasetAlignedWithQueue {
+            SingletonPlayerWebView.shared.restartInPlaceFromBeginning()
+            if self.state == .ended || self.state == .loading {
+                self.state = .playing
+            }
+        } else {
+            await self.play(song: currentSong, webLoadStrategy: .preferInPlaceWhenSameVideoId)
+        }
     }
 
     /// Handles a natural track completion reported directly by the WebView.
@@ -266,10 +366,20 @@ extension PlayerService {
             let currentQueueVideoId = self.queue[safe: self.currentIndex]?.videoId
             let expectedCurrentVideoId = currentQueueVideoId ?? self.currentTrack?.videoId ?? self.pendingPlayVideoId
             if let expectedCurrentVideoId, expectedCurrentVideoId != observedVideoId {
-                self.logger.debug(
-                    "Ignoring stale track-ended event for \(observedVideoId); current queue track is \(expectedCurrentVideoId)"
-                )
-                return
+                // YouTube often autoplays the next suggestion before `ended` fires; the reported id can be the *new* video.
+                // Stale-event suppression is for late `ended` after we already advanced the native queue — not when we still
+                // expect the same queue track (repeat modes). Repeat one replays below; repeat all advances via `next()`.
+                let isRepeating = self.repeatMode == .one || self.repeatMode == .all
+                if isRepeating {
+                    self.logger.info(
+                        "Track ended: observed \(observedVideoId) != queue \(expectedCurrentVideoId) while repeat active; applying native repeat"
+                    )
+                } else {
+                    self.logger.debug(
+                        "Ignoring stale track-ended event for \(observedVideoId); current queue track is \(expectedCurrentVideoId)"
+                    )
+                    return
+                }
             }
         }
 
@@ -281,6 +391,11 @@ extension PlayerService {
             return
         }
         self.shouldSuppressAutoplayAfterQueueEnd = false
+        if self.repeatMode == .one {
+            self.logger.info("Track ended with repeat one; replaying current queue song")
+            await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd()
+            return
+        }
         self.logger.info("Track ended in WebView, advancing native queue immediately")
         await self.next()
     }
@@ -332,6 +447,22 @@ extension PlayerService {
             thumbnailUrl: thumbnailUrl,
             trackChanged: trackChanged
         ) {
+            return
+        }
+
+        if self.finalRepeatOneSafetyNetIfNeeded(
+            observedVideoId: observedVideoId,
+            title: title,
+            artist: artist,
+            thumbnailUrl: thumbnailUrl,
+            trackChanged: trackChanged
+        ) {
+            return
+        }
+
+        // Repeat one: never replace the queue-driven `currentTrack` with YouTube's row (autoplay after idle/end).
+        if self.repeatMode == .one, let queued = self.queue[safe: self.currentIndex] {
+            self.keepQueueSongVisible(queued, thumbnailUrl: thumbnailUrl)
             return
         }
 
