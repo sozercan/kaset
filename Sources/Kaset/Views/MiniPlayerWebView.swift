@@ -294,6 +294,16 @@ final class SingletonPlayerWebView {
         // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
+    /// Starts high frequency polling for synced lyrics
+    func startLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+    }
+
+    /// Stops high frequency polling for synced lyrics
+    func stopLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
+    }
+
     /// Load a video, stopping any currently playing audio first.
     /// Note: This uses full page navigation which destroys the video element.
     /// AirPlay connections will be lost but the auto-reconnect picker will appear.
@@ -368,6 +378,16 @@ final class SingletonPlayerWebView {
                         isConnected: isConnected,
                         wasRequested: wasRequested
                     )
+                }
+                return
+            }
+
+            // Handle high frequency lyrics time updates
+            if type == "LYRICS_TIME" {
+                if let time = body["time"] as? Double {
+                    Task { @MainActor in
+                        self.playerService.currentTimeMs = Int(time * 1000)
+                    }
                 }
                 return
             }

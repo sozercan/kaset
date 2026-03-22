@@ -56,6 +56,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Current playback position in seconds.
     var progress: TimeInterval = 0
 
+    /// High-resolution playback time in milliseconds, updated at ~10Hz when synced lyrics are active.
+    var currentTimeMs: Int = 0
+
     /// Total duration of current track in seconds.
     var duration: TimeInterval = 0
 
