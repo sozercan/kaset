@@ -250,9 +250,9 @@ extension PlayerService {
         let videoMismatch = observedNorm.map { $0 != queued.videoId } ?? false
         let titleDriftWithoutVideoId =
             observedNorm == nil
-            && !title.isEmpty
-            && trackChanged
-            && !self.metadataMatchesSong(title: title, artist: artist, song: queued)
+                && !title.isEmpty
+                && trackChanged
+                && !self.metadataMatchesSong(title: title, artist: artist, song: queued)
 
         guard videoMismatch || titleDriftWithoutVideoId else {
             return false
