@@ -7,75 +7,151 @@ import SwiftUI
 /// Displays either structured feature rows (static fallback) or markdown release notes (from GitHub).
 @available(macOS 26.0, *)
 struct WhatsNewView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let whatsNew: WhatsNew
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-                .frame(height: 40)
-
-            // Title
-            Text(self.whatsNew.title)
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Spacer()
-                .frame(height: 24)
-
-            // Content: markdown release notes or structured feature rows
-            ScrollView {
-                if let releaseNotes = self.whatsNew.releaseNotes {
-                    MarkdownContentView(markdown: releaseNotes)
-                        .padding(.horizontal, 36)
-                } else {
-                    VStack(alignment: .leading, spacing: 20) {
-                        ForEach(self.whatsNew.features, id: \.self) { feature in
-                            WhatsNewFeatureRow(feature: feature)
-                        }
-                    }
-                    .padding(.horizontal, 48)
-                }
-            }
-
-            Spacer()
-                .frame(height: 16)
-
-            // Footer actions
-            VStack(spacing: 12) {
-                // Learn more link
-                if let url = self.whatsNew.learnMoreURL {
-                    Button {
-                        NSWorkspace.shared.open(url)
-                    } label: {
-                        Text("Learn more")
-                            .font(.subheadline)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                }
-
-                // Continue button
-                Button {
-                    self.onDismiss()
-                } label: {
-                    Text("Continue")
-                        .font(.headline)
-                        .frame(maxWidth: 280)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .glassEffect()
-                .keyboardShortcut(.defaultAction)
-            }
-
-            Spacer()
-                .frame(height: 32)
+        VStack(spacing: 24) {
+            self.headerView
+            self.contentCard
+            self.footerView
         }
-        .frame(width: 520)
-        .frame(minHeight: 520)
+        .padding(24)
+        .frame(width: 640)
+        .frame(minHeight: 620)
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(self.colorScheme == .dark ? 0.16 : 0.08),
+                    Color(nsColor: .windowBackgroundColor),
+                    Color(nsColor: .windowBackgroundColor),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    private var headerView: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color.accentColor.opacity(self.colorScheme == .dark ? 0.18 : 0.10))
+                    .frame(width: 88, height: 88)
+
+                CassetteIcon(size: 52)
+                    .foregroundStyle(.tint)
+            }
+
+            VStack(spacing: 10) {
+                Text("Version \(self.whatsNew.version.description)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial, in: Capsule())
+
+                Text(self.whatsNew.title)
+                    .font(.system(size: 31, weight: .bold, design: .rounded))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: 520)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var contentCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: self.contentSectionIcon)
+                    .font(.subheadline.weight(.semibold))
+
+                Text(self.contentSectionTitle)
+                    .font(.subheadline.weight(.semibold))
+
+                Spacer()
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
+
+            Divider()
+                .opacity(0.5)
+
+            ScrollView {
+                self.contentView
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(
+                minHeight: self.whatsNew.releaseNotes == nil ? 280 : 360,
+                idealHeight: self.whatsNew.releaseNotes == nil ? 320 : 400,
+                maxHeight: 420
+            )
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(self.colorScheme == .dark ? 0.88 : 0.96))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(.white.opacity(self.colorScheme == .dark ? 0.08 : 0.28))
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        if let releaseNotes = self.whatsNew.releaseNotes {
+            MarkdownContentView(markdown: releaseNotes)
+                .textSelection(.enabled)
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(self.whatsNew.features, id: \.self) { feature in
+                    WhatsNewFeatureRow(feature: feature)
+                }
+            }
+        }
+    }
+
+    private var footerView: some View {
+        HStack(spacing: 16) {
+            if let url = self.whatsNew.learnMoreURL {
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    Label("Learn more", systemImage: "arrow.up.right")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+
+            Spacer(minLength: 12)
+
+            Button {
+                self.onDismiss()
+            } label: {
+                Text("Continue")
+                    .font(.headline)
+                    .frame(minWidth: 160)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .glassEffect()
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var contentSectionTitle: String {
+        self.whatsNew.releaseNotes == nil ? "Highlights" : "Release Notes"
+    }
+
+    private var contentSectionIcon: String {
+        self.whatsNew.releaseNotes == nil ? "sparkles.rectangle.stack.fill" : "text.document"
     }
 }
 
@@ -87,7 +163,7 @@ private struct MarkdownContentView: View {
     let markdown: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(self.blocks.enumerated()), id: \.offset) { _, block in
                 block
             }
@@ -97,102 +173,89 @@ private struct MarkdownContentView: View {
 
     /// Parses markdown into an array of block-level views.
     private var blocks: [AnyView] {
-        let lines = self.markdown.components(separatedBy: "\n")
+        let lines = Self.normalizedLines(from: self.markdown)
         var result: [AnyView] = []
         var i = 0
-        var lastWasBlank = false
+        var paragraphLines: [String] = []
+
+        func flushParagraph() {
+            guard !paragraphLines.isEmpty else {
+                return
+            }
+
+            result.append(AnyView(Self.paragraph(Self.inlineMarkdown(paragraphLines.joined(separator: " ")))))
+            paragraphLines.removeAll(keepingCapacity: true)
+        }
 
         while i < lines.count {
             let line = lines[i]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if trimmed.isEmpty {
                 // Skip blank lines — VStack spacing handles gaps between blocks
-                lastWasBlank = true
+                flushParagraph()
+                i += 1
+            } else if trimmed.hasPrefix("<!--") {
+                flushParagraph()
+                repeat {
+                    i += 1
+                } while i < lines.count && !lines[i - 1].contains("-->")
+            } else if Self.isSpacerLine(trimmed) {
+                flushParagraph()
+                i += 1
+            } else if Self.isThematicBreak(trimmed) {
+                flushParagraph()
                 i += 1
             } else if trimmed.hasPrefix("### ") {
-                lastWasBlank = false
+                flushParagraph()
                 let text = String(trimmed.dropFirst(4))
-                result.append(AnyView(
-                    Text(Self.inlineMarkdown(text))
-                        .font(.headline)
-                        .padding(.top, 2)
-                ))
+                result.append(AnyView(Self.heading(Self.inlineMarkdown(text), font: .headline, topPadding: 2)))
                 i += 1
             } else if trimmed.hasPrefix("## ") {
-                lastWasBlank = false
+                flushParagraph()
                 let text = String(trimmed.dropFirst(3))
-                result.append(AnyView(
-                    Text(Self.inlineMarkdown(text))
-                        .font(.title3.bold())
-                        .padding(.top, 4)
-                ))
+                result.append(AnyView(Self.heading(Self.inlineMarkdown(text), font: .title3.weight(.bold), topPadding: 6)))
                 i += 1
             } else if trimmed.hasPrefix("# ") {
-                lastWasBlank = false
+                flushParagraph()
                 let text = String(trimmed.dropFirst(2))
-                result.append(AnyView(
-                    Text(Self.inlineMarkdown(text))
-                        .font(.title2.bold())
-                        .padding(.top, 6)
-                ))
+                result.append(AnyView(Self.heading(Self.inlineMarkdown(text), font: .title2.weight(.bold), topPadding: 10)))
                 i += 1
-            } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                lastWasBlank = false
+            } else if let firstItem = Self.listItemText(from: trimmed) {
+                flushParagraph()
                 // Collect consecutive list items
-                var items: [String] = []
+                var items = [firstItem]
+                i += 1
                 while i < lines.count {
-                    let listLine = lines[i].trimmingCharacters(in: .whitespaces)
-                    if listLine.hasPrefix("- ") {
-                        items.append(String(listLine.dropFirst(2)))
-                        i += 1
-                    } else if listLine.hasPrefix("* ") {
-                        items.append(String(listLine.dropFirst(2)))
-                        i += 1
-                    } else {
+                    let listLine = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard let item = Self.listItemText(from: listLine) else {
                         break
                     }
+
+                    items.append(item)
+                    i += 1
                 }
-                result.append(AnyView(
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("•")
-                                    .foregroundStyle(.secondary)
-                                Text(Self.inlineMarkdown(item))
-                            }
-                        }
-                    }
-                ))
+                result.append(AnyView(Self.list(items)))
             } else if trimmed.hasPrefix("```") {
-                lastWasBlank = false
+                flushParagraph()
                 // Code block — collect until closing ```
                 i += 1
                 var codeLines: [String] = []
-                while i < lines.count, !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                while i < lines.count, !lines[i].trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("```") {
                     codeLines.append(lines[i])
                     i += 1
                 }
                 if i < lines.count { i += 1 } // skip closing ```
                 let code = codeLines.joined(separator: "\n")
-                result.append(AnyView(
-                    Text(code)
-                        .font(.system(.callout, design: .monospaced))
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                ))
+                result.append(AnyView(Self.codeBlock(code)))
             } else {
-                lastWasBlank = false
-                // Regular paragraph
-                result.append(AnyView(
-                    Text(Self.inlineMarkdown(trimmed))
-                ))
+                // Merge wrapped markdown lines into a single paragraph block.
+                paragraphLines.append(trimmed)
                 i += 1
             }
         }
 
+        flushParagraph()
         return result
     }
 
@@ -204,6 +267,96 @@ private struct MarkdownContentView: View {
         }
         return AttributedString(text)
     }
+
+    private static func normalizedLines(from markdown: String) -> [String] {
+        markdown
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+    }
+
+    private static func listItemText(from line: String) -> String? {
+        if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("+ ") {
+            return String(line.dropFirst(2))
+        }
+
+        guard let markerRange = line.range(of: #"^\d+\.\s+"#, options: .regularExpression) else {
+            return nil
+        }
+
+        return String(line[markerRange.upperBound...])
+    }
+
+    private static func isSpacerLine(_ line: String) -> Bool {
+        switch line.lowercased() {
+        case "<br>", "<br/>", "<br />":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func isThematicBreak(_ line: String) -> Bool {
+        let stripped = line.replacingOccurrences(of: " ", with: "")
+        guard stripped.count >= 3, let first = stripped.first else {
+            return false
+        }
+
+        guard first == "-" || first == "*" || first == "_" else {
+            return false
+        }
+
+        return stripped.allSatisfy { $0 == first }
+    }
+
+    private static func heading(_ text: AttributedString, font: Font, topPadding: CGFloat) -> some View {
+        Text(text)
+            .font(font)
+            .padding(.top, topPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func paragraph(_ text: AttributedString) -> some View {
+        Text(text)
+            .font(.body)
+            .lineSpacing(4)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func list(_ items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(.secondary)
+                        .frame(width: 6, height: 6)
+                        .padding(.top, 8)
+
+                    Text(Self.inlineMarkdown(item))
+                        .font(.body)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private static func codeBlock(_ code: String) -> some View {
+        ScrollView(.horizontal, showsIndicators: true) {
+            Text(code)
+                .font(.system(.callout, design: .monospaced))
+                .fixedSize()
+                .textSelection(.enabled)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.quaternary.opacity(0.45))
+        }
+    }
 }
 
 // MARK: - WhatsNewFeatureRow
@@ -211,23 +364,44 @@ private struct MarkdownContentView: View {
 /// A row displaying a single feature with icon, title, and subtitle.
 @available(macOS 26.0, *)
 private struct WhatsNewFeatureRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let feature: WhatsNew.Feature
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: self.feature.icon)
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .frame(width: 32)
+        HStack(alignment: .top, spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.accentColor.opacity(self.colorScheme == .dark ? 0.18 : 0.10))
+                    .frame(width: 52, height: 52)
 
-            VStack(alignment: .leading, spacing: 2) {
+                Image(systemName: self.feature.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.tint)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text(self.feature.title)
                     .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(self.feature.subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(self.colorScheme == .dark ? 0.72 : 0.82))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(self.colorScheme == .dark ? 0.05 : 0.18))
         }
     }
 }
