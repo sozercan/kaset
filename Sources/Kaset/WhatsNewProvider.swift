@@ -172,46 +172,148 @@ enum WhatsNewProvider {
         )
     }
 
-    /// Cleans up GitHub release body by removing boilerplate sections
-    /// and redundant headings that the sheet UI already provides.
+    /// Cleans up GitHub release body by extracting the preferred changelog section
+    /// when present, while stripping wrapper sections that the sheet UI doesn't need.
     private static func cleanReleaseBody(_ body: String) -> String {
         let hiddenHeadings: Set = [
-            "what's new",
+            "whats new",
+            "whats changed",
             "installation",
             "verification",
             "new contributors",
             "full changelog",
         ]
+        let preferredHeadings: Set = [
+            "whats new",
+            "whats changed",
+        ]
 
-        let lines = body.components(separatedBy: "\n")
+        let normalizedBody = body
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let lines = normalizedBody.components(separatedBy: "\n")
+        let relevantLines = Self.extractSection(from: lines, preferredHeadings: preferredHeadings) ?? lines
+        let result = Self.removingHiddenSections(from: relevantLines, hiddenHeadings: hiddenHeadings)
+        let collapsedResult = Self.collapsingBlankLines(in: result)
+
+        return collapsedResult.joined(separator: "\n")
+    }
+
+    private static func extractSection(from lines: [String], preferredHeadings: Set<String>) -> [String]? {
+        guard let startIndex = lines.firstIndex(where: { line in
+            guard let heading = Self.markdownHeading(in: line) else {
+                return false
+            }
+            return preferredHeadings.contains(heading.text)
+        }),
+        let startHeading = Self.markdownHeading(in: lines[startIndex])
+        else {
+            return nil
+        }
+
         var result: [String] = []
-        var skipping = false
+        var index = startIndex + 1
+
+        while index < lines.count {
+            if let heading = Self.markdownHeading(in: lines[index]), heading.level <= startHeading.level {
+                break
+            }
+
+            result.append(lines[index])
+            index += 1
+        }
+
+        return result
+    }
+
+    private static func removingHiddenSections(from lines: [String], hiddenHeadings: Set<String>) -> [String] {
+        var result: [String] = []
+        var hiddenSectionLevel: Int?
+        var index = 0
+
+        while index < lines.count {
+            let line = lines[index]
+            let heading = Self.markdownHeading(in: line)
+
+            if let hiddenSectionLevel {
+                if let heading, heading.level <= hiddenSectionLevel {
+                    // Resume at the next sibling heading and evaluate it normally.
+                } else {
+                    index += 1
+                    continue
+                }
+            }
+
+            if let heading, hiddenHeadings.contains(heading.text) {
+                hiddenSectionLevel = heading.level
+                index += 1
+                continue
+            }
+
+            hiddenSectionLevel = nil
+            result.append(line)
+            index += 1
+        }
+
+        return result
+    }
+
+    private static func collapsingBlankLines(in lines: [String]) -> [String] {
+        var collapsedResult: [String] = []
+        var previousWasBlank = false
 
         for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-
-            if trimmed.hasPrefix("## ") || trimmed.hasPrefix("### ") {
-                let headingText = trimmed
-                    .drop(while: { $0 == "#" || $0 == " " })
-                    .trimmingCharacters(in: .whitespaces)
-                    .lowercased()
-                skipping = hiddenHeadings.contains(headingText)
-                if !skipping {
-                    result.append(line)
-                }
-            } else if !skipping {
-                result.append(line)
+            let isBlank = line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if isBlank && previousWasBlank {
+                continue
             }
+
+            collapsedResult.append(line)
+            previousWasBlank = isBlank
         }
 
         // Trim leading/trailing blank lines
-        while result.first?.trimmingCharacters(in: .whitespaces).isEmpty == true {
-            result.removeFirst()
+        while collapsedResult.first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+            collapsedResult.removeFirst()
         }
-        while result.last?.trimmingCharacters(in: .whitespaces).isEmpty == true {
-            result.removeLast()
+        while collapsedResult.last?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+            collapsedResult.removeLast()
         }
 
-        return result.joined(separator: "\n")
+        return collapsedResult
+    }
+
+    private static func markdownHeading(in line: String) -> (level: Int, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.first == "#" else {
+            return nil
+        }
+
+        let level = trimmed.prefix(while: { $0 == "#" }).count
+        guard (1...6).contains(level) else {
+            return nil
+        }
+
+        let remainder = String(trimmed.dropFirst(level))
+        guard remainder.first == " " else {
+            return nil
+        }
+
+        var text = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let trailingHashes = text.range(of: #"\s+#+$"#, options: .regularExpression) {
+            text.removeSubrange(trailingHashes)
+        }
+
+        return (level, Self.normalizedHeadingText(text))
+    }
+
+    private static func normalizedHeadingText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "‘", with: "'")
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 }
