@@ -290,9 +290,9 @@ private struct MarkdownContentView: View {
     private static func isSpacerLine(_ line: String) -> Bool {
         switch line.lowercased() {
         case "<br>", "<br/>", "<br />":
-            return true
+            true
         default:
-            return false
+            false
         }
     }
 
@@ -333,7 +333,7 @@ private struct MarkdownContentView: View {
                         .frame(width: 6, height: 6)
                         .padding(.top, 8)
 
-                    Text(Self.inlineMarkdown(item))
+                    Text(self.inlineMarkdown(item))
                         .font(.body)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)

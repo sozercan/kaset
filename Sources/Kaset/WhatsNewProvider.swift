@@ -206,7 +206,7 @@ enum WhatsNewProvider {
             }
             return preferredHeadings.contains(heading.text)
         }),
-        let startHeading = Self.markdownHeading(in: lines[startIndex])
+            let startHeading = markdownHeading(in: lines[startIndex])
         else {
             return nil
         }
@@ -264,7 +264,7 @@ enum WhatsNewProvider {
 
         for line in lines {
             let isBlank = line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            if isBlank && previousWasBlank {
+            if isBlank, previousWasBlank {
                 continue
             }
 
@@ -290,7 +290,7 @@ enum WhatsNewProvider {
         }
 
         let level = trimmed.prefix(while: { $0 == "#" }).count
-        guard (1...6).contains(level) else {
+        guard (1 ... 6).contains(level) else {
             return nil
         }
 
