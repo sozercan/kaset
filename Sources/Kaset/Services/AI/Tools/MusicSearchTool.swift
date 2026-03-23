@@ -29,7 +29,7 @@ struct MusicSearchTool: Tool {
 
     /// The arguments this tool accepts.
     @Generable
-    struct Arguments {
+    struct Arguments: Sendable {
         @Guide(description: "The search query (song title, artist name, album, etc.)")
         let query: String
 

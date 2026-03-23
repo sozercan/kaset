@@ -41,7 +41,7 @@ final class NetworkMonitor {
     }
 
     /// Network interface types.
-    enum InterfaceType {
+    enum InterfaceType: Sendable {
         case wifi
         case cellular
         case wiredEthernet

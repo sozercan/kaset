@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService+Library extension (like/dislike/library actions).
-@Suite(.serialized, .tags(.service))
+@Suite("PlayerService+Library", .serialized, .tags(.service))
 @MainActor
 struct PlayerServiceLibraryTests {
     var playerService: PlayerService

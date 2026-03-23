@@ -31,7 +31,6 @@ struct CommandBarView: View {
     @FocusState private var isInputFocused: Bool
 
     private let logger = DiagnosticsLogger.ai
-    @Namespace private var commandBarNamespace
 
     /// Dismisses the command bar.
     private func dismissCommandBar() {
@@ -39,65 +38,60 @@ struct CommandBarView: View {
     }
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                // Input field
-                HStack(spacing: 12) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.tint)
+        VStack(spacing: 0) {
+            // Input field
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.tint)
 
-                    TextField("Ask anything about music...", text: self.$inputText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 16))
-                        .focused(self.$isInputFocused)
-                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarInput)
-                        .onSubmit {
-                            Task {
-                                await self.processCommand()
-                            }
+                TextField("Ask anything about music...", text: self.$inputText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 16))
+                    .focused(self.$isInputFocused)
+                    .onSubmit {
+                        Task {
+                            await self.processCommand()
                         }
-                        .disabled(self.isProcessing)
-
-                    if self.isProcessing {
-                        ProgressView()
-                            .controlSize(.small)
-                            .scaleEffect(0.7)
-                            .frame(width: 11, height: 11)
-                    } else if !self.inputText.isEmpty {
-                        Button {
-                            self.inputText = ""
-                            self.errorMessage = nil
-                            self.resultMessage = nil
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear input")
                     }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                    .disabled(self.isProcessing)
 
-                Divider()
-                    .opacity(0.3)
-
-                // Status area
-                if let error = errorMessage {
-                    self.errorView(error)
-                } else if let result = resultMessage {
-                    self.resultView(result)
-                } else {
-                    self.suggestionsView
+                if self.isProcessing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.7)
+                        .frame(width: 11, height: 11)
+                } else if !self.inputText.isEmpty {
+                    Button {
+                        self.inputText = ""
+                        self.errorMessage = nil
+                        self.resultMessage = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear input")
                 }
             }
-            .frame(width: 500)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-            .glassEffectID("commandBar", in: self.commandBarNamespace)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider()
+
+            // Status area
+            if let error = errorMessage {
+                self.errorView(error)
+            } else if let result = resultMessage {
+                self.resultView(result)
+            } else {
+                self.suggestionsView
+            }
         }
-        .glassEffectTransition(.materialize)
-        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBar)
+        .frame(width: 500)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
         .onAppear {
             self.isInputFocused = true
         }
@@ -119,8 +113,7 @@ struct CommandBarView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(12)
     }
 
     private func resultView(_ result: String) -> some View {
@@ -134,12 +127,11 @@ struct CommandBarView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(12)
     }
 
     private var suggestionsView: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(self.suggestionsHeaderText)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -162,8 +154,7 @@ struct CommandBarView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -172,7 +163,7 @@ struct CommandBarView: View {
         if self.playerService.currentTrack != nil {
             "What would you like to do?"
         } else if !self.playerService.queue.isEmpty {
-            "What would you like to do with your queue?"
+            "Your queue is ready:"
         } else {
             "Try commands like:"
         }

@@ -32,6 +32,7 @@ import Testing
 ///   -only-testing:KasetTests
 /// ```
 @Suite(
+    "MusicIntent Integration",
     .tags(.integration, .slow),
     .serialized,
     .enabled(if: SystemLanguageModel.default.availability == .available, "Apple Intelligence required")

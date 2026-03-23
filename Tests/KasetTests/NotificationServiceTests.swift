@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for NotificationService track-change observation.
-@Suite(.serialized, .tags(.service))
+@Suite("NotificationService", .serialized, .tags(.service))
 @MainActor
 struct NotificationServiceTests {
     var playerService: PlayerService

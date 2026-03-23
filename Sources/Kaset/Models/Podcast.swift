@@ -3,7 +3,7 @@ import Foundation
 // MARK: - PodcastShow
 
 /// Represents a podcast show from YouTube Music.
-struct PodcastShow: Identifiable, Hashable, Codable {
+struct PodcastShow: Identifiable, Hashable, Codable, Sendable {
     let id: String // browseId (MPSPP...)
     let title: String
     let author: String?
@@ -21,7 +21,7 @@ struct PodcastShow: Identifiable, Hashable, Codable {
 // MARK: - PodcastEpisode
 
 /// Represents a podcast episode from YouTube Music.
-struct PodcastEpisode: Identifiable, Hashable {
+struct PodcastEpisode: Identifiable, Hashable, Sendable {
     let id: String // videoId
     let title: String
     let showTitle: String? // secondTitle - the podcast show name
@@ -54,7 +54,7 @@ struct PodcastEpisode: Identifiable, Hashable {
 // MARK: - PodcastSection
 
 /// Represents a section of podcast content on the discovery page.
-struct PodcastSection: Identifiable {
+struct PodcastSection: Identifiable, Sendable {
     let id: String
     let title: String
     let items: [PodcastSectionItem]
@@ -63,7 +63,7 @@ struct PodcastSection: Identifiable {
 // MARK: - PodcastSectionItem
 
 /// An item within a podcast section - either a show or an episode.
-enum PodcastSectionItem: Identifiable {
+enum PodcastSectionItem: Sendable, Identifiable {
     case show(PodcastShow)
     case episode(PodcastEpisode)
 
@@ -92,7 +92,7 @@ extension PodcastSectionItem: Hashable {
 // MARK: - PodcastShowDetail
 
 /// Detailed information about a podcast show including its episodes.
-struct PodcastShowDetail {
+struct PodcastShowDetail: Sendable {
     let show: PodcastShow
     let episodes: [PodcastEpisode]
     let continuationToken: String?
@@ -106,7 +106,7 @@ struct PodcastShowDetail {
 // MARK: - PodcastEpisodesContinuation
 
 /// Response from fetching more podcast episodes via continuation.
-struct PodcastEpisodesContinuation {
+struct PodcastEpisodesContinuation: Sendable {
     let episodes: [PodcastEpisode]
     let continuationToken: String?
 

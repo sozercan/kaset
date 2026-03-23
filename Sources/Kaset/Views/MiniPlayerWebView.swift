@@ -252,6 +252,9 @@ final class SingletonPlayerWebView {
 
         let configuration = webKitManager.createWebViewConfiguration()
 
+        // Apply ad-blocking rules (network-level blocking, CSS hiding, JS ad-skipper)
+        AdBlockService.shared.configure(configuration)
+
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
 
@@ -345,19 +348,6 @@ final class SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
-            let observedVideoId: String? = if let videoId = body["videoId"] as? String, !videoId.isEmpty {
-                videoId
-            } else {
-                nil
-            }
-
-            if type == "TRACK_ENDED" {
-                Task { @MainActor in
-                    await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
-                }
-                return
-            }
-
             // Handle AirPlay status updates
             if type == "AIRPLAY_STATUS" {
                 let isConnected = body["isConnected"] as? Bool ?? false
@@ -372,11 +362,24 @@ final class SingletonPlayerWebView {
                 return
             }
 
+            // Fast progress-only update for smooth lyrics synchronization (5Hz)
+            if type == "PROGRESS_UPDATE" {
+                let progress = body["progress"] as? Double ?? 0
+                let duration = body["duration"] as? Double ?? 0
+                Task { @MainActor in
+                    self.playerService.updatePlaybackProgress(
+                        progress: progress,
+                        duration: duration
+                    )
+                }
+                return
+            }
+
             guard type == "STATE_UPDATE" else { return }
 
             let isPlaying = body["isPlaying"] as? Bool ?? false
-            let progress = body["progress"] as? Int ?? 0
-            let duration = body["duration"] as? Int ?? 0
+            let progress = body["progress"] as? Double ?? 0
+            let duration = body["duration"] as? Double ?? 0
             let title = body["title"] as? String ?? ""
             let artist = body["artist"] as? String ?? ""
             let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
@@ -397,8 +400,8 @@ final class SingletonPlayerWebView {
             Task { @MainActor in
                 self.playerService.updatePlaybackState(
                     isPlaying: isPlaying,
-                    progress: Double(progress),
-                    duration: Double(duration)
+                    progress: progress,
+                    duration: duration
                 )
 
                 // Update video availability
@@ -410,18 +413,16 @@ final class SingletonPlayerWebView {
                 }
 
                 // Update track metadata if track changed
-                if trackChanged, observedVideoId != nil || !title.isEmpty {
+                if trackChanged, !title.isEmpty {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,
-                        thumbnailUrl: thumbnailUrl,
-                        videoId: observedVideoId
+                        thumbnailUrl: thumbnailUrl
                     )
 
                     // Close video window on track change, but skip during grace period
                     // (grace period prevents false positives during initial video mode setup)
-                    // Note: trackChanged detection now uses videoId changes too, so this
-                    // can fire before the player bar text has caught up to the new track.
+                    // Note: trackChanged detection uses title/artist comparison from the observer script
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
                             "trackChanged to '\(title)' while video shown - closing video window"

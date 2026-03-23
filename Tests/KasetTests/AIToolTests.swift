@@ -5,7 +5,7 @@ import Testing
 // MARK: - MusicSearchToolTests
 
 /// Tests for MusicSearchTool output formatting and behavior.
-@Suite(.tags(.api), .serialized)
+@Suite("MusicSearchTool", .tags(.api), .serialized)
 @MainActor
 struct MusicSearchToolTests {
     let mockClient: MockYTMusicClient
@@ -135,7 +135,7 @@ struct MusicSearchToolTests {
 // MARK: - QueueToolTests
 
 /// Tests for QueueTool output formatting and behavior.
-@Suite(.tags(.api))
+@Suite("QueueTool Unit", .tags(.api))
 struct QueueToolTests {
     @Test("Tool has correct name and description")
     @MainActor

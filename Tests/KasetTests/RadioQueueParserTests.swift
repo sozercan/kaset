@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for RadioQueueParser.
-@Suite(.tags(.parser))
+@Suite("RadioQueueParser", .tags(.parser))
 struct RadioQueueParserTests {
     // MARK: - Parse Initial Response Tests
 

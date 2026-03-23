@@ -1,7 +1,7 @@
 import Foundation
 
 /// Configurable retry policy with exponential backoff.
-struct RetryPolicy {
+struct RetryPolicy: Sendable {
     let maxAttempts: Int
     let baseDelay: TimeInterval
     let maxDelay: TimeInterval

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Lyrics
 
 /// Represents lyrics for a song from YouTube Music.
-struct Lyrics: Equatable {
+struct Lyrics: Sendable, Equatable {
     /// The lyrics text, with line breaks preserved.
     let text: String
 
@@ -27,7 +27,7 @@ struct Lyrics: Equatable {
 // MARK: - LyricsBrowseInfo
 
 /// Represents the lyrics browse ID extracted from the next endpoint.
-struct LyricsBrowseInfo {
+struct LyricsBrowseInfo: Sendable {
     /// The browse ID to fetch lyrics (format: "MPLYt_xxx").
     let browseId: String
 }

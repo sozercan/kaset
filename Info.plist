@@ -2,41 +2,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- URL Scheme Registration -->
+	<key>CFBundleIconName</key>
+	<string>kaset</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
 			<key>CFBundleURLName</key>
 			<string>com.sertacozercan.kaset</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>kaset</string>
 			</array>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
 		</dict>
 	</array>
-
-	<!-- Sparkle Auto-Update Configuration -->
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
-
-	<key>SUPublicEDKey</key>
-	<string>qa2zoeXHqn+pluxQSGjn5HyIYA/iFtrEJz7S1BoslpI=</string>
-
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-
-	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
-
-	<key>SUAllowsAutomaticUpdates</key>
-	<true/>
-
-	<!-- AppleScript Support -->
 	<key>NSAppleScriptEnabled</key>
 	<true/>
 	<key>OSAScriptingDefinition</key>
 	<string>Kaset.sdef</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>qa2zoeXHqn+pluxQSGjn5HyIYA/iFtrEJz7S1BoslpI=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

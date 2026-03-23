@@ -5,7 +5,7 @@ import Testing
 // MARK: - FoundationModelsServiceTests
 
 /// Tests for FoundationModelsService availability and session creation.
-@Suite(.tags(.api), .serialized)
+@Suite("FoundationModelsService", .tags(.api), .serialized)
 @MainActor
 struct FoundationModelsServiceTests {
     // MARK: - Availability Tests

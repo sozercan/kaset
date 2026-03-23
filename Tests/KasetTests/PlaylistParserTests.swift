@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for the PlaylistParser.
-@Suite(.tags(.parser))
+@Suite("PlaylistParser", .tags(.parser))
 struct PlaylistParserTests {
     // MARK: - Library Playlists
 

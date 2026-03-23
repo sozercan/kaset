@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for AppleScript ScriptCommands.
-@Suite(.serialized, .tags(.service))
+@Suite("ScriptCommands", .serialized, .tags(.service))
 @MainActor
 struct ScriptCommandsTests {
     // MARK: - Setup/Teardown

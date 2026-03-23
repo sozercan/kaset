@@ -9,12 +9,13 @@ extension SingletonPlayerWebView {
             const bridge = window.webkit.messageHandlers.singletonPlayer;
             let lastTitle = '';
             let lastArtist = '';
-            let lastVideoId = '';
             let isPollingActive = false;
             let pollIntervalId = null;
+            let progressIntervalId = null;
             let lastUpdateTime = 0;
-            const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
-            const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
+            const UPDATE_THROTTLE_MS = 500; // Throttle full updates to max 2/sec
+            const POLL_INTERVAL_MS = 1000; // Full state poll at 1Hz during playback
+            const PROGRESS_INTERVAL_MS = 200; // Fast progress-only updates at 5Hz for lyrics sync
 
             // Volume enforcement: track target volume set by Swift
             // Don't set a default - only enforce when explicitly set by Swift
@@ -63,10 +64,7 @@ extension SingletonPlayerWebView {
                     // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => enforceVolumeNow());
                     video.addEventListener('pause', stopPolling);
-                    video.addEventListener('ended', () => {
-                        sendTrackEnded();
-                        stopPolling();
-                    });
+                    video.addEventListener('ended', stopPolling);
                     video.addEventListener('waiting', () => sendUpdate()); // Buffer state
                     video.addEventListener('seeked', () => sendUpdate()); // Seek completed
 
@@ -149,37 +147,6 @@ extension SingletonPlayerWebView {
                 videoObserver.observe(document.body, { childList: true, subtree: true });
             }
 
-            function currentPlayerData() {
-                const player = document.querySelector('ytmusic-player');
-                if (player && player.playerApi && typeof player.playerApi.getVideoData === 'function') {
-                    const data = player.playerApi.getVideoData();
-                    if (data && typeof data === 'object') return data;
-                }
-
-                const moviePlayer = document.getElementById('movie_player');
-                if (moviePlayer && typeof moviePlayer.getVideoData === 'function') {
-                    const data = moviePlayer.getVideoData();
-                    if (data && typeof data === 'object') return data;
-                }
-
-                return null;
-            }
-
-            function currentVideoId() {
-                const playerData = currentPlayerData();
-                if (playerData) {
-                    const playerVideoId = playerData.video_id || playerData.videoId || '';
-                    if (playerVideoId) return playerVideoId;
-                }
-
-                try {
-                    const url = new URL(window.location.href);
-                    return url.searchParams.get('v') || '';
-                } catch (e) {
-                    return '';
-                }
-            }
-
             function startPolling() {
                 if (isPollingActive) return;
                 isPollingActive = true;
@@ -188,8 +155,10 @@ extension SingletonPlayerWebView {
                 // Applying volume on every startPolling causes volume jumps
 
                 sendUpdate(); // Immediate update
-                // Poll at 1Hz during playback for progress updates (reduced CPU usage)
+                // Full state poll at 1Hz during playback
                 pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
+                // Fast progress-only updates at 5Hz for smooth lyrics sync
+                progressIntervalId = setInterval(sendProgressUpdate, PROGRESS_INTERVAL_MS);
             }
 
             function stopPolling() {
@@ -197,6 +166,10 @@ extension SingletonPlayerWebView {
                 if (pollIntervalId) {
                     clearInterval(pollIntervalId);
                     pollIntervalId = null;
+                }
+                if (progressIntervalId) {
+                    clearInterval(progressIntervalId);
+                    progressIntervalId = null;
                 }
                 sendUpdate(); // Final state update
             }
@@ -219,14 +192,6 @@ extension SingletonPlayerWebView {
                 sendUpdate();
             }
 
-            function sendTrackEnded() {
-                const endedVideoId = lastVideoId || currentVideoId();
-                bridge.postMessage({
-                    type: 'TRACK_ENDED',
-                    videoId: endedVideoId
-                });
-            }
-
             function sendUpdate() {
                 // Throttle updates
                 const now = Date.now();
@@ -241,34 +206,14 @@ extension SingletonPlayerWebView {
                     const video = document.querySelector('video');
                     const isPlaying = video ? !video.paused : false;
 
-                    const progressBar = document.querySelector('#progress-bar');
-
                     // Extract track metadata
                     const titleEl = document.querySelector('.ytmusic-player-bar.title');
                     const artistEl = document.querySelector('.ytmusic-player-bar.byline');
                     const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
 
-                    const playerData = currentPlayerData();
-                    const playerTitle = playerData && typeof playerData.title === 'string'
-                        ? playerData.title.trim()
-                        : '';
-                    const playerArtist = playerData && typeof playerData.author === 'string'
-                        ? playerData.author.trim()
-                        : '';
-
-                    let title = titleEl ? titleEl.textContent.trim() : '';
-                    let artist = artistEl ? artistEl.textContent.trim() : '';
-                    const videoId = currentVideoId();
+                    const title = titleEl ? titleEl.textContent.trim() : '';
+                    const artist = artistEl ? artistEl.textContent.trim() : '';
                     let thumbnailUrl = '';
-
-                    // Prefer player API metadata when the DOM appears to be lagging behind the actual video.
-                    if (playerTitle && title && playerTitle !== title) {
-                        title = playerTitle;
-                        if (playerArtist) artist = playerArtist;
-                    } else {
-                        if (!title && playerTitle) title = playerTitle;
-                        if (!artist && playerArtist) artist = playerArtist;
-                    }
 
                     // Get the thumbnail URL from the image element
                     if (thumbEl) {
@@ -285,17 +230,10 @@ extension SingletonPlayerWebView {
                     }
 
                     // Check if track changed
-                    const metadataChanged = title !== '' && (title !== lastTitle || artist !== lastArtist);
-                    const videoIdChanged = videoId !== '' && videoId !== lastVideoId;
-                    const trackChanged = metadataChanged || videoIdChanged;
+                    const trackChanged = (title !== lastTitle || artist !== lastArtist) && title !== '';
                     if (trackChanged) {
-                        if (title !== '') {
-                            lastTitle = title;
-                            lastArtist = artist;
-                        }
-                        if (videoId !== '') {
-                            lastVideoId = videoId;
-                        }
+                        lastTitle = title;
+                        lastArtist = artist;
                     }
 
                     // Detect if actual video content is available
@@ -317,15 +255,28 @@ extension SingletonPlayerWebView {
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
                         isPlaying: isPlaying,
-                        progress: progressBar ? parseInt(progressBar.getAttribute('value') || '0') : 0,
-                        duration: progressBar ? parseInt(progressBar.getAttribute('aria-valuemax') || '0') : 0,
+                        progress: video ? video.currentTime : 0,
+                        duration: video ? video.duration || 0 : 0,
                         title: title,
                         artist: artist,
-                        videoId: videoId,
                         thumbnailUrl: thumbnailUrl,
                         trackChanged: trackChanged,
                         likeStatus: likeStatus,
                         hasVideo: hasVideo
+                    });
+                } catch (e) {}
+            }
+
+            // Lightweight progress-only update for smooth lyrics synchronization.
+            // Runs at 5Hz and bypasses the full-update throttle.
+            function sendProgressUpdate() {
+                try {
+                    const video = document.querySelector('video');
+                    if (!video || video.paused) return;
+                    bridge.postMessage({
+                        type: 'PROGRESS_UPDATE',
+                        progress: video.currentTime,
+                        duration: video.duration || 0
                     });
                 } catch (e) {}
             }

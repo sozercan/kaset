@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SearchSuggestionsParser.
-@Suite(.tags(.parser))
+@Suite("SearchSuggestionsParser", .tags(.parser))
 struct SearchSuggestionsParserTests {
     // MARK: - Empty Response Tests
 

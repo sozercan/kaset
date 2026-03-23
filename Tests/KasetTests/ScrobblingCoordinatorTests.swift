@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@Suite(.serialized, .tags(.service))
+@Suite("ScrobblingCoordinator", .serialized, .tags(.service))
 @MainActor
 struct ScrobblingCoordinatorTests {
     // MARK: - Helpers

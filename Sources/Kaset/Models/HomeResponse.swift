@@ -1,7 +1,7 @@
 import Foundation
 
 /// Response from the YouTube Music home/browse endpoint.
-struct HomeResponse {
+struct HomeResponse: Sendable {
     let sections: [HomeSection]
 
     /// Whether the home response is empty.

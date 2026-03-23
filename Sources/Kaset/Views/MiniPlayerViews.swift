@@ -31,10 +31,8 @@ struct PersistentPlayerView: NSViewRepresentable {
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
 
-        // Restored sessions keep the hidden WebView inert until the user explicitly resumes.
-        if self.playerService.shouldAutoloadPendingVideo,
-           SingletonPlayerWebView.shared.currentVideoId != self.videoId
-        {
+        // Load the video if needed - use loadVideo() to ensure volume is applied
+        if SingletonPlayerWebView.shared.currentVideoId != self.videoId {
             self.logger.info("Initial load for videoId: \(self.videoId)")
             SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
         }
@@ -59,9 +57,8 @@ struct PersistentPlayerView: NSViewRepresentable {
 
         webView.frame = container.bounds
 
-        if self.playerService.shouldAutoloadPendingVideo {
-            SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
-        }
+        // Load new video if changed
+        SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
     }
 }
 

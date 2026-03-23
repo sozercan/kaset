@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Playlist
 
 /// Represents a playlist from YouTube Music.
-struct Playlist: Identifiable, Codable, Hashable {
+struct Playlist: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let title: String
     let description: String?
@@ -70,7 +70,7 @@ extension Playlist {
 // MARK: - PlaylistDetail
 
 /// Detailed playlist information including tracks.
-struct PlaylistDetail: Identifiable {
+struct PlaylistDetail: Identifiable, Sendable {
     let id: String
     let title: String
     let description: String?
@@ -99,7 +99,7 @@ struct PlaylistDetail: Identifiable {
 // MARK: - LikedSongsResponse
 
 /// Response from the liked songs API, including pagination support.
-struct LikedSongsResponse {
+struct LikedSongsResponse: Sendable {
     /// The liked songs returned in this response.
     let songs: [Song]
 
@@ -115,7 +115,7 @@ struct LikedSongsResponse {
 // MARK: - PlaylistTracksResponse
 
 /// Response from the playlist tracks API, including pagination support.
-struct PlaylistTracksResponse {
+struct PlaylistTracksResponse: Sendable {
     /// The playlist detail with header info and initial tracks.
     let detail: PlaylistDetail
 
@@ -131,7 +131,7 @@ struct PlaylistTracksResponse {
 // MARK: - PlaylistContinuationResponse
 
 /// Response from a playlist continuation request.
-struct PlaylistContinuationResponse {
+struct PlaylistContinuationResponse: Sendable {
     /// The additional tracks from this continuation.
     let tracks: [Song]
 

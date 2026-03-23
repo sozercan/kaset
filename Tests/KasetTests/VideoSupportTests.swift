@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for Video Support functionality.
-@Suite(.serialized, .tags(.service))
+@Suite("Video Support", .serialized, .tags(.service))
 @MainActor
 struct VideoSupportTests {
     var playerService: PlayerService

@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for SearchResponse and SearchResultItem.
-@Suite(.tags(.model))
+@Suite("SearchResponse", .tags(.model))
 struct SearchResponseTests {
     // MARK: - SearchResultItem ID Tests
 

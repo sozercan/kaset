@@ -27,9 +27,6 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Forces an immediate backup of all YouTube/Google cookies.
     func forceBackupCookies() async
 
-    /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
-    func waitForInitialCookieRestore() async
-
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
 }
@@ -388,7 +385,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double)
 
     /// Updates track metadata when track changes.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId: String?)
+    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String)
 
     /// Updates the like status from WebView observation.
     func updateLikeStatus(_ status: LikeStatus)

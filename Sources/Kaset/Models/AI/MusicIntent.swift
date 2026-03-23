@@ -7,7 +7,7 @@ import FoundationModels
 /// The model generates this from free-form text like "play some jazz" or "skip this song".
 @available(macOS 26.0, *)
 @Generable
-struct MusicIntent {
+struct MusicIntent: Sendable {
     /// The type of action the user wants to perform.
     @Guide(description: "The action to perform: play, queue, shuffle, like, dislike, skip, previous, pause, resume, search")
     let action: MusicAction
@@ -171,7 +171,7 @@ struct MusicIntent {
     /// Removes redundant terms from query for appending.
     private func cleanQueryForAppending(_ query: String) -> String {
         let words = query.lowercased().split(separator: " ")
-        let skipWords: Set = [
+        let skipWords: Set<String> = [
             "play", "some", "the", "a", "an", "me", "from", "of",
             "songs", "music", "tracks", "hits", "hit", "best", "greatest", "top",
         ]
@@ -304,7 +304,7 @@ struct MusicIntent {
 /// Actions that can be performed via natural language commands.
 @available(macOS 26.0, *)
 @Generable
-enum MusicAction: String, CaseIterable {
+enum MusicAction: String, Sendable, CaseIterable {
     case play
     case queue
     case shuffle
@@ -321,7 +321,7 @@ enum MusicAction: String, CaseIterable {
 
 /// Hints about where to source content for the best results.
 /// Used to route requests to curated endpoints instead of search when appropriate.
-enum ContentSource: String, CustomStringConvertible {
+enum ContentSource: String, Sendable, CustomStringConvertible {
     /// Use search API (default fallback)
     case search
     /// Use Moods & Genres curated playlists

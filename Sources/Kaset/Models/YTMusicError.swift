@@ -3,7 +3,7 @@ import Foundation
 // MARK: - YTMusicError
 
 /// Unified error type for YouTube Music operations.
-enum YTMusicError: LocalizedError {
+enum YTMusicError: LocalizedError, Sendable {
     /// Authentication has expired or is invalid.
     case authExpired
     /// No authentication credentials available.

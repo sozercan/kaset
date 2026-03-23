@@ -5,8 +5,6 @@ import SwiftUI
 /// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
 @available(macOS 26.0, *)
 struct PlayerBar: View {
-    private static let brandAccent = PackageResourceLookup.brandAccent
-
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
 
@@ -94,6 +92,13 @@ struct PlayerBar: View {
                     Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
+                .opacity(0)
+
+                // Command + M: Toggle mute
+                Button("") {
+                    Task { await self.playerService.toggleMute() }
+                }
+                .keyboardShortcut("m", modifiers: .command)
                 .opacity(0)
             }
         }
@@ -236,7 +241,6 @@ struct PlayerBar: View {
                 }
             }
             .controlSize(.small)
-            .tint(Self.brandAccent)
 
             // Remaining time - use cached formatted string when not seeking
             Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
@@ -416,7 +420,6 @@ struct PlayerBar: View {
             }
             .frame(width: 80)
             .controlSize(.small)
-            .tint(Self.brandAccent)
             .onChange(of: self.volumeValue) { oldValue, newValue in
                 // Apply volume changes in real-time during dragging for immediate feedback
                 if self.isAdjustingVolume {

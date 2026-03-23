@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for the PodcastParser.
-@Suite(.tags(.parser))
+@Suite("PodcastParser", .tags(.parser))
 struct PodcastParserTests {
     // MARK: - parseDiscovery Tests
 

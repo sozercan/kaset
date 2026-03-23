@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for RetryPolicy.
-@Suite(.serialized, .tags(.api))
+@Suite("RetryPolicy", .serialized, .tags(.api))
 struct RetryPolicyTests {
     @Test("Default policy has expected values")
     func defaultPolicyValues() {

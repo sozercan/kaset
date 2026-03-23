@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for the ParsingHelpers.
-@Suite(.tags(.parser))
+@Suite("ParsingHelpers", .tags(.parser))
 struct ParsingHelpersTests {
     // MARK: - Chart Section Detection
 

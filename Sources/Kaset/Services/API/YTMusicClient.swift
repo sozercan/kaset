@@ -7,7 +7,7 @@ import os
 
 /// Identifies content types that support pagination via continuation tokens.
 /// Used internally by YTMusicClient to manage pagination state generically.
-enum PaginatedContentType: String, Hashable {
+enum PaginatedContentType: String, Hashable, Sendable {
     case home = "FEmusic_home"
     case explore = "FEmusic_explore"
     case charts = "FEmusic_charts"
@@ -1394,7 +1394,7 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Result type for network request to avoid throwing across actor boundaries.
     /// Uses Data (which is Sendable) instead of parsed JSON.
-    private enum NetworkResult {
+    private enum NetworkResult: Sendable {
         case success(Data)
         case authError(statusCode: Int)
         case httpError(statusCode: Int)

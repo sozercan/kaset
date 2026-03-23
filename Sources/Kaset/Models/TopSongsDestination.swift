@@ -3,7 +3,7 @@ import Foundation
 // MARK: - TopSongsDestination
 
 /// Navigation destination for viewing all top songs of an artist.
-struct TopSongsDestination: Hashable {
+struct TopSongsDestination: Hashable, Sendable {
     let artistId: String
     let artistName: String
     let songs: [Song]

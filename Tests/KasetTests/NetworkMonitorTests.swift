@@ -4,7 +4,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for NetworkMonitor.
-@Suite(.tags(.service))
+@Suite("NetworkMonitor", .tags(.service))
 @MainActor
 struct NetworkMonitorTests {
     @Test("Shared instance exists")

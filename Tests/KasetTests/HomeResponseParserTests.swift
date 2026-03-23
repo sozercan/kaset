@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for the HomeResponseParser.
-@Suite(.tags(.parser))
+@Suite("HomeResponseParser", .tags(.parser))
 struct HomeResponseParserTests {
     @Test("Parse empty response returns empty sections")
     func parseEmptyResponse() {

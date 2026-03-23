@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for HomeSection and HomeSectionItem.
-@Suite(.tags(.model))
+@Suite("HomeSection", .tags(.model))
 struct HomeSectionTests {
     // MARK: - HomeSectionItem ID Tests
 

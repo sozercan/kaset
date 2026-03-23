@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Represents a moods/genres category that can be navigated to.
 /// Unlike playlists, these are browse endpoints that return sections of content.
-struct MoodCategory: Identifiable, Hashable {
+struct MoodCategory: Identifiable, Hashable, Sendable {
     /// The browse ID for this category (e.g., "FEmusic_moods_and_genres_category")
     let browseId: String
 

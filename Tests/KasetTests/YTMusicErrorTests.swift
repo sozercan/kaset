@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Extended tests for YTMusicError.
-@Suite(.tags(.model))
+@Suite("YTMusicError", .tags(.model))
 struct YTMusicErrorTests {
     // MARK: - Error Description Tests
 

@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for ArtistParser.
-@Suite(.tags(.parser))
+@Suite("ArtistParser", .tags(.parser))
 struct ArtistParserTests {
     // MARK: - Parse Artist Detail Tests
 

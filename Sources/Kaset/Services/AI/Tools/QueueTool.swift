@@ -30,7 +30,7 @@ struct QueueTool: Tool {
 
     /// The arguments this tool accepts.
     @Generable
-    struct Arguments {
+    struct Arguments: Sendable {
         @Guide(description: "Maximum number of tracks to return (default 20)")
         let limit: Int
     }

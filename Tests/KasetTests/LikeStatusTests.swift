@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Unit tests for LikeStatus and FeedbackTokens.
-@Suite(.tags(.model))
+@Suite("LikeStatus and FeedbackTokens", .tags(.model))
 struct LikeStatusTests {
     // MARK: - LikeStatus Tests
 

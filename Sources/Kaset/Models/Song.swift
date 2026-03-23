@@ -4,7 +4,7 @@ import Foundation
 // MARK: - Song
 
 /// Represents a song/track from YouTube Music.
-struct Song: Identifiable, Codable, Hashable {
+struct Song: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let title: String
     let artists: [Artist]

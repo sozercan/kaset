@@ -1,16 +1,15 @@
-import CoreTransferable
 import Foundation
 
 // MARK: - FavoriteItem
 
 /// An item pinned to Favorites.
-struct FavoriteItem: Identifiable, Codable {
+struct FavoriteItem: Identifiable, Codable, Sendable {
     let id: UUID
     let pinnedAt: Date
     let itemType: ItemType
 
     /// The type of item that can be pinned to Favorites.
-    enum ItemType: Codable {
+    enum ItemType: Codable, Sendable {
         case song(Song)
         case album(Album)
         case playlist(Playlist)
@@ -152,14 +151,6 @@ extension FavoriteItem: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.contentId)
-    }
-}
-
-// MARK: Transferable
-
-extension FavoriteItem: Transferable {
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(for: FavoriteItem.self, contentType: .data)
     }
 }
 

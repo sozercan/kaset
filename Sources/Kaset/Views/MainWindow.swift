@@ -5,25 +5,11 @@ import SwiftUI
 /// Main application window with sidebar navigation and player bar.
 @available(macOS 26.0, *)
 struct MainWindow: View {
-    private struct PresentedWhatsNew: Identifiable {
-        let whatsNew: WhatsNew
-        let requestedVersion: WhatsNew.Version
-
-        var id: String {
-            "\(self.requestedVersion.description)::\(self.whatsNew.version.description)"
-        }
-    }
-
-    private enum Layout {
-        static let commandBarTopPadding: CGFloat = 72
-    }
-
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(\.showCommandBar) private var showCommandBar
-    @Environment(\.showWhatsNew) private var showWhatsNew
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -32,8 +18,7 @@ struct MainWindow: View {
     let client: any YTMusicClientProtocol
 
     @State private var showLoginSheet = false
-    @State private var isCommandBarPresented = false
-    @State private var whatsNewToPresent: PresentedWhatsNew?
+    @State private var showCommandBarSheet = false
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -121,35 +106,22 @@ struct MainWindow: View {
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
-        .sheet(item: self.$whatsNewToPresent) { presentedWhatsNew in
-            WhatsNewView(whatsNew: presentedWhatsNew.whatsNew) {
-                self.dismissWhatsNew(presentedWhatsNew)
-            }
-        }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.isCommandBarPresented {
+            if self.showCommandBarSheet {
                 ZStack {
                     // Background tap area to dismiss
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(Rectangle())
+                    Color.black.opacity(0.3)
                         .ignoresSafeArea()
-                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarOverlay)
                         .onTapGesture {
-                            self.isCommandBarPresented = false
+                            self.showCommandBarSheet = false
                         }
 
-                    VStack(spacing: 0) {
-                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
-                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
-
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .padding(.top, Self.Layout.commandBarTopPadding)
+                    // Command bar centered
+                    CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
-                .animation(.easeInOut(duration: 0.15), value: self.isCommandBarPresented)
+                .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
             }
         }
         .overlay(alignment: .top) {
@@ -159,20 +131,8 @@ struct MainWindow: View {
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
-                self.isCommandBarPresented = true
+                self.showCommandBarSheet = true
                 self.showCommandBar.wrappedValue = false
-            }
-        }
-        .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
-            if newValue {
-                // Manual trigger from Help menu — fetch release notes, bypass version store
-                Task { @MainActor in
-                    await self.presentCurrentWhatsNew(
-                        respectingPresentedVersions: false,
-                        allowsGenericFallback: true
-                    )
-                }
-                self.showWhatsNew.wrappedValue = false
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in
@@ -243,11 +203,11 @@ struct MainWindow: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    self.isCommandBarPresented = true
+                    self.showCommandBarSheet = true
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                 }
                 .keyboardShortcut("k", modifiers: .command)
                 .help("Ask AI (⌘K)")
@@ -351,12 +311,6 @@ struct MainWindow: View {
             self.showLoginSheet = true
         case .loggedIn:
             self.showLoginSheet = false
-            // Auto-present "What's New" — fetch from GitHub release notes
-            if self.whatsNewToPresent == nil {
-                Task { @MainActor in
-                    await self.presentCurrentWhatsNew()
-                }
-            }
             Task {
                 await self.accountService.fetchAccounts()
             }
@@ -376,31 +330,6 @@ struct MainWindow: View {
                 }
             }
         }
-    }
-
-    @MainActor
-    private func dismissWhatsNew(_ whatsNew: PresentedWhatsNew) {
-        WhatsNewVersionStore().markPresented(whatsNew.requestedVersion)
-        self.whatsNewToPresent = nil
-    }
-
-    @MainActor
-    private func presentCurrentWhatsNew(
-        respectingPresentedVersions: Bool = true,
-        allowsGenericFallback: Bool = false
-    ) async {
-        let currentVersion = WhatsNew.Version.current()
-        let whatsNew = await WhatsNewProvider.fetchWhatsNew(
-            for: currentVersion,
-            respectingPresentedVersions: respectingPresentedVersions
-        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
-
-        guard let whatsNew else { return }
-
-        self.whatsNewToPresent = PresentedWhatsNew(
-            whatsNew: whatsNew,
-            requestedVersion: currentVersion
-        )
     }
 
     /// Refreshes all content when switching accounts.

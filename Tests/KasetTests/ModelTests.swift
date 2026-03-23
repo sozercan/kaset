@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for data models.
-@Suite(.tags(.model))
+@Suite("Models", .tags(.model))
 struct ModelTests {
     // MARK: - Song Tests
 
