@@ -7,6 +7,7 @@ extension PlayerService {
     /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int = 0) async {
         guard !songs.isEmpty else { return }
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let safeIndex = max(0, min(index, songs.count - 1))
         self.queue = songs
@@ -23,6 +24,7 @@ extension PlayerService {
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async {
         self.logger.info("Playing with radio: \(song.title)")
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
         // Clear mix continuation since this is a song radio, not a mix
@@ -46,6 +48,7 @@ extension PlayerService {
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(playlistId: String, startVideoId: String?) async {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
         guard let client = self.ytMusicClient else {
@@ -176,6 +179,7 @@ extension PlayerService {
                 newQueue.append(contentsOf: radioSongs)
             }
 
+            self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
             self.queue = newQueue
             self.currentIndex = 0
@@ -188,6 +192,7 @@ extension PlayerService {
 
     /// Clears the entire queue and current track (for "Clear" in side panel). Records state for undo.
     func clearQueueEntirely() {
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         self.mixContinuationToken = nil
         self.queue = []
@@ -198,6 +203,7 @@ extension PlayerService {
 
     /// Clears the playback queue except for the currently playing track.
     func clearQueue() {
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         // Clear mix continuation since queue is being manually cleared
         self.mixContinuationToken = nil
@@ -218,6 +224,7 @@ extension PlayerService {
     /// Plays a song from the queue at the specified index.
     func playFromQueue(at index: Int) async {
         guard index >= 0, index < self.queue.count else { return }
+        self.clearForwardSkipNavigationStack()
         self.currentIndex = index
         if let song = queue[safe: index] {
             await self.play(song: song)
@@ -231,6 +238,7 @@ extension PlayerService {
     /// - Parameter songs: The songs to insert into the queue.
     func insertNextInQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let insertIndex = min(self.currentIndex + 1, self.queue.count)
         self.queue.insert(contentsOf: songs, at: insertIndex)
@@ -241,6 +249,7 @@ extension PlayerService {
     /// Removes songs from the queue by video ID.
     /// - Parameter videoIds: Set of video IDs to remove.
     func removeFromQueue(videoIds: Set<String>) {
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         self.queue.removeAll { videoIds.contains($0.videoId) }
@@ -272,6 +281,7 @@ extension PlayerService {
             self.logger.warning("Cannot reorder: destination is current track")
             return
         }
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
         var newQueue = self.queue
@@ -292,6 +302,7 @@ extension PlayerService {
     /// Reorders the queue based on a new order of video IDs.
     /// - Parameter videoIds: The new order of video IDs.
     func reorderQueue(videoIds: [String]) {
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         var reordered: [Song] = []
         var videoIdToSong: [String: Song] = [:]
@@ -322,6 +333,7 @@ extension PlayerService {
     /// Shuffles the queue, keeping the current track in place at the front.
     func shuffleQueue() {
         guard self.queue.count > 1 else { return }
+        self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
         // Remove current track, shuffle the rest, put current track at front
