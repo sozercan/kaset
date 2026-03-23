@@ -49,21 +49,28 @@ final class NotificationService {
         self.observationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             var previousTrack: Song?
+            var previousIsPlaying = self.playerService.isPlaying
 
             while !Task.isCancelled {
                 let currentTrack = self.playerService.currentTrack
+                let isPlaying = self.playerService.isPlaying
 
-                // Only notify on actual track changes with valid title
+                // Notify once active playback starts for a new, fully resolved track.
                 if let track = currentTrack,
-                   track.id != previousTrack?.id,
                    track.id != self.lastNotifiedTrackId,
                    track.title != "Loading..."
                 {
-                    await self.postTrackNotification(track)
-                    self.lastNotifiedTrackId = track.id
+                    let trackChanged = track.id != previousTrack?.id
+                    let playbackJustStarted = isPlaying && !previousIsPlaying
+
+                    if isPlaying, trackChanged || playbackJustStarted {
+                        await self.postTrackNotification(track)
+                        self.lastNotifiedTrackId = track.id
+                    }
                 }
 
                 previousTrack = currentTrack
+                previousIsPlaying = isPlaying
                 try? await Task.sleep(for: .milliseconds(500))
             }
         }
