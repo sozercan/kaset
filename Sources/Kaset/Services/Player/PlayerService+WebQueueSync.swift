@@ -56,6 +56,25 @@ extension PlayerService {
         return nil
     }
 
+    private func isRepeatAllWraparoundTrackEnd(
+        observedVideoId: String,
+        expectedCurrentVideoId: String
+    ) -> Bool {
+        guard self.repeatMode == .all,
+              !self.shuffleEnabled,
+              self.expectedQueueIndexAfterCurrentTrack() == 0,
+              let currentQueueSong = self.queue[safe: self.currentIndex],
+              let firstQueueSong = self.queue.first
+        else {
+            return false
+        }
+
+        // At the repeat-all boundary, YouTube can report the first queue song as the
+        // observed id before the natural `ended` callback reaches Kaset.
+        return currentQueueSong.videoId == expectedCurrentVideoId
+            && firstQueueSong.videoId == observedVideoId
+    }
+
     private func keepQueueSongVisible(_ song: Song, thumbnailUrl: String) {
         let intendedThumbnailURL = URL(string: thumbnailUrl) ?? song.thumbnailURL
         self.currentTrack = Song(
@@ -386,13 +405,18 @@ extension PlayerService {
             let currentQueueVideoId = self.queue[safe: self.currentIndex]?.videoId
             let expectedCurrentVideoId = currentQueueVideoId ?? self.currentTrack?.videoId ?? self.pendingPlayVideoId
             if let expectedCurrentVideoId, expectedCurrentVideoId != observedVideoId {
-                // YouTube often autoplays the next suggestion before `ended` fires; the reported id can be the *new* video.
-                // Stale-event suppression is for late `ended` after we already advanced the native queue — not when we still
-                // expect the same queue track (repeat modes). Repeat one replays below; repeat all advances via `next()`.
-                let isRepeating = self.repeatMode == .one || self.repeatMode == .all
-                if isRepeating {
+                // Late duplicate `ended` events should not advance the queue twice. The only mismatch
+                // we allow is repeat-all wrapping from the last queue item back to the first song.
+                if self.repeatMode == .one {
                     self.logger.info(
-                        "Track ended: observed \(observedVideoId) != queue \(expectedCurrentVideoId) while repeat active; applying native repeat"
+                        "Track ended: observed \(observedVideoId) != queue \(expectedCurrentVideoId) while repeat one is active; replaying current queue song"
+                    )
+                } else if self.isRepeatAllWraparoundTrackEnd(
+                    observedVideoId: observedVideoId,
+                    expectedCurrentVideoId: expectedCurrentVideoId
+                ) {
+                    self.logger.info(
+                        "Track ended: observed \(observedVideoId) already wrapped from queue \(expectedCurrentVideoId); applying repeat-all wraparound"
                     )
                 } else {
                     self.logger.debug(
