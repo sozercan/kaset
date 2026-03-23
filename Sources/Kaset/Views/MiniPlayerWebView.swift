@@ -435,8 +435,12 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Update track metadata if track changed
-                if trackChanged, observedVideoId != nil || !title.isEmpty {
+                // Repeat-one must keep enforcing queue/current song even if WebView doesn't flag `trackChanged`
+                // for a transient autoplay swap. In other modes, keep the existing trackChanged gate.
+                let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
+                    && (observedVideoId != nil || !title.isEmpty)
+
+                if shouldReconcileMetadata {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,

@@ -354,11 +354,31 @@ extension PlayerService {
         }
     }
 
+    /// Replays the currently playing song for repeat-one when no native queue is active.
+    private func replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd() async {
+        self.songNearingEnd = false
+        if let currentTrack = self.currentTrack {
+            self.logger.info("Track ended with repeat one and no queue; replaying current track")
+            await self.play(song: currentTrack, webLoadStrategy: .preferInPlaceWhenSameVideoId)
+            return
+        }
+
+        if let pendingVideoId = self.pendingPlayVideoId {
+            self.logger.info("Track ended with repeat one and no queue metadata; replaying pending video")
+            await self.play(videoId: pendingVideoId)
+            return
+        }
+    }
+
     /// Handles a natural track completion reported directly by the WebView.
     func handleTrackEnded(observedVideoId: String?) async {
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
+            if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {
+                await self.replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd()
+                return
+            }
             self.markPlaybackEnded()
             return
         }

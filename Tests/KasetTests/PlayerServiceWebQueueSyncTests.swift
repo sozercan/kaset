@@ -230,6 +230,31 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingPlayVideoId == "v1")
     }
 
+    @Test("Track ended with repeat one replays even without an active queue")
+    func trackEndedRepeatOneReplaysWithoutQueue() async {
+        let song = Song(
+            id: "solo-1",
+            title: "Solo Song",
+            artists: [Artist(id: "solo-artist", name: "Solo Artist")],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "solo-video"
+        )
+
+        await self.playerService.play(song: song)
+        #expect(self.playerService.queue.isEmpty)
+
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+
+        await self.playerService.handleTrackEnded(observedVideoId: "solo-video")
+
+        #expect(self.playerService.pendingPlayVideoId == "solo-video")
+        #expect(self.playerService.state != .ended)
+    }
+
     @Test("Next with shuffle picks random song from queue")
     func nextWithShufflePicksFromQueue() async {
         let songs = [
