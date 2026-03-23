@@ -44,7 +44,7 @@ enum LRCParser {
             var textOnly = regex.stringByReplacingMatches(in: line, options: [], range: fullRange, withTemplate: "")
 
             // Find word level timing
-            var words: [TimedWord]? = nil
+            var words: [TimedWord]?
             if let wRegex = wordRegex {
                 let nsText = textOnly as NSString
                 let wMatches = wRegex.matches(in: textOnly, options: [], range: NSRange(location: 0, length: nsText.length))

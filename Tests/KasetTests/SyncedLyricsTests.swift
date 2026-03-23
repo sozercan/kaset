@@ -1,6 +1,8 @@
 import Testing
 @testable import Kaset
 
+// MARK: - SyncedLyricsTests
+
 @Suite(.tags(.model))
 struct SyncedLyricsTests {
     @Test("Line statuses computation")
@@ -25,6 +27,8 @@ struct SyncedLyricsTests {
         #expect(currentIdx == 1)
     }
 }
+
+// MARK: - SyncedLyricsServiceTests
 
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -236,6 +240,8 @@ struct SyncedLyricsServiceTests {
     }
 }
 
+// MARK: - MockLyricsProvider
+
 private final class MockLyricsProvider: LyricsProvider, @unchecked Sendable {
     let name: String
 
@@ -269,6 +275,8 @@ private final class MockLyricsProvider: LyricsProvider, @unchecked Sendable {
     }
 }
 
+// MARK: - SearchCounter
+
 private actor SearchCounter {
     private var count = 0
 
@@ -280,6 +288,8 @@ private actor SearchCounter {
         self.count
     }
 }
+
+// MARK: - SearchGate
 
 private actor SearchGate {
     private var didStart = false
