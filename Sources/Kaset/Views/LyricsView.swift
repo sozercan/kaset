@@ -384,8 +384,10 @@ struct LyricsView: View {
 
     // MARK: - Data Loading
 
+    @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId
+        self.isLoadingFallback = false
 
         guard let track = playerService.currentTrack else { return }
 
@@ -404,20 +406,31 @@ struct LyricsView: View {
             await self.syncedLyricsService.fetchLyrics(for: info)
         } else {
             self.syncedLyricsService.currentLyrics = .unavailable
+            self.syncedLyricsService.activeProvider = nil
         }
+
+        guard self.lastLoadedVideoId == videoId else { return }
+        guard self.playerService.currentTrack?.videoId == videoId else { return }
 
         // As a fallback to provide plain lyrics
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true
+            defer {
+                if self.lastLoadedVideoId == videoId {
+                    self.isLoadingFallback = false
+                }
+            }
+
             do {
                 let fetchedLyrics = try await client.getLyrics(videoId: videoId)
-                if self.playerService.currentTrack?.videoId == videoId {
+                if self.lastLoadedVideoId == videoId,
+                   self.playerService.currentTrack?.videoId == videoId
+                {
                     self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
                 }
             } catch {
                 DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
             }
-            self.isLoadingFallback = false
         }
     }
 

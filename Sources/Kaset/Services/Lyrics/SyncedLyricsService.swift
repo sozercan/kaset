@@ -3,6 +3,11 @@ import Foundation
 @MainActor
 @Observable
 final class SyncedLyricsService {
+    private struct ResolvedLyrics {
+        let result: LyricResult
+        let activeProvider: String?
+    }
+
     /// Current lyrics result.
     var currentLyrics: LyricResult = .unavailable
 
@@ -18,19 +23,32 @@ final class SyncedLyricsService {
     /// In-memory cache keyed by videoId.
     private var cache: [String: LyricResult] = [:]
 
+    /// Monotonic identifier used to ignore stale in-flight searches.
+    private var fetchGeneration = 0
+
     init(providers: [LyricsProvider] = [LRCLibProvider()]) {
         self.providers = providers
     }
 
     func fetchLyrics(for info: LyricsSearchInfo) async {
-        if let cached = cache[info.videoId] {
-            self.currentLyrics = cached
-            self.activeProvider = switch cached {
-            case let .synced(s): s.source
-            case let .plain(p): p.source
-            case .unavailable: nil
-            }
+        self.fetchGeneration += 1
+        let requestID = self.fetchGeneration
+        let cached = self.cache[info.videoId]
+
+        if let cached, case .synced = cached {
+            self.applyResolvedLyrics(
+                .init(
+                    result: cached,
+                    activeProvider: Self.cachedProviderName(for: cached)
+                ),
+                requestID: requestID
+            )
             return
+        }
+
+        if let cached {
+            self.currentLyrics = cached
+            self.activeProvider = Self.cachedProviderName(for: cached)
         }
 
         self.isLoading = true
@@ -62,18 +80,8 @@ final class SyncedLyricsService {
             return scoreA < scoreB
         }
 
-        if let best, best.result.isAvailable {
-            self.currentLyrics = best.result
-            self.activeProvider = best.provider
-            self.cache[info.videoId] = best.result
-        } else {
-            self.currentLyrics = .unavailable
-            self.activeProvider = nil
-            // Cache the unavailability
-            self.cache[info.videoId] = .unavailable
-        }
-
-        self.isLoading = false
+        let resolved = self.resolveLyrics(best: best, cached: cached, videoId: info.videoId)
+        self.applyResolvedLyrics(resolved, requestID: requestID)
     }
 
     /// Fallback logic
@@ -106,5 +114,54 @@ final class SyncedLyricsService {
             s += 1
         }
         return s
+    }
+
+    private func resolveLyrics(
+        best: (provider: String, result: LyricResult)?,
+        cached: LyricResult?,
+        videoId: String
+    ) -> ResolvedLyrics {
+        if let best {
+            switch best.result {
+            case .synced:
+                self.cache[videoId] = best.result
+                return .init(result: best.result, activeProvider: best.provider)
+            case .plain:
+                if case let .plain(cachedPlain)? = cached {
+                    return .init(result: .plain(cachedPlain), activeProvider: cachedPlain.source)
+                }
+
+                self.cache[videoId] = best.result
+                return .init(result: best.result, activeProvider: best.provider)
+            case .unavailable:
+                break
+            }
+        }
+
+        if case let .plain(cachedPlain)? = cached {
+            return .init(result: .plain(cachedPlain), activeProvider: cachedPlain.source)
+        }
+
+        self.cache[videoId] = .unavailable
+        return .init(result: .unavailable, activeProvider: nil)
+    }
+
+    private func applyResolvedLyrics(_ resolved: ResolvedLyrics, requestID: Int) {
+        guard requestID == self.fetchGeneration else { return }
+
+        self.currentLyrics = resolved.result
+        self.activeProvider = resolved.activeProvider
+        self.isLoading = false
+    }
+
+    private static func cachedProviderName(for result: LyricResult) -> String? {
+        switch result {
+        case let .synced(lyrics):
+            lyrics.source
+        case let .plain(lyrics):
+            lyrics.source
+        case .unavailable:
+            nil
+        }
     }
 }

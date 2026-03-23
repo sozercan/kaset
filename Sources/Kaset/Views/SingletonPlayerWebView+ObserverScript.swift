@@ -185,7 +185,7 @@ extension SingletonPlayerWebView {
                 if (lyricsPollId) return;
                 lyricsPollId = setInterval(() => {
                     const v = document.querySelector('video');
-                    if (v && !v.paused) {
+                    if (v) {
                         bridge.postMessage({
                             type: 'LYRICS_TIME',
                             time: v.currentTime
