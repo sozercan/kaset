@@ -287,9 +287,38 @@ Manages user preferences persisted via `UserDefaults`:
 | `showNowPlayingNotifications` | `Bool` | `true` | Track change notifications |
 | `defaultLaunchPage` | `LaunchPage` | `.home` | Initial page on app launch |
 | `hapticFeedbackEnabled` | `Bool` | `true` | Force Touch feedback |
-| `rememberPlaybackSettings` | `Bool` | `true` | Persist shuffle/repeat state |
+| `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
+| `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 
 **LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
+
+### SyncedLyricsService
+
+**File**: `Sources/Kaset/Services/Lyrics/SyncedLyricsService.swift`
+
+Coordinates synced and plain lyrics resolution for the current track:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `currentLyrics` | `LyricResult` | Currently displayed `.synced`, `.plain`, or `.unavailable` lyrics |
+| `activeProvider` | `String?` | Provider/source label surfaced in the lyrics UI |
+| `isLoading` | `Bool` | Whether synced provider search is currently running |
+
+**Key Behaviors**:
+- Searches all registered `LyricsProvider` implementations concurrently using `LyricsSearchInfo`
+- Ships with `LRCLibProvider` as the default synced lyrics source and parses LRC payloads with `LRCParser`
+- Caches results in memory by `videoId` and can upgrade cached plain lyrics when synced lyrics become available later
+- Uses `fetchGeneration` to ignore stale async completions when the user changes tracks quickly
+- Preserves plain lyrics fallback state until a higher-quality synced result is resolved
+
+**Related Files**:
+- `Sources/Kaset/Services/Lyrics/LyricsProvider.swift` — Provider protocol and search model
+- `Sources/Kaset/Services/Lyrics/Providers/LRCLibProvider.swift` — External synced lyrics provider
+- `Sources/Kaset/Services/API/Parsers/LRCParser.swift` — LRC to `SyncedLyrics` parser
+
+**Integration**: Created once in `KasetApp` and injected through the SwiftUI environment for lyrics views.
+
+See [ADR-0012: Synced Lyrics Provider Architecture](adr/0012-synced-lyrics-architecture.md) for design details.
 
 ### ShareService
 
@@ -944,12 +973,15 @@ Right sidebar panel displaying the playback queue:
 
 Right sidebar panel displaying song lyrics:
 
-- Fetches lyrics via `YTMusicClient.getLyrics(videoId:)`
-- "Explain" button triggers AI-powered `LyricsSummary` generation
-- Scrollable text with synchronized highlighting (when available)
+- Reads `SyncedLyricsService` from the environment for the current `LyricResult`
+- When `SettingsManager.syncedLyricsEnabled` is enabled, builds `LyricsSearchInfo` from the active track and requests synced lyrics first
+- Falls back to `YTMusicClient.getLyrics(videoId:)` for plain YouTube Music lyrics when synced providers return `.unavailable`
+- Starts 10 Hz WebView playback polling only while rendering `.synced` lyrics so line highlighting stays aligned without constant idle polling
+- `SyncedLyricsDisplayView` auto-centers the current line and supports tap-to-seek
+- "Explain" button triggers AI-powered `LyricsSummary` generation for either synced or plain lyrics
 - Width: 280px, animated show/hide
 
-**Integration**: Toggled via `PlayerService.showLyrics`, persists across all navigation states.
+**Integration**: Toggled via `PlayerService.showLyrics`, persists across all navigation states, and consumes playback time from `PlayerService.currentTimeMs`.
 
 ### CommandBarView
 

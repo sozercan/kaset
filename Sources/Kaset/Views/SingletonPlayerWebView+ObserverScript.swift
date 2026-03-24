@@ -180,6 +180,27 @@ extension SingletonPlayerWebView {
                 }
             }
 
+            let lyricsPollId = null;
+            window.startLyricsPoll = function() {
+                if (lyricsPollId) return;
+                lyricsPollId = setInterval(() => {
+                    const v = document.querySelector('video');
+                    if (v) {
+                        bridge.postMessage({
+                            type: 'LYRICS_TIME',
+                            time: v.currentTime
+                        });
+                    }
+                }, 100);
+            };
+
+            window.stopLyricsPoll = function() {
+                if (lyricsPollId) {
+                    clearInterval(lyricsPollId);
+                    lyricsPollId = null;
+                }
+            };
+
             function startPolling() {
                 if (isPollingActive) return;
                 isPollingActive = true;

@@ -36,6 +36,7 @@ extension PlayerService {
         guard let currentSong = queue[safe: currentIndex] else { return }
 
         self.clearRestoredPlaybackSessionState()
+        self.clearForwardSkipNavigationStack()
         self.queue = queue
         self.currentIndex = currentIndex
         self.currentTrack = currentSong

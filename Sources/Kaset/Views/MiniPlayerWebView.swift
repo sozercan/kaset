@@ -232,6 +232,16 @@ final class SingletonPlayerWebView {
         case video // Full size in video window
     }
 
+    /// How `loadVideo` behaves when Swift already tracks a `videoId` (repeat-one vs queue drift recovery).
+    enum VideoLoadStrategy: Equatable {
+        /// Skip navigation when `videoId` matches `currentVideoId`.
+        case standard
+        /// Same `videoId` as tracked: `seek(0)` + play only (fast). Different id: full watch URL load.
+        case preferInPlaceWhenSameVideoId
+        /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
+        case forceFullPageWhenSameVideoId
+    }
+
     var displayMode: DisplayMode = .hidden
 
     private init() {}
@@ -341,22 +351,48 @@ final class SingletonPlayerWebView {
         // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
+    /// Starts high frequency polling for synced lyrics
+    func startLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+    }
+
+    /// Stops high frequency polling for synced lyrics
+    func stopLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
+    }
+
     /// Load a video, stopping any currently playing audio first.
-    /// Note: This uses full page navigation which destroys the video element.
-    /// AirPlay connections will be lost but the auto-reconnect picker will appear.
-    func loadVideo(videoId: String) {
+    /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
+    /// AirPlay connections will be lost on full navigation but the auto-reconnect picker will appear.
+    func loadVideo(videoId: String, strategy: VideoLoadStrategy = .standard) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
             return
         }
 
         let previousVideoId = self.currentVideoId
-        guard videoId != previousVideoId else {
-            self.logger.debug("Video \(videoId) already loaded, skipping")
-            return
+
+        switch strategy {
+        case .standard:
+            if videoId == previousVideoId {
+                self.logger.debug("Video \(videoId) already loaded, skipping")
+                return
+            }
+        case .preferInPlaceWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.debug("In-place restart for \(videoId) (same id — avoid full page reload)")
+                self.restartInPlaceFromBeginning()
+                return
+            }
+        case .forceFullPageWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.info("Force full navigation for \(videoId) (DOM/WebView resync)")
+            }
         }
 
-        self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        if videoId != previousVideoId {
+            self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        }
 
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
@@ -433,6 +469,16 @@ final class SingletonPlayerWebView {
                 return
             }
 
+            // Handle high frequency lyrics time updates
+            if type == "LYRICS_TIME" {
+                if let time = body["time"] as? Double {
+                    Task { @MainActor in
+                        self.playerService.currentTimeMs = Int(time * 1000)
+                    }
+                }
+                return
+            }
+
             guard type == "STATE_UPDATE" else { return }
 
             let isPlaying = body["isPlaying"] as? Bool ?? false
@@ -470,8 +516,12 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Update track metadata if track changed
-                if trackChanged, observedVideoId != nil || !title.isEmpty {
+                // Repeat-one must keep enforcing queue/current song even if WebView doesn't flag `trackChanged`
+                // for a transient autoplay swap. In other modes, keep the existing trackChanged gate.
+                let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
+                    && (observedVideoId != nil || !title.isEmpty)
+
+                if shouldReconcileMetadata {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,

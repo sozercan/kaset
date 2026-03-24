@@ -19,6 +19,7 @@ final class SettingsManager {
         static let scrobblePercentThreshold = "settings.scrobblePercentThreshold"
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
+        static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -167,6 +168,13 @@ final class SettingsManager {
     /// The last page the user was on (for "Last Used" option).
     var lastUsedPage: LaunchPage = .home
 
+    /// Whether synced lyrics are preferred.
+    var syncedLyricsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.syncedLyricsEnabled, forKey: Keys.syncedLyricsEnabled)
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -186,6 +194,7 @@ final class SettingsManager {
         }
         self.scrobblePercentThreshold = UserDefaults.standard.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
+        self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)

@@ -34,6 +34,39 @@ enum LyricsParser {
         return nil
     }
 
+    /// Extracts timed lyrics from the browse endpoint or next endpoint response.
+    /// - Parameter data: The data containing timed lyrics.
+    /// - Returns: Parsed SyncedLyrics, or nil if unavailable.
+    static func extractTimedLyrics(from data: [String: Any]) -> SyncedLyrics? {
+        guard let timedLyricsModel = data["timedLyricsModel"] as? [String: Any],
+              let lyricsData = timedLyricsModel["lyricsData"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        var lines: [SyncedLyricLine] = []
+        for lineData in lyricsData {
+            if let lyricLine = lineData["lyricLine"] as? String,
+               let startTimeStr = lineData["startTimeMs"] as? String,
+               let startTimeMs = Int(startTimeStr)
+            {
+                let durationMs = (lineData["durationMs"] as? String).flatMap(Int.init) ?? 0
+                lines.append(SyncedLyricLine(
+                    timeInMs: startTimeMs,
+                    duration: durationMs,
+                    text: lyricLine,
+                    words: nil
+                ))
+            }
+        }
+
+        if lines.isEmpty {
+            return nil
+        }
+
+        return SyncedLyrics(lines: lines, source: "YTMusic")
+    }
+
     /// Parses lyrics from the browse endpoint response.
     /// - Parameter data: The response from the browse endpoint
     /// - Returns: Parsed lyrics, or `.unavailable` if not found
