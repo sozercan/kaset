@@ -201,7 +201,7 @@ final class SettingsManager {
         {
             self.mediaControlStyle = style
         } else {
-            self.mediaControlStyle = .skipForwardBackward
+            self.mediaControlStyle = .nextPreviousTrack
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),

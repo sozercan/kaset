@@ -46,37 +46,10 @@ final class NowPlayingManager {
         }
     }
 
-    /// Syncs the media control style setting to the WebView via localStorage.
-    /// When switching to skip mode, immediately restores seekforward/seekbackward handlers.
+    /// Syncs the media control style setting to the singleton WebView and its bootstrap state.
     private func syncMediaControlSetting() {
         let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
-        let script = if useNextPrev {
-            """
-                localStorage.setItem('kasetUseNextPrev', 'true');
-                window.__kasetUseNextPrev = true;
-            """
-        } else {
-            """
-                localStorage.setItem('kasetUseNextPrev', 'false');
-                window.__kasetUseNextPrev = false;
-                try {
-                    var ms = navigator.mediaSession;
-                    ms.setActionHandler('nexttrack', null);
-                    ms.setActionHandler('previoustrack', null);
-                    ms.setActionHandler('seekforward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.min(v.duration,
-                            v.currentTime + ((d && d.seekOffset) || 15));
-                    });
-                    ms.setActionHandler('seekbackward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.max(0,
-                            v.currentTime - ((d && d.seekOffset) || 15));
-                    });
-                } catch(e) {}
-            """
-        }
-        SingletonPlayerWebView.shared.webView?.evaluateJavaScript(script, completionHandler: nil)
+        SingletonPlayerWebView.shared.setMediaControlStyle(useNextPrev: useNextPrev)
     }
 
     // MARK: - Remote Commands

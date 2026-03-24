@@ -160,10 +160,10 @@ struct SettingsManagerTests {
         #expect(ids.count == uniqueIds.count)
     }
 
-    @Test("Default mediaControlStyle is skipForwardBackward")
+    @Test("Default mediaControlStyle is nextPreviousTrack")
     func defaultMediaControlStyle() {
         let manager = SettingsManager.shared
-        #expect(manager.mediaControlStyle == .skipForwardBackward)
+        #expect(manager.mediaControlStyle == .nextPreviousTrack)
     }
 
     // MARK: - All Cases Coverage

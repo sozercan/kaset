@@ -243,8 +243,11 @@ final class SingletonPlayerWebView {
     }
 
     var displayMode: DisplayMode = .hidden
+    private var mediaControlUsesNextPrev: Bool
 
-    private init() {}
+    private init() {
+        self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
+    }
 
     /// Get or create the singleton WebView.
     func getWebView(
@@ -271,48 +274,17 @@ final class SingletonPlayerWebView {
         // 2. Update it in didFinish after each page load completes
         // This ensures we always use the CURRENT volume, not a stale value.
 
-        // Inject mediaSession override at document end (NO prototype patching).
-        // Uses setInterval to continuously enforce next/prev buttons.
+        // Keep the page preference in sync before any page script reads localStorage.
+        let mediaControlBootstrapScript = WKUserScript(
+            source: self.mediaControlBootstrapScript(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(mediaControlBootstrapScript)
+
+        // Inject mediaSession override at document end without allowing duplicate RAF loops.
         let mediaOverrideScript = WKUserScript(
-            source: """
-                (function() {
-                    window.__kasetUseNextPrev =
-                        localStorage.getItem('kasetUseNextPrev') === 'true';
-                    function applyOverride() {
-                        if (!window.__kasetUseNextPrev) {
-                            requestAnimationFrame(applyOverride);
-                            return;
-                        }
-                        try {
-                            var ms = navigator.mediaSession;
-                            ms.setActionHandler('seekforward', null);
-                            ms.setActionHandler('seekbackward', null);
-                            ms.setActionHandler('nexttrack', function() {
-                                window.webkit.messageHandlers.singletonPlayer
-                                    .postMessage({ type: 'REMOTE_NEXT' });
-                            });
-                            ms.setActionHandler('previoustrack', function() {
-                                window.webkit.messageHandlers.singletonPlayer
-                                    .postMessage({ type: 'REMOTE_PREVIOUS' });
-                            });
-                        } catch(e) {}
-                        requestAnimationFrame(applyOverride);
-                    }
-                    requestAnimationFrame(applyOverride);
-                    // Re-apply on video events where YouTube re-registers handlers
-                    // Re-apply on video events where YouTube re-registers handlers
-                    function attachVideoOverride() {
-                        var v = document.querySelector('video');
-                        if (!v || v.__kasetOverrideAttached) return;
-                        v.__kasetOverrideAttached = true;
-                        ['playing','loadedmetadata','loadeddata','canplay','seeked']
-                            .forEach(function(e) { v.addEventListener(e, applyOverride); });
-                    }
-                    attachVideoOverride();
-                    new MutationObserver(attachVideoOverride)
-                        .observe(document.documentElement, {childList:true, subtree:true});
-                })();
-            """,
+            source: Self.mediaControlOverrideScript,
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         )
@@ -612,5 +584,143 @@ final class SingletonPlayerWebView {
                 }
             }
         }
+    }
+}
+
+// MARK: - SingletonPlayerWebView Media Controls
+
+extension SingletonPlayerWebView {
+    /// Updates the current page and the bootstrap state used by future page loads.
+    func setMediaControlStyle(useNextPrev: Bool) {
+        self.mediaControlUsesNextPrev = useNextPrev
+
+        guard let webView = self.webView else { return }
+        let script = Self.mediaControlStyleSyncScript(useNextPrev: useNextPrev)
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    func mediaControlBootstrapScript() -> String {
+        Self.mediaControlStyleBootstrapScript(useNextPrev: self.mediaControlUsesNextPrev)
+    }
+
+    static func mediaControlStyleBootstrapScript(useNextPrev: Bool) -> String {
+        let jsBoolean = useNextPrev ? "true" : "false"
+        return """
+            (function() {
+                try {
+                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
+                } catch (e) {}
+                window.__kasetUseNextPrev = \(jsBoolean);
+            })();
+        """
+    }
+
+    static func mediaControlStyleSyncScript(useNextPrev: Bool) -> String {
+        let jsBoolean = useNextPrev ? "true" : "false"
+        let restoreSeekHandlers = if useNextPrev {
+            ""
+        } else {
+            """
+                try {
+                    var ms = navigator.mediaSession;
+                    ms.setActionHandler('nexttrack', null);
+                    ms.setActionHandler('previoustrack', null);
+                    ms.setActionHandler('seekforward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.min(v.duration,
+                            v.currentTime + ((d && d.seekOffset) || 15));
+                    });
+                    ms.setActionHandler('seekbackward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.max(0,
+                            v.currentTime - ((d && d.seekOffset) || 15));
+                    });
+                } catch (e) {}
+            """
+        }
+
+        return """
+            (function() {
+                try {
+                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
+                } catch (e) {}
+                window.__kasetUseNextPrev = \(jsBoolean);
+                if (typeof window.__kasetRefreshMediaControlStyle === 'function') {
+                    window.__kasetRefreshMediaControlStyle();
+                }
+                \(restoreSeekHandlers)
+            })();
+        """
+    }
+
+    static var mediaControlOverrideScript: String {
+        """
+        (function() {
+            if (typeof window.__kasetUseNextPrev !== 'boolean') {
+                try {
+                    window.__kasetUseNextPrev =
+                        localStorage.getItem('kasetUseNextPrev') === 'true';
+                } catch (e) {
+                    window.__kasetUseNextPrev = false;
+                }
+            }
+
+            var overrideFrameId = null;
+
+            function applyOverride() {
+                if (!window.__kasetUseNextPrev) {
+                    return;
+                }
+                try {
+                    var ms = navigator.mediaSession;
+                    ms.setActionHandler('seekforward', null);
+                    ms.setActionHandler('seekbackward', null);
+                    ms.setActionHandler('nexttrack', function() {
+                        window.webkit.messageHandlers.singletonPlayer
+                            .postMessage({ type: 'REMOTE_NEXT' });
+                    });
+                    ms.setActionHandler('previoustrack', function() {
+                        window.webkit.messageHandlers.singletonPlayer
+                            .postMessage({ type: 'REMOTE_PREVIOUS' });
+                    });
+                } catch (e) {}
+            }
+
+            function scheduleOverrideLoop() {
+                if (overrideFrameId !== null || !window.__kasetUseNextPrev) {
+                    return;
+                }
+
+                overrideFrameId = requestAnimationFrame(function() {
+                    overrideFrameId = null;
+                    if (!window.__kasetUseNextPrev) {
+                        return;
+                    }
+                    applyOverride();
+                    scheduleOverrideLoop();
+                });
+            }
+
+            window.__kasetRefreshMediaControlStyle = function() {
+                applyOverride();
+                scheduleOverrideLoop();
+            };
+
+            window.__kasetRefreshMediaControlStyle();
+
+            // Re-apply on video events where YouTube re-registers handlers.
+            function attachVideoOverride() {
+                var v = document.querySelector('video');
+                if (!v || v.__kasetOverrideAttached) return;
+                v.__kasetOverrideAttached = true;
+                ['playing','loadedmetadata','loadeddata','canplay','seeked']
+                    .forEach(function(e) { v.addEventListener(e, applyOverride); });
+            }
+
+            attachVideoOverride();
+            new MutationObserver(attachVideoOverride)
+                .observe(document.documentElement, {childList:true, subtree:true});
+        })();
+        """
     }
 }
