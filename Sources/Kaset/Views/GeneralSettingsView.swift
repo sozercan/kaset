@@ -49,6 +49,14 @@ struct GeneralSettingsView: View {
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
 
+                // Now Playing Controls
+                Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
+                    ForEach(SettingsManager.MediaControlStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .help("Choose which buttons appear in the Now Playing widget in Control Center")
+
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in

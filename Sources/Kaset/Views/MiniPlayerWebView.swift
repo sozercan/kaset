@@ -261,6 +261,53 @@ final class SingletonPlayerWebView {
         // 2. Update it in didFinish after each page load completes
         // This ensures we always use the CURRENT volume, not a stale value.
 
+        // Inject mediaSession override at document end (NO prototype patching).
+        // Uses setInterval to continuously enforce next/prev buttons.
+        let mediaOverrideScript = WKUserScript(
+            source: """
+                (function() {
+                    window.__kasetUseNextPrev =
+                        localStorage.getItem('kasetUseNextPrev') === 'true';
+                    function applyOverride() {
+                        if (!window.__kasetUseNextPrev) {
+                            requestAnimationFrame(applyOverride);
+                            return;
+                        }
+                        try {
+                            var ms = navigator.mediaSession;
+                            ms.setActionHandler('seekforward', null);
+                            ms.setActionHandler('seekbackward', null);
+                            ms.setActionHandler('nexttrack', function() {
+                                window.webkit.messageHandlers.singletonPlayer
+                                    .postMessage({ type: 'REMOTE_NEXT' });
+                            });
+                            ms.setActionHandler('previoustrack', function() {
+                                window.webkit.messageHandlers.singletonPlayer
+                                    .postMessage({ type: 'REMOTE_PREVIOUS' });
+                            });
+                        } catch(e) {}
+                        requestAnimationFrame(applyOverride);
+                    }
+                    requestAnimationFrame(applyOverride);
+                    // Re-apply on video events where YouTube re-registers handlers
+                    // Re-apply on video events where YouTube re-registers handlers
+                    function attachVideoOverride() {
+                        var v = document.querySelector('video');
+                        if (!v || v.__kasetOverrideAttached) return;
+                        v.__kasetOverrideAttached = true;
+                        ['playing','loadedmetadata','loadeddata','canplay','seeked']
+                            .forEach(function(e) { v.addEventListener(e, applyOverride); });
+                    }
+                    attachVideoOverride();
+                    new MutationObserver(attachVideoOverride)
+                        .observe(document.documentElement, {childList:true, subtree:true});
+                })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(mediaOverrideScript)
+
         // Inject observer script (at document end)
         let script = WKUserScript(
             source: Self.observerScript,
@@ -354,6 +401,20 @@ final class SingletonPlayerWebView {
             if type == "TRACK_ENDED" {
                 Task { @MainActor in
                     await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
+                }
+                return
+            }
+
+            if type == "REMOTE_NEXT" {
+                Task { @MainActor in
+                    await self.playerService.next()
+                }
+                return
+            }
+
+            if type == "REMOTE_PREVIOUS" {
+                Task { @MainActor in
+                    await self.playerService.previous()
                 }
                 return
             }

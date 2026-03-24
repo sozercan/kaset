@@ -676,14 +676,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
 
         // Fall back to YouTube's previous if no local queue
-        if self.pendingPlayVideoId != nil {
-            if self.progress > 3 {
+        if self.progress > 3 {
+            if self.pendingPlayVideoId != nil {
                 SingletonPlayerWebView.shared.seek(to: 0)
             } else {
-                SingletonPlayerWebView.shared.previous()
+                await self.seek(to: 0)
             }
-        } else if self.progress > 3 {
-            await self.seek(to: 0)
+        } else {
+            SingletonPlayerWebView.shared.previous()
         }
     }
 

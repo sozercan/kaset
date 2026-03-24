@@ -16,6 +16,7 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
+    private let settings = SettingsManager.shared
 
     private init() {}
 
@@ -28,7 +29,54 @@ final class NowPlayingManager {
         self.isConfigured = true
         self.playerService = playerService
         self.setupRemoteCommands()
+        self.syncMediaControlSetting()
         self.logger.info("NowPlayingManager configured (remote commands only)")
+
+        self.observeSettingsChanges()
+    }
+
+    private func observeSettingsChanges() {
+        withObservationTracking {
+            _ = self.settings.mediaControlStyle
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.syncMediaControlSetting()
+                self?.observeSettingsChanges()
+            }
+        }
+    }
+
+    /// Syncs the media control style setting to the WebView via localStorage.
+    /// When switching to skip mode, immediately restores seekforward/seekbackward handlers.
+    private func syncMediaControlSetting() {
+        let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
+        let script = if useNextPrev {
+            """
+                localStorage.setItem('kasetUseNextPrev', 'true');
+                window.__kasetUseNextPrev = true;
+            """
+        } else {
+            """
+                localStorage.setItem('kasetUseNextPrev', 'false');
+                window.__kasetUseNextPrev = false;
+                try {
+                    var ms = navigator.mediaSession;
+                    ms.setActionHandler('nexttrack', null);
+                    ms.setActionHandler('previoustrack', null);
+                    ms.setActionHandler('seekforward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.min(v.duration,
+                            v.currentTime + ((d && d.seekOffset) || 15));
+                    });
+                    ms.setActionHandler('seekbackward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.max(0,
+                            v.currentTime - ((d && d.seekOffset) || 15));
+                    });
+                } catch(e) {}
+            """
+        }
+        SingletonPlayerWebView.shared.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
     // MARK: - Remote Commands
@@ -36,7 +84,6 @@ final class NowPlayingManager {
     private func setupRemoteCommands() {
         guard let player = playerService else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
-
         // Remove any existing targets to prevent duplicates
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)
