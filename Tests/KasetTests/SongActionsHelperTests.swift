@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import Kaset
 
+private let realWorldArtistIdMismatchCases = [
+    (
+        artistName: "EBEN",
+        libraryBrowseId: "UCOml1XnMezHWWe0qy8vdFRA",
+        subscriptionChannelId: "UCvIhrQ9BRWUxBNsDJQi8V5A"
+    ),
+]
+
+// MARK: - SongActionsHelperTests
+
 /// Tests for SongActionsHelper library mutation flows.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
@@ -266,6 +276,35 @@ struct SongActionsHelperTests {
         #expect(self.libraryViewModel.artists.isEmpty)
     }
 
+    @Test(
+        "Real-world mismatched artist IDs remove the library artist on unsubscribe",
+        arguments: realWorldArtistIdMismatchCases
+    )
+    func unsubscribeFromArtistHandlesRealWorldMismatchedIds(
+        artistName: String,
+        libraryBrowseId: String,
+        subscriptionChannelId: String
+    ) async throws {
+        let artist = TestFixtures.makeArtist(id: libraryBrowseId, name: artistName)
+        self.mockClient.libraryArtists = [artist]
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            artist,
+            channelId: subscriptionChannelId,
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
+        #expect(self.libraryViewModel.artists.isEmpty)
+        #expect(self.libraryViewModel.isInLibrary(artistId: libraryBrowseId) == false)
+        #expect(self.libraryViewModel.isInLibrary(artistId: subscriptionChannelId) == false)
+    }
+
     @Test("subscribeToArtist adds artist to library immediately while request is in flight")
     func subscribeToArtistAddsArtistOptimistically() async throws {
         let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
@@ -310,5 +349,37 @@ struct SongActionsHelperTests {
 
         #expect(self.libraryViewModel.artists.count == 1)
         #expect(self.libraryViewModel.artists.first?.id == "UC-library-browse-123")
+    }
+
+    @Test(
+        "Real-world mismatched artist IDs do not duplicate on subscribe",
+        arguments: realWorldArtistIdMismatchCases
+    )
+    func subscribeToArtistDoesNotDuplicateRealWorldMismatchedIds(
+        artistName: String,
+        libraryBrowseId: String,
+        subscriptionChannelId: String
+    ) async throws {
+        let artist = TestFixtures.makeArtist(id: libraryBrowseId, name: artistName)
+        let libraryContent = PlaylistParser.LibraryContent(
+            playlists: [],
+            artists: [artist],
+            podcastShows: []
+        )
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+        self.mockClient.libraryContentResponses = [libraryContent, libraryContent]
+
+        try await SongActionsHelper.subscribeToArtist(
+            artist,
+            channelId: subscriptionChannelId,
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+        await self.awaitArtistReconciliation()
+
+        #expect(self.libraryViewModel.artists.count == 1)
+        #expect(self.libraryViewModel.artists.first?.id == libraryBrowseId)
+        #expect(self.libraryViewModel.isInLibrary(artistId: libraryBrowseId) == true)
+        #expect(self.libraryViewModel.isInLibrary(artistId: subscriptionChannelId) == true)
     }
 }
