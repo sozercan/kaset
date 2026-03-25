@@ -73,6 +73,62 @@ struct SearchResponseParserTests {
         #expect(response.songs.first?.videoId == "video0")
     }
 
+    @Test("Parse library artist result using library artist page type")
+    func parseLibraryArtistResult() {
+        let data: [String: Any] = [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [[
+                                                "musicResponsiveListItemRenderer": [
+                                                    "navigationEndpoint": [
+                                                        "browseEndpoint": [
+                                                            "browseId": "MPLAUC1234567890",
+                                                            "browseEndpointContextSupportedConfigs": [
+                                                                "browseEndpointContextMusicConfig": [
+                                                                    "pageType": "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+                                                                ],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                    "flexColumns": [
+                                                        [
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Library Artist"]]],
+                                                            ],
+                                                        ],
+                                                        [
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Artist"]]],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ]],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let response = SearchResponseParser.parse(data)
+
+        #expect(response.artists.count == 1)
+        #expect(response.artists.first?.id == "MPLAUC1234567890")
+        #expect(response.artists.first?.name == "Library Artist")
+        #expect(response.albums.isEmpty)
+        #expect(response.playlists.isEmpty)
+    }
+
     // MARK: - Helpers
 
     private func makeSearchResponseData(songs: Int, albums: Int, artists: Int, playlists: Int) -> [String: Any] {

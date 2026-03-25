@@ -4,6 +4,20 @@ import Foundation
 /// A mock implementation of YTMusicClientProtocol for testing.
 @MainActor
 final class MockYTMusicClient: YTMusicClientProtocol {
+    private static func normalizedPlaylistId(_ playlistId: String) -> String {
+        if playlistId.hasPrefix("VL") {
+            return String(playlistId.dropFirst(2))
+        }
+        return playlistId
+    }
+
+    private static func normalizedArtistId(_ artistId: String) -> String {
+        if Artist.isLibraryArtistBrowseId(artistId) {
+            return String(artistId.dropFirst("MPLA".count))
+        }
+        return artistId
+    }
+
     // MARK: - Response Stubs
 
     var homeResponse: HomeResponse = .init(sections: [])
@@ -22,6 +36,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
+    var libraryArtists: [Artist] = []
+    var libraryPodcastShows: [PodcastShow] = []
+    var shouldAutoUpdatePlaylistLibraryOnMutation = true
+    var shouldAutoUpdatePodcastLibraryOnMutation = true
+    var shouldAutoUpdateArtistLibraryOnMutation = true
     var likedSongs: [Song] = []
     var likedSongsContinuationSongs: [[Song]] = []
     var playlistDetails: [String: PlaylistDetail] = [:]
@@ -107,6 +126,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var searchQueries: [String] = []
     private(set) var getSearchSuggestionsCalled = false
     private(set) var getSearchSuggestionsQueries: [String] = []
+    private(set) var getLibraryContentCalled = false
     private(set) var getLibraryPlaylistsCalled = false
     private(set) var getLikedSongsCalled = false
     private(set) var getLikedSongsContinuationCalled = false
@@ -425,9 +445,13 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
-        self.getLibraryPlaylistsCalled = true
+        self.getLibraryContentCalled = true
         if let error = shouldThrowError { throw error }
-        return PlaylistParser.LibraryContent(playlists: self.libraryPlaylists, podcastShows: [])
+        return PlaylistParser.LibraryContent(
+            playlists: self.libraryPlaylists,
+            artists: self.libraryArtists,
+            podcastShows: self.libraryPodcastShows
+        )
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -532,12 +556,24 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.subscribeToPlaylistCalled = true
         self.subscribeToPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
+
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        if self.shouldAutoUpdatePlaylistLibraryOnMutation,
+           !self.libraryPlaylists.contains(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId })
+        {
+            self.libraryPlaylists.insert(TestFixtures.makePlaylist(id: playlistId), at: 0)
+        }
     }
 
     func unsubscribeFromPlaylist(playlistId: String) async throws {
         self.unsubscribeFromPlaylistCalled = true
         self.unsubscribeFromPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
+
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        if self.shouldAutoUpdatePlaylistLibraryOnMutation {
+            self.libraryPlaylists.removeAll { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }
+        }
     }
 
     func subscribeToPodcast(showId: String) async throws {
@@ -551,6 +587,12 @@ final class MockYTMusicClient: YTMusicClientProtocol {
             if !suffix.hasPrefix("L") {
                 throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
             }
+        }
+
+        if self.shouldAutoUpdatePodcastLibraryOnMutation,
+           !self.libraryPodcastShows.contains(where: { $0.id == showId })
+        {
+            self.libraryPodcastShows.insert(TestFixtures.makePodcastShow(id: showId), at: 0)
         }
     }
 
@@ -566,18 +608,37 @@ final class MockYTMusicClient: YTMusicClientProtocol {
                 throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
             }
         }
+
+        if self.shouldAutoUpdatePodcastLibraryOnMutation {
+            self.libraryPodcastShows.removeAll { $0.id == showId }
+        }
     }
 
     func subscribeToArtist(channelId: String) async throws {
         self.subscribeToArtistCalled = true
         self.subscribeToArtistIds.append(channelId)
         if let error = shouldThrowError { throw error }
+
+        let normalizedChannelId = Self.normalizedArtistId(channelId)
+        let artist = self.artistDetails.values.first(where: { $0.channelId == channelId })?.artist
+            ?? TestFixtures.makeArtist(id: "MPLA\(channelId)")
+
+        if self.shouldAutoUpdateArtistLibraryOnMutation,
+           !self.libraryArtists.contains(where: { Self.normalizedArtistId($0.id) == normalizedChannelId })
+        {
+            self.libraryArtists.insert(artist, at: 0)
+        }
     }
 
     func unsubscribeFromArtist(channelId: String) async throws {
         self.unsubscribeFromArtistCalled = true
         self.unsubscribeFromArtistIds.append(channelId)
         if let error = shouldThrowError { throw error }
+
+        let normalizedChannelId = Self.normalizedArtistId(channelId)
+        if self.shouldAutoUpdateArtistLibraryOnMutation {
+            self.libraryArtists.removeAll { Self.normalizedArtistId($0.id) == normalizedChannelId }
+        }
     }
 
     func getLyrics(videoId: String) async throws -> Lyrics {
@@ -653,6 +714,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.searchQueries = []
         self.getSearchSuggestionsCalled = false
         self.getSearchSuggestionsQueries = []
+        self.getLibraryContentCalled = false
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
         self.getLikedSongsContinuationCalled = false

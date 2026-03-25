@@ -235,6 +235,56 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackInLibrary == false)
     }
 
+    @Test("toggleLibraryStatus preserves optimistic add when metadata refresh is stale")
+    func toggleLibraryStatusPreservesOptimisticAddWhenMetadataIsStale() async {
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        self.mockClient.songResponses["test-video"] = Song(
+            id: "test-video",
+            title: "Stale Song",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "test-video",
+            isInLibrary: false,
+            feedbackTokens: FeedbackTokens(add: "add-token", remove: "remove-token")
+        )
+
+        self.playerService.toggleLibraryStatus()
+
+        #expect(self.playerService.currentTrackInLibrary == true)
+
+        try? await Task.sleep(for: .milliseconds(650))
+
+        #expect(self.playerService.currentTrackInLibrary == true)
+        #expect(self.playerService.currentTrack?.isInLibrary == true)
+        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "remove-token", remove: "add-token"))
+    }
+
+    @Test("toggleLibraryStatus preserves optimistic removal when metadata refresh is stale")
+    func toggleLibraryStatusPreservesOptimisticRemovalWhenMetadataIsStale() async {
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackInLibrary = true
+        self.playerService.currentTrackFeedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        self.mockClient.songResponses["test-video"] = Song(
+            id: "test-video",
+            title: "Stale Song",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "test-video",
+            isInLibrary: true,
+            feedbackTokens: FeedbackTokens(add: "add-token", remove: "remove-token")
+        )
+
+        self.playerService.toggleLibraryStatus()
+
+        #expect(self.playerService.currentTrackInLibrary == false)
+
+        try? await Task.sleep(for: .milliseconds(650))
+
+        #expect(self.playerService.currentTrackInLibrary == false)
+        #expect(self.playerService.currentTrack?.isInLibrary == false)
+        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "remove-token", remove: "add-token"))
+    }
+
     // MARK: - Update Like Status Tests
 
     @Test("updateLikeStatus updates status")

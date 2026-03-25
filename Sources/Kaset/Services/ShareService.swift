@@ -95,12 +95,13 @@ extension Artist: Shareable {
     }
 
     var shareURL: URL? {
-        // Valid artist IDs are YouTube channel IDs starting with "UC"
-        guard self.id.hasPrefix("UC") else { return nil }
+        guard Self.isNavigableId(self.id) else { return nil }
         guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }
-        return URL(string: "https://music.youtube.com/channel/\(encodedId)")
+
+        let pathComponent = Self.isChannelId(self.id) ? "channel" : "browse"
+        return URL(string: "https://music.youtube.com/\(pathComponent)/\(encodedId)")
     }
 }
 

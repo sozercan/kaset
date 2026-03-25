@@ -68,7 +68,16 @@ extension PlayerService {
 
         // Optimistic update
         let previousState = self.currentTrackInLibrary
-        self.currentTrackInLibrary.toggle()
+        let previousTokens = self.currentTrackFeedbackTokens
+        let expectedInLibrary = !isCurrentlyInLibrary
+        let expectedFeedbackTokens = FeedbackTokens(
+            add: previousTokens?.remove,
+            remove: previousTokens?.add
+        )
+        self.updateCurrentTrackLibraryState(
+            isInLibrary: expectedInLibrary,
+            feedbackTokens: expectedFeedbackTokens
+        )
 
         // Use API call for reliable library management
         Task {
@@ -78,13 +87,28 @@ extension PlayerService {
                 self.logger.info("Successfully \(action) library")
 
                 // After successful toggle, we need to swap the tokens
-                // The remove token becomes add, and vice versa
-                // Re-fetch metadata to get updated tokens
+                // The browse metadata can lag briefly, so delay the refresh and keep
+                // the optimistic library state if the response is still stale.
+                try? await Task.sleep(for: .milliseconds(500))
                 await self.fetchSongMetadata(videoId: track.videoId)
+
+                guard self.currentTrack?.videoId == track.videoId else { return }
+
+                if self.currentTrackInLibrary != expectedInLibrary {
+                    self.updateCurrentTrackLibraryState(
+                        isInLibrary: expectedInLibrary,
+                        feedbackTokens: expectedFeedbackTokens
+                    )
+                }
             } catch {
                 self.logger.error("Failed to toggle library status: \(error.localizedDescription)")
                 // Revert on failure
-                self.currentTrackInLibrary = previousState
+                guard self.currentTrack?.videoId == track.videoId else { return }
+
+                self.updateCurrentTrackLibraryState(
+                    isInLibrary: previousState,
+                    feedbackTokens: previousTokens
+                )
             }
         }
     }
@@ -99,6 +123,19 @@ extension PlayerService {
         self.currentTrackLikeStatus = .indifferent
         self.currentTrackInLibrary = false
         self.currentTrackFeedbackTokens = nil
+    }
+
+    private func updateCurrentTrackLibraryState(
+        isInLibrary: Bool,
+        feedbackTokens: FeedbackTokens?
+    ) {
+        self.currentTrackInLibrary = isInLibrary
+        self.currentTrackFeedbackTokens = feedbackTokens
+
+        guard var currentTrack = self.currentTrack else { return }
+        currentTrack.isInLibrary = isInLibrary
+        currentTrack.feedbackTokens = feedbackTokens
+        self.currentTrack = currentTrack
     }
 
     /// Fetches full song metadata including feedbackTokens from the API.

@@ -52,8 +52,17 @@ enum SongActionsHelper {
     ) async {
         do {
             try await client.subscribeToPlaylist(playlistId: playlist.id)
-            libraryViewModel?.addToLibrarySet(playlistId: playlist.id)
-            await libraryViewModel?.refresh()
+            if let libraryViewModel {
+                libraryViewModel.addToLibrary(playlist: playlist)
+
+                // Library browse responses can lag briefly behind a successful add.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+
+                if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                    libraryViewModel.addToLibrary(playlist: playlist)
+                }
+            }
             DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
@@ -68,8 +77,17 @@ enum SongActionsHelper {
     ) async {
         do {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            libraryViewModel?.removeFromLibrarySet(playlistId: playlist.id)
-            await libraryViewModel?.refresh()
+            if let libraryViewModel {
+                libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+
+                // Library browse responses can lag briefly behind a successful removal.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+
+                if libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                    libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+                }
+            }
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
@@ -83,8 +101,17 @@ enum SongActionsHelper {
         libraryViewModel: LibraryViewModel?
     ) async throws {
         try await client.subscribeToPodcast(showId: show.id)
-        libraryViewModel?.addToLibrarySet(podcastId: show.id)
-        await libraryViewModel?.refresh()
+        if let libraryViewModel {
+            libraryViewModel.addToLibrary(podcast: show)
+
+            // Library browse responses can lag briefly behind a successful subscribe.
+            try? await Task.sleep(for: .milliseconds(500))
+            await libraryViewModel.refresh()
+
+            if !libraryViewModel.isInLibrary(podcastId: show.id) {
+                libraryViewModel.addToLibrary(podcast: show)
+            }
+        }
         DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
     }
 
@@ -96,9 +123,64 @@ enum SongActionsHelper {
     ) async throws {
         DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
         try await client.unsubscribeFromPodcast(showId: show.id)
-        libraryViewModel?.removeFromLibrarySet(podcastId: show.id)
-        await libraryViewModel?.refresh()
+        if let libraryViewModel {
+            libraryViewModel.removeFromLibrary(podcastId: show.id)
+
+            // Library browse responses can lag briefly behind a successful removal.
+            try? await Task.sleep(for: .milliseconds(500))
+            await libraryViewModel.refresh()
+
+            if libraryViewModel.isInLibrary(podcastId: show.id) {
+                libraryViewModel.removeFromLibrary(podcastId: show.id)
+            }
+        }
         DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
+    }
+
+    /// Subscribes to an artist (adds to library).
+    static func subscribeToArtist(
+        _ artist: Artist,
+        channelId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        do {
+            try await client.subscribeToArtist(channelId: channelId)
+            if let libraryViewModel {
+                libraryViewModel.addToLibrary(artist: artist, libraryArtistId: channelId)
+
+                // Library browse responses can lag briefly behind a successful subscribe.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+
+                // Preserve the optimistic artist locally if the refreshed response is still stale.
+                if !libraryViewModel.isInLibrary(artistId: channelId) {
+                    libraryViewModel.addToLibrary(artist: artist, libraryArtistId: channelId)
+                }
+            }
+            DiagnosticsLogger.api.info("Subscribed to artist: \(artist.name)")
+        } catch {
+            DiagnosticsLogger.api.error("Failed to subscribe to artist: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    /// Unsubscribes from an artist (removes from library).
+    static func unsubscribeFromArtist(
+        _ artist: Artist,
+        channelId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        do {
+            try await client.unsubscribeFromArtist(channelId: channelId)
+            libraryViewModel?.removeFromLibrary(artistId: channelId)
+            await libraryViewModel?.refresh()
+            DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
+        } catch {
+            DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")
+            throw error
+        }
     }
 
     // MARK: - Queue Actions

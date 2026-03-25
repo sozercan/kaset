@@ -332,6 +332,7 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_landing",
     "FEmusic_library_albums",
     "FEmusic_library_artists",
+    "FEmusic_library_corpus_track_artists",
     "FEmusic_library_songs",
     "FEmusic_library_non_music_audio_list",
     "FEmusic_recently_played",
@@ -343,9 +344,14 @@ let authRequiredEndpoints = Set([
 ])
 
 /// Checks if a browseId requires authentication.
-/// This includes known endpoints plus playlist IDs that start with VL (which benefit from auth for premium content).
+/// This includes known endpoints plus dynamic browseId prefixes that are sign-in backed.
 func needsAuthentication(_ browseId: String) -> Bool {
     if authRequiredEndpoints.contains(browseId) {
+        return true
+    }
+    // Library artists (MPLAUC...) come from signed-in library responses
+    // and return 401 when browsed directly without auth.
+    if browseId.hasPrefix("MPLAUC") {
         return true
     }
     // Playlists (VL...) benefit from authentication for personalized content
@@ -972,6 +978,7 @@ func listEndpoints() {
     FEmusic_library_landing       Library overview page
     FEmusic_library_albums        Saved albums (requires params*)
     FEmusic_library_artists       Followed artists (requires params*)
+    FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
     FEmusic_library_songs         All songs in library (requires params*)
     FEmusic_recently_played       Recently played content
     FEmusic_offline               Downloaded content (may not work on desktop)
@@ -987,6 +994,7 @@ func listEndpoints() {
     ───────────────────────────────────────────────────────────────────────────────
     VL{playlistId}                Playlist detail (e.g., VLPLxyz...)
     UC{channelId}                 Artist/Channel detail (e.g., UCxyz...)
+    MPLAUC{libraryArtistId}       Library artist detail (from Artists chip, requires auth)
     MPREb_{albumId}               Album detail
     MPLYt_{lyricsId}              Lyrics content
     FEmusic_moods_and_genres_category   Mood/Genre category (with params)
@@ -1077,6 +1085,11 @@ func listEndpoints() {
 
     Example: ./api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
 
+    FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
+    It requires sign-in for useful content but does not need sort params.
+    Signed-in responses return MPLAUC... browseIds (MUSIC_PAGE_TYPE_LIBRARY_ARTIST).
+    Browsing an MPLAUC... page directly also requires sign-in.
+
     ═══════════════════════════════════════════════════════════════════════════════
     💡 USAGE TIPS
     ═══════════════════════════════════════════════════════════════════════════════
@@ -1086,7 +1099,7 @@ func listEndpoints() {
     Dynamic browse ID:     ./api-explorer.swift browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
     Action with body:      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
 
-    * Library endpoints return HTTP 400 without both auth AND params
+    * Param-based library endpoints above return HTTP 400 without both auth AND params
 
     """)
 }
@@ -1127,6 +1140,7 @@ func showHelp() {
       # Explore authenticated endpoints (requires Kaset sign-in)
       ./api-explorer.swift browse FEmusic_liked_playlists
       ./api-explorer.swift browse FEmusic_history
+      ./api-explorer.swift browse FEmusic_library_corpus_track_artists
 
       # Discover brand accounts and use them
       ./api-explorer.swift brandaccounts                            # List brand accounts with IDs

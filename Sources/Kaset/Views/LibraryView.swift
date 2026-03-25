@@ -6,6 +6,7 @@ import SwiftUI
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
+    case artists = "Artists"
     case podcasts = "Podcasts"
 
     var id: String {
@@ -16,6 +17,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: "square.grid.2x2"
         case .playlists: "music.note.list"
+        case .artists: "person.fill"
         case .podcasts: "mic.fill"
         }
     }
@@ -29,7 +31,6 @@ struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(LibraryViewModel.self) private var libraryViewModelEnv: LibraryViewModel?
     @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var navigationPath = NavigationPath()
@@ -69,11 +70,21 @@ struct LibraryView: View {
                     )
                 )
             }
-            .navigationDestination(for: PodcastShow.self) { [libraryViewModelEnv] show in
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailView(
+                    artist: artist,
+                    viewModel: ArtistDetailViewModel(
+                        artist: artist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.viewModel
+                    )
+                )
+            }
+            .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
-                    .environment(libraryViewModelEnv)
             }
         }
+        .environment(self.viewModel)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
@@ -139,11 +150,13 @@ struct LibraryView: View {
 
         switch self.selectedFilter {
         case .all:
-            // Interleave playlists and podcasts for variety
             items = self.viewModel.playlists.map { .playlist($0) }
+                + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:
             items = self.viewModel.playlists.map { .playlist($0) }
+        case .artists:
+            items = self.viewModel.artists.map { .artist($0) }
         case .podcasts:
             items = self.viewModel.podcastShows.map { .podcast($0) }
         }
@@ -163,6 +176,8 @@ struct LibraryView: View {
                         switch item {
                         case let .playlist(playlist):
                             self.playlistCard(playlist)
+                        case let .artist(artist):
+                            self.artistCard(artist)
                         case let .podcast(show):
                             self.podcastCard(show)
                         }
@@ -197,6 +212,8 @@ struct LibraryView: View {
             "Your library is empty"
         case .playlists:
             "No playlists yet"
+        case .artists:
+            "No artists yet"
         case .podcasts:
             "No podcasts yet"
         }
@@ -205,9 +222,11 @@ struct LibraryView: View {
     private var emptyStateMessage: String {
         switch self.selectedFilter {
         case .all:
-            "Save playlists and subscribe to podcasts on YouTube Music to see them here."
+            "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here."
         case .playlists:
             "Create or save playlists on YouTube Music to see them here."
+        case .artists:
+            "Follow artists on YouTube Music to see them here."
         case .podcasts:
             "Subscribe to podcasts on YouTube Music to see them here."
         }
@@ -296,19 +315,63 @@ struct LibraryView: View {
             FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
         }
     }
+
+    private func artistCard(_ artist: Artist) -> some View {
+        Button {
+            self.navigationPath.append(artist)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 128, height: 128)
+                .clipShape(Circle())
+                .frame(width: 160)
+
+                Text(artist.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 160)
+
+                Text("Artist")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 160)
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
+            ShareContextMenu.menuItem(for: artist)
+        }
+    }
 }
 
 // MARK: - LibraryItem
 
-/// Represents a library item that can be either a playlist or a podcast show.
+/// Represents a library item that can be a playlist, artist, or podcast show.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
+    case artist(Artist)
     case podcast(PodcastShow)
 
     var id: String {
         switch self {
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .artist(artist):
+            "artist-\(artist.id)"
         case let .podcast(show):
             "podcast-\(show.id)"
         }

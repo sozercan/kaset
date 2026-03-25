@@ -12,6 +12,9 @@ final class LibraryViewModel {
     /// User's playlists.
     private(set) var playlists: [Playlist] = []
 
+    /// User's followed artists.
+    private(set) var artists: [Artist] = []
+
     /// User's subscribed podcast shows.
     private(set) var podcastShows: [PodcastShow] = []
 
@@ -20,6 +23,9 @@ final class LibraryViewModel {
 
     /// Set of podcast show IDs that are in the user's library (for quick lookup).
     private(set) var libraryPodcastIds: Set<String> = []
+
+    /// Set of followed artist IDs normalized to channel IDs (for quick lookup).
+    private(set) var libraryArtistIds: Set<String> = []
 
     /// Selected playlist detail.
     private(set) var selectedPlaylistDetail: PlaylistDetail?
@@ -35,12 +41,25 @@ final class LibraryViewModel {
         self.client = client
     }
 
+    private static func normalizedPlaylistId(_ playlistId: String) -> String {
+        if playlistId.hasPrefix("VL") {
+            return String(playlistId.dropFirst(2))
+        }
+        return playlistId
+    }
+
+    private static func normalizedArtistId(_ artistId: String) -> String {
+        if Artist.isLibraryArtistBrowseId(artistId) {
+            return String(artistId.dropFirst("MPLA".count))
+        }
+        return artistId
+    }
+
     /// Checks if a playlist is in the user's library.
     func isInLibrary(playlistId: String) -> Bool {
-        // Normalize the ID for comparison (remove VL prefix if present)
-        let normalizedId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let normalizedId = Self.normalizedPlaylistId(playlistId)
         return self.libraryPlaylistIds.contains { storedId in
-            let normalizedStoredId = storedId.hasPrefix("VL") ? String(storedId.dropFirst(2)) : storedId
+            let normalizedStoredId = Self.normalizedPlaylistId(storedId)
             return normalizedId == normalizedStoredId || playlistId == storedId
         }
     }
@@ -50,9 +69,24 @@ final class LibraryViewModel {
         self.libraryPodcastIds.contains(podcastId)
     }
 
+    /// Checks if an artist is in the user's library.
+    func isInLibrary(artistId: String) -> Bool {
+        self.libraryArtistIds.contains(Self.normalizedArtistId(artistId))
+    }
+
     /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
         self.libraryPlaylistIds.insert(playlistId)
+    }
+
+    /// Adds a playlist to the library (called after successful add to library).
+    /// Updates both the ID set and the playlists array for immediate UI update.
+    func addToLibrary(playlist: Playlist) {
+        self.libraryPlaylistIds.insert(playlist.id)
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlist.id)
+        if !self.playlists.contains(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }) {
+            self.playlists.insert(playlist, at: 0)
+        }
     }
 
     /// Adds a podcast to the library (called after successful subscription).
@@ -70,15 +104,38 @@ final class LibraryViewModel {
         self.libraryPodcastIds.insert(podcastId)
     }
 
+    /// Adds an artist to the library (called after successful subscription).
+    /// Updates both the ID set and the artists array for immediate UI update.
+    func addToLibrary(artist: Artist, libraryArtistId: String? = nil) {
+        let normalizedArtistId = Self.normalizedArtistId(libraryArtistId ?? artist.id)
+        self.libraryArtistIds.insert(normalizedArtistId)
+        if !self.artists.contains(where: { Self.normalizedArtistId($0.id) == normalizedArtistId }) {
+            self.artists.insert(artist, at: 0)
+        }
+    }
+
+    /// Adds an artist ID to the library set (called after successful subscription).
+    func addToLibrarySet(artistId: String) {
+        self.libraryArtistIds.insert(Self.normalizedArtistId(artistId))
+    }
+
     /// Removes a playlist ID from the library set (called after successful remove from library).
     func removeFromLibrarySet(playlistId: String) {
         // Remove both the exact ID and normalized versions
         self.libraryPlaylistIds.remove(playlistId)
-        let normalizedId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let normalizedId = Self.normalizedPlaylistId(playlistId)
         self.libraryPlaylistIds = self.libraryPlaylistIds.filter { storedId in
-            let normalizedStoredId = storedId.hasPrefix("VL") ? String(storedId.dropFirst(2)) : storedId
+            let normalizedStoredId = Self.normalizedPlaylistId(storedId)
             return normalizedId != normalizedStoredId
         }
+    }
+
+    /// Removes a playlist from the library (called after successful remove from library).
+    /// Updates both the ID set and the playlists array for immediate UI update.
+    func removeFromLibrary(playlistId: String) {
+        self.removeFromLibrarySet(playlistId: playlistId)
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        self.playlists.removeAll { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }
     }
 
     /// Removes a podcast from the library (called after successful unsubscribe).
@@ -93,7 +150,20 @@ final class LibraryViewModel {
         self.libraryPodcastIds.remove(podcastId)
     }
 
-    /// Loads library content (playlists and podcasts).
+    /// Removes an artist from the library (called after successful unsubscribe).
+    /// Updates both the ID set and the artists array for immediate UI update.
+    func removeFromLibrary(artistId: String) {
+        let normalizedArtistId = Self.normalizedArtistId(artistId)
+        self.libraryArtistIds.remove(normalizedArtistId)
+        self.artists.removeAll { Self.normalizedArtistId($0.id) == normalizedArtistId }
+    }
+
+    /// Removes an artist ID from the library set (called after successful unsubscribe).
+    func removeFromLibrarySet(artistId: String) {
+        self.libraryArtistIds.remove(Self.normalizedArtistId(artistId))
+    }
+
+    /// Loads library content (playlists, artists, and podcasts).
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -103,12 +173,16 @@ final class LibraryViewModel {
         do {
             let content = try await client.getLibraryContent()
             self.playlists = content.playlists
+            self.artists = content.artists
             self.podcastShows = content.podcastShows
             // Update the sets for quick lookup
             self.libraryPlaylistIds = Set(content.playlists.map(\.id))
             self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
+            self.libraryArtistIds = Set(content.artists.map { Self.normalizedArtistId($0.id) })
             self.loadingState = .loaded
-            self.logger.info("Loaded \(content.playlists.count) playlists and \(content.podcastShows.count) podcasts")
+            self.logger.info(
+                "Loaded \(content.playlists.count) playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
+            )
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Library load cancelled")
@@ -151,7 +225,11 @@ final class LibraryViewModel {
     /// Refreshes library content.
     func refresh() async {
         self.playlists = []
+        self.artists = []
         self.podcastShows = []
+        self.libraryPlaylistIds = []
+        self.libraryArtistIds = []
+        self.libraryPodcastIds = []
         await self.load()
     }
 }

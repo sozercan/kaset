@@ -146,6 +146,43 @@ struct ParsingHelpersTests {
         #expect(artists[1].name == "Song")
     }
 
+    @Test("Extract artists from flex columns accepts library artist browse IDs")
+    func extractArtistsFromFlexColumnsWithLibraryArtistBrowseId() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Song Title"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                [
+                                    "text": "Library Artist",
+                                    "navigationEndpoint": [
+                                        "browseEndpoint": [
+                                            "browseId": "MPLAUC1234567890",
+                                        ],
+                                    ],
+                                ],
+                                ["text": " • "],
+                                ["text": "2026"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.count == 1)
+        #expect(artists[0].id == "MPLAUC1234567890")
+        #expect(artists[0].name == "Library Artist")
+    }
+
     // MARK: - Video ID Extraction
 
     @Test("Extract video ID from playlistItemData")
