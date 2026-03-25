@@ -672,7 +672,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             return
         }
 
-        // Fall back to YouTube's next if no local queue
+        // Queue is empty: If we have a current track, start radio for it
+        // This handles the case where a song was played directly (not from a queue)
+        if let currentSong = self.currentTrack {
+            self.logger.info("Queue is empty but song is playing, starting radio for current song")
+            await self.playWithRadio(song: currentSong)
+            return
+        }
+
+        // Fallback: Use YouTube's next if no local queue and no current track
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.next()
         }

@@ -398,7 +398,69 @@ struct PlayerServiceQueueTests {
         #expect(self.mockClient.getSongCalled == true)
     }
 
+    // MARK: - InsertNextInQueue Critical Fix Tests
+
+    @Test("InsertNextInQueue adds current track if it's not in queue (Critical Bug Fix)")
+    func insertNextInQueueWithoutCurrentTrack() async {
+        // SCENARIO: User plays a song directly (not from queue), then uses "Play Next"
+        // This was a critical bug where the current track wasn't in the queue,
+        // causing next/previous to malfunction via system controls.
+
+        // Arrange - Play a single song directly (not from a queue)
+        let currentSong = TestFixtures.makeSong(title: "Current Song")
+        await self.playerService.play(song: currentSong)
+
+        // Verify: queue is empty, currentTrack is set
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack?.title == "Current Song")
+        #expect(self.playerService.currentIndex == 0)
+
+        // Act - User clicks "Play Next" and adds 3 more songs
+        let songsToAdd = TestFixtures.makeSongs(count: 3)
+        self.playerService.insertNextInQueue(songsToAdd)
+
+        // Assert - CRITICAL: Current track should now be at position 0, next songs at positions 1-3
+        #expect(self.playerService.queue.count == 4, "Queue should have 4 songs (current + 3 new)")
+        #expect(self.playerService.queue[0].title == "Current Song", "Current song must be at position 0")
+        #expect(self.playerService.queue[1].title == "Song 0", "First added song should be at position 1")
+        #expect(self.playerService.queue[2].title == "Song 1", "Second added song should be at position 2")
+        #expect(self.playerService.queue[3].title == "Song 2", "Third added song should be at position 3")
+        #expect(self.playerService.currentIndex == 0, "Current index should be 0")
+    }
+
+    @Test("InsertNextInQueue does nothing if songs list is empty")
+    func insertNextInQueueEmpty() async {
+        // Arrange
+        let song = TestFixtures.makeSong(title: "Test Song")
+        await self.playerService.play(song: song)
+
+        // Act - Try to insert empty list
+        self.playerService.insertNextInQueue([])
+
+        // Assert - Queue should still be empty
+        #expect(self.playerService.queue.isEmpty)
+    }
+
+    @Test("InsertNextInQueue inserts after current index in normal queue")
+    func insertNextInQueueNormal() async {
+        // Arrange - Setup a normal queue with songs
+        let initialSongs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(initialSongs, startingAt: 1)
+        #expect(self.playerService.currentIndex == 1)
+
+        // Act - Insert new songs after current (index 1)
+        let newSongs = TestFixtures.makeSongs(count: 2)
+        self.playerService.insertNextInQueue(newSongs)
+
+        // Assert - Songs should be inserted at position 2
+        #expect(self.playerService.queue.count == 5)
+        #expect(self.playerService.queue[1].title == "Song 1", "Current track unchanged")
+        #expect(self.playerService.queue[2].title == "Song 0", "First new song at position 2")
+        #expect(self.playerService.queue[3].title == "Song 1", "Second new song at position 3")
+    }
+
     // MARK: - Queue Display Mode Tests
+
 
     @Test("Toggle queue display mode switches between popup and side panel")
     func toggleQueueDisplayMode() {

@@ -232,6 +232,18 @@ extension PlayerService {
     func insertNextInQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         self.recordQueueStateForUndo()
+        
+        // CRITICAL FIX: If the current track is not in the queue, add it first at position 0.
+        // This happens when a song is played directly (not from a queue), then "Play Next" is used.
+        // Without this fix, insertNextInQueue would insert at position 1 (currentIndex+1 = 0+1),
+        // leaving the current track orphaned outside the queue, causing next/previous to malfunction.
+        if let currentSong = self.currentTrack,
+           !self.queue.contains(where: { $0.videoId == currentSong.videoId }) {
+            self.queue.insert(currentSong, at: 0)
+            self.currentIndex = 0
+            self.logger.debug("Current track not in queue, inserted at position 0 before adding next songs")
+        }
+        
         let insertIndex = min(self.currentIndex + 1, self.queue.count)
         self.queue.insert(contentsOf: songs, at: insertIndex)
         self.logger.info("Inserted \(songs.count) songs at position \(insertIndex)")
