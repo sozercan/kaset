@@ -34,80 +34,111 @@ enum PlaylistParser {
         var artists: [Artist] = []
         var podcastShows: [PodcastShow] = []
 
-        // Navigate to contents
-        guard let contents = data["contents"] as? [String: Any],
-              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any]
-        else {
-            return LibraryContent(playlists: [], artists: [], podcastShows: [])
+        for sectionData in Self.extractLibrarySections(from: data) {
+            Self.appendLibraryItems(
+                from: sectionData,
+                playlists: &playlists,
+                artists: &artists,
+                podcastShows: &podcastShows
+            )
         }
 
-        guard let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+        return LibraryContent(playlists: playlists, artists: artists, podcastShows: podcastShows)
+    }
+
+    /// Parses artists from the dedicated library artists browse response.
+    static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
+        var artists: [Artist] = []
+        var ignoredPlaylists: [Playlist] = []
+        var ignoredPodcastShows: [PodcastShow] = []
+
+        for sectionData in Self.extractLibrarySections(from: data) {
+            Self.appendLibraryItems(
+                from: sectionData,
+                playlists: &ignoredPlaylists,
+                artists: &artists,
+                podcastShows: &ignoredPodcastShows
+            )
+        }
+
+        return artists
+    }
+
+    private static func extractLibrarySections(from data: [String: Any]) -> [[String: Any]] {
+        guard let contents = data["contents"] as? [String: Any],
+              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
               let firstTab = tabs.first,
               let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
               let tabContent = tabRenderer["content"] as? [String: Any],
               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
-            return LibraryContent(playlists: [], artists: [], podcastShows: [])
+            return []
         }
 
-        for sectionData in sectionContents {
-            // Try gridRenderer
-            if let gridRenderer = sectionData["gridRenderer"] as? [String: Any],
-               let items = gridRenderer["items"] as? [[String: Any]]
-            {
-                for itemData in items {
-                    if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any] {
-                        Self.parseLibraryItem(
-                            twoRowRenderer,
-                            playlists: &playlists,
-                            artists: &artists,
-                            podcastShows: &podcastShows
-                        )
-                    }
+        return sectionContents
+    }
+
+    private static func appendLibraryItems(
+        from sectionData: [String: Any],
+        playlists: inout [Playlist],
+        artists: inout [Artist],
+        podcastShows: inout [PodcastShow]
+    ) {
+        // Try gridRenderer
+        if let gridRenderer = sectionData["gridRenderer"] as? [String: Any],
+           let items = gridRenderer["items"] as? [[String: Any]]
+        {
+            for itemData in items {
+                if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any] {
+                    self.parseLibraryItem(
+                        twoRowRenderer,
+                        playlists: &playlists,
+                        artists: &artists,
+                        podcastShows: &podcastShows
+                    )
                 }
             }
+        }
 
-            // Try itemSectionRenderer > musicShelfRenderer
-            if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
-               let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
-            {
-                for itemContent in itemContents {
-                    if let shelfRenderer = itemContent["musicShelfRenderer"] as? [String: Any],
-                       let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-                    {
-                        for shelfItem in shelfContents {
-                            if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
-                                Self.parseLibraryItemFromResponsive(
-                                    responsiveRenderer,
-                                    playlists: &playlists,
-                                    artists: &artists,
-                                    podcastShows: &podcastShows
-                                )
-                            }
+        // Try itemSectionRenderer > musicShelfRenderer
+        if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
+           let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
+        {
+            for itemContent in itemContents {
+                if let shelfRenderer = itemContent["musicShelfRenderer"] as? [String: Any],
+                   let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+                {
+                    for shelfItem in shelfContents {
+                        if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
+                            Self.parseLibraryItemFromResponsive(
+                                responsiveRenderer,
+                                playlists: &playlists,
+                                artists: &artists,
+                                podcastShows: &podcastShows
+                            )
                         }
                     }
                 }
             }
+        }
 
-            // Try musicShelfRenderer directly
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for shelfItem in shelfContents {
-                    if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
-                        Self.parseLibraryItemFromResponsive(
-                            responsiveRenderer,
-                            playlists: &playlists,
-                            artists: &artists,
-                            podcastShows: &podcastShows
-                        )
-                    }
+        // Try musicShelfRenderer directly
+        if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+           let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+        {
+            for shelfItem in shelfContents {
+                if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
+                    Self.parseLibraryItemFromResponsive(
+                        responsiveRenderer,
+                        playlists: &playlists,
+                        artists: &artists,
+                        podcastShows: &podcastShows
+                    )
                 }
             }
         }
-
-        return LibraryContent(playlists: playlists, artists: artists, podcastShows: podcastShows)
     }
 
     /// Parses a library item from twoRowRenderer, adding to the appropriate array.

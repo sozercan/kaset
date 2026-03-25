@@ -12,10 +12,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     }
 
     private static func normalizedArtistId(_ artistId: String) -> String {
-        if Artist.isLibraryArtistBrowseId(artistId) {
-            return String(artistId.dropFirst("MPLA".count))
-        }
-        return artistId
+        Artist.publicChannelId(for: artistId) ?? artistId
     }
 
     // MARK: - Response Stubs

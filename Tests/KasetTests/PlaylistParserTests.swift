@@ -38,6 +38,15 @@ struct PlaylistParserTests {
         #expect(content.podcastShows.map(\.author) == ["Grid Host", "Shelf Host"])
     }
 
+    @Test("Parse dedicated library artists response")
+    func parseLibraryArtists() {
+        let data = self.makeLibraryArtistsResponseData()
+        let artists = PlaylistParser.parseLibraryArtists(data)
+
+        #expect(artists.map(\.id) == ["MPLAUCGRIDARTIST123", "MPLAUCSHELFARTIST456"])
+        #expect(artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
+    }
+
     // MARK: - Playlist Detail
 
     @Test("Parse playlist detail with header")
@@ -241,6 +250,53 @@ struct PlaylistParserTests {
                                         [
                                             "musicShelfRenderer": [
                                                 "contents": self.makeMixedLibraryShelfItems(),
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryArtistsResponseData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [
+                                        [
+                                            "gridRenderer": [
+                                                "items": [[
+                                                    "musicTwoRowItemRenderer": [
+                                                        "title": ["runs": [["text": "Grid Artist"]]],
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCGRIDARTIST123"],
+                                                        ],
+                                                    ],
+                                                ]],
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [[
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCSHELFARTIST456"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Shelf Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ]],
                                             ],
                                         ],
                                     ],

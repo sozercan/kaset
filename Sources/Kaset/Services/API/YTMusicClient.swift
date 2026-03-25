@@ -554,17 +554,34 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlists
     }
 
-    /// Fetches the user's library content including playlists and podcast shows.
+    /// Fetches the user's library content including playlists, artists, and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
-        self.logger.info("Fetching library content (playlists + podcasts)")
+        self.logger.info("Fetching library content")
 
-        // Use library_landing to get all content types including podcasts
-        let body: [String: Any] = [
-            "browseId": "FEmusic_library_landing",
-        ]
+        // The landing response only includes artist preview tiles, so fetch the full Artists chip separately.
+        let landingData = try await self.request(
+            "browse",
+            body: ["browseId": "FEmusic_library_landing"],
+            ttl: APICache.TTL.library
+        )
+        let artistsData = try await self.request(
+            "browse",
+            body: ["browseId": "FEmusic_library_corpus_track_artists"],
+            ttl: APICache.TTL.library
+        )
 
-        let data = try await request("browse", body: body, ttl: APICache.TTL.library)
-        return PlaylistParser.parseLibraryContent(data)
+        let landingContent = PlaylistParser.parseLibraryContent(landingData)
+        let artists = PlaylistParser.parseLibraryArtists(artistsData)
+        let content = PlaylistParser.LibraryContent(
+            playlists: landingContent.playlists,
+            artists: artists,
+            podcastShows: landingContent.podcastShows
+        )
+
+        self.logger.info(
+            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
+        )
+        return content
     }
 
     // MARK: - Liked Songs with Pagination

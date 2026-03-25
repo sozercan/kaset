@@ -49,10 +49,7 @@ final class LibraryViewModel {
     }
 
     private static func normalizedArtistId(_ artistId: String) -> String {
-        if Artist.isLibraryArtistBrowseId(artistId) {
-            return String(artistId.dropFirst("MPLA".count))
-        }
-        return artistId
+        Artist.publicChannelId(for: artistId) ?? artistId
     }
 
     /// Checks if a playlist is in the user's library.

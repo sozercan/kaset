@@ -87,4 +87,26 @@ struct SongActionsHelperTests {
         #expect(self.libraryViewModel.isInLibrary(podcastId: show.id) == false)
         #expect(self.libraryViewModel.podcastShows.isEmpty)
     }
+
+    @Test("unsubscribeFromArtist keeps optimistic removal when refresh response is stale")
+    func unsubscribeFromArtistPreservesOptimisticRemoval() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.libraryArtists = [artist]
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            artist,
+            channelId: "UC-channel-123",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
+        #expect(self.mockClient.unsubscribeFromArtistCalled == true)
+        #expect(self.mockClient.getLibraryContentCalled == true)
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
+        #expect(self.libraryViewModel.artists.isEmpty)
+    }
 }

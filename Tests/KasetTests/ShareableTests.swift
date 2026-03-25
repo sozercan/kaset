@@ -163,7 +163,7 @@ struct ShareableTests {
         #expect(artist.shareText == "Taylor Swift")
     }
 
-    @Test("Artist with MPLAUC prefix has browse shareURL")
+    @Test("Artist with MPLAUC prefix shares the public channel URL")
     func artistShareURL_libraryArtist() {
         let artist = Artist(
             id: "MPLAUC1234567890",
@@ -171,7 +171,7 @@ struct ShareableTests {
             thumbnailURL: nil
         )
 
-        #expect(artist.shareURL?.absoluteString == "https://music.youtube.com/browse/MPLAUC1234567890")
+        #expect(artist.shareURL?.absoluteString == "https://music.youtube.com/channel/UC1234567890")
         #expect(artist.shareText == "Library Taylor")
     }
 

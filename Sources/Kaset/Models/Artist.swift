@@ -20,6 +20,11 @@ struct Artist: Identifiable, Codable, Hashable {
     var hasNavigableId: Bool {
         Self.isNavigableId(self.id)
     }
+
+    /// The public channel ID for this artist, if one can be derived.
+    var publicChannelId: String? {
+        Self.publicChannelId(for: self.id)
+    }
 }
 
 extension Artist {
@@ -36,6 +41,19 @@ extension Artist {
 
     static func isNavigableId(_ id: String) -> Bool {
         self.isChannelId(id) || self.isLibraryArtistBrowseId(id)
+    }
+
+    /// Converts a navigable artist ID into the public artist channel ID used by share URLs and subscriptions.
+    static func publicChannelId(for id: String) -> String? {
+        if self.isChannelId(id) {
+            return id
+        }
+
+        if self.isLibraryArtistBrowseId(id) {
+            return String(id.dropFirst("MPLA".count))
+        }
+
+        return nil
     }
 
     /// Creates an Artist from YouTube Music API response data.

@@ -174,8 +174,17 @@ enum SongActionsHelper {
     ) async throws {
         do {
             try await client.unsubscribeFromArtist(channelId: channelId)
-            libraryViewModel?.removeFromLibrary(artistId: channelId)
-            await libraryViewModel?.refresh()
+            if let libraryViewModel {
+                libraryViewModel.removeFromLibrary(artistId: channelId)
+
+                // Library browse responses can lag briefly behind a successful removal.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+
+                if libraryViewModel.isInLibrary(artistId: channelId) {
+                    libraryViewModel.removeFromLibrary(artistId: channelId)
+                }
+            }
             DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
         } catch {
             DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")

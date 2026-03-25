@@ -95,13 +95,13 @@ extension Artist: Shareable {
     }
 
     var shareURL: URL? {
-        guard Self.isNavigableId(self.id) else { return nil }
-        guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let publicChannelId = self.publicChannelId,
+              let encodedId = publicChannelId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else {
             return nil
         }
 
-        let pathComponent = Self.isChannelId(self.id) ? "channel" : "browse"
-        return URL(string: "https://music.youtube.com/\(pathComponent)/\(encodedId)")
+        return URL(string: "https://music.youtube.com/channel/\(encodedId)")
     }
 }
 
