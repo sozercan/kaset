@@ -43,7 +43,7 @@ struct PlaylistParserTests {
         let data = self.makeLibraryArtistsResponseData()
         let artists = PlaylistParser.parseLibraryArtists(data)
 
-        #expect(artists.map(\.id) == ["MPLAUCGRIDARTIST123", "MPLAUCSHELFARTIST456"])
+        #expect(artists.map(\.id) == ["UCGRIDARTIST123", "UCSHELFARTIST456"])
         #expect(artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
     }
 

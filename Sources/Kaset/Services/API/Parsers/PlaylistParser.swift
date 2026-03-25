@@ -61,7 +61,17 @@ enum PlaylistParser {
             )
         }
 
-        return artists
+        return artists.map { artist in
+            if let publicChannelId = Artist.publicChannelId(for: artist.id) {
+                return Artist(
+                    id: publicChannelId,
+                    name: artist.name,
+                    thumbnailURL: artist.thumbnailURL
+                )
+            }
+
+            return artist
+        }
     }
 
     private static func extractLibrarySections(from data: [String: Any]) -> [[String: Any]] {

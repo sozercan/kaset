@@ -558,7 +558,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.logger.info("Fetching library content")
 
-        // The landing response only includes artist preview tiles, so fetch the full Artists chip separately.
+        // Use the dedicated param-based artists endpoint for followed artists.
         let landingData = try await self.request(
             "browse",
             body: ["browseId": "FEmusic_library_landing"],
@@ -566,7 +566,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         )
         let artistsData = try await self.request(
             "browse",
-            body: ["browseId": "FEmusic_library_corpus_track_artists"],
+            body: [
+                "browseId": "FEmusic_library_artists",
+                "params": "ggMCCAE",
+            ],
             ttl: APICache.TTL.library
         )
 
