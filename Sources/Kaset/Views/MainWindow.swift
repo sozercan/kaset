@@ -115,9 +115,16 @@ struct MainWindow: View {
                 .padding(.trailing, self.playerService.showMiniPlayer ? 12 : 0)
                 .padding(.bottom, self.playerService.showMiniPlayer ? 76 : 0)
                 .allowsHitTesting(self.playerService.showMiniPlayer)
+                // Hiding must not interpolate frame/opacity (no “shrink”); showing can ease in.
+                .transaction { transaction in
+                    if !self.playerService.showMiniPlayer {
+                        transaction.animation = nil
+                    } else {
+                        transaction.animation = .easeInOut(duration: 0.2)
+                    }
+                }
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: self.playerService.showMiniPlayer)
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }

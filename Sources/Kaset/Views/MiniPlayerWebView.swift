@@ -232,9 +232,22 @@ final class SingletonPlayerWebView {
         case video // Full size in video window
     }
 
-    var displayMode: DisplayMode = .hidden
+    /// How `loadVideo` behaves when Swift already tracks a `videoId` (repeat-one vs queue drift recovery).
+    enum VideoLoadStrategy: Equatable {
+        /// Skip navigation when `videoId` matches `currentVideoId`.
+        case standard
+        /// Same `videoId` as tracked: `seek(0)` + play only (fast). Different id: full watch URL load.
+        case preferInPlaceWhenSameVideoId
+        /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
+        case forceFullPageWhenSameVideoId
+    }
 
-    private init() {}
+    var displayMode: DisplayMode = .hidden
+    private var mediaControlUsesNextPrev: Bool
+
+    private init() {
+        self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
+    }
 
     /// Get or create the singleton WebView.
     func getWebView(
@@ -260,6 +273,22 @@ final class SingletonPlayerWebView {
         // 1. Set __kasetTargetVolume in loadVideo() before loading a new page
         // 2. Update it in didFinish after each page load completes
         // This ensures we always use the CURRENT volume, not a stale value.
+
+        // Keep the page preference in sync before any page script reads localStorage.
+        let mediaControlBootstrapScript = WKUserScript(
+            source: self.mediaControlBootstrapScript(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(mediaControlBootstrapScript)
+
+        // Inject mediaSession override at document end without allowing duplicate RAF loops.
+        let mediaOverrideScript = WKUserScript(
+            source: Self.mediaControlOverrideScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(mediaOverrideScript)
 
         // Inject observer script (at document end)
         let script = WKUserScript(
@@ -294,22 +323,48 @@ final class SingletonPlayerWebView {
         // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
+    /// Starts high frequency polling for synced lyrics
+    func startLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+    }
+
+    /// Stops high frequency polling for synced lyrics
+    func stopLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
+    }
+
     /// Load a video, stopping any currently playing audio first.
-    /// Note: This uses full page navigation which destroys the video element.
-    /// AirPlay connections will be lost but the auto-reconnect picker will appear.
-    func loadVideo(videoId: String) {
+    /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
+    /// AirPlay connections will be lost on full navigation but the auto-reconnect picker will appear.
+    func loadVideo(videoId: String, strategy: VideoLoadStrategy = .standard) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
             return
         }
 
         let previousVideoId = self.currentVideoId
-        guard videoId != previousVideoId else {
-            self.logger.debug("Video \(videoId) already loaded, skipping")
-            return
+
+        switch strategy {
+        case .standard:
+            if videoId == previousVideoId {
+                self.logger.debug("Video \(videoId) already loaded, skipping")
+                return
+            }
+        case .preferInPlaceWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.debug("In-place restart for \(videoId) (same id — avoid full page reload)")
+                self.restartInPlaceFromBeginning()
+                return
+            }
+        case .forceFullPageWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.info("Force full navigation for \(videoId) (DOM/WebView resync)")
+            }
         }
 
-        self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        if videoId != previousVideoId {
+            self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        }
 
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
@@ -358,6 +413,20 @@ final class SingletonPlayerWebView {
                 return
             }
 
+            if type == "REMOTE_NEXT" {
+                Task { @MainActor in
+                    await self.playerService.next()
+                }
+                return
+            }
+
+            if type == "REMOTE_PREVIOUS" {
+                Task { @MainActor in
+                    await self.playerService.previous()
+                }
+                return
+            }
+
             // Handle AirPlay status updates
             if type == "AIRPLAY_STATUS" {
                 let isConnected = body["isConnected"] as? Bool ?? false
@@ -368,6 +437,16 @@ final class SingletonPlayerWebView {
                         isConnected: isConnected,
                         wasRequested: wasRequested
                     )
+                }
+                return
+            }
+
+            // Handle high frequency lyrics time updates
+            if type == "LYRICS_TIME" {
+                if let time = body["time"] as? Double {
+                    Task { @MainActor in
+                        self.playerService.currentTimeMs = Int(time * 1000)
+                    }
                 }
                 return
             }
@@ -409,8 +488,12 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Update track metadata if track changed
-                if trackChanged, observedVideoId != nil || !title.isEmpty {
+                // Repeat-one must keep enforcing queue/current song even if WebView doesn't flag `trackChanged`
+                // for a transient autoplay swap. In other modes, keep the existing trackChanged gate.
+                let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
+                    && (observedVideoId != nil || !title.isEmpty)
+
+                if shouldReconcileMetadata {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,
@@ -501,5 +584,143 @@ final class SingletonPlayerWebView {
                 }
             }
         }
+    }
+}
+
+// MARK: - SingletonPlayerWebView Media Controls
+
+extension SingletonPlayerWebView {
+    /// Updates the current page and the bootstrap state used by future page loads.
+    func setMediaControlStyle(useNextPrev: Bool) {
+        self.mediaControlUsesNextPrev = useNextPrev
+
+        guard let webView = self.webView else { return }
+        let script = Self.mediaControlStyleSyncScript(useNextPrev: useNextPrev)
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    func mediaControlBootstrapScript() -> String {
+        Self.mediaControlStyleBootstrapScript(useNextPrev: self.mediaControlUsesNextPrev)
+    }
+
+    static func mediaControlStyleBootstrapScript(useNextPrev: Bool) -> String {
+        let jsBoolean = useNextPrev ? "true" : "false"
+        return """
+            (function() {
+                try {
+                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
+                } catch (e) {}
+                window.__kasetUseNextPrev = \(jsBoolean);
+            })();
+        """
+    }
+
+    static func mediaControlStyleSyncScript(useNextPrev: Bool) -> String {
+        let jsBoolean = useNextPrev ? "true" : "false"
+        let restoreSeekHandlers = if useNextPrev {
+            ""
+        } else {
+            """
+                try {
+                    var ms = navigator.mediaSession;
+                    ms.setActionHandler('nexttrack', null);
+                    ms.setActionHandler('previoustrack', null);
+                    ms.setActionHandler('seekforward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.min(v.duration,
+                            v.currentTime + ((d && d.seekOffset) || 15));
+                    });
+                    ms.setActionHandler('seekbackward', function(d) {
+                        var v = document.querySelector('video');
+                        if (v) v.currentTime = Math.max(0,
+                            v.currentTime - ((d && d.seekOffset) || 15));
+                    });
+                } catch (e) {}
+            """
+        }
+
+        return """
+            (function() {
+                try {
+                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
+                } catch (e) {}
+                window.__kasetUseNextPrev = \(jsBoolean);
+                if (typeof window.__kasetRefreshMediaControlStyle === 'function') {
+                    window.__kasetRefreshMediaControlStyle();
+                }
+                \(restoreSeekHandlers)
+            })();
+        """
+    }
+
+    static var mediaControlOverrideScript: String {
+        """
+        (function() {
+            if (typeof window.__kasetUseNextPrev !== 'boolean') {
+                try {
+                    window.__kasetUseNextPrev =
+                        localStorage.getItem('kasetUseNextPrev') === 'true';
+                } catch (e) {
+                    window.__kasetUseNextPrev = false;
+                }
+            }
+
+            var overrideFrameId = null;
+
+            function applyOverride() {
+                if (!window.__kasetUseNextPrev) {
+                    return;
+                }
+                try {
+                    var ms = navigator.mediaSession;
+                    ms.setActionHandler('seekforward', null);
+                    ms.setActionHandler('seekbackward', null);
+                    ms.setActionHandler('nexttrack', function() {
+                        window.webkit.messageHandlers.singletonPlayer
+                            .postMessage({ type: 'REMOTE_NEXT' });
+                    });
+                    ms.setActionHandler('previoustrack', function() {
+                        window.webkit.messageHandlers.singletonPlayer
+                            .postMessage({ type: 'REMOTE_PREVIOUS' });
+                    });
+                } catch (e) {}
+            }
+
+            function scheduleOverrideLoop() {
+                if (overrideFrameId !== null || !window.__kasetUseNextPrev) {
+                    return;
+                }
+
+                overrideFrameId = requestAnimationFrame(function() {
+                    overrideFrameId = null;
+                    if (!window.__kasetUseNextPrev) {
+                        return;
+                    }
+                    applyOverride();
+                    scheduleOverrideLoop();
+                });
+            }
+
+            window.__kasetRefreshMediaControlStyle = function() {
+                applyOverride();
+                scheduleOverrideLoop();
+            };
+
+            window.__kasetRefreshMediaControlStyle();
+
+            // Re-apply on video events where YouTube re-registers handlers.
+            function attachVideoOverride() {
+                var v = document.querySelector('video');
+                if (!v || v.__kasetOverrideAttached) return;
+                v.__kasetOverrideAttached = true;
+                ['playing','loadedmetadata','loadeddata','canplay','seeked']
+                    .forEach(function(e) { v.addEventListener(e, applyOverride); });
+            }
+
+            attachVideoOverride();
+            new MutationObserver(attachVideoOverride)
+                .observe(document.documentElement, {childList:true, subtree:true});
+        })();
+        """
     }
 }

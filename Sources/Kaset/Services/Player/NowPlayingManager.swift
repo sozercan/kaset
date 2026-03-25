@@ -16,6 +16,7 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
+    private let settings = SettingsManager.shared
 
     private init() {}
 
@@ -28,7 +29,27 @@ final class NowPlayingManager {
         self.isConfigured = true
         self.playerService = playerService
         self.setupRemoteCommands()
+        self.syncMediaControlSetting()
         self.logger.info("NowPlayingManager configured (remote commands only)")
+
+        self.observeSettingsChanges()
+    }
+
+    private func observeSettingsChanges() {
+        withObservationTracking {
+            _ = self.settings.mediaControlStyle
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.syncMediaControlSetting()
+                self?.observeSettingsChanges()
+            }
+        }
+    }
+
+    /// Syncs the media control style setting to the singleton WebView and its bootstrap state.
+    private func syncMediaControlSetting() {
+        let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
+        SingletonPlayerWebView.shared.setMediaControlStyle(useNextPrev: useNextPrev)
     }
 
     // MARK: - Remote Commands
@@ -36,7 +57,6 @@ final class NowPlayingManager {
     private func setupRemoteCommands() {
         guard let player = playerService else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
-
         // Remove any existing targets to prevent duplicates
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)

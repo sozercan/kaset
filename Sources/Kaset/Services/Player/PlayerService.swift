@@ -56,6 +56,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Current playback position in seconds.
     var progress: TimeInterval = 0
 
+    /// High-resolution playback time in milliseconds, updated at ~10Hz when synced lyrics are active.
+    var currentTimeMs: Int = 0
+
     /// Total duration of current track in seconds.
     var duration: TimeInterval = 0
 
@@ -168,6 +171,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     private var queueUndoHistory: [([Song], Int)] = []
     private var queueRedoHistory: [([Song], Int)] = []
     private static let queueUndoMaxCount = 10
+
+    /// Queue index before each `next()`; `previous()` pops so Back returns to the track you skipped from (shuffle- and seek-safe).
+    private var forwardSkipIndexStack: [Int] = []
 
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
@@ -291,6 +297,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.currentIndex = min(previousIndex, max(0, previousQueue.count - 1))
         self.saveQueueForPersistence()
         self.logger.info("Undid queue to \(previousQueue.count) songs at index \(self.currentIndex)")
+        self.clearForwardSkipNavigationStack()
     }
 
     /// Restores the next queue state after an undo. Does nothing if redo history is empty.
@@ -302,6 +309,19 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.currentIndex = min(nextIndex, max(0, nextQueue.count - 1))
         self.saveQueueForPersistence()
         self.logger.info("Redid queue to \(nextQueue.count) songs at index \(self.currentIndex)")
+        self.clearForwardSkipNavigationStack()
+    }
+
+    /// Clears forward-skip undo when the queue is replaced or reordered so indices are not stale.
+    func clearForwardSkipNavigationStack() {
+        self.forwardSkipIndexStack.removeAll()
+    }
+
+    /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).
+    private func pushForwardSkipStackIfLeavingIndex(for newIndex: Int) {
+        let from = self.currentIndex
+        guard from != newIndex else { return }
+        self.forwardSkipIndexStack.append(from)
     }
 
     /// Loads mock player state from environment variables for UI testing.
@@ -392,8 +412,17 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Plays a song.
     func play(song: Song) async {
+        await self.play(song: song, webLoadStrategy: .standard)
+    }
+
+    /// Plays a song.
+    /// - Parameter webLoadStrategy: Controls duplicate-`videoId` behavior in ``SingletonPlayerWebView/loadVideo(videoId:strategy:)``
+    ///   (repeat-one prefers in-place restart; queue drift correction may force a full page load).
+    func play(song: Song, webLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy) async {
         self.logger.info("Playing song: \(song.title)")
+        self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
+        // Brief `.loading` until the observer reports playback; in-place restarts may flash loading briefly.
         self.state = .loading
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
@@ -417,7 +446,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         if self.hasUserInteractedThisSession {
             self.logger.info("User has interacted before, auto-playing without popup")
             self.showMiniPlayer = false
-            SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId)
+            SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId, strategy: webLoadStrategy)
         } else {
             // First time: show the mini player for user interaction
             self.showMiniPlayer = true
@@ -462,6 +491,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     private var videoWindowOpenedAt: ContinuousClock.Instant?
+
+    /// Debounces repeat-one recovery `play()` when YouTube sends bursty metadata (safety net in `PlayerService+WebQueueSync`).
+    /// Internal so the WebQueueSync extension can throttle; not part of the public API.
+    var lastRepeatOneRecoveryInstant: ContinuousClock.Instant?
 
     /// Updates whether the current track has video available.
     /// Note: This only affects the UI (enabling/disabling the video button).
@@ -586,16 +619,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Prioritize local queue if we have one
         if !self.queue.isEmpty {
-            // Handle repeat one mode - replay current track
-            if self.repeatMode == .one {
-                await self.seek(to: 0)
-                await self.resume()
-                return
-            }
+            // Repeat-one for natural **track end** is handled in `handleTrackEnded` (replay). The Next button advances the queue.
 
             // Handle shuffle mode - pick random track
             if self.shuffleEnabled {
                 let randomIndex = Int.random(in: 0 ..< self.queue.count)
+                self.pushForwardSkipStackIfLeavingIndex(for: randomIndex)
                 self.currentIndex = randomIndex
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
@@ -607,6 +636,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
             // Normal next behavior
             if self.currentIndex < self.queue.count - 1 {
+                self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
                 self.currentIndex += 1
                 if let nextSong = queue[safe: currentIndex] {
                     await self.play(song: nextSong)
@@ -616,6 +646,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 self.saveQueueForPersistence()
             } else if self.repeatMode == .all {
                 // Loop back to start if repeat all is enabled
+                self.pushForwardSkipStackIfLeavingIndex(for: 0)
                 self.currentIndex = 0
                 if let firstSong = queue.first {
                     await self.play(song: firstSong)
@@ -627,6 +658,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 await self.fetchMoreMixSongsIfNeeded()
                 // Only advance if new songs were actually added
                 if self.queue.count > previousCount {
+                    self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
                     self.currentIndex += 1
                     if let nextSong = queue[safe: currentIndex] {
                         await self.play(song: nextSong)
@@ -651,14 +683,25 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Prioritize local queue if we have one
         if !self.queue.isEmpty {
+            // Standard behavior: past the first few seconds, Previous always goes to the start of the *current* track first.
+            // Only when already near the start (progress ≤ 3s) do we go to the prior queue item or undo a `next()` skip.
             if self.progress > 3 {
-                // Restart current track
-                if self.pendingPlayVideoId != nil {
-                    SingletonPlayerWebView.shared.seek(to: 0)
-                } else {
-                    await self.seek(to: 0)
+                // Must use `seek(to:)` so `self.progress` updates immediately; raw WebView seek leaves stale progress
+                // and every subsequent Previous keeps hitting this branch (never reaches prior track).
+                await self.seek(to: 0)
+                return
+            }
+
+            if let priorIndex = self.forwardSkipIndexStack.popLast(), self.queue.indices.contains(priorIndex) {
+                self.currentIndex = priorIndex
+                if let prevSong = self.queue[safe: priorIndex] {
+                    await self.play(song: prevSong)
                 }
-            } else if self.currentIndex > 0 {
+                self.saveQueueForPersistence()
+                return
+            }
+
+            if self.currentIndex > 0 {
                 self.currentIndex -= 1
                 if let prevSong = queue[safe: currentIndex] {
                     await self.play(song: prevSong)
@@ -666,24 +709,20 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 self.saveQueueForPersistence()
             } else {
                 // At start of queue, just restart current track
-                if self.pendingPlayVideoId != nil {
-                    SingletonPlayerWebView.shared.seek(to: 0)
-                } else {
-                    await self.seek(to: 0)
-                }
+                await self.seek(to: 0)
             }
             return
         }
 
         // Fall back to YouTube's previous if no local queue
-        if self.pendingPlayVideoId != nil {
-            if self.progress > 3 {
-                SingletonPlayerWebView.shared.seek(to: 0)
+        if self.progress > 3 {
+            if self.pendingPlayVideoId != nil {
+                await self.seek(to: 0)
             } else {
-                SingletonPlayerWebView.shared.previous()
+                await self.seek(to: 0)
             }
-        } else if self.progress > 3 {
-            await self.seek(to: 0)
+        } else {
+            SingletonPlayerWebView.shared.previous()
         }
     }
 
