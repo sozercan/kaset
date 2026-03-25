@@ -20,6 +20,9 @@ final class SyncedLyricsService {
     /// All registered providers, ordered by priority.
     private let providers: [LyricsProvider]
 
+    /// Romanization service for transliterating non-Latin lyrics.
+    private let romanizationService = RomanizationService()
+
     /// In-memory cache keyed by videoId.
     private var cache: [String: LyricResult] = [:]
 
@@ -149,7 +152,24 @@ final class SyncedLyricsService {
     private func applyResolvedLyrics(_ resolved: ResolvedLyrics, requestID: Int) {
         guard requestID == self.fetchGeneration else { return }
 
-        self.currentLyrics = resolved.result
+        // Post-process: romanize synced lyrics if enabled
+        if case let .synced(synced) = resolved.result, self.romanizationService.isEnabled {
+            let romanized = self.romanizationService.romanizeAll(synced)
+            guard requestID == self.fetchGeneration else { return }
+
+            if !romanized.isEmpty {
+                var updatedLines = synced.lines
+                for i in updatedLines.indices {
+                    updatedLines[i].romanizedText = romanized[updatedLines[i].id]
+                }
+                self.currentLyrics = .synced(SyncedLyrics(lines: updatedLines, source: synced.source))
+            } else {
+                self.currentLyrics = resolved.result
+            }
+        } else {
+            self.currentLyrics = resolved.result
+        }
+
         self.activeProvider = resolved.activeProvider
         self.isLoading = false
     }

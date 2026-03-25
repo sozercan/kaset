@@ -36,7 +36,7 @@ struct KasetApp: App {
     @State private var likeStatusManager = SongLikeStatusManager.shared
     @State private var accountService: AccountService?
     @State private var scrobblingCoordinator: ScrobblingCoordinator
-    @State private var syncedLyricsService = SyncedLyricsService()
+    @State private var syncedLyricsService: SyncedLyricsService
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -82,6 +82,10 @@ struct KasetApp: App {
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
         _sharedClient = State(initialValue: client)
+        _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
+            YTMusicSyncedProvider(client: client),
+            LRCLibProvider(),
+        ]))
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 

@@ -20,6 +20,7 @@ final class SettingsManager {
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
+        static let romanizationEnabled = "settings.romanizationEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -175,6 +176,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether romanization of non-Latin lyrics is enabled.
+    var romanizationEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.romanizationEnabled, forKey: Keys.romanizationEnabled)
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -195,6 +203,7 @@ final class SettingsManager {
         self.scrobblePercentThreshold = UserDefaults.standard.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
+        self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)

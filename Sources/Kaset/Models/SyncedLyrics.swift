@@ -21,6 +21,8 @@ struct SyncedLyricLine: Identifiable, Equatable {
     let text: String
     /// Optional word-level timing for karaoke mode.
     let words: [TimedWord]?
+    /// Romanized version of text (nil if already Latin or romanization disabled).
+    var romanizedText: String?
 }
 
 // MARK: - SyncedLyrics
