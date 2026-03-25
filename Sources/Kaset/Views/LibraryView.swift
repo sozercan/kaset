@@ -19,6 +19,17 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         case .podcasts: "mic.fill"
         }
     }
+
+    var displayName: String {
+        switch self {
+        case .all:
+            String(localized: "All")
+        case .playlists:
+            String(localized: "Playlists")
+        case .podcasts:
+            String(localized: "Podcasts")
+        }
+    }
 }
 
 // MARK: - LibraryView
@@ -40,15 +51,15 @@ struct LibraryView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading your library...")
+                        LoadingView(String(localized: "Loading your library..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -120,7 +131,7 @@ struct LibraryView: View {
                 self.selectedFilter = filter
             }
         } label: {
-            Text(filter.rawValue)
+            Text(filter.displayName)
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -194,22 +205,22 @@ struct LibraryView: View {
     private var emptyStateTitle: String {
         switch self.selectedFilter {
         case .all:
-            "Your library is empty"
+            String(localized: "Your library is empty")
         case .playlists:
-            "No playlists yet"
+            String(localized: "No playlists yet")
         case .podcasts:
-            "No podcasts yet"
+            String(localized: "No podcasts yet")
         }
     }
 
     private var emptyStateMessage: String {
         switch self.selectedFilter {
         case .all:
-            "Save playlists and subscribe to podcasts on YouTube Music to see them here."
+            String(localized: "Save playlists and subscribe to podcasts on YouTube Music to see them here.")
         case .playlists:
-            "Create or save playlists on YouTube Music to see them here."
+            String(localized: "Create or save playlists on YouTube Music to see them here.")
         case .podcasts:
-            "Subscribe to podcasts on YouTube Music to see them here."
+            String(localized: "Subscribe to podcasts on YouTube Music to see them here.")
         }
     }
 
@@ -244,7 +255,7 @@ struct LibraryView: View {
 
                 // Track count
                 if let count = playlist.trackCount {
-                    Text("\(count) songs")
+                    Text("\(count) songs", comment: "Playlist track count")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

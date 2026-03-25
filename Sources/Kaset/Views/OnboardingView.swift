@@ -92,8 +92,8 @@ struct OnboardingView: View {
 @available(macOS 26.0, *)
 private struct FeatureRow: View {
     let icon: String
-    let title: String
-    let description: String
+    let title: LocalizedStringKey
+    let description: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 16) {

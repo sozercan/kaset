@@ -120,22 +120,22 @@ struct IntelligenceSettingsView: View {
     private var availabilityTitle: String {
         switch self.aiService.availability {
         case .available:
-            "Available"
+            String(localized: "Available")
         case let .unavailable(reason):
             self.titleForUnavailableReason(reason)
         @unknown default:
-            "Unknown"
+            String(localized: "Unknown")
         }
     }
 
     private var availabilityDescription: String {
         switch self.aiService.availability {
         case .available:
-            "Apple Intelligence is ready to use"
+            String(localized: "Apple Intelligence is ready to use")
         case let .unavailable(reason):
             self.descriptionForUnavailableReason(reason)
         @unknown default:
-            "Unable to determine availability"
+            String(localized: "Unable to determine availability")
         }
     }
 
@@ -161,15 +161,15 @@ struct IntelligenceSettingsView: View {
     private func titleForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
-            return "Not Supported"
+            return String(localized: "Not Supported")
         } else if reasonString.contains("modelNotReady") {
-            return "Downloading"
+            return String(localized: "Downloading")
         } else if reasonString.contains("appleIntelligenceNotEnabled") {
-            return "Not Enabled"
+            return String(localized: "Not Enabled")
         } else if reasonString.contains("languageNotSupported") {
-            return "Language Not Supported"
+            return String(localized: "Language Not Supported")
         } else {
-            return "Unavailable"
+            return String(localized: "Unavailable")
         }
     }
 
@@ -177,15 +177,15 @@ struct IntelligenceSettingsView: View {
     private func descriptionForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
-            return "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required."
+            return String(localized: "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required.")
         } else if reasonString.contains("modelNotReady") {
-            return "Apple Intelligence is downloading. This may take a few minutes."
+            return String(localized: "Apple Intelligence is downloading. This may take a few minutes.")
         } else if reasonString.contains("appleIntelligenceNotEnabled") {
-            return "Enable Apple Intelligence in System Settings to use AI features."
+            return String(localized: "Enable Apple Intelligence in System Settings to use AI features.")
         } else if reasonString.contains("languageNotSupported") {
-            return "Change your system language to English or another supported language."
+            return String(localized: "Change your system language to English or another supported language.")
         } else {
-            return "Apple Intelligence is currently unavailable."
+            return String(localized: "Apple Intelligence is currently unavailable.")
         }
     }
 }

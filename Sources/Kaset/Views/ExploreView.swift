@@ -13,15 +13,15 @@ struct ExploreView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading explore content...")
+                        LoadingView(String(localized: "Loading explore content..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):

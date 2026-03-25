@@ -91,7 +91,7 @@ struct SearchView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search songs, albums, artists...", text: self.$viewModel.query)
+            TextField(String(localized: "Search songs, albums, artists..."), text: self.$viewModel.query)
                 .textFieldStyle(.plain)
                 .focused(self.$isSearchFieldFocused)
                 .onSubmit {
@@ -137,7 +137,7 @@ struct SearchView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
+                .accessibilityLabel(String(localized: "Clear search"))
             }
         }
         .padding(10)
@@ -202,7 +202,7 @@ struct SearchView: View {
                 self.viewModel.selectedFilter = filter
             }
         } label: {
-            Text(filter.rawValue)
+            Text(filter.displayName)
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -219,8 +219,8 @@ struct SearchView: View {
     private var contentView: some View {
         if !self.networkMonitor.isConnected {
             ErrorView(
-                title: "No Connection",
-                message: "Please check your internet connection and try again."
+                title: String(localized: "No Connection"),
+                message: String(localized: "Please check your internet connection and try again.")
             ) {
                 self.viewModel.search()
             }
@@ -229,7 +229,7 @@ struct SearchView: View {
             case .idle:
                 self.emptyStateView
             case .loading, .loadingMore:
-                LoadingView("Searching...")
+                LoadingView(String(localized: "Searching..."))
             case .loaded:
                 if self.viewModel.filteredItems.isEmpty {
                     self.noResultsView
@@ -250,7 +250,7 @@ struct SearchView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.tertiary)
 
-            Text(self.viewModel.query.isEmpty ? "Search for your favorite music" : "Press Enter to search")
+            Text(self.viewModel.query.isEmpty ? String(localized: "Search for your favorite music") : String(localized: "Press Enter to search"))
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
@@ -303,7 +303,7 @@ struct SearchView: View {
                 HStack {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Loading more...")
+                    Text("Loading more...", comment: "Shown while loading more search results")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -313,7 +313,7 @@ struct SearchView: View {
                 Button {
                     Task { await self.viewModel.loadMore() }
                 } label: {
-                    Text("Load More")
+                    Text("Load More", comment: "Button to load more search results")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)

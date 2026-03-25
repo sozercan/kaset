@@ -47,12 +47,12 @@ struct PlaylistDetailView: View {
         Group {
             switch self.viewModel.loadingState {
             case .idle, .loading:
-                LoadingView("Loading playlist...")
+                LoadingView(String(localized: "Loading playlist..."))
             case .loaded, .loadingMore:
                 if let detail = viewModel.playlistDetail {
                     self.contentView(detail)
                 } else {
-                    ErrorView(title: "Unable to load playlist", message: "Playlist not found") {
+                    ErrorView(title: String(localized: "Unable to load playlist"), message: String(localized: "Playlist not found")) {
                         Task { await self.viewModel.load() }
                     }
                 }
@@ -146,7 +146,7 @@ struct PlaylistDetailView: View {
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                Text(detail.isAlbum ? "Album" : "Playlist")
+                Text(detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -231,7 +231,7 @@ struct PlaylistDetailView: View {
                 self.toggleLibrary()
             } label: {
                 Label(
-                    currentlyInLibrary ? "Added to Library" : "Add to Library",
+                    currentlyInLibrary ? String(localized: "Added to Library") : String(localized: "Add to Library"),
                     systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle"
                 )
             }
@@ -251,7 +251,7 @@ struct PlaylistDetailView: View {
             }
 
             // Track count
-            Text("\(detail.tracks.count) songs")
+            Text("\(detail.tracks.count) songs", comment: "Playlist track count")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

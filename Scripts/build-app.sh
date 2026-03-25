@@ -119,6 +119,11 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ar</string>
+    </array>
     <key>CFBundleExecutable</key>
     <string>${APP_NAME}</string>
     <key>CFBundleIconFile</key>
@@ -264,6 +269,18 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
       echo "    ↳ Compiling bundle asset catalog"
       compile_asset_catalog "$bundle_dest/Assets.xcassets" "$bundle_dest"
     fi
+  done
+
+  # Compile .xcstrings catalogs from SwiftPM resource bundles into .lproj/.strings
+  # files in the main app bundle so that Bundle.main localization lookups work.
+  for bundle in "${SWIFTPM_BUNDLES[@]}"; do
+    for xcstrings in "$bundle"/*.xcstrings; do
+      if [[ -f "$xcstrings" ]]; then
+        echo "  → Compiling localization catalog: $(basename "$xcstrings")"
+        xcrun xcstringstool compile "$xcstrings" \
+          --output-directory "$APP_BUNDLE/Contents/Resources"
+      fi
+    done
   done
 fi
 

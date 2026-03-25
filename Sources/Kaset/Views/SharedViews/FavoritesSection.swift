@@ -44,7 +44,7 @@ struct FavoritesSection: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Favorites")
+        .accessibilityLabel(String(localized: "Favorites"))
     }
 
     // MARK: - Actions
@@ -236,7 +236,7 @@ private struct FavoriteItemCard: View {
             }
         }
         .accessibilityLabel("\(self.item.title), \(self.item.typeLabel), \(self.item.subtitle ?? "")")
-        .accessibilityHint("Drag to reorder")
+        .accessibilityHint(String(localized: "Drag to reorder"))
     }
 
     private var thumbnail: some View {

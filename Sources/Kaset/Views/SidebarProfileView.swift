@@ -75,7 +75,7 @@ struct SidebarProfileView: View {
             .accessibilityLabel(self.profileAccessibilityLabel(for: account))
             .accessibilityHint(
                 self.accountService.hasBrandAccounts
-                    ? "Double-tap to switch accounts"
+                    ? String(localized: "Double-tap to switch accounts")
                     : ""
             )
             .popover(isPresented: self.$showingAccountSwitcher, arrowEdge: .top) {
@@ -123,11 +123,11 @@ struct SidebarProfileView: View {
                 .foregroundStyle(.orange)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Failed to load")
+                Text(String(localized: "Failed to load"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.primary)
 
-                Text("Tap to retry")
+                Text(String(localized: "Tap to retry"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -142,8 +142,8 @@ struct SidebarProfileView: View {
             }
         }
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.errorState)
-        .accessibilityLabel("Failed to load accounts")
-        .accessibilityHint("Double-tap to retry")
+        .accessibilityLabel(String(localized: "Failed to load accounts"))
+        .accessibilityHint(String(localized: "Double-tap to retry"))
     }
 
     // MARK: - Logged Out Content
@@ -154,14 +154,14 @@ struct SidebarProfileView: View {
                 .font(.system(size: 24))
                 .foregroundStyle(.tertiary)
 
-            Text("Not signed in")
+            Text(String(localized: "Not signed in"))
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
 
             Spacer()
         }
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
-        .accessibilityLabel("Not signed in")
+        .accessibilityLabel(String(localized: "Not signed in"))
     }
 
     // MARK: - Avatar View

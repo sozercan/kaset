@@ -15,53 +15,53 @@ struct Sidebar: View {
                     // Main navigation
                     Section {
                         NavigationLink(value: NavigationItem.search) {
-                            Label("Search", systemImage: "magnifyingglass")
+                            Label(NavigationItem.search.displayName, systemImage: NavigationItem.search.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
 
                         NavigationLink(value: NavigationItem.home) {
-                            Label("Home", systemImage: "house")
+                            Label(NavigationItem.home.displayName, systemImage: NavigationItem.home.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.homeItem)
                     }
 
                     // Discover section
-                    Section("Discover") {
+                    Section(String(localized: "Discover")) {
                         NavigationLink(value: NavigationItem.explore) {
-                            Label("Explore", systemImage: "globe")
+                            Label(NavigationItem.explore.displayName, systemImage: NavigationItem.explore.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
 
                         NavigationLink(value: NavigationItem.charts) {
-                            Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
+                            Label(NavigationItem.charts.displayName, systemImage: NavigationItem.charts.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.chartsItem)
 
                         NavigationLink(value: NavigationItem.moodsAndGenres) {
-                            Label("Moods & Genres", systemImage: "theatermask.and.paintbrush")
+                            Label(NavigationItem.moodsAndGenres.displayName, systemImage: NavigationItem.moodsAndGenres.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.moodsAndGenresItem)
 
                         NavigationLink(value: NavigationItem.newReleases) {
-                            Label("New Releases", systemImage: "sparkles")
+                            Label(NavigationItem.newReleases.displayName, systemImage: NavigationItem.newReleases.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
 
                         NavigationLink(value: NavigationItem.podcasts) {
-                            Label("Podcasts", systemImage: "mic.fill")
+                            Label(NavigationItem.podcasts.displayName, systemImage: NavigationItem.podcasts.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
                     }
 
                     // Collection section
-                    Section("Collection") {
+                    Section(String(localized: "Collection")) {
                         NavigationLink(value: NavigationItem.library) {
-                            Label("Library", systemImage: "square.stack.fill")
+                            Label(NavigationItem.library.displayName, systemImage: NavigationItem.library.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
 
                         NavigationLink(value: NavigationItem.likedMusic) {
-                            Label("Liked Music", systemImage: "heart.fill")
+                            Label(NavigationItem.likedMusic.displayName, systemImage: NavigationItem.likedMusic.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
                     }

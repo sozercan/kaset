@@ -1,0 +1,2680 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld songs" : {
+      "comment" : "Playlist track count",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld أغنية"
+          }
+        }
+      }
+    },
+    "A native YouTube Music experience for macOS" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تجربة YouTube Music أصلية لنظام macOS"
+          }
+        }
+      }
+    },
+    "Access your playlists and liked songs" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الوصول إلى قوائم التشغيل والأغاني المفضلة"
+          }
+        }
+      }
+    },
+    "Add to Favorites" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة إلى المفضلة"
+          }
+        }
+      }
+    },
+    "Add to Library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة إلى المكتبة"
+          }
+        }
+      }
+    },
+    "Add to Queue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة إلى قائمة الانتظار"
+          }
+        }
+      }
+    },
+    "Added to Library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تمت الإضافة إلى المكتبة"
+          }
+        }
+      }
+    },
+    "AirPlay" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay"
+          }
+        }
+      }
+    },
+    "AirPlay Connected" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay متصل"
+          }
+        }
+      }
+    },
+    "Album" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ألبوم"
+          }
+        }
+      }
+    },
+    "Albums" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ألبومات"
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الكل"
+          }
+        }
+      }
+    },
+    "All Episodes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جميع الحلقات"
+          }
+        }
+      }
+    },
+    "An unknown error occurred" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حدث خطأ غير معروف"
+          }
+        }
+      }
+    },
+    "Analyzing playlist..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحليل قائمة التشغيل..."
+          }
+        }
+      }
+    },
+    "Analyzing..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جاري التحليل..."
+          }
+        }
+      }
+    },
+    "Apple Intelligence is currently unavailable." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذكاء Apple غير متاح حاليًا."
+          }
+        }
+      }
+    },
+    "Apple Intelligence is downloading. This may take a few minutes." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تنزيل ذكاء Apple. قد يستغرق هذا بضع دقائق."
+          }
+        }
+      }
+    },
+    "Apple Intelligence is not available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذكاء Apple غير متاح"
+          }
+        }
+      }
+    },
+    "Apple Intelligence is ready to use" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذكاء Apple جاهز للاستخدام"
+          }
+        }
+      }
+    },
+    "Apply Changes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تطبيق التغييرات"
+          }
+        }
+      }
+    },
+    "Artist not found" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الفنان غير موجود"
+          }
+        }
+      }
+    },
+    "Artists" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فنانون"
+          }
+        }
+      }
+    },
+    "Ask AI (⌘K)" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسأل الذكاء الاصطناعي (⌘K)"
+          }
+        }
+      }
+    },
+    "Ask anything about music..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسأل أي شيء عن الموسيقى..."
+          }
+        }
+      }
+    },
+    "Available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متاح"
+          }
+        }
+      }
+    },
+    "Background Playback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التشغيل في الخلفية"
+          }
+        }
+      }
+    },
+    "Built with SwiftUI for a true macOS experience" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مبنية بـ SwiftUI لتجربة macOS حقيقية"
+          }
+        }
+      }
+    },
+    "Calculating..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ الحساب..."
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        }
+      }
+    },
+    "Change your system language to English or another supported language." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غيّر لغة النظام إلى الإنجليزية أو لغة مدعومة أخرى."
+          }
+        }
+      }
+    },
+    "Charts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رائج"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح"
+          }
+        }
+      }
+    },
+    "Clear Cache" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح ذاكرة التخزين المؤقت"
+          }
+        }
+      }
+    },
+    "Clear input" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح المدخلات"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح البحث"
+          }
+        }
+      }
+    },
+    "Clearing..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ المسح..."
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق"
+          }
+        }
+      }
+    },
+    "Close side panel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق اللوحة الجانبية"
+          }
+        }
+      }
+    },
+    "Collection" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المجموعة"
+          }
+        }
+      }
+    },
+    "Community playlists" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قوائم تشغيل المجتمع"
+          }
+        }
+      }
+    },
+    "Connected as %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متصل كـ %@"
+          }
+        }
+      }
+    },
+    "Content may not be available in your region." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قد لا يكون المحتوى متاحًا في منطقتك."
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متابعة"
+          }
+        }
+      }
+    },
+    "Control playback with your keyboard" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحكم في التشغيل باستخدام لوحة المفاتيح"
+          }
+        }
+      }
+    },
+    "Could not create AI session" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر إنشاء جلسة الذكاء الاصطناعي"
+          }
+        }
+      }
+    },
+    "Couldn't search for music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر البحث عن الموسيقى"
+          }
+        }
+      }
+    },
+    "Create or save playlists on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أنشئ أو احفظ قوائم التشغيل على YouTube Music لتراها هنا."
+          }
+        }
+      }
+    },
+    "Discover" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اكتشاف"
+          }
+        }
+      }
+    },
+    "Dislike" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يعجبني"
+          }
+        }
+      }
+    },
+    "Disliked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يعجبني"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم"
+          }
+        }
+      }
+    },
+    "Double-tap to retry" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انقر مرتين لإعادة المحاولة"
+          }
+        }
+      }
+    },
+    "Double-tap to switch accounts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انقر مرتين لتبديل الحسابات"
+          }
+        }
+      }
+    },
+    "Downloading" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ التنزيل"
+          }
+        }
+      }
+    },
+    "Drag to reorder" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسحب لإعادة الترتيب"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعديل"
+          }
+        }
+      }
+    },
+    "Enable Apple Intelligence in System Settings to use AI features." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فعّل ذكاء Apple في إعدادات النظام لاستخدام ميزات الذكاء الاصطناعي."
+          }
+        }
+      }
+    },
+    "Episodes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحلقات"
+          }
+        }
+      }
+    },
+    "Error: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "خطأ: %@"
+          }
+        }
+      }
+    },
+    "Explain lyrics with AI" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شرح الكلمات بالذكاء الاصطناعي"
+          }
+        }
+      }
+    },
+    "Explore" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "استكشاف"
+          }
+        }
+      }
+    },
+    "Failed to load" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فشل التحميل"
+          }
+        }
+      }
+    },
+    "Failed to load accounts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فشل تحميل الحسابات"
+          }
+        }
+      }
+    },
+    "Failed to load accounts. Please try again." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فشل تحميل الحسابات. يرجى المحاولة مرة أخرى."
+          }
+        }
+      }
+    },
+    "Failed to switch account. Please try again." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فشل تبديل الحساب. يرجى المحاولة مرة أخرى."
+          }
+        }
+      }
+    },
+    "Favorites" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المفضلة"
+          }
+        }
+      }
+    },
+    "Featured playlists" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قوائم تشغيل مميزة"
+          }
+        }
+      }
+    },
+    "Find songs, albums, artists, and playlists" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل"
+          }
+        }
+      }
+    },
+    "Go to Album" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الانتقال إلى الألبوم"
+          }
+        }
+      }
+    },
+    "Go to Artist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الانتقال إلى الفنان"
+          }
+        }
+      }
+    },
+    "Hidden" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مخفي"
+          }
+        }
+      }
+    },
+    "Hide lyrics explanation" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إخفاء شرح الكلمات"
+          }
+        }
+      }
+    },
+    "Highlights" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأبرز"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الرئيسية"
+          }
+        }
+      }
+    },
+    "In Library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "في المكتبة"
+          }
+        }
+      }
+    },
+    "Keep listening even when the window is closed" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "استمر في الاستماع حتى عند إغلاق النافذة"
+          }
+        }
+      }
+    },
+    "Language Not Supported" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اللغة غير مدعومة"
+          }
+        }
+      }
+    },
+    "Learn more" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "معرفة المزيد"
+          }
+        }
+      }
+    },
+    "Library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المكتبة"
+          }
+        }
+      }
+    },
+    "Like" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أعجبني"
+          }
+        }
+      }
+    },
+    "Liked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أعجبني"
+          }
+        }
+      }
+    },
+    "Liked Music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الموسيقى المعجب بها"
+          }
+        }
+      }
+    },
+    "Load More" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحميل المزيد"
+          }
+        }
+      }
+    },
+    "Loading artist..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الفنان..."
+          }
+        }
+      }
+    },
+    "Loading charts..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الأكثر رواجًا..."
+          }
+        }
+      }
+    },
+    "Loading explore content..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل محتوى الاستكشاف..."
+          }
+        }
+      }
+    },
+    "Loading liked songs..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الأغاني المعجب بها..."
+          }
+        }
+      }
+    },
+    "Loading lyrics..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الكلمات..."
+          }
+        }
+      }
+    },
+    "Loading moods & genres..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الحالات والأنواع..."
+          }
+        }
+      }
+    },
+    "Loading more..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل المزيد..."
+          }
+        }
+      }
+    },
+    "Loading new releases..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الإصدارات الجديدة..."
+          }
+        }
+      }
+    },
+    "Loading playlist..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل قائمة التشغيل..."
+          }
+        }
+      }
+    },
+    "Loading podcasts..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل البودكاست..."
+          }
+        }
+      }
+    },
+    "Loading songs..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل الأغاني..."
+          }
+        }
+      }
+    },
+    "Loading your library..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ تحميل مكتبتك..."
+          }
+        }
+      }
+    },
+    "Loading..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ التحميل..."
+          }
+        }
+      }
+    },
+    "Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "كلمات الأغنية"
+          }
+        }
+      }
+    },
+    "Media Keys" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مفاتيح الوسائط"
+          }
+        }
+      }
+    },
+    "Mix" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مزيج"
+          }
+        }
+      }
+    },
+    "Moods & Genres" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حالات مزاجية وأنواع"
+          }
+        }
+      }
+    },
+    "Move to End" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نقل إلى الأسفل"
+          }
+        }
+      }
+    },
+    "Move to Top" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نقل إلى الأعلى"
+          }
+        }
+      }
+    },
+    "Native Interface" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "واجهة أصلية"
+          }
+        }
+      }
+    },
+    "New Releases" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إصدارات جديدة"
+          }
+        }
+      }
+    },
+    "Next track" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المقطع التالي"
+          }
+        }
+      }
+    },
+    "No changes suggested. The playlist looks good!" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد تغييرات مقترحة. قائمة التشغيل تبدو جيدة!"
+          }
+        }
+      }
+    },
+    "No Connection" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يوجد اتصال"
+          }
+        }
+      }
+    },
+    "No Content Available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يتوفر محتوى"
+          }
+        }
+      }
+    },
+    "No liked songs yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد أغاني معجب بها بعد"
+          }
+        }
+      }
+    },
+    "No Lyrics Available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا تتوفر كلمات"
+          }
+        }
+      }
+    },
+    "No Moods & Genres Available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا تتوفر حالات أو أنواع"
+          }
+        }
+      }
+    },
+    "No playlists yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد قوائم تشغيل بعد"
+          }
+        }
+      }
+    },
+    "No podcasts yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد بودكاست بعد"
+          }
+        }
+      }
+    },
+    "No Queue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد قائمة انتظار"
+          }
+        }
+      }
+    },
+    "No results found" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم العثور على نتائج"
+          }
+        }
+      }
+    },
+    "No Song Playing" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد أغنية قيد التشغيل"
+          }
+        }
+      }
+    },
+    "No songs or playlists found in this category." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم العثور على أغاني أو قوائم تشغيل في هذه الفئة."
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير متصل"
+          }
+        }
+      }
+    },
+    "Not disliked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير مرفوض"
+          }
+        }
+      }
+    },
+    "Not Enabled" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير مفعّل"
+          }
+        }
+      }
+    },
+    "Not liked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير معجب به"
+          }
+        }
+      }
+    },
+    "Not signed in" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم تسجيل الدخول"
+          }
+        }
+      }
+    },
+    "Not Supported" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير مدعوم"
+          }
+        }
+      }
+    },
+    "Note: If passkeys don't work, use \"Try another way\" to sign in with password." : {
+      "comment" : "Login help text about passkey alternative",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ملاحظة: إذا لم تعمل مفاتيح المرور، استخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور."
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "معطّل"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حسنًا"
+          }
+        }
+      }
+    },
+    "On" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مفعّل"
+          }
+        }
+      }
+    },
+    "One" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "واحد"
+          }
+        }
+      }
+    },
+    "Open queue in side panel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح قائمة الانتظار في اللوحة الجانبية"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف مؤقت"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل"
+          }
+        }
+      }
+    },
+    "Play a song to view its lyrics here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شغّل أغنية لعرض كلماتها هنا."
+          }
+        }
+      }
+    },
+    "Play All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل الكل"
+          }
+        }
+      }
+    },
+    "Play Latest" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل الأحدث"
+          }
+        }
+      }
+    },
+    "Play Next" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل التالي"
+          }
+        }
+      }
+    },
+    "Play songs from a playlist or album to build your queue." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شغّل أغاني من قائمة تشغيل أو ألبوم لبناء قائمة الانتظار."
+          }
+        }
+      }
+    },
+    "Played" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم التشغيل"
+          }
+        }
+      }
+    },
+    "Playing" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قيد التشغيل"
+          }
+        }
+      }
+    },
+    "Playlist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قائمة تشغيل"
+          }
+        }
+      }
+    },
+    "Playlist not found" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قائمة التشغيل غير موجودة"
+          }
+        }
+      }
+    },
+    "Playlists" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قوائم التشغيل"
+          }
+        }
+      }
+    },
+    "Please check your internet connection and try again." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى."
+          }
+        }
+      }
+    },
+    "Podcasts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بودكاست"
+          }
+        }
+      }
+    },
+    "Press Enter to search" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط Enter للبحث"
+          }
+        }
+      }
+    },
+    "Previous track" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المقطع السابق"
+          }
+        }
+      }
+    },
+    "Processing..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ المعالجة..."
+          }
+        }
+      }
+    },
+    "Queue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قائمة الانتظار"
+          }
+        }
+      }
+    },
+    "Redo" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعادة"
+          }
+        }
+      }
+    },
+    "Refine" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحسين"
+          }
+        }
+      }
+    },
+    "Refine Playlist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحسين قائمة التشغيل"
+          }
+        }
+      }
+    },
+    "Release Notes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ملاحظات الإصدار"
+          }
+        }
+      }
+    },
+    "Remove Dislike" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة عدم الإعجاب"
+          }
+        }
+      }
+    },
+    "Remove from Favorites" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة من المفضلة"
+          }
+        }
+      }
+    },
+    "Remove from Queue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة من قائمة الانتظار"
+          }
+        }
+      }
+    },
+    "Repeat" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكرار"
+          }
+        }
+      }
+    },
+    "Retry" : {
+      "comment" : "Button to retry failed playback",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعادة المحاولة"
+          }
+        }
+      }
+    },
+    "Save playlists and subscribe to podcasts on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا."
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بحث"
+          }
+        }
+      }
+    },
+    "Search for your favorite music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ابحث عن موسيقاك المفضلة"
+          }
+        }
+      }
+    },
+    "Search songs, albums, artists..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "البحث عن أغاني، ألبومات، فنانين..."
+          }
+        }
+      }
+    },
+    "Searching..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ البحث..."
+          }
+        }
+      }
+    },
+    "See all" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض الكل"
+          }
+        }
+      }
+    },
+    "Select an item from the sidebar" : {
+      "comment" : "Placeholder shown when no sidebar item is selected",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اختر عنصرًا من الشريط الجانبي"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مشاركة"
+          }
+        }
+      }
+    },
+    "Show All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض الكل"
+          }
+        }
+      }
+    },
+    "Showing" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ظاهر"
+          }
+        }
+      }
+    },
+    "Shuffle" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "خلط"
+          }
+        }
+      }
+    },
+    "Sign in to access your YouTube Music library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سجّل الدخول للوصول إلى مكتبة YouTube Music الخاصة بك"
+          }
+        }
+      }
+    },
+    "Sign in to YouTube Music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تسجيل الدخول إلى YouTube Music"
+          }
+        }
+      }
+    },
+    "Sign in with Google" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تسجيل الدخول باستخدام Google"
+          }
+        }
+      }
+    },
+    "Signed in to YouTube Music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم تسجيل الدخول إلى YouTube Music"
+          }
+        }
+      }
+    },
+    "Songs" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أغاني"
+          }
+        }
+      }
+    },
+    "Songs you like will appear here" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأغاني التي تعجبك ستظهر هنا"
+          }
+        }
+      }
+    },
+    "Start Radio" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بدء الراديو"
+          }
+        }
+      }
+    },
+    "Subscribe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اشتراك"
+          }
+        }
+      }
+    },
+    "Subscribe to podcasts on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اشترك في البودكاست على YouTube Music لتراها هنا."
+          }
+        }
+      }
+    },
+    "Subscribed" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مشترك"
+          }
+        }
+      }
+    },
+    "Subscription Error" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "خطأ في الاشتراك"
+          }
+        }
+      }
+    },
+    "Suggested Removals" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالات مقترحة"
+          }
+        }
+      }
+    },
+    "Switch Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تبديل الحساب"
+          }
+        }
+      }
+    },
+    "Tap to retry" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "انقر لإعادة المحاولة"
+          }
+        }
+      }
+    },
+    "There aren't any lyrics available for this song." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا تتوفر كلمات لهذه الأغنية."
+          }
+        }
+      }
+    },
+    "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هذا الـ Mac لا يدعم ذكاء Apple. يتطلب Mac بمعالج Apple Silicon."
+          }
+        }
+      }
+    },
+    "Top songs" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أفضل الأغاني"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حاول مرة أخرى"
+          }
+        }
+      }
+    },
+    "Try commands like:" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جرّب أوامر مثل:"
+          }
+        }
+      }
+    },
+    "Try searching for something else" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حاول البحث عن شيء آخر"
+          }
+        }
+      }
+    },
+    "Unable to determine availability" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر تحديد التوفر"
+          }
+        }
+      }
+    },
+    "Unable to load artist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر تحميل الفنان"
+          }
+        }
+      }
+    },
+    "Unable to load content" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر تحميل المحتوى"
+          }
+        }
+      }
+    },
+    "Unable to load playlist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعذّر تحميل قائمة التشغيل"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير متاح"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تراجع"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير معروف"
+          }
+        }
+      }
+    },
+    "Unknown Artist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فنان غير معروف"
+          }
+        }
+      }
+    },
+    "Unlike" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء الإعجاب"
+          }
+        }
+      }
+    },
+    "Up Next" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التالي"
+          }
+        }
+      }
+    },
+    "Video" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فيديو"
+          }
+        }
+      }
+    },
+    "View Album" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض الألبوم"
+          }
+        }
+      }
+    },
+    "View Artist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض الفنان"
+          }
+        }
+      }
+    },
+    "View Playlist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض قائمة التشغيل"
+          }
+        }
+      }
+    },
+    "View Podcast" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض البودكاست"
+          }
+        }
+      }
+    },
+    "Waiting for authorization…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بانتظار التفويض…"
+          }
+        }
+      }
+    },
+    "Welcome to Kaset" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مرحبًا بك في Kaset"
+          }
+        }
+      }
+    },
+    "What would you like to change?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ما الذي تريد تغييره؟"
+          }
+        }
+      }
+    },
+    "What would you like to do with your queue?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ماذا تريد أن تفعل بقائمة الانتظار؟"
+          }
+        }
+      }
+    },
+    "What would you like to do?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ماذا تريد أن تفعل؟"
+          }
+        }
+      }
+    },
+    "Your Library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مكتبتك"
+          }
+        }
+      }
+    },
+    "Your library is empty" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مكتبتك فارغة"
+          }
+        }
+      }
+    },
+    "Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحساب"
+          }
+        }
+      }
+    },
+    "Sign Out" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تسجيل الخروج"
+          }
+        }
+      }
+    },
+    "Show Now Playing Notifications" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إظهار إشعارات قيد التشغيل"
+          }
+        }
+      }
+    },
+    "Haptic Feedback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاستجابة اللمسية"
+          }
+        }
+      }
+    },
+    "Provide tactile feedback for actions on Force Touch trackpads" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تقديم استجابة لمسية للإجراءات على لوحات التتبع Force Touch"
+          }
+        }
+      }
+    },
+    "Remember Shuffle & Repeat" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تذكّر الخلط والتكرار"
+          }
+        }
+      }
+    },
+    "Save shuffle and repeat settings across app restarts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق"
+          }
+        }
+      }
+    },
+    "Default Page on Launch" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الصفحة الافتراضية عند التشغيل"
+          }
+        }
+      }
+    },
+    "Image Cache" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذاكرة التخزين المؤقت للصور"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عام"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحديثات"
+          }
+        }
+      }
+    },
+    "Automatically check for updates" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحقق تلقائيًا من التحديثات"
+          }
+        }
+      }
+    },
+    "Software Update" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديث البرنامج"
+          }
+        }
+      }
+    },
+    "Never checked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم التحقق مطلقًا"
+          }
+        }
+      }
+    },
+    "Check Now" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحقق الآن"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإصدار"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        }
+      }
+    },
+    "About" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حول"
+          }
+        }
+      }
+    },
+    "Last Used" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آخر استخدام"
+          }
+        }
+      }
+    },
+    "Apple Intelligence" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذكاء Apple"
+          }
+        }
+      }
+    },
+    "Enable AI Features" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تفعيل ميزات الذكاء الاصطناعي"
+          }
+        }
+      }
+    },
+    "When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عند التفعيل، يمكنك استخدام الأوامر بلغة طبيعية، وتحسين قوائم التشغيل بالذكاء الاصطناعي، وشرح كلمات الأغاني."
+          }
+        }
+      }
+    },
+    "Command Bar" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شريط الأوامر"
+          }
+        }
+      }
+    },
+    "Quick Access" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصول سريع"
+          }
+        }
+      }
+    },
+    "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح شريط الأوامر للتحكم بالموسيقى بلغة طبيعية. جرّب قول \"شغّل شيء هادئ\" أو \"أضف جاز إلى قائمة الانتظار\"."
+          }
+        }
+      }
+    },
+    "Clear AI Context" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح سياق الذكاء الاصطناعي"
+          }
+        }
+      }
+    },
+    "Clears the AI session state. Use this if responses seem off or stuck." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يمسح حالة جلسة الذكاء الاصطناعي. استخدمه إذا بدت الاستجابات غير صحيحة أو متوقفة."
+          }
+        }
+      }
+    },
+    "Apple Intelligence & Siri Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعدادات ذكاء Apple و Siri"
+          }
+        }
+      }
+    },
+    "AI responses follow your system language settings." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تتبع استجابات الذكاء الاصطناعي إعدادات لغة النظام."
+          }
+        }
+      }
+    },
+    "Intelligence" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الذكاء"
+          }
+        }
+      }
+    },
+    "Scrobbling" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سكروبلينج"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اتصال"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        }
+      }
+    },
+    "Disconnect" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قطع الاتصال"
+          }
+        }
+      }
+    },
+    "Check for Updates..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحقق من التحديثات..."
+          }
+        }
+      }
+    },
+    "Playback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التشغيل"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف مؤقت"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التالي"
+          }
+        }
+      }
+    },
+    "Previous" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "السابق"
+          }
+        }
+      }
+    },
+    "Volume Up" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رفع الصوت"
+          }
+        }
+      }
+    },
+    "Volume Down" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "خفض الصوت"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "كتم الصوت"
+          }
+        }
+      }
+    },
+    "Unmute" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء كتم الصوت"
+          }
+        }
+      }
+    },
+    "Shuffle On" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل الخلط"
+          }
+        }
+      }
+    },
+    "Shuffle Off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف الخلط"
+          }
+        }
+      }
+    },
+    "Repeat All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكرار الكل"
+          }
+        }
+      }
+    },
+    "Repeat One" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكرار واحدة"
+          }
+        }
+      }
+    },
+    "Repeat Off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف التكرار"
+          }
+        }
+      }
+    },
+    "Show Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إظهار الكلمات"
+          }
+        }
+      }
+    },
+    "Hide Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إخفاء الكلمات"
+          }
+        }
+      }
+    },
+    "What's New in Kaset" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الجديد في Kaset"
+          }
+        }
+      }
+    },
+    "Moods & Genres" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حالات وأنواع"
+          }
+        }
+      }
+    },
+    "New Releases" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إصدارات جديدة"
+          }
+        }
+      }
+    },
+    "Liked Music" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الموسيقى المعجب بها"
+          }
+        }
+      }
+    },
+    "Charts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأكثر رواجًا"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

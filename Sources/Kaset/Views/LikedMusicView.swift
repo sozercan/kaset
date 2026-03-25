@@ -16,15 +16,15 @@ struct LikedMusicView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading liked songs...")
+                        LoadingView(String(localized: "Loading liked songs..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -190,7 +190,7 @@ struct LikedMusicView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            Text("Songs you like will appear here")
+            Text("Songs you like will appear here", comment: "Liked music empty state")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
         }
