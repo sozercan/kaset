@@ -332,6 +332,7 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_landing",
     "FEmusic_library_albums",
     "FEmusic_library_artists",
+    "FEmusic_library_corpus_artists",
     "FEmusic_library_corpus_track_artists",
     "FEmusic_library_songs",
     "FEmusic_library_non_music_audio_list",
@@ -977,7 +978,8 @@ func listEndpoints() {
     FEmusic_history               Listening history (organized by time)
     FEmusic_library_landing       Library overview page
     FEmusic_library_albums        Saved albums (requires params*)
-    FEmusic_library_artists       Followed artists (requires params*)
+    FEmusic_library_artists       Rejected with HTTP 400 in current sessions
+    FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
     FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
     FEmusic_library_songs         All songs in library (requires params*)
     FEmusic_recently_played       Recently played content
@@ -1277,7 +1279,7 @@ func runMain() async {
 
 /// Run the async main
 let semaphore = DispatchSemaphore(value: 0)
-Task {
+Task.detached {
     await runMain()
     semaphore.signal()
 }

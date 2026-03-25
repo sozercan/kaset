@@ -558,33 +558,52 @@ final class YTMusicClient: YTMusicClientProtocol {
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.logger.info("Fetching library content")
 
-        // Use the dedicated param-based artists endpoint for followed artists.
         let landingData = try await self.request(
             "browse",
             body: ["browseId": "FEmusic_library_landing"],
             ttl: APICache.TTL.library
         )
-        let artistsData = try await self.request(
-            "browse",
-            body: [
-                "browseId": "FEmusic_library_artists",
-                "params": "ggMCCAE",
-            ],
-            ttl: APICache.TTL.library
-        )
 
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
-        let artists = PlaylistParser.parseLibraryArtists(artistsData)
+        let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
         let content = PlaylistParser.LibraryContent(
             playlists: landingContent.playlists,
             artists: artists,
-            podcastShows: landingContent.podcastShows
+            podcastShows: landingContent.podcastShows,
+            artistsSource: artistsSource
         )
 
         self.logger.info(
             "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
         )
         return content
+    }
+
+    /// Fetches followed artists with graceful fallback to the library landing preview.
+    private func fetchLibraryArtists(
+        fallback fallbackArtists: [Artist]
+    ) async throws -> ([Artist], PlaylistParser.LibraryArtistsSource) {
+        do {
+            let artistsData = try await self.request(
+                "browse",
+                body: [
+                    "browseId": "FEmusic_library_corpus_artists",
+                    "params": "ggMCCAU=",
+                ],
+                ttl: APICache.TTL.library
+            )
+            let artists = PlaylistParser.parseLibraryArtists(artistsData)
+
+            if !artists.isEmpty {
+                return (artists, .dedicated)
+            }
+
+            self.logger.warning("Library corpus artists endpoint returned no artists, falling back to landing preview")
+        } catch {
+            self.logger.warning("Library corpus artists endpoint failed, falling back to landing preview: \(error.localizedDescription)")
+        }
+
+        return (fallbackArtists, .landingFallback)
     }
 
     // MARK: - Liked Songs with Pagination

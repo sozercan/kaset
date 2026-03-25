@@ -19,6 +19,11 @@ struct ArtistDetailViewModelTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
+        SongActionsHelper.artistLibraryReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
+    }
+
+    private func awaitArtistReconciliation() async {
+        try? await Task.sleep(for: .milliseconds(50))
     }
 
     // MARK: - Initial State Tests
@@ -234,6 +239,7 @@ struct ArtistDetailViewModelTests {
         await self.viewModel.load()
         self.mockClient.reset()
         await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
 
         #expect(self.mockClient.subscribeToArtistCalled == true)
         #expect(self.mockClient.subscribeToArtistIds.first == "UC-channel-123")
@@ -241,7 +247,7 @@ struct ArtistDetailViewModelTests {
         #expect(self.viewModel.artistDetail?.isSubscribed == true)
         #expect(self.libraryViewModel.libraryArtistIds == Set(["UC-channel-123"]))
         #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == true)
-        #expect(self.libraryViewModel.artists.first?.id == "MPLAUC-channel-123")
+        #expect(self.libraryViewModel.artists.first?.id == "UC-channel-123")
     }
 
     @Test("toggleSubscription keeps optimistic artist when refresh response is stale")
@@ -261,12 +267,13 @@ struct ArtistDetailViewModelTests {
         await self.viewModel.load()
         self.mockClient.reset()
         await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
 
         #expect(self.mockClient.subscribeToArtistCalled == true)
         #expect(self.mockClient.getLibraryContentCalled == true)
         #expect(self.viewModel.artistDetail?.isSubscribed == true)
         #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == true)
-        #expect(self.libraryViewModel.artists.first?.id == "MPLAUC-channel-123")
+        #expect(self.libraryViewModel.artists.first?.id == "UC-channel-123")
     }
 
     @Test("toggleSubscription unsubscribes and refreshes the library")
@@ -289,6 +296,7 @@ struct ArtistDetailViewModelTests {
         await self.viewModel.load()
         self.mockClient.reset()
         await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
 
         #expect(self.mockClient.unsubscribeFromArtistCalled == true)
         #expect(self.mockClient.unsubscribeFromArtistIds.first == "UC-channel-123")

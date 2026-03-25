@@ -1265,11 +1265,12 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 | `FEmusic_history` | HTTP 200* | Returns content with full auth, login prompt without |
 | `FEmusic_library_corpus_track_artists` | HTTP 200* | Returns library artist rows with full auth, sign-in prompt without |
 | `FEmusic_library_albums` | HTTP 400 | Needs auth + specific `params` value |
-| `FEmusic_library_artists` | HTTP 400 | Needs auth + specific `params` value |
+| `FEmusic_library_artists` | HTTP 400 | Rejected as invalid argument in current authenticated sessions |
+| `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |
 | `FEmusic_recently_played` | HTTP 400 | Needs auth |
 | `playlist/get_add_to_playlist` | HTTP 401 | Needs full auth |
 | `playlist/create` | HTTP 401 | Needs full auth |
 | `browse/edit_playlist` | HTTP 401 | Needs full auth |
 
-> **Note on Library Artists endpoints**: `FEmusic_library_corpus_track_artists` is the sign-in-backed Artists chip browseId and returns `MPLAUC...` library artist pages. Those `MPLAUC...` pages also require authentication when browsed directly. `FEmusic_library_artists` is a separate param-based endpoint that still returns HTTP 400 without both full SAPISIDHASH authentication and the correct protobuf-encoded `params` value.
+> **Note on Library Artists endpoints**: `FEmusic_library_corpus_track_artists` is the sign-in-backed Artists chip browseId and returns `MPLAUC...` library artist pages. Those `MPLAUC...` pages also require authentication when browsed directly. In current authenticated sessions, the library chip also exposes `FEmusic_library_corpus_artists` with `params=ggMCCAU=`; that endpoint returns followed artists with public `UC...` browseIds and is a better source for navigation. By contrast, `FEmusic_library_artists` currently returns HTTP 400 invalid argument even with full SAPISIDHASH authentication.

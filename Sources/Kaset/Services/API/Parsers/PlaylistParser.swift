@@ -22,10 +22,28 @@ enum PlaylistParser {
     }
 
     /// Result type for library content parsing containing playlists, artists, and podcast shows.
+    enum LibraryArtistsSource {
+        case dedicated
+        case landingFallback
+    }
+
     struct LibraryContent {
         let playlists: [Playlist]
         let artists: [Artist]
         let podcastShows: [PodcastShow]
+        let artistsSource: LibraryArtistsSource
+
+        init(
+            playlists: [Playlist],
+            artists: [Artist],
+            podcastShows: [PodcastShow],
+            artistsSource: LibraryArtistsSource = .dedicated
+        ) {
+            self.playlists = playlists
+            self.artists = artists
+            self.podcastShows = podcastShows
+            self.artistsSource = artistsSource
+        }
     }
 
     /// Parses library content from browse response, returning playlists, artists, and podcast shows.
@@ -61,7 +79,7 @@ enum PlaylistParser {
             )
         }
 
-        return artists.map { artist in
+        let normalizedArtists = artists.map { artist in
             if let publicChannelId = Artist.publicChannelId(for: artist.id) {
                 return Artist(
                     id: publicChannelId,
@@ -72,6 +90,21 @@ enum PlaylistParser {
 
             return artist
         }
+
+        return Self.deduplicatedArtists(normalizedArtists)
+    }
+
+    private static func deduplicatedArtists(_ artists: [Artist]) -> [Artist] {
+        var seenArtistIds: Set<String> = []
+        var deduplicatedArtists: [Artist] = []
+
+        for artist in artists {
+            let normalizedArtistId = Artist.publicChannelId(for: artist.id) ?? artist.id
+            guard seenArtistIds.insert(normalizedArtistId).inserted else { continue }
+            deduplicatedArtists.append(artist)
+        }
+
+        return deduplicatedArtists
     }
 
     private static func extractLibrarySections(from data: [String: Any]) -> [[String: Any]] {

@@ -12,6 +12,13 @@ struct SongActionsHelperTests {
     init() {
         self.mockClient = MockYTMusicClient()
         self.libraryViewModel = LibraryViewModel(client: self.mockClient)
+        APICache.shared.invalidateAll()
+        URLCache.shared.removeAllCachedResponses()
+        SongActionsHelper.artistLibraryReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
+    }
+
+    private func awaitArtistReconciliation() async {
+        try? await Task.sleep(for: .milliseconds(50))
     }
 
     @Test("addPlaylistToLibrary keeps optimistic playlist when refresh response is stale")
@@ -93,6 +100,79 @@ struct SongActionsHelperTests {
         let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
         self.mockClient.libraryArtists = [artist]
         self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [artist], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [artist], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            artist,
+            channelId: "UC-channel-123",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+        await self.awaitArtistReconciliation()
+
+        #expect(self.mockClient.unsubscribeFromArtistCalled == true)
+        #expect(self.mockClient.getLibraryContentCallCount == 2)
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
+        #expect(self.libraryViewModel.artists.isEmpty)
+    }
+
+    @Test("unsubscribeFromArtist clears stale browse cache after stale refresh")
+    func unsubscribeFromArtistClearsStaleBrowseCache() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.libraryArtists = [artist]
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+        self.mockClient.onGetLibraryContent = {
+            APICache.shared.set(key: "browse:stale-library", data: ["stale": true], ttl: 300)
+        }
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+        self.mockClient.onGetLibraryContent = {
+            APICache.shared.set(key: "browse:stale-library", data: ["stale": true], ttl: 300)
+        }
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            artist,
+            channelId: "UC-channel-123",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+        await self.awaitArtistReconciliation()
+
+        #expect(APICache.shared.get(key: "browse:stale-library") == nil)
+    }
+
+    @Test("unsubscribeFromArtist clears URL cache before refreshing library")
+    func unsubscribeFromArtistClearsURLCache() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.libraryArtists = [artist]
+
+        let url = try #require(URL(string: "https://music.youtube.com/library-artists-test"))
+        let request = URLRequest(url: url)
+        let response = try #require(
+            HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "max-age=300"]
+            )
+        )
+        URLCache.shared.storeCachedResponse(
+            CachedURLResponse(response: response, data: Data("cached-library".utf8)),
+            for: request
+        )
+        #expect(URLCache.shared.cachedResponse(for: request) != nil)
 
         await self.libraryViewModel.load()
         self.mockClient.reset()
@@ -103,10 +183,132 @@ struct SongActionsHelperTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
+        await self.awaitArtistReconciliation()
 
-        #expect(self.mockClient.unsubscribeFromArtistCalled == true)
-        #expect(self.mockClient.getLibraryContentCalled == true)
+        #expect(URLCache.shared.cachedResponse(for: request) == nil)
+    }
+
+    @Test("unsubscribeFromArtist discards an older in-flight library load")
+    func unsubscribeFromArtistDiscardsInflightLibraryLoad() async throws {
+        let staleArtist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [staleArtist], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+        self.mockClient.libraryContentResponseDelays = [.milliseconds(700)]
+
+        let initialLoadTask = Task {
+            await self.libraryViewModel.load()
+        }
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            staleArtist,
+            channelId: "UC-channel-123",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
+        await initialLoadTask.value
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.mockClient.getLibraryContentCallCount == 2)
         #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
         #expect(self.libraryViewModel.artists.isEmpty)
+    }
+
+    @Test("unsubscribeFromArtist removes artist from library immediately while request is in flight")
+    func unsubscribeFromArtistRemovesArtistOptimistically() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.libraryArtists = [artist]
+        self.mockClient.unsubscribeFromArtistDelay = .milliseconds(700)
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+        self.mockClient.unsubscribeFromArtistDelay = .milliseconds(700)
+
+        let unsubscribeTask = Task {
+            try await SongActionsHelper.unsubscribeFromArtist(
+                artist,
+                channelId: "UC-channel-123",
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel
+            )
+        }
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
+        #expect(self.libraryViewModel.artists.isEmpty)
+
+        try await unsubscribeTask.value
+        await self.awaitArtistReconciliation()
+    }
+
+    @Test("unsubscribeFromArtist suppresses stale artist when library browse ID differs from channel ID")
+    func unsubscribeFromArtistSuppressesArtistWithDifferentBrowseId() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-library-browse-123", name: "Test Artist")
+        self.mockClient.libraryArtists = [artist]
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        await self.libraryViewModel.load()
+        self.mockClient.reset()
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        try await SongActionsHelper.unsubscribeFromArtist(
+            artist,
+            channelId: "UC-channel-123",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
+        #expect(self.libraryViewModel.artists.isEmpty)
+    }
+
+    @Test("subscribeToArtist adds artist to library immediately while request is in flight")
+    func subscribeToArtistAddsArtistOptimistically() async throws {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")
+        self.mockClient.subscribeToArtistDelay = .milliseconds(700)
+
+        let subscribeTask = Task {
+            try await SongActionsHelper.subscribeToArtist(
+                artist,
+                channelId: "UC-channel-123",
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel
+            )
+        }
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == true)
+        #expect(self.libraryViewModel.artists.first?.id == "UC-channel-123")
+
+        try await subscribeTask.value
+        await self.awaitArtistReconciliation()
+    }
+
+    @Test("subscribeToArtist does not duplicate artist when library browse ID differs from subscription channel ID")
+    func subscribeToArtistDoesNotDuplicateArtistWithDifferentBrowseId() async throws {
+        let artist = TestFixtures.makeArtist(id: "UC-library-browse-123", name: "Test Artist")
+        let libraryContent = PlaylistParser.LibraryContent(
+            playlists: [],
+            artists: [artist],
+            podcastShows: []
+        )
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+        self.mockClient.libraryContentResponses = [libraryContent, libraryContent]
+
+        try await SongActionsHelper.subscribeToArtist(
+            artist,
+            channelId: "UC-subscribe-channel-456",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+        await self.awaitArtistReconciliation()
+
+        #expect(self.libraryViewModel.artists.count == 1)
+        #expect(self.libraryViewModel.artists.first?.id == "UC-library-browse-123")
     }
 }

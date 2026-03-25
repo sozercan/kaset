@@ -92,6 +92,11 @@ struct LibraryView: View {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
             }
+            await self.viewModel.reloadIfNeededOnActivation()
+        }
+        .task(id: "\(self.navigationPath.count)-\(self.viewModel.activationReloadGeneration)") {
+            guard self.navigationPath.isEmpty else { return }
+            await self.viewModel.reloadIfNeededOnActivation()
         }
         .refreshable {
             await self.viewModel.refresh()

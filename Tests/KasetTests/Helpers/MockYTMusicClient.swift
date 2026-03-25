@@ -35,6 +35,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var libraryPlaylists: [Playlist] = []
     var libraryArtists: [Artist] = []
     var libraryPodcastShows: [PodcastShow] = []
+    var libraryContentResponses: [PlaylistParser.LibraryContent] = []
+    var libraryContentResponseDelays: [Duration] = []
+    var onGetLibraryContent: (@MainActor () -> Void)?
+    var subscribeToArtistDelay: Duration?
+    var unsubscribeFromArtistDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
@@ -124,6 +129,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var getSearchSuggestionsCalled = false
     private(set) var getSearchSuggestionsQueries: [String] = []
     private(set) var getLibraryContentCalled = false
+    private(set) var getLibraryContentCallCount = 0
     private(set) var getLibraryPlaylistsCalled = false
     private(set) var getLikedSongsCalled = false
     private(set) var getLikedSongsContinuationCalled = false
@@ -443,7 +449,16 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.getLibraryContentCalled = true
+        self.getLibraryContentCallCount += 1
+        self.onGetLibraryContent?()
+        if !self.libraryContentResponseDelays.isEmpty {
+            let delay = self.libraryContentResponseDelays.removeFirst()
+            try? await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
+        if !self.libraryContentResponses.isEmpty {
+            return self.libraryContentResponses.removeFirst()
+        }
         return PlaylistParser.LibraryContent(
             playlists: self.libraryPlaylists,
             artists: self.libraryArtists,
@@ -614,6 +629,9 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     func subscribeToArtist(channelId: String) async throws {
         self.subscribeToArtistCalled = true
         self.subscribeToArtistIds.append(channelId)
+        if let delay = self.subscribeToArtistDelay {
+            try? await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
 
         let normalizedChannelId = Self.normalizedArtistId(channelId)
@@ -630,6 +648,9 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     func unsubscribeFromArtist(channelId: String) async throws {
         self.unsubscribeFromArtistCalled = true
         self.unsubscribeFromArtistIds.append(channelId)
+        if let delay = self.unsubscribeFromArtistDelay {
+            try? await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
 
         let normalizedChannelId = Self.normalizedArtistId(channelId)
@@ -712,6 +733,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.getSearchSuggestionsCalled = false
         self.getSearchSuggestionsQueries = []
         self.getLibraryContentCalled = false
+        self.getLibraryContentCallCount = 0
+        self.libraryContentResponses = []
+        self.libraryContentResponseDelays = []
+        self.onGetLibraryContent = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
         self.getLikedSongsContinuationCalled = false
@@ -737,6 +762,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self.subscribeToArtistIds = []
         self.unsubscribeFromArtistCalled = false
         self.unsubscribeFromArtistIds = []
+        self.unsubscribeFromArtistDelay = nil
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []
         self.getRadioQueueCalled = false

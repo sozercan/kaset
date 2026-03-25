@@ -47,6 +47,15 @@ struct PlaylistParserTests {
         #expect(artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
     }
 
+    @Test("Parse dedicated library artists deduplicates equivalent artist IDs")
+    func parseLibraryArtistsDeduplicatesEquivalentIds() {
+        let data = self.makeDuplicateLibraryArtistsResponseData()
+        let artists = PlaylistParser.parseLibraryArtists(data)
+
+        #expect(artists.map(\.id) == ["UCDUPLICATE123"])
+        #expect(artists.map(\.name) == ["Duplicate Artist"])
+    }
+
     // MARK: - Playlist Detail
 
     @Test("Parse playlist detail with header")
@@ -300,6 +309,53 @@ struct PlaylistParserTests {
                                             ],
                                         ],
                                     ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeDuplicateLibraryArtistsResponseData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [
+                                                [
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCDUPLICATE123"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Duplicate Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ],
+                                                [
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "UCDUPLICATE123"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Duplicate Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ]],
                                 ],
                             ],
                         ],
