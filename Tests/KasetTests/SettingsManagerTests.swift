@@ -137,6 +137,35 @@ struct SettingsManagerTests {
         manager.defaultLaunchPage = originalPage
     }
 
+    // MARK: - MediaControlStyle Tests
+
+    @Test("MediaControlStyle has correct display names")
+    func mediaControlStyleDisplayNames() {
+        #expect(SettingsManager.MediaControlStyle.skipForwardBackward.displayName == "Skip Forward/Backward")
+        #expect(SettingsManager.MediaControlStyle.nextPreviousTrack.displayName == "Next/Previous Track")
+    }
+
+    @Test("MediaControlStyle rawValues roundtrip correctly")
+    func mediaControlStyleRawValues() {
+        for style in SettingsManager.MediaControlStyle.allCases {
+            let restored = SettingsManager.MediaControlStyle(rawValue: style.rawValue)
+            #expect(restored == style)
+        }
+    }
+
+    @Test("MediaControlStyle identifiers are unique")
+    func mediaControlStyleIdentifiersUnique() {
+        let ids = SettingsManager.MediaControlStyle.allCases.map(\.id)
+        let uniqueIds = Set(ids)
+        #expect(ids.count == uniqueIds.count)
+    }
+
+    @Test("Default mediaControlStyle is nextPreviousTrack")
+    func defaultMediaControlStyle() {
+        let manager = SettingsManager.shared
+        #expect(manager.mediaControlStyle == .nextPreviousTrack)
+    }
+
     // MARK: - All Cases Coverage
 
     @Test("All LaunchPage cases are covered")
