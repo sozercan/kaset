@@ -611,7 +611,6 @@ enum PlaylistParser {
             return token
         }
 
-        Self.logger.debug("No continuation token found in playlist response")
         return nil
     }
 
@@ -663,6 +662,9 @@ enum PlaylistParser {
     }
 
     /// Extracts token from secondaryContents.
+    /// Prioritizes track-level continuation (inside musicPlaylistShelfRenderer) over
+    /// section-level continuation (on sectionListRenderer) to ensure we paginate through
+    /// all playlist tracks before loading suggested/automix sections.
     private static func extractTokenFromSecondaryContents(_ twoColumnRenderer: [String: Any]) -> String? {
         guard let secondaryContents = twoColumnRenderer["secondaryContents"] as? [String: Any],
               let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any]
@@ -670,15 +672,21 @@ enum PlaylistParser {
             return nil
         }
 
-        // First check for continuation at sectionListRenderer level
-        if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
-            Self.logger.debug("Found continuation token at secondaryContents sectionListRenderer level")
-            return token
-        }
-
+        // First check section contents for track-level continuation (musicPlaylistShelfRenderer)
+        // This must be checked BEFORE the section-level continuation to ensure we paginate
+        // through all playlist tracks, not skip to the suggested/automix section.
         if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
             Self.logger.debug("Found secondaryContents with \(sectionContents.count) sections")
-            return Self.extractTokenFromSectionContents(sectionContents)
+            if let token = Self.extractTokenFromSectionContents(sectionContents) {
+                return token
+            }
+        }
+
+        // Fall back to section-level continuation (sectionListRenderer.continuations)
+        // This token loads the next section (e.g., suggested tracks) after all track pages are exhausted.
+        if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
+            Self.logger.debug("Found continuation token at secondaryContents sectionListRenderer level (section-level)")
+            return token
         }
 
         return nil
@@ -717,15 +725,12 @@ enum PlaylistParser {
     }
 
     /// Extracts token from section contents array.
+    /// Prioritizes musicPlaylistShelfRenderer (main playlist tracks) over
+    /// musicShelfRenderer (suggested/automix section) to ensure we paginate
+    /// through actual playlist tracks before loading suggestions.
     private static func extractTokenFromSectionContents(_ sectionContents: [[String: Any]]) -> String? {
+        // First pass: look for the main playlist section (musicPlaylistShelfRenderer)
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
-                if let token = extractTokenFromRenderer(shelfRenderer) {
-                    self.logger.debug("Found continuation token in musicShelfRenderer")
-                    return token
-                }
-            }
             if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
                 Self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
                 // Try legacy continuations format first
@@ -737,6 +742,16 @@ enum PlaylistParser {
                 if let shelfContents = playlistShelfRenderer["contents"] as? [[String: Any]],
                    let token = Self.extractTokenFromContents(shelfContents)
                 {
+                    return token
+                }
+            }
+        }
+        // Second pass: fall back to musicShelfRenderer (suggested/automix sections)
+        for sectionData in sectionContents {
+            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
+                Self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
+                if let token = Self.extractTokenFromRenderer(shelfRenderer) {
+                    Self.logger.debug("Found continuation token in musicShelfRenderer (suggested/automix)")
                     return token
                 }
             }
