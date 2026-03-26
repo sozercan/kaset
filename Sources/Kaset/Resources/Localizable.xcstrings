@@ -222,6 +222,16 @@
         }
       }
     },
+    "Artist" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فنان"
+          }
+        }
+      }
+    },
     "Artists" : {
       "localizations" : {
         "ar" : {
@@ -1770,7 +1780,17 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "اشتراك"
+            "value" : "اشترك"
+          }
+        }
+      }
+    },
+    "Subscribe %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اشترك %@"
           }
         }
       }

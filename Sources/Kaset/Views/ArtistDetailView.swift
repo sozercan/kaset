@@ -158,15 +158,17 @@ struct ArtistDetailView: View {
         if detail.isSubscribed {
             return String(localized: "Subscribed")
         }
-        // Format subscriber count (e.g., "Subscribe 34.6M")
         if let count = detail.subscriberCount {
-            // Extract just the number part if it contains "subscribers"
-            let numberPart = count
-                .replacingOccurrences(of: " subscribers", with: "")
-                .replacingOccurrences(of: " subscriber", with: "")
-            return String(localized: "Subscribe") + " " + numberPart
+            return String(localized: "Subscribe \(self.trimmedSubscriberCount(count))")
         }
         return String(localized: "Subscribe")
+    }
+
+    private func trimmedSubscriberCount(_ count: String) -> String {
+        count
+            .replacingOccurrences(of: " subscribers", with: "")
+            .replacingOccurrences(of: " subscriber", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @ViewBuilder

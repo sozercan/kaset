@@ -271,12 +271,18 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
     fi
   done
 
-  # Compile .xcstrings catalogs from SwiftPM resource bundles into .lproj/.strings
-  # files in the main app bundle so that Bundle.main localization lookups work.
+  # Compile catalogs into both the copied SwiftPM resource bundle and the
+  # app's top-level Resources directory so Bundle.module and Bundle.main
+  # lookups can both resolve packaged localizations.
   for bundle in "${SWIFTPM_BUNDLES[@]}"; do
+    bundle_name=$(basename "$bundle")
+    bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
+
     for xcstrings in "$bundle"/*.xcstrings; do
       if [[ -f "$xcstrings" ]]; then
         echo "  → Compiling localization catalog: $(basename "$xcstrings")"
+        xcrun xcstringstool compile "$xcstrings" \
+          --output-directory "$bundle_dest"
         xcrun xcstringstool compile "$xcstrings" \
           --output-directory "$APP_BUNDLE/Contents/Resources"
       fi
