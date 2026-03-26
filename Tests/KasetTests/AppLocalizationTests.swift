@@ -21,6 +21,17 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
     }
 
+    @Test("Turkish bundle localizes artist and subscribe strings")
+    func moduleBundleLocalizesTurkishStrings() throws {
+        let turkishBundle = try #require(self.localizedBundle(for: "tr"))
+        let format = turkishBundle.localizedString(forKey: "Subscribe %@", value: nil, table: nil)
+        let title = String(format: format, locale: Locale(identifier: "tr"), "34.6M")
+
+        #expect(turkishBundle.localizedString(forKey: "Artist", value: nil, table: nil) == "Sanatçı")
+        #expect(title.hasPrefix("Abone Ol"))
+        #expect(title.contains("34.6M"))
+    }
+
     private func localizedBundle(for localization: String) -> Bundle? {
         guard let bundlePath = AppLocalization.bundle.path(forResource: localization, ofType: "lproj") else {
             return nil
