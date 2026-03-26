@@ -5,7 +5,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
     @State private var settings = SettingsManager.shared
-    @State private var cacheSize: String = String(localized: "Calculating...")
+    @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
 
     /// The updater service for managing app updates.
