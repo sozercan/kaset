@@ -21,6 +21,41 @@ struct PlaylistParserTests {
         #expect(playlists.count == 3)
     }
 
+    @Test("Parse mixed library content from grid and responsive shelf")
+    func parseLibraryContentFromGridAndResponsiveShelf() {
+        let data = self.makeMixedLibraryContentResponseData()
+        let content = PlaylistParser.parseLibraryContent(data)
+
+        #expect(content.playlists.map(\.id) == ["VLGRID123", "VLSHELF456"])
+        #expect(content.playlists.map(\.title) == ["Grid Playlist", "Shelf Playlist"])
+        #expect(content.playlists.map(\.author) == ["Grid Curator", "Shelf Curator"])
+
+        #expect(content.artists.map(\.id) == ["MPLAUCGRIDARTIST123", "MPLAUCSHELFARTIST456"])
+        #expect(content.artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
+
+        #expect(content.podcastShows.map(\.id) == ["MPSPPGRID123", "MPSPPSHELF456"])
+        #expect(content.podcastShows.map(\.title) == ["Grid Podcast", "Shelf Podcast"])
+        #expect(content.podcastShows.map(\.author) == ["Grid Host", "Shelf Host"])
+    }
+
+    @Test("Parse dedicated library artists response")
+    func parseLibraryArtists() {
+        let data = self.makeLibraryArtistsResponseData()
+        let artists = PlaylistParser.parseLibraryArtists(data)
+
+        #expect(artists.map(\.id) == ["UCGRIDARTIST123", "UCSHELFARTIST456"])
+        #expect(artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
+    }
+
+    @Test("Parse dedicated library artists deduplicates equivalent artist IDs")
+    func parseLibraryArtistsDeduplicatesEquivalentIds() {
+        let data = self.makeDuplicateLibraryArtistsResponseData()
+        let artists = PlaylistParser.parseLibraryArtists(data)
+
+        #expect(artists.map(\.id) == ["UCDUPLICATE123"])
+        #expect(artists.map(\.name) == ["Duplicate Artist"])
+    }
+
     // MARK: - Playlist Detail
 
     @Test("Parse playlist detail with header")
@@ -202,6 +237,217 @@ struct PlaylistParserTests {
                             ],
                         ],
                     ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeMixedLibraryContentResponseData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [
+                                        [
+                                            "gridRenderer": [
+                                                "items": self.makeMixedLibraryGridItems(),
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": self.makeMixedLibraryShelfItems(),
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryArtistsResponseData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [
+                                        [
+                                            "gridRenderer": [
+                                                "items": [[
+                                                    "musicTwoRowItemRenderer": [
+                                                        "title": ["runs": [["text": "Grid Artist"]]],
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCGRIDARTIST123"],
+                                                        ],
+                                                    ],
+                                                ]],
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [[
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCSHELFARTIST456"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Shelf Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ]],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeDuplicateLibraryArtistsResponseData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [
+                                                [
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "MPLAUCDUPLICATE123"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Duplicate Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ],
+                                                [
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "UCDUPLICATE123"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Duplicate Artist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeMixedLibraryGridItems() -> [[String: Any]] {
+        [
+            [
+                "musicTwoRowItemRenderer": [
+                    "title": ["runs": [["text": "Grid Playlist"]]],
+                    "subtitle": ["runs": [["text": "Grid Curator"]]],
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "VLGRID123"],
+                    ],
+                ],
+            ],
+            [
+                "musicTwoRowItemRenderer": [
+                    "title": ["runs": [["text": "Grid Artist"]]],
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "MPLAUCGRIDARTIST123"],
+                    ],
+                ],
+            ],
+            [
+                "musicTwoRowItemRenderer": [
+                    "title": ["runs": [["text": "Grid Podcast"]]],
+                    "subtitle": ["runs": [["text": "Grid Host"]]],
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "MPSPPGRID123"],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeMixedLibraryShelfItems() -> [[String: Any]] {
+        [
+            [
+                "musicResponsiveListItemRenderer": [
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "VLSHELF456"],
+                    ],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Shelf Playlist"]]],
+                            ],
+                        ],
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Shelf Curator"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                "musicResponsiveListItemRenderer": [
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "MPLAUCSHELFARTIST456"],
+                    ],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Shelf Artist"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                "musicResponsiveListItemRenderer": [
+                    "navigationEndpoint": [
+                        "browseEndpoint": ["browseId": "MPSPPSHELF456"],
+                    ],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Shelf Podcast"]]],
+                            ],
+                        ],
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Shelf Host"]]],
+                            ],
+                        ],
+                    ],
                 ],
             ],
         ]

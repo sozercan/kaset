@@ -56,10 +56,10 @@ enum PackageResourceLookup {
 
     private static func candidateURLs(for bundle: Bundle) -> [URL] {
         [
-            bundle.resourceURL?.appendingPathComponent(Self.resourceBundleName),
-            bundle.bundleURL.appendingPathComponent(Self.resourceBundleName),
-            bundle.bundleURL.deletingLastPathComponent().appendingPathComponent(Self.resourceBundleName),
-            bundle.executableURL?.deletingLastPathComponent().appendingPathComponent(Self.resourceBundleName),
+            bundle.resourceURL?.appendingPathComponent(self.resourceBundleName),
+            bundle.bundleURL.appendingPathComponent(self.resourceBundleName),
+            bundle.bundleURL.deletingLastPathComponent().appendingPathComponent(self.resourceBundleName),
+            bundle.executableURL?.deletingLastPathComponent().appendingPathComponent(self.resourceBundleName),
         ]
         .compactMap(\.self)
     }

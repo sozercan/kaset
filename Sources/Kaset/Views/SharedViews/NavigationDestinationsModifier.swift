@@ -60,7 +60,8 @@ struct NavigationDestinationsModifier: ViewModifier {
                     artist: artist,
                     viewModel: ArtistDetailViewModel(
                         artist: artist,
-                        client: self.client
+                        client: self.client,
+                        libraryViewModel: self.libraryViewModel
                     )
                 )
             }

@@ -403,7 +403,7 @@ enum HomeResponseParser {
         if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
         {
-            let pageType = self.extractPageType(from: browseEndpoint)
+            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
             return self.createItemFromBrowseEndpoint(
                 browseId: browseId,
                 pageType: pageType,
@@ -419,8 +419,12 @@ enum HomeResponseParser {
     private static func parseResponsiveListItem(_ data: [String: Any]) -> HomeSectionItem? {
         guard let videoId = ParsingHelpers.extractVideoId(from: data) else {
             // Might be a non-song item
-            if let browseId = ParsingHelpers.extractBrowseId(from: data) {
-                return self.parseResponsiveListItemAsBrowse(data, browseId: browseId)
+            if let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
+               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+               let browseId = browseEndpoint["browseId"] as? String
+            {
+                let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+                return self.parseResponsiveListItemAsBrowse(data, browseId: browseId, pageType: pageType)
             }
             return nil
         }
@@ -444,13 +448,21 @@ enum HomeResponseParser {
         return .song(song)
     }
 
-    private static func parseResponsiveListItemAsBrowse(_ data: [String: Any], browseId: String) -> HomeSectionItem? {
+    private static func parseResponsiveListItemAsBrowse(
+        _ data: [String: Any],
+        browseId: String,
+        pageType: String?
+    ) -> HomeSectionItem? {
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
 
-        // Determine type from browseId prefix
-        if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+        guard let itemType = self.determineBrowseItemType(browseId: browseId, pageType: pageType) else {
+            return nil
+        }
+
+        switch itemType {
+        case .album:
             let album = Album(
                 id: browseId,
                 title: title,
@@ -460,7 +472,8 @@ enum HomeResponseParser {
                 trackCount: nil
             )
             return .album(album)
-        } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
+
+        case .playlist:
             let playlist = Playlist(
                 id: browseId,
                 title: title,
@@ -470,7 +483,8 @@ enum HomeResponseParser {
                 author: ParsingHelpers.extractSubtitleFromFlexColumns(data)
             )
             return .playlist(playlist)
-        } else if browseId.hasPrefix("UC") {
+
+        case .artist:
             let artist = Artist(
                 id: browseId,
                 name: title,
@@ -478,8 +492,6 @@ enum HomeResponseParser {
             )
             return .artist(artist)
         }
-
-        return nil
     }
 
     // MARK: - Helpers
@@ -503,16 +515,6 @@ enum HomeResponseParser {
         return nil
     }
 
-    private static func extractPageType(from browseEndpoint: [String: Any]) -> String? {
-        if let contextConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
-           let musicConfig = contextConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
-           let type = musicConfig["pageType"] as? String
-        {
-            return type
-        }
-        return nil
-    }
-
     private enum BrowseItemType {
         case album
         case playlist
@@ -521,15 +523,14 @@ enum HomeResponseParser {
 
     private static func determineBrowseItemType(browseId: String, pageType: String?) -> BrowseItemType? {
         // Check pageType first (most reliable)
-        switch pageType {
-        case "MUSIC_PAGE_TYPE_ALBUM":
+        if pageType == "MUSIC_PAGE_TYPE_ALBUM" {
             return .album
-        case "MUSIC_PAGE_TYPE_PLAYLIST":
+        }
+        if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" {
             return .playlist
-        case "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_USER_CHANNEL":
+        }
+        if ParsingHelpers.isArtistPageType(pageType) {
             return .artist
-        default:
-            break
         }
 
         // Fall back to browseId prefix
@@ -539,7 +540,7 @@ enum HomeResponseParser {
         if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") || browseId.hasPrefix("RD") {
             return .playlist
         }
-        if browseId.hasPrefix("UC") {
+        if Artist.isNavigableId(browseId) {
             return .artist
         }
 

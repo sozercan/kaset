@@ -173,6 +173,8 @@
 
 "Find songs, albums, artists, and playlists" = "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل";
 
+"Follow artists on YouTube Music to see them here." = "تابع الفنانين على YouTube Music لتراهم هنا.";
+
 "General" = "عام";
 
 "GitHub" = "GitHub";
@@ -278,6 +280,8 @@
 "No Queue" = "لا توجد قائمة انتظار";
 
 "No Song Playing" = "لا توجد أغنية قيد التشغيل";
+
+"No artists yet" = "لا يوجد فنانون بعد";
 
 "No changes suggested. The playlist looks good!" = "لا توجد تغييرات مقترحة. قائمة التشغيل تبدو جيدة!";
 
@@ -390,6 +394,8 @@
 "Retry" = "إعادة المحاولة";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا.";
 
 "Save shuffle and repeat settings across app restarts" = "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق";
 

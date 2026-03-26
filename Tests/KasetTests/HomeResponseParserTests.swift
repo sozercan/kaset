@@ -277,6 +277,53 @@ struct HomeResponseParserTests {
         }
     }
 
+    @Test("Parse responsive browse item with library artist page type")
+    func parseResponsiveBrowseLibraryArtist() throws {
+        let artistItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": "MPLAUC1234567890",
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+                            ],
+                        ],
+                    ],
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Library Artist"]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Artist"]]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let sectionData: [String: Any] = [
+            "musicShelfRenderer": [
+                "title": ["runs": [["text": "Artists"]]],
+                "contents": [artistItem],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+
+        #expect(section.items.count == 1)
+        if case let .artist(artist) = section.items.first {
+            #expect(artist.id == "MPLAUC1234567890")
+            #expect(artist.name == "Library Artist")
+        } else {
+            Issue.record("Expected artist item")
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeHomeResponseData(sectionCount: Int) -> [String: Any] {

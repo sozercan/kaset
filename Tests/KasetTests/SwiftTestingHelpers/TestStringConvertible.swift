@@ -85,6 +85,26 @@ extension HomeSectionItem: CustomTestStringConvertible {
     }
 }
 
+// MARK: - FavoriteItem + CustomTestStringConvertible
+
+/// Provides readable test descriptions for FavoriteItem in test failure logs.
+extension FavoriteItem: CustomTestStringConvertible {
+    public var testDescription: String {
+        switch itemType {
+        case let .song(song):
+            "Favorite[Song]: \(song.testDescription)"
+        case let .album(album):
+            "Favorite[Album]: \(album.testDescription)"
+        case let .playlist(playlist):
+            "Favorite[Playlist]: \(playlist.testDescription)"
+        case let .artist(artist):
+            "Favorite[Artist]: \(artist.testDescription)"
+        case let .podcastShow(show):
+            "Favorite[Podcast]: \(show.testDescription)"
+        }
+    }
+}
+
 // MARK: - PodcastShow + CustomTestStringConvertible
 
 /// Provides readable test descriptions for PodcastShow in test failure logs.
@@ -92,6 +112,31 @@ extension PodcastShow: CustomTestStringConvertible {
     public var testDescription: String {
         let authorText = author.map { " by \($0)" } ?? ""
         return "Podcast: \"\(title)\"\(authorText)"
+    }
+}
+
+// MARK: - PodcastEpisode + CustomTestStringConvertible
+
+/// Provides readable test descriptions for PodcastEpisode in test failure logs.
+extension PodcastEpisode: CustomTestStringConvertible {
+    public var testDescription: String {
+        let showText = showTitle.map { " from \($0)" } ?? ""
+        let durationText = formattedDuration.map { " (\($0))" } ?? ""
+        return "Episode: \"\(title)\"\(showText)\(durationText)"
+    }
+}
+
+// MARK: - PodcastSectionItem + CustomTestStringConvertible
+
+/// Provides readable test descriptions for PodcastSectionItem in test failure logs.
+extension PodcastSectionItem: CustomTestStringConvertible {
+    public var testDescription: String {
+        switch self {
+        case let .show(show):
+            show.testDescription
+        case let .episode(episode):
+            episode.testDescription
+        }
     }
 }
 

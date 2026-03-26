@@ -26,11 +26,17 @@ final class ArtistDetailViewModel {
 
     private let artist: Artist
     let client: any YTMusicClientProtocol
+    private let libraryViewModel: LibraryViewModel?
     private let logger = DiagnosticsLogger.api
 
-    init(artist: Artist, client: any YTMusicClientProtocol) {
+    init(
+        artist: Artist,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel? = nil
+    ) {
         self.artist = artist
         self.client = client
+        self.libraryViewModel = libraryViewModel
     }
 
     /// Loads the artist details including songs and albums.
@@ -102,13 +108,21 @@ final class ArtistDetailViewModel {
 
         do {
             if detail.isSubscribed {
-                try await self.client.unsubscribeFromArtist(channelId: channelId)
+                try await SongActionsHelper.unsubscribeFromArtist(
+                    detail.artist,
+                    channelId: channelId,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.artistDetail?.isSubscribed = false
-                self.logger.info("Unsubscribed from artist: \(detail.name)")
             } else {
-                try await self.client.subscribeToArtist(channelId: channelId)
+                try await SongActionsHelper.subscribeToArtist(
+                    detail.artist,
+                    channelId: channelId,
+                    client: self.client,
+                    libraryViewModel: self.libraryViewModel
+                )
                 self.artistDetail?.isSubscribed = true
-                self.logger.info("Subscribed to artist: \(detail.name)")
             }
         } catch {
             self.subscriptionError = "Failed to update subscription. Please try again."

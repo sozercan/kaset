@@ -132,36 +132,14 @@ enum SearchResponseParser {
             subtitle = subtitleRuns.compactMap { $0["text"] as? String }.joined()
         }
 
-        // Extract pageType for accurate type detection
-        let pageType = self.extractPageType(from: browseEndpoint)
-
-        // Determine type based on pageType first, then fall back to browseId prefix
-        if pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
-            let album = Album(
-                id: browseId,
-                title: title,
-                artists: nil,
-                thumbnailURL: thumbnailURL,
-                year: nil,
-                trackCount: nil
-            )
-            return .album(album)
-        } else if pageType == "MUSIC_PAGE_TYPE_ARTIST" || pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL" || browseId.hasPrefix("UC") {
-            let artist = Artist(id: browseId, name: title, thumbnailURL: thumbnailURL)
-            return .artist(artist)
-        } else if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
-            let playlist = Playlist(
-                id: browseId,
-                title: title,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                trackCount: nil,
-                author: subtitle
-            )
-            return .playlist(playlist)
-        }
-
-        return nil
+        let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+        return self.createItemFromBrowseEndpoint(
+            browseId: browseId,
+            pageType: pageType,
+            title: title,
+            thumbnailURL: thumbnailURL,
+            subtitle: subtitle
+        )
     }
 
     private static func parseSearchResultItem(_ data: [String: Any]) -> SearchResultItem? {
@@ -186,34 +164,14 @@ enum SearchResponseParser {
             let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
             let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
 
-            // Extract pageType from browseEndpointContextSupportedConfigs for accurate type detection
-            let pageType = self.extractPageType(from: browseEndpoint)
-
-            // Determine type based on pageType first, then fall back to browseId prefix
-            if pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
-                let album = Album(
-                    id: browseId,
-                    title: title,
-                    artists: nil,
-                    thumbnailURL: thumbnailURL,
-                    year: nil,
-                    trackCount: nil
-                )
-                return .album(album)
-            } else if pageType == "MUSIC_PAGE_TYPE_ARTIST" || pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL" || browseId.hasPrefix("UC") {
-                let artist = Artist(id: browseId, name: title, thumbnailURL: thumbnailURL)
-                return .artist(artist)
-            } else if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
-                let playlist = Playlist(
-                    id: browseId,
-                    title: title,
-                    description: nil,
-                    thumbnailURL: thumbnailURL,
-                    trackCount: nil,
-                    author: subtitle
-                )
-                return .playlist(playlist)
-            }
+            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+            return self.createItemFromBrowseEndpoint(
+                browseId: browseId,
+                pageType: pageType,
+                title: title,
+                thumbnailURL: thumbnailURL,
+                subtitle: subtitle
+            )
         }
 
         return nil
@@ -221,13 +179,42 @@ enum SearchResponseParser {
 
     // MARK: - Helpers
 
-    private static func extractPageType(from browseEndpoint: [String: Any]) -> String? {
-        if let contextConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
-           let musicConfig = contextConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
-           let type = musicConfig["pageType"] as? String
-        {
-            return type
+    private static func createItemFromBrowseEndpoint(
+        browseId: String,
+        pageType: String?,
+        title: String,
+        thumbnailURL: URL?,
+        subtitle: String?
+    ) -> SearchResultItem? {
+        if pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+            let album = Album(
+                id: browseId,
+                title: title,
+                artists: nil,
+                thumbnailURL: thumbnailURL,
+                year: nil,
+                trackCount: nil
+            )
+            return .album(album)
         }
+
+        if ParsingHelpers.isArtistPageType(pageType) || Artist.isNavigableId(browseId) {
+            let artist = Artist(id: browseId, name: title, thumbnailURL: thumbnailURL)
+            return .artist(artist)
+        }
+
+        if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
+            let playlist = Playlist(
+                id: browseId,
+                title: title,
+                description: nil,
+                thumbnailURL: thumbnailURL,
+                trackCount: nil,
+                author: subtitle
+            )
+            return .playlist(playlist)
+        }
+
         return nil
     }
 

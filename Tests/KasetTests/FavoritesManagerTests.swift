@@ -66,6 +66,18 @@ struct FavoritesManagerTests {
         #expect(self.manager.isPinned(artist: artist) == true)
     }
 
+    @Test("Add podcast show succeeds")
+    func addPodcastShow() {
+        let podcastShow = TestFixtures.makePodcastShow(id: "MPSPP-test-podcast", title: "Test Podcast Show")
+        let item = FavoriteItem.from(podcastShow)
+
+        self.manager.add(item)
+
+        #expect(self.manager.items.count == 1)
+        #expect(self.manager.isVisible == true)
+        #expect(self.manager.isPinned(podcastShow: podcastShow) == true)
+    }
+
     @Test("Add duplicate is ignored")
     func addDuplicateIgnored() {
         let song = TestFixtures.makeSong(id: "duplicate-song")
@@ -129,6 +141,19 @@ struct FavoritesManagerTests {
         // Second toggle should remove
         self.manager.toggle(song: song)
         #expect(self.manager.isPinned(song: song) == false)
+        #expect(self.manager.items.isEmpty)
+    }
+
+    @Test("Toggle podcast show adds then removes")
+    func togglePodcastShowAddsAndRemoves() {
+        let podcastShow = TestFixtures.makePodcastShow(id: "MPSPP-toggle-podcast", title: "Toggle Podcast")
+
+        self.manager.toggle(podcastShow: podcastShow)
+        #expect(self.manager.isPinned(podcastShow: podcastShow) == true)
+        #expect(self.manager.items.count == 1)
+
+        self.manager.toggle(podcastShow: podcastShow)
+        #expect(self.manager.isPinned(podcastShow: podcastShow) == false)
         #expect(self.manager.items.isEmpty)
     }
 
@@ -230,40 +255,49 @@ struct FavoritesManagerTests {
         let album = TestFixtures.makeAlbum(id: "MPRE-content-album")
         let playlist = TestFixtures.makePlaylist(id: "VL-content-playlist")
         let artist = TestFixtures.makeArtist(id: "UC-content-artist")
+        let podcastShow = TestFixtures.makePodcastShow(id: "MPSPP-content-podcast")
 
         let songItem = FavoriteItem.from(song)
         let albumItem = FavoriteItem.from(album)
         let playlistItem = FavoriteItem.from(playlist)
         let artistItem = FavoriteItem.from(artist)
+        let podcastItem = FavoriteItem.from(podcastShow)
 
         #expect(songItem.contentId == song.videoId)
         #expect(albumItem.contentId == album.id)
         #expect(playlistItem.contentId == playlist.id)
         #expect(artistItem.contentId == artist.id)
+        #expect(podcastItem.contentId == podcastShow.id)
     }
 
     @Test("FavoriteItem title returns correct value")
     func favoriteItemTitle() {
         let song = TestFixtures.makeSong(title: "Test Song Title")
         let album = TestFixtures.makeAlbum(title: "Test Album Title")
+        let podcastShow = TestFixtures.makePodcastShow(title: "Test Podcast Title")
 
         let songItem = FavoriteItem.from(song)
         let albumItem = FavoriteItem.from(album)
+        let podcastItem = FavoriteItem.from(podcastShow)
 
         #expect(songItem.title == "Test Song Title")
         #expect(albumItem.title == "Test Album Title")
+        #expect(podcastItem.title == "Test Podcast Title")
     }
 
     @Test("FavoriteItem subtitle returns correct value")
     func favoriteItemSubtitle() {
         let song = TestFixtures.makeSong(artistName: "Test Artist")
         let album = TestFixtures.makeAlbum(artistName: "Album Artist")
+        let podcastShow = TestFixtures.makePodcastShow(author: "Podcast Host")
 
         let songItem = FavoriteItem.from(song)
         let albumItem = FavoriteItem.from(album)
+        let podcastItem = FavoriteItem.from(podcastShow)
 
         #expect(songItem.subtitle == "Test Artist")
         #expect(albumItem.subtitle == "Album Artist")
+        #expect(podcastItem.subtitle == "Podcast Host")
     }
 
     @Test("FavoriteItem typeLabel returns correct value")
@@ -272,11 +306,13 @@ struct FavoritesManagerTests {
         let albumItem = FavoriteItem.from(TestFixtures.makeAlbum())
         let playlistItem = FavoriteItem.from(TestFixtures.makePlaylist())
         let artistItem = FavoriteItem.from(TestFixtures.makeArtist())
+        let podcastItem = FavoriteItem.from(TestFixtures.makePodcastShow())
 
         #expect(songItem.typeLabel == "Song")
         #expect(albumItem.typeLabel == "Album")
         #expect(playlistItem.typeLabel == "Playlist")
         #expect(artistItem.typeLabel == "Artist")
+        #expect(podcastItem.typeLabel == "Podcast")
     }
 
     @Test("FavoriteItem equality based on contentId")
@@ -305,5 +341,13 @@ struct FavoritesManagerTests {
         } else {
             Issue.record("Expected song type")
         }
+    }
+
+    @Test("FavoriteItem asHomeSectionItem returns nil for podcast show")
+    func favoriteItemAsHomeSectionItemPodcastShow() {
+        let podcastShow = TestFixtures.makePodcastShow(id: "MPSPP-home-section-nil")
+        let item = FavoriteItem.from(podcastShow)
+
+        #expect(item.asHomeSectionItem == nil)
     }
 }

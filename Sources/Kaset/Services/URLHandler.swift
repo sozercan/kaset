@@ -10,6 +10,7 @@ import Foundation
 /// - `https://music.youtube.com/browse/MPRExxx` - Open album
 /// - `https://music.youtube.com/browse/VLPLxxx` - Open playlist (browse format)
 /// - `https://music.youtube.com/channel/UCxxx` - Open artist
+/// - `https://music.youtube.com/browse/MPLAUCxxx` - Open library artist
 /// - `kaset://play?v=dQw4w9WgXcQ` - Custom scheme for song
 /// - `kaset://playlist?list=PLxxx` - Custom scheme for playlist
 /// - `kaset://album?id=MPRExxx` - Custom scheme for album
@@ -133,8 +134,8 @@ enum URLHandler {
                 if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
                     return .album(id: browseId)
                 }
-                // UC prefix indicates a channel/artist
-                if browseId.hasPrefix("UC") {
+                // Artist browse IDs can be channel IDs ("UC...") or library artist IDs ("MPLAUC...")
+                if Artist.isNavigableId(browseId) {
                     return .artist(id: browseId)
                 }
                 // Other browse IDs could be albums or playlists

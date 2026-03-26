@@ -173,6 +173,8 @@
 
 "Find songs, albums, artists, and playlists" = "Find songs, albums, artists, and playlists";
 
+"Follow artists on YouTube Music to see them here." = "Follow artists on YouTube Music to see them here.";
+
 "General" = "General";
 
 "GitHub" = "GitHub";
@@ -278,6 +280,8 @@
 "No Queue" = "No Queue";
 
 "No Song Playing" = "No Song Playing";
+
+"No artists yet" = "No artists yet";
 
 "No changes suggested. The playlist looks good!" = "No changes suggested. The playlist looks good!";
 
@@ -390,6 +394,8 @@
 "Retry" = "Retry";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Save playlists and subscribe to podcasts on YouTube Music to see them here.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here.";
 
 "Save shuffle and repeat settings across app restarts" = "Save shuffle and repeat settings across app restarts";
 

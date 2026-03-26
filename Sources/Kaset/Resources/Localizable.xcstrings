@@ -492,6 +492,16 @@
         }
       }
     },
+    "Follow artists on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تابع الفنانين على YouTube Music لتراهم هنا."
+          }
+        }
+      }
+    },
     "Discover" : {
       "localizations" : {
         "ar" : {
@@ -1152,6 +1162,16 @@
         }
       }
     },
+    "No artists yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يوجد فنانون بعد"
+          }
+        }
+      }
+    },
     "No podcasts yet" : {
       "localizations" : {
         "ar" : {
@@ -1600,6 +1620,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا."
+          }
+        }
+      }
+    },
+    "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا."
           }
         }
       }

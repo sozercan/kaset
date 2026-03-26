@@ -14,15 +14,48 @@ struct Artist: Identifiable, Codable, Hashable {
         self.thumbnailURL = thumbnailURL
     }
 
-    /// Whether this artist has a valid navigable ID (a real YouTube Music channel ID).
-    /// Valid artist IDs are channel IDs starting with "UC" (e.g., "UCxxxxxxx").
+    /// Whether this artist has a valid navigable ID.
+    /// Valid artist IDs are YouTube channel IDs ("UC...") and library artist browse IDs ("MPLAUC...").
     /// Generated IDs (UUIDs with hyphens, SHA256 hashes) are not navigable.
     var hasNavigableId: Bool {
-        self.id.hasPrefix("UC")
+        Self.isNavigableId(self.id)
+    }
+
+    /// The public channel ID for this artist, if one can be derived.
+    var publicChannelId: String? {
+        Self.publicChannelId(for: self.id)
     }
 }
 
 extension Artist {
+    static let channelIdPrefix = "UC"
+    static let libraryArtistBrowseIdPrefix = "MPLAUC"
+
+    static func isChannelId(_ id: String) -> Bool {
+        id.hasPrefix(self.channelIdPrefix)
+    }
+
+    static func isLibraryArtistBrowseId(_ id: String) -> Bool {
+        id.hasPrefix(self.libraryArtistBrowseIdPrefix)
+    }
+
+    static func isNavigableId(_ id: String) -> Bool {
+        self.isChannelId(id) || self.isLibraryArtistBrowseId(id)
+    }
+
+    /// Converts a navigable artist ID into the public artist channel ID used by share URLs and subscriptions.
+    static func publicChannelId(for id: String) -> String? {
+        if self.isChannelId(id) {
+            return id
+        }
+
+        if self.isLibraryArtistBrowseId(id) {
+            return String(id.dropFirst("MPLA".count))
+        }
+
+        return nil
+    }
+
     /// Creates an Artist from YouTube Music API response data.
     init?(from data: [String: Any]) {
         let name = (data["name"] as? String) ?? "Unknown Artist"
