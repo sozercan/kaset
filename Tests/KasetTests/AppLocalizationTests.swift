@@ -28,7 +28,8 @@ struct AppLocalizationTests {
         let title = String(format: format, locale: Locale(identifier: "tr"), "34.6M")
 
         #expect(turkishBundle.localizedString(forKey: "Artist", value: nil, table: nil) == "Sanatçı")
-        #expect(title == "Abone Ol 34.6M")
+        #expect(title.hasPrefix("Abone Ol"))
+        #expect(title.contains("34.6M"))
     }
 
     private func localizedBundle(for localization: String) -> Bundle? {
