@@ -49,7 +49,7 @@ struct WhatsNewView: View {
                     .foregroundStyle(.tint)
             }
 
-            Text("Version \(self.whatsNew.version.description)")
+            Text("\(String(localized: "Version")) \(self.whatsNew.version.description)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
