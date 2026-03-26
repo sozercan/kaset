@@ -732,10 +732,10 @@ enum PlaylistParser {
         // First pass: look for the main playlist section (musicPlaylistShelfRenderer)
         for sectionData in sectionContents {
             if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
-                Self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
+                self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
                 // Try legacy continuations format first
-                if let token = Self.extractTokenFromRenderer(playlistShelfRenderer) {
-                    Self.logger.debug("Found continuation token in musicPlaylistShelfRenderer (legacy format)")
+                if let token = extractTokenFromRenderer(playlistShelfRenderer) {
+                    self.logger.debug("Found continuation token in musicPlaylistShelfRenderer (legacy format)")
                     return token
                 }
                 // Try 2025 format - token at last item of contents
@@ -749,9 +749,9 @@ enum PlaylistParser {
         // Second pass: fall back to musicShelfRenderer (suggested/automix sections)
         for sectionData in sectionContents {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                Self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
-                if let token = Self.extractTokenFromRenderer(shelfRenderer) {
-                    Self.logger.debug("Found continuation token in musicShelfRenderer (suggested/automix)")
+                self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
+                if let token = extractTokenFromRenderer(shelfRenderer) {
+                    self.logger.debug("Found continuation token in musicShelfRenderer (suggested/automix)")
                     return token
                 }
             }
