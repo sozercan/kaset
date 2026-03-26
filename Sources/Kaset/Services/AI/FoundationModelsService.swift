@@ -3,6 +3,29 @@ import FoundationModels
 import Observation
 import os
 
+// MARK: - FoundationModelsPromptBudget
+
+@available(macOS 26.0, *)
+struct FoundationModelsPromptBudget: Equatable {
+    let contextSize: Int
+    let instructionsTokens: Int
+    let promptTokens: Int
+    let toolsTokens: Int
+
+    var totalTokens: Int {
+        self.instructionsTokens + self.promptTokens + self.toolsTokens
+    }
+
+    var remainingTokens: Int {
+        max(0, self.contextSize - self.totalTokens)
+    }
+
+    var utilizationPercent: Int {
+        guard self.contextSize > 0 else { return 0 }
+        return Int((Double(self.totalTokens) / Double(self.contextSize) * 100).rounded())
+    }
+}
+
 // MARK: - FoundationModelsService
 
 /// Service for managing Apple Foundation Models integration.
@@ -174,6 +197,183 @@ final class FoundationModelsService {
         )
     }
 
+    /// Logs a prompt budget snapshot when the 26.4 token-counting APIs are available.
+    func logPromptBudget(
+        context: String,
+        instructions: String,
+        prompt: String,
+        tools: [any Tool] = []
+    ) async {
+        _ = await self.promptBudget(
+            context: context,
+            instructions: instructions,
+            prompt: prompt,
+            tools: tools,
+            shouldLog: true
+        )
+    }
+
+    /// Fits large free-form content to the available context window on 26.4+.
+    ///
+    /// This preserves behavior on 26.0-26.3 by returning the original content unchanged.
+    func fittedPromptContent(
+        context: String,
+        instructions: String,
+        content: String,
+        tools: [any Tool] = [],
+        reserveTokens: Int = 1024,
+        truncationMarker: String = "\n...[truncated for on-device analysis]...\n",
+        promptBuilder: (String) -> String
+    ) async -> String {
+        guard #available(macOS 26.4, *), !content.isEmpty else { return content }
+
+        let fullPrompt = promptBuilder(content)
+        guard let fullBudget = await self.promptBudget(
+            context: context,
+            instructions: instructions,
+            prompt: fullPrompt,
+            tools: tools,
+            shouldLog: false
+        ) else {
+            return content
+        }
+
+        let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
+        guard fullBudget.totalTokens > tokenLimit else {
+            await self.logPromptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: fullPrompt,
+                tools: tools
+            )
+            return content
+        }
+
+        var low = max(truncationMarker.count + 64, 128)
+        var high = content.count
+        var bestFit: String?
+
+        while low <= high {
+            let midpoint = (low + high) / 2
+            let candidateContent = FoundationModelsPromptLibrary.middleTruncate(
+                content,
+                targetLength: midpoint,
+                marker: truncationMarker
+            )
+            let candidatePrompt = promptBuilder(candidateContent)
+
+            if let budget = await self.promptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: candidatePrompt,
+                tools: tools,
+                shouldLog: false
+            ), budget.totalTokens <= tokenLimit {
+                bestFit = candidateContent
+                low = midpoint + 1
+            } else {
+                high = midpoint - 1
+            }
+        }
+
+        let fittedContent = bestFit ?? FoundationModelsPromptLibrary.middleTruncate(
+            content,
+            targetLength: min(content.count, max(truncationMarker.count + 64, 128)),
+            marker: truncationMarker
+        )
+        let fittedPrompt = promptBuilder(fittedContent)
+
+        self.logger.info(
+            """
+            Trimmed \(context, privacy: .public) content from \
+            \(content.count, privacy: .public) to \(fittedContent.count, privacy: .public) characters
+            """
+        )
+        await self.logPromptBudget(
+            context: context,
+            instructions: instructions,
+            prompt: fittedPrompt,
+            tools: tools
+        )
+
+        return fittedContent
+    }
+
+    /// Fits a list of prompt lines to the available context window on 26.4+.
+    ///
+    /// This is useful for playlist review prompts where dropping whole lines is better than
+    /// trimming arbitrary characters mid-track.
+    func fittedLineCount(
+        context: String,
+        instructions: String,
+        lines: [String],
+        tools: [any Tool] = [],
+        reserveTokens: Int = 1024,
+        promptBuilder: ([String]) -> String
+    ) async -> Int {
+        guard #available(macOS 26.4, *), !lines.isEmpty else { return lines.count }
+
+        let fullPrompt = promptBuilder(lines)
+        guard let fullBudget = await self.promptBudget(
+            context: context,
+            instructions: instructions,
+            prompt: fullPrompt,
+            tools: tools,
+            shouldLog: false
+        ) else {
+            return lines.count
+        }
+
+        let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
+        guard fullBudget.totalTokens > tokenLimit else {
+            await self.logPromptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: fullPrompt,
+                tools: tools
+            )
+            return lines.count
+        }
+
+        var low = 1
+        var high = lines.count
+        var bestFit = 1
+
+        while low <= high {
+            let midpoint = (low + high) / 2
+            let candidateLines = Array(lines.prefix(midpoint))
+            let candidatePrompt = promptBuilder(candidateLines)
+
+            if let budget = await self.promptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: candidatePrompt,
+                tools: tools,
+                shouldLog: false
+            ), budget.totalTokens <= tokenLimit {
+                bestFit = midpoint
+                low = midpoint + 1
+            } else {
+                high = midpoint - 1
+            }
+        }
+
+        self.logger.info(
+            """
+            Trimmed \(context, privacy: .public) lines from \
+            \(lines.count, privacy: .public) to \(bestFit, privacy: .public)
+            """
+        )
+        await self.logPromptBudget(
+            context: context,
+            instructions: instructions,
+            prompt: promptBuilder(Array(lines.prefix(bestFit))),
+            tools: tools
+        )
+
+        return bestFit
+    }
+
     /// Clears any cached session state.
     /// This can help if the model gets into a bad state.
     func clearContext() {
@@ -183,6 +383,55 @@ final class FoundationModelsService {
     }
 
     // MARK: - Private Methods
+
+    private func promptBudget(
+        context: String,
+        instructions: String,
+        prompt: String,
+        tools: [any Tool],
+        shouldLog: Bool
+    ) async -> FoundationModelsPromptBudget? {
+        guard #available(macOS 26.4, *) else { return nil }
+
+        let model = SystemLanguageModel.default
+
+        do {
+            let instructionsTokens = try await model.tokenCount(for: Instructions(instructions))
+            let promptTokens = try await model.tokenCount(for: prompt)
+            let toolsTokens = if tools.isEmpty {
+                0
+            } else {
+                try await model.tokenCount(for: tools)
+            }
+
+            let budget = FoundationModelsPromptBudget(
+                contextSize: model.contextSize,
+                instructionsTokens: instructionsTokens,
+                promptTokens: promptTokens,
+                toolsTokens: toolsTokens
+            )
+
+            if shouldLog {
+                self.logger.debug(
+                    """
+                    \(context, privacy: .public) prompt budget: \
+                    instructions=\(budget.instructionsTokens, privacy: .public), \
+                    prompt=\(budget.promptTokens, privacy: .public), \
+                    tools=\(budget.toolsTokens, privacy: .public), \
+                    total=\(budget.totalTokens, privacy: .public)/\(budget.contextSize, privacy: .public) \
+                    (\(budget.utilizationPercent, privacy: .public)%)
+                    """
+                )
+            }
+
+            return budget
+        } catch {
+            self.logger.warning(
+                "Unable to measure \(context, privacy: .public) prompt budget: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
 
     /// Pre-warms the Foundation Models using the official prewarm API.
     ///

@@ -510,16 +510,11 @@ struct PlaylistDetailView: View {
 
         self.logger.info("Refining playlist with prompt: \(prompt)")
 
-        let instructions = """
-        You are a music playlist curator. Analyze songs and suggest changes based on the request.
-
-        IMPORTANT RULES:
-        - A "duplicate" means the EXACT same video ID appears twice. Different versions/covers
-          of a song by different artists are NOT duplicates.
-        - "Last Christmas" by Wham! and "Last Christmas" by Jimmy Eat World are DIFFERENT songs.
-        - Only suggest removing tracks that truly don't fit the user's criteria.
-        - When in doubt, keep the song.
-        """
+        let promptVersion = FoundationModelsPromptVersion.current
+        let instructions = FoundationModelsPromptLibrary.playlistRefinementInstructions(
+            version: promptVersion
+        )
+        self.logger.debug("Using Foundation Models playlist prompt version \(promptVersion.logDescription)")
 
         // Use analysis session for creative playlist curation
         guard let session = FoundationModelsService.shared.createAnalysisSession(instructions: instructions) else {
@@ -528,22 +523,34 @@ struct PlaylistDetailView: View {
             return
         }
 
-        // Build track list - limit to 25 to reduce content filter issues
-        let trackLimit = min(tracks.count, 25)
-        let trackList = tracks.prefix(trackLimit).enumerated().map { index, track in
-            // Sanitize track info to reduce content filter triggers
-            let safeTitle = track.title.prefix(50)
-            let safeArtist = track.artistsDisplay.prefix(30)
-            return "\(index + 1). \(safeTitle) - \(safeArtist) [id:\(track.videoId)]"
-        }.joined(separator: "\n")
+        // Build track list - start with 25 and trim further on 26.4+ if token budget requires it.
+        let initialTrackLimit = min(tracks.count, 25)
+        let trackLines = FoundationModelsPromptLibrary.playlistTrackLines(
+            from: tracks,
+            limit: initialTrackLimit
+        )
+        let trackLimit = await FoundationModelsService.shared.fittedLineCount(
+            context: "playlist refinement",
+            instructions: instructions,
+            lines: trackLines
+        ) { candidateLines in
+            FoundationModelsPromptLibrary.playlistRefinementPrompt(
+                trackList: candidateLines.joined(separator: "\n"),
+                totalTracks: tracks.count,
+                shownTracks: candidateLines.count,
+                request: prompt,
+                version: promptVersion
+            )
+        }
+        let trackList = Array(trackLines.prefix(trackLimit)).joined(separator: "\n")
 
-        let userPrompt = """
-        Playlist (\(tracks.count) songs, showing \(trackLimit)):
-
-        \(trackList)
-
-        Request: \(prompt)
-        """
+        let userPrompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
+            trackList: trackList,
+            totalTracks: tracks.count,
+            shownTracks: trackLimit,
+            request: prompt,
+            version: promptVersion
+        )
 
         do {
             // Use streaming for progressive UI updates
