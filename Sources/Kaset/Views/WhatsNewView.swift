@@ -14,8 +14,12 @@ struct WhatsNewView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            self.headerView
-            self.contentCard
+            ScrollView {
+                VStack(spacing: 24) {
+                    self.headerView
+                    self.contentCard
+                }
+            }
             self.footerView
         }
         .padding(24)
@@ -45,19 +49,12 @@ struct WhatsNewView: View {
                     .foregroundStyle(.tint)
             }
 
-            VStack(spacing: 10) {
-                Text("Version \(self.whatsNew.version.description)")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(.thinMaterial, in: Capsule())
-
-                Text(self.whatsNew.title)
-                    .font(.system(size: 31, weight: .bold, design: .rounded))
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: 520)
+            Text("Version \(self.whatsNew.version.description)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(.thinMaterial, in: Capsule())
         }
         .frame(maxWidth: .infinity)
     }
@@ -81,16 +78,9 @@ struct WhatsNewView: View {
             Divider()
                 .opacity(0.5)
 
-            ScrollView {
-                self.contentView
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            .frame(
-                minHeight: self.whatsNew.releaseNotes == nil ? 280 : 360,
-                idealHeight: self.whatsNew.releaseNotes == nil ? 320 : 400,
-                maxHeight: 420
-            )
+            self.contentView
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .background {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
