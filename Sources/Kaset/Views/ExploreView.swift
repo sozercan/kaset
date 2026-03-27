@@ -87,7 +87,6 @@ struct ExploreView: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
     }
 

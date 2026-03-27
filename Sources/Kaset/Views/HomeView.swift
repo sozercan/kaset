@@ -114,7 +114,6 @@ struct HomeView: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
     }
 

@@ -89,7 +89,6 @@ struct MoodsAndGenresView: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
     }
 
