@@ -76,6 +76,7 @@ struct PlaylistDetail: Identifiable {
     let description: String?
     let thumbnailURL: URL?
     let author: String?
+    let trackCount: Int?
     let tracks: [Song]
     let duration: String?
 
@@ -91,8 +92,20 @@ struct PlaylistDetail: Identifiable {
         self.description = playlist.description
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
+        self.trackCount = playlist.trackCount
         self.tracks = tracks
         self.duration = duration
+    }
+
+    /// Track count to show in the UI, preferring the API-reported total over the loaded row count.
+    var resolvedTrackCount: Int {
+        self.trackCount ?? self.tracks.count
+    }
+
+    /// Display string for the resolved track count.
+    var trackCountDisplay: String {
+        let count = self.resolvedTrackCount
+        return count == 1 ? "1 song" : "\(count.formatted()) songs"
     }
 }
 
