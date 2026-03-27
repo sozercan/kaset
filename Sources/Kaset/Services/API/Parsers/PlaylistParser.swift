@@ -13,6 +13,7 @@ enum PlaylistParser {
         var description: String?
         var thumbnailURL: URL?
         var author: String?
+        var trackCount: Int?
         var duration: String?
     }
 
@@ -306,13 +307,14 @@ enum PlaylistParser {
 
         // Parse tracks
         let tracks = self.parsePlaylistTracks(data, fallbackThumbnailURL: header.thumbnailURL)
+        let trackCount = max(header.trackCount ?? 0, tracks.count)
 
         let playlist = Playlist(
             id: playlistId,
             title: header.title,
             description: header.description,
             thumbnailURL: header.thumbnailURL,
-            trackCount: tracks.count,
+            trackCount: trackCount,
             author: header.author
         )
 
@@ -325,13 +327,14 @@ enum PlaylistParser {
 
         // Parse tracks
         let tracks = self.parsePlaylistTracks(data, fallbackThumbnailURL: header.thumbnailURL)
+        let trackCount = max(header.trackCount ?? 0, tracks.count)
 
         let playlist = Playlist(
             id: playlistId,
             title: header.title,
             description: header.description,
             thumbnailURL: header.thumbnailURL,
-            trackCount: tracks.count,
+            trackCount: trackCount,
             author: header.author
         )
 
@@ -814,15 +817,17 @@ enum PlaylistParser {
     private static func parsePlaylistHeader(_ data: [String: Any]) -> HeaderData {
         var header = HeaderData()
 
-        guard let headerDict = data["header"] as? [String: Any] else {
-            return header
+        if let headerDict = data["header"] as? [String: Any] {
+            // Try each header renderer type in order of preference
+            Self.applyDetailHeaderRenderer(from: headerDict, to: &header)
+            Self.applyImmersiveHeaderRenderer(from: headerDict, to: &header)
+            Self.applyVisualHeaderRenderer(from: headerDict, to: &header)
+            Self.applyEditablePlaylistHeaderRenderer(from: headerDict, to: &header)
         }
 
-        // Try each header renderer type in order of preference
-        Self.applyDetailHeaderRenderer(from: headerDict, to: &header)
-        Self.applyImmersiveHeaderRenderer(from: headerDict, to: &header)
-        Self.applyVisualHeaderRenderer(from: headerDict, to: &header)
-        Self.applyEditablePlaylistHeaderRenderer(from: headerDict, to: &header)
+        if let responsiveHeaderRenderer = Self.extractResponsiveHeaderRenderer(from: data) {
+            Self.applyResponsiveHeaderRenderer(from: responsiveHeaderRenderer, to: &header)
+        }
 
         return header
     }
@@ -847,12 +852,13 @@ enum PlaylistParser {
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             header.author = runs.compactMap { $0["text"] as? String }.first
+            Self.applyMetadata(from: runs, to: &header)
         }
 
         if let secondSubtitleData = renderer["secondSubtitle"] as? [String: Any],
            let runs = secondSubtitleData["runs"] as? [[String: Any]]
         {
-            header.duration = runs.compactMap { $0["text"] as? String }.joined()
+            Self.applyMetadata(from: runs, to: &header)
         }
     }
 
@@ -882,6 +888,7 @@ enum PlaylistParser {
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             header.author = runs.compactMap { $0["text"] as? String }.first
+            Self.applyMetadata(from: runs, to: &header)
         }
     }
 
@@ -922,7 +929,139 @@ enum PlaylistParser {
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             header.author = runs.compactMap { $0["text"] as? String }.first
+            Self.applyMetadata(from: runs, to: &header)
         }
+
+        if let secondSubtitleData = detailHeader["secondSubtitle"] as? [String: Any],
+           let runs = secondSubtitleData["runs"] as? [[String: Any]]
+        {
+            Self.applyMetadata(from: runs, to: &header)
+        }
+    }
+
+    private static func extractResponsiveHeaderRenderer(from data: [String: Any]) -> [String: Any]? {
+        let sectionGroups = Self.extractHeaderSections(from: data)
+
+        for sections in sectionGroups {
+            for sectionData in sections {
+                if let responsiveHeaderRenderer = sectionData["musicResponsiveHeaderRenderer"] as? [String: Any] {
+                    return responsiveHeaderRenderer
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private static func extractHeaderSections(from data: [String: Any]) -> [[[String: Any]]] {
+        guard let contents = data["contents"] as? [String: Any] else { return [] }
+
+        var sectionGroups: [[[String: Any]]] = []
+
+        if let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+           let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+           let firstTab = tabs.first,
+           let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+           let tabContent = tabRenderer["content"] as? [String: Any],
+           let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+           let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+        {
+            sectionGroups.append(sectionContents)
+        }
+
+        if let twoColumnRenderer = contents["twoColumnBrowseResultsRenderer"] as? [String: Any] {
+            if let secondaryContents = twoColumnRenderer["secondaryContents"] as? [String: Any],
+               let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any],
+               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+            {
+                sectionGroups.append(sectionContents)
+            }
+
+            if let tabs = twoColumnRenderer["tabs"] as? [[String: Any]],
+               let firstTab = tabs.first,
+               let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+               let tabContent = tabRenderer["content"] as? [String: Any],
+               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
+            {
+                sectionGroups.append(sectionContents)
+            }
+        }
+
+        return sectionGroups
+    }
+
+    private static func applyResponsiveHeaderRenderer(from renderer: [String: Any], to header: inout HeaderData) {
+        if header.title == "Unknown Playlist",
+           let text = ParsingHelpers.extractTitle(from: renderer)
+        {
+            header.title = text
+        }
+
+        if header.thumbnailURL == nil {
+            let thumbnails = ParsingHelpers.extractThumbnails(from: renderer)
+            header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        }
+
+        if header.description == nil,
+           let descriptionData = renderer["description"] as? [String: Any],
+           let descriptionShelfRenderer = descriptionData["musicDescriptionShelfRenderer"] as? [String: Any],
+           let bodyText = descriptionShelfRenderer["description"] as? [String: Any],
+           let runs = bodyText["runs"] as? [[String: Any]]
+        {
+            header.description = runs.compactMap { $0["text"] as? String }.joined()
+        }
+
+        if header.author == nil,
+           let facepile = renderer["facepile"] as? [String: Any],
+           let avatarStackViewModel = facepile["avatarStackViewModel"] as? [String: Any],
+           let text = avatarStackViewModel["text"] as? [String: Any],
+           let content = text["content"] as? String,
+           !content.isEmpty
+        {
+            header.author = content
+        }
+
+        if let subtitleData = renderer["subtitle"] as? [String: Any],
+           let runs = subtitleData["runs"] as? [[String: Any]]
+        {
+            Self.applyMetadata(from: runs, to: &header)
+        }
+
+        if let secondSubtitleData = renderer["secondSubtitle"] as? [String: Any],
+           let runs = secondSubtitleData["runs"] as? [[String: Any]]
+        {
+            Self.applyMetadata(from: runs, to: &header)
+        }
+    }
+
+    private static func applyMetadata(from runs: [[String: Any]], to header: inout HeaderData) {
+        let texts = runs.compactMap { ($0["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0 != "•" }
+        guard !texts.isEmpty else { return }
+
+        if header.trackCount == nil {
+            header.trackCount = texts.lazy.compactMap(ParsingHelpers.extractSongCount(from:)).first
+        }
+
+        if header.duration == nil {
+            header.duration = texts.last(where: Self.isDurationMetadata)
+        }
+    }
+
+    private static func isDurationMetadata(_ text: String) -> Bool {
+        if ParsingHelpers.parseDuration(text) != nil {
+            return true
+        }
+
+        guard let regex = try? NSRegularExpression(
+            pattern: #"^\d+\+?\s+(?:hours?|minutes?|seconds?)$"#,
+            options: .caseInsensitive
+        ) else {
+            return false
+        }
+
+        return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
     // MARK: - Track Parsing

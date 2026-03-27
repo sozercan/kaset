@@ -102,6 +102,28 @@ struct PlaylistParserTests {
         #expect(detail.tracks.isEmpty)
     }
 
+    @Test("Parse responsive playlist header track count and continuation")
+    func parseResponsivePlaylistHeaderTrackCount() {
+        let response = PlaylistParser.parsePlaylistWithContinuation(
+            self.makeResponsivePlaylistDetailData(
+                title: "Best Video Game Music",
+                author: "Shelltoast",
+                reportedTrackCountText: "2,429 tracks",
+                duration: "135+ hours",
+                loadedTrackCount: 100
+            ),
+            playlistId: "VL-big-playlist"
+        )
+
+        #expect(response.detail.title == "Best Video Game Music")
+        #expect(response.detail.author == "Shelltoast")
+        #expect(response.detail.trackCount == 2429)
+        #expect(response.detail.duration == "135+ hours")
+        #expect(response.detail.tracks.count == 100)
+        #expect(response.continuationToken == "next_page_token_123")
+        #expect(response.hasMore == true)
+    }
+
     // MARK: - Album Detection
 
     @Test(
@@ -512,6 +534,98 @@ struct PlaylistParserTests {
                             ],
                         ],
                     ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeResponsivePlaylistDetailData(
+        title: String,
+        author: String,
+        reportedTrackCountText: String,
+        duration: String,
+        loadedTrackCount: Int
+    ) -> [String: Any] {
+        var tracks: [[String: Any]] = []
+
+        for i in 0 ..< loadedTrackCount {
+            tracks.append([
+                "musicResponsiveListItemRenderer": [
+                    "playlistItemData": ["videoId": "video\(i)"],
+                    "flexColumns": [
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Track \(i)"]]],
+                            ],
+                        ],
+                        [
+                            "musicResponsiveListItemFlexColumnRenderer": [
+                                "text": ["runs": [["text": "Artist \(i)"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+        }
+
+        tracks.append([
+            "continuationItemRenderer": [
+                "continuationEndpoint": [
+                    "continuationCommand": [
+                        "token": "next_page_token_123",
+                    ],
+                ],
+            ],
+        ])
+
+        return [
+            "contents": [
+                "twoColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicResponsiveHeaderRenderer": [
+                                            "title": ["runs": [["text": title]]],
+                                            "subtitle": [
+                                                "runs": [
+                                                    ["text": "Playlist"],
+                                                    ["text": " • "],
+                                                    ["text": "2026"],
+                                                ],
+                                            ],
+                                            "secondSubtitle": [
+                                                "runs": [
+                                                    ["text": "21M views"],
+                                                    ["text": " • "],
+                                                    ["text": reportedTrackCountText],
+                                                    ["text": " • "],
+                                                    ["text": duration],
+                                                ],
+                                            ],
+                                            "facepile": [
+                                                "avatarStackViewModel": [
+                                                    "text": [
+                                                        "content": author,
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                    "secondaryContents": [
+                        "sectionListRenderer": [
+                            "contents": [[
+                                "musicPlaylistShelfRenderer": [
+                                    "contents": tracks,
+                                ],
+                            ]],
+                        ],
+                    ],
                 ],
             ],
         ]
