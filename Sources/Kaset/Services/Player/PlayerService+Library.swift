@@ -94,11 +94,17 @@ extension PlayerService {
     }
 
     /// Updates the like status from WebView observation.
+    /// Only updates PlayerService state for UI; does NOT overwrite SongLikeStatusManager cache
+    /// because WebView often reports INDIFFERENT as a default when the actual status is unknown.
     func updateLikeStatus(_ status: LikeStatus) {
-        self.currentTrackLikeStatus = status
-        // Keep SongLikeStatusManager cache in sync
-        if let videoId = self.currentTrack?.videoId {
-            SongLikeStatusManager.shared.setStatus(status, for: videoId)
+        // Only accept WebView status if SongLikeStatusManager has no cached value
+        // (cache is more authoritative than WebView's observation)
+        if let videoId = self.currentTrack?.videoId,
+           let cachedStatus = SongLikeStatusManager.shared.status(for: videoId)
+        {
+            self.currentTrackLikeStatus = cachedStatus
+        } else {
+            self.currentTrackLikeStatus = status
         }
     }
 
@@ -139,10 +145,18 @@ extension PlayerService {
                     feedbackTokens: songData.feedbackTokens
                 )
 
-                // Update service state and sync with SongLikeStatusManager
+                // Update service state and sync with SongLikeStatusManager.
+                // Only update if API returned a definitive status (like/dislike);
+                // if API returned .indifferent, prefer the existing cache value because
+                // the parser defaults to .indifferent when likeButtonRenderer is missing.
                 if let likeStatus = songData.likeStatus {
-                    self.currentTrackLikeStatus = likeStatus
-                    SongLikeStatusManager.shared.setStatus(likeStatus, for: videoId)
+                    let cachedStatus = SongLikeStatusManager.shared.status(for: videoId)
+                    if likeStatus != .indifferent || cachedStatus == nil {
+                        self.currentTrackLikeStatus = likeStatus
+                        SongLikeStatusManager.shared.setStatus(likeStatus, for: videoId)
+                    } else if let cached = cachedStatus {
+                        self.currentTrackLikeStatus = cached
+                    }
                 }
                 self.currentTrackInLibrary = songData.isInLibrary ?? false
                 self.currentTrackFeedbackTokens = songData.feedbackTokens
