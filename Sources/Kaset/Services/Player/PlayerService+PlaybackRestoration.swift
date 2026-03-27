@@ -62,6 +62,10 @@ extension PlayerService {
         } else {
             self.resetTrackStatus()
         }
+        // SongLikeStatusManager cache is the most up-to-date source for like status
+        if let cachedStatus = SongLikeStatusManager.shared.status(for: currentSong.videoId) {
+            self.currentTrackLikeStatus = cachedStatus
+        }
     }
 
     /// Clears one-shot state used while reconciling a restored playback session.

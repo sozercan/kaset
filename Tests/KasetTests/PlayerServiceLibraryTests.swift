@@ -13,6 +13,9 @@ struct PlayerServiceLibraryTests {
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
         self.playerService.setYTMusicClient(self.mockClient)
+        // likeCurrentTrack/dislikeCurrentTrack delegate to SongLikeStatusManager
+        SongLikeStatusManager.shared.setClient(self.mockClient)
+        SongLikeStatusManager.shared.clearCache()
     }
 
     // MARK: - Like Current Track Tests
@@ -85,8 +88,8 @@ struct PlayerServiceLibraryTests {
         // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for the async API call to fail and revert
-        try? await Task.sleep(for: .milliseconds(100))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
+        try? await Task.sleep(for: .milliseconds(300))
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }
@@ -157,7 +160,8 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(100))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
+        try? await Task.sleep(for: .milliseconds(300))
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }

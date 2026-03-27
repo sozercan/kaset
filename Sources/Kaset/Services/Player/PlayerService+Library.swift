@@ -5,6 +5,7 @@ import Foundation
 @MainActor
 extension PlayerService {
     /// Likes the current track (thumbs up).
+    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
     func likeCurrentTrack() {
         guard let track = currentTrack else { return }
         self.logger.info("Liking current track: \(track.videoId)")
@@ -12,22 +13,24 @@ extension PlayerService {
         // Toggle: if already liked, remove the like
         let newStatus: LikeStatus = self.currentTrackLikeStatus == .like ? .indifferent : .like
         let previousStatus = self.currentTrackLikeStatus
+        // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        // Use API call for reliable rating
+        // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            do {
-                try await self.ytMusicClient?.rateSong(videoId: track.videoId, rating: newStatus)
-                self.logger.info("Successfully rated song as \(newStatus.rawValue)")
-            } catch {
-                self.logger.error("Failed to rate song: \(error.localizedDescription)")
-                // Revert on failure
-                self.currentTrackLikeStatus = previousStatus
+            if newStatus == .like {
+                await SongLikeStatusManager.shared.like(track)
+            } else {
+                await SongLikeStatusManager.shared.unlike(track)
             }
+            // Sync back from manager in case of API failure rollback
+            let managerStatus = SongLikeStatusManager.shared.status(for: track.videoId)
+            self.currentTrackLikeStatus = managerStatus ?? previousStatus
         }
     }
 
     /// Dislikes the current track (thumbs down).
+    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
     func dislikeCurrentTrack() {
         guard let track = currentTrack else { return }
         self.logger.info("Disliking current track: \(track.videoId)")
@@ -35,18 +38,19 @@ extension PlayerService {
         // Toggle: if already disliked, remove the dislike
         let newStatus: LikeStatus = self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike
         let previousStatus = self.currentTrackLikeStatus
+        // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        // Use API call for reliable rating
+        // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            do {
-                try await self.ytMusicClient?.rateSong(videoId: track.videoId, rating: newStatus)
-                self.logger.info("Successfully rated song as \(newStatus.rawValue)")
-            } catch {
-                self.logger.error("Failed to rate song: \(error.localizedDescription)")
-                // Revert on failure
-                self.currentTrackLikeStatus = previousStatus
+            if newStatus == .dislike {
+                await SongLikeStatusManager.shared.dislike(track)
+            } else {
+                await SongLikeStatusManager.shared.undislike(track)
             }
+            // Sync back from manager in case of API failure rollback
+            let managerStatus = SongLikeStatusManager.shared.status(for: track.videoId)
+            self.currentTrackLikeStatus = managerStatus ?? previousStatus
         }
     }
 
@@ -92,6 +96,10 @@ extension PlayerService {
     /// Updates the like status from WebView observation.
     func updateLikeStatus(_ status: LikeStatus) {
         self.currentTrackLikeStatus = status
+        // Keep SongLikeStatusManager cache in sync
+        if let videoId = self.currentTrack?.videoId {
+            SongLikeStatusManager.shared.setStatus(status, for: videoId)
+        }
     }
 
     /// Resets like/library status when track changes.
@@ -131,9 +139,10 @@ extension PlayerService {
                     feedbackTokens: songData.feedbackTokens
                 )
 
-                // Update service state
+                // Update service state and sync with SongLikeStatusManager
                 if let likeStatus = songData.likeStatus {
                     self.currentTrackLikeStatus = likeStatus
+                    SongLikeStatusManager.shared.setStatus(likeStatus, for: videoId)
                 }
                 self.currentTrackInLibrary = songData.isInLibrary ?? false
                 self.currentTrackFeedbackTokens = songData.feedbackTokens

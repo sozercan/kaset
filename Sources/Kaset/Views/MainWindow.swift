@@ -22,6 +22,7 @@ struct MainWindow: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -220,6 +221,19 @@ struct MainWindow: View {
         }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+
+            // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
+            if let currentVideoId = self.playerService.currentTrack?.videoId,
+               event.videoId == currentVideoId
+            {
+                self.playerService.currentTrackLikeStatus = event.status
+            }
+
+            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
+            self.likedMusicViewModel?.handleLikeStatusChange(event)
         }
     }
 

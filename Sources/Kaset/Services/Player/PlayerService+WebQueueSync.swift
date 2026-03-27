@@ -341,6 +341,10 @@ extension PlayerService {
             if queueIndexChanged || self.shouldKeepQueueMetadata(title: title, artist: artist, song: matchingSong) {
                 if self.currentTrack?.videoId != matchingSong.videoId {
                     self.resetTrackStatus()
+                    // Immediately restore like status from SongLikeStatusManager cache
+                    if let cachedStatus = SongLikeStatusManager.shared.status(for: matchingSong.videoId) {
+                        self.currentTrackLikeStatus = cachedStatus
+                    }
                 }
                 self.keepQueueSongVisible(matchingSong, thumbnailUrl: thumbnailUrl)
                 return true
@@ -522,6 +526,10 @@ extension PlayerService {
 
         if trackChanged {
             self.resetTrackStatus()
+            // Immediately restore like status from SongLikeStatusManager cache
+            if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
+                self.currentTrackLikeStatus = cachedStatus
+            }
         }
     }
 }

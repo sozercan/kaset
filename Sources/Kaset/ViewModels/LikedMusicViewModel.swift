@@ -31,8 +31,10 @@ final class LikedMusicViewModel {
 
         do {
             let response = try await client.getLikedSongs()
-            // Mark all songs as liked since they come from the liked songs API
-            self.songs = response.songs.map { song in
+            // Deduplicate by videoId and mark all songs as liked
+            var seenVideoIds = Set<String>()
+            self.songs = response.songs.compactMap { song in
+                guard seenVideoIds.insert(song.videoId).inserted else { return nil }
                 var mutableSong = song
                 mutableSong.likeStatus = .like
                 return mutableSong
@@ -113,5 +115,33 @@ final class LikedMusicViewModel {
         self.songs = []
         self.hasMore = false
         await self.load()
+    }
+
+    // MARK: - Real-time Like Status Sync
+
+    /// Handles a like status change event to keep the song list in sync.
+    /// - When a song is liked: adds it to the top of the list (if not already present).
+    /// - When a song is unliked/disliked: removes it from the list.
+    func handleLikeStatusChange(_ event: LikeStatusEvent) {
+        guard self.loadingState == .loaded || self.loadingState == .loadingMore else { return }
+
+        switch event.status {
+        case .like:
+            // Add to top if not already in the list
+            guard !self.songs.contains(where: { $0.videoId == event.videoId }) else { return }
+            if let song = event.song {
+                var likedSong = song
+                likedSong.likeStatus = .like
+                self.songs.insert(likedSong, at: 0)
+                self.logger.info("Live sync: added song \(event.videoId) to liked music")
+            }
+        case .indifferent, .dislike:
+            // Remove from list
+            let countBefore = self.songs.count
+            self.songs.removeAll { $0.videoId == event.videoId }
+            if self.songs.count < countBefore {
+                self.logger.info("Live sync: removed song \(event.videoId) from liked music")
+            }
+        }
     }
 }

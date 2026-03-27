@@ -1,5 +1,19 @@
 import Foundation
 
+// MARK: - LikeStatusEvent
+
+/// Represents a like status change event for reactive UI updates.
+struct LikeStatusEvent: Equatable {
+    let videoId: String
+    let status: LikeStatus
+    let song: Song?
+    private let eventId = UUID()
+
+    static func == (lhs: LikeStatusEvent, rhs: LikeStatusEvent) -> Bool {
+        lhs.eventId == rhs.eventId
+    }
+}
+
 // MARK: - SongLikeStatusManager
 
 /// Manages like/dislike status for songs across the app.
@@ -12,6 +26,9 @@ final class SongLikeStatusManager {
 
     /// Cache of video ID to like status.
     private var statusCache: [String: LikeStatus] = [:]
+
+    /// The most recent like status change event, for reactive observation by views.
+    private(set) var lastLikeEvent: LikeStatusEvent?
 
     /// Reference to the YTMusic client for API calls.
     private var client: (any YTMusicClientProtocol)?
@@ -92,28 +109,33 @@ final class SongLikeStatusManager {
             return
         }
 
-        // Optimistically update cache
+        // Optimistically update cache and notify observers
         let previousStatus = self.statusCache[song.videoId]
         self.statusCache[song.videoId] = status
+        self.lastLikeEvent = LikeStatusEvent(videoId: song.videoId, status: status, song: song)
 
         do {
             try await client.rateSong(videoId: song.videoId, rating: status)
             DiagnosticsLogger.api.info("Rated song \(song.videoId) as \(status.rawValue)")
         } catch is CancellationError {
-            // Task was cancelled - rollback optimistic update
+            // Task was cancelled - rollback optimistic update and notify
+            let rollbackStatus = previousStatus ?? .indifferent
             if let previous = previousStatus {
                 self.statusCache[song.videoId] = previous
             } else {
                 self.statusCache.removeValue(forKey: song.videoId)
             }
+            self.lastLikeEvent = LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song)
             DiagnosticsLogger.api.debug("Rating cancelled for song \(song.videoId), rolled back")
         } catch {
-            // Revert on failure
+            // Revert on failure and notify
+            let rollbackStatus = previousStatus ?? .indifferent
             if let previous = previousStatus {
                 self.statusCache[song.videoId] = previous
             } else {
                 self.statusCache.removeValue(forKey: song.videoId)
             }
+            self.lastLikeEvent = LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song)
             DiagnosticsLogger.api.error("Failed to rate song: \(error.localizedDescription)")
         }
     }
