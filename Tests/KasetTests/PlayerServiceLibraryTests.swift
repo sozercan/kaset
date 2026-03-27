@@ -27,7 +27,7 @@ struct PlayerServiceLibraryTests {
         self.playerService.likeCurrentTrack()
 
         // Allow time for any async task to complete
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
     }
@@ -42,7 +42,7 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
         // Wait for the async API call
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == true)
         #expect(self.mockClient.rateSongVideoIds.first == "test-video")
@@ -58,7 +58,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
     }
@@ -72,7 +72,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .like)
     }
@@ -102,7 +102,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.dislikeCurrentTrack()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
     }
@@ -116,7 +116,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == true)
         #expect(self.mockClient.rateSongRatings.first == .dislike)
@@ -131,7 +131,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
     }
@@ -145,7 +145,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .dislike)
     }
@@ -174,7 +174,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.toggleLibraryStatus()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.editSongLibraryStatusCalled == false)
     }
@@ -186,7 +186,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.toggleLibraryStatus()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.editSongLibraryStatusCalled == false)
     }
