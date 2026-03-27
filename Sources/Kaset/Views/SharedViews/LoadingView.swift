@@ -54,7 +54,7 @@ struct LoadingView: View {
     let skeletonSectionCount: Int
 
     init(
-        _ message: String = "Loading...",
+        _ message: String = String(localized: "Loading..."),
         showSkeleton: Bool = false,
         skeletonSectionCount: Int = 3
     ) {

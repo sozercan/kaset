@@ -69,13 +69,13 @@ struct ScrobbleServiceRow: View {
     private var connectionStatusText: String {
         switch self.service.authState {
         case .disconnected:
-            "Not connected"
+            String(localized: "Not connected")
         case .authenticating:
-            "Waiting for authorization…"
+            String(localized: "Waiting for authorization…")
         case let .connected(username):
-            "Connected as \(username)"
+            String(localized: "Connected as \(username)")
         case let .error(message):
-            "Error: \(message)"
+            String(localized: "Error: \(message)")
         }
     }
 

@@ -13,7 +13,7 @@ struct ErrorView: View {
 
     /// Creates an ErrorView with explicit parameters.
     init(
-        title: String = "Unable to load content",
+        title: String = String(localized: "Unable to load content"),
         message: String,
         isRetryable: Bool = true,
         retryAction: (() -> Void)? = nil
@@ -42,7 +42,7 @@ struct ErrorView: View {
             Text(self.message)
         } actions: {
             if self.isRetryable, let action = self.retryAction {
-                Button("Try Again") {
+                Button(String(localized: "Try Again")) {
                     action()
                 }
                 .buttonStyle(.borderedProminent)

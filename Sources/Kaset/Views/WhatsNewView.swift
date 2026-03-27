@@ -147,7 +147,7 @@ struct WhatsNewView: View {
     }
 
     private var contentSectionTitle: String {
-        self.whatsNew.releaseNotes == nil ? "Highlights" : "Release Notes"
+        self.whatsNew.releaseNotes == nil ? String(localized: "Highlights") : String(localized: "Release Notes")
     }
 
     private var contentSectionIcon: String {

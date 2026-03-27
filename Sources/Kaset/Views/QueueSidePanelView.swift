@@ -587,7 +587,7 @@ private struct QueueSidePanelHeader: View {
 
             Spacer()
 
-            Text("\(self.playerService.queue.count) songs")
+            Text("\(self.playerService.queue.count) songs", comment: "Queue song count")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -599,8 +599,8 @@ private struct QueueSidePanelHeader: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Close side panel")
-            .accessibilityLabel("Close side panel")
+            .help(String(localized: "Close side panel"))
+            .accessibilityLabel(String(localized: "Close side panel"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

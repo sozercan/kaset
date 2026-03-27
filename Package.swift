@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Kaset",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v26),
     ],

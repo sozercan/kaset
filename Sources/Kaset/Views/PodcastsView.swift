@@ -16,15 +16,15 @@ struct PodcastsView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading podcasts...")
+                        LoadingView(String(localized: "Loading podcasts..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -291,15 +291,15 @@ struct PodcastShowView: View {
             await self.loadShow()
         }
         .alert(
-            "Subscription Error",
+            String(localized: "Subscription Error"),
             isPresented: Binding(
                 get: { self.subscriptionError != nil },
                 set: { if !$0 { self.subscriptionError = nil } }
             )
         ) {
-            Button("OK") { self.subscriptionError = nil }
+            Button(String(localized: "OK")) { self.subscriptionError = nil }
         } message: {
-            Text(self.subscriptionError ?? "An unknown error occurred")
+            Text(self.subscriptionError ?? String(localized: "An unknown error occurred"))
         }
     }
 
@@ -361,7 +361,7 @@ struct PodcastShowView: View {
                                 .controlSize(.small)
                         } else {
                             Label(
-                                self.isSubscribed ? "In Library" : "Add to Library",
+                                self.isSubscribed ? String(localized: "In Library") : String(localized: "Add to Library"),
                                 systemImage: self.isSubscribed ? "checkmark" : "plus"
                             )
                         }

@@ -63,8 +63,8 @@ struct QueueView: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Open queue in side panel")
-            .accessibilityLabel("Open queue in side panel")
+            .help(String(localized: "Open queue in side panel"))
+            .accessibilityLabel(String(localized: "Open queue in side panel"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -173,7 +173,7 @@ private struct QueueRowView: View {
                         .lineLimit(1)
                         .foregroundStyle(self.isCurrentTrack ? .red : .primary)
 
-                    Text(self.song.artistsDisplay.isEmpty ? "Unknown Artist" : self.song.artistsDisplay)
+                    Text(self.song.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : self.song.artistsDisplay)
                         .font(.system(size: 11))
                         .lineLimit(1)
                         .foregroundStyle(.secondary)

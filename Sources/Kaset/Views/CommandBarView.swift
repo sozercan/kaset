@@ -47,7 +47,7 @@ struct CommandBarView: View {
                         .font(.system(size: 16))
                         .foregroundStyle(.tint)
 
-                    TextField("Ask anything about music...", text: self.$inputText)
+                    TextField(String(localized: "Ask anything about music..."), text: self.$inputText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16))
                         .focused(self.$isInputFocused)
@@ -74,7 +74,7 @@ struct CommandBarView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Clear input")
+                        .accessibilityLabel(String(localized: "Clear input"))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -170,11 +170,11 @@ struct CommandBarView: View {
     /// Header text for suggestions, contextual based on playback state.
     private var suggestionsHeaderText: String {
         if self.playerService.currentTrack != nil {
-            "What would you like to do?"
+            String(localized: "What would you like to do?")
         } else if !self.playerService.queue.isEmpty {
-            "What would you like to do with your queue?"
+            String(localized: "What would you like to do with your queue?")
         } else {
-            "Try commands like:"
+            String(localized: "Try commands like:")
         }
     }
 
@@ -295,7 +295,7 @@ struct CommandBarView: View {
         self.logger.info("Processing command: \(query)")
 
         guard FoundationModelsService.shared.isAvailable else {
-            self.errorMessage = "Apple Intelligence is not available"
+            self.errorMessage = String(localized: "Apple Intelligence is not available")
             self.isProcessing = false
             return
         }
@@ -307,7 +307,7 @@ struct CommandBarView: View {
             instructions: self.aiSystemInstructions,
             tools: [searchTool, queueTool]
         ) else {
-            self.errorMessage = "Could not create AI session"
+            self.errorMessage = String(localized: "Could not create AI session")
             self.isProcessing = false
             return
         }
@@ -635,7 +635,7 @@ struct CommandBarView: View {
             }
         } catch {
             self.logger.error("Search failed: \(error.localizedDescription)")
-            self.errorMessage = "Couldn't search for music"
+            self.errorMessage = String(localized: "Couldn't search for music")
         }
     }
 
@@ -669,7 +669,7 @@ struct CommandBarView: View {
             }
         } catch {
             self.logger.error("Search failed: \(error.localizedDescription)")
-            self.errorMessage = "Couldn't search for music"
+            self.errorMessage = String(localized: "Couldn't search for music")
         }
     }
 

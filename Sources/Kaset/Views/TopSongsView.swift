@@ -13,7 +13,7 @@ struct TopSongsView: View {
             switch self.viewModel.loadingState {
             case .idle, .loading:
                 if self.viewModel.songs.isEmpty {
-                    LoadingView("Loading songs...")
+                    LoadingView(String(localized: "Loading songs..."))
                 } else {
                     // Show existing songs while loading more
                     self.songsListView
