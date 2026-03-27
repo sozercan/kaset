@@ -7,6 +7,12 @@ import SwiftUI
 /// Displays either structured feature rows (static fallback) or markdown release notes (from GitHub).
 @available(macOS 26.0, *)
 struct WhatsNewView: View {
+    private enum Layout {
+        static let sheetWidth: CGFloat = 640
+        static let sheetHeight: CGFloat = 620
+        static let contentMinHeight: CGFloat = 280
+    }
+
     @Environment(\.colorScheme) private var colorScheme
 
     let whatsNew: WhatsNew
@@ -14,17 +20,14 @@ struct WhatsNewView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    self.headerView
-                    self.contentCard
-                }
-            }
+            self.headerView
+            self.contentCard
+                .frame(maxHeight: .infinity, alignment: .top)
             self.footerView
         }
         .padding(24)
-        .frame(width: 640)
-        .frame(minHeight: 620)
+        .frame(width: Self.Layout.sheetWidth)
+        .frame(idealHeight: Self.Layout.sheetHeight, maxHeight: Self.Layout.sheetHeight, alignment: .top)
         .background {
             LinearGradient(
                 colors: [
@@ -78,10 +81,10 @@ struct WhatsNewView: View {
             Divider()
                 .opacity(0.5)
 
-            self.contentView
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+            self.contentContainer
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .background {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(self.colorScheme == .dark ? 0.88 : 0.96))
@@ -89,6 +92,27 @@ struct WhatsNewView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(.white.opacity(self.colorScheme == .dark ? 0.08 : 0.28))
+        }
+    }
+
+    @ViewBuilder
+    private var contentContainer: some View {
+        if self.whatsNew.releaseNotes != nil {
+            ScrollView {
+                self.contentView
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        } else {
+            self.contentView
+                .padding(24)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: Self.Layout.contentMinHeight,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
         }
     }
 
