@@ -7,12 +7,23 @@ import Testing
 @MainActor
 struct ArtistDetailViewModelTests {
     var mockClient: MockYTMusicClient
+    var libraryViewModel: LibraryViewModel
     var viewModel: ArtistDetailViewModel
 
     init() {
         self.mockClient = MockYTMusicClient()
+        self.libraryViewModel = LibraryViewModel(client: self.mockClient)
         let artist = TestFixtures.makeArtist(id: "UC-test-artist", name: "Test Artist")
-        self.viewModel = ArtistDetailViewModel(artist: artist, client: self.mockClient)
+        self.viewModel = ArtistDetailViewModel(
+            artist: artist,
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+        SongActionsHelper.artistLibraryReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
+    }
+
+    private func awaitArtistReconciliation() async {
+        try? await Task.sleep(for: .milliseconds(50))
     }
 
     // MARK: - Initial State Tests
@@ -212,10 +223,10 @@ struct ArtistDetailViewModelTests {
         #expect(self.mockClient.unsubscribeFromArtistCalled == false)
     }
 
-    @Test("toggleSubscription subscribes when not subscribed")
+    @Test("toggleSubscription subscribes and refreshes the library")
     func toggleSubscriptionSubscribes() async {
         let artistDetail = ArtistDetail(
-            artist: TestFixtures.makeArtist(id: "UC-test-artist"),
+            artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
             description: nil,
             songs: [],
             albums: [],
@@ -226,17 +237,49 @@ struct ArtistDetailViewModelTests {
         self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
         await self.viewModel.load()
+        self.mockClient.reset()
         await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
 
         #expect(self.mockClient.subscribeToArtistCalled == true)
         #expect(self.mockClient.subscribeToArtistIds.first == "UC-channel-123")
+        #expect(self.mockClient.getLibraryContentCalled == true)
         #expect(self.viewModel.artistDetail?.isSubscribed == true)
+        #expect(self.libraryViewModel.libraryArtistIds == Set(["UC-channel-123"]))
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == true)
+        #expect(self.libraryViewModel.artists.first?.id == "UC-channel-123")
     }
 
-    @Test("toggleSubscription unsubscribes when subscribed")
+    @Test("toggleSubscription keeps optimistic artist when refresh response is stale")
+    func toggleSubscriptionSubscribePreservesOptimisticArtist() async {
+        let artistDetail = ArtistDetail(
+            artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
+            description: nil,
+            songs: [],
+            albums: [],
+            thumbnailURL: nil,
+            channelId: "UC-channel-123",
+            isSubscribed: false
+        )
+        self.mockClient.artistDetails["UC-test-artist"] = artistDetail
+        self.mockClient.shouldAutoUpdateArtistLibraryOnMutation = false
+
+        await self.viewModel.load()
+        self.mockClient.reset()
+        await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
+
+        #expect(self.mockClient.subscribeToArtistCalled == true)
+        #expect(self.mockClient.getLibraryContentCalled == true)
+        #expect(self.viewModel.artistDetail?.isSubscribed == true)
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == true)
+        #expect(self.libraryViewModel.artists.first?.id == "UC-channel-123")
+    }
+
+    @Test("toggleSubscription unsubscribes and refreshes the library")
     func toggleSubscriptionUnsubscribes() async {
         let artistDetail = ArtistDetail(
-            artist: TestFixtures.makeArtist(id: "UC-test-artist"),
+            artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
             description: nil,
             songs: [],
             albums: [],
@@ -245,13 +288,23 @@ struct ArtistDetailViewModelTests {
             isSubscribed: true
         )
         self.mockClient.artistDetails["UC-test-artist"] = artistDetail
+        self.mockClient.libraryArtists = [
+            TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
+        ]
 
+        await self.libraryViewModel.load()
         await self.viewModel.load()
+        self.mockClient.reset()
         await self.viewModel.toggleSubscription()
+        await self.awaitArtistReconciliation()
 
         #expect(self.mockClient.unsubscribeFromArtistCalled == true)
         #expect(self.mockClient.unsubscribeFromArtistIds.first == "UC-channel-123")
+        #expect(self.mockClient.getLibraryContentCalled == true)
         #expect(self.viewModel.artistDetail?.isSubscribed == false)
+        #expect(self.libraryViewModel.libraryArtistIds.isEmpty)
+        #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
+        #expect(self.libraryViewModel.artists.isEmpty)
     }
 
     @Test("toggleSubscription sets error on failure")

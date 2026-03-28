@@ -110,8 +110,8 @@ struct LyricsView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(self.showExplanation ? .purple : .secondary)
-                .help("Explain lyrics with AI")
-                .accessibilityLabel(self.showExplanation ? "Hide lyrics explanation" : "Explain lyrics with AI")
+                .help(String(localized: "Explain lyrics with AI"))
+                .accessibilityLabel(self.showExplanation ? String(localized: "Hide lyrics explanation") : String(localized: "Explain lyrics with AI"))
                 .requiresIntelligence()
                 .disabled(self.isExplaining)
             }
@@ -145,7 +145,7 @@ struct LyricsView: View {
             ProgressView()
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
-            Text("Loading lyrics...")
+            Text("Loading lyrics...", comment: "Lyrics panel loading state")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -354,7 +354,7 @@ struct LyricsView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("There aren't any lyrics available for this song.")
+            Text("There aren't any lyrics available for this song.", comment: "Lyrics unavailable message")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -373,7 +373,7 @@ struct LyricsView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("Play a song to view its lyrics here.")
+            Text("Play a song to view its lyrics here.", comment: "No song playing lyrics message")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

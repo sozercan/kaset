@@ -108,7 +108,7 @@ struct MainWindow: View {
                                 .shadow(radius: 1)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Close")
+                        .accessibilityLabel(String(localized: "Close"))
                         .padding(3)
                     }
                 }
@@ -271,7 +271,7 @@ struct MainWindow: View {
                         .foregroundStyle(.primary)
                 }
                 .keyboardShortcut("k", modifiers: .command)
-                .help("Ask AI (⌘K)")
+                .help(String(localized: "Ask AI (⌘K)"))
                 .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 .requiresIntelligence()
             }
@@ -314,7 +314,7 @@ struct MainWindow: View {
             if let item {
                 self.viewForNavigationItem(item)
             } else {
-                Text("Select an item from the sidebar")
+                Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
                     .foregroundStyle(.secondary)
             }
         }
@@ -458,6 +458,29 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 
     var id: String {
         rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .home:
+            String(localized: "Home")
+        case .explore:
+            String(localized: "Explore")
+        case .search:
+            String(localized: "Search")
+        case .charts:
+            String(localized: "Charts")
+        case .moodsAndGenres:
+            String(localized: "Moods & Genres")
+        case .newReleases:
+            String(localized: "New Releases")
+        case .podcasts:
+            String(localized: "Podcasts")
+        case .likedMusic:
+            String(localized: "Liked Music")
+        case .library:
+            String(localized: "Library")
+        }
     }
 
     var icon: String {

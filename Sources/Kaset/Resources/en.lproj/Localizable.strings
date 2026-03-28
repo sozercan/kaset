@@ -1,0 +1,535 @@
+/* Generated from Localizable.xcstrings. */
+
+/* Playlist track count */
+"%lld songs" = "%lld songs";
+
+"A native YouTube Music experience for macOS" = "A native YouTube Music experience for macOS";
+
+"AI responses follow your system language settings." = "AI responses follow your system language settings.";
+
+"About" = "About";
+
+"Access your playlists and liked songs" = "Access your playlists and liked songs";
+
+"Account" = "Account";
+
+"Add to Favorites" = "Add to Favorites";
+
+"Add to Library" = "Add to Library";
+
+"Add to Queue" = "Add to Queue";
+
+"Added to Library" = "Added to Library";
+
+"AirPlay" = "AirPlay";
+
+"AirPlay Connected" = "AirPlay Connected";
+
+"Album" = "Album";
+
+"Albums" = "Albums";
+
+"All" = "All";
+
+"All Episodes" = "All Episodes";
+
+"An unknown error occurred" = "An unknown error occurred";
+
+"Analyzing playlist..." = "Analyzing playlist...";
+
+"Analyzing..." = "Analyzing...";
+
+"Apple Intelligence" = "Apple Intelligence";
+
+"Apple Intelligence & Siri Settings" = "Apple Intelligence & Siri Settings";
+
+"Apple Intelligence is currently unavailable." = "Apple Intelligence is currently unavailable.";
+
+"Apple Intelligence is downloading. This may take a few minutes." = "Apple Intelligence is downloading. This may take a few minutes.";
+
+"Apple Intelligence is not available" = "Apple Intelligence is not available";
+
+"Apple Intelligence is ready to use" = "Apple Intelligence is ready to use";
+
+"Apply Changes" = "Apply Changes";
+
+"Artist" = "Artist";
+
+"Artist not found" = "Artist not found";
+
+"Artists" = "Artists";
+
+"Ask AI (⌘K)" = "Ask AI (⌘K)";
+
+"Ask anything about music..." = "Ask anything about music...";
+
+"Automatically check for updates" = "Automatically check for updates";
+
+"Available" = "Available";
+
+"Background Playback" = "Background Playback";
+
+"Built with SwiftUI for a true macOS experience" = "Built with SwiftUI for a true macOS experience";
+
+"Calculating..." = "Calculating...";
+
+"Cancel" = "Cancel";
+
+"Change your system language to English or another supported language." = "Change your system language to English or another supported language.";
+
+"Charts" = "Charts";
+
+"Check Now" = "Check Now";
+
+"Check for Updates..." = "Check for Updates...";
+
+"Clear" = "Clear";
+
+"Clear AI Context" = "Clear AI Context";
+
+"Clear Cache" = "Clear Cache";
+
+"Clear input" = "Clear input";
+
+"Clear search" = "Clear search";
+
+"Clearing..." = "Clearing...";
+
+"Clears the AI session state. Use this if responses seem off or stuck." = "Clears the AI session state. Use this if responses seem off or stuck.";
+
+"Close" = "Close";
+
+"Close side panel" = "Close side panel";
+
+"Collection" = "Collection";
+
+"Command Bar" = "Command Bar";
+
+"Community playlists" = "Community playlists";
+
+"Connect" = "Connect";
+
+"Connected as %@" = "Connected as %@";
+
+"Content may not be available in your region." = "Content may not be available in your region.";
+
+"Continue" = "Continue";
+
+"Control playback with your keyboard" = "Control playback with your keyboard";
+
+"Could not create AI session" = "Could not create AI session";
+
+"Couldn't search for music" = "Couldn't search for music";
+
+"Create or save playlists on YouTube Music to see them here." = "Create or save playlists on YouTube Music to see them here.";
+
+"Default Page on Launch" = "Default Page on Launch";
+
+"Disconnect" = "Disconnect";
+
+"Discover" = "Discover";
+
+"Dislike" = "Dislike";
+
+"Disliked" = "Disliked";
+
+"Dismiss" = "Dismiss";
+
+"Done" = "Done";
+
+"Double-tap to retry" = "Double-tap to retry";
+
+"Double-tap to switch accounts" = "Double-tap to switch accounts";
+
+"Downloading" = "Downloading";
+
+"Drag to reorder" = "Drag to reorder";
+
+"Edit" = "Edit";
+
+"Enable AI Features" = "Enable AI Features";
+
+"Enable Apple Intelligence in System Settings to use AI features." = "Enable Apple Intelligence in System Settings to use AI features.";
+
+"Episodes" = "Episodes";
+
+"Error: %@" = "Error: %@";
+
+"Explain lyrics with AI" = "Explain lyrics with AI";
+
+"Explore" = "Explore";
+
+"Failed to load" = "Failed to load";
+
+"Failed to load accounts" = "Failed to load accounts";
+
+"Failed to load accounts. Please try again." = "Failed to load accounts. Please try again.";
+
+"Failed to switch account. Please try again." = "Failed to switch account. Please try again.";
+
+"Favorites" = "Favorites";
+
+"Featured playlists" = "Featured playlists";
+
+"Find songs, albums, artists, and playlists" = "Find songs, albums, artists, and playlists";
+
+"Follow artists on YouTube Music to see them here." = "Follow artists on YouTube Music to see them here.";
+
+"General" = "General";
+
+"GitHub" = "GitHub";
+
+"Go to Album" = "Go to Album";
+
+"Go to Artist" = "Go to Artist";
+
+"Haptic Feedback" = "Haptic Feedback";
+
+"Hidden" = "Hidden";
+
+"Hide Lyrics" = "Hide Lyrics";
+
+"Hide lyrics explanation" = "Hide lyrics explanation";
+
+"Highlights" = "Highlights";
+
+"Home" = "Home";
+
+"Image Cache" = "Image Cache";
+
+"In Library" = "In Library";
+
+"Intelligence" = "Intelligence";
+
+"Keep listening even when the window is closed" = "Keep listening even when the window is closed";
+
+"Language Not Supported" = "Language Not Supported";
+
+"Last Used" = "Last Used";
+
+"Learn more" = "Learn more";
+
+"Library" = "Library";
+
+"Like" = "Like";
+
+"Liked" = "Liked";
+
+"Liked Music" = "Liked Music";
+
+"Load More" = "Load More";
+
+"Loading artist..." = "Loading artist...";
+
+"Loading charts..." = "Loading charts...";
+
+"Loading explore content..." = "Loading explore content...";
+
+"Loading liked songs..." = "Loading liked songs...";
+
+"Loading lyrics..." = "Loading lyrics...";
+
+"Loading moods & genres..." = "Loading moods & genres...";
+
+"Loading more..." = "Loading more...";
+
+"Loading new releases..." = "Loading new releases...";
+
+"Loading playlist..." = "Loading playlist...";
+
+"Loading podcasts..." = "Loading podcasts...";
+
+"Loading songs..." = "Loading songs...";
+
+"Loading your library..." = "Loading your library...";
+
+"Loading..." = "Loading...";
+
+"Lyrics" = "Lyrics";
+
+"Media Keys" = "Media Keys";
+
+"Mix" = "Mix";
+
+"Moods & Genres" = "Moods & Genres";
+
+"Move to End" = "Move to End";
+
+"Move to Top" = "Move to Top";
+
+"Mute" = "Mute";
+
+"Native Interface" = "Native Interface";
+
+"Never checked" = "Never checked";
+
+"New Releases" = "New Releases";
+
+"Next" = "Next";
+
+"Next track" = "Next track";
+
+"No Connection" = "No Connection";
+
+"No Content Available" = "No Content Available";
+
+"No Lyrics Available" = "No Lyrics Available";
+
+"No Moods & Genres Available" = "No Moods & Genres Available";
+
+"No Queue" = "No Queue";
+
+"No Song Playing" = "No Song Playing";
+
+"No artists yet" = "No artists yet";
+
+"No changes suggested. The playlist looks good!" = "No changes suggested. The playlist looks good!";
+
+"No liked songs yet" = "No liked songs yet";
+
+"No playlists yet" = "No playlists yet";
+
+"No podcasts yet" = "No podcasts yet";
+
+"No results found" = "No results found";
+
+"No songs or playlists found in this category." = "No songs or playlists found in this category.";
+
+"Not Enabled" = "Not Enabled";
+
+"Not Supported" = "Not Supported";
+
+"Not connected" = "Not connected";
+
+"Not disliked" = "Not disliked";
+
+"Not liked" = "Not liked";
+
+"Not signed in" = "Not signed in";
+
+/* Login help text about passkey alternative */
+"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Note: If passkeys don't work, use \"Try another way\" to sign in with password.";
+
+"OK" = "OK";
+
+"Off" = "Off";
+
+"On" = "On";
+
+"One" = "One";
+
+"Open queue in side panel" = "Open queue in side panel";
+
+"Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\".";
+
+"Pause" = "Pause";
+
+"Play" = "Play";
+
+"Play All" = "Play All";
+
+"Play Latest" = "Play Latest";
+
+"Play Next" = "Play Next";
+
+"Play a song to view its lyrics here." = "Play a song to view its lyrics here.";
+
+"Play songs from a playlist or album to build your queue." = "Play songs from a playlist or album to build your queue.";
+
+"Playback" = "Playback";
+
+"Played" = "Played";
+
+"Playing" = "Playing";
+
+"Playlist" = "Playlist";
+
+"Playlist not found" = "Playlist not found";
+
+"Playlists" = "Playlists";
+
+"Please check your internet connection and try again." = "Please check your internet connection and try again.";
+
+"Podcasts" = "Podcasts";
+
+"Press Enter to search" = "Press Enter to search";
+
+"Previous" = "Previous";
+
+"Previous track" = "Previous track";
+
+"Processing..." = "Processing...";
+
+"Provide tactile feedback for actions on Force Touch trackpads" = "Provide tactile feedback for actions on Force Touch trackpads";
+
+"Queue" = "Queue";
+
+"Quick Access" = "Quick Access";
+
+"Redo" = "Redo";
+
+"Refine" = "Refine";
+
+"Refine Playlist" = "Refine Playlist";
+
+"Release Notes" = "Release Notes";
+
+"Remember Shuffle & Repeat" = "Remember Shuffle & Repeat";
+
+"Remove Dislike" = "Remove Dislike";
+
+"Remove from Favorites" = "Remove from Favorites";
+
+"Remove from Queue" = "Remove from Queue";
+
+"Repeat" = "Repeat";
+
+"Repeat All" = "Repeat All";
+
+"Repeat Off" = "Repeat Off";
+
+"Repeat One" = "Repeat One";
+
+/* Button to retry failed playback */
+"Retry" = "Retry";
+
+"Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Save playlists and subscribe to podcasts on YouTube Music to see them here.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here.";
+
+"Save shuffle and repeat settings across app restarts" = "Save shuffle and repeat settings across app restarts";
+
+"Scrobbling" = "Scrobbling";
+
+"Search" = "Search";
+
+"Search for your favorite music" = "Search for your favorite music";
+
+"Search songs, albums, artists..." = "Search songs, albums, artists...";
+
+"Searching..." = "Searching...";
+
+"See all" = "See all";
+
+/* Placeholder shown when no sidebar item is selected */
+"Select an item from the sidebar" = "Select an item from the sidebar";
+
+"Share" = "Share";
+
+"Show All" = "Show All";
+
+"Show Lyrics" = "Show Lyrics";
+
+"Show Now Playing Notifications" = "Show Now Playing Notifications";
+
+"Showing" = "Showing";
+
+"Shuffle" = "Shuffle";
+
+"Shuffle Off" = "Shuffle Off";
+
+"Shuffle On" = "Shuffle On";
+
+"Sign Out" = "Sign Out";
+
+"Sign in to YouTube Music" = "Sign in to YouTube Music";
+
+"Sign in to access your YouTube Music library" = "Sign in to access your YouTube Music library";
+
+"Sign in with Google" = "Sign in with Google";
+
+"Signed in to YouTube Music" = "Signed in to YouTube Music";
+
+"Software Update" = "Software Update";
+
+"Songs" = "Songs";
+
+"Songs you like will appear here" = "Songs you like will appear here";
+
+"Start Radio" = "Start Radio";
+
+"Subscribe" = "Subscribe";
+
+"Subscribe %@" = "Subscribe %@";
+
+"Subscribe to podcasts on YouTube Music to see them here." = "Subscribe to podcasts on YouTube Music to see them here.";
+
+"Subscribed" = "Subscribed";
+
+"Subscription Error" = "Subscription Error";
+
+"Suggested Removals" = "Suggested Removals";
+
+"Switch Account" = "Switch Account";
+
+"Tap to retry" = "Tap to retry";
+
+"There aren't any lyrics available for this song." = "There aren't any lyrics available for this song.";
+
+"This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." = "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required.";
+
+"Top songs" = "Top songs";
+
+"Try Again" = "Try Again";
+
+"Try commands like:" = "Try commands like:";
+
+"Try searching for something else" = "Try searching for something else";
+
+"Unable to determine availability" = "Unable to determine availability";
+
+"Unable to load artist" = "Unable to load artist";
+
+"Unable to load content" = "Unable to load content";
+
+"Unable to load playlist" = "Unable to load playlist";
+
+"Unavailable" = "Unavailable";
+
+"Undo" = "Undo";
+
+"Unknown" = "Unknown";
+
+"Unknown Artist" = "Unknown Artist";
+
+"Unlike" = "Unlike";
+
+"Unmute" = "Unmute";
+
+"Up Next" = "Up Next";
+
+"Updates" = "Updates";
+
+"Version" = "Version";
+
+"Video" = "Video";
+
+"View Album" = "View Album";
+
+"View Artist" = "View Artist";
+
+"View Playlist" = "View Playlist";
+
+"View Podcast" = "View Podcast";
+
+"Volume Down" = "Volume Down";
+
+"Volume Up" = "Volume Up";
+
+"Waiting for authorization…" = "Waiting for authorization…";
+
+"Welcome to Kaset" = "Welcome to Kaset";
+
+"What would you like to change?" = "What would you like to change?";
+
+"What would you like to do with your queue?" = "What would you like to do with your queue?";
+
+"What would you like to do?" = "What would you like to do?";
+
+"What's New in Kaset" = "What's New in Kaset";
+
+"When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." = "When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations.";
+
+"Your Library" = "Your Library";
+
+"Your library is empty" = "Your library is empty";

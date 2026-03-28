@@ -25,12 +25,12 @@ final class PlaylistDetailViewModel {
         self.client = client
     }
 
-    /// Strips song count patterns from author text (e.g., " • 145 songs").
+    /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").
     /// Used to clean fallback author values that may contain redundant song counts.
     private func stripSongCount(from text: String?) -> String? {
         guard var result = text else { return nil }
         result = result.replacingOccurrences(
-            of: #" • \d+ songs?"#,
+            of: #" • [\d,]+ (?:songs?|tracks?)"#,
             with: "",
             options: .regularExpression
         )
@@ -104,6 +104,11 @@ final class PlaylistDetailViewModel {
             let thumbnailMissing = detail.thumbnailURL == nil && resolvedThumbnailURL != nil
 
             if needsMerge || thumbnailMissing {
+                let mergedTrackCount = max(
+                    detail.tracks.count,
+                    max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
+                )
+
                 // Merge with original playlist info or add fallback thumbnail
                 // Strip song counts from fallback author since we display the count separately
                 let mergedPlaylist = Playlist(
@@ -111,7 +116,7 @@ final class PlaylistDetailViewModel {
                     title: needsMerge ? self.playlist.title : detail.title,
                     description: detail.description ?? self.playlist.description,
                     thumbnailURL: resolvedThumbnailURL,
-                    trackCount: detail.tracks.count,
+                    trackCount: mergedTrackCount,
                     author: detail.author ?? self.stripSongCount(from: self.playlist.author)
                 )
                 detail = PlaylistDetail(
@@ -123,8 +128,9 @@ final class PlaylistDetailViewModel {
 
             self.playlistDetail = detail
             self.loadingState = .loaded
-            let trackCount = detail.tracks.count
-            self.logger.info("Playlist loaded: \(trackCount) tracks, hasMore: \(self.hasMore)")
+            let loadedTrackCount = detail.tracks.count
+            let totalTrackCount = detail.trackCount ?? loadedTrackCount
+            self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Playlist detail load cancelled")
@@ -166,12 +172,13 @@ final class PlaylistDetailViewModel {
 
             // Append only new tracks to existing playlist
             let allTracks = currentDetail.tracks + newTracks
+            let preservedTrackCount = max(allTracks.count, currentDetail.trackCount ?? 0)
             let updatedPlaylist = Playlist(
                 id: currentDetail.id,
                 title: currentDetail.title,
                 description: currentDetail.description,
                 thumbnailURL: currentDetail.thumbnailURL,
-                trackCount: allTracks.count,
+                trackCount: preservedTrackCount,
                 author: currentDetail.author
             )
             self.playlistDetail = PlaylistDetail(
@@ -182,7 +189,7 @@ final class PlaylistDetailViewModel {
             self.hasMore = response.hasMore
 
             self.loadingState = .loaded
-            self.logger.info("Loaded \(newTracks.count) new tracks (from \(response.tracks.count)), total: \(allTracks.count), hasMore: \(self.hasMore)")
+            self.logger.info("Loaded \(newTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
         } catch is CancellationError {
             self.logger.debug("Playlist continuation cancelled")
             self.loadingState = .loaded

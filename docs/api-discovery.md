@@ -249,14 +249,17 @@ These endpoints are functional but not yet implemented in Kaset.
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
 | `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
 | `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
-| `FEmusic_library_artists` | Library Artists | 🔐 | Medium | Requires auth + params* |
+| `FEmusic_library_corpus_track_artists` | Library Artists (Artists chip) | 🔐 | Medium | Sign-in backed; returns `MPLAUC...` library artist pages |
+| `FEmusic_library_artists` | Library Artists (param-based) | 🔐 | Medium | Requires auth + params*; distinct from the Artists chip |
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
 | `FEmusic_recently_played` | Recently Played | 🔐 | Medium | Requires auth |
 | `FEmusic_library_privately_owned_landing` | Uploads | 🔐 | Low | User-uploaded content |
 | `FEmusic_library_privately_owned_tracks` | Uploaded Tracks | 🔐 | Low | Uploaded songs |
 | `FEmusic_library_privately_owned_albums` | Uploaded Albums | 🔐 | Low | Uploaded albums |
 
-> \* Library Albums/Artists/Songs return HTTP 400 without authentication. With authentication, they also require specific `params` values for sorting. The exact param encoding needs to be captured from web client requests.
+> `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
+>
+> \* `FEmusic_library_albums`, `FEmusic_library_artists`, and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
 
 ---
 
@@ -269,9 +272,10 @@ let body = ["browseId": "FEmusic_library_landing"]
 
 **Response structure**:
 - Returns all library content in a single `gridRenderer`
-- Includes: Playlists (`VL*`), Podcasts (`MPSPP*`), Artists (`UC*`), Profiles, Auto playlists
+- Includes: Playlists (`VL*`), Podcasts (`MPSPP*`), artist/profile tiles (`UC*`), Profiles, Auto playlists
 - Contains filter chips for: Playlists, Podcasts, Songs, Albums, Artists, Profiles
 - Each chip's `browseEndpoint.browseId` provides the filtered endpoint
+- The landing grid may expose artist tiles as `UC*`, but the filtered Artists chip returns library-artist browse IDs instead
 
 **Filter chip endpoints discovered**:
 | Chip | browseId |
@@ -283,10 +287,17 @@ let body = ["browseId": "FEmusic_library_landing"]
 | Artists | `FEmusic_library_corpus_track_artists` |
 | Profiles | `FEmusic_library_user_profile_channels_list` (with params) |
 
+**Artists chip behavior**:
+- `FEmusic_library_corpus_track_artists` returns a `sectionListRenderer` of `musicResponsiveListItemRenderer` rows
+- Signed-in artist rows navigate to `browseEndpoint.browseId = MPLAUC...`
+- Those browse IDs use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`
+- Without authentication, the same endpoint responds with HTTP 200 and a sign-in prompt instead of artist rows
+
 **Item identification by browseId prefix**:
 - `VL*`, `PL*`, `RDCLAK*` — Playlists
 - `MPSPP*` — Podcast shows (see [Podcast ID Format](#podcast-id-format) below)
 - `UC*` — Artists or Profiles
+- `MPLAUC*` — Library artist pages returned by the Artists chip (direct browse requires auth)
 - `VLLM` — Liked Music auto playlist
 - `VLRDPN` — New Episodes auto playlist
 - `VLSE` — Episodes for Later auto playlist
@@ -986,7 +997,7 @@ let result = try await RetryPolicy.execute(
 | Feature | Endpoint | Effort | Impact |
 |---------|----------|--------|--------|
 | Library Albums | `FEmusic_library_albums` | Medium | Medium |
-| Library Artists | `FEmusic_library_artists` | Medium | Medium |
+| Library Artists | `FEmusic_library_corpus_track_artists` | Medium | Medium |
 | Add to Playlist | `playlist/get_add_to_playlist` | Medium | Medium |
 
 ### Phase 3: Discovery
@@ -1221,7 +1232,7 @@ The `next` endpoint returns a Related tab that can find song/video counterparts.
 
 ## Verification Summary
 
-The following endpoints were tested without authentication on 2024-12-21:
+The following endpoints were tested without authentication on 2024-12-21. `FEmusic_library_corpus_track_artists` was re-validated on 2026-03-24:
 
 ### ✅ Working Without Auth
 
@@ -1234,7 +1245,7 @@ The following endpoints were tested without authentication on 2024-12-21:
 | `FEmusic_new_releases` | HTTP 200 | Full response |
 | `FEmusic_podcasts` | HTTP 200 | Full response |
 | `FEmusic_library_landing` | HTTP 200 | Returns login prompt (no content) |
-| `FEmusic_library_corpus_artists` | HTTP 200 | Returns login prompt (no content) |
+| `FEmusic_library_corpus_track_artists` | HTTP 200 | Returns sign-in prompt (no artist rows) |
 | `player` | HTTP 200 | Full metadata + streaming info |
 | `music/get_queue` | HTTP 200 | Full queue data |
 | `search` | HTTP 200 | Full results |
@@ -1252,12 +1263,14 @@ The following endpoints were tested without authentication on 2024-12-21:
 | Endpoint | Status | Notes |
 |----------|--------|-------|
 | `FEmusic_history` | HTTP 200* | Returns content with full auth, login prompt without |
+| `FEmusic_library_corpus_track_artists` | HTTP 200* | Returns library artist rows with full auth, sign-in prompt without |
 | `FEmusic_library_albums` | HTTP 400 | Needs auth + specific `params` value |
-| `FEmusic_library_artists` | HTTP 400 | Needs auth + specific `params` value |
+| `FEmusic_library_artists` | HTTP 400 | Rejected as invalid argument in current authenticated sessions |
+| `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |
 | `FEmusic_recently_played` | HTTP 400 | Needs auth |
 | `playlist/get_add_to_playlist` | HTTP 401 | Needs full auth |
 | `playlist/create` | HTTP 401 | Needs full auth |
 | `browse/edit_playlist` | HTTP 401 | Needs full auth |
 
-> **Note on Library Albums/Artists/Songs**: These endpoints return HTTP 400 even with session cookies. They require both full SAPISIDHASH authentication AND a specific `params` value (protobuf-encoded sorting options). The exact params need to be captured from the web client's network requests.
+> **Note on Library Artists endpoints**: `FEmusic_library_corpus_track_artists` is the sign-in-backed Artists chip browseId and returns `MPLAUC...` library artist pages. Those `MPLAUC...` pages also require authentication when browsed directly. In current authenticated sessions, the library chip also exposes `FEmusic_library_corpus_artists` with `params=ggMCCAU=`; that endpoint returns followed artists with public `UC...` browseIds and is a better source for navigation. By contrast, `FEmusic_library_artists` currently returns HTTP 400 invalid argument even with full SAPISIDHASH authentication.

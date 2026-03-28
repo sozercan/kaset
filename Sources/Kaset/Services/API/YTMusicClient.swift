@@ -554,17 +554,56 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlists
     }
 
-    /// Fetches the user's library content including playlists and podcast shows.
+    /// Fetches the user's library content including playlists, artists, and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
-        self.logger.info("Fetching library content (playlists + podcasts)")
+        self.logger.info("Fetching library content")
 
-        // Use library_landing to get all content types including podcasts
-        let body: [String: Any] = [
-            "browseId": "FEmusic_library_landing",
-        ]
+        let landingData = try await self.request(
+            "browse",
+            body: ["browseId": "FEmusic_library_landing"],
+            ttl: APICache.TTL.library
+        )
 
-        let data = try await request("browse", body: body, ttl: APICache.TTL.library)
-        return PlaylistParser.parseLibraryContent(data)
+        let landingContent = PlaylistParser.parseLibraryContent(landingData)
+        let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
+        let content = PlaylistParser.LibraryContent(
+            playlists: landingContent.playlists,
+            artists: artists,
+            podcastShows: landingContent.podcastShows,
+            artistsSource: artistsSource
+        )
+
+        self.logger.info(
+            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
+        )
+        return content
+    }
+
+    /// Fetches followed artists with graceful fallback to the library landing preview.
+    private func fetchLibraryArtists(
+        fallback fallbackArtists: [Artist]
+    ) async throws -> ([Artist], PlaylistParser.LibraryArtistsSource) {
+        do {
+            let artistsData = try await self.request(
+                "browse",
+                body: [
+                    "browseId": "FEmusic_library_corpus_artists",
+                    "params": "ggMCCAU=",
+                ],
+                ttl: APICache.TTL.library
+            )
+            let artists = PlaylistParser.parseLibraryArtists(artistsData)
+
+            if !artists.isEmpty {
+                return (artists, .dedicated)
+            }
+
+            self.logger.warning("Library corpus artists endpoint returned no artists, falling back to landing preview")
+        } catch {
+            self.logger.warning("Library corpus artists endpoint failed, falling back to landing preview: \(error.localizedDescription)")
+        }
+
+        return (fallbackArtists, .landingFallback)
     }
 
     // MARK: - Liked Songs with Pagination

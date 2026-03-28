@@ -6,6 +6,117 @@ import SwiftUI
 /// Helper for common song actions like liking, disliking, adding to library, and queue management.
 @MainActor
 enum SongActionsHelper {
+    static var artistLibraryReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
+
+    private static var artistLibraryReconciliationTasks: [String: Task<Void, Never>] = [:]
+
+    private static func artistLibraryAliases(for artist: Artist, channelId: String) -> [String] {
+        var ids = Set([channelId, artist.id])
+        if let publicChannelId = artist.publicChannelId {
+            ids.insert(publicChannelId)
+        }
+        return Array(ids)
+    }
+
+    private static func preferredLibraryArtistId(for artist: Artist, channelId: String) -> String {
+        if artist.hasNavigableId {
+            return artist.id
+        }
+
+        return channelId
+    }
+
+    private static func scheduleArtistLibraryReconciliation(
+        _ artist: Artist,
+        channelId: String,
+        expectedInLibrary: Bool,
+        libraryViewModel: LibraryViewModel
+    ) {
+        let normalizedArtistId = Artist.publicChannelId(for: channelId) ?? channelId
+        self.artistLibraryReconciliationTasks[normalizedArtistId]?.cancel()
+
+        self.artistLibraryReconciliationTasks[normalizedArtistId] = Task { @MainActor in
+            defer { self.artistLibraryReconciliationTasks.removeValue(forKey: normalizedArtistId) }
+
+            for delay in self.artistLibraryReconciliationRetryDelays {
+                do {
+                    try await Task.sleep(for: delay)
+                } catch {
+                    return
+                }
+
+                guard !Task.isCancelled else { return }
+
+                self.invalidateLibraryResponseCaches()
+                await libraryViewModel.refresh()
+                self.invalidateLibraryResponseCaches()
+
+                let needsReconciliation = libraryViewModel.needsArtistLibraryReconciliation(
+                    artistIds: self.artistLibraryAliases(for: artist, channelId: channelId),
+                    expectedInLibrary: expectedInLibrary
+                )
+                let isInLibrary = self.isArtistInLibrary(
+                    artist,
+                    channelId: channelId,
+                    libraryViewModel: libraryViewModel
+                )
+                if !needsReconciliation, isInLibrary == expectedInLibrary {
+                    DiagnosticsLogger.api.debug(
+                        "Artist library reconciliation converged with backend state for \(artist.name, privacy: .public)"
+                    )
+                    return
+                }
+
+                DiagnosticsLogger.api.debug(
+                    "Artist library reconciliation is still waiting on backend propagation for \(artist.name, privacy: .public)"
+                )
+                if isInLibrary != expectedInLibrary {
+                    DiagnosticsLogger.api.debug(
+                        "Artist library reconciliation is reapplying optimistic state for \(artist.name, privacy: .public)"
+                    )
+                }
+
+                if expectedInLibrary {
+                    self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                } else {
+                    self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                }
+                libraryViewModel.markNeedsReloadOnActivation()
+            }
+        }
+    }
+
+    private static func addArtistToLibrary(
+        _ artist: Artist,
+        channelId: String,
+        libraryViewModel: LibraryViewModel
+    ) {
+        let libraryArtistId = self.preferredLibraryArtistId(for: artist, channelId: channelId)
+        libraryViewModel.addToLibrary(artist: artist, libraryArtistId: libraryArtistId)
+        for artistId in self.artistLibraryAliases(for: artist, channelId: channelId) {
+            libraryViewModel.addToLibrarySet(artistId: artistId)
+        }
+    }
+
+    private static func removeArtistFromLibrary(
+        _ artist: Artist,
+        channelId: String,
+        libraryViewModel: LibraryViewModel
+    ) {
+        for artistId in self.artistLibraryAliases(for: artist, channelId: channelId) {
+            libraryViewModel.removeFromLibrary(artistId: artistId)
+        }
+    }
+
+    private static func isArtistInLibrary(
+        _ artist: Artist,
+        channelId: String,
+        libraryViewModel: LibraryViewModel
+    ) -> Bool {
+        self.artistLibraryAliases(for: artist, channelId: channelId)
+            .contains(where: { libraryViewModel.isInLibrary(artistId: $0) })
+    }
+
     /// Likes a song via the API (does not play the song).
     static func likeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         Task {
@@ -52,8 +163,21 @@ enum SongActionsHelper {
     ) async {
         do {
             try await client.subscribeToPlaylist(playlistId: playlist.id)
-            libraryViewModel?.addToLibrarySet(playlistId: playlist.id)
-            await libraryViewModel?.refresh()
+            self.invalidateLibraryResponseCaches()
+            libraryViewModel?.markNeedsReloadOnActivation()
+            if let libraryViewModel {
+                libraryViewModel.addToLibrary(playlist: playlist)
+
+                // Library browse responses can lag briefly behind a successful add.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+                self.invalidateLibraryResponseCaches()
+
+                if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                    libraryViewModel.addToLibrary(playlist: playlist)
+                    self.invalidateLibraryResponseCaches()
+                }
+            }
             DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
@@ -68,8 +192,21 @@ enum SongActionsHelper {
     ) async {
         do {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            libraryViewModel?.removeFromLibrarySet(playlistId: playlist.id)
-            await libraryViewModel?.refresh()
+            self.invalidateLibraryResponseCaches()
+            libraryViewModel?.markNeedsReloadOnActivation()
+            if let libraryViewModel {
+                libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+
+                // Library browse responses can lag briefly behind a successful removal.
+                try? await Task.sleep(for: .milliseconds(500))
+                await libraryViewModel.refresh()
+                self.invalidateLibraryResponseCaches()
+
+                if libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                    libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+                    self.invalidateLibraryResponseCaches()
+                }
+            }
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
@@ -83,8 +220,21 @@ enum SongActionsHelper {
         libraryViewModel: LibraryViewModel?
     ) async throws {
         try await client.subscribeToPodcast(showId: show.id)
-        libraryViewModel?.addToLibrarySet(podcastId: show.id)
-        await libraryViewModel?.refresh()
+        self.invalidateLibraryResponseCaches()
+        libraryViewModel?.markNeedsReloadOnActivation()
+        if let libraryViewModel {
+            libraryViewModel.addToLibrary(podcast: show)
+
+            // Library browse responses can lag briefly behind a successful subscribe.
+            try? await Task.sleep(for: .milliseconds(500))
+            await libraryViewModel.refresh()
+            self.invalidateLibraryResponseCaches()
+
+            if !libraryViewModel.isInLibrary(podcastId: show.id) {
+                libraryViewModel.addToLibrary(podcast: show)
+                self.invalidateLibraryResponseCaches()
+            }
+        }
         DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
     }
 
@@ -96,9 +246,96 @@ enum SongActionsHelper {
     ) async throws {
         DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
         try await client.unsubscribeFromPodcast(showId: show.id)
-        libraryViewModel?.removeFromLibrarySet(podcastId: show.id)
-        await libraryViewModel?.refresh()
+        self.invalidateLibraryResponseCaches()
+        libraryViewModel?.markNeedsReloadOnActivation()
+        if let libraryViewModel {
+            libraryViewModel.removeFromLibrary(podcastId: show.id)
+
+            // Library browse responses can lag briefly behind a successful removal.
+            try? await Task.sleep(for: .milliseconds(500))
+            await libraryViewModel.refresh()
+            self.invalidateLibraryResponseCaches()
+
+            if libraryViewModel.isInLibrary(podcastId: show.id) {
+                libraryViewModel.removeFromLibrary(podcastId: show.id)
+                self.invalidateLibraryResponseCaches()
+            }
+        }
         DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
+    }
+
+    /// Subscribes to an artist (adds to library).
+    static func subscribeToArtist(
+        _ artist: Artist,
+        channelId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        if let libraryViewModel {
+            self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+
+        do {
+            try await client.subscribeToArtist(channelId: channelId)
+            self.invalidateLibraryResponseCaches()
+            if let libraryViewModel {
+                self.scheduleArtistLibraryReconciliation(
+                    artist,
+                    channelId: channelId,
+                    expectedInLibrary: true,
+                    libraryViewModel: libraryViewModel
+                )
+            }
+            DiagnosticsLogger.api.info("Subscribed to artist: \(artist.name)")
+        } catch {
+            if let libraryViewModel {
+                self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                libraryViewModel.markNeedsReloadOnActivation()
+            }
+            DiagnosticsLogger.api.error("Failed to subscribe to artist: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    /// Unsubscribes from an artist (removes from library).
+    static func unsubscribeFromArtist(
+        _ artist: Artist,
+        channelId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        if let libraryViewModel {
+            self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+
+        do {
+            try await client.unsubscribeFromArtist(channelId: channelId)
+            self.invalidateLibraryResponseCaches()
+            if let libraryViewModel {
+                self.scheduleArtistLibraryReconciliation(
+                    artist,
+                    channelId: channelId,
+                    expectedInLibrary: false,
+                    libraryViewModel: libraryViewModel
+                )
+            }
+            DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
+        } catch {
+            if let libraryViewModel {
+                self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                libraryViewModel.markNeedsReloadOnActivation()
+            }
+            DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    private static func invalidateLibraryResponseCaches() {
+        // Library mutations can leave stale data in both the app-level cache and URL loading cache.
+        APICache.shared.invalidate(matching: "browse:")
+        URLCache.shared.removeAllCachedResponses()
     }
 
     // MARK: - Queue Actions

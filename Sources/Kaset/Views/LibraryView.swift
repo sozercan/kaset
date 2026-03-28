@@ -6,6 +6,7 @@ import SwiftUI
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
+    case artists = "Artists"
     case podcasts = "Podcasts"
 
     var id: String {
@@ -16,7 +17,21 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: "square.grid.2x2"
         case .playlists: "music.note.list"
+        case .artists: "person.fill"
         case .podcasts: "mic.fill"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .all:
+            String(localized: "All")
+        case .playlists:
+            String(localized: "Playlists")
+        case .artists:
+            String(localized: "Artists")
+        case .podcasts:
+            String(localized: "Podcasts")
         }
     }
 }
@@ -29,7 +44,6 @@ struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(LibraryViewModel.self) private var libraryViewModelEnv: LibraryViewModel?
     @State private var networkMonitor = NetworkMonitor.shared
 
     @State private var navigationPath = NavigationPath()
@@ -40,15 +54,15 @@ struct LibraryView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading your library...")
+                        LoadingView(String(localized: "Loading your library..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -69,11 +83,21 @@ struct LibraryView: View {
                     )
                 )
             }
-            .navigationDestination(for: PodcastShow.self) { [libraryViewModelEnv] show in
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailView(
+                    artist: artist,
+                    viewModel: ArtistDetailViewModel(
+                        artist: artist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.viewModel
+                    )
+                )
+            }
+            .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
-                    .environment(libraryViewModelEnv)
             }
         }
+        .environment(self.viewModel)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
@@ -81,6 +105,11 @@ struct LibraryView: View {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
             }
+            await self.viewModel.reloadIfNeededOnActivation()
+        }
+        .task(id: "\(self.navigationPath.count)-\(self.viewModel.activationReloadGeneration)") {
+            guard self.navigationPath.isEmpty else { return }
+            await self.viewModel.reloadIfNeededOnActivation()
         }
         .refreshable {
             await self.viewModel.refresh()
@@ -120,7 +149,7 @@ struct LibraryView: View {
                 self.selectedFilter = filter
             }
         } label: {
-            Text(filter.rawValue)
+            Text(filter.displayName)
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -139,11 +168,13 @@ struct LibraryView: View {
 
         switch self.selectedFilter {
         case .all:
-            // Interleave playlists and podcasts for variety
             items = self.viewModel.playlists.map { .playlist($0) }
+                + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:
             items = self.viewModel.playlists.map { .playlist($0) }
+        case .artists:
+            items = self.viewModel.artists.map { .artist($0) }
         case .podcasts:
             items = self.viewModel.podcastShows.map { .podcast($0) }
         }
@@ -163,6 +194,8 @@ struct LibraryView: View {
                         switch item {
                         case let .playlist(playlist):
                             self.playlistCard(playlist)
+                        case let .artist(artist):
+                            self.artistCard(artist)
                         case let .podcast(show):
                             self.podcastCard(show)
                         }
@@ -194,22 +227,26 @@ struct LibraryView: View {
     private var emptyStateTitle: String {
         switch self.selectedFilter {
         case .all:
-            "Your library is empty"
+            String(localized: "Your library is empty")
         case .playlists:
-            "No playlists yet"
+            String(localized: "No playlists yet")
+        case .artists:
+            String(localized: "No artists yet")
         case .podcasts:
-            "No podcasts yet"
+            String(localized: "No podcasts yet")
         }
     }
 
     private var emptyStateMessage: String {
         switch self.selectedFilter {
         case .all:
-            "Save playlists and subscribe to podcasts on YouTube Music to see them here."
+            String(localized: "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here.")
         case .playlists:
-            "Create or save playlists on YouTube Music to see them here."
+            String(localized: "Create or save playlists on YouTube Music to see them here.")
+        case .artists:
+            String(localized: "Follow artists on YouTube Music to see them here.")
         case .podcasts:
-            "Subscribe to podcasts on YouTube Music to see them here."
+            String(localized: "Subscribe to podcasts on YouTube Music to see them here.")
         }
     }
 
@@ -244,7 +281,7 @@ struct LibraryView: View {
 
                 // Track count
                 if let count = playlist.trackCount {
-                    Text("\(count) songs")
+                    Text("\(count) songs", comment: "Playlist track count")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -296,19 +333,63 @@ struct LibraryView: View {
             FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
         }
     }
+
+    private func artistCard(_ artist: Artist) -> some View {
+        Button {
+            self.navigationPath.append(artist)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 128, height: 128)
+                .clipShape(Circle())
+                .frame(width: 160)
+
+                Text(artist.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 160)
+
+                Text(String(localized: "Artist"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 160)
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
+            ShareContextMenu.menuItem(for: artist)
+        }
+    }
 }
 
 // MARK: - LibraryItem
 
-/// Represents a library item that can be either a playlist or a podcast show.
+/// Represents a library item that can be a playlist, artist, or podcast show.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
+    case artist(Artist)
     case podcast(PodcastShow)
 
     var id: String {
         switch self {
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .artist(artist):
+            "artist-\(artist.id)"
         case let .podcast(show):
             "podcast-\(show.id)"
         }

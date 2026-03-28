@@ -41,14 +41,14 @@ final class SettingsManager {
 
         var displayName: String {
             switch self {
-            case .home: "Home"
-            case .explore: "Explore"
-            case .charts: "Charts"
-            case .moodsAndGenres: "Moods & Genres"
-            case .newReleases: "New Releases"
-            case .likedMusic: "Liked Music"
-            case .playlists: "Playlists"
-            case .lastUsed: "Last Used"
+            case .home: String(localized: "Home")
+            case .explore: String(localized: "Explore")
+            case .charts: String(localized: "Charts")
+            case .moodsAndGenres: String(localized: "Moods & Genres")
+            case .newReleases: String(localized: "New Releases")
+            case .likedMusic: String(localized: "Liked Music")
+            case .playlists: String(localized: "Playlists")
+            case .lastUsed: String(localized: "Last Used")
             }
         }
 

@@ -5,7 +5,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
     @State private var settings = SettingsManager.shared
-    @State private var cacheSize: String = "Calculating..."
+    @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
 
     /// The updater service for managing app updates.
@@ -77,7 +77,7 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(self.isClearing ? "Clearing..." : "Clear Cache") {
+                    Button(self.isClearing ? String(localized: "Clearing...") : String(localized: "Clear Cache")) {
                         Task {
                             await self.clearCache()
                         }
@@ -151,7 +151,7 @@ struct GeneralSettingsView: View {
     // MARK: - Computed Properties
 
     private var accountStatusText: String {
-        self.authService.state.isLoggedIn ? "Signed in to YouTube Music" : "Not signed in"
+        self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube Music") : String(localized: "Not signed in")
     }
 
     private var appVersion: String {

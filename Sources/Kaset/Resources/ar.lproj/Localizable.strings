@@ -1,0 +1,535 @@
+/* Generated from Localizable.xcstrings. */
+
+/* Playlist track count */
+"%lld songs" = "%lld أغنية";
+
+"A native YouTube Music experience for macOS" = "تجربة YouTube Music أصلية لنظام macOS";
+
+"AI responses follow your system language settings." = "تتبع استجابات الذكاء الاصطناعي إعدادات لغة النظام.";
+
+"About" = "حول";
+
+"Access your playlists and liked songs" = "الوصول إلى قوائم التشغيل والأغاني المفضلة";
+
+"Account" = "الحساب";
+
+"Add to Favorites" = "إضافة إلى المفضلة";
+
+"Add to Library" = "إضافة إلى المكتبة";
+
+"Add to Queue" = "إضافة إلى قائمة الانتظار";
+
+"Added to Library" = "تمت الإضافة إلى المكتبة";
+
+"AirPlay" = "AirPlay";
+
+"AirPlay Connected" = "AirPlay متصل";
+
+"Album" = "ألبوم";
+
+"Albums" = "ألبومات";
+
+"All" = "الكل";
+
+"All Episodes" = "جميع الحلقات";
+
+"An unknown error occurred" = "حدث خطأ غير معروف";
+
+"Analyzing playlist..." = "تحليل قائمة التشغيل...";
+
+"Analyzing..." = "جاري التحليل...";
+
+"Apple Intelligence" = "ذكاء Apple";
+
+"Apple Intelligence & Siri Settings" = "إعدادات ذكاء Apple و Siri";
+
+"Apple Intelligence is currently unavailable." = "ذكاء Apple غير متاح حاليًا.";
+
+"Apple Intelligence is downloading. This may take a few minutes." = "جارٍ تنزيل ذكاء Apple. قد يستغرق هذا بضع دقائق.";
+
+"Apple Intelligence is not available" = "ذكاء Apple غير متاح";
+
+"Apple Intelligence is ready to use" = "ذكاء Apple جاهز للاستخدام";
+
+"Apply Changes" = "تطبيق التغييرات";
+
+"Artist" = "فنان";
+
+"Artist not found" = "الفنان غير موجود";
+
+"Artists" = "فنانون";
+
+"Ask AI (⌘K)" = "اسأل الذكاء الاصطناعي (⌘K)";
+
+"Ask anything about music..." = "اسأل أي شيء عن الموسيقى...";
+
+"Automatically check for updates" = "التحقق تلقائيًا من التحديثات";
+
+"Available" = "متاح";
+
+"Background Playback" = "التشغيل في الخلفية";
+
+"Built with SwiftUI for a true macOS experience" = "مبنية بـ SwiftUI لتجربة macOS حقيقية";
+
+"Calculating..." = "جارٍ الحساب...";
+
+"Cancel" = "إلغاء";
+
+"Change your system language to English or another supported language." = "غيّر لغة النظام إلى الإنجليزية أو لغة مدعومة أخرى.";
+
+"Charts" = "الأكثر رواجًا";
+
+"Check Now" = "تحقق الآن";
+
+"Check for Updates..." = "التحقق من التحديثات...";
+
+"Clear" = "مسح";
+
+"Clear AI Context" = "مسح سياق الذكاء الاصطناعي";
+
+"Clear Cache" = "مسح ذاكرة التخزين المؤقت";
+
+"Clear input" = "مسح المدخلات";
+
+"Clear search" = "مسح البحث";
+
+"Clearing..." = "جارٍ المسح...";
+
+"Clears the AI session state. Use this if responses seem off or stuck." = "يمسح حالة جلسة الذكاء الاصطناعي. استخدمه إذا بدت الاستجابات غير صحيحة أو متوقفة.";
+
+"Close" = "إغلاق";
+
+"Close side panel" = "إغلاق اللوحة الجانبية";
+
+"Collection" = "المجموعة";
+
+"Command Bar" = "شريط الأوامر";
+
+"Community playlists" = "قوائم تشغيل المجتمع";
+
+"Connect" = "اتصال";
+
+"Connected as %@" = "متصل كـ %@";
+
+"Content may not be available in your region." = "قد لا يكون المحتوى متاحًا في منطقتك.";
+
+"Continue" = "متابعة";
+
+"Control playback with your keyboard" = "تحكم في التشغيل باستخدام لوحة المفاتيح";
+
+"Could not create AI session" = "تعذّر إنشاء جلسة الذكاء الاصطناعي";
+
+"Couldn't search for music" = "تعذّر البحث عن الموسيقى";
+
+"Create or save playlists on YouTube Music to see them here." = "أنشئ أو احفظ قوائم التشغيل على YouTube Music لتراها هنا.";
+
+"Default Page on Launch" = "الصفحة الافتراضية عند التشغيل";
+
+"Disconnect" = "قطع الاتصال";
+
+"Discover" = "اكتشاف";
+
+"Dislike" = "لم يعجبني";
+
+"Disliked" = "لم يعجبني";
+
+"Dismiss" = "إغلاق";
+
+"Done" = "تم";
+
+"Double-tap to retry" = "انقر مرتين لإعادة المحاولة";
+
+"Double-tap to switch accounts" = "انقر مرتين لتبديل الحسابات";
+
+"Downloading" = "جارٍ التنزيل";
+
+"Drag to reorder" = "اسحب لإعادة الترتيب";
+
+"Edit" = "تعديل";
+
+"Enable AI Features" = "تفعيل ميزات الذكاء الاصطناعي";
+
+"Enable Apple Intelligence in System Settings to use AI features." = "فعّل ذكاء Apple في إعدادات النظام لاستخدام ميزات الذكاء الاصطناعي.";
+
+"Episodes" = "الحلقات";
+
+"Error: %@" = "خطأ: %@";
+
+"Explain lyrics with AI" = "شرح الكلمات بالذكاء الاصطناعي";
+
+"Explore" = "استكشاف";
+
+"Failed to load" = "فشل التحميل";
+
+"Failed to load accounts" = "فشل تحميل الحسابات";
+
+"Failed to load accounts. Please try again." = "فشل تحميل الحسابات. يرجى المحاولة مرة أخرى.";
+
+"Failed to switch account. Please try again." = "فشل تبديل الحساب. يرجى المحاولة مرة أخرى.";
+
+"Favorites" = "المفضلة";
+
+"Featured playlists" = "قوائم تشغيل مميزة";
+
+"Find songs, albums, artists, and playlists" = "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل";
+
+"Follow artists on YouTube Music to see them here." = "تابع الفنانين على YouTube Music لتراهم هنا.";
+
+"General" = "عام";
+
+"GitHub" = "GitHub";
+
+"Go to Album" = "الانتقال إلى الألبوم";
+
+"Go to Artist" = "الانتقال إلى الفنان";
+
+"Haptic Feedback" = "الاستجابة اللمسية";
+
+"Hidden" = "مخفي";
+
+"Hide Lyrics" = "إخفاء الكلمات";
+
+"Hide lyrics explanation" = "إخفاء شرح الكلمات";
+
+"Highlights" = "الأبرز";
+
+"Home" = "الرئيسية";
+
+"Image Cache" = "ذاكرة التخزين المؤقت للصور";
+
+"In Library" = "في المكتبة";
+
+"Intelligence" = "الذكاء";
+
+"Keep listening even when the window is closed" = "استمر في الاستماع حتى عند إغلاق النافذة";
+
+"Language Not Supported" = "اللغة غير مدعومة";
+
+"Last Used" = "آخر استخدام";
+
+"Learn more" = "معرفة المزيد";
+
+"Library" = "المكتبة";
+
+"Like" = "أعجبني";
+
+"Liked" = "أعجبني";
+
+"Liked Music" = "الموسيقى المعجب بها";
+
+"Load More" = "تحميل المزيد";
+
+"Loading artist..." = "جارٍ تحميل الفنان...";
+
+"Loading charts..." = "جارٍ تحميل الأكثر رواجًا...";
+
+"Loading explore content..." = "جارٍ تحميل محتوى الاستكشاف...";
+
+"Loading liked songs..." = "جارٍ تحميل الأغاني المعجب بها...";
+
+"Loading lyrics..." = "جارٍ تحميل الكلمات...";
+
+"Loading moods & genres..." = "جارٍ تحميل الحالات والأنواع...";
+
+"Loading more..." = "جارٍ تحميل المزيد...";
+
+"Loading new releases..." = "جارٍ تحميل الإصدارات الجديدة...";
+
+"Loading playlist..." = "جارٍ تحميل قائمة التشغيل...";
+
+"Loading podcasts..." = "جارٍ تحميل البودكاست...";
+
+"Loading songs..." = "جارٍ تحميل الأغاني...";
+
+"Loading your library..." = "جارٍ تحميل مكتبتك...";
+
+"Loading..." = "جارٍ التحميل...";
+
+"Lyrics" = "كلمات الأغنية";
+
+"Media Keys" = "مفاتيح الوسائط";
+
+"Mix" = "مزيج";
+
+"Moods & Genres" = "حالات وأنواع";
+
+"Move to End" = "نقل إلى الأسفل";
+
+"Move to Top" = "نقل إلى الأعلى";
+
+"Mute" = "كتم الصوت";
+
+"Native Interface" = "واجهة أصلية";
+
+"Never checked" = "لم يتم التحقق مطلقًا";
+
+"New Releases" = "إصدارات جديدة";
+
+"Next" = "التالي";
+
+"Next track" = "المقطع التالي";
+
+"No Connection" = "لا يوجد اتصال";
+
+"No Content Available" = "لا يتوفر محتوى";
+
+"No Lyrics Available" = "لا تتوفر كلمات";
+
+"No Moods & Genres Available" = "لا تتوفر حالات أو أنواع";
+
+"No Queue" = "لا توجد قائمة انتظار";
+
+"No Song Playing" = "لا توجد أغنية قيد التشغيل";
+
+"No artists yet" = "لا يوجد فنانون بعد";
+
+"No changes suggested. The playlist looks good!" = "لا توجد تغييرات مقترحة. قائمة التشغيل تبدو جيدة!";
+
+"No liked songs yet" = "لا توجد أغاني معجب بها بعد";
+
+"No playlists yet" = "لا توجد قوائم تشغيل بعد";
+
+"No podcasts yet" = "لا توجد بودكاست بعد";
+
+"No results found" = "لم يتم العثور على نتائج";
+
+"No songs or playlists found in this category." = "لم يتم العثور على أغاني أو قوائم تشغيل في هذه الفئة.";
+
+"Not Enabled" = "غير مفعّل";
+
+"Not Supported" = "غير مدعوم";
+
+"Not connected" = "غير متصل";
+
+"Not disliked" = "غير مرفوض";
+
+"Not liked" = "غير معجب به";
+
+"Not signed in" = "لم يتم تسجيل الدخول";
+
+/* Login help text about passkey alternative */
+"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "ملاحظة: إذا لم تعمل مفاتيح المرور، استخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور.";
+
+"OK" = "حسنًا";
+
+"Off" = "معطّل";
+
+"On" = "مفعّل";
+
+"One" = "واحد";
+
+"Open queue in side panel" = "فتح قائمة الانتظار في اللوحة الجانبية";
+
+"Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "افتح شريط الأوامر للتحكم بالموسيقى بلغة طبيعية. جرّب قول \"شغّل شيء هادئ\" أو \"أضف جاز إلى قائمة الانتظار\".";
+
+"Pause" = "إيقاف مؤقت";
+
+"Play" = "تشغيل";
+
+"Play All" = "تشغيل الكل";
+
+"Play Latest" = "تشغيل الأحدث";
+
+"Play Next" = "تشغيل التالي";
+
+"Play a song to view its lyrics here." = "شغّل أغنية لعرض كلماتها هنا.";
+
+"Play songs from a playlist or album to build your queue." = "شغّل أغاني من قائمة تشغيل أو ألبوم لبناء قائمة الانتظار.";
+
+"Playback" = "التشغيل";
+
+"Played" = "تم التشغيل";
+
+"Playing" = "قيد التشغيل";
+
+"Playlist" = "قائمة تشغيل";
+
+"Playlist not found" = "قائمة التشغيل غير موجودة";
+
+"Playlists" = "قوائم التشغيل";
+
+"Please check your internet connection and try again." = "يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.";
+
+"Podcasts" = "بودكاست";
+
+"Press Enter to search" = "اضغط Enter للبحث";
+
+"Previous" = "السابق";
+
+"Previous track" = "المقطع السابق";
+
+"Processing..." = "جارٍ المعالجة...";
+
+"Provide tactile feedback for actions on Force Touch trackpads" = "تقديم استجابة لمسية للإجراءات على لوحات التتبع Force Touch";
+
+"Queue" = "قائمة الانتظار";
+
+"Quick Access" = "وصول سريع";
+
+"Redo" = "إعادة";
+
+"Refine" = "تحسين";
+
+"Refine Playlist" = "تحسين قائمة التشغيل";
+
+"Release Notes" = "ملاحظات الإصدار";
+
+"Remember Shuffle & Repeat" = "تذكّر الخلط والتكرار";
+
+"Remove Dislike" = "إزالة عدم الإعجاب";
+
+"Remove from Favorites" = "إزالة من المفضلة";
+
+"Remove from Queue" = "إزالة من قائمة الانتظار";
+
+"Repeat" = "تكرار";
+
+"Repeat All" = "تكرار الكل";
+
+"Repeat Off" = "إيقاف التكرار";
+
+"Repeat One" = "تكرار واحدة";
+
+/* Button to retry failed playback */
+"Retry" = "إعادة المحاولة";
+
+"Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا.";
+
+"Save shuffle and repeat settings across app restarts" = "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق";
+
+"Scrobbling" = "سكروبلينج";
+
+"Search" = "بحث";
+
+"Search for your favorite music" = "ابحث عن موسيقاك المفضلة";
+
+"Search songs, albums, artists..." = "البحث عن أغاني، ألبومات، فنانين...";
+
+"Searching..." = "جارٍ البحث...";
+
+"See all" = "عرض الكل";
+
+/* Placeholder shown when no sidebar item is selected */
+"Select an item from the sidebar" = "اختر عنصرًا من الشريط الجانبي";
+
+"Share" = "مشاركة";
+
+"Show All" = "عرض الكل";
+
+"Show Lyrics" = "إظهار الكلمات";
+
+"Show Now Playing Notifications" = "إظهار إشعارات قيد التشغيل";
+
+"Showing" = "ظاهر";
+
+"Shuffle" = "خلط";
+
+"Shuffle Off" = "إيقاف الخلط";
+
+"Shuffle On" = "تشغيل الخلط";
+
+"Sign Out" = "تسجيل الخروج";
+
+"Sign in to YouTube Music" = "تسجيل الدخول إلى YouTube Music";
+
+"Sign in to access your YouTube Music library" = "سجّل الدخول للوصول إلى مكتبة YouTube Music الخاصة بك";
+
+"Sign in with Google" = "تسجيل الدخول باستخدام Google";
+
+"Signed in to YouTube Music" = "تم تسجيل الدخول إلى YouTube Music";
+
+"Software Update" = "تحديث البرنامج";
+
+"Songs" = "أغاني";
+
+"Songs you like will appear here" = "الأغاني التي تعجبك ستظهر هنا";
+
+"Start Radio" = "بدء الراديو";
+
+"Subscribe" = "اشترك";
+
+"Subscribe %@" = "اشترك %@";
+
+"Subscribe to podcasts on YouTube Music to see them here." = "اشترك في البودكاست على YouTube Music لتراها هنا.";
+
+"Subscribed" = "مشترك";
+
+"Subscription Error" = "خطأ في الاشتراك";
+
+"Suggested Removals" = "إزالات مقترحة";
+
+"Switch Account" = "تبديل الحساب";
+
+"Tap to retry" = "انقر لإعادة المحاولة";
+
+"There aren't any lyrics available for this song." = "لا تتوفر كلمات لهذه الأغنية.";
+
+"This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." = "هذا الـ Mac لا يدعم ذكاء Apple. يتطلب Mac بمعالج Apple Silicon.";
+
+"Top songs" = "أفضل الأغاني";
+
+"Try Again" = "حاول مرة أخرى";
+
+"Try commands like:" = "جرّب أوامر مثل:";
+
+"Try searching for something else" = "حاول البحث عن شيء آخر";
+
+"Unable to determine availability" = "تعذّر تحديد التوفر";
+
+"Unable to load artist" = "تعذّر تحميل الفنان";
+
+"Unable to load content" = "تعذّر تحميل المحتوى";
+
+"Unable to load playlist" = "تعذّر تحميل قائمة التشغيل";
+
+"Unavailable" = "غير متاح";
+
+"Undo" = "تراجع";
+
+"Unknown" = "غير معروف";
+
+"Unknown Artist" = "فنان غير معروف";
+
+"Unlike" = "إلغاء الإعجاب";
+
+"Unmute" = "إلغاء كتم الصوت";
+
+"Up Next" = "التالي";
+
+"Updates" = "التحديثات";
+
+"Version" = "الإصدار";
+
+"Video" = "فيديو";
+
+"View Album" = "عرض الألبوم";
+
+"View Artist" = "عرض الفنان";
+
+"View Playlist" = "عرض قائمة التشغيل";
+
+"View Podcast" = "عرض البودكاست";
+
+"Volume Down" = "خفض الصوت";
+
+"Volume Up" = "رفع الصوت";
+
+"Waiting for authorization…" = "بانتظار التفويض…";
+
+"Welcome to Kaset" = "مرحبًا بك في Kaset";
+
+"What would you like to change?" = "ما الذي تريد تغييره؟";
+
+"What would you like to do with your queue?" = "ماذا تريد أن تفعل بقائمة الانتظار؟";
+
+"What would you like to do?" = "ماذا تريد أن تفعل؟";
+
+"What's New in Kaset" = "الجديد في Kaset";
+
+"When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." = "عند التفعيل، يمكنك استخدام الأوامر بلغة طبيعية، وتحسين قوائم التشغيل بالذكاء الاصطناعي، وشرح كلمات الأغاني.";
+
+"Your Library" = "مكتبتك";
+
+"Your library is empty" = "مكتبتك فارغة";

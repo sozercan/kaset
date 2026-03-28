@@ -13,12 +13,12 @@ struct ArtistDetailView: View {
         Group {
             switch self.viewModel.loadingState {
             case .idle, .loading:
-                LoadingView("Loading artist...")
+                LoadingView(String(localized: "Loading artist..."))
             case .loaded, .loadingMore:
                 if let detail = viewModel.artistDetail {
                     self.contentView(detail)
                 } else {
-                    ErrorView(title: "Unable to load artist", message: "Artist not found") {
+                    ErrorView(title: String(localized: "Unable to load artist"), message: String(localized: "Artist not found")) {
                         Task { await self.viewModel.load() }
                     }
                 }
@@ -91,7 +91,7 @@ struct ArtistDetailView: View {
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                Text("Artist")
+                Text(String(localized: "Artist"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -156,17 +156,19 @@ struct ArtistDetailView: View {
     /// Returns the text for the subscribe button.
     private func subscribeButtonText(_ detail: ArtistDetail) -> String {
         if detail.isSubscribed {
-            return "Subscribed"
+            return String(localized: "Subscribed")
         }
-        // Format subscriber count (e.g., "Subscribe 34.6M")
         if let count = detail.subscriberCount {
-            // Extract just the number part if it contains "subscribers"
-            let numberPart = count
-                .replacingOccurrences(of: " subscribers", with: "")
-                .replacingOccurrences(of: " subscriber", with: "")
-            return "Subscribe \(numberPart)"
+            return String(localized: "Subscribe \(self.trimmedSubscriberCount(count))")
         }
-        return "Subscribe"
+        return String(localized: "Subscribe")
+    }
+
+    private func trimmedSubscriberCount(_ count: String) -> String {
+        count
+            .replacingOccurrences(of: " subscribers", with: "")
+            .replacingOccurrences(of: " subscriber", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @ViewBuilder
