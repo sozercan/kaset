@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class LikedMusicViewModel {
-    private struct LiveSyncTask: Sendable {
+    private struct LiveSyncTask {
         let id: UUID
         let task: Task<Void, Never>
     }

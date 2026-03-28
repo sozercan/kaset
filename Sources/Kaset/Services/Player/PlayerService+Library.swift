@@ -19,15 +19,14 @@ extension PlayerService {
 
         // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            let finalStatus: LikeStatus
-            if newStatus == .like {
-                finalStatus = await SongLikeStatusManager.shared.like(
+            let finalStatus: LikeStatus = if newStatus == .like {
+                await SongLikeStatusManager.shared.like(
                     track,
                     accountID: activeAccountID,
                     client: client
                 )
             } else {
-                finalStatus = await SongLikeStatusManager.shared.unlike(
+                await SongLikeStatusManager.shared.unlike(
                     track,
                     accountID: activeAccountID,
                     client: client
@@ -59,15 +58,14 @@ extension PlayerService {
 
         // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            let finalStatus: LikeStatus
-            if newStatus == .dislike {
-                finalStatus = await SongLikeStatusManager.shared.dislike(
+            let finalStatus: LikeStatus = if newStatus == .dislike {
+                await SongLikeStatusManager.shared.dislike(
                     track,
                     accountID: activeAccountID,
                     client: client
                 )
             } else {
-                finalStatus = await SongLikeStatusManager.shared.undislike(
+                await SongLikeStatusManager.shared.undislike(
                     track,
                     accountID: activeAccountID,
                     client: client
