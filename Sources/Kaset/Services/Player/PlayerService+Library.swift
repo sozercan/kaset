@@ -9,23 +9,38 @@ extension PlayerService {
     func likeCurrentTrack() {
         guard let track = currentTrack else { return }
         self.logger.info("Liking current track: \(track.videoId)")
+        let activeAccountID = SongLikeStatusManager.shared.activeAccountID
+        let client = self.ytMusicClient
 
         // Toggle: if already liked, remove the like
         let newStatus: LikeStatus = self.currentTrackLikeStatus == .like ? .indifferent : .like
-        let previousStatus = self.currentTrackLikeStatus
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
         // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
+            let finalStatus: LikeStatus
             if newStatus == .like {
-                await SongLikeStatusManager.shared.like(track)
+                finalStatus = await SongLikeStatusManager.shared.like(
+                    track,
+                    accountID: activeAccountID,
+                    client: client
+                )
             } else {
-                await SongLikeStatusManager.shared.unlike(track)
+                finalStatus = await SongLikeStatusManager.shared.unlike(
+                    track,
+                    accountID: activeAccountID,
+                    client: client
+                )
             }
-            // Sync back from manager in case of API failure rollback
-            let managerStatus = SongLikeStatusManager.shared.status(for: track.videoId)
-            self.currentTrackLikeStatus = managerStatus ?? previousStatus
+
+            guard SongLikeStatusManager.shared.activeAccountID == activeAccountID,
+                  self.currentTrack?.videoId == track.videoId
+            else {
+                return
+            }
+
+            self.currentTrackLikeStatus = finalStatus
         }
     }
 
@@ -34,23 +49,38 @@ extension PlayerService {
     func dislikeCurrentTrack() {
         guard let track = currentTrack else { return }
         self.logger.info("Disliking current track: \(track.videoId)")
+        let activeAccountID = SongLikeStatusManager.shared.activeAccountID
+        let client = self.ytMusicClient
 
         // Toggle: if already disliked, remove the dislike
         let newStatus: LikeStatus = self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike
-        let previousStatus = self.currentTrackLikeStatus
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
         // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
+            let finalStatus: LikeStatus
             if newStatus == .dislike {
-                await SongLikeStatusManager.shared.dislike(track)
+                finalStatus = await SongLikeStatusManager.shared.dislike(
+                    track,
+                    accountID: activeAccountID,
+                    client: client
+                )
             } else {
-                await SongLikeStatusManager.shared.undislike(track)
+                finalStatus = await SongLikeStatusManager.shared.undislike(
+                    track,
+                    accountID: activeAccountID,
+                    client: client
+                )
             }
-            // Sync back from manager in case of API failure rollback
-            let managerStatus = SongLikeStatusManager.shared.status(for: track.videoId)
-            self.currentTrackLikeStatus = managerStatus ?? previousStatus
+
+            guard SongLikeStatusManager.shared.activeAccountID == activeAccountID,
+                  self.currentTrack?.videoId == track.videoId
+            else {
+                return
+            }
+
+            self.currentTrackLikeStatus = finalStatus
         }
     }
 
@@ -58,6 +88,7 @@ extension PlayerService {
     func toggleLibraryStatus() {
         guard let track = currentTrack else { return }
         self.logger.info("Toggling library status for current track: \(track.videoId)")
+        let activeAccountID = SongLikeStatusManager.shared.activeAccountID
 
         // Determine which token to use based on current state
         let isCurrentlyInLibrary = self.currentTrackInLibrary
@@ -94,9 +125,16 @@ extension PlayerService {
                 // The browse metadata can lag briefly, so delay the refresh and keep
                 // the optimistic library state if the response is still stale.
                 try? await Task.sleep(for: .milliseconds(500))
+
+                guard SongLikeStatusManager.shared.activeAccountID == activeAccountID else { return }
+
                 await self.fetchSongMetadata(videoId: track.videoId)
 
-                guard self.currentTrack?.videoId == track.videoId else { return }
+                guard SongLikeStatusManager.shared.activeAccountID == activeAccountID,
+                      self.currentTrack?.videoId == track.videoId
+                else {
+                    return
+                }
 
                 if self.currentTrackInLibrary != expectedInLibrary {
                     self.updateCurrentTrackLibraryState(
@@ -107,7 +145,11 @@ extension PlayerService {
             } catch {
                 self.logger.error("Failed to toggle library status: \(error.localizedDescription)")
                 // Revert on failure
-                guard self.currentTrack?.videoId == track.videoId else { return }
+                guard SongLikeStatusManager.shared.activeAccountID == activeAccountID,
+                      self.currentTrack?.videoId == track.videoId
+                else {
+                    return
+                }
 
                 self.updateCurrentTrackLibraryState(
                     isInLibrary: previousState,
@@ -159,8 +201,14 @@ extension PlayerService {
             return
         }
 
+        let activeAccountID = SongLikeStatusManager.shared.activeAccountID
+
         do {
             let songData = try await client.getSong(videoId: videoId)
+            guard SongLikeStatusManager.shared.activeAccountID == activeAccountID else { return }
+
+            let cachedLikeStatus = SongLikeStatusManager.shared.status(for: videoId)
+            let resolvedLikeStatus = songData.likeStatus ?? cachedLikeStatus
 
             // Update current track with full metadata if it's still the same song
             if self.currentTrack?.videoId == videoId {
@@ -177,23 +225,19 @@ extension PlayerService {
                     thumbnailURL: songData.thumbnailURL ?? self.currentTrack?.thumbnailURL,
                     videoId: videoId,
                     musicVideoType: songData.musicVideoType,
-                    likeStatus: songData.likeStatus,
+                    likeStatus: resolvedLikeStatus,
                     isInLibrary: songData.isInLibrary,
                     feedbackTokens: songData.feedbackTokens
                 )
 
                 // Update service state and sync with SongLikeStatusManager.
-                // Only update if API returned a definitive status (like/dislike);
-                // if API returned .indifferent, prefer the existing cache value because
-                // the parser defaults to .indifferent when likeButtonRenderer is missing.
+                // Unknown like status stays out of the cache so it cannot override
+                // a known rating from the WebView or a prior user action.
                 if let likeStatus = songData.likeStatus {
-                    let cachedStatus = SongLikeStatusManager.shared.status(for: videoId)
-                    if likeStatus != .indifferent || cachedStatus == nil {
-                        self.currentTrackLikeStatus = likeStatus
-                        SongLikeStatusManager.shared.setStatus(likeStatus, for: videoId)
-                    } else if let cached = cachedStatus {
-                        self.currentTrackLikeStatus = cached
-                    }
+                    self.currentTrackLikeStatus = likeStatus
+                    SongLikeStatusManager.shared.setStatus(likeStatus, for: videoId)
+                } else if let cachedLikeStatus {
+                    self.currentTrackLikeStatus = cachedLikeStatus
                 }
                 self.currentTrackInLibrary = songData.isInLibrary ?? false
                 self.currentTrackFeedbackTokens = songData.feedbackTokens
@@ -219,8 +263,10 @@ extension PlayerService {
                         currentQueueSong.thumbnailURL == nil
 
                     if needsUpdate {
-                        self.queue[queueIndex] = songData
-                        self.logger.debug("Enriched queue entry at index \(queueIndex): '\(songData.title)' with artists: \(songData.artistsDisplay)")
+                        var enrichedQueueSong = songData
+                        enrichedQueueSong.likeStatus = resolvedLikeStatus
+                        self.queue[queueIndex] = enrichedQueueSong
+                        self.logger.debug("Enriched queue entry at index \(queueIndex): '\(enrichedQueueSong.title)' with artists: \(enrichedQueueSong.artistsDisplay)")
                         // Save the enriched queue to persistence
                         self.saveQueueForPersistence()
                     }

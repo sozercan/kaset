@@ -45,6 +45,18 @@ struct AccountServiceTests {
         #expect(services.account.hasBrandAccounts == true)
     }
 
+    @Test @MainActor func fetchAccountsUpdatesLikeStatusCacheScope() async {
+        let services = Self.createService()
+
+        await Self.populateAccounts(
+            services,
+            accounts: [MockUserAccountData.primaryAccount, MockUserAccountData.brandAccount],
+            selectedIndex: 1
+        )
+
+        #expect(SongLikeStatusManager.shared.activeAccountID == MockUserAccountData.brandAccount.id)
+    }
+
     // MARK: - Switch Account Tests
 
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
@@ -61,6 +73,8 @@ struct AccountServiceTests {
 
         #expect(services.account.currentAccount == brandAccount)
         #expect(services.account.currentBrandId == brandAccount.brandId)
+        #expect(SongLikeStatusManager.shared.activeAccountID == brandAccount.id)
+        #expect(services.client.resetSessionStateForAccountSwitchCalled == true)
     }
 
     @Test @MainActor func switchAccountToSameAccountIsNoOp() async throws {
@@ -156,6 +170,8 @@ struct AccountServiceTests {
         // Verify persistence was cleared
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
         #expect(savedBrandId == nil)
+        #expect(SongLikeStatusManager.shared.activeAccountID == "primary")
+        #expect(SongLikeStatusManager.shared.status(for: "cached-video") == nil)
     }
 
     // MARK: - Error Handling Tests
@@ -204,6 +220,8 @@ struct AccountServiceTests {
         let authService = AuthService()
         let mockClient = MockYTMusicClient()
         let service = AccountService(ytMusicClient: mockClient, authService: authService)
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
         return TestServices(account: service, client: mockClient, auth: authService)
     }
 

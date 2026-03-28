@@ -12,6 +12,8 @@ struct LikedMusicViewModelTests {
     init() {
         self.mockClient = MockYTMusicClient()
         self.viewModel = LikedMusicViewModel(client: self.mockClient)
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
 
     @Test("Initial state is idle with empty songs")
@@ -156,5 +158,110 @@ struct LikedMusicViewModelTests {
         await self.viewModel.refresh()
 
         #expect(self.viewModel.songs.count == 5)
+    }
+
+    @Test("Live sync fetches real metadata before inserting placeholder current track")
+    func liveSyncFetchesRealMetadataBeforeInsertingPlaceholderCurrentTrack() async {
+        await self.viewModel.load()
+
+        let videoId = "placeholder-song"
+        SongLikeStatusManager.shared.setStatus(.like, for: videoId)
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Resolved Song",
+            artists: [Artist(id: "artist-1", name: "Resolved Artist")],
+            thumbnailURL: URL(string: "https://example.com/thumb.jpg"),
+            videoId: videoId
+        )
+
+        let placeholderSong = Song(
+            id: videoId,
+            title: "Loading...",
+            artists: [],
+            videoId: videoId
+        )
+
+        self.viewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: videoId, status: .like, song: placeholderSong)
+        )
+
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.mockClient.getSongCalled == true)
+        #expect(self.mockClient.getSongVideoIds.contains(videoId))
+        #expect(self.viewModel.songs.count == 1)
+        #expect(self.viewModel.songs[0].title == "Resolved Song")
+        #expect(self.viewModel.songs[0].artistsDisplay == "Resolved Artist")
+        #expect(self.viewModel.songs[0].likeStatus == .like)
+    }
+
+    @Test("Live sync insert survives external like-cache reset during metadata fetch")
+    func liveSyncInsertSurvivesExternalLikeCacheResetDuringMetadataFetch() async {
+        await self.viewModel.load()
+
+        let videoId = "cache-reset-song"
+        self.mockClient.getSongDelay = .milliseconds(150)
+        SongLikeStatusManager.shared.setStatus(.like, for: videoId)
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Recovered Song",
+            artists: [Artist(id: "artist-2", name: "Recovered Artist")],
+            thumbnailURL: URL(string: "https://example.com/recovered.jpg"),
+            videoId: videoId
+        )
+
+        self.viewModel.handleLikeStatusChange(
+            LikeStatusEvent(
+                videoId: videoId,
+                status: .like,
+                song: Song(id: videoId, title: "Loading...", artists: [], videoId: videoId)
+            )
+        )
+
+        try? await Task.sleep(for: .milliseconds(50))
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID("other-account")
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(self.mockClient.getSongVideoIds.contains(videoId))
+        #expect(self.viewModel.songs.count == 1)
+        #expect(self.viewModel.songs[0].title == "Recovered Song")
+        #expect(self.viewModel.songs[0].artistsDisplay == "Recovered Artist")
+    }
+
+    @Test("Live sync cancels pending metadata insert after unlike event")
+    func liveSyncCancelsPendingMetadataInsertAfterUnlikeEvent() async {
+        await self.viewModel.load()
+
+        let videoId = "cancelled-song"
+        self.mockClient.getSongDelay = .milliseconds(150)
+        SongLikeStatusManager.shared.setStatus(.like, for: videoId)
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Should Not Insert",
+            artists: [Artist(id: "artist-3", name: "Cancelled Artist")],
+            thumbnailURL: URL(string: "https://example.com/cancelled.jpg"),
+            videoId: videoId
+        )
+
+        self.viewModel.handleLikeStatusChange(
+            LikeStatusEvent(
+                videoId: videoId,
+                status: .like,
+                song: Song(id: videoId, title: "Loading...", artists: [], videoId: videoId)
+            )
+        )
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        self.viewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: videoId, status: .indifferent, song: nil)
+        )
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(self.mockClient.getSongVideoIds.contains(videoId))
+        #expect(self.viewModel.songs.isEmpty)
     }
 }
