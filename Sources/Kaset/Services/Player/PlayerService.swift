@@ -504,6 +504,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.isKasetInitiatedPlayback = false
         }
 
+        // Keep queue index aligned with observed playback and recover when YouTube drifts out of queue.
+        if trackChanged, !self.queue.isEmpty {
+            if let matchedIndex = self.queue.firstIndex(where: { $0.videoId == resolvedVideoId }) {
+                if matchedIndex != self.currentIndex {
+                    self.currentIndex = matchedIndex
+                    self.logger.info("Synchronized queue index to observed track at index \(matchedIndex)")
+                    self.saveQueueForPersistence()
+                }
+            } else if !self.songNearingEnd, !self.isKasetInitiatedPlayback {
+                self.logger.info("Observed track not in local queue, enforcing queue order")
+                Task {
+                    await self.next()
+                }
+                return
+            }
+        }
+
         // If track changed and we have a queue, check if YouTube autoplay kicked in (song ending naturally)
         if trackChanged, !self.queue.isEmpty, self.songNearingEnd {
             self.songNearingEnd = false
