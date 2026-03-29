@@ -57,7 +57,6 @@ final class NowPlayingManager {
     private func setupRemoteCommands() {
         guard let player = playerService else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
-
         // Remove any existing targets to prevent duplicates
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)

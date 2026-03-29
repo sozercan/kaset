@@ -15,7 +15,6 @@ final class NotificationService {
     /// Tracks the last notified track to prevent duplicate notifications.
     /// Internal for testing.
     private(set) var lastNotifiedTrackId: String?
-    private var lastNotifiedTrackFingerprint: String?
 
     init(playerService: PlayerService, settingsManager: SettingsManager = .shared) {
         self.playerService = playerService
@@ -58,18 +57,15 @@ final class NotificationService {
 
                 // Notify once active playback starts for a new, fully resolved track.
                 if let track = currentTrack,
+                   track.id != self.lastNotifiedTrackId,
                    track.title != "Loading..."
                 {
-                    let fingerprint = "\(track.id)|\(track.title)|\(track.artistsDisplay)"
-                    let trackIsNew = track.id != self.lastNotifiedTrackId
-                        || fingerprint != self.lastNotifiedTrackFingerprint
                     let trackChanged = track.id != previousTrack?.id
                     let playbackJustStarted = isPlaying && !previousIsPlaying
 
-                    if isPlaying, trackIsNew, trackChanged || playbackJustStarted {
+                    if isPlaying, trackChanged || playbackJustStarted {
                         await self.postTrackNotification(track)
                         self.lastNotifiedTrackId = track.id
-                        self.lastNotifiedTrackFingerprint = fingerprint
                     }
                 }
 

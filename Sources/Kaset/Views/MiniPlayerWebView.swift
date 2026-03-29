@@ -232,6 +232,16 @@ final class SingletonPlayerWebView {
         case video // Full size in video window
     }
 
+    /// How `loadVideo` behaves when Swift already tracks a `videoId` (repeat-one vs queue drift recovery).
+    enum VideoLoadStrategy: Equatable {
+        /// Skip navigation when `videoId` matches `currentVideoId`.
+        case standard
+        /// Same `videoId` as tracked: `seek(0)` + play only (fast). Different id: full watch URL load.
+        case preferInPlaceWhenSameVideoId
+        /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
+        case forceFullPageWhenSameVideoId
+    }
+
     var displayMode: DisplayMode = .hidden
     private var mediaControlUsesNextPrev: Bool
 
@@ -254,9 +264,6 @@ final class SingletonPlayerWebView {
         self.coordinator = Coordinator(playerService: playerService)
 
         let configuration = webKitManager.createWebViewConfiguration()
-
-        // Apply ad-blocking rules (network-level blocking, CSS hiding, JS ad-skipper)
-        AdBlockService.shared.configure(configuration)
 
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
@@ -316,22 +323,48 @@ final class SingletonPlayerWebView {
         // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
     }
 
+    /// Starts high frequency polling for synced lyrics
+    func startLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+    }
+
+    /// Stops high frequency polling for synced lyrics
+    func stopLyricsPoll() {
+        self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
+    }
+
     /// Load a video, stopping any currently playing audio first.
-    /// Note: This uses full page navigation which destroys the video element.
-    /// AirPlay connections will be lost but the auto-reconnect picker will appear.
-    func loadVideo(videoId: String) {
+    /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
+    /// AirPlay connections will be lost on full navigation but the auto-reconnect picker will appear.
+    func loadVideo(videoId: String, strategy: VideoLoadStrategy = .standard) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
             return
         }
 
         let previousVideoId = self.currentVideoId
-        guard videoId != previousVideoId else {
-            self.logger.debug("Video \(videoId) already loaded, skipping")
-            return
+
+        switch strategy {
+        case .standard:
+            if videoId == previousVideoId {
+                self.logger.debug("Video \(videoId) already loaded, skipping")
+                return
+            }
+        case .preferInPlaceWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.debug("In-place restart for \(videoId) (same id — avoid full page reload)")
+                self.restartInPlaceFromBeginning()
+                return
+            }
+        case .forceFullPageWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.info("Force full navigation for \(videoId) (DOM/WebView resync)")
+            }
         }
 
-        self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        if videoId != previousVideoId {
+            self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
+        }
 
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
@@ -373,7 +406,13 @@ final class SingletonPlayerWebView {
                 nil
             }
 
-            // Handle remote next track command
+            if type == "TRACK_ENDED" {
+                Task { @MainActor in
+                    await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
+                }
+                return
+            }
+
             if type == "REMOTE_NEXT" {
                 Task { @MainActor in
                     await self.playerService.next()
@@ -381,7 +420,6 @@ final class SingletonPlayerWebView {
                 return
             }
 
-            // Handle remote previous track command
             if type == "REMOTE_PREVIOUS" {
                 Task { @MainActor in
                     await self.playerService.previous()
@@ -403,15 +441,12 @@ final class SingletonPlayerWebView {
                 return
             }
 
-            // Fast progress-only update for smooth lyrics synchronization (5Hz)
-            if type == "PROGRESS_UPDATE" {
-                let progress = body["progress"] as? Double ?? 0
-                let duration = body["duration"] as? Double ?? 0
-                Task { @MainActor in
-                    self.playerService.updatePlaybackProgress(
-                        progress: progress,
-                        duration: duration
-                    )
+            // Handle high frequency lyrics time updates
+            if type == "LYRICS_TIME" {
+                if let time = body["time"] as? Double {
+                    Task { @MainActor in
+                        self.playerService.currentTimeMs = Int(time * 1000)
+                    }
                 }
                 return
             }
@@ -419,8 +454,8 @@ final class SingletonPlayerWebView {
             guard type == "STATE_UPDATE" else { return }
 
             let isPlaying = body["isPlaying"] as? Bool ?? false
-            let progress = body["progress"] as? Double ?? 0
-            let duration = body["duration"] as? Double ?? 0
+            let progress = body["progress"] as? Int ?? 0
+            let duration = body["duration"] as? Int ?? 0
             let title = body["title"] as? String ?? ""
             let artist = body["artist"] as? String ?? ""
             let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
@@ -441,8 +476,8 @@ final class SingletonPlayerWebView {
             Task { @MainActor in
                 self.playerService.updatePlaybackState(
                     isPlaying: isPlaying,
-                    progress: progress,
-                    duration: duration
+                    progress: Double(progress),
+                    duration: Double(duration)
                 )
 
                 // Update video availability
@@ -453,7 +488,8 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Repeat-one and now-playing remote controls can temporarily desync metadata and queue.
+                // Repeat-one must keep enforcing queue/current song even if WebView doesn't flag `trackChanged`
+                // for a transient autoplay swap. In other modes, keep the existing trackChanged gate.
                 let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
                     && (observedVideoId != nil || !title.isEmpty)
 
@@ -467,7 +503,8 @@ final class SingletonPlayerWebView {
 
                     // Close video window on track change, but skip during grace period
                     // (grace period prevents false positives during initial video mode setup)
-                    // Note: trackChanged detection uses title/artist comparison from the observer script
+                    // Note: trackChanged detection now uses videoId changes too, so this
+                    // can fire before the player bar text has caught up to the new track.
                     if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
                             "trackChanged to '\(title)' while video shown - closing video window"

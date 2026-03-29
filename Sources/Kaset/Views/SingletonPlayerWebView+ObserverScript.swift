@@ -12,11 +12,9 @@ extension SingletonPlayerWebView {
             let lastVideoId = '';
             let isPollingActive = false;
             let pollIntervalId = null;
-            let progressIntervalId = null;
             let lastUpdateTime = 0;
-            const UPDATE_THROTTLE_MS = 500; // Throttle full updates to max 2/sec
-            const POLL_INTERVAL_MS = 1000; // Full state poll at 1Hz during playback
-            const PROGRESS_INTERVAL_MS = 200; // Fast progress-only updates at 5Hz for lyrics sync
+            const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
+            const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
 
             // Volume enforcement: track target volume set by Swift
             // Don't set a default - only enforce when explicitly set by Swift
@@ -65,7 +63,10 @@ extension SingletonPlayerWebView {
                     // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => enforceVolumeNow());
                     video.addEventListener('pause', stopPolling);
-                    video.addEventListener('ended', stopPolling);
+                    video.addEventListener('ended', () => {
+                        sendTrackEnded();
+                        stopPolling();
+                    });
                     video.addEventListener('waiting', () => sendUpdate()); // Buffer state
                     video.addEventListener('seeked', () => sendUpdate()); // Seek completed
 
@@ -179,6 +180,27 @@ extension SingletonPlayerWebView {
                 }
             }
 
+            let lyricsPollId = null;
+            window.startLyricsPoll = function() {
+                if (lyricsPollId) return;
+                lyricsPollId = setInterval(() => {
+                    const v = document.querySelector('video');
+                    if (v) {
+                        bridge.postMessage({
+                            type: 'LYRICS_TIME',
+                            time: v.currentTime
+                        });
+                    }
+                }, 100);
+            };
+
+            window.stopLyricsPoll = function() {
+                if (lyricsPollId) {
+                    clearInterval(lyricsPollId);
+                    lyricsPollId = null;
+                }
+            };
+
             function startPolling() {
                 if (isPollingActive) return;
                 isPollingActive = true;
@@ -187,10 +209,8 @@ extension SingletonPlayerWebView {
                 // Applying volume on every startPolling causes volume jumps
 
                 sendUpdate(); // Immediate update
-                // Full state poll at 1Hz during playback
+                // Poll at 1Hz during playback for progress updates (reduced CPU usage)
                 pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
-                // Fast progress-only updates at 5Hz for smooth lyrics sync
-                progressIntervalId = setInterval(sendProgressUpdate, PROGRESS_INTERVAL_MS);
             }
 
             function stopPolling() {
@@ -198,10 +218,6 @@ extension SingletonPlayerWebView {
                 if (pollIntervalId) {
                     clearInterval(pollIntervalId);
                     pollIntervalId = null;
-                }
-                if (progressIntervalId) {
-                    clearInterval(progressIntervalId);
-                    progressIntervalId = null;
                 }
                 sendUpdate(); // Final state update
             }
@@ -224,6 +240,14 @@ extension SingletonPlayerWebView {
                 sendUpdate();
             }
 
+            function sendTrackEnded() {
+                const endedVideoId = lastVideoId || currentVideoId();
+                bridge.postMessage({
+                    type: 'TRACK_ENDED',
+                    videoId: endedVideoId
+                });
+            }
+
             function sendUpdate() {
                 // Throttle updates
                 const now = Date.now();
@@ -238,15 +262,12 @@ extension SingletonPlayerWebView {
                     const video = document.querySelector('video');
                     const isPlaying = video ? !video.paused : false;
 
+                    const progressBar = document.querySelector('#progress-bar');
+
                     // Extract track metadata
                     const titleEl = document.querySelector('.ytmusic-player-bar.title');
                     const artistEl = document.querySelector('.ytmusic-player-bar.byline');
                     const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
-
-                    let title = titleEl ? titleEl.textContent.trim() : '';
-                    let artist = artistEl ? artistEl.textContent.trim() : '';
-                    const videoId = currentVideoId();
-                    let thumbnailUrl = '';
 
                     const playerData = currentPlayerData();
                     const playerTitle = playerData && typeof playerData.title === 'string'
@@ -256,7 +277,12 @@ extension SingletonPlayerWebView {
                         ? playerData.author.trim()
                         : '';
 
-                    // Prefer player API metadata when DOM is behind current playback state.
+                    let title = titleEl ? titleEl.textContent.trim() : '';
+                    let artist = artistEl ? artistEl.textContent.trim() : '';
+                    const videoId = currentVideoId();
+                    let thumbnailUrl = '';
+
+                    // Prefer player API metadata when the DOM appears to be lagging behind the actual video.
                     if (playerTitle && title && playerTitle !== title) {
                         title = playerTitle;
                         if (playerArtist) artist = playerArtist;
@@ -279,7 +305,7 @@ extension SingletonPlayerWebView {
                         else if (status === 'DISLIKE') likeStatus = 'DISLIKE';
                     }
 
-                    // Check if track changed by metadata or by a concrete videoId change.
+                    // Check if track changed
                     const metadataChanged = title !== '' && (title !== lastTitle || artist !== lastArtist);
                     const videoIdChanged = videoId !== '' && videoId !== lastVideoId;
                     const trackChanged = metadataChanged || videoIdChanged;
@@ -312,8 +338,8 @@ extension SingletonPlayerWebView {
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
                         isPlaying: isPlaying,
-                        progress: video ? video.currentTime : 0,
-                        duration: video ? video.duration || 0 : 0,
+                        progress: progressBar ? parseInt(progressBar.getAttribute('value') || '0') : 0,
+                        duration: progressBar ? parseInt(progressBar.getAttribute('aria-valuemax') || '0') : 0,
                         title: title,
                         artist: artist,
                         videoId: videoId,
@@ -321,20 +347,6 @@ extension SingletonPlayerWebView {
                         trackChanged: trackChanged,
                         likeStatus: likeStatus,
                         hasVideo: hasVideo
-                    });
-                } catch (e) {}
-            }
-
-            // Lightweight progress-only update for smooth lyrics synchronization.
-            // Runs at 5Hz and bypasses the full-update throttle.
-            function sendProgressUpdate() {
-                try {
-                    const video = document.querySelector('video');
-                    if (!video || video.paused) return;
-                    bridge.postMessage({
-                        type: 'PROGRESS_UPDATE',
-                        progress: video.currentTime,
-                        duration: video.duration || 0
                     });
                 } catch (e) {}
             }

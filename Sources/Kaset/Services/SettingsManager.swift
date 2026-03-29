@@ -19,6 +19,7 @@ final class SettingsManager {
         static let scrobblePercentThreshold = "settings.scrobblePercentThreshold"
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
+        static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -40,14 +41,14 @@ final class SettingsManager {
 
         var displayName: String {
             switch self {
-            case .home: "Home"
-            case .explore: "Explore"
-            case .charts: "Charts"
-            case .moodsAndGenres: "Moods & Genres"
-            case .newReleases: "New Releases"
-            case .likedMusic: "Liked Music"
-            case .playlists: "Playlists"
-            case .lastUsed: "Last Used"
+            case .home: String(localized: "Home")
+            case .explore: String(localized: "Explore")
+            case .charts: String(localized: "Charts")
+            case .moodsAndGenres: String(localized: "Moods & Genres")
+            case .newReleases: String(localized: "New Releases")
+            case .likedMusic: String(localized: "Liked Music")
+            case .playlists: String(localized: "Playlists")
+            case .lastUsed: String(localized: "Last Used")
             }
         }
 
@@ -167,6 +168,13 @@ final class SettingsManager {
     /// The last page the user was on (for "Last Used" option).
     var lastUsedPage: LaunchPage = .home
 
+    /// Whether synced lyrics are preferred.
+    var syncedLyricsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.syncedLyricsEnabled, forKey: Keys.syncedLyricsEnabled)
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -186,6 +194,7 @@ final class SettingsManager {
         }
         self.scrobblePercentThreshold = UserDefaults.standard.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
+        self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)

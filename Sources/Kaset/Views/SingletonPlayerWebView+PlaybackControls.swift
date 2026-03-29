@@ -104,6 +104,12 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
+    func restartInPlaceFromBeginning() {
+        self.seek(to: 0)
+        self.play()
+    }
+
     /// Set volume (0.0 - 1.0).
     func setVolume(_ volume: Double) {
         guard let webView else { return }

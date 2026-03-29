@@ -385,7 +385,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double)
 
     /// Updates track metadata when track changes.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String)
+    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId: String?)
 
     /// Updates the like status from WebView observation.
     func updateLikeStatus(_ status: LikeStatus)

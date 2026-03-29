@@ -5,7 +5,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
     @State private var settings = SettingsManager.shared
-    @State private var cacheSize: String = "Calculating..."
+    @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
 
     /// The updater service for managing app updates.
@@ -45,6 +45,10 @@ struct GeneralSettingsView: View {
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")
 
+                // Synced Lyrics
+                Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
+                    .help("Fetch and display real-time synced lyrics when available")
+
                 // Remember Playback Settings
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
@@ -55,7 +59,7 @@ struct GeneralSettingsView: View {
                         Text(style.displayName).tag(style)
                     }
                 }
-                .help("Choose which buttons appear in the Now Playing widget (Control Center)")
+                .help("Choose which buttons appear in the Now Playing widget in Control Center")
 
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {
@@ -73,7 +77,7 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(self.isClearing ? "Clearing..." : "Clear Cache") {
+                    Button(self.isClearing ? String(localized: "Clearing...") : String(localized: "Clear Cache")) {
                         Task {
                             await self.clearCache()
                         }
@@ -147,7 +151,7 @@ struct GeneralSettingsView: View {
     // MARK: - Computed Properties
 
     private var accountStatusText: String {
-        self.authService.state.isLoggedIn ? "Signed in to YouTube Music" : "Not signed in"
+        self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube Music") : String(localized: "Not signed in")
     }
 
     private var appVersion: String {
