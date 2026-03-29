@@ -348,6 +348,29 @@ final class SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
+            // Extract observed video ID (used for track-ended and remote control events)
+            let observedVideoId: String? = if let videoId = body["videoId"] as? String, !videoId.isEmpty {
+                videoId
+            } else {
+                nil
+            }
+
+            // Handle remote next track command
+            if type == "REMOTE_NEXT" {
+                Task { @MainActor in
+                    await self.playerService.next()
+                }
+                return
+            }
+
+            // Handle remote previous track command
+            if type == "REMOTE_PREVIOUS" {
+                Task { @MainActor in
+                    await self.playerService.previous()
+                }
+                return
+            }
+
             // Handle AirPlay status updates
             if type == "AIRPLAY_STATUS" {
                 let isConnected = body["isConnected"] as? Bool ?? false
