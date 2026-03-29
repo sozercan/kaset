@@ -50,6 +50,28 @@ struct SettingsManagerTests {
         #expect(SettingsManager.LaunchPage.lastUsed.navigationItem == .home) // Fallback
     }
 
+    // MARK: - MediaControlStyle Tests
+
+    @Test("MediaControlStyle has correct display names")
+    func mediaControlStyleDisplayNames() {
+        #expect(SettingsManager.MediaControlStyle.skipForwardBackward.displayName == "Skip Forward/Backward")
+        #expect(SettingsManager.MediaControlStyle.nextPreviousTrack.displayName == "Next/Previous Track")
+    }
+
+    @Test("MediaControlStyle rawValues are valid")
+    func mediaControlStyleRawValues() {
+        for style in SettingsManager.MediaControlStyle.allCases {
+            let restored = SettingsManager.MediaControlStyle(rawValue: style.rawValue)
+            #expect(restored == style)
+        }
+    }
+
+    @Test("Default mediaControlStyle is nextPreviousTrack")
+    func defaultMediaControlStyle() {
+        let manager = SettingsManager.shared
+        #expect(manager.mediaControlStyle == .nextPreviousTrack)
+    }
+
     // MARK: - Default Values Tests
 
     @Test("Default showNowPlayingNotifications is true")
@@ -143,5 +165,10 @@ struct SettingsManagerTests {
     func allLaunchPageCasesCovered() {
         // Verify we have the expected number of cases
         #expect(SettingsManager.LaunchPage.allCases.count == 8)
+    }
+
+    @Test("All MediaControlStyle cases are covered")
+    func allMediaControlStyleCasesCovered() {
+        #expect(SettingsManager.MediaControlStyle.allCases.count == 2)
     }
 }

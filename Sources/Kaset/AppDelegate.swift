@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_: Notification) {
         // Set up notification center delegate to show notifications in foreground
-        //UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().delegate = self
 
         // In UI test mode, activate the app to bring window to foreground
         if UITestConfig.isUITestMode {
