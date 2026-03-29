@@ -65,7 +65,7 @@ struct ToastView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss")
+                .accessibilityLabel(String(localized: "Dismiss"))
             }
         }
         .padding(.horizontal, 16)
@@ -123,9 +123,9 @@ struct AccountErrorToast: View {
         }
         // Use appropriate message based on error context
         if self.accountService.lastErrorWasFetch {
-            return "Failed to load accounts. Please try again."
+            return String(localized: "Failed to load accounts. Please try again.")
         }
-        return "Failed to switch account. Please try again."
+        return String(localized: "Failed to switch account. Please try again.")
     }
 
     private func show() {

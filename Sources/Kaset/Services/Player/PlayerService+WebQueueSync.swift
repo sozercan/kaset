@@ -4,16 +4,6 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    /// Backward-compatible wrapper for callers that do not provide observed videoId.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
-        self.updateTrackMetadata(
-            title: title,
-            artist: artist,
-            thumbnailUrl: thumbnailUrl,
-            videoId: nil
-        )
-    }
-
     private func normalizedObservedVideoId(_ videoId: String?) -> String? {
         guard let videoId, !videoId.isEmpty else { return nil }
         return videoId

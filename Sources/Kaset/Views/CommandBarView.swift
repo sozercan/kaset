@@ -31,6 +31,7 @@ struct CommandBarView: View {
     @FocusState private var isInputFocused: Bool
 
     private let logger = DiagnosticsLogger.ai
+    @Namespace private var commandBarNamespace
 
     /// Dismisses the command bar.
     private func dismissCommandBar() {
@@ -38,60 +39,65 @@ struct CommandBarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Input field
-            HStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.tint)
+        GlassEffectContainer(spacing: 0) {
+            VStack(spacing: 0) {
+                // Input field
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.tint)
 
-                TextField("Ask anything about music...", text: self.$inputText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 16))
-                    .focused(self.$isInputFocused)
-                    .onSubmit {
-                        Task {
-                            await self.processCommand()
+                    TextField(String(localized: "Ask anything about music..."), text: self.$inputText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 16))
+                        .focused(self.$isInputFocused)
+                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarInput)
+                        .onSubmit {
+                            Task {
+                                await self.processCommand()
+                            }
                         }
-                    }
-                    .disabled(self.isProcessing)
+                        .disabled(self.isProcessing)
 
-                if self.isProcessing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .scaleEffect(0.7)
-                        .frame(width: 11, height: 11)
-                } else if !self.inputText.isEmpty {
-                    Button {
-                        self.inputText = ""
-                        self.errorMessage = nil
-                        self.resultMessage = nil
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                    if self.isProcessing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                            .frame(width: 11, height: 11)
+                    } else if !self.inputText.isEmpty {
+                        Button {
+                            self.inputText = ""
+                            self.errorMessage = nil
+                            self.resultMessage = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "Clear input"))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear input")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+
+                Divider()
+                    .opacity(0.3)
+
+                // Status area
+                if let error = errorMessage {
+                    self.errorView(error)
+                } else if let result = resultMessage {
+                    self.resultView(result)
+                } else {
+                    self.suggestionsView
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            Divider()
-
-            // Status area
-            if let error = errorMessage {
-                self.errorView(error)
-            } else if let result = resultMessage {
-                self.resultView(result)
-            } else {
-                self.suggestionsView
-            }
+            .frame(width: 500)
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
+            .glassEffectID("commandBar", in: self.commandBarNamespace)
         }
-        .frame(width: 500)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+        .glassEffectTransition(.materialize)
+        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBar)
         .onAppear {
             self.isInputFocused = true
         }
@@ -113,7 +119,8 @@ struct CommandBarView: View {
 
             Spacer()
         }
-        .padding(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
     }
 
     private func resultView(_ result: String) -> some View {
@@ -127,11 +134,12 @@ struct CommandBarView: View {
 
             Spacer()
         }
-        .padding(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
     }
 
     private var suggestionsView: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(self.suggestionsHeaderText)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -154,18 +162,19 @@ struct CommandBarView: View {
                 }
             }
         }
-        .padding(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Header text for suggestions, contextual based on playback state.
     private var suggestionsHeaderText: String {
         if self.playerService.currentTrack != nil {
-            "What would you like to do?"
+            String(localized: "What would you like to do?")
         } else if !self.playerService.queue.isEmpty {
-            "Your queue is ready:"
+            String(localized: "What would you like to do with your queue?")
         } else {
-            "Try commands like:"
+            String(localized: "Try commands like:")
         }
     }
 
@@ -286,7 +295,7 @@ struct CommandBarView: View {
         self.logger.info("Processing command: \(query)")
 
         guard FoundationModelsService.shared.isAvailable else {
-            self.errorMessage = "Apple Intelligence is not available"
+            self.errorMessage = String(localized: "Apple Intelligence is not available")
             self.isProcessing = false
             return
         }
@@ -298,7 +307,7 @@ struct CommandBarView: View {
             instructions: self.aiSystemInstructions,
             tools: [searchTool, queueTool]
         ) else {
-            self.errorMessage = "Could not create AI session"
+            self.errorMessage = String(localized: "Could not create AI session")
             self.isProcessing = false
             return
         }
@@ -626,7 +635,7 @@ struct CommandBarView: View {
             }
         } catch {
             self.logger.error("Search failed: \(error.localizedDescription)")
-            self.errorMessage = "Couldn't search for music"
+            self.errorMessage = String(localized: "Couldn't search for music")
         }
     }
 
@@ -660,7 +669,7 @@ struct CommandBarView: View {
             }
         } catch {
             self.logger.error("Search failed: \(error.localizedDescription)")
-            self.errorMessage = "Couldn't search for music"
+            self.errorMessage = String(localized: "Couldn't search for music")
         }
     }
 

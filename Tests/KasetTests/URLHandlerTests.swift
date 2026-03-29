@@ -4,7 +4,6 @@ import Testing
 
 // MARK: - URLHandlerTests
 
-@Suite("URL Handler Tests")
 struct URLHandlerTests {
     // MARK: - YouTube Music URL Tests
 
@@ -90,6 +89,18 @@ struct URLHandlerTests {
             return
         }
         #expect(id == "UCtest123")
+    }
+
+    @Test("Parse browse URL with MPLAUC prefix extracts as artist")
+    func parseBrowseLibraryArtistURL() throws {
+        let url = try #require(URL(string: "https://music.youtube.com/browse/MPLAUCtest123"))
+        let result = URLHandler.parse(url)
+
+        guard case let .artist(id) = result else {
+            Issue.record("Expected artist result")
+            return
+        }
+        #expect(id == "MPLAUCtest123")
     }
 
     // MARK: - Custom Scheme Tests

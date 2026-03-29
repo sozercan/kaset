@@ -64,7 +64,7 @@ final class SearchViewModel {
     }
 
     /// Available filters.
-    enum SearchFilter: String, CaseIterable, Identifiable, Sendable {
+    enum SearchFilter: String, CaseIterable, Identifiable {
         case all = "All"
         case songs = "Songs"
         case albums = "Albums"
@@ -75,6 +75,25 @@ final class SearchViewModel {
 
         var id: String {
             rawValue
+        }
+
+        var displayName: String {
+            switch self {
+            case .all:
+                String(localized: "All")
+            case .songs:
+                String(localized: "Songs")
+            case .albums:
+                String(localized: "Albums")
+            case .artists:
+                String(localized: "Artists")
+            case .featuredPlaylists:
+                String(localized: "Featured playlists")
+            case .communityPlaylists:
+                String(localized: "Community playlists")
+            case .podcasts:
+                String(localized: "Podcasts")
+            }
         }
     }
 

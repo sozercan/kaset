@@ -1,6 +1,6 @@
 # Keyboard Shortcuts
 
-Kaset provides full keyboard control for playback and navigation.
+Kaset provides keyboard control for playback and navigation while preserving standard macOS window shortcuts.
 
 ## Playback
 
@@ -11,9 +11,10 @@ Kaset provides full keyboard control for playback and navigation.
 | `⌘←`     | Previous track                      |
 | `⌘↑`     | Volume up                           |
 | `⌘↓`     | Volume down                         |
-| `⌘⇧M`    | Mute / Unmute                       |
 | `⌘S`     | Toggle shuffle                      |
 | `⌘R`     | Cycle repeat mode (Off → All → One) |
+
+Mute is still available from the Playback menu and AppleScript, but Kaset intentionally does not assign a default mute shortcut so the native macOS minimize shortcut (`⌘M`) continues to work.
 
 ## Navigation
 

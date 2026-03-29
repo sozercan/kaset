@@ -5,6 +5,12 @@ import Foundation
 
 /// Provides common utility methods for parsing YouTube Music API responses.
 enum ParsingHelpers {
+    private static let artistPageTypes: Set<String> = [
+        "MUSIC_PAGE_TYPE_ARTIST",
+        "MUSIC_PAGE_TYPE_USER_CHANNEL",
+        "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+    ]
+
     // MARK: - Stable ID Generation
 
     /// Generates a stable, deterministic ID from content components.
@@ -211,6 +217,23 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Extracts page type from a browse endpoint.
+    static func extractPageType(from browseEndpoint: [String: Any]) -> String? {
+        if let contextConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
+           let musicConfig = contextConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
+           let type = musicConfig["pageType"] as? String
+        {
+            return type
+        }
+        return nil
+    }
+
+    /// Returns whether the page type represents an artist destination.
+    static func isArtistPageType(_ pageType: String?) -> Bool {
+        guard let pageType else { return false }
+        return Self.artistPageTypes.contains(pageType)
+    }
+
     /// Extracts duration from flex columns or fixed columns.
     static func extractDurationFromFlexColumns(_ data: [String: Any]) -> TimeInterval? {
         // Try fixedColumns first (most common for playlist/album tracks)
@@ -330,11 +353,11 @@ enum ParsingHelpers {
         return Self.extractSongCount(from: subtitle)
     }
 
-    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 1 song").
+    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 2,429 tracks").
     /// The song count is typically displayed separately in the UI from the actual parsed count.
     static func stripSongCountPattern(from text: String) -> String {
         var result = text.replacingOccurrences(
-            of: #" • \d+ songs?"#,
+            of: #" • [\d,]+ (?:songs?|tracks?)"#,
             with: "",
             options: .regularExpression
         )
@@ -349,14 +372,17 @@ enum ParsingHelpers {
 
     /// Extracts song count from subtitle text (e.g., "Playlist • YouTube Music • 145 songs" → 145).
     static func extractSongCount(from text: String) -> Int? {
-        // Match patterns like "145 songs" or "1 song"
-        guard let regex = try? NSRegularExpression(pattern: #"(\d+)\s+songs?"#, options: .caseInsensitive),
-              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let countRange = Range(match.range(at: 1), in: text)
+        // Match patterns like "145 songs", "1 song", or "2,429 tracks"
+        guard let regex = try? NSRegularExpression(
+            pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
+            options: .caseInsensitive
+        ),
+            let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+            let countRange = Range(match.range(at: 1), in: text)
         else {
             return nil
         }
-        return Int(text[countRange])
+        return Int(text[countRange].replacingOccurrences(of: ",", with: ""))
     }
 
     /// Extracts title from flex columns.
@@ -397,12 +423,13 @@ enum ParsingHelpers {
                    // Skip content type keywords (Song, Video, etc.)
                    !Self.contentTypeKeywords.contains(artistName)
                 {
-                    // Only include items that have an artist browse endpoint
-                    // This filters out metadata like view counts, years, etc.
+                    // Only include items that have an artist browse endpoint.
+                    // This filters out metadata like view counts and years while
+                    // allowing both channel artists ("UC...") and library artists ("MPLAUC...").
                     if let endpoint = run["navigationEndpoint"] as? [String: Any],
                        let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
                        let browseId = browseEndpoint["browseId"] as? String,
-                       browseId.hasPrefix("UC") // Artist IDs start with UC
+                       Artist.isNavigableId(browseId)
                     {
                         artists.append(Artist(id: browseId, name: artistName))
                     }

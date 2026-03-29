@@ -3,12 +3,59 @@ import os
 import Security
 import WebKit
 
+// MARK: - CookieArchiveWriteCoordinator
+
+/// Tracks the last persisted archive so identical cookie backups can be skipped safely.
+final class CookieArchiveWriteCoordinator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastSavedArchiveData: Data?
+    private var pendingArchiveData: Data?
+
+    @discardableResult
+    func beginSaveIfNeeded(_ data: Data) -> Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+
+        guard self.pendingArchiveData != data, self.lastSavedArchiveData != data else {
+            return false
+        }
+
+        self.pendingArchiveData = data
+        return true
+    }
+
+    func finishSave(_ data: Data, success: Bool) {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+
+        if self.pendingArchiveData == data {
+            self.pendingArchiveData = nil
+        }
+
+        if success {
+            self.lastSavedArchiveData = data
+        }
+    }
+
+    func seedPersistedArchive(_ data: Data?) {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+
+        self.lastSavedArchiveData = data
+
+        if data == nil || self.pendingArchiveData == data {
+            self.pendingArchiveData = nil
+        }
+    }
+}
+
 // MARK: - KeychainCookieStorage
 
 /// Securely stores auth cookies in the macOS Keychain.
 /// Provides encryption at rest and app-specific access control.
 enum KeychainCookieStorage {
     private static let logger = DiagnosticsLogger.webKit
+    private static let writeCoordinator = CookieArchiveWriteCoordinator()
 
     /// Keychain service identifier for cookie storage.
     private static let service = "com.kaset.auth-cookies"
@@ -73,11 +120,17 @@ enum KeychainCookieStorage {
     static func saveCookies(_ cookies: [HTTPCookie]) {
         guard let archive = makeArchiveData(from: cookies) else { return }
 
-        Self.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
+        _ = Self.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
     }
 
     /// Saves an already-serialized cookie archive to the Keychain.
-    static func saveArchiveData(_ data: Data, cookieCount: Int) {
+    @discardableResult
+    static func saveArchiveData(_ data: Data, cookieCount: Int) -> Bool {
+        guard self.writeCoordinator.beginSaveIfNeeded(data) else {
+            self.logger.debug("Skipping Keychain cookie save because archive is already saved or a write is in progress")
+            return false
+        }
+
         // Update existing item or add new one (atomic upsert)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -100,10 +153,15 @@ enum KeychainCookieStorage {
             status = SecItemAdd(newQuery as CFDictionary, nil)
         }
 
-        if status == errSecSuccess {
-            self.logger.debug("Saved \(cookieCount) auth cookies to Keychain")
+        let didSave = status == errSecSuccess
+        Self.writeCoordinator.finishSave(data, success: didSave)
+
+        if didSave {
+            Self.logger.debug("Saved \(cookieCount) auth cookies to Keychain")
+            return true
         } else {
-            self.logger.error("Failed to save cookies to Keychain: \(status)")
+            Self.logger.error("Failed to save cookies to Keychain: \(status)")
+            return false
         }
     }
 
@@ -135,6 +193,7 @@ enum KeychainCookieStorage {
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         guard status == errSecSuccess else {
+            Self.writeCoordinator.seedPersistedArchive(nil)
             if status == errSecItemNotFound {
                 Self.logger.info("No cookies found in Keychain (first run or signed out)")
             } else {
@@ -143,7 +202,14 @@ enum KeychainCookieStorage {
             return nil
         }
 
-        return result as? Data
+        guard let data = result as? Data else {
+            Self.writeCoordinator.seedPersistedArchive(nil)
+            Self.logger.error("Loaded Keychain cookie item had an unexpected type")
+            return nil
+        }
+
+        Self.writeCoordinator.seedPersistedArchive(data)
+        return data
     }
 
     /// Decodes cookies from a serialized archive created by `makeArchiveData(from:)`.
@@ -195,11 +261,12 @@ enum KeychainCookieStorage {
         ]
 
         let status = SecItemDelete(query as CFDictionary)
+        Self.writeCoordinator.seedPersistedArchive(nil)
 
         if status == errSecSuccess {
-            self.logger.info("Deleted cookies from Keychain")
+            Self.logger.info("Deleted cookies from Keychain")
         } else if status != errSecItemNotFound {
-            self.logger.error("Failed to delete cookies from Keychain: \(status)")
+            Self.logger.error("Failed to delete cookies from Keychain: \(status)")
         }
     }
 }
@@ -383,6 +450,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Task for debouncing cookie change handling.
     private var cookieDebounceTask: Task<Void, Never>?
 
+    /// Task for the one-time startup restore from Keychain into WebKit.
+    private var initialCookieRestoreTask: Task<Void, Never>?
+
     /// Minimum interval between cookie backup operations (in seconds).
     private static let cookieDebounceInterval: Duration = .seconds(5)
 
@@ -415,8 +485,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         // Restore auth cookies on startup.
         // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
-        Task {
-            await self.restoreAuthCookiesFromBackup()
+        if !UITestConfig.isRunningUnitTests {
+            self.initialCookieRestoreTask = Task { @MainActor in
+                await self.restoreAuthCookiesFromBackup()
+                self.initialCookieRestoreTask = nil
+            }
         }
 
         self.logger.info("WebKitManager initialized with persistent data store")
@@ -457,6 +530,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             return
         }
 
+        #if DEBUG
+            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
+        #endif
+
         self.logger.info("Restoring \(keychainCookies.count) auth cookies from Keychain")
 
         // Set each cookie in WebKit
@@ -486,6 +563,13 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         configuration.allowsAirPlayForMediaPlayback = true
 
         return configuration
+    }
+
+    /// Waits for the one-time startup cookie restore to finish.
+    func waitForInitialCookieRestore() async {
+        if let restoreTask = self.initialCookieRestoreTask {
+            await restoreTask.value
+        }
     }
 
     /// Retrieves all cookies from the HTTP cookie store.
@@ -633,7 +717,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Perform Keychain/file I/O off the main actor.
         // Fire-and-forget: failures are handled inside KeychainCookieStorage.
         Task(priority: .utility) {
-            KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
+            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
             #if DEBUG
                 DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
             #endif
@@ -685,7 +769,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
 
         // Perform Keychain/file I/O off the main thread.
         Task.detached(priority: .utility) {
-            KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
+            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
             #if DEBUG
                 DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
             #endif

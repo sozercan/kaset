@@ -239,6 +239,105 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
 
 // MARK: - Response Analysis
 
+private func joinedRunsText(_ data: [String: Any]?) -> String? {
+    guard let data,
+          let runs = data["runs"] as? [[String: Any]]
+    else {
+        return nil
+    }
+
+    let text = runs.compactMap { $0["text"] as? String }.joined()
+    return text.isEmpty ? nil : text
+}
+
+private func findFirstRenderer(named key: String, in value: Any) -> [String: Any]? {
+    if let dictionary = value as? [String: Any] {
+        if let renderer = dictionary[key] as? [String: Any] {
+            return renderer
+        }
+
+        for nestedValue in dictionary.values {
+            if let renderer = findFirstRenderer(named: key, in: nestedValue) {
+                return renderer
+            }
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            if let renderer = findFirstRenderer(named: key, in: item) {
+                return renderer
+            }
+        }
+    }
+
+    return nil
+}
+
+private func extractPlaylistTrackCount(from text: String) -> Int? {
+    guard let regex = try? NSRegularExpression(
+        pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
+        options: .caseInsensitive
+    ),
+        let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+        let countRange = Range(match.range(at: 1), in: text)
+    else {
+        return nil
+    }
+
+    return Int(text[countRange].replacingOccurrences(of: ",", with: ""))
+}
+
+private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
+    guard let shelfRenderer = findFirstRenderer(named: "musicPlaylistShelfRenderer", in: data) else {
+        return nil
+    }
+
+    let shelfContents = shelfRenderer["contents"] as? [[String: Any]] ?? []
+    let initialTrackCount = shelfContents.reduce(into: 0) { partialResult, item in
+        if item["musicResponsiveListItemRenderer"] != nil {
+            partialResult += 1
+        }
+    }
+    let hasContinuation =
+        ((shelfRenderer["continuations"] as? [[String: Any]])?.isEmpty == false) ||
+        (shelfContents.last?["continuationItemRenderer"] != nil)
+
+    let responsiveHeader = findFirstRenderer(named: "musicResponsiveHeaderRenderer", in: data)
+    let detailHeader = findFirstRenderer(named: "musicDetailHeaderRenderer", in: data)
+    let title =
+        joinedRunsText(responsiveHeader?["title"] as? [String: Any]) ??
+        joinedRunsText(detailHeader?["title"] as? [String: Any])
+    let author: String? = {
+        guard let facepile = responsiveHeader?["facepile"] as? [String: Any],
+              let avatarStackViewModel = facepile["avatarStackViewModel"] as? [String: Any],
+              let text = avatarStackViewModel["text"] as? [String: Any],
+              let content = text["content"] as? String,
+              !content.isEmpty
+        else {
+            return nil
+        }
+
+        return content
+    }()
+    let totalTrackCount =
+        joinedRunsText(responsiveHeader?["secondSubtitle"] as? [String: Any]).flatMap(extractPlaylistTrackCount(from:)) ??
+        joinedRunsText(detailHeader?["secondSubtitle"] as? [String: Any]).flatMap(extractPlaylistTrackCount(from:))
+
+    var output = "\n🎵 Playlist summary:\n"
+    if let title {
+        output += "  • Title: \(title)\n"
+    }
+    if let author {
+        output += "  • Author: \(author)\n"
+    }
+    if let totalTrackCount {
+        output += "  • Reported total tracks: \(totalTrackCount.formatted())\n"
+    }
+    output += "  • Initial track rows: \(initialTrackCount)\n"
+    output += "  • Has continuation: \(hasContinuation ? "yes" : "no")\n"
+
+    return output
+}
+
 func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     var output = ""
 
@@ -319,6 +418,10 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
         output += "\n🏷️ Header keys: \(header.keys.sorted().joined(separator: ", "))\n"
     }
 
+    if let playlistSummary = playlistBrowseSummary(data) {
+        output += playlistSummary
+    }
+
     return output
 }
 
@@ -332,6 +435,8 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_landing",
     "FEmusic_library_albums",
     "FEmusic_library_artists",
+    "FEmusic_library_corpus_artists",
+    "FEmusic_library_corpus_track_artists",
     "FEmusic_library_songs",
     "FEmusic_library_non_music_audio_list",
     "FEmusic_recently_played",
@@ -343,9 +448,14 @@ let authRequiredEndpoints = Set([
 ])
 
 /// Checks if a browseId requires authentication.
-/// This includes known endpoints plus playlist IDs that start with VL (which benefit from auth for premium content).
+/// This includes known endpoints plus dynamic browseId prefixes that are sign-in backed.
 func needsAuthentication(_ browseId: String) -> Bool {
     if authRequiredEndpoints.contains(browseId) {
+        return true
+    }
+    // Library artists (MPLAUC...) come from signed-in library responses
+    // and return 401 when browsed directly without auth.
+    if browseId.hasPrefix("MPLAUC") {
         return true
     }
     // Playlists (VL...) benefit from authentication for personalized content
@@ -971,7 +1081,9 @@ func listEndpoints() {
     FEmusic_history               Listening history (organized by time)
     FEmusic_library_landing       Library overview page
     FEmusic_library_albums        Saved albums (requires params*)
-    FEmusic_library_artists       Followed artists (requires params*)
+    FEmusic_library_artists       Rejected with HTTP 400 in current sessions
+    FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
+    FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
     FEmusic_library_songs         All songs in library (requires params*)
     FEmusic_recently_played       Recently played content
     FEmusic_offline               Downloaded content (may not work on desktop)
@@ -987,6 +1099,7 @@ func listEndpoints() {
     ───────────────────────────────────────────────────────────────────────────────
     VL{playlistId}                Playlist detail (e.g., VLPLxyz...)
     UC{channelId}                 Artist/Channel detail (e.g., UCxyz...)
+    MPLAUC{libraryArtistId}       Library artist detail (from Artists chip, requires auth)
     MPREb_{albumId}               Album detail
     MPLYt_{lyricsId}              Lyrics content
     FEmusic_moods_and_genres_category   Mood/Genre category (with params)
@@ -1077,6 +1190,11 @@ func listEndpoints() {
 
     Example: ./api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
 
+    FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
+    It requires sign-in for useful content but does not need sort params.
+    Signed-in responses return MPLAUC... browseIds (MUSIC_PAGE_TYPE_LIBRARY_ARTIST).
+    Browsing an MPLAUC... page directly also requires sign-in.
+
     ═══════════════════════════════════════════════════════════════════════════════
     💡 USAGE TIPS
     ═══════════════════════════════════════════════════════════════════════════════
@@ -1086,7 +1204,7 @@ func listEndpoints() {
     Dynamic browse ID:     ./api-explorer.swift browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
     Action with body:      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
 
-    * Library endpoints return HTTP 400 without both auth AND params
+    * Param-based library endpoints above return HTTP 400 without both auth AND params
 
     """)
 }
@@ -1127,6 +1245,7 @@ func showHelp() {
       # Explore authenticated endpoints (requires Kaset sign-in)
       ./api-explorer.swift browse FEmusic_liked_playlists
       ./api-explorer.swift browse FEmusic_history
+      ./api-explorer.swift browse FEmusic_library_corpus_track_artists
 
       # Discover brand accounts and use them
       ./api-explorer.swift brandaccounts                            # List brand accounts with IDs
@@ -1263,7 +1382,7 @@ func runMain() async {
 
 /// Run the async main
 let semaphore = DispatchSemaphore(value: 0)
-Task {
+Task.detached {
     await runMain()
     semaphore.signal()
 }

@@ -5,6 +5,8 @@ import SwiftUI
 /// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
 @available(macOS 26.0, *)
 struct PlayerBar: View {
+    private static let brandAccent = PackageResourceLookup.brandAccent
+
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
 
@@ -93,13 +95,6 @@ struct PlayerBar: View {
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
                 .opacity(0)
-
-                // Command + M: Toggle mute
-                Button("") {
-                    Task { await self.playerService.toggleMute() }
-                }
-                .keyboardShortcut("m", modifiers: .command)
-                .opacity(0)
             }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
@@ -170,7 +165,7 @@ struct PlayerBar: View {
                     }
                 }
             } label: {
-                Text("Retry")
+                Text("Retry", comment: "Button to retry failed playback")
                     .font(.system(size: 11, weight: .medium))
             }
             .buttonStyle(.plain)
@@ -209,7 +204,7 @@ struct PlayerBar: View {
                         .lineLimit(1)
                         .foregroundStyle(.primary)
 
-                    Text(track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay)
+                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
                         .font(.system(size: 10))
                         .lineLimit(1)
                         .foregroundStyle(.secondary)
@@ -241,6 +236,7 @@ struct PlayerBar: View {
                 }
             }
             .controlSize(.small)
+            .tint(Self.brandAccent)
 
             // Remaining time - use cached formatted string when not seeking
             Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
@@ -290,8 +286,8 @@ struct PlayerBar: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .accessibilityLabel("Shuffle")
-            .accessibilityValue(self.playerService.shuffleEnabled ? "On" : "Off")
+            .accessibilityLabel(String(localized: "Shuffle"))
+            .accessibilityValue(self.playerService.shuffleEnabled ? String(localized: "On") : String(localized: "Off"))
 
             // Previous
             Button {
@@ -305,7 +301,7 @@ struct PlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
-            .accessibilityLabel("Previous track")
+            .accessibilityLabel(String(localized: "Previous track"))
 
             // Play/Pause
             Button {
@@ -321,7 +317,7 @@ struct PlayerBar: View {
             }
             .buttonStyle(.pressable)
             .glassEffectID("playPause", in: self.playerNamespace)
-            .accessibilityLabel(self.playerService.isPlaying ? "Pause" : "Play")
+            .accessibilityLabel(self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
 
             // Next
             Button {
@@ -335,7 +331,7 @@ struct PlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
-            .accessibilityLabel("Next track")
+            .accessibilityLabel(String(localized: "Next track"))
 
             // Repeat
             Button {
@@ -348,7 +344,7 @@ struct PlayerBar: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .accessibilityLabel("Repeat")
+            .accessibilityLabel(String(localized: "Repeat"))
             .accessibilityValue(self.repeatAccessibilityValue)
         }
     }
@@ -365,11 +361,11 @@ struct PlayerBar: View {
     private var repeatAccessibilityValue: String {
         switch self.playerService.repeatMode {
         case .off:
-            "Off"
+            String(localized: "Off")
         case .all:
-            "All"
+            String(localized: "All")
         case .one:
-            "One"
+            String(localized: "One")
         }
     }
 
@@ -392,7 +388,7 @@ struct PlayerBar: View {
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
-            .accessibilityLabel(self.playerService.isAirPlayConnected ? "AirPlay Connected" : "AirPlay")
+            .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
             .disabled(self.playerService.currentTrack == nil)
 
             Divider()
@@ -420,6 +416,7 @@ struct PlayerBar: View {
             }
             .frame(width: 80)
             .controlSize(.small)
+            .tint(Self.brandAccent)
             .onChange(of: self.volumeValue) { oldValue, newValue in
                 // Apply volume changes in real-time during dragging for immediate feedback
                 if self.isAdjustingVolume {
@@ -455,8 +452,8 @@ struct PlayerBar: View {
             }
             .buttonStyle(.pressable)
             .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
-            .accessibilityLabel("Dislike")
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? "Disliked" : "Not disliked")
+            .accessibilityLabel(String(localized: "Dislike"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked"))
             .disabled(self.playerService.currentTrack == nil)
 
             // Like button
@@ -473,8 +470,8 @@ struct PlayerBar: View {
             }
             .buttonStyle(.pressable)
             .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
-            .accessibilityLabel("Like")
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? "Liked" : "Not liked")
+            .accessibilityLabel(String(localized: "Like"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked"))
             .disabled(self.playerService.currentTrack == nil)
 
             // Lyrics button
@@ -491,8 +488,8 @@ struct PlayerBar: View {
             .buttonStyle(.pressable)
             .glassEffectID("lyrics", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
-            .accessibilityLabel("Lyrics")
-            .accessibilityValue(self.playerService.showLyrics ? "Showing" : "Hidden")
+            .accessibilityLabel(String(localized: "Lyrics"))
+            .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
 
             // Queue button
             Button {
@@ -508,8 +505,8 @@ struct PlayerBar: View {
             .buttonStyle(.pressable)
             .glassEffectID("queue", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)
-            .accessibilityLabel("Queue")
-            .accessibilityValue(self.playerService.showQueue ? "Showing" : "Hidden")
+            .accessibilityLabel(String(localized: "Queue"))
+            .accessibilityValue(self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"))
 
             // Video button - only shown when track has video
             if self.playerService.currentTrackHasVideo {
@@ -531,8 +528,8 @@ struct PlayerBar: View {
                 .glassEffectID("video", in: self.playerNamespace)
                 .keyboardShortcut("v", modifiers: [.command, .shift])
                 .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
-                .accessibilityLabel("Video")
-                .accessibilityValue(self.playerService.showVideo ? "Playing" : "Off")
+                .accessibilityLabel(String(localized: "Video"))
+                .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
             }
         }
     }

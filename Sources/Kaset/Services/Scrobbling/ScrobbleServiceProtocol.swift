@@ -37,7 +37,7 @@ protocol ScrobbleServiceProtocol: Sendable {
 // MARK: - ScrobbleTrack
 
 /// A track prepared for scrobbling, containing the metadata needed by scrobbling services.
-struct ScrobbleTrack: Codable, Sendable, Identifiable, Equatable {
+struct ScrobbleTrack: Codable, Identifiable, Equatable {
     /// Unique identifier for this scrobble entry.
     let id: UUID
 
@@ -93,7 +93,7 @@ struct ScrobbleTrack: Codable, Sendable, Identifiable, Equatable {
 // MARK: - ScrobbleAuthState
 
 /// Represents the authentication state of a scrobbling service.
-enum ScrobbleAuthState: Equatable, Sendable {
+enum ScrobbleAuthState: Equatable {
     /// Not connected to the service.
     case disconnected
 
@@ -122,7 +122,7 @@ enum ScrobbleAuthState: Equatable, Sendable {
 // MARK: - ScrobbleError
 
 /// Errors that can occur during scrobbling operations.
-enum ScrobbleError: Error, LocalizedError, Sendable {
+enum ScrobbleError: Error, LocalizedError {
     /// Invalid credentials or session key.
     case invalidCredentials
 
@@ -166,7 +166,7 @@ enum ScrobbleError: Error, LocalizedError, Sendable {
 // MARK: - ScrobbleResult
 
 /// Result of a single scrobble submission.
-struct ScrobbleResult: Sendable {
+struct ScrobbleResult {
     /// The track that was submitted.
     let track: ScrobbleTrack
 

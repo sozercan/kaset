@@ -5,7 +5,7 @@ import Testing
 // MARK: - MusicIntentTests
 
 /// Tests for MusicIntent query building and parsing logic.
-@Suite("MusicIntent", .tags(.api))
+@Suite(.tags(.api))
 struct MusicIntentTests {
     // MARK: - buildSearchQuery Tests
 
@@ -414,7 +414,7 @@ struct MusicIntentTests {
 
 // MARK: - MusicActionTests
 
-@Suite("MusicAction", .tags(.api))
+@Suite(.tags(.api))
 struct MusicActionTests {
     @Test("All action cases have raw values")
     func allActionsHaveRawValues() {
@@ -431,7 +431,7 @@ struct MusicActionTests {
 
 // MARK: - ContentSourceTests
 
-@Suite("ContentSource", .tags(.api))
+@Suite(.tags(.api))
 struct ContentSourceTests {
     @Test("ContentSource has correct raw values")
     func contentSourceRawValues() {

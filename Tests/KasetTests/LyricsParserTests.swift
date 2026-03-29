@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for LyricsParser.
-@Suite("LyricsParser", .tags(.parser))
+@Suite(.tags(.parser))
 struct LyricsParserTests {
     // MARK: - Extract Lyrics Browse ID Tests
 

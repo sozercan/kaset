@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for the HomeResponseParser.
-@Suite("HomeResponseParser", .tags(.parser))
+@Suite(.tags(.parser))
 struct HomeResponseParserTests {
     @Test("Parse empty response returns empty sections")
     func parseEmptyResponse() {
@@ -274,6 +274,53 @@ struct HomeResponseParserTests {
             #expect(firstPlaylist.title == "Chill")
         } else {
             Issue.record("Expected playlist item from navigation button")
+        }
+    }
+
+    @Test("Parse responsive browse item with library artist page type")
+    func parseResponsiveBrowseLibraryArtist() throws {
+        let artistItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": "MPLAUC1234567890",
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+                            ],
+                        ],
+                    ],
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Library Artist"]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Artist"]]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let sectionData: [String: Any] = [
+            "musicShelfRenderer": [
+                "title": ["runs": [["text": "Artists"]]],
+                "contents": [artistItem],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+
+        #expect(section.items.count == 1)
+        if case let .artist(artist) = section.items.first {
+            #expect(artist.id == "MPLAUC1234567890")
+            #expect(artist.name == "Library Artist")
+        } else {
+            Issue.record("Expected artist item")
         }
     }
 

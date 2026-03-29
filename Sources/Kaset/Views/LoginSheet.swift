@@ -50,7 +50,7 @@ struct LoginSheet: View {
                 }
             }
 
-            Text("Note: If passkeys don't work, use \"Try another way\" to sign in with password.")
+            Text("Note: If passkeys don't work, use \"Try another way\" to sign in with password.", comment: "Login help text about passkey alternative")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

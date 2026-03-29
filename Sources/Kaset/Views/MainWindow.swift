@@ -5,11 +5,26 @@ import SwiftUI
 /// Main application window with sidebar navigation and player bar.
 @available(macOS 26.0, *)
 struct MainWindow: View {
+    private struct PresentedWhatsNew: Identifiable {
+        let whatsNew: WhatsNew
+        let requestedVersion: WhatsNew.Version
+
+        var id: String {
+            "\(self.requestedVersion.description)::\(self.whatsNew.version.description)"
+        }
+    }
+
+    private enum Layout {
+        static let commandBarTopPadding: CGFloat = 72
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.showCommandBar) private var showCommandBar
+    @Environment(\.showWhatsNew) private var showWhatsNew
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -18,7 +33,8 @@ struct MainWindow: View {
     let client: any YTMusicClientProtocol
 
     @State private var showLoginSheet = false
-    @State private var showCommandBarSheet = false
+    @State private var isCommandBarPresented = false
+    @State private var whatsNewToPresent: PresentedWhatsNew?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -92,7 +108,7 @@ struct MainWindow: View {
                                 .shadow(radius: 1)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Close")
+                        .accessibilityLabel(String(localized: "Close"))
                         .padding(3)
                     }
                 }
@@ -100,28 +116,48 @@ struct MainWindow: View {
                 .padding(.trailing, self.playerService.showMiniPlayer ? 12 : 0)
                 .padding(.bottom, self.playerService.showMiniPlayer ? 76 : 0)
                 .allowsHitTesting(self.playerService.showMiniPlayer)
+                // Hiding must not interpolate frame/opacity (no “shrink”); showing can ease in.
+                .transaction { transaction in
+                    if !self.playerService.showMiniPlayer {
+                        transaction.animation = nil
+                    } else {
+                        transaction.animation = .easeInOut(duration: 0.2)
+                    }
+                }
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: self.playerService.showMiniPlayer)
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
         }
+        .sheet(item: self.$whatsNewToPresent) { presentedWhatsNew in
+            WhatsNewView(whatsNew: presentedWhatsNew.whatsNew) {
+                self.dismissWhatsNew(presentedWhatsNew)
+            }
+        }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.showCommandBarSheet {
+            if self.isCommandBarPresented {
                 ZStack {
                     // Background tap area to dismiss
-                    Color.black.opacity(0.3)
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
                         .ignoresSafeArea()
+                        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBarOverlay)
                         .onTapGesture {
-                            self.showCommandBarSheet = false
+                            self.isCommandBarPresented = false
                         }
 
-                    // Command bar centered
-                    CommandBarView(client: self.client, isPresented: self.$showCommandBarSheet)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    VStack(spacing: 0) {
+                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, Self.Layout.commandBarTopPadding)
                 }
-                .animation(.easeInOut(duration: 0.15), value: self.showCommandBarSheet)
+                .animation(.easeInOut(duration: 0.15), value: self.isCommandBarPresented)
             }
         }
         .overlay(alignment: .top) {
@@ -131,8 +167,20 @@ struct MainWindow: View {
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
-                self.showCommandBarSheet = true
+                self.isCommandBarPresented = true
                 self.showCommandBar.wrappedValue = false
+            }
+        }
+        .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
+            if newValue {
+                // Manual trigger from Help menu — fetch release notes, bypass version store
+                Task { @MainActor in
+                    await self.presentCurrentWhatsNew(
+                        respectingPresentedVersions: false,
+                        allowsGenericFallback: true
+                    )
+                }
+                self.showWhatsNew.wrappedValue = false
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in
@@ -161,18 +209,44 @@ struct MainWindow: View {
             }
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
-            // Refresh all content when user switches accounts
-            guard newAccountId != nil else { return }
-            DiagnosticsLogger.auth.info("Account switched, refreshing content...")
-            // Clear API cache to ensure fresh data for new account
+            self.playerService.resetTrackStatus()
+
             Task { @MainActor in
                 APICache.shared.invalidateAll()
                 URLCache.shared.removeAllCachedResponses()
-                await self.refreshAllContent()
+
+                guard newAccountId != nil else { return }
+
+                DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
+
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await self.refreshAllContent()
+                    }
+
+                    if let currentVideoId = self.playerService.currentTrack?.videoId {
+                        group.addTask {
+                            await self.playerService.fetchSongMetadata(videoId: currentVideoId)
+                        }
+                    }
+                }
             }
         }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+
+            // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
+            if let currentVideoId = self.playerService.currentTrack?.videoId,
+               event.videoId == currentVideoId
+            {
+                self.playerService.currentTrackLikeStatus = event.status
+            }
+
+            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
+            self.likedMusicViewModel?.handleLikeStatusChange(event)
         }
     }
 
@@ -203,14 +277,14 @@ struct MainWindow: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    self.showCommandBarSheet = true
+                    self.isCommandBarPresented = true
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                 }
                 .keyboardShortcut("k", modifiers: .command)
-                .help("Ask AI (⌘K)")
+                .help(String(localized: "Ask AI (⌘K)"))
                 .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 .requiresIntelligence()
             }
@@ -253,7 +327,7 @@ struct MainWindow: View {
             if let item {
                 self.viewForNavigationItem(item)
             } else {
-                Text("Select an item from the sidebar")
+                Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
                     .foregroundStyle(.secondary)
             }
         }
@@ -311,6 +385,12 @@ struct MainWindow: View {
             self.showLoginSheet = true
         case .loggedIn:
             self.showLoginSheet = false
+            // Auto-present "What's New" — fetch from GitHub release notes
+            if self.whatsNewToPresent == nil {
+                Task { @MainActor in
+                    await self.presentCurrentWhatsNew()
+                }
+            }
             Task {
                 await self.accountService.fetchAccounts()
             }
@@ -330,6 +410,31 @@ struct MainWindow: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func dismissWhatsNew(_ whatsNew: PresentedWhatsNew) {
+        WhatsNewVersionStore().markPresented(whatsNew.requestedVersion)
+        self.whatsNewToPresent = nil
+    }
+
+    @MainActor
+    private func presentCurrentWhatsNew(
+        respectingPresentedVersions: Bool = true,
+        allowsGenericFallback: Bool = false
+    ) async {
+        let currentVersion = WhatsNew.Version.current()
+        let whatsNew = await WhatsNewProvider.fetchWhatsNew(
+            for: currentVersion,
+            respectingPresentedVersions: respectingPresentedVersions
+        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
+
+        guard let whatsNew else { return }
+
+        self.whatsNewToPresent = PresentedWhatsNew(
+            whatsNew: whatsNew,
+            requestedVersion: currentVersion
+        )
     }
 
     /// Refreshes all content when switching accounts.
@@ -366,6 +471,29 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 
     var id: String {
         rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .home:
+            String(localized: "Home")
+        case .explore:
+            String(localized: "Explore")
+        case .search:
+            String(localized: "Search")
+        case .charts:
+            String(localized: "Charts")
+        case .moodsAndGenres:
+            String(localized: "Moods & Genres")
+        case .newReleases:
+            String(localized: "New Releases")
+        case .podcasts:
+            String(localized: "Podcasts")
+        case .likedMusic:
+            String(localized: "Liked Music")
+        case .library:
+            String(localized: "Library")
+        }
     }
 
     var icon: String {

@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for data models.
-@Suite("Models", .tags(.model))
+@Suite(.tags(.model))
 struct ModelTests {
     // MARK: - Song Tests
 
@@ -294,6 +294,7 @@ struct ModelTests {
         #expect(detail.title == "Test Playlist")
         #expect(detail.description == "A description")
         #expect(detail.author == "Test Author")
+        #expect(detail.trackCount == 5)
         #expect(detail.tracks.count == 2)
         #expect(detail.duration == "6:20")
     }
@@ -522,6 +523,12 @@ struct ModelTests {
     @Test("hasNavigableId returns true for UC channel IDs")
     func artistHasNavigableIdWithUCPrefix() {
         let artist = Artist(id: "UCxxxxxxxxxxxxxxxxxxxxxxx", name: "Real Artist")
+        #expect(artist.hasNavigableId == true)
+    }
+
+    @Test("hasNavigableId returns true for MPLAUC library artist browse IDs")
+    func artistHasNavigableIdWithLibraryArtistPrefix() {
+        let artist = Artist(id: "MPLAUCxxxxxxxxxxxxxxxxxxxxxxx", name: "Library Artist")
         #expect(artist.hasNavigableId == true)
     }
 

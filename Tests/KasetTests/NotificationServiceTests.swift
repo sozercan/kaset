@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for NotificationService track-change observation.
-@Suite("NotificationService", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct NotificationServiceTests {
     var playerService: PlayerService
@@ -17,14 +17,6 @@ struct NotificationServiceTests {
     private func waitForPollingCycle() async {
         // Wait for the 500ms polling interval plus a small margin.
         try? await Task.sleep(for: .milliseconds(700))
-    }
-
-    private func setPlaybackActive(_ isPlaying: Bool) {
-        self.playerService.updatePlaybackState(
-            isPlaying: isPlaying,
-            progress: 0,
-            duration: 240
-        )
     }
 
     // MARK: - Observation Lifecycle
@@ -45,7 +37,7 @@ struct NotificationServiceTests {
     @Test("detects track change and updates lastNotifiedTrackId when playback is active")
     func detectsTrackChange() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
 
         await self.waitForPollingCycle()
 
@@ -55,7 +47,7 @@ struct NotificationServiceTests {
     @Test("detects multiple track changes while playing")
     func detectsMultipleTrackChanges() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
@@ -67,7 +59,7 @@ struct NotificationServiceTests {
     @Test("does not notify for paused restored track")
     func doesNotNotifyForPausedTrack() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Restored Song")
-        self.setPlaybackActive(false)
+        self.playerService.state = .paused
 
         await self.waitForPollingCycle()
 
@@ -77,12 +69,12 @@ struct NotificationServiceTests {
     @Test("notifies when paused current track starts playing")
     func notifiesWhenPlaybackStartsForCurrentTrack() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Restored Song")
-        self.setPlaybackActive(false)
+        self.playerService.state = .paused
 
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == nil)
 
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
 
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
@@ -91,7 +83,7 @@ struct NotificationServiceTests {
     @Test("does not notify for same track twice")
     func doesNotNotifyForSameTrackTwice() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
@@ -106,7 +98,7 @@ struct NotificationServiceTests {
     @Test("skips tracks with Loading... title")
     func skipsLoadingTracks() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "loading-track", title: "Loading...")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
         await self.waitForPollingCycle()
 
         #expect(self.notificationService.lastNotifiedTrackId == nil)
@@ -116,13 +108,14 @@ struct NotificationServiceTests {
     func notifiesAfterLoadingResolves() async {
         // First set loading placeholder
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Loading...")
-        self.setPlaybackActive(false)
+        self.playerService.state = .loading
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == nil)
 
         // The resolved metadata should notify once playback actually starts.
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Real Song")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
+
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
@@ -145,7 +138,7 @@ struct NotificationServiceTests {
 
         // And still detects changes
         self.playerService.currentTrack = TestFixtures.makeSong(id: "late-song", title: "Late Song")
-        self.setPlaybackActive(true)
+        self.playerService.state = .playing
         await self.waitForPollingCycle()
         #expect(self.notificationService.lastNotifiedTrackId == "late-song")
     }

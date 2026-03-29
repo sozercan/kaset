@@ -8,7 +8,7 @@ enum SongMetadataParser {
     struct MenuParseResult {
         var feedbackTokens: FeedbackTokens?
         var isInLibrary: Bool
-        var likeStatus: LikeStatus
+        var likeStatus: LikeStatus?
     }
 
     /// Parses song metadata from the "next" endpoint response.
@@ -153,7 +153,7 @@ enum SongMetadataParser {
 
     /// Parses menu data (feedbackTokens, library status, like status) from the panel video renderer.
     static func parseMenuData(from renderer: [String: Any]) -> MenuParseResult {
-        var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: .indifferent)
+        var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: nil)
 
         guard let menu = renderer["menu"] as? [String: Any],
               let menuRenderer = menu["menuRenderer"] as? [String: Any],

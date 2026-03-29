@@ -2,27 +2,15 @@ import FoundationModels
 import SwiftUI
 
 /// Right sidebar panel displaying lyrics for the current track.
-/// Supports time-synced lyrics with auto-scroll and karaoke-style highlighting
-/// via LRCLIB, with fallback to plain lyrics from YouTube Music.
 @available(macOS 26.0, *)
 struct LyricsView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(SyncedLyricsService.self) private var syncedLyricsService
 
     let client: any YTMusicClientProtocol
 
-    // Plain lyrics (YTMusic)
-    @State private var lyrics: Lyrics?
-    // Synced lyrics (LRCLIB)
-    @State private var syncedLyrics: SyncedLyrics?
-    @State private var isLoading = false
-    @State private var lastLoadedTrackKey: String?
-
-    /// Index of the currently highlighted synced line.
-    @State private var currentLineIndex: Int?
-    /// Whether the user has manually scrolled (pauses auto-scroll).
-    @State private var userIsScrolling = false
-    /// Timer to resume auto-scroll after user interaction.
-    @State private var scrollResumeTask: Task<Void, Never>?
+    @State private var lastLoadedVideoId: String?
+    @State private var isLoadingFallback = false
 
     // AI explanation state
     @State private var lyricsSummary: LyricsSummary?
@@ -35,13 +23,6 @@ struct LyricsView: View {
 
     /// Namespace for glass effect morphing.
     @Namespace private var lyricsNamespace
-
-    /// Unique key for the current track, combining videoId + title + artist.
-    /// This ensures lyrics reload even when videoId doesn't change (e.g. YouTube autoplay).
-    private var trackKey: String? {
-        guard let track = playerService.currentTrack else { return nil }
-        return "\(track.videoId)|\(track.title)|\(track.artistsDisplay)"
-    }
 
     var body: some View {
         GlassEffectContainer(spacing: 0) {
@@ -60,28 +41,39 @@ struct LyricsView: View {
             .glassEffectID("lyricsPanel", in: self.lyricsNamespace)
         }
         .glassEffectTransition(.materialize)
-        .onChange(of: self.trackKey) { _, newKey in
-            if let key = newKey, key != lastLoadedTrackKey {
-                // Reset state on track change
+        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+            if let videoId = newVideoId, videoId != lastLoadedVideoId {
+                // Reset explanation when track changes
                 self.lyricsSummary = nil
                 self.partialSummary = nil
                 self.showExplanation = false
                 self.explanationError = nil
-                self.currentLineIndex = nil
-                self.syncedLyrics = nil
-                self.lyrics = nil
                 Task {
-                    await self.loadLyrics(for: self.playerService.currentTrack?.videoId ?? "")
+                    await self.loadLyrics(for: videoId)
                 }
             }
-        }
-        .onChange(of: self.playerService.progress) { _, newProgress in
-            self.updateCurrentLine(at: newProgress)
         }
         .task {
             if let videoId = playerService.currentTrack?.videoId {
                 await self.loadLyrics(for: videoId)
             }
+        }
+        .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
+            self.updateLyricsPolling(for: newLyrics)
+        }
+        .onDisappear {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+        .onAppear {
+            self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+        }
+    }
+
+    private func updateLyricsPolling(for result: LyricResult) {
+        if case .synced = result {
+            SingletonPlayerWebView.shared.startLyricsPoll()
+        } else {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
         }
     }
 
@@ -92,19 +84,10 @@ struct LyricsView: View {
             Text("Lyrics")
                 .font(.headline)
                 .foregroundStyle(.primary)
-
-            // Synced indicator
-            if self.syncedLyrics?.hasSyncedLines == true {
-                Image(systemName: "waveform")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .help("Synced lyrics")
-            }
-
             Spacer()
 
             // Explain button (AI-powered)
-            if self.hasAnyLyrics {
+            if self.syncedLyricsService.currentLyrics.isAvailable {
                 Button {
                     if self.showExplanation {
                         self.showExplanation = false
@@ -127,8 +110,8 @@ struct LyricsView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(self.showExplanation ? .purple : .secondary)
-                .help("Explain lyrics with AI")
-                .accessibilityLabel(self.showExplanation ? "Hide lyrics explanation" : "Explain lyrics with AI")
+                .help(String(localized: "Explain lyrics with AI"))
+                .accessibilityLabel(self.showExplanation ? String(localized: "Hide lyrics explanation") : String(localized: "Explain lyrics with AI"))
                 .requiresIntelligence()
                 .disabled(self.isExplaining)
             }
@@ -137,29 +120,23 @@ struct LyricsView: View {
         .padding(.vertical, 14)
     }
 
-    /// Whether any form of lyrics (synced or plain) is available.
-    private var hasAnyLyrics: Bool {
-        self.syncedLyrics?.hasSyncedLines == true
-            || self.syncedLyrics?.plainText?.isEmpty == false
-            || self.lyrics?.isAvailable == true
-    }
-
     // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
         if self.playerService.currentTrack == nil {
             self.noTrackPlayingView
-        } else if self.isLoading {
+        } else if self.syncedLyricsService.isLoading || self.isLoadingFallback {
             self.loadingView
-        } else if let synced = syncedLyrics, synced.hasSyncedLines {
-            self.syncedLyricsContentView(synced)
-        } else if let lyrics, lyrics.isAvailable {
-            self.plainLyricsContentView(lyrics)
-        } else if let synced = syncedLyrics, let plain = synced.plainText, !plain.isEmpty {
-            self.plainFallbackView(plain, source: synced.source)
         } else {
-            self.noLyricsView
+            switch self.syncedLyricsService.currentLyrics {
+            case let .synced(synced):
+                self.syncedLyricsContentView(synced)
+            case let .plain(plain):
+                self.plainLyricsContentView(plain)
+            case .unavailable:
+                self.noLyricsView
+            }
         }
     }
 
@@ -168,128 +145,60 @@ struct LyricsView: View {
             ProgressView()
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
-            Text("Loading lyrics...")
+            Text("Loading lyrics...", comment: "Lyrics panel loading state")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Synced Lyrics View
-
     private func syncedLyricsContentView(_ synced: SyncedLyrics) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // AI Explanation section
-                    self.explanationBanner
-
-                    // Top spacer for visual centering
-                    Spacer()
-                        .frame(height: 60)
-
-                    // Synced lyrics lines
-                    ForEach(Array(synced.lines.enumerated()), id: \.element.id) { index, line in
-                        self.syncedLineView(line, index: index, total: synced.lines.count)
-                            .id(index)
-                    }
-
-                    // Bottom spacer
-                    Spacer()
-                        .frame(height: 120)
-
-                    // Source attribution
-                    if let source = synced.source {
-                        Divider()
-                            .padding(.horizontal, 16)
-                        Text("Source: \(source)")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { _ in
-                        self.userIsScrolling = true
-                        self.scrollResumeTask?.cancel()
-                    }
-                    .onEnded { _ in
-                        // Resume auto-scroll after 4 seconds of inactivity
-                        self.scrollResumeTask = Task {
-                            try? await Task.sleep(for: .seconds(4))
-                            if !Task.isCancelled {
-                                self.userIsScrolling = false
-                            }
+        VStack(alignment: .leading, spacing: 0) {
+            // AI Explanation section (streaming or complete)
+            if self.isExplaining || self.showExplanation || self.explanationError != nil {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if self.isExplaining, let partial = partialSummary {
+                            self.streamingExplanationSection(partial)
+                        } else if self.showExplanation, let summary = lyricsSummary {
+                            self.explanationSection(summary)
+                        } else if let error = explanationError {
+                            self.errorSection(error)
                         }
                     }
+                }
+                .frame(maxHeight: 200)
+                Divider().opacity(0.3)
+            }
+
+            SyncedLyricsDisplayView(
+                lyrics: synced,
+                currentTimeMs: self.playerService.currentTimeMs,
+                onSeek: { timeMs in
+                    Task { await self.playerService.seek(to: Double(timeMs) / 1000.0) }
+                }
             )
-            .onChange(of: self.currentLineIndex) { _, newIndex in
-                guard let newIndex, !self.userIsScrolling else { return }
-                withAnimation(.spring(duration: 0.45, bounce: 0.0)) {
-                    proxy.scrollTo(newIndex, anchor: .center)
-                }
-            }
+            .background(Color.clear)
         }
     }
-
-    @ViewBuilder
-    private func syncedLineView(_ line: SyncedLyricsLine, index: Int, total: Int) -> some View {
-        let isCurrent = index == self.currentLineIndex
-        let isPast = if let current = self.currentLineIndex { index < current } else { false }
-
-        if line.isInterlude {
-            // Instrumental / interlude indicator – white dots, animation only while active
-            HStack(spacing: 6) {
-                ForEach(0 ..< 3, id: \.self) { dotIndex in
-                    Circle()
-                        .fill(Color.primary.opacity(isCurrent ? 0.9 : 0.25))
-                        .frame(width: 5, height: 5)
-                        .scaleEffect(isCurrent ? 1.4 : 1.0)
-                        .animation(
-                            isCurrent
-                                ? .easeInOut(duration: 0.5)
-                                    .repeatForever(autoreverses: true)
-                                    .delay(Double(dotIndex) * 0.15)
-                                : .easeOut(duration: 0.3),
-                            value: isCurrent
-                        )
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-        } else {
-            // Use constant font size & weight so text never reflows when a line becomes active.
-            // Differentiation is purely through color and opacity (like Apple Music).
-            Text(line.text)
-                .font(.system(size: 16, weight: .bold))
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .foregroundStyle(.primary)
-                .opacity(isCurrent ? 1.0 : isPast ? 0.3 : 0.45)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 5)
-                .animation(.spring(duration: 0.35, bounce: 0.0), value: isCurrent)
-                .animation(.easeOut(duration: 0.4), value: isPast)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    SingletonPlayerWebView.shared.seek(to: line.time)
-                }
-        }
-    }
-
-    // MARK: - Plain Lyrics Views
 
     private func plainLyricsContentView(_ lyrics: Lyrics) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // AI Explanation section
-                self.explanationBanner
+                // AI Explanation section (streaming or complete)
+                if self.isExplaining, let partial = partialSummary {
+                    self.streamingExplanationSection(partial)
+                    Divider()
+                        .padding(.vertical, 12)
+                } else if self.showExplanation, let summary = lyricsSummary {
+                    self.explanationSection(summary)
+                    Divider()
+                        .padding(.vertical, 12)
+                } else if let error = explanationError {
+                    self.errorSection(error)
+                    Divider()
+                        .padding(.vertical, 12)
+                }
 
                 // Lyrics text
                 Text(lyrics.text)
@@ -312,49 +221,6 @@ struct LyricsView: View {
                         .padding(.vertical, 12)
                 }
             }
-        }
-    }
-
-    private func plainFallbackView(_ text: String, source: String?) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(text)
-                    .font(.system(size: 15, weight: .medium))
-                    .lineSpacing(8)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 20)
-
-                if let source {
-                    Divider()
-                        .padding(.horizontal, 16)
-                    Text("Source: \(source)")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                }
-            }
-        }
-    }
-
-    // MARK: - AI Explanation Banner
-
-    @ViewBuilder
-    private var explanationBanner: some View {
-        if self.isExplaining, let partial = partialSummary {
-            self.streamingExplanationSection(partial)
-            Divider()
-                .padding(.vertical, 12)
-        } else if self.showExplanation, let summary = lyricsSummary {
-            self.explanationSection(summary)
-            Divider()
-                .padding(.vertical, 12)
-        } else if let error = explanationError {
-            self.errorSection(error)
-            Divider()
-                .padding(.vertical, 12)
         }
     }
 
@@ -488,7 +354,7 @@ struct LyricsView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("There aren't any lyrics available for this song.")
+            Text("There aren't any lyrics available for this song.", comment: "Lyrics unavailable message")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -507,7 +373,7 @@ struct LyricsView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("Play a song to view its lyrics here.")
+            Text("Play a song to view its lyrics here.", comment: "No song playing lyrics message")
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -516,80 +382,60 @@ struct LyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Synced Line Tracking
-
-    /// Small look-ahead offset (seconds) to compensate for rendering + IPC latency.
-    /// This makes lyrics appear slightly *before* the audio so they feel perfectly in sync.
-    private static let timingOffset: TimeInterval = 0.3
-
-    private func updateCurrentLine(at time: TimeInterval) {
-        guard let synced = syncedLyrics, synced.hasSyncedLines else { return }
-        let adjustedTime = time + Self.timingOffset
-        let newIndex = synced.currentLineIndex(at: adjustedTime)
-        if newIndex != self.currentLineIndex {
-            self.currentLineIndex = newIndex
-        }
-    }
-
     // MARK: - Data Loading
 
+    @MainActor
     private func loadLyrics(for videoId: String) async {
-        self.isLoading = true
-        let currentKey = self.trackKey
-        self.lastLoadedTrackKey = currentKey
+        self.lastLoadedVideoId = videoId
+        self.isLoadingFallback = false
 
-        // Capture main-actor values before launching parallel tasks
-        let track = playerService.currentTrack
-        let currentDuration = playerService.duration
+        guard let track = playerService.currentTrack else { return }
 
-        // Fetch both sources in parallel
-        async let plainTask: Lyrics? = {
-            do {
-                return try await client.getLyrics(videoId: videoId)
-            } catch {
-                DiagnosticsLogger.api.error("Failed to load plain lyrics: \(error.localizedDescription)")
-                return nil
-            }
-        }()
+        // Don't search if it's not the current track anymore
+        guard track.videoId == videoId else { return }
 
-        async let syncedTask: SyncedLyrics? = {
-            guard let track else { return nil }
-            return await SyncedLyricsService.shared.fetchLyrics(
-                title: track.title,
-                artist: track.artistsDisplay,
-                duration: currentDuration > 0 ? currentDuration : nil
-            )
-        }()
+        let info = LyricsSearchInfo(
+            title: track.title,
+            artist: track.artistsDisplay,
+            album: track.album?.title,
+            duration: track.duration,
+            videoId: track.videoId
+        )
 
-        let (plain, synced) = await (plainTask, syncedTask)
-
-        // Only update if still relevant (user hasn't changed tracks)
-        if self.trackKey == currentKey {
-            self.lyrics = plain ?? .unavailable
-            self.syncedLyrics = synced
-
-            // Set initial line
-            if let synced, synced.hasSyncedLines {
-                self.updateCurrentLine(at: self.playerService.progress)
-            }
+        if SettingsManager.shared.syncedLyricsEnabled {
+            await self.syncedLyricsService.fetchLyrics(for: info)
+        } else {
+            self.syncedLyricsService.currentLyrics = .unavailable
+            self.syncedLyricsService.activeProvider = nil
         }
 
-        self.isLoading = false
+        guard self.lastLoadedVideoId == videoId else { return }
+        guard self.playerService.currentTrack?.videoId == videoId else { return }
+
+        // As a fallback to provide plain lyrics
+        if case .unavailable = self.syncedLyricsService.currentLyrics {
+            self.isLoadingFallback = true
+            defer {
+                if self.lastLoadedVideoId == videoId {
+                    self.isLoadingFallback = false
+                }
+            }
+
+            do {
+                let fetchedLyrics = try await client.getLyrics(videoId: videoId)
+                if self.lastLoadedVideoId == videoId,
+                   self.playerService.currentTrack?.videoId == videoId
+                {
+                    self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+                }
+            } catch {
+                DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func explainLyrics() async {
-        // Use synced lyrics text if available, otherwise plain lyrics
-        let lyricsText: String? = if let synced = syncedLyrics, synced.hasSyncedLines {
-            synced.lines.map(\.text).filter { !$0.isEmpty }.joined(separator: "\n")
-        } else if let synced = syncedLyrics, let plain = synced.plainText, !plain.isEmpty {
-            plain
-        } else if let lyrics, lyrics.isAvailable {
-            lyrics.text
-        } else {
-            nil
-        }
-
-        guard let lyricsText, !lyricsText.isEmpty,
+        guard self.syncedLyricsService.currentLyrics.isAvailable,
               let track = playerService.currentTrack
         else { return }
 
@@ -611,10 +457,20 @@ struct LyricsView: View {
             return
         }
 
+        let textToExplain: String
+        switch self.syncedLyricsService.currentLyrics {
+        case let .synced(synced):
+            textToExplain = synced.lines.map(\.text).joined(separator: "\n")
+        case let .plain(plain):
+            textToExplain = plain.text
+        case .unavailable:
+            return
+        }
+
         let prompt = """
         Analyze these lyrics for "\(track.title)" by \(track.artistsDisplay):
 
-        \(lyricsText)
+        \(textToExplain)
 
         Identify the key themes, overall mood, and explain what the song is about.
         """

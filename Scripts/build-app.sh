@@ -71,6 +71,17 @@ verify_binary_arches() {
   done
 }
 
+compile_asset_catalog() {
+  local source_catalog="$1"
+  local output_dir="$2"
+  if [[ -d "$source_catalog" ]] && command -v actool &>/dev/null; then
+    actool --compile "$output_dir" \
+      --platform macosx \
+      --minimum-deployment-target 26.0 \
+      "$source_catalog" 2>/dev/null || true
+  fi
+}
+
 # Install binary (handles universal builds)
 install_binary() {
   local name="$1"
@@ -108,12 +119,19 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ar</string>
+    </array>
     <key>CFBundleExecutable</key>
     <string>${APP_NAME}</string>
     <key>CFBundleIconFile</key>
     <string>kaset</string>
     <key>CFBundleIconName</key>
     <string>kaset</string>
+    <key>NSAccentColorName</key>
+    <string>AccentColor</string>
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -206,10 +224,7 @@ fi
 XCASSETS_PATH="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
 if [[ -d "$XCASSETS_PATH" ]] && command -v actool &>/dev/null; then
   echo "🎨 Compiling asset catalog..."
-  actool --compile "$APP_BUNDLE/Contents/Resources" \
-    --platform macosx \
-    --minimum-deployment-target 26.0 \
-    "$XCASSETS_PATH" 2>/dev/null || true
+  compile_asset_catalog "$XCASSETS_PATH" "$APP_BUNDLE/Contents/Resources"
 fi
 
 # Embed Sparkle.framework
@@ -247,8 +262,31 @@ shopt -u nullglob
 if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
   for bundle in "${SWIFTPM_BUNDLES[@]}"; do
     bundle_name=$(basename "$bundle")
+    bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
     echo "  → Copying resource bundle: $bundle_name"
     cp -R "$bundle" "$APP_BUNDLE/Contents/Resources/"
+    if [[ -d "$bundle_dest/Assets.xcassets" ]] && command -v actool &>/dev/null; then
+      echo "    ↳ Compiling bundle asset catalog"
+      compile_asset_catalog "$bundle_dest/Assets.xcassets" "$bundle_dest"
+    fi
+  done
+
+  # Compile catalogs into both the copied SwiftPM resource bundle and the
+  # app's top-level Resources directory so Bundle.module and Bundle.main
+  # lookups can both resolve packaged localizations.
+  for bundle in "${SWIFTPM_BUNDLES[@]}"; do
+    bundle_name=$(basename "$bundle")
+    bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
+
+    for xcstrings in "$bundle"/*.xcstrings; do
+      if [[ -f "$xcstrings" ]]; then
+        echo "  → Compiling localization catalog: $(basename "$xcstrings")"
+        xcrun xcstringstool compile "$xcstrings" \
+          --output-directory "$bundle_dest"
+        xcrun xcstringstool compile "$xcstrings" \
+          --output-directory "$APP_BUNDLE/Contents/Resources"
+      fi
+    done
   done
 fi
 

@@ -15,6 +15,21 @@ struct GeneralSettingsView: View {
         @Bindable var updater = self.updaterService
 
         Form {
+            // MARK: - Now Playing Section
+
+            Section {
+                Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
+
+                Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
+                    ForEach(SettingsManager.MediaControlStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .help("Choose which buttons appear in the Now Playing widget in Control Center")
+            } header: {
+                Text("Now Playing")
+            }
+
             // MARK: - General Section
 
             Section {
@@ -38,9 +53,6 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.vertical, 4)
 
-                // Now Playing Notifications
-                Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
-
                 // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")
@@ -52,14 +64,6 @@ struct GeneralSettingsView: View {
                 // Remember Playback Settings
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
-
-                // Now Playing Controls
-                Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
-                    ForEach(SettingsManager.MediaControlStyle.allCases) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-                .help("Choose which buttons appear in the Now Playing widget in Control Center")
 
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {

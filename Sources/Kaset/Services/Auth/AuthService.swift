@@ -7,7 +7,7 @@ import os
 @Observable
 final class AuthService: AuthServiceProtocol {
     /// Authentication states.
-    enum State: Equatable, Sendable {
+    enum State: Equatable {
         case initializing
         case loggedOut
         case loggingIn
@@ -58,7 +58,7 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Checks if the user is logged in based on existing cookies.
-    /// Includes retry logic to handle WebKit cookie store lazy loading.
+    /// Waits for the initial Keychain restore before reading WebKit cookies.
     func checkLoginStatus() async {
         // In UI test mode with skip auth, immediately set logged in state
         if UITestConfig.isUITestMode, UITestConfig.environmentValue(for: UITestConfig.mockLoggedOutKey) == "true" {
@@ -75,38 +75,22 @@ final class AuthService: AuthServiceProtocol {
 
         self.logger.debug("Checking login status from cookies")
 
-        // Wait for WebKitManager to finish restoring cookies from Keychain
-        // This is important because restoration happens async in init()
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.webKitManager.waitForInitialCookieRestore()
+        self.logger.debug("Initial cookie restore completed, checking auth cookies")
 
         // Log detailed cookie info for debugging
         #if DEBUG
             await self.webKitManager.logAuthCookies()
         #endif
 
-        // Retry a few times to handle WebKit cookie store lazy loading
-        // Cookies may not be immediately available on cold start
-        // Increased attempts and delay to account for disk I/O
-        let maxAttempts = 5
-        let delayBetweenAttempts: Duration = .milliseconds(800)
-
-        for attempt in 1 ... maxAttempts {
-            self.logger.debug("Login check attempt \(attempt) of \(maxAttempts)")
-
-            if let sapisid = await webKitManager.getSAPISID() {
-                self.logger.info("Found SAPISID cookie on attempt \(attempt), user is logged in")
-                self.state = .loggedIn(sapisid: sapisid)
-                self.needsReauth = false
-                return
-            }
-
-            if attempt < maxAttempts {
-                self.logger.debug("No cookies found, waiting before retry...")
-                try? await Task.sleep(for: delayBetweenAttempts)
-            }
+        if let sapisid = await self.webKitManager.getSAPISID() {
+            self.logger.info("Found SAPISID cookie after initial restore, user is logged in")
+            self.state = .loggedIn(sapisid: sapisid)
+            self.needsReauth = false
+            return
         }
 
-        self.logger.info("No SAPISID cookie found after \(maxAttempts) attempts, user is logged out")
+        self.logger.info("No SAPISID cookie found after initial restore, user is logged out")
         self.state = .loggedOut
     }
 

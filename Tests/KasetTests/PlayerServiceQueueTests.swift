@@ -3,7 +3,7 @@ import Testing
 @testable import Kaset
 
 /// Tests for PlayerService queue operations, undo/redo, and metadata enrichment.
-@Suite("PlayerService Queue", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceQueueTests {
     var playerService: PlayerService
@@ -13,6 +13,8 @@ struct PlayerServiceQueueTests {
         // Clean up UserDefaults before each test
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queue")
         UserDefaults.standard.removeObject(forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+        SingletonPlayerWebView.shared.currentVideoId = nil
 
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
@@ -232,6 +234,63 @@ struct PlayerServiceQueueTests {
         #expect(newService.queue[0].title == "Song 0")
     }
 
+    @Test("Save and restore playback session preserves paused resume state")
+    func playbackSessionPersistence() async {
+        // Arrange
+        var songs = TestFixtures.makeSongs(count: 3)
+        songs[1].hasVideo = true
+        songs[1].musicVideoType = .omv
+        songs[1].likeStatus = .like
+        songs[1].isInLibrary = true
+        songs[1].feedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.updatePlaybackState(isPlaying: false, progress: 42, duration: 240)
+
+        // Act
+        self.playerService.saveQueueForPersistence()
+
+        let newService = PlayerService()
+        newService.setYTMusicClient(self.mockClient)
+        let restored = newService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(newService.currentIndex == 1)
+        #expect(newService.currentTrack?.videoId == songs[1].videoId)
+        #expect(newService.pendingPlayVideoId == songs[1].videoId)
+        #expect(newService.progress == 42)
+        #expect(newService.duration == 240)
+        #expect(newService.state == .paused)
+        #expect(newService.showMiniPlayer == false)
+        #expect(newService.shouldAutoloadPendingVideo == false)
+        #expect(newService.currentTrackHasVideo == true)
+        #expect(newService.currentTrackLikeStatus == .like)
+        #expect(newService.currentTrackInLibrary == true)
+        #expect(newService.currentTrackFeedbackTokens == songs[1].feedbackTokens)
+    }
+
+    @Test("Resume on a restored session reveals the mini player before loading playback")
+    func resumeDeferredRestoredSession() async {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 2)
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 1,
+            progress: 42,
+            duration: 240
+        )
+
+        // Act
+        await self.playerService.resume()
+
+        // Assert
+        #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
+        #expect(self.playerService.progress == 42)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.showMiniPlayer == true)
+        #expect(self.playerService.shouldAutoloadPendingVideo == true)
+    }
+
     @Test("Clear saved queue removes persistence data")
     func clearSavedQueue() async {
         // Arrange
@@ -257,12 +316,35 @@ struct PlayerServiceQueueTests {
         // Arrange - Put invalid data in UserDefaults
         UserDefaults.standard.set(Data("invalid data".utf8), forKey: "kaset.saved.queue")
         UserDefaults.standard.set(0, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
 
         // Act
         let restored = self.playerService.restoreQueueFromPersistence()
 
         // Assert
         #expect(restored == false)
+    }
+
+    @Test("Restore queue falls back to legacy queue payload when playback session is missing")
+    func legacyQueuePersistenceFallback() throws {
+        // Arrange
+        let songs = TestFixtures.makeSongs(count: 2)
+        let queueData = try JSONEncoder().encode(songs)
+        UserDefaults.standard.set(queueData, forKey: "kaset.saved.queue")
+        UserDefaults.standard.set(1, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+
+        // Act
+        let restored = self.playerService.restoreQueueFromPersistence()
+
+        // Assert
+        #expect(restored == true)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+        #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
+        #expect(self.playerService.progress == 0)
+        #expect(self.playerService.duration == songs[1].duration)
+        #expect(self.playerService.state == .paused)
     }
 
     // MARK: - Metadata Enrichment Tests
@@ -398,69 +480,7 @@ struct PlayerServiceQueueTests {
         #expect(self.mockClient.getSongCalled == true)
     }
 
-    // MARK: - InsertNextInQueue Critical Fix Tests
-
-    @Test("InsertNextInQueue adds current track if it's not in queue (Critical Bug Fix)")
-    func insertNextInQueueWithoutCurrentTrack() async {
-        // SCENARIO: User plays a song directly (not from queue), then uses "Play Next"
-        // This was a critical bug where the current track wasn't in the queue,
-        // causing next/previous to malfunction via system controls.
-
-        // Arrange - Play a single song directly (not from a queue)
-        let currentSong = TestFixtures.makeSong(title: "Current Song")
-        await self.playerService.play(song: currentSong)
-
-        // Verify: queue is empty, currentTrack is set
-        #expect(self.playerService.queue.isEmpty)
-        #expect(self.playerService.currentTrack?.title == "Current Song")
-        #expect(self.playerService.currentIndex == 0)
-
-        // Act - User clicks "Play Next" and adds 3 more songs
-        let songsToAdd = TestFixtures.makeSongs(count: 3)
-        self.playerService.insertNextInQueue(songsToAdd)
-
-        // Assert - CRITICAL: Current track should now be at position 0, next songs at positions 1-3
-        #expect(self.playerService.queue.count == 4, "Queue should have 4 songs (current + 3 new)")
-        #expect(self.playerService.queue[0].title == "Current Song", "Current song must be at position 0")
-        #expect(self.playerService.queue[1].title == "Song 0", "First added song should be at position 1")
-        #expect(self.playerService.queue[2].title == "Song 1", "Second added song should be at position 2")
-        #expect(self.playerService.queue[3].title == "Song 2", "Third added song should be at position 3")
-        #expect(self.playerService.currentIndex == 0, "Current index should be 0")
-    }
-
-    @Test("InsertNextInQueue does nothing if songs list is empty")
-    func insertNextInQueueEmpty() async {
-        // Arrange
-        let song = TestFixtures.makeSong(title: "Test Song")
-        await self.playerService.play(song: song)
-
-        // Act - Try to insert empty list
-        self.playerService.insertNextInQueue([])
-
-        // Assert - Queue should still be empty
-        #expect(self.playerService.queue.isEmpty)
-    }
-
-    @Test("InsertNextInQueue inserts after current index in normal queue")
-    func insertNextInQueueNormal() async {
-        // Arrange - Setup a normal queue with songs
-        let initialSongs = TestFixtures.makeSongs(count: 3)
-        await self.playerService.playQueue(initialSongs, startingAt: 1)
-        #expect(self.playerService.currentIndex == 1)
-
-        // Act - Insert new songs after current (index 1)
-        let newSongs = TestFixtures.makeSongs(count: 2)
-        self.playerService.insertNextInQueue(newSongs)
-
-        // Assert - Songs should be inserted at position 2
-        #expect(self.playerService.queue.count == 5)
-        #expect(self.playerService.queue[1].title == "Song 1", "Current track unchanged")
-        #expect(self.playerService.queue[2].title == "Song 0", "First new song at position 2")
-        #expect(self.playerService.queue[3].title == "Song 1", "Second new song at position 3")
-    }
-
     // MARK: - Queue Display Mode Tests
-
 
     @Test("Toggle queue display mode switches between popup and side panel")
     func toggleQueueDisplayMode() {

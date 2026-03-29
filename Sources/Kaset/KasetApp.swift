@@ -13,6 +13,10 @@ extension EnvironmentValues {
     @Entry var showCommandBar: Binding<Bool> = .constant(false)
 }
 
+extension EnvironmentValues {
+    @Entry var showWhatsNew: Binding<Bool> = .constant(false)
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.
@@ -32,6 +36,7 @@ struct KasetApp: App {
     @State private var likeStatusManager = SongLikeStatusManager.shared
     @State private var accountService: AccountService?
     @State private var scrobblingCoordinator: ScrobblingCoordinator
+    @State private var syncedLyricsService = SyncedLyricsService()
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -41,6 +46,9 @@ struct KasetApp: App {
 
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
+
+    /// Whether the "What's New" sheet should be shown.
+    @State private var showWhatsNew = false
 
     init() {
         let auth = AuthService()
@@ -111,9 +119,11 @@ struct KasetApp: App {
                     .environment(self.likeStatusManager)
                     .environment(self.accountService)
                     .environment(self.scrobblingCoordinator)
+                    .environment(self.syncedLyricsService)
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
+                    .environment(\.showWhatsNew, self.$showWhatsNew)
                     .onAppear {
                         // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                         // This runs synchronously so AppleScript commands can access playerService immediately
@@ -122,9 +132,6 @@ struct KasetApp: App {
                         _ = self.notificationService
                     }
                     .task {
-                        // Initialize ad-blocker early so rules are compiled before first WebView
-                        await AdBlockService.shared.initialize()
-
                         // Check if user is already logged in from previous session
                         await self.authService.checkLoginStatus()
 
@@ -202,13 +209,12 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
 
-                // Mute - ⌘⇧M
+                // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
                     Task {
                         await self.playerService.toggleMute()
                     }
                 }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
 
                 Divider()
 
@@ -281,6 +287,14 @@ struct KasetApp: App {
                     self.showMainWindow()
                 }
                 .keyboardShortcut("0", modifiers: .command)
+            }
+
+            // Help menu - What's New
+            CommandGroup(after: .appInfo) {
+                Divider()
+                Button("What's New in Kaset") {
+                    self.showWhatsNew = true
+                }
             }
         }
     }

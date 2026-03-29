@@ -21,6 +21,7 @@ Our solution: A **singleton WebView** that loads YouTube Music watch pages and p
 | `SingletonPlayerWebView` | `MiniPlayerWebView.swift` | Manages the one-and-only WebView |
 | `PersistentPlayerView` | `MiniPlayerWebView.swift` | SwiftUI wrapper for the WebView |
 | `PlayerService` | `PlayerService.swift` | Playback state and control |
+| `PlayerService+WebQueueSync` | `PlayerService+WebQueueSync.swift` | Keeps native queue state authoritative when WebView events drift |
 | `AppDelegate` | `AppDelegate.swift` | Window lifecycle for background audio |
 
 ### Singleton Pattern
@@ -89,28 +90,31 @@ func makeNSView(context: Context) -> NSView {
 
 ### 4. State Updates
 
-JavaScript observer sends state via `WKScriptMessageHandler`:
+The observer script continuously reports:
+- Playback state (`isPlaying`, `progress`, `duration`)
+- Track metadata (`title`, `artist`, `thumbnailUrl`)
+- The observed `videoId`
+- Whether the observer thinks the track changed
+- Like status and lightweight video availability
+
+Swift updates `PlayerService` from every `STATE_UPDATE`, then uses
+`PlayerService+WebQueueSync` to decide whether the reported track matches
+Kaset's queue or whether YouTube autoplay needs to be corrected.
+
+### 5. Track-End Handling
+
+Natural track completion is handled by a dedicated bridge event:
 
 ```javascript
 bridge.postMessage({
-    type: 'STATE_UPDATE',
-    isPlaying: true,
-    progress: 45,
-    duration: 210
+    type: 'TRACK_ENDED',
+    videoId: lastVideoId || currentVideoId()
 });
 ```
 
-Swift receives and updates `PlayerService`:
-
-```swift
-func userContentController(_:, didReceive message:) {
-    playerService.updatePlaybackState(
-        isPlaying: isPlaying,
-        progress: progress,
-        duration: duration
-    )
-}
-```
+Swift validates that the ended `videoId` still matches the expected queue song
+before advancing. This prevents stale `ended` events from double-advancing the
+queue after Kaset has already loaded the next track.
 
 ## Track Changing
 
@@ -119,7 +123,7 @@ When user plays a different track:
 1. `pendingPlayVideoId` changes
 2. SwiftUI calls `updateNSView` (not `makeNSView`)
 3. `SingletonPlayerWebView.loadVideo(videoId:)` called
-4. Current audio paused, new URL loaded
+4. Current audio paused, target volume prepared, new URL loaded
 
 ```swift
 func loadVideo(videoId: String) {
@@ -128,12 +132,17 @@ func loadVideo(videoId: String) {
     // Update ID immediately to prevent duplicate loads
     currentVideoId = videoId
 
-    // Pause current, load new
+    // Pause current, set the target volume, then load new
     webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in
+        webView.evaluateJavaScript("window.__kasetTargetVolume = currentVolume")
         self.webView?.load(URLRequest(url: watchURL))
     }
 }
 ```
+
+When the WebView reports a new `videoId`, Kaset treats that as authoritative
+even if the DOM title/artist are still stale. This avoids a race where YouTube
+switches tracks before the player bar text catches up.
 
 ## Background Audio
 
@@ -185,46 +194,61 @@ func applicationShouldHandleReopen(_:, hasVisibleWindows:) -> Bool {
 
 ### Observer Script
 
-Injected into every watch page:
+Injected into every watch page. The real script is more defensive than the
+minimal version below:
 
 ```javascript
 (function() {
     'use strict';
     const bridge = window.webkit.messageHandlers.singletonPlayer;
+    let lastTitle = '';
+    let lastArtist = '';
+    let lastVideoId = '';
 
-    function waitForPlayerBar() {
-        const playerBar = document.querySelector('ytmusic-player-bar');
-        if (playerBar) {
-            setupObserver(playerBar);
-            return;
-        }
-        setTimeout(waitForPlayerBar, 500);
+    function currentVideoId() {
+        const player = document.querySelector('ytmusic-player');
+        const data = player?.playerApi?.getVideoData?.();
+        return data?.video_id || data?.videoId || '';
     }
 
-    function setupObserver(playerBar) {
-        const observer = new MutationObserver(sendUpdate);
-        observer.observe(playerBar, {
-            attributes: true, characterData: true,
-            childList: true, subtree: true
+    function sendTrackEnded() {
+        bridge.postMessage({
+            type: 'TRACK_ENDED',
+            videoId: lastVideoId || currentVideoId()
         });
-        sendUpdate();
-        setInterval(sendUpdate, 1000);
     }
 
     function sendUpdate() {
-        const playPauseBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-        const isPlaying = playPauseBtn?.getAttribute('title') === 'Pause';
+        const video = document.querySelector('video');
         const progressBar = document.querySelector('#progress-bar');
+        const title = /* DOM title, or player API title if DOM is stale */;
+        const artist = /* DOM artist, or player API artist if DOM is stale */;
+        const videoId = currentVideoId();
+        const trackChanged =
+            (title !== '' && (title !== lastTitle || artist !== lastArtist))
+            || (videoId !== '' && videoId !== lastVideoId);
+
+        if (trackChanged) {
+            if (title !== '') {
+                lastTitle = title;
+                lastArtist = artist;
+            }
+            if (videoId !== '') {
+                lastVideoId = videoId;
+            }
+        }
 
         bridge.postMessage({
             type: 'STATE_UPDATE',
-            isPlaying: isPlaying,
+            isPlaying: video ? !video.paused : false,
             progress: parseInt(progressBar?.getAttribute('value') || '0'),
-            duration: parseInt(progressBar?.getAttribute('aria-valuemax') || '0')
+            duration: parseInt(progressBar?.getAttribute('aria-valuemax') || '0'),
+            title: title,
+            artist: artist,
+            videoId: videoId,
+            trackChanged: trackChanged
         });
     }
-
-    waitForPlayerBar();
 })();
 ```
 
@@ -233,17 +257,33 @@ Injected into every watch page:
 ```swift
 func userContentController(_:, didReceive message: WKScriptMessage) {
     guard let body = message.body as? [String: Any],
-          body["type"] as? String == "STATE_UPDATE" else { return }
+          let type = body["type"] as? String
+    else { return }
 
     Task { @MainActor in
-        playerService.updatePlaybackState(
-            isPlaying: body["isPlaying"] as? Bool ?? false,
-            progress: Double(body["progress"] as? Int ?? 0),
-            duration: Double(body["duration"] as? Int ?? 0)
-        )
+        if type == "TRACK_ENDED" {
+            await playerService.handleTrackEnded(
+                observedVideoId: body["videoId"] as? String
+            )
+            return
+        }
+
+        playerService.updatePlaybackState(...)
+        playerService.updateTrackMetadata(...)
     }
 }
 ```
+
+### Queue Authority
+
+Kaset treats its own queue as the source of truth whenever one exists:
+- `handleTrackEnded(observedVideoId:)` advances the native queue immediately
+- `updateTrackMetadata(...)` accepts `videoId`-only transitions even if the DOM
+  metadata is temporarily blank or stale
+- If YouTube advances to an unexpected track near the end of a song, Kaset
+  replays the expected queue track instead of inheriting YouTube autoplay
+- At the end of a non-repeating queue, Kaset marks playback ended rather than
+  allowing autoplay to continue into unrelated tracks
 
 ## Mini Player UI
 

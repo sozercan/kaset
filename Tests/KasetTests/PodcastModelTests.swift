@@ -3,11 +3,10 @@ import Testing
 @testable import Kaset
 
 /// Tests for Podcast model types.
-@Suite("Podcast Models", .tags(.model))
+@Suite(.tags(.model))
 struct PodcastModelTests {
     // MARK: - PodcastShow Tests
 
-    @Suite("PodcastShow")
     struct PodcastShowTests {
         @Test("hasNavigableId returns true for MPSPP prefix")
         func hasNavigableIdWithMPSPPPrefix() {
@@ -83,7 +82,6 @@ struct PodcastModelTests {
 
     // MARK: - PodcastEpisode Tests
 
-    @Suite("PodcastEpisode")
     struct PodcastEpisodeTests {
         @Test("formattedDuration returns MM:SS for short duration")
         func formattedDurationShort() {
@@ -156,7 +154,6 @@ struct PodcastModelTests {
 
     // MARK: - PodcastSection Tests
 
-    @Suite("PodcastSection")
     struct PodcastSectionTests {
         @Test("PodcastSection is Identifiable with id")
         func identifiableById() {
@@ -171,7 +168,6 @@ struct PodcastModelTests {
 
     // MARK: - PodcastSectionItem Tests
 
-    @Suite("PodcastSectionItem")
     struct PodcastSectionItemTests {
         @Test("show case returns show id")
         func showCaseId() {
@@ -234,7 +230,6 @@ struct PodcastModelTests {
 
     // MARK: - PodcastShowDetail Tests
 
-    @Suite("PodcastShowDetail")
     struct PodcastShowDetailTests {
         @Test("hasMore returns true when continuationToken exists")
         func hasMoreWithToken() {
@@ -272,7 +267,6 @@ struct PodcastModelTests {
 
     // MARK: - PodcastEpisodesContinuation Tests
 
-    @Suite("PodcastEpisodesContinuation")
     struct PodcastEpisodesContinuationTests {
         @Test("hasMore returns true when continuationToken exists")
         func hasMoreWithToken() {

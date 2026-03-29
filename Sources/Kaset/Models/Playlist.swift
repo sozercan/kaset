@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Playlist
 
 /// Represents a playlist from YouTube Music.
-struct Playlist: Identifiable, Codable, Hashable, Sendable {
+struct Playlist: Identifiable, Codable, Hashable {
     let id: String
     let title: String
     let description: String?
@@ -70,12 +70,13 @@ extension Playlist {
 // MARK: - PlaylistDetail
 
 /// Detailed playlist information including tracks.
-struct PlaylistDetail: Identifiable, Sendable {
+struct PlaylistDetail: Identifiable {
     let id: String
     let title: String
     let description: String?
     let thumbnailURL: URL?
     let author: String?
+    let trackCount: Int?
     let tracks: [Song]
     let duration: String?
 
@@ -91,15 +92,27 @@ struct PlaylistDetail: Identifiable, Sendable {
         self.description = playlist.description
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
+        self.trackCount = playlist.trackCount
         self.tracks = tracks
         self.duration = duration
+    }
+
+    /// Track count to show in the UI, preferring the API-reported total over the loaded row count.
+    var resolvedTrackCount: Int {
+        self.trackCount ?? self.tracks.count
+    }
+
+    /// Display string for the resolved track count.
+    var trackCountDisplay: String {
+        let count = self.resolvedTrackCount
+        return count == 1 ? "1 song" : "\(count.formatted()) songs"
     }
 }
 
 // MARK: - LikedSongsResponse
 
 /// Response from the liked songs API, including pagination support.
-struct LikedSongsResponse: Sendable {
+struct LikedSongsResponse {
     /// The liked songs returned in this response.
     let songs: [Song]
 
@@ -115,7 +128,7 @@ struct LikedSongsResponse: Sendable {
 // MARK: - PlaylistTracksResponse
 
 /// Response from the playlist tracks API, including pagination support.
-struct PlaylistTracksResponse: Sendable {
+struct PlaylistTracksResponse {
     /// The playlist detail with header info and initial tracks.
     let detail: PlaylistDetail
 
@@ -131,7 +144,7 @@ struct PlaylistTracksResponse: Sendable {
 // MARK: - PlaylistContinuationResponse
 
 /// Response from a playlist continuation request.
-struct PlaylistContinuationResponse: Sendable {
+struct PlaylistContinuationResponse {
     /// The additional tracks from this continuation.
     let tracks: [Song]
 

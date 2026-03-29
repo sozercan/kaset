@@ -4,7 +4,7 @@ import Testing
 
 // MARK: - LastFMServiceTests
 
-@Suite("LastFMService", .serialized, .tags(.service))
+@Suite(.serialized, .tags(.service))
 @MainActor
 struct LastFMServiceTests {
     // MARK: - Initialization

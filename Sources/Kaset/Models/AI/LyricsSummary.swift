@@ -5,7 +5,7 @@ import FoundationModels
 /// Provides themes, mood analysis, and an explanation of the song's meaning.
 @available(macOS 26.0, *)
 @Generable
-struct LyricsSummary: Sendable {
+struct LyricsSummary {
     /// Key themes or topics in the lyrics (e.g., "love", "loss", "hope").
     @Guide(description: "List of 2-5 key themes or topics found in the lyrics.")
     let themes: [String]

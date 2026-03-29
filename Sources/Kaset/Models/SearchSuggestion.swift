@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a search suggestion from YouTube Music autocomplete.
-struct SearchSuggestion: Identifiable, Hashable, Sendable {
+struct SearchSuggestion: Identifiable, Hashable {
     /// Unique identifier for the suggestion.
     let id: String
 

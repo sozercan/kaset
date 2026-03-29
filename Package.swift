@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Kaset",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v26),
     ],
@@ -57,4 +58,3 @@ let package = Package(
     ],
     swiftLanguageModes: [.v6]
 )
-    

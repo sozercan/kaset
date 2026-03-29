@@ -5,7 +5,7 @@ import Testing
 // MARK: - AIErrorTests
 
 /// Tests for AIError enum and its properties.
-@Suite("AIError", .tags(.api))
+@Suite(.tags(.api))
 struct AIErrorTests {
     // MARK: - Error Description Tests
 
@@ -152,7 +152,7 @@ struct AIErrorTests {
 // MARK: - AIErrorHandlerTests
 
 /// Tests for AIErrorHandler utility methods.
-@Suite("AIErrorHandler", .tags(.api))
+@Suite(.tags(.api))
 struct AIErrorHandlerTests {
     // MARK: - handle() Tests
 
