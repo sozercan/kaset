@@ -119,6 +119,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     )
                 }
             }
+
+            context.coordinator.syncAutoScroll(in: tableView)
         }
     }
 
@@ -184,6 +186,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 tableView.delegate = self.coordinator
                 tableView.dataSource = self.coordinator
                 tableView.coordinator = self.coordinator
+                tableView.onUserScroll = { [weak coordinator = self.coordinator] in
+                    coordinator?.registerUserScrollInteraction()
+                }
             }
         }
     }
@@ -201,6 +206,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         let onStartRadio: (Song) -> Void
         weak var viewController: QueueListViewController?
         var isDragging = false
+        private var hasPerformedInitialScroll = false
+        private var previousCurrentIndex: Int?
+        private var isUserScrolling = false
+        private var resumeAutoScrollTimer: Timer?
         private let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
 
         init(queue: [Song], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
@@ -215,6 +224,70 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.onRemove = onRemove
             self.onStartRadio = onStartRadio
             super.init()
+        }
+
+        deinit {
+            self.resumeAutoScrollTimer?.invalidate()
+        }
+
+        func registerUserScrollInteraction() {
+            self.isUserScrolling = true
+            self.resumeAutoScrollTimer?.invalidate()
+
+            self.resumeAutoScrollTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                self.isUserScrolling = false
+                if let tableView = self.viewController?.tableView {
+                    self.scrollToCurrentSong(in: tableView, animated: true)
+                }
+            }
+        }
+
+        func syncAutoScroll(in tableView: NSTableView) {
+            guard let tableView = tableView as? DraggableTableView else { return }
+
+            let currentChanged = self.previousCurrentIndex != self.currentIndex
+            self.previousCurrentIndex = self.currentIndex
+
+            if !self.hasPerformedInitialScroll {
+                self.hasPerformedInitialScroll = true
+                self.scrollToCurrentSong(in: tableView, animated: false)
+                return
+            }
+
+            guard currentChanged, !self.isUserScrolling else { return }
+            self.scrollToCurrentSong(in: tableView, animated: true)
+        }
+
+        private func scrollToCurrentSong(in tableView: DraggableTableView, animated: Bool) {
+            guard self.queue.indices.contains(self.currentIndex) else { return }
+            guard let scrollView = tableView.enclosingScrollView else {
+                tableView.scrollRowToVisible(self.currentIndex)
+                return
+            }
+
+            let rowRect = tableView.rect(ofRow: self.currentIndex)
+            guard rowRect != .zero else {
+                tableView.scrollRowToVisible(self.currentIndex)
+                return
+            }
+
+            let clipView = scrollView.contentView
+            let maxOffsetY = max(0, tableView.bounds.height - clipView.bounds.height)
+            let centeredOffsetY = min(max(0, rowRect.midY - clipView.bounds.height / 2), maxOffsetY)
+            let targetPoint = NSPoint(x: clipView.bounds.origin.x, y: centeredOffsetY)
+
+            if animated {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.35
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    clipView.animator().setBoundsOrigin(targetPoint)
+                }
+            } else {
+                clipView.setBoundsOrigin(targetPoint)
+            }
+
+            scrollView.reflectScrolledClipView(clipView)
         }
 
         /// Removes the row with slide-out animation, then calls onRemove.
@@ -392,6 +465,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 @available(macOS 26.0, *)
 class DraggableTableView: NSTableView {
     weak var coordinator: QueueListControllerRepresentable.Coordinator?
+    var onUserScroll: (() -> Void)?
 
     /// Accumulated scroll deltas during the current gesture (used to detect swipe-to-remove).
     private var horizontalSwipeAccumulator: CGFloat = 0
@@ -434,6 +508,10 @@ class DraggableTableView: NSTableView {
     override func scrollWheel(with event: NSEvent) {
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
+
+        if abs(dx) > 0 || abs(dy) > 0 {
+            self.onUserScroll?()
+        }
 
         switch event.phase {
         case .began:

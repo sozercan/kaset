@@ -9,6 +9,11 @@ struct QueueView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.showCommandBar) private var showCommandBar
 
+    /// Whether the user has manually scrolled (pauses auto-scroll).
+    @State private var userIsScrolling = false
+    /// Timer task to resume auto-scroll after user interaction.
+    @State private var scrollResumeTask: Task<Void, Never>?
+
     /// Namespace for glass effect morphing.
     @Namespace private var queueNamespace
 
@@ -102,30 +107,76 @@ struct QueueView: View {
     }
 
     private var queueListView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(Array(self.playerService.queue.enumerated()), id: \.element.videoId) { index, song in
-                    QueueRowView(
-                        song: song,
-                        isCurrentTrack: index == self.playerService.currentIndex,
-                        index: index,
-                        favoritesManager: self.favoritesManager,
-                        playerService: self.playerService,
-                        onRemove: {
-                            self.playerService.removeFromQueue(videoIds: Set([song.videoId]))
-                        },
-                        onTap: {
-                            Task {
-                                await self.playerService.playFromQueue(at: index)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(self.playerService.queue.enumerated()), id: \.offset) { index, song in
+                        QueueRowView(
+                            song: song,
+                            isCurrentTrack: index == self.playerService.currentIndex,
+                            index: index,
+                            favoritesManager: self.favoritesManager,
+                            playerService: self.playerService,
+                            onRemove: {
+                                self.playerService.removeFromQueue(videoIds: Set([song.videoId]))
+                            },
+                            onTap: {
+                                Task {
+                                    await self.playerService.playFromQueue(at: index)
+                                }
+                            }
+                        )
+                        .id(index)
+                        .accessibilityIdentifier(AccessibilityID.Queue.row(index: index))
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        self.userIsScrolling = true
+                        self.scrollResumeTask?.cancel()
+                    }
+                    .onEnded { _ in
+                        self.scrollResumeTask = Task {
+                            try? await Task.sleep(for: .seconds(8))
+                            if !Task.isCancelled {
+                                self.userIsScrolling = false
                             }
                         }
-                    )
-                    .accessibilityIdentifier(AccessibilityID.Queue.row(index: index))
+                    }
+            )
+            .onAppear {
+                self.scrollToCurrentSong(with: proxy, animated: false)
+            }
+            .onChange(of: self.playerService.currentIndex) { _, _ in
+                guard !self.userIsScrolling else { return }
+                self.scrollToCurrentSong(with: proxy, animated: true)
+            }
+            .onChange(of: self.userIsScrolling) { _, isScrolling in
+                if !isScrolling {
+                    self.scrollToCurrentSong(with: proxy, animated: true)
                 }
             }
-            .padding(.vertical, 8)
+            .onDisappear {
+                self.scrollResumeTask?.cancel()
+            }
         }
         .accessibilityIdentifier(AccessibilityID.Queue.scrollView)
+    }
+
+    private func scrollToCurrentSong(with proxy: ScrollViewProxy, animated: Bool) {
+        guard self.playerService.queue.indices.contains(self.playerService.currentIndex) else { return }
+
+        if animated {
+            withAnimation(.spring(duration: 0.45, bounce: 0.0)) {
+                proxy.scrollTo(self.playerService.currentIndex, anchor: .center)
+            }
+        } else {
+            proxy.scrollTo(self.playerService.currentIndex, anchor: .center)
+        }
     }
 }
 
