@@ -83,6 +83,8 @@
 
 "Check for Updates..." = "Check for Updates...";
 
+"Choose the language for the app interface" = "Choose the language for the app interface";
+
 "Clear" = "Clear";
 
 "Clear AI Context" = "Clear AI Context";
@@ -110,6 +112,8 @@
 "Connect" = "Connect";
 
 "Connected as %@" = "Connected as %@";
+
+"Content Language" = "Content Language";
 
 "Content may not be available in your region." = "Content may not be available in your region.";
 
@@ -461,6 +465,8 @@
 "Suggested Removals" = "Suggested Removals";
 
 "Switch Account" = "Switch Account";
+
+"System Default" = "System Default";
 
 "Tap to retry" = "Tap to retry";
 

@@ -83,6 +83,8 @@
 
 "Check for Updates..." = "Güncellemeleri Denetle...";
 
+"Choose the language for the app interface" = "Uygulama arayüzü dilini seçin";
+
 "Clear" = "Temizle";
 
 "Clear AI Context" = "Yapay Zeka Bağlamını Temizle";
@@ -110,6 +112,8 @@
 "Connect" = "Bağlan";
 
 "Connected as %@" = "%@ olarak bağlı";
+
+"Content Language" = "İçerik Dili";
 
 "Content may not be available in your region." = "İçerik bölgenizde kullanılamıyor olabilir.";
 
@@ -461,6 +465,8 @@
 "Suggested Removals" = "Önerilen Kaldırmalar";
 
 "Switch Account" = "Hesap Değiştir";
+
+"System Default" = "Sistem Varsayılanı";
 
 "Tap to retry" = "Tekrar denemek için tıklayın";
 

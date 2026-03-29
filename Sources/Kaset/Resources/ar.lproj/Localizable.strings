@@ -83,6 +83,8 @@
 
 "Check for Updates..." = "التحقق من التحديثات...";
 
+"Choose the language for the app interface" = "اختر لغة واجهة التطبيق";
+
 "Clear" = "مسح";
 
 "Clear AI Context" = "مسح سياق الذكاء الاصطناعي";
@@ -110,6 +112,8 @@
 "Connect" = "اتصال";
 
 "Connected as %@" = "متصل كـ %@";
+
+"Content Language" = "لغة المحتوى";
 
 "Content may not be available in your region." = "قد لا يكون المحتوى متاحًا في منطقتك.";
 
@@ -461,6 +465,8 @@
 "Suggested Removals" = "إزالات مقترحة";
 
 "Switch Account" = "تبديل الحساب";
+
+"System Default" = "الافتراضي للنظام";
 
 "Tap to retry" = "انقر لإعادة المحاولة";
 
