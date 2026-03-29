@@ -466,13 +466,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Updates track metadata when track changes (e.g., via next/previous).
     /// Also handles enforcing our queue when YouTube autoplay kicks in.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
+        self.updateTrackMetadata(
+            title: title,
+            artist: artist,
+            thumbnailUrl: thumbnailUrl,
+            videoId: nil
+        )
+    }
+
+    /// Video-id aware metadata update used by the WebView observer to reconcile queue drift.
+    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId: String?) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
 
         let thumbnailURL = URL(string: thumbnailUrl)
         let artistObj = Artist(id: "unknown", name: artist)
 
-        // Preserve videoId if we have it
-        let videoId = self.currentTrack?.videoId ?? self.pendingPlayVideoId ?? "unknown"
+        // Prefer observed WebView videoId, fall back to local state if unavailable.
+        let resolvedVideoId = videoId ?? self.currentTrack?.videoId ?? self.pendingPlayVideoId ?? "unknown"
 
         // Check if track actually changed
         let trackChanged = self.currentTrack?.title != title || self.currentTrack?.artistsDisplay != artist
@@ -481,8 +491,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // This happens when the WebView's media session intercepts media keys and triggers YouTube's own next
         if trackChanged, self.isKasetInitiatedPlayback, !self.queue.isEmpty {
             // Get the song we intended to play and compare using videoId to detect mismatched tracks
-            if let intendedSong = queue[safe: currentIndex], intendedSong.videoId != videoId {
-                self.logger.info("YouTube loaded different track '\(title)' (\(videoId)), re-playing intended track '\(intendedSong.title)'")
+            if let intendedSong = queue[safe: currentIndex], intendedSong.videoId != resolvedVideoId {
+                self.logger.info("YouTube loaded different track '\(title)' (\(resolvedVideoId)), re-playing intended track '\(intendedSong.title)'")
                 // Clear the flag to prevent infinite loop
                 self.isKasetInitiatedPlayback = false
                 Task {
@@ -520,13 +530,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
 
         self.currentTrack = Song(
-            id: videoId,
+            id: resolvedVideoId,
             title: title,
             artists: [artistObj],
             album: nil,
             duration: self.duration > 0 ? self.duration : nil,
             thumbnailURL: thumbnailURL,
-            videoId: videoId
+            videoId: resolvedVideoId
         )
 
         // Reset like/library status when track changes

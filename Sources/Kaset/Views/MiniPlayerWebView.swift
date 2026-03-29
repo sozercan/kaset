@@ -367,6 +367,12 @@ final class SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
+            let observedVideoId: String? = if let videoId = body["videoId"] as? String, !videoId.isEmpty {
+                videoId
+            } else {
+                nil
+            }
+
             // Handle remote next track command
             if type == "REMOTE_NEXT" {
                 Task { @MainActor in
@@ -447,12 +453,16 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Update track metadata if track changed
-                if trackChanged, !title.isEmpty {
+                // Repeat-one and now-playing remote controls can temporarily desync metadata and queue.
+                let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
+                    && (observedVideoId != nil || !title.isEmpty)
+
+                if shouldReconcileMetadata {
                     self.playerService.updateTrackMetadata(
                         title: title,
                         artist: artist,
-                        thumbnailUrl: thumbnailUrl
+                        thumbnailUrl: thumbnailUrl,
+                        videoId: observedVideoId
                     )
 
                     // Close video window on track change, but skip during grace period
