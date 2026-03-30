@@ -2,12 +2,14 @@
 
 This document covers testing strategies, commands, and best practices for Kaset.
 
-## Test Commands
+> 🔁 **Default local loop lives in `AGENTS.md`** — Stay CLI-first for everyday verification: `swift build`, `swift test --skip KasetUITests`, then `swiftlint --strict && swiftformat .`. Use Xcode/`xcodebuild` only for UI/runtime debugging, scheme-specific investigation, or CI parity.
+
+## Common Tasks
 
 ### Unit Tests
 
 ```bash
-swift test
+swift test --skip KasetUITests
 ```
 
 ### Build Only
@@ -142,11 +144,17 @@ Apply tags to categorize tests for filtering:
 
 Available tags: `.api`, `.parser`, `.viewModel`, `.service`, `.model`, `.slow`, `.integration`
 
-**Run by tag:**
+Tags are most useful for suite organization and Xcode/CI filtering. For quick local iteration, prefer a name-based filter:
+
 ```bash
-# Run only parser tests
-xcodebuild test -scheme Kaset -only-testing:KasetTests -skip-testing:KasetUITests \
-  2>&1 | grep -E "parser"
+# Run tests matching a name or suite pattern
+swift test --skip KasetUITests --filter Parser
+```
+
+If you need Xcode's logs or scheme-specific filtering, escalate to:
+
+```bash
+xcodebuild test -scheme Kaset -only-testing:KasetTests -skip-testing:KasetUITests
 ```
 
 ### Time Limits
@@ -374,7 +382,7 @@ LLM outputs are inherently non-deterministic. These tests mitigate flakiness by:
 
 #### Recommended CI Configuration
 
-For stable CI pipelines, **exclude integration tests** and run them separately in a scheduled job:
+For stable CI pipelines, **exclude integration tests** and run them separately in a scheduled job. These are CI/Xcode-specific commands; keep day-to-day local verification on the default CLI loop above:
 
 ```bash
 # CI: Run unit tests only (stable)
@@ -403,13 +411,12 @@ xcodebuild test -scheme Kaset -destination 'platform=macOS' \
 #### Run Commands
 
 ```bash
-# Run ONLY integration tests (requires Apple Intelligence)
+# Special-case: run ONLY integration tests (requires Apple Intelligence)
 xcodebuild test -scheme Kaset -destination 'platform=macOS' \
   -only-testing:KasetTests/MusicIntentIntegrationTests
 
-# Run all unit tests (integration tests auto-skip if AI unavailable)
-xcodebuild test -scheme Kaset -destination 'platform=macOS' \
-  -only-testing:KasetTests
+# Default local run for the non-UI test suite
+swift test --skip KasetUITests
 ```
 
 #### Test Characteristics
@@ -434,7 +441,9 @@ Before releasing:
 - [ ] Re-opening window doesn't duplicate audio
 - [ ] Sign out and re-login works
 
-### Simulating Auth Expiry
+### Simulating Auth Expiry (Runtime Debugging)
+
+Use this runtime debugging workflow when auth state looks stale or you need to inspect 401/403 recovery behavior:
 
 To test auth recovery:
 
@@ -446,14 +455,16 @@ To test auth recovery:
 
 ### Console Logging
 
-Use Xcode's Console to filter logs:
+Use Xcode's Console when the CLI loop is not enough and you need runtime inspection:
 
 ```
 subsystem:Kaset category:player
 subsystem:Kaset category:auth
 ```
 
-### WebView Debugging
+### WebView Debugging (Runtime Escalation)
+
+Enable Web Inspector for debug builds when playback or auth issues need DOM or JavaScript inspection:
 
 Enable Web Inspector for debug builds:
 
@@ -468,6 +479,8 @@ Right-click WebView → Inspect Element
 ## Continuous Integration
 
 ### GitHub Actions Workflow
+
+CI can use Xcode-specific commands for macOS runner parity. Keep this separate from the default local CLI loop above.
 
 ```yaml
 name: Build & Test

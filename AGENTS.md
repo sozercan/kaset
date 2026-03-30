@@ -37,6 +37,8 @@ swift test --skip KasetUITests
 swiftlint --strict && swiftformat .
 ```
 
+Default local workflow is CLI-first: use the commands above for day-to-day verification, and escalate to Xcode/`xcodebuild` only for simulator, UI, or runtime debugging, screenshots, or scheme-specific investigation.
+
 > ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. This means:
 > - In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`)
 > - In instance methods, use `self.property` explicitly
@@ -52,6 +54,8 @@ swift run api-explorer auth          # Check auth status
 swift run api-explorer list          # List known endpoints
 swift run api-explorer browse FEmusic_home -v  # Explore with verbose output
 ```
+
+Put repeatable, repo-specific workflows in `.agents/skills/` so `AGENTS.md` stays focused on repo-wide rules.
 
 ## Coding Rules
 
