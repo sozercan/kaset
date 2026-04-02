@@ -116,6 +116,7 @@ struct KasetApp: App {
             } else {
                 MainWindow(navigationSelection: self.$navigationSelection, client: self.sharedClient)
                     .id(self.settings.contentLanguage)
+                    .environment(\.locale, self.settings.contentLanguage.locale)
                     .environment(self.authService)
                     .environment(self.webKitManager)
                     .environment(self.playerService)

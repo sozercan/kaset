@@ -16,6 +16,11 @@ enum AppLocalization {
         self.overrideBundle ?? self.baseBundle
     }
 
+    private static let appBundleURLs: Set<URL> = [
+        Self.baseBundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL,
+        Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL,
+    ]
+
     /// Sets the active language by loading the corresponding `.lproj` bundle.
     /// Pass `nil` to revert to the system default.
     static func setLanguage(_ languageCode: String?) {
@@ -30,6 +35,20 @@ enum AppLocalization {
         } else {
             self.overrideBundle = nil
         }
+    }
+
+    static func shouldOverrideLocalization(for bundle: Bundle) -> Bool {
+        self.appBundleURLs.contains(bundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL)
+    }
+
+    static func lookupBundle(for bundle: Bundle) -> Bundle {
+        guard let overrideBundle = self.overrideBundle,
+              self.shouldOverrideLocalization(for: bundle)
+        else {
+            return bundle
+        }
+
+        return overrideBundle
     }
 }
 
@@ -56,7 +75,7 @@ extension Bundle {
     }
 
     @objc private func _appOverrideLocalizedString(forKey key: String, value: String?, table tableName: String?) -> String {
-        let bundle = AppLocalization.overrideBundle ?? self
+        let bundle = AppLocalization.lookupBundle(for: self)
         return bundle._appOverrideLocalizedString(forKey: key, value: value, table: tableName)
     }
 }
