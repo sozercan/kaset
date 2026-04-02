@@ -675,6 +675,11 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         return self.lyricsResponses[videoId] ?? .unavailable
     }
 
+    func getTimedLyrics(videoId _: String) async throws -> LyricResult {
+        if let error = shouldThrowError { throw error }
+        return .unavailable
+    }
+
     func getSong(videoId: String) async throws -> Song {
         self.getSongCalled = true
         self.getSongVideoIds.append(videoId)

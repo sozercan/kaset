@@ -49,6 +49,10 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
                     .help("Fetch and display real-time synced lyrics when available")
 
+                // Romanization
+                Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
+                    .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
+
                 // Remember Playback Settings
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")

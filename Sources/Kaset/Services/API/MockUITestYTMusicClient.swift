@@ -343,6 +343,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getTimedLyrics(videoId _: String) async throws -> LyricResult {
+        try? await Task.sleep(for: .milliseconds(100))
+        return .unavailable
+    }
+
     func getSong(videoId: String) async throws -> Song {
         try? await Task.sleep(for: .milliseconds(100))
         return Song(

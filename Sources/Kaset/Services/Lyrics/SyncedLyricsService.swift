@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 @MainActor
 @Observable
@@ -6,6 +7,12 @@ final class SyncedLyricsService {
     private struct ResolvedLyrics {
         let result: LyricResult
         let activeProvider: String?
+    }
+
+    private struct ProviderResult {
+        let provider: String
+        let providerIndex: Int
+        let result: LyricResult
     }
 
     /// Current lyrics result.
@@ -20,14 +27,21 @@ final class SyncedLyricsService {
     /// All registered providers, ordered by priority.
     private let providers: [LyricsProvider]
 
+    /// Romanization service for transliterating non-Latin lyrics.
+    private let romanizationService = RomanizationService()
+
     /// In-memory cache keyed by videoId.
     private var cache: [String: LyricResult] = [:]
+
+    /// Base synced lyrics before romanization is applied for display.
+    private var currentBaseSyncedLyrics: SyncedLyrics?
 
     /// Monotonic identifier used to ignore stale in-flight searches.
     private var fetchGeneration = 0
 
     init(providers: [LyricsProvider] = [LRCLibProvider()]) {
         self.providers = providers
+        self.observeRomanizationSetting()
     }
 
     func fetchLyrics(for info: LyricsSearchInfo) async {
@@ -47,6 +61,7 @@ final class SyncedLyricsService {
         }
 
         if let cached {
+            self.currentBaseSyncedLyrics = nil
             self.currentLyrics = cached
             self.activeProvider = Self.cachedProviderName(for: cached)
         }
@@ -54,14 +69,18 @@ final class SyncedLyricsService {
         self.isLoading = true
 
         // Don't clear currentLyrics immediately to prevent flicker, but reset state when done
-        var allResults: [(provider: String, result: LyricResult)] = []
+        var allResults: [ProviderResult] = []
 
         // Fetch concurrently
-        await withTaskGroup(of: (String, LyricResult)?.self) { group in
-            for provider in self.providers {
+        await withTaskGroup(of: ProviderResult?.self) { group in
+            for (providerIndex, provider) in self.providers.enumerated() {
                 group.addTask {
                     let result = await provider.search(info: info)
-                    return (provider.name, result)
+                    return ProviderResult(
+                        provider: provider.name,
+                        providerIndex: providerIndex,
+                        result: result
+                    )
                 }
             }
 
@@ -72,12 +91,16 @@ final class SyncedLyricsService {
             }
         }
 
-        // Pick best result
-        // Score: Synced = 2, Plain = 1, YTMusic = +1 bias
-        let best = allResults.max { a, b in
-            let scoreA = self.score(result: a.result, providerName: a.provider)
-            let scoreB = self.score(result: b.result, providerName: b.provider)
-            return scoreA < scoreB
+        var best: ProviderResult?
+        for candidate in allResults {
+            guard let currentBest = best else {
+                best = candidate
+                continue
+            }
+
+            if self.isBetter(candidate, than: currentBest) {
+                best = candidate
+            }
         }
 
         let resolved = self.resolveLyrics(best: best, cached: cached, videoId: info.videoId)
@@ -91,6 +114,8 @@ final class SyncedLyricsService {
             return
         }
 
+        self.currentBaseSyncedLyrics = nil
+
         if lyrics.isAvailable {
             self.currentLyrics = .plain(lyrics)
             self.activeProvider = lyrics.source
@@ -102,22 +127,73 @@ final class SyncedLyricsService {
         }
     }
 
-    private func score(result: LyricResult, providerName: String) -> Int {
-        var s = 0
-        switch result {
-        case .synced: s += 2
-        case .plain: s += 1
-        case .unavailable: return -1 // Disqualified
+    private func observeRomanizationSetting() {
+        withObservationTracking {
+            _ = SettingsManager.shared.romanizationEnabled
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshCurrentRomanization()
+                self?.observeRomanizationSetting()
+            }
+        }
+    }
+
+    private func refreshCurrentRomanization() {
+        guard let baseLyrics = self.currentBaseSyncedLyrics else { return }
+        self.currentLyrics = .synced(self.displayLyrics(from: baseLyrics))
+    }
+
+    private func displayLyrics(from synced: SyncedLyrics) -> SyncedLyrics {
+        guard self.romanizationService.isEnabled else {
+            return synced
         }
 
-        if providerName == "YTMusic" {
-            s += 1
+        let romanized = self.romanizationService.romanizeAll(synced)
+        guard !romanized.isEmpty else {
+            return synced
         }
-        return s
+
+        var updatedLines = synced.lines
+        for index in updatedLines.indices {
+            updatedLines[index].romanizedText = romanized[updatedLines[index].id]
+        }
+
+        return SyncedLyrics(lines: updatedLines, source: synced.source)
+    }
+
+    private func resultRank(_ result: LyricResult) -> Int {
+        switch result {
+        case .synced:
+            2
+        case .plain:
+            1
+        case .unavailable:
+            0
+        }
+    }
+
+    private func isBetter(_ candidate: ProviderResult, than currentBest: ProviderResult) -> Bool {
+        let candidateRank = self.resultRank(candidate.result)
+        let currentRank = self.resultRank(currentBest.result)
+        if candidateRank != currentRank {
+            return candidateRank > currentRank
+        }
+
+        if case .plain = candidate.result,
+           case .plain = currentBest.result
+        {
+            let candidateIsYTMusic = candidate.provider == "YTMusic"
+            let currentIsYTMusic = currentBest.provider == "YTMusic"
+            if candidateIsYTMusic != currentIsYTMusic {
+                return candidateIsYTMusic
+            }
+        }
+
+        return candidate.providerIndex < currentBest.providerIndex
     }
 
     private func resolveLyrics(
-        best: (provider: String, result: LyricResult)?,
+        best: ProviderResult?,
         cached: LyricResult?,
         videoId: String
     ) -> ResolvedLyrics {
@@ -149,7 +225,14 @@ final class SyncedLyricsService {
     private func applyResolvedLyrics(_ resolved: ResolvedLyrics, requestID: Int) {
         guard requestID == self.fetchGeneration else { return }
 
-        self.currentLyrics = resolved.result
+        if case let .synced(synced) = resolved.result {
+            self.currentBaseSyncedLyrics = synced
+            self.currentLyrics = .synced(self.displayLyrics(from: synced))
+        } else {
+            self.currentBaseSyncedLyrics = nil
+            self.currentLyrics = resolved.result
+        }
+
         self.activeProvider = resolved.activeProvider
         self.isLoading = false
     }

@@ -245,6 +245,10 @@ final class SingletonPlayerWebView {
     var displayMode: DisplayMode = .hidden
     private var mediaControlUsesNextPrev: Bool
 
+    /// Tracks if lyrics high-frequency polling should be active
+    /// Used to restore polling after full-page navigation
+    var isLyricsPollActive = false
+
     private init() {
         self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
     }
@@ -325,11 +329,13 @@ final class SingletonPlayerWebView {
 
     /// Starts high frequency polling for synced lyrics
     func startLyricsPoll() {
+        self.isLyricsPollActive = true
         self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
     }
 
     /// Stops high frequency polling for synced lyrics
     func stopLyricsPoll() {
+        self.isLyricsPollActive = false
         self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
     }
 
@@ -560,6 +566,12 @@ final class SingletonPlayerWebView {
                     )
                 } else if let resultString = result as? String {
                     DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
+                }
+
+                // Restore lyrics high-frequency polling if it was active
+                if SingletonPlayerWebView.shared.isLyricsPollActive {
+                    // Re-start to inject interval onto fresh JS context
+                    SingletonPlayerWebView.shared.startLyricsPoll()
                 }
             }
         }

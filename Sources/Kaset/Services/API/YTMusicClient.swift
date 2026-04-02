@@ -931,6 +931,43 @@ final class YTMusicClient: YTMusicClientProtocol {
         return lyrics
     }
 
+    /// Fetches timed (synced) lyrics for a song from YouTube Music.
+    /// Checks the "next" endpoint for timedLyricsModel data, then falls back to browse endpoint for plain lyrics.
+    func getTimedLyrics(videoId: String) async throws -> LyricResult {
+        self.logger.info("Fetching timed lyrics for: \(videoId)")
+
+        let nextBody: [String: Any] = [
+            "videoId": videoId,
+            "enablePersistentPlaylistPanel": true,
+            "isAudioOnly": true,
+            "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+        ]
+
+        let nextData = try await request("next", body: nextBody)
+
+        // Try to extract timed lyrics first
+        if let synced = LyricsParser.extractTimedLyrics(from: nextData) {
+            self.logger.info("Found timed lyrics for \(videoId): \(synced.lines.count) lines")
+            return .synced(synced)
+        }
+
+        // Fall back to plain lyrics via browse endpoint
+        if let lyricsBrowseId = LyricsParser.extractLyricsBrowseId(from: nextData) {
+            let browseBody: [String: Any] = [
+                "browseId": lyricsBrowseId,
+            ]
+            let browseData = try await request("browse", body: browseBody, ttl: APICache.TTL.lyrics)
+            let lyrics = LyricsParser.parse(from: browseData)
+            if lyrics.isAvailable {
+                self.logger.info("Fell back to plain lyrics for \(videoId)")
+                return .plain(lyrics)
+            }
+        }
+
+        self.logger.info("No timed lyrics available for: \(videoId)")
+        return .unavailable
+    }
+
     // MARK: - Radio Queue
 
     /// Fetches a radio queue (similar songs) based on a video ID.

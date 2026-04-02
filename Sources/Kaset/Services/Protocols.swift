@@ -206,6 +206,10 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches lyrics for a song.
     func getLyrics(videoId: String) async throws -> Lyrics
 
+    /// Fetches timed (synced) lyrics for a song from YouTube Music.
+    /// Returns synced lyrics if available, falls back to plain lyrics, or returns unavailable.
+    func getTimedLyrics(videoId: String) async throws -> LyricResult
+
     /// Fetches song metadata by video ID.
     func getSong(videoId: String) async throws -> Song
 
