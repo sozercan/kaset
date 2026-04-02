@@ -1,3 +1,10 @@
+---
+name: playback-webview-debugging
+description: Use when playback, auth recovery, queue sync, or hidden WebView state diverges from native Swift state and you need to debug the DRM playback WebView, bridge events, or cookie/auth behavior.
+metadata:
+  short-description: Debug playback WebView state
+---
+
 # Playback WebView Debugging
 
 Use this skill when playback, auth recovery, queue sync, or hidden WebView state diverges from the native Swift state.

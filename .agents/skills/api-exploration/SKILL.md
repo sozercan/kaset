@@ -1,3 +1,10 @@
+---
+name: api-exploration
+description: Use when a task needs a new or modified YouTube Music API call, response parser validation, authenticated endpoint investigation, or fixture capture; explore endpoints with `swift run api-explorer` before changing production code.
+metadata:
+  short-description: Explore YouTube Music APIs
+---
+
 # API Exploration
 
 Use this skill when a task needs a new or modified YouTube Music API call, response parser validation, authenticated endpoint investigation, or fixture capture.

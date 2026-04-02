@@ -1,3 +1,10 @@
+---
+name: dev-loop-packaging
+description: Use when you need a fresh packaged `.app` bundle, a fast build-package-relaunch loop, or a packaged runtime repro for Kaset instead of a compile-only verification.
+metadata:
+  short-description: Package and relaunch Kaset
+---
+
 # Dev Loop Packaging
 
 Use this skill when you need a fresh `.app` bundle, a fast build-package-relaunch loop, or a packaged runtime repro instead of a compile-only check.
