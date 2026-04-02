@@ -5,6 +5,7 @@ import Foundation
 enum JapaneseRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString
+        let nsText = text as NSString
         let range = CFRangeMake(0, CFStringGetLength(cfText))
         let locale = Locale(identifier: "ja") as CFLocale
 
@@ -22,6 +23,21 @@ enum JapaneseRomanizer {
         var tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)
 
         while tokenType != [] {
+            let tokenRange = CFStringTokenizerGetCurrentTokenRange(tokenizer)
+            let token = nsText.substring(with: NSRange(
+                location: tokenRange.location,
+                length: tokenRange.length
+            ))
+
+            if ScriptDetector.isLatinOnly(token) {
+                if !result.isEmpty {
+                    result += " "
+                }
+                result += token
+                tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)
+                continue
+            }
+
             if let latin = CFStringTokenizerCopyCurrentTokenAttribute(
                 tokenizer,
                 kCFStringTokenizerAttributeLatinTranscription
@@ -32,10 +48,6 @@ enum JapaneseRomanizer {
                 result += latin
             } else {
                 // Preserve non-tokenizable characters (spaces, punctuation)
-                let tokenRange = CFStringTokenizerGetCurrentTokenRange(tokenizer)
-                let start = text.index(text.startIndex, offsetBy: tokenRange.location)
-                let end = text.index(start, offsetBy: tokenRange.length)
-                let token = String(text[start ..< end])
                 result += token
             }
             tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)

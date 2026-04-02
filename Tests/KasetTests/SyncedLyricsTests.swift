@@ -65,6 +65,25 @@ struct SyncedLyricsServiceTests {
         #expect(service.isLoading == false)
     }
 
+    @Test("fetchLyrics prefers synced lyrics over earlier YTMusic plain lyrics")
+    func fetchLyricsPrefersDelayedSyncedLyrics() async {
+        let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "YTMusic", result: .plain(ytMusicPlain)),
+            MockLyricsProvider(name: "LRCLib") { _ in
+                try? await Task.sleep(for: .milliseconds(50))
+                return .synced(synced)
+            },
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-delayed-synced"))
+
+        #expect(service.currentLyrics == .synced(synced))
+        #expect(service.activeProvider == "LRCLib")
+        #expect(service.isLoading == false)
+    }
+
     @Test("fetchLyrics caches results and derives activeProvider from cached source")
     func fetchLyricsCachesResults() async {
         let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")
@@ -220,6 +239,32 @@ struct SyncedLyricsServiceTests {
         #expect(service.activeProvider == "SyncedProvider")
     }
 
+    @Test("toggling romanization updates current lyrics without refetching")
+    func togglingRomanizationRefreshesCurrentLyrics() async throws {
+        let originalRomanizationEnabled = SettingsManager.shared.romanizationEnabled
+        defer { SettingsManager.shared.romanizationEnabled = originalRomanizationEnabled }
+
+        SettingsManager.shared.romanizationEnabled = false
+
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "안녕하세요")
+        let provider = MockLyricsProvider(name: "LRCLib", result: .synced(synced))
+        let service = SyncedLyricsService(providers: [provider])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-romanization-toggle"))
+
+        let initialLyrics = try #require(Self.syncedLyrics(from: service.currentLyrics))
+        #expect(initialLyrics.lines[0].romanizedText == nil)
+        #expect(await provider.callCount() == 1)
+
+        SettingsManager.shared.romanizationEnabled = true
+        try? await Task.sleep(for: .milliseconds(100))
+
+        let updatedLyrics = try #require(Self.syncedLyrics(from: service.currentLyrics))
+        #expect(updatedLyrics.lines[0].id == synced.lines[0].id)
+        #expect(updatedLyrics.lines[0].romanizedText != nil)
+        #expect(await provider.callCount() == 1)
+    }
+
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
         LyricsSearchInfo(
             title: "Test Song",
@@ -237,6 +282,11 @@ struct SyncedLyricsServiceTests {
             ],
             source: source
         )
+    }
+
+    private static func syncedLyrics(from result: LyricResult) -> SyncedLyrics? {
+        guard case let .synced(lyrics) = result else { return nil }
+        return lyrics
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 // MARK: - Script
 
@@ -11,21 +12,67 @@ enum Script {
 
 /// Detects which writing system a string contains using Unicode scalar ranges.
 enum ScriptDetector {
-    /// Returns true if the text contains hiragana, katakana, or CJK ideographs with kana context.
-    static func hasJapanese(_ text: String) -> Bool {
+    private struct CJKPresence {
+        let hasKana: Bool
+        let hasCJK: Bool
+    }
+
+    private static func cjkPresence(in text: String) -> CJKPresence {
         var hasKana = false
         var hasCJK = false
+
         for scalar in text.unicodeScalars {
             let v = scalar.value
             // Hiragana U+3040–309F
-            if v >= 0x3040, v <= 0x309F { hasKana = true }
+            if v >= 0x3040, v <= 0x309F {
+                hasKana = true
+            }
             // Katakana U+30A0–30FF
-            else if v >= 0x30A0, v <= 0x30FF { hasKana = true }
+            else if v >= 0x30A0, v <= 0x30FF {
+                hasKana = true
+            }
             // CJK Unified Ideographs U+4E00–9FFF
-            else if v >= 0x4E00, v <= 0x9FFF { hasCJK = true }
+            else if v >= 0x4E00, v <= 0x9FFF {
+                hasCJK = true
+            }
         }
-        // Japanese = has kana, or has both kana and CJK
-        return hasKana || (hasCJK && hasKana)
+
+        return CJKPresence(hasKana: hasKana, hasCJK: hasCJK)
+    }
+
+    /// Returns true when NaturalLanguage can confidently classify kana-free CJK text as Japanese,
+    /// false when it classifies it as Chinese, or nil when the result is inconclusive.
+    private static func isJapaneseCJKText(_ text: String) -> Bool? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+
+        guard let language = recognizer.dominantLanguage else {
+            return nil
+        }
+
+        if language.rawValue == "ja" {
+            return true
+        }
+
+        if language.rawValue.hasPrefix("zh") {
+            return false
+        }
+
+        return nil
+    }
+
+    /// Returns true if the text contains hiragana, katakana, or CJK ideographs recognized as Japanese.
+    static func hasJapanese(_ text: String) -> Bool {
+        let presence = self.cjkPresence(in: text)
+        if presence.hasKana {
+            return true
+        }
+
+        guard presence.hasCJK else {
+            return false
+        }
+
+        return self.isJapaneseCJKText(text) ?? false
     }
 
     /// Returns true if the text contains Hangul characters.
@@ -44,16 +91,16 @@ enum ScriptDetector {
 
     /// Returns true if the text contains CJK ideographs without kana (Chinese, not Japanese).
     static func hasChinese(_ text: String) -> Bool {
-        var hasCJK = false
-        for scalar in text.unicodeScalars {
-            let v = scalar.value
-            // CJK Unified Ideographs U+4E00–9FFF
-            if v >= 0x4E00, v <= 0x9FFF { hasCJK = true }
-            // If we find kana, it's Japanese, not Chinese
-            if v >= 0x3040, v <= 0x309F { return false }
-            if v >= 0x30A0, v <= 0x30FF { return false }
+        let presence = self.cjkPresence(in: text)
+        guard presence.hasCJK else {
+            return false
         }
-        return hasCJK
+
+        if presence.hasKana {
+            return false
+        }
+
+        return !(self.isJapaneseCJKText(text) ?? false)
     }
 
     /// Returns true if the text contains Thai characters.

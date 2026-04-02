@@ -38,7 +38,7 @@ enum LyricsParser {
     /// - Parameter data: The data containing timed lyrics.
     /// - Returns: Parsed SyncedLyrics, or nil if unavailable.
     static func extractTimedLyrics(from data: [String: Any]) -> SyncedLyrics? {
-        guard let timedLyricsModel = data["timedLyricsModel"] as? [String: Any],
+        guard let timedLyricsModel = self.findTimedLyricsModel(in: data),
               let lyricsData = timedLyricsModel["lyricsData"] as? [[String: Any]]
         else {
             return nil
@@ -65,6 +65,29 @@ enum LyricsParser {
         }
 
         return SyncedLyrics(lines: lines, source: "YTMusic")
+    }
+
+    /// Recursively searches nested dictionaries/arrays for a timedLyricsModel payload.
+    private static func findTimedLyricsModel(in node: Any) -> [String: Any]? {
+        if let dictionary = node as? [String: Any] {
+            if let timedLyricsModel = dictionary["timedLyricsModel"] as? [String: Any] {
+                return timedLyricsModel
+            }
+
+            for value in dictionary.values {
+                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
+                    return timedLyricsModel
+                }
+            }
+        } else if let array = node as? [Any] {
+            for value in array {
+                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
+                    return timedLyricsModel
+                }
+            }
+        }
+
+        return nil
     }
 
     /// Parses lyrics from the browse endpoint response.

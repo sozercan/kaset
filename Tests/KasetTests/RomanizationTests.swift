@@ -35,6 +35,11 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.hasJapanese("コンニチワ") == true)
     }
 
+    @Test("Kanji-only Japanese text is detected as Japanese")
+    func kanjiOnlyJapaneseIsJapanese() {
+        #expect(ScriptDetector.hasJapanese("東京") == true)
+    }
+
     @Test("Korean is not Japanese")
     func koreanIsNotJapanese() {
         #expect(ScriptDetector.hasJapanese("안녕하세요") == false)
@@ -145,6 +150,27 @@ struct KoreanRomanizerTests {
         // 방: b(7) + a(0) + ng(21 final index) → "bang"
         let result = try #require(KoreanRomanizer.romanize("방"))
         #expect(result == "bang")
+    }
+}
+
+// MARK: - ThaiRomanizerTests
+
+struct ThaiRomanizerTests {
+    @Test("Thai romanizer safely handles clustered characters")
+    func clusteredCharacters() throws {
+        let result = try #require(ThaiRomanizer.romanize("สวัสดีครับ"))
+        #expect(!result.isEmpty)
+    }
+}
+
+// MARK: - JapaneseRomanizerTests
+
+struct JapaneseRomanizerTests {
+    @Test("Latin tokens are preserved inside mixed Japanese text")
+    func preservesLatinTokens() throws {
+        let result = try #require(JapaneseRomanizer.romanize("Kissして"))
+        #expect(result.contains("Kiss"))
+        #expect(result.contains("kisu") == false)
     }
 }
 
