@@ -1,0 +1,553 @@
+/* Generated from Localizable.xcstrings. */
+
+/* Playlist track count */
+"%lld songs" = "%lld곡";
+
+"A native YouTube Music experience for macOS" = "macOS를 위한 네이티브 YouTube Music 환경";
+
+"AI responses follow your system language settings." = "AI 응답은 시스템 언어 설정을 따릅니다.";
+
+"About" = "정보";
+
+"Access your playlists and liked songs" = "재생목록과 좋아요 표시한 노래에 액세스하세요";
+
+"Account" = "계정";
+
+"Add to Favorites" = "즐겨찾기에 추가";
+
+"Add to Library" = "보관함에 추가";
+
+"Add to Queue" = "대기열에 추가";
+
+"Added to Library" = "보관함에 추가됨";
+
+"AirPlay" = "AirPlay";
+
+"AirPlay Connected" = "AirPlay 연결됨";
+
+"Album" = "앨범";
+
+"Albums" = "앨범";
+
+"All" = "전체";
+
+"All Episodes" = "전체 에피소드";
+
+"An unknown error occurred" = "알 수 없는 오류가 발생했습니다";
+
+"Analyzing playlist..." = "재생목록 분석 중...";
+
+"Analyzing..." = "분석 중...";
+
+"Apple Intelligence" = "Apple Intelligence";
+
+"Apple Intelligence & Siri Settings" = "Apple Intelligence 및 Siri 설정";
+
+"Apple Intelligence is currently unavailable." = "Apple Intelligence를 현재 사용할 수 없습니다.";
+
+"Apple Intelligence is downloading. This may take a few minutes." = "Apple Intelligence를 다운로드하는 중입니다. 몇 분 정도 걸릴 수 있습니다.";
+
+"Apple Intelligence is not available" = "Apple Intelligence를 사용할 수 없음";
+
+"Apple Intelligence is ready to use" = "Apple Intelligence를 사용할 준비가 되었습니다";
+
+"Apply Changes" = "변경사항 적용";
+
+"Artist" = "아티스트";
+
+"Artist not found" = "아티스트를 찾을 수 없음";
+
+"Artists" = "아티스트";
+
+"Ask AI (⌘K)" = "AI에게 질문 (⌘K)";
+
+"Ask anything about music..." = "음악에 대해 무엇이든 물어보세요...";
+
+"Automatically check for updates" = "자동으로 업데이트 확인";
+
+"Available" = "사용 가능";
+
+"Background Playback" = "백그라운드 재생";
+
+"Built with SwiftUI for a true macOS experience" = "진정한 macOS 환경을 위해 SwiftUI로 제작";
+
+"Calculating..." = "계산 중...";
+
+"Cancel" = "취소";
+
+"Change your system language to English or another supported language." = "시스템 언어를 영어 또는 다른 지원 언어로 변경하세요.";
+
+"Charts" = "차트";
+
+"Check Now" = "지금 확인";
+
+"Check for Updates..." = "업데이트 확인...";
+
+"Choose the language for the app interface" = "앱 인터페이스 언어를 선택하세요";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "제어 센터의 지금 재생 중 위젯에 표시할 버튼을 선택하세요";
+"Clear" = "지우기";
+
+"Clear AI Context" = "AI 컨텍스트 지우기";
+
+"Clear Cache" = "캐시 지우기";
+
+"Clear input" = "입력 지우기";
+
+"Clear search" = "검색 지우기";
+
+"Clearing..." = "지우는 중...";
+
+"Clears the AI session state. Use this if responses seem off or stuck." = "AI 세션 상태를 지웁니다. 응답이 이상하거나 멈춘 것 같으면 사용하세요.";
+
+"Close" = "닫기";
+
+"Close side panel" = "사이드 패널 닫기";
+
+"Collection" = "컬렉션";
+
+"Command Bar" = "명령 막대";
+
+"Community playlists" = "커뮤니티 재생목록";
+
+"Connect" = "연결";
+
+"Connected as %@" = "%@(으)로 연결됨";
+
+"Content Language" = "콘텐츠 언어";
+
+"Content may not be available in your region." = "해당 지역에서 콘텐츠를 사용하지 못할 수 있습니다.";
+
+"Continue" = "계속";
+
+"Control playback with your keyboard" = "키보드로 재생을 제어하세요";
+
+"Could not create AI session" = "AI 세션을 생성할 수 없음";
+
+"Couldn't search for music" = "음악을 검색할 수 없음";
+
+"Create or save playlists on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 만들거나 저장하세요.";
+
+"Default Page on Launch" = "실행 시 기본 페이지";
+
+"Disconnect" = "연결 해제";
+
+"Discover" = "둘러보기";
+
+"Dislike" = "싫어요";
+
+"Disliked" = "싫어요 표시됨";
+
+"Dismiss" = "닫기";
+
+"Done" = "완료";
+
+"Double-tap to retry" = "다시 시도하려면 두 번 탭하세요";
+
+"Double-tap to switch accounts" = "계정을 전환하려면 두 번 탭하세요";
+
+"Downloading" = "다운로드 중";
+
+"Drag to reorder" = "드래그하여 순서 변경";
+
+"Edit" = "편집";
+
+"Enable AI Features" = "AI 기능 활성화";
+
+"Enable Apple Intelligence in System Settings to use AI features." = "AI 기능을 사용하려면 시스템 설정에서 Apple Intelligence를 활성화하세요.";
+
+
+"Enable Synced Lyrics" = "실시간 가사 활성화";
+"Episodes" = "에피소드";
+
+"Error: %@" = "오류: %@";
+
+"Explain lyrics with AI" = "AI로 가사 설명";
+
+"Explore" = "둘러보기";
+
+"Failed to load" = "로드 실패";
+
+"Failed to load accounts" = "계정 로드 실패";
+
+"Failed to load accounts. Please try again." = "계정을 로드하지 못했습니다. 다시 시도해 주세요.";
+
+"Failed to switch account. Please try again." = "계정을 전환하지 못했습니다. 다시 시도해 주세요.";
+
+"Favorites" = "즐겨찾기";
+
+"Featured playlists" = "추천 재생목록";
+
+
+"Fetch and display real-time synced lyrics when available" = "사용 가능한 경우 실시간 동기화 가사를 가져와 표시합니다";
+"Find songs, albums, artists, and playlists" = "노래, 앨범, 아티스트, 재생목록 찾기";
+
+"Follow artists on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 아티스트를 구독하세요.";
+
+"General" = "일반";
+
+"GitHub" = "GitHub";
+
+"Go to Album" = "앨범으로 이동";
+
+"Go to Artist" = "아티스트로 이동";
+
+"Haptic Feedback" = "햅틱 피드백";
+
+"Hidden" = "숨김";
+
+"Hide Lyrics" = "가사 숨기기";
+
+"Hide lyrics explanation" = "가사 설명 숨기기";
+
+"Highlights" = "하이라이트";
+
+"Home" = "홈";
+
+"Image Cache" = "이미지 캐시";
+
+"In Library" = "보관함에 저장됨";
+
+"Intelligence" = "인텔리전스";
+
+"Keep listening even when the window is closed" = "창이 닫혀도 계속 재생";
+
+"Language Not Supported" = "지원되지 않는 언어";
+
+"Last Used" = "마지막 사용";
+
+"Learn more" = "더 알아보기";
+
+"Library" = "보관함";
+
+"Like" = "좋아요";
+
+"Liked" = "좋아요 표시됨";
+
+"Liked Music" = "좋아요 표시한 음악";
+
+"Load More" = "더 보기";
+
+"Loading artist..." = "아티스트 로드 중...";
+
+"Loading charts..." = "차트 로드 중...";
+
+"Loading explore content..." = "둘러보기 콘텐츠 로드 중...";
+
+"Loading liked songs..." = "좋아요 표시한 노래 로드 중...";
+
+"Loading lyrics..." = "가사 로드 중...";
+
+"Loading moods & genres..." = "분위기 및 장르 로드 중...";
+
+"Loading more..." = "더 로드 중...";
+
+"Loading new releases..." = "새 앨범 로드 중...";
+
+"Loading playlist..." = "재생목록 로드 중...";
+
+"Loading podcasts..." = "팟캐스트 로드 중...";
+
+"Loading songs..." = "노래 로드 중...";
+
+"Loading your library..." = "보관함 로드 중...";
+
+"Loading..." = "로드 중...";
+
+"Lyrics" = "가사";
+
+"Media Keys" = "미디어 키";
+
+"Mix" = "믹스";
+
+"Moods & Genres" = "분위기 및 장르";
+
+"Move to End" = "맨 끝으로 이동";
+
+"Move to Top" = "맨 위로 이동";
+
+"Mute" = "음소거";
+
+"Native Interface" = "네이티브 인터페이스";
+
+"Never checked" = "확인한 적 없음";
+
+"New Releases" = "새 앨범";
+
+"Next" = "다음";
+
+"Next track" = "다음 트랙";
+
+
+"Next/Previous Track" = "다음/이전 트랙";
+"No Connection" = "연결 없음";
+
+"No Content Available" = "사용 가능한 콘텐츠 없음";
+
+"No Lyrics Available" = "가사 없음";
+
+"No Moods & Genres Available" = "분위기 및 장르 없음";
+
+"No Queue" = "대기열 없음";
+
+"No Song Playing" = "재생 중인 노래 없음";
+
+"No artists yet" = "아직 아티스트가 없습니다";
+
+"No changes suggested. The playlist looks good!" = "변경 사항이 없습니다. 재생목록이 좋아 보여요!";
+
+"No liked songs yet" = "아직 좋아요 표시한 노래가 없습니다";
+
+"No playlists yet" = "아직 재생목록이 없습니다";
+
+"No podcasts yet" = "아직 팟캐스트가 없습니다";
+
+"No results found" = "검색 결과 없음";
+
+"No songs or playlists found in this category." = "이 카테고리에서 노래나 재생목록을 찾을 수 없습니다.";
+
+"Not Enabled" = "활성화되지 않음";
+
+"Not Supported" = "지원되지 않음";
+
+"Not connected" = "연결되지 않음";
+
+"Not disliked" = "싫어요 취소됨";
+
+"Not liked" = "좋아요 취소됨";
+
+"Not signed in" = "로그인되지 않음";
+
+/* Login help text about passkey alternative */
+"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "참고: 패스키가 작동하지 않으면 \"다른 방법 시도\"를 사용하여 비밀번호로 로그인하세요.";
+
+
+"Now Playing Controls" = "지금 재생 중 컨트롤";
+"OK" = "확인";
+
+"Off" = "끔";
+
+"On" = "켬";
+
+"One" = "한 곡";
+
+"Open queue in side panel" = "사이드 패널에서 대기열 열기";
+
+"Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "자연어로 음악을 제어하려면 명령 막대를 여세요. \"편안한 음악 재생\" 또는 \"재즈를 대기열에 추가\"라고 말해 보세요.";
+
+"Pause" = "일시중지";
+
+"Play" = "재생";
+
+"Play All" = "모두 재생";
+
+"Play Latest" = "최신 재생";
+
+"Play Next" = "다음에 재생";
+
+"Play a song to view its lyrics here." = "가사를 보려면 노래를 재생하세요.";
+
+"Play songs from a playlist or album to build your queue." = "대기열을 만들려면 재생목록이나 앨범에서 노래를 재생하세요.";
+
+"Playback" = "재생";
+
+"Played" = "재생됨";
+
+"Playing" = "재생 중";
+
+"Playlist" = "재생목록";
+
+"Playlist not found" = "재생목록을 찾을 수 없음";
+
+"Playlists" = "재생목록";
+
+"Please check your internet connection and try again." = "인터넷 연결을 확인하고 다시 시도해 주세요.";
+
+"Podcasts" = "팟캐스트";
+
+"Press Enter to search" = "Enter 키를 눌러 검색";
+
+"Previous" = "이전";
+
+"Previous track" = "이전 트랙";
+
+"Processing..." = "처리 중...";
+
+"Provide tactile feedback for actions on Force Touch trackpads" = "Force Touch 트랙패드에서 동작에 대한 햅틱 피드백 제공";
+
+"Queue" = "대기열";
+
+"Quick Access" = "빠른 액세스";
+
+"Redo" = "다시 실행";
+
+"Refine" = "다듬기";
+
+"Refine Playlist" = "재생목록 다듬기";
+
+"Release Notes" = "릴리스 노트";
+
+"Remember Shuffle & Repeat" = "셔플 및 반복 기억";
+
+"Remove Dislike" = "싫어요 취소";
+
+"Remove from Favorites" = "즐겨찾기에서 삭제";
+
+"Remove from Queue" = "대기열에서 삭제";
+
+"Repeat" = "반복";
+
+"Repeat All" = "전체 반복";
+
+"Repeat Off" = "반복 끔";
+
+"Repeat One" = "한 곡 반복";
+
+/* Button to retry failed playback */
+"Retry" = "다시 시도";
+
+"Save playlists and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고 팟캐스트를 구독하세요.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고, 아티스트를 구독하고, 팟캐스트를 구독하세요.";
+
+"Save shuffle and repeat settings across app restarts" = "앱을 다시 시작해도 셔플 및 반복 설정 유지";
+
+"Scrobbling" = "스크로블링";
+
+"Search" = "검색";
+
+"Search for your favorite music" = "좋아하는 음악 검색";
+
+"Search songs, albums, artists..." = "노래, 앨범, 아티스트 검색...";
+
+"Searching..." = "검색 중...";
+
+"See all" = "모두 보기";
+
+/* Placeholder shown when no sidebar item is selected */
+"Select an item from the sidebar" = "사이드바에서 항목을 선택하세요";
+
+"Share" = "공유";
+
+"Show All" = "모두 표시";
+
+"Show Lyrics" = "가사 표시";
+
+"Show Now Playing Notifications" = "지금 재생 중 알림 표시";
+
+"Showing" = "표시 중";
+
+"Shuffle" = "셔플";
+
+"Shuffle Off" = "셔플 끔";
+
+"Shuffle On" = "셔플 켬";
+
+"Sign Out" = "로그아웃";
+
+"Sign in to YouTube Music" = "YouTube Music에 로그인";
+
+"Sign in to access your YouTube Music library" = "YouTube Music 보관함에 액세스하려면 로그인하세요";
+
+"Sign in with Google" = "Google로 로그인";
+
+"Signed in to YouTube Music" = "YouTube Music에 로그인됨";
+
+
+"Skip Forward/Backward" = "앞으로/뒤로 건너뛰기";
+"Software Update" = "소프트웨어 업데이트";
+
+"Songs" = "노래";
+
+"Songs you like will appear here" = "좋아요 표시한 노래가 여기에 표시됩니다";
+
+"Start Radio" = "라디오 시작";
+
+"Subscribe" = "구독";
+
+"Subscribe %@" = "구독 %@";
+
+"Subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 팟캐스트를 구독하세요.";
+
+"Subscribed" = "구독중";
+
+"Subscription Error" = "구독 오류";
+
+"Suggested Removals" = "삭제 추천";
+
+"Switch Account" = "계정 전환";
+
+"System Default" = "시스템 기본값";
+
+"Tap to retry" = "탭하여 다시 시도";
+
+"There aren't any lyrics available for this song." = "이 노래에 사용할 수 있는 가사가 없습니다.";
+
+"This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." = "이 Mac은 Apple Intelligence를 지원하지 않습니다. Apple Silicon Mac이 필요합니다.";
+
+"Top songs" = "인기곡";
+
+"Try Again" = "다시 시도";
+
+"Try commands like:" = "다음과 같은 명령을 시도해 보세요:";
+
+"Try searching for something else" = "다른 항목을 검색해 보세요";
+
+"Unable to determine availability" = "사용 가능 여부를 확인할 수 없음";
+
+"Unable to load artist" = "아티스트를 로드할 수 없음";
+
+"Unable to load content" = "콘텐츠를 로드할 수 없음";
+
+"Unable to load playlist" = "재생목록을 로드할 수 없음";
+
+"Unavailable" = "사용 불가";
+
+"Undo" = "실행 취소";
+
+"Unknown" = "알 수 없음";
+
+"Unknown Artist" = "알 수 없는 아티스트";
+
+"Unlike" = "좋아요 취소";
+
+"Unmute" = "음소거 해제";
+
+"Up Next" = "다음 트랙";
+
+"Updates" = "업데이트";
+
+"Version" = "버전";
+
+"Video" = "동영상";
+
+"View Album" = "앨범 보기";
+
+"View Artist" = "아티스트 보기";
+
+"View Playlist" = "재생목록 보기";
+
+"View Podcast" = "팟캐스트 보기";
+
+"Volume Down" = "볼륨 줄이기";
+
+"Volume Up" = "볼륨 높이기";
+
+"Waiting for authorization…" = "인증 대기 중…";
+
+"Welcome to Kaset" = "Kaset에 오신 것을 환영합니다";
+
+"What would you like to change?" = "무엇을 변경하시겠습니까?";
+
+"What would you like to do with your queue?" = "대기열로 무엇을 하시겠습니까?";
+
+"What would you like to do?" = "무엇을 하시겠습니까?";
+
+"What's New in Kaset" = "Kaset의 새로운 기능";
+
+"When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." = "활성화하면 자연어 명령, AI 기반 재생목록 다듬기, 가사 설명을 사용할 수 있습니다.";
+
+"Your Library" = "내 보관함";
+
+"Your library is empty" = "보관함이 비어 있습니다";

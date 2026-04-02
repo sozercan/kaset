@@ -72,6 +72,14 @@ struct GeneralSettingsView: View {
                     }
                 }
 
+                // Content Language
+                Picker("Content Language", selection: self.$settings.contentLanguage) {
+                    ForEach(SettingsManager.ContentLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .help("Choose the language for the app interface")
+
                 // Image Cache
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {

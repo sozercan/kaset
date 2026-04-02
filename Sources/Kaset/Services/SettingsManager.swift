@@ -21,6 +21,7 @@ final class SettingsManager {
         static let mediaControlStyle = "settings.mediaControlStyle"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
+        static let contentLanguage = "settings.contentLanguage"
     }
 
     // MARK: - Launch Page Options
@@ -64,6 +65,51 @@ final class SettingsManager {
             case .likedMusic: .likedMusic
             case .playlists: .library
             case .lastUsed: .home // Fallback, actual value comes from lastUsedPage
+            }
+        }
+    }
+
+    // MARK: - Content Language
+
+    /// Available language options for app UI localization.
+    enum ContentLanguage: String, CaseIterable, Identifiable {
+        case system
+        case english
+        case korean
+        case arabic
+        case turkish
+
+        var id: String {
+            rawValue
+        }
+
+        var displayName: String {
+            switch self {
+            case .system: String(localized: "System Default")
+            case .english: "English"
+            case .korean: "한국어"
+            case .arabic: "العربية"
+            case .turkish: "Türkçe"
+            }
+        }
+
+        /// The language code for bundle lookup, or `nil` for the system default.
+        var languageCode: String? {
+            switch self {
+            case .system: nil
+            case .english: "en"
+            case .korean: "ko"
+            case .arabic: "ar"
+            case .turkish: "tr"
+            }
+        }
+
+        /// The locale matching this language selection.
+        var locale: Locale {
+            if let code = self.languageCode {
+                Locale(identifier: code)
+            } else {
+                Locale.current
             }
         }
     }
@@ -183,6 +229,14 @@ final class SettingsManager {
         }
     }
 
+    /// The language used for the app interface.
+    var contentLanguage: ContentLanguage {
+        didSet {
+            UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
+            AppLocalization.setLanguage(self.contentLanguage.languageCode)
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -220,6 +274,16 @@ final class SettingsManager {
         } else {
             self.defaultLaunchPage = .home
         }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.contentLanguage),
+           let language = ContentLanguage(rawValue: rawValue)
+        {
+            self.contentLanguage = language
+        } else {
+            self.contentLanguage = .system
+        }
+
+        AppLocalization.setLanguage(self.contentLanguage.languageCode)
 
         // Persist migration from legacy lastFMEnabled key (must run after all properties initialized)
         if UserDefaults.standard.object(forKey: Keys.enabledServices) == nil,

@@ -37,6 +37,7 @@ struct KasetApp: App {
     @State private var accountService: AccountService?
     @State private var scrobblingCoordinator: ScrobblingCoordinator
     @State private var syncedLyricsService: SyncedLyricsService
+    @State private var settings = SettingsManager.shared
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -51,6 +52,8 @@ struct KasetApp: App {
     @State private var showWhatsNew = false
 
     init() {
+        Bundle.enableAppLocalizationOverride()
+
         let auth = AuthService()
         let webkit = WebKitManager.shared
         let player = PlayerService()
@@ -116,6 +119,8 @@ struct KasetApp: App {
                     .frame(width: 1, height: 1)
             } else {
                 MainWindow(navigationSelection: self.$navigationSelection, client: self.sharedClient)
+                    .id(self.settings.contentLanguage)
+                    .environment(\.locale, self.settings.contentLanguage.locale)
                     .environment(self.authService)
                     .environment(self.webKitManager)
                     .environment(self.playerService)
@@ -156,6 +161,7 @@ struct KasetApp: App {
 
         Settings {
             SettingsView()
+                .environment(\.locale, self.settings.contentLanguage.locale)
                 .environment(self.authService)
                 .environment(self.updaterService)
                 .environment(self.scrobblingCoordinator)
