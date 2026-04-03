@@ -119,29 +119,33 @@ enum SongActionsHelper {
 
     /// Likes a song via the API (does not play the song).
     static func likeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
+        let activeAccountID = likeStatusManager.activeAccountID
         Task {
-            await likeStatusManager.like(song)
+            await likeStatusManager.like(song, accountID: activeAccountID)
         }
     }
 
     /// Unlikes a song (removes the like rating) via the API.
     static func unlikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
+        let activeAccountID = likeStatusManager.activeAccountID
         Task {
-            await likeStatusManager.unlike(song)
+            await likeStatusManager.unlike(song, accountID: activeAccountID)
         }
     }
 
     /// Dislikes a song via the API (does not play the song).
     static func dislikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
+        let activeAccountID = likeStatusManager.activeAccountID
         Task {
-            await likeStatusManager.dislike(song)
+            await likeStatusManager.dislike(song, accountID: activeAccountID)
         }
     }
 
     /// Undislikes a song (removes the dislike rating) via the API.
     static func undislikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
+        let activeAccountID = likeStatusManager.activeAccountID
         Task {
-            await likeStatusManager.undislike(song)
+            await likeStatusManager.undislike(song, accountID: activeAccountID)
         }
     }
 

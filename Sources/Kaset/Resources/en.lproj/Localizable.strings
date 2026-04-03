@@ -83,6 +83,10 @@
 
 "Check for Updates..." = "Check for Updates...";
 
+"Choose the language for the app interface" = "Choose the language for the app interface";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "Choose which buttons appear in the Now Playing widget in Control Center";
 "Clear" = "Clear";
 
 "Clear AI Context" = "Clear AI Context";
@@ -110,6 +114,8 @@
 "Connect" = "Connect";
 
 "Connected as %@" = "Connected as %@";
+
+"Content Language" = "Content Language";
 
 "Content may not be available in your region." = "Content may not be available in your region.";
 
@@ -151,6 +157,8 @@
 
 "Enable Apple Intelligence in System Settings to use AI features." = "Enable Apple Intelligence in System Settings to use AI features.";
 
+
+"Enable Synced Lyrics" = "Enable Synced Lyrics";
 "Episodes" = "Episodes";
 
 "Error: %@" = "Error: %@";
@@ -171,6 +179,8 @@
 
 "Featured playlists" = "Featured playlists";
 
+
+"Fetch and display real-time synced lyrics when available" = "Fetch and display real-time synced lyrics when available";
 "Find songs, albums, artists, and playlists" = "Find songs, albums, artists, and playlists";
 
 "Follow artists on YouTube Music to see them here." = "Follow artists on YouTube Music to see them here.";
@@ -269,6 +279,8 @@
 
 "Next track" = "Next track";
 
+
+"Next/Previous Track" = "Next/Previous Track";
 "No Connection" = "No Connection";
 
 "No Content Available" = "No Content Available";
@@ -310,6 +322,8 @@
 /* Login help text about passkey alternative */
 "Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Note: If passkeys don't work, use \"Try another way\" to sign in with password.";
 
+
+"Now Playing Controls" = "Now Playing Controls";
 "OK" = "OK";
 
 "Off" = "Off";
@@ -440,6 +454,8 @@
 
 "Signed in to YouTube Music" = "Signed in to YouTube Music";
 
+
+"Skip Forward/Backward" = "Skip Forward/Backward";
 "Software Update" = "Software Update";
 
 "Songs" = "Songs";
@@ -461,6 +477,8 @@
 "Suggested Removals" = "Suggested Removals";
 
 "Switch Account" = "Switch Account";
+
+"System Default" = "System Default";
 
 "Tap to retry" = "Tap to retry";
 

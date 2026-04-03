@@ -248,8 +248,8 @@ struct SongMetadataParserTests {
         #expect(result.likeStatus == .dislike)
     }
 
-    @Test("parseMenuData defaults to indifferent")
-    func parseMenuDataDefaultsToIndifferent() {
+    @Test("parseMenuData preserves explicit indifferent status")
+    func parseMenuDataPreservesExplicitIndifferentStatus() {
         let renderer: [String: Any] = [
             "menu": [
                 "menuRenderer": [
@@ -268,6 +268,21 @@ struct SongMetadataParserTests {
         let result = SongMetadataParser.parseMenuData(from: renderer)
 
         #expect(result.likeStatus == .indifferent)
+    }
+
+    @Test("parseMenuData leaves like status unknown when like button is missing")
+    func parseMenuDataLeavesLikeStatusUnknownWhenLikeButtonIsMissing() {
+        let renderer: [String: Any] = [
+            "menu": [
+                "menuRenderer": [
+                    "items": [] as [[String: Any]],
+                ],
+            ],
+        ]
+
+        let result = SongMetadataParser.parseMenuData(from: renderer)
+
+        #expect(result.likeStatus == nil)
     }
 
     @Test("parseMenuData extracts library add token")
@@ -302,7 +317,7 @@ struct SongMetadataParserTests {
 
         let result = SongMetadataParser.parseMenuData(from: renderer)
 
-        #expect(result.likeStatus == .indifferent)
+        #expect(result.likeStatus == nil)
         #expect(result.isInLibrary == false)
         #expect(result.feedbackTokens == nil)
     }

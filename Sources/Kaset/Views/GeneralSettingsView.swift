@@ -49,6 +49,10 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
                     .help("Fetch and display real-time synced lyrics when available")
 
+                // Romanization
+                Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
+                    .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
+
                 // Remember Playback Settings
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
@@ -67,6 +71,14 @@ struct GeneralSettingsView: View {
                         Text(page.displayName).tag(page)
                     }
                 }
+
+                // Content Language
+                Picker("Content Language", selection: self.$settings.contentLanguage) {
+                    ForEach(SettingsManager.ContentLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .help("Choose the language for the app interface")
 
                 // Image Cache
                 HStack {

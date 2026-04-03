@@ -83,6 +83,10 @@
 
 "Check for Updates..." = "التحقق من التحديثات...";
 
+"Choose the language for the app interface" = "اختر لغة واجهة التطبيق";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "اختر الأزرار التي تظهر في أداة التشغيل الحالي في مركز التحكم";
 "Clear" = "مسح";
 
 "Clear AI Context" = "مسح سياق الذكاء الاصطناعي";
@@ -110,6 +114,8 @@
 "Connect" = "اتصال";
 
 "Connected as %@" = "متصل كـ %@";
+
+"Content Language" = "لغة المحتوى";
 
 "Content may not be available in your region." = "قد لا يكون المحتوى متاحًا في منطقتك.";
 
@@ -151,6 +157,8 @@
 
 "Enable Apple Intelligence in System Settings to use AI features." = "فعّل ذكاء Apple في إعدادات النظام لاستخدام ميزات الذكاء الاصطناعي.";
 
+
+"Enable Synced Lyrics" = "تفعيل كلمات الأغاني المتزامنة";
 "Episodes" = "الحلقات";
 
 "Error: %@" = "خطأ: %@";
@@ -171,6 +179,8 @@
 
 "Featured playlists" = "قوائم تشغيل مميزة";
 
+
+"Fetch and display real-time synced lyrics when available" = "جلب وعرض كلمات الأغاني المتزامنة في الوقت الفعلي عند توفرها";
 "Find songs, albums, artists, and playlists" = "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل";
 
 "Follow artists on YouTube Music to see them here." = "تابع الفنانين على YouTube Music لتراهم هنا.";
@@ -269,6 +279,8 @@
 
 "Next track" = "المقطع التالي";
 
+
+"Next/Previous Track" = "المسار التالي/السابق";
 "No Connection" = "لا يوجد اتصال";
 
 "No Content Available" = "لا يتوفر محتوى";
@@ -310,6 +322,8 @@
 /* Login help text about passkey alternative */
 "Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "ملاحظة: إذا لم تعمل مفاتيح المرور، استخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور.";
 
+
+"Now Playing Controls" = "عناصر التحكم في التشغيل الحالي";
 "OK" = "حسنًا";
 
 "Off" = "معطّل";
@@ -440,6 +454,8 @@
 
 "Signed in to YouTube Music" = "تم تسجيل الدخول إلى YouTube Music";
 
+
+"Skip Forward/Backward" = "تخطي للأمام/للخلف";
 "Software Update" = "تحديث البرنامج";
 
 "Songs" = "أغاني";
@@ -461,6 +477,8 @@
 "Suggested Removals" = "إزالات مقترحة";
 
 "Switch Account" = "تبديل الحساب";
+
+"System Default" = "الافتراضي للنظام";
 
 "Tap to retry" = "انقر لإعادة المحاولة";
 

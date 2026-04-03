@@ -22,6 +22,7 @@ struct MainWindow: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -208,18 +209,44 @@ struct MainWindow: View {
             }
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
-            // Refresh all content when user switches accounts
-            guard newAccountId != nil else { return }
-            DiagnosticsLogger.auth.info("Account switched, refreshing content...")
-            // Clear API cache to ensure fresh data for new account
+            self.playerService.resetTrackStatus()
+
             Task { @MainActor in
                 APICache.shared.invalidateAll()
                 URLCache.shared.removeAllCachedResponses()
-                await self.refreshAllContent()
+
+                guard newAccountId != nil else { return }
+
+                DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
+
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await self.refreshAllContent()
+                    }
+
+                    if let currentVideoId = self.playerService.currentTrack?.videoId {
+                        group.addTask {
+                            await self.playerService.fetchSongMetadata(videoId: currentVideoId)
+                        }
+                    }
+                }
             }
         }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+
+            // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
+            if let currentVideoId = self.playerService.currentTrack?.videoId,
+               event.videoId == currentVideoId
+            {
+                self.playerService.currentTrackLikeStatus = event.status
+            }
+
+            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
+            self.likedMusicViewModel?.handleLikeStatusChange(event)
         }
     }
 

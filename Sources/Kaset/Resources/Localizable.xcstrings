@@ -10,6 +10,12 @@
             "value" : "%lld أغنية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld곡"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26,10 +32,60 @@
             "value" : "تجربة YouTube Music أصلية لنظام macOS"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS를 위한 네이티브 YouTube Music 환경"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "macOS için yerel bir YouTube Music deneyimi"
+          }
+        }
+      }
+    },
+    "AI responses follow your system language settings." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تتبع استجابات الذكاء الاصطناعي إعدادات لغة النظام."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 응답은 시스템 언어 설정을 따릅니다."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yapay zeka yanıtları sistem dil ayarlarınıza uyar."
+          }
+        }
+      }
+    },
+    "About" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حول"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정보"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hakkında"
           }
         }
       }
@@ -42,10 +98,38 @@
             "value" : "الوصول إلى قوائم التشغيل والأغاني المفضلة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록과 좋아요 표시한 노래에 액세스하세요"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalma listelerinize ve beğendiğiniz şarkılara erişin"
+          }
+        }
+      }
+    },
+    "Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحساب"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hesap"
           }
         }
       }
@@ -56,6 +140,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إضافة إلى المفضلة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "즐겨찾기에 추가"
           }
         },
         "tr" : {
@@ -74,6 +164,12 @@
             "value" : "إضافة إلى المكتبة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함에 추가"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -88,6 +184,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إضافة إلى قائمة الانتظار"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기열에 추가"
           }
         },
         "tr" : {
@@ -106,6 +208,12 @@
             "value" : "تمت الإضافة إلى المكتبة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함에 추가됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -117,6 +225,12 @@
     "AirPlay" : {
       "localizations" : {
         "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "AirPlay"
@@ -138,6 +252,12 @@
             "value" : "AirPlay متصل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay 연결됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -152,6 +272,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ألبوم"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앨범"
           }
         },
         "tr" : {
@@ -170,6 +296,12 @@
             "value" : "ألبومات"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앨범"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -184,6 +316,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الكل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체"
           }
         },
         "tr" : {
@@ -202,6 +340,12 @@
             "value" : "جميع الحلقات"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 에피소드"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -216,6 +360,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "حدث خطأ غير معروف"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 오류가 발생했습니다"
           }
         },
         "tr" : {
@@ -234,6 +384,12 @@
             "value" : "تحليل قائمة التشغيل..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록 분석 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -250,10 +406,60 @@
             "value" : "جاري التحليل..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분석 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Analiz ediliyor..."
+          }
+        }
+      }
+    },
+    "Apple Intelligence" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذكاء Apple"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        }
+      }
+    },
+    "Apple Intelligence & Siri Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعدادات ذكاء Apple و Siri"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence 및 Siri 설정"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence ve Siri Ayarları"
           }
         }
       }
@@ -264,6 +470,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ذكاء Apple غير متاح حاليًا."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence를 현재 사용할 수 없습니다."
           }
         },
         "tr" : {
@@ -282,6 +494,12 @@
             "value" : "جارٍ تنزيل ذكاء Apple. قد يستغرق هذا بضع دقائق."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence를 다운로드하는 중입니다. 몇 분 정도 걸릴 수 있습니다."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -296,6 +514,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ذكاء Apple غير متاح"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence를 사용할 수 없음"
           }
         },
         "tr" : {
@@ -314,6 +538,12 @@
             "value" : "ذكاء Apple جاهز للاستخدام"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence를 사용할 준비가 되었습니다"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -330,26 +560,16 @@
             "value" : "تطبيق التغييرات"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Değişiklikleri Uygula"
-          }
-        }
-      }
-    },
-    "Artist not found" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الفنان غير موجود"
+            "value" : "변경사항 적용"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sanatçı bulunamadı"
+            "value" : "Değişiklikleri Uygula"
           }
         }
       }
@@ -362,10 +582,38 @@
             "value" : "فنان"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçı"
+          }
+        }
+      }
+    },
+    "Artist not found" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الفنان غير موجود"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트를 찾을 수 없음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sanatçı bulunamadı"
           }
         }
       }
@@ -376,6 +624,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "فنانون"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트"
           }
         },
         "tr" : {
@@ -394,6 +648,12 @@
             "value" : "اسأل الذكاء الاصطناعي (⌘K)"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI에게 질문 (⌘K)"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -410,10 +670,38 @@
             "value" : "اسأل أي شيء عن الموسيقى..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "음악에 대해 무엇이든 물어보세요..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Müzik hakkında istediğinizi sorun..."
+          }
+        }
+      }
+    },
+    "Automatically check for updates" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحقق تلقائيًا من التحديثات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자동으로 업데이트 확인"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güncellemeleri otomatik denetle"
           }
         }
       }
@@ -424,6 +712,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "متاح"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가능"
           }
         },
         "tr" : {
@@ -442,6 +736,12 @@
             "value" : "التشغيل في الخلفية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "백그라운드 재생"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -456,6 +756,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مبنية بـ SwiftUI لتجربة macOS حقيقية"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "진정한 macOS 환경을 위해 SwiftUI로 제작"
           }
         },
         "tr" : {
@@ -474,6 +780,12 @@
             "value" : "جارٍ الحساب..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계산 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -488,6 +800,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إلغاء"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
           }
         },
         "tr" : {
@@ -506,6 +824,12 @@
             "value" : "غيّر لغة النظام إلى الإنجليزية أو لغة مدعومة أخرى."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템 언어를 영어 또는 다른 지원 언어로 변경하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -519,13 +843,107 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "رائج"
+            "value" : "الأكثر رواجًا"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차트"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Listeler"
+          }
+        }
+      }
+    },
+    "Check Now" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحقق الآن"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 확인"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şimdi Denetle"
+          }
+        }
+      }
+    },
+    "Check for Updates..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحقق من التحديثات..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "업데이트 확인..."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güncellemeleri Denetle..."
+          }
+        }
+      }
+    },
+    "Choose the language for the app interface" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اختر لغة واجهة التطبيق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱 인터페이스 언어를 선택하세요"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uygulama arayüzü dilini seçin"
+          }
+        }
+      }
+    },
+    "Choose which buttons appear in the Now Playing widget in Control Center" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اختر الأزرار التي تظهر في أداة التشغيل الحالي في مركز التحكم"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제어 센터의 지금 재생 중 위젯에 표시할 버튼을 선택하세요"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kontrol Merkezi'ndeki Şu An Çalıyor widget'ında hangi düğmelerin görüneceğini seçin"
           }
         }
       }
@@ -538,10 +956,38 @@
             "value" : "مسح"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지우기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temizle"
+          }
+        }
+      }
+    },
+    "Clear AI Context" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح سياق الذكاء الاصطناعي"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 컨텍스트 지우기"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yapay Zeka Bağlamını Temizle"
           }
         }
       }
@@ -552,6 +998,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مسح ذاكرة التخزين المؤقت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캐시 지우기"
           }
         },
         "tr" : {
@@ -570,6 +1022,12 @@
             "value" : "مسح المدخلات"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "입력 지우기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -584,6 +1042,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مسح البحث"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 지우기"
           }
         },
         "tr" : {
@@ -602,10 +1066,38 @@
             "value" : "جارٍ المسح..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지우는 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temizleniyor..."
+          }
+        }
+      }
+    },
+    "Clears the AI session state. Use this if responses seem off or stuck." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يمسح حالة جلسة الذكاء الاصطناعي. استخدمه إذا بدت الاستجابات غير صحيحة أو متوقفة."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 세션 상태를 지웁니다. 응답이 이상하거나 멈춘 것 같으면 사용하세요."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yapay zeka oturum durumunu temizler. Yanıtlar garip görünüyorsa veya takılı kaldıysa bunu kullanın."
           }
         }
       }
@@ -616,6 +1108,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إغلاق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
           }
         },
         "tr" : {
@@ -634,6 +1132,12 @@
             "value" : "إغلاق اللوحة الجانبية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드 패널 닫기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -650,10 +1154,38 @@
             "value" : "المجموعة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컬렉션"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Koleksiyon"
+          }
+        }
+      }
+    },
+    "Command Bar" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شريط الأوامر"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "명령 막대"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komut Çubuğu"
           }
         }
       }
@@ -666,10 +1198,38 @@
             "value" : "قوائم تشغيل المجتمع"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커뮤니티 재생목록"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Topluluk Çalma Listeleri"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اتصال"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bağlan"
           }
         }
       }
@@ -682,10 +1242,38 @@
             "value" : "متصل كـ %@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(으)로 연결됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ olarak bağlı"
+          }
+        }
+      }
+    },
+    "Content Language" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لغة المحتوى"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "콘텐츠 언어"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İçerik Dili"
           }
         }
       }
@@ -696,6 +1284,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "قد لا يكون المحتوى متاحًا في منطقتك."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 지역에서 콘텐츠를 사용하지 못할 수 있습니다."
           }
         },
         "tr" : {
@@ -714,6 +1308,12 @@
             "value" : "متابعة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계속"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -728,6 +1328,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تحكم في التشغيل باستخدام لوحة المفاتيح"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키보드로 재생을 제어하세요"
           }
         },
         "tr" : {
@@ -746,6 +1352,12 @@
             "value" : "تعذّر إنشاء جلسة الذكاء الاصطناعي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 세션을 생성할 수 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -760,6 +1372,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تعذّر البحث عن الموسيقى"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "음악을 검색할 수 없음"
           }
         },
         "tr" : {
@@ -778,6 +1396,12 @@
             "value" : "أنشئ أو احفظ قوائم التشغيل على YouTube Music لتراها هنا."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 보려면 YouTube Music에서 재생목록을 만들거나 저장하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -786,18 +1410,46 @@
         }
       }
     },
-    "Follow artists on YouTube Music to see them here." : {
+    "Default Page on Launch" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "تابع الفنانين على YouTube Music لتراهم هنا."
+            "value" : "الصفحة الافتراضية عند التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 시 기본 페이지"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Burada görmek için YouTube Music'te sanatçıları takip edin."
+            "value" : "Açılışta Varsayılan Sayfa"
+          }
+        }
+      }
+    },
+    "Disconnect" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "قطع الاتصال"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결 해제"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bağlantıyı Kes"
           }
         }
       }
@@ -808,6 +1460,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "اكتشاف"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "둘러보기"
           }
         },
         "tr" : {
@@ -826,6 +1484,12 @@
             "value" : "لم يعجبني"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "싫어요"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -840,6 +1504,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "لم يعجبني"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "싫어요 표시됨"
           }
         },
         "tr" : {
@@ -858,6 +1528,12 @@
             "value" : "إغلاق"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -872,6 +1548,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تم"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료"
           }
         },
         "tr" : {
@@ -890,6 +1572,12 @@
             "value" : "انقر مرتين لإعادة المحاولة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도하려면 두 번 탭하세요"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -904,6 +1592,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "انقر مرتين لتبديل الحسابات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 전환하려면 두 번 탭하세요"
           }
         },
         "tr" : {
@@ -922,6 +1616,12 @@
             "value" : "جارٍ التنزيل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다운로드 중"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -936,6 +1636,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "اسحب لإعادة الترتيب"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "드래그하여 순서 변경"
           }
         },
         "tr" : {
@@ -954,10 +1660,38 @@
             "value" : "تعديل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "편집"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Düzenle"
+          }
+        }
+      }
+    },
+    "Enable AI Features" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تفعيل ميزات الذكاء الاصطناعي"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 기능 활성화"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yapay Zeka Özelliklerini Etkinleştir"
           }
         }
       }
@@ -970,10 +1704,38 @@
             "value" : "فعّل ذكاء Apple في إعدادات النظام لاستخدام ميزات الذكاء الاصطناعي."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 기능을 사용하려면 시스템 설정에서 Apple Intelligence를 활성화하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yapay zeka özelliklerini kullanmak için Sistem Ayarları'nda Apple Intelligence'ı etkinleştirin."
+          }
+        }
+      }
+    },
+    "Enable Synced Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تفعيل كلمات الأغاني المتزامنة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실시간 가사 활성화"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Senkronize Şarkı Sözlerini Etkinleştir"
           }
         }
       }
@@ -984,6 +1746,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الحلقات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "에피소드"
           }
         },
         "tr" : {
@@ -1002,6 +1770,12 @@
             "value" : "خطأ: %@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오류: %@"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1016,6 +1790,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "شرح الكلمات بالذكاء الاصطناعي"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI로 가사 설명"
           }
         },
         "tr" : {
@@ -1034,6 +1814,12 @@
             "value" : "استكشاف"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "둘러보기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1048,6 +1834,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "فشل التحميل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로드 실패"
           }
         },
         "tr" : {
@@ -1066,6 +1858,12 @@
             "value" : "فشل تحميل الحسابات"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 로드 실패"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1080,6 +1878,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "فشل تحميل الحسابات. يرجى المحاولة مرة أخرى."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 로드하지 못했습니다. 다시 시도해 주세요."
           }
         },
         "tr" : {
@@ -1098,6 +1902,12 @@
             "value" : "فشل تبديل الحساب. يرجى المحاولة مرة أخرى."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 전환하지 못했습니다. 다시 시도해 주세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1112,6 +1922,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "المفضلة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "즐겨찾기"
           }
         },
         "tr" : {
@@ -1130,10 +1946,38 @@
             "value" : "قوائم تشغيل مميزة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추천 재생목록"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Öne Çıkan Çalma Listeleri"
+          }
+        }
+      }
+    },
+    "Fetch and display real-time synced lyrics when available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جلب وعرض كلمات الأغاني المتزامنة في الوقت الفعلي عند توفرها"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가능한 경우 실시간 동기화 가사를 가져와 표시합니다"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mevcut olduğunda gerçek zamanlı senkronize şarkı sözlerini getir ve göster"
           }
         }
       }
@@ -1146,10 +1990,82 @@
             "value" : "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "노래, 앨범, 아티스트, 재생목록 찾기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkıları, albümleri, sanatçıları ve çalma listelerini bulun"
+          }
+        }
+      }
+    },
+    "Follow artists on YouTube Music to see them here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تابع الفنانين على YouTube Music لتراهم هنا."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 보려면 YouTube Music에서 아티스트를 구독하세요."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Burada görmek için YouTube Music'te sanatçıları takip edin."
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عام"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일반"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genel"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
           }
         }
       }
@@ -1160,6 +2076,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الانتقال إلى الألبوم"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앨범으로 이동"
           }
         },
         "tr" : {
@@ -1178,10 +2100,38 @@
             "value" : "الانتقال إلى الفنان"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트로 이동"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçıya Git"
+          }
+        }
+      }
+    },
+    "Haptic Feedback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاستجابة اللمسية"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "햅틱 피드백"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptik Geri Bildirim"
           }
         }
       }
@@ -1194,10 +2144,38 @@
             "value" : "مخفي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "숨김"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gizli"
+          }
+        }
+      }
+    },
+    "Hide Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إخفاء الكلمات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 숨기기"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şarkı Sözlerini Gizle"
           }
         }
       }
@@ -1208,6 +2186,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إخفاء شرح الكلمات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 설명 숨기기"
           }
         },
         "tr" : {
@@ -1226,6 +2210,12 @@
             "value" : "الأبرز"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하이라이트"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1242,10 +2232,38 @@
             "value" : "الرئيسية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ana Sayfa"
+          }
+        }
+      }
+    },
+    "Image Cache" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ذاكرة التخزين المؤقت للصور"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미지 캐시"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Görüntü Önbelleği"
           }
         }
       }
@@ -1258,10 +2276,38 @@
             "value" : "في المكتبة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함에 저장됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplıkta"
+          }
+        }
+      }
+    },
+    "Intelligence" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الذكاء"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인텔리전스"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yapay Zeka"
           }
         }
       }
@@ -1272,6 +2318,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "استمر في الاستماع حتى عند إغلاق النافذة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "창이 닫혀도 계속 재생"
           }
         },
         "tr" : {
@@ -1290,10 +2342,38 @@
             "value" : "اللغة غير مدعومة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지원되지 않는 언어"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dil Desteklenmiyor"
+          }
+        }
+      }
+    },
+    "Last Used" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "آخر استخدام"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 사용"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son Kullanılan"
           }
         }
       }
@@ -1304,6 +2384,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "معرفة المزيد"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "더 알아보기"
           }
         },
         "tr" : {
@@ -1322,6 +2408,12 @@
             "value" : "المكتبة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1336,6 +2428,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "أعجبني"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요"
           }
         },
         "tr" : {
@@ -1354,6 +2452,12 @@
             "value" : "أعجبني"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 표시됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1368,6 +2472,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الموسيقى المعجب بها"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 표시한 음악"
           }
         },
         "tr" : {
@@ -1386,6 +2496,12 @@
             "value" : "تحميل المزيد"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "더 보기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1400,6 +2516,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل الفنان..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트 로드 중..."
           }
         },
         "tr" : {
@@ -1418,6 +2540,12 @@
             "value" : "جارٍ تحميل الأكثر رواجًا..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차트 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1432,6 +2560,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل محتوى الاستكشاف..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "둘러보기 콘텐츠 로드 중..."
           }
         },
         "tr" : {
@@ -1450,6 +2584,12 @@
             "value" : "جارٍ تحميل الأغاني المعجب بها..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 표시한 노래 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1464,6 +2604,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل الكلمات..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 로드 중..."
           }
         },
         "tr" : {
@@ -1482,6 +2628,12 @@
             "value" : "جارٍ تحميل الحالات والأنواع..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분위기 및 장르 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1496,6 +2648,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل المزيد..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "더 로드 중..."
           }
         },
         "tr" : {
@@ -1514,6 +2672,12 @@
             "value" : "جارٍ تحميل الإصدارات الجديدة..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 앨범 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1528,6 +2692,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل قائمة التشغيل..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록 로드 중..."
           }
         },
         "tr" : {
@@ -1546,6 +2716,12 @@
             "value" : "جارٍ تحميل البودكاست..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팟캐스트 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1560,6 +2736,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل الأغاني..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "노래 로드 중..."
           }
         },
         "tr" : {
@@ -1578,6 +2760,12 @@
             "value" : "جارٍ تحميل مكتبتك..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함 로드 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1592,6 +2780,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ التحميل..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로드 중..."
           }
         },
         "tr" : {
@@ -1610,6 +2804,12 @@
             "value" : "كلمات الأغنية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1624,6 +2824,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مفاتيح الوسائط"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "미디어 키"
           }
         },
         "tr" : {
@@ -1642,6 +2848,12 @@
             "value" : "مزيج"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "믹스"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1655,7 +2867,13 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "حالات مزاجية وأنواع"
+            "value" : "حالات وأنواع"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분위기 및 장르"
           }
         },
         "tr" : {
@@ -1674,6 +2892,12 @@
             "value" : "نقل إلى الأسفل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "맨 끝으로 이동"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1690,10 +2914,38 @@
             "value" : "نقل إلى الأعلى"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "맨 위로 이동"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "En Üste Taşı"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "كتم الصوت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "음소거"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi Kapat"
           }
         }
       }
@@ -1706,10 +2958,38 @@
             "value" : "واجهة أصلية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네이티브 인터페이스"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yerel Arayüz"
+          }
+        }
+      }
+    },
+    "Never checked" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم التحقق مطلقًا"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인한 적 없음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiç denetlenmedi"
           }
         }
       }
@@ -1722,10 +3002,38 @@
             "value" : "إصدارات جديدة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 앨범"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yeni Çıkanlar"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التالي"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonraki"
           }
         }
       }
@@ -1738,6 +3046,12 @@
             "value" : "المقطع التالي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 트랙"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1746,18 +3060,24 @@
         }
       }
     },
-    "No changes suggested. The playlist looks good!" : {
+    "Next/Previous Track" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "لا توجد تغييرات مقترحة. قائمة التشغيل تبدو جيدة!"
+            "value" : "المسار التالي/السابق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음/이전 트랙"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Herhangi bir değişiklik önerilmedi. Çalma listesi iyi görünüyor!"
+            "value" : "Sonraki/Önceki Parça"
           }
         }
       }
@@ -1768,6 +3088,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "لا يوجد اتصال"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결 없음"
           }
         },
         "tr" : {
@@ -1786,26 +3112,16 @@
             "value" : "لا يتوفر محتوى"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "İçerik Yok"
-          }
-        }
-      }
-    },
-    "No liked songs yet" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا توجد أغاني معجب بها بعد"
+            "value" : "사용 가능한 콘텐츠 없음"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Henüz beğenilen şarkı yok"
+            "value" : "İçerik Yok"
           }
         }
       }
@@ -1816,6 +3132,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "لا تتوفر كلمات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 없음"
           }
         },
         "tr" : {
@@ -1834,58 +3156,16 @@
             "value" : "لا تتوفر حالات أو أنواع"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분위기 및 장르 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruh Halleri ve Türler Yok"
-          }
-        }
-      }
-    },
-    "No playlists yet" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا توجد قوائم تشغيل بعد"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Henüz çalma listesi yok"
-          }
-        }
-      }
-    },
-    "No artists yet" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا يوجد فنانون بعد"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Henüz sanatçı yok"
-          }
-        }
-      }
-    },
-    "No podcasts yet" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا توجد بودكاست بعد"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Henüz podcast yok"
           }
         }
       }
@@ -1898,26 +3178,16 @@
             "value" : "لا توجد قائمة انتظار"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sıra Boş"
-          }
-        }
-      }
-    },
-    "No results found" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لم يتم العثور على نتائج"
+            "value" : "대기열 없음"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sonuç bulunamadı"
+            "value" : "Sıra Boş"
           }
         }
       }
@@ -1930,10 +3200,148 @@
             "value" : "لا توجد أغنية قيد التشغيل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 중인 노래 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalan Şarkı Yok"
+          }
+        }
+      }
+    },
+    "No artists yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يوجد فنانون بعد"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 아티스트가 없습니다"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Henüz sanatçı yok"
+          }
+        }
+      }
+    },
+    "No changes suggested. The playlist looks good!" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد تغييرات مقترحة. قائمة التشغيل تبدو جيدة!"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 사항이 없습니다. 재생목록이 좋아 보여요!"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herhangi bir değişiklik önerilmedi. Çalma listesi iyi görünüyor!"
+          }
+        }
+      }
+    },
+    "No liked songs yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد أغاني معجب بها بعد"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 좋아요 표시한 노래가 없습니다"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Henüz beğenilen şarkı yok"
+          }
+        }
+      }
+    },
+    "No playlists yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد قوائم تشغيل بعد"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 재생목록이 없습니다"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Henüz çalma listesi yok"
+          }
+        }
+      }
+    },
+    "No podcasts yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد بودكاست بعد"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 팟캐스트가 없습니다"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Henüz podcast yok"
+          }
+        }
+      }
+    },
+    "No results found" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم العثور على نتائج"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 결과 없음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonuç bulunamadı"
           }
         }
       }
@@ -1946,10 +3354,60 @@
             "value" : "لم يتم العثور على أغاني أو قوائم تشغيل في هذه الفئة."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 카테고리에서 노래나 재생목록을 찾을 수 없습니다."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bu kategoride şarkı veya çalma listesi bulunamadı."
+          }
+        }
+      }
+    },
+    "Not Enabled" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير مفعّل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "활성화되지 않음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etkin Değil"
+          }
+        }
+      }
+    },
+    "Not Supported" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "غير مدعوم"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지원되지 않음"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desteklenmiyor"
           }
         }
       }
@@ -1960,6 +3418,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "غير متصل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결되지 않음"
           }
         },
         "tr" : {
@@ -1978,26 +3442,16 @@
             "value" : "غير مرفوض"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Olumsuz oy verilmedi"
-          }
-        }
-      }
-    },
-    "Not Enabled" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "غير مفعّل"
+            "value" : "싫어요 취소됨"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Etkin Değil"
+            "value" : "Olumsuz oy verilmedi"
           }
         }
       }
@@ -2008,6 +3462,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "غير معجب به"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 취소됨"
           }
         },
         "tr" : {
@@ -2026,26 +3486,16 @@
             "value" : "لم يتم تسجيل الدخول"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oturum açık değil"
-          }
-        }
-      }
-    },
-    "Not Supported" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "غير مدعوم"
+            "value" : "로그인되지 않음"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Desteklenmiyor"
+            "value" : "Oturum açık değil"
           }
         }
       }
@@ -2059,6 +3509,12 @@
             "value" : "ملاحظة: إذا لم تعمل مفاتيح المرور، استخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "참고: 패스키가 작동하지 않으면 \"다른 방법 시도\"를 사용하여 비밀번호로 로그인하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2067,18 +3523,24 @@
         }
       }
     },
-    "Off" : {
+    "Now Playing Controls" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "معطّل"
+            "value" : "عناصر التحكم في التشغيل الحالي"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 재생 중 컨트롤"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kapalı"
+            "value" : "Şu An Çalıyor Kontrolleri"
           }
         }
       }
@@ -2091,10 +3553,38 @@
             "value" : "حسنًا"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tamam"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "معطّل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "끔"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapalı"
           }
         }
       }
@@ -2105,6 +3595,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مفعّل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "켬"
           }
         },
         "tr" : {
@@ -2123,6 +3619,12 @@
             "value" : "واحد"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "한 곡"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2139,10 +3641,38 @@
             "value" : "فتح قائمة الانتظار في اللوحة الجانبية"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드 패널에서 대기열 열기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sırayı yan panelde aç"
+          }
+        }
+      }
+    },
+    "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح شريط الأوامر للتحكم بالموسيقى بلغة طبيعية. جرّب قول \"شغّل شيء هادئ\" أو \"أضف جاز إلى قائمة الانتظار\"."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자연어로 음악을 제어하려면 명령 막대를 여세요. \"편안한 음악 재생\" 또는 \"재즈를 대기열에 추가\"라고 말해 보세요."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Müziği doğal dille kontrol etmek için komut çubuğunu açın. \"Rahat bir şey çal\" veya \"sıraya caz ekle\" demeyi deneyin."
           }
         }
       }
@@ -2153,6 +3683,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إيقاف مؤقت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일시중지"
           }
         },
         "tr" : {
@@ -2171,26 +3707,16 @@
             "value" : "تشغيل"
           }
         },
-        "tr" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Çal"
-          }
-        }
-      }
-    },
-    "Play a song to view its lyrics here." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "شغّل أغنية لعرض كلماتها هنا."
+            "value" : "재생"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Şarkı sözlerini burada görmek için bir şarkı çalın."
+            "value" : "Çal"
           }
         }
       }
@@ -2201,6 +3727,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تشغيل الكل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모두 재생"
           }
         },
         "tr" : {
@@ -2219,6 +3751,12 @@
             "value" : "تشغيل الأحدث"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최신 재생"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2235,10 +3773,38 @@
             "value" : "تشغيل التالي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음에 재생"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sonraki Olarak Çal"
+          }
+        }
+      }
+    },
+    "Play a song to view its lyrics here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شغّل أغنية لعرض كلماتها هنا."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사를 보려면 노래를 재생하세요."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şarkı sözlerini burada görmek için bir şarkı çalın."
           }
         }
       }
@@ -2251,10 +3817,38 @@
             "value" : "شغّل أغاني من قائمة تشغيل أو ألبوم لبناء قائمة الانتظار."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기열을 만들려면 재생목록이나 앨범에서 노래를 재생하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıranızı oluşturmak için bir çalma listesinden veya albümden şarkılar çalın."
+          }
+        }
+      }
+    },
+    "Playback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oynatma"
           }
         }
       }
@@ -2265,6 +3859,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تم التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생됨"
           }
         },
         "tr" : {
@@ -2283,6 +3883,12 @@
             "value" : "قيد التشغيل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생 중"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2297,6 +3903,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "قائمة تشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록"
           }
         },
         "tr" : {
@@ -2315,6 +3927,12 @@
             "value" : "قائمة التشغيل غير موجودة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록을 찾을 수 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2329,6 +3947,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "قوائم التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록"
           }
         },
         "tr" : {
@@ -2347,6 +3971,12 @@
             "value" : "يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인터넷 연결을 확인하고 다시 시도해 주세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2361,6 +3991,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "بودكاست"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팟캐스트"
           }
         },
         "tr" : {
@@ -2379,10 +4015,38 @@
             "value" : "اضغط Enter للبحث"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter 키를 눌러 검색"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aramak için Enter'a basın"
+          }
+        }
+      }
+    },
+    "Previous" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "السابق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Önceki"
           }
         }
       }
@@ -2393,6 +4057,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "المقطع السابق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 트랙"
           }
         },
         "tr" : {
@@ -2411,10 +4081,38 @@
             "value" : "جارٍ المعالجة..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "처리 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "İşleniyor..."
+          }
+        }
+      }
+    },
+    "Provide tactile feedback for actions on Force Touch trackpads" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تقديم استجابة لمسية للإجراءات على لوحات التتبع Force Touch"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Force Touch 트랙패드에서 동작에 대한 햅틱 피드백 제공"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Force Touch izleme dörtgenlerindeki eylemler için dokunsal geri bildirim sağlar"
           }
         }
       }
@@ -2427,10 +4125,38 @@
             "value" : "قائمة الانتظار"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기열"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıra"
+          }
+        }
+      }
+    },
+    "Quick Access" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصول سريع"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빠른 액세스"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hızlı Erişim"
           }
         }
       }
@@ -2441,6 +4167,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إعادة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 실행"
           }
         },
         "tr" : {
@@ -2459,6 +4191,12 @@
             "value" : "تحسين"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다듬기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2473,6 +4211,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تحسين قائمة التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록 다듬기"
           }
         },
         "tr" : {
@@ -2491,10 +4235,38 @@
             "value" : "ملاحظات الإصدار"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "릴리스 노트"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sürüm Notları"
+          }
+        }
+      }
+    },
+    "Remember Shuffle & Repeat" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تذكّر الخلط والتكرار"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "셔플 및 반복 기억"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Karıştırma ve Tekrarı Hatırla"
           }
         }
       }
@@ -2505,6 +4277,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إزالة عدم الإعجاب"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "싫어요 취소"
           }
         },
         "tr" : {
@@ -2523,6 +4301,12 @@
             "value" : "إزالة من المفضلة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "즐겨찾기에서 삭제"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2537,6 +4321,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إزالة من قائمة الانتظار"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기열에서 삭제"
           }
         },
         "tr" : {
@@ -2555,10 +4345,82 @@
             "value" : "تكرار"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tekrar"
+          }
+        }
+      }
+    },
+    "Repeat All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكرار الكل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 반복"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tümünü Tekrarla"
+          }
+        }
+      }
+    },
+    "Repeat Off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف التكرار"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복 끔"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tekrar Kapalı"
+          }
+        }
+      }
+    },
+    "Repeat One" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تكرار واحدة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "한 곡 반복"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Birini Tekrarla"
           }
         }
       }
@@ -2570,6 +4432,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إعادة المحاولة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도"
           }
         },
         "tr" : {
@@ -2588,6 +4456,12 @@
             "value" : "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 보려면 YouTube Music에서 재생목록을 저장하고 팟캐스트를 구독하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2604,10 +4478,60 @@
             "value" : "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 보려면 YouTube Music에서 재생목록을 저장하고, 아티스트를 구독하고, 팟캐스트를 구독하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te çalma listeleri kaydedin, sanatçıları takip edin ve podcastlere abone olun."
+          }
+        }
+      }
+    },
+    "Save shuffle and repeat settings across app restarts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱을 다시 시작해도 셔플 및 반복 설정 유지"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uygulama yeniden başlatıldığında karıştırma ve tekrar ayarlarını koru"
+          }
+        }
+      }
+    },
+    "Scrobbling" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سكروبلينج"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스크로블링"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrobbling"
           }
         }
       }
@@ -2618,6 +4542,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "بحث"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색"
           }
         },
         "tr" : {
@@ -2636,6 +4566,12 @@
             "value" : "ابحث عن موسيقاك المفضلة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아하는 음악 검색"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2650,6 +4586,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "البحث عن أغاني، ألبومات، فنانين..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "노래, 앨범, 아티스트 검색..."
           }
         },
         "tr" : {
@@ -2668,6 +4610,12 @@
             "value" : "جارٍ البحث..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 중..."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2682,6 +4630,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "عرض الكل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모두 보기"
           }
         },
         "tr" : {
@@ -2701,6 +4655,12 @@
             "value" : "اختر عنصرًا من الشريط الجانبي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바에서 항목을 선택하세요"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2715,6 +4675,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مشاركة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유"
           }
         },
         "tr" : {
@@ -2733,10 +4699,60 @@
             "value" : "عرض الكل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모두 표시"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tümünü Göster"
+          }
+        }
+      }
+    },
+    "Show Lyrics" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إظهار الكلمات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 표시"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şarkı Sözlerini Göster"
+          }
+        }
+      }
+    },
+    "Show Now Playing Notifications" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إظهار إشعارات قيد التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 재생 중 알림 표시"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şimdi Çalıyor Bildirimlerini Göster"
           }
         }
       }
@@ -2747,6 +4763,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ظاهر"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 중"
           }
         },
         "tr" : {
@@ -2765,6 +4787,12 @@
             "value" : "خلط"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "셔플"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2773,18 +4801,68 @@
         }
       }
     },
-    "Sign in to access your YouTube Music library" : {
+    "Shuffle Off" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "سجّل الدخول للوصول إلى مكتبة YouTube Music الخاصة بك"
+            "value" : "إيقاف الخلط"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "셔플 끔"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "YouTube Music kitaplığınıza erişmek için oturum açın"
+            "value" : "Karıştırma Kapalı"
+          }
+        }
+      }
+    },
+    "Shuffle On" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تشغيل الخلط"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "셔플 켬"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Karıştırma Açık"
+          }
+        }
+      }
+    },
+    "Sign Out" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تسجيل الخروج"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그아웃"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Çıkış Yap"
           }
         }
       }
@@ -2797,10 +4875,38 @@
             "value" : "تسجيل الدخول إلى YouTube Music"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube Music에 로그인"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube Music'te oturum aç"
+          }
+        }
+      }
+    },
+    "Sign in to access your YouTube Music library" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سجّل الدخول للوصول إلى مكتبة YouTube Music الخاصة بك"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube Music 보관함에 액세스하려면 로그인하세요"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube Music kitaplığınıza erişmek için oturum açın"
           }
         }
       }
@@ -2811,6 +4917,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تسجيل الدخول باستخدام Google"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google로 로그인"
           }
         },
         "tr" : {
@@ -2829,10 +4941,60 @@
             "value" : "تم تسجيل الدخول إلى YouTube Music"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube Music에 로그인됨"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube Music'te oturum açık"
+          }
+        }
+      }
+    },
+    "Skip Forward/Backward" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تخطي للأمام/للخلف"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앞으로/뒤로 건너뛰기"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "İleri/Geri Atla"
+          }
+        }
+      }
+    },
+    "Software Update" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديث البرنامج"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소프트웨어 업데이트"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yazılım Güncellemesi"
           }
         }
       }
@@ -2843,6 +5005,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "أغاني"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "노래"
           }
         },
         "tr" : {
@@ -2861,6 +5029,12 @@
             "value" : "الأغاني التي تعجبك ستظهر هنا"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 표시한 노래가 여기에 표시됩니다"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2875,6 +5049,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "بدء الراديو"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라디오 시작"
           }
         },
         "tr" : {
@@ -2893,6 +5073,12 @@
             "value" : "اشترك"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2907,6 +5093,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "اشترك %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독 %@"
           }
         },
         "tr" : {
@@ -2925,6 +5117,12 @@
             "value" : "اشترك في البودكاست على YouTube Music لتراها هنا."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 보려면 YouTube Music에서 팟캐스트를 구독하세요."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2939,6 +5137,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مشترك"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독중"
           }
         },
         "tr" : {
@@ -2957,6 +5161,12 @@
             "value" : "خطأ في الاشتراك"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독 오류"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2971,6 +5181,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إزالات مقترحة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제 추천"
           }
         },
         "tr" : {
@@ -2989,10 +5205,38 @@
             "value" : "تبديل الحساب"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 전환"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hesap Değiştir"
+          }
+        }
+      }
+    },
+    "System Default" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الافتراضي للنظام"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템 기본값"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistem Varsayılanı"
           }
         }
       }
@@ -3003,6 +5247,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "انقر لإعادة المحاولة"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탭하여 다시 시도"
           }
         },
         "tr" : {
@@ -3021,6 +5271,12 @@
             "value" : "لا تتوفر كلمات لهذه الأغنية."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 노래에 사용할 수 있는 가사가 없습니다."
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3035,6 +5291,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "هذا الـ Mac لا يدعم ذكاء Apple. يتطلب Mac بمعالج Apple Silicon."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac은 Apple Intelligence를 지원하지 않습니다. Apple Silicon Mac이 필요합니다."
           }
         },
         "tr" : {
@@ -3053,6 +5315,12 @@
             "value" : "أفضل الأغاني"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인기곡"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3067,6 +5335,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "حاول مرة أخرى"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도"
           }
         },
         "tr" : {
@@ -3085,6 +5359,12 @@
             "value" : "جرّب أوامر مثل:"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음과 같은 명령을 시도해 보세요:"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3099,6 +5379,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "حاول البحث عن شيء آخر"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 항목을 검색해 보세요"
           }
         },
         "tr" : {
@@ -3117,6 +5403,12 @@
             "value" : "تعذّر تحديد التوفر"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가능 여부를 확인할 수 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3131,6 +5423,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تعذّر تحميل الفنان"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트를 로드할 수 없음"
           }
         },
         "tr" : {
@@ -3149,6 +5447,12 @@
             "value" : "تعذّر تحميل المحتوى"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "콘텐츠를 로드할 수 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3163,6 +5467,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تعذّر تحميل قائمة التشغيل"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록을 로드할 수 없음"
           }
         },
         "tr" : {
@@ -3181,6 +5491,12 @@
             "value" : "غير متاح"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 불가"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3195,6 +5511,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تراجع"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 취소"
           }
         },
         "tr" : {
@@ -3213,6 +5535,12 @@
             "value" : "غير معروف"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없음"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3227,6 +5555,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "فنان غير معروف"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 아티스트"
           }
         },
         "tr" : {
@@ -3245,10 +5579,38 @@
             "value" : "إلغاء الإعجاب"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋아요 취소"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beğeniyi Kaldır"
+          }
+        }
+      }
+    },
+    "Unmute" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء كتم الصوت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "음소거 해제"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi Aç"
           }
         }
       }
@@ -3261,10 +5623,60 @@
             "value" : "التالي"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 트랙"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıradaki"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحديثات"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "업데이트"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Güncellemeler"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإصدار"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "버전"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sürüm"
           }
         }
       }
@@ -3275,6 +5687,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "فيديو"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동영상"
           }
         },
         "tr" : {
@@ -3293,6 +5711,12 @@
             "value" : "عرض الألبوم"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앨범 보기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3307,6 +5731,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "عرض الفنان"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아티스트 보기"
           }
         },
         "tr" : {
@@ -3325,6 +5755,12 @@
             "value" : "عرض قائمة التشغيل"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생목록 보기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3341,10 +5777,60 @@
             "value" : "عرض البودكاست"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팟캐스트 보기"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Podcasti Görüntüle"
+          }
+        }
+      }
+    },
+    "Volume Down" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "خفض الصوت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "볼륨 줄이기"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi Azalt"
+          }
+        }
+      }
+    },
+    "Volume Up" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رفع الصوت"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "볼륨 높이기"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi Artır"
           }
         }
       }
@@ -3355,6 +5841,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "بانتظار التفويض…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 대기 중…"
           }
         },
         "tr" : {
@@ -3373,6 +5865,12 @@
             "value" : "مرحبًا بك في Kaset"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaset에 오신 것을 환영합니다"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3387,6 +5885,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ما الذي تريد تغييره؟"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무엇을 변경하시겠습니까?"
           }
         },
         "tr" : {
@@ -3405,6 +5909,12 @@
             "value" : "ماذا تريد أن تفعل بقائمة الانتظار؟"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기열로 무엇을 하시겠습니까?"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3421,10 +5931,60 @@
             "value" : "ماذا تريد أن تفعل؟"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무엇을 하시겠습니까?"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ne yapmak istersiniz?"
+          }
+        }
+      }
+    },
+    "What's New in Kaset" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الجديد في Kaset"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaset의 새로운 기능"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaset'teki Yenilikler"
+          }
+        }
+      }
+    },
+    "When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عند التفعيل، يمكنك استخدام الأوامر بلغة طبيعية، وتحسين قوائم التشغيل بالذكاء الاصطناعي، وشرح كلمات الأغاني."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "활성화하면 자연어 명령, AI 기반 재생목록 다듬기, 가사 설명을 사용할 수 있습니다."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etkinleştirildiğinde doğal dil komutlarını, yapay zeka destekli çalma listesi iyileştirmeyi ve şarkı sözü açıklamalarını kullanabilirsiniz."
           }
         }
       }
@@ -3435,6 +5995,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "مكتبتك"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 보관함"
           }
         },
         "tr" : {
@@ -3453,906 +6019,16 @@
             "value" : "مكتبتك فارغة"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보관함이 비어 있습니다"
+          }
+        },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplığınız boş"
-          }
-        }
-      }
-    },
-    "Account" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الحساب"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hesap"
-          }
-        }
-      }
-    },
-    "Sign Out" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تسجيل الخروج"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Çıkış Yap"
-          }
-        }
-      }
-    },
-    "Show Now Playing Notifications" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إظهار إشعارات قيد التشغيل"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Şimdi Çalıyor Bildirimlerini Göster"
-          }
-        }
-      }
-    },
-    "Haptic Feedback" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الاستجابة اللمسية"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haptik Geri Bildirim"
-          }
-        }
-      }
-    },
-    "Provide tactile feedback for actions on Force Touch trackpads" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تقديم استجابة لمسية للإجراءات على لوحات التتبع Force Touch"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Force Touch izleme dörtgenlerindeki eylemler için dokunsal geri bildirim sağlar"
-          }
-        }
-      }
-    },
-    "Remember Shuffle & Repeat" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تذكّر الخلط والتكرار"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karıştırma ve Tekrarı Hatırla"
-          }
-        }
-      }
-    },
-    "Save shuffle and repeat settings across app restarts" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uygulama yeniden başlatıldığında karıştırma ve tekrar ayarlarını koru"
-          }
-        }
-      }
-    },
-    "Default Page on Launch" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الصفحة الافتراضية عند التشغيل"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Açılışta Varsayılan Sayfa"
-          }
-        }
-      }
-    },
-    "Image Cache" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ذاكرة التخزين المؤقت للصور"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Görüntü Önbelleği"
-          }
-        }
-      }
-    },
-    "General" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "عام"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Genel"
-          }
-        }
-      }
-    },
-    "Updates" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التحديثات"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncellemeler"
-          }
-        }
-      }
-    },
-    "Automatically check for updates" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التحقق تلقائيًا من التحديثات"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncellemeleri otomatik denetle"
-          }
-        }
-      }
-    },
-    "Software Update" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تحديث البرنامج"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yazılım Güncellemesi"
-          }
-        }
-      }
-    },
-    "Never checked" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لم يتم التحقق مطلقًا"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hiç denetlenmedi"
-          }
-        }
-      }
-    },
-    "Check Now" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تحقق الآن"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Şimdi Denetle"
-          }
-        }
-      }
-    },
-    "Version" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الإصدار"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sürüm"
-          }
-        }
-      }
-    },
-    "GitHub" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub"
-          }
-        }
-      }
-    },
-    "About" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حول"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hakkında"
-          }
-        }
-      }
-    },
-    "Last Used" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "آخر استخدام"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Son Kullanılan"
-          }
-        }
-      }
-    },
-    "Apple Intelligence" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ذكاء Apple"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence"
-          }
-        }
-      }
-    },
-    "Enable AI Features" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تفعيل ميزات الذكاء الاصطناعي"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapay Zeka Özelliklerini Etkinleştir"
-          }
-        }
-      }
-    },
-    "When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "عند التفعيل، يمكنك استخدام الأوامر بلغة طبيعية، وتحسين قوائم التشغيل بالذكاء الاصطناعي، وشرح كلمات الأغاني."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Etkinleştirildiğinde doğal dil komutlarını, yapay zeka destekli çalma listesi iyileştirmeyi ve şarkı sözü açıklamalarını kullanabilirsiniz."
-          }
-        }
-      }
-    },
-    "Command Bar" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "شريط الأوامر"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Komut Çubuğu"
-          }
-        }
-      }
-    },
-    "Quick Access" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وصول سريع"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hızlı Erişim"
-          }
-        }
-      }
-    },
-    "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "افتح شريط الأوامر للتحكم بالموسيقى بلغة طبيعية. جرّب قول \"شغّل شيء هادئ\" أو \"أضف جاز إلى قائمة الانتظار\"."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Müziği doğal dille kontrol etmek için komut çubuğunu açın. \"Rahat bir şey çal\" veya \"sıraya caz ekle\" demeyi deneyin."
-          }
-        }
-      }
-    },
-    "Clear AI Context" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "مسح سياق الذكاء الاصطناعي"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapay Zeka Bağlamını Temizle"
-          }
-        }
-      }
-    },
-    "Clears the AI session state. Use this if responses seem off or stuck." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يمسح حالة جلسة الذكاء الاصطناعي. استخدمه إذا بدت الاستجابات غير صحيحة أو متوقفة."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapay zeka oturum durumunu temizler. Yanıtlar garip görünüyorsa veya takılı kaldıysa bunu kullanın."
-          }
-        }
-      }
-    },
-    "Apple Intelligence & Siri Settings" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إعدادات ذكاء Apple و Siri"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence ve Siri Ayarları"
-          }
-        }
-      }
-    },
-    "AI responses follow your system language settings." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تتبع استجابات الذكاء الاصطناعي إعدادات لغة النظام."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapay zeka yanıtları sistem dil ayarlarınıza uyar."
-          }
-        }
-      }
-    },
-    "Intelligence" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الذكاء"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapay Zeka"
-          }
-        }
-      }
-    },
-    "Scrobbling" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "سكروبلينج"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scrobbling"
-          }
-        }
-      }
-    },
-    "Connect" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اتصال"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bağlan"
-          }
-        }
-      }
-    },
-    "Cancel" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إلغاء"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İptal"
-          }
-        }
-      }
-    },
-    "Disconnect" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "قطع الاتصال"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bağlantıyı Kes"
-          }
-        }
-      }
-    },
-    "Check for Updates..." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التحقق من التحديثات..."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncellemeleri Denetle..."
-          }
-        }
-      }
-    },
-    "Playback" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التشغيل"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oynatma"
-          }
-        }
-      }
-    },
-    "Play" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تشغيل"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Çal"
-          }
-        }
-      }
-    },
-    "Pause" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إيقاف مؤقت"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duraklat"
-          }
-        }
-      }
-    },
-    "Next" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التالي"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sonraki"
-          }
-        }
-      }
-    },
-    "Previous" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "السابق"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Önceki"
-          }
-        }
-      }
-    },
-    "Volume Up" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "رفع الصوت"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sesi Artır"
-          }
-        }
-      }
-    },
-    "Volume Down" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "خفض الصوت"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sesi Azalt"
-          }
-        }
-      }
-    },
-    "Mute" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "كتم الصوت"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sesi Kapat"
-          }
-        }
-      }
-    },
-    "Unmute" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إلغاء كتم الصوت"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sesi Aç"
-          }
-        }
-      }
-    },
-    "Shuffle On" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تشغيل الخلط"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karıştırma Açık"
-          }
-        }
-      }
-    },
-    "Shuffle Off" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إيقاف الخلط"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karıştırma Kapalı"
-          }
-        }
-      }
-    },
-    "Repeat All" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تكرار الكل"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tümünü Tekrarla"
-          }
-        }
-      }
-    },
-    "Repeat One" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تكرار واحدة"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Birini Tekrarla"
-          }
-        }
-      }
-    },
-    "Repeat Off" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إيقاف التكرار"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tekrar Kapalı"
-          }
-        }
-      }
-    },
-    "Show Lyrics" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إظهار الكلمات"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Şarkı Sözlerini Göster"
-          }
-        }
-      }
-    },
-    "Hide Lyrics" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إخفاء الكلمات"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Şarkı Sözlerini Gizle"
-          }
-        }
-      }
-    },
-    "What's New in Kaset" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الجديد في Kaset"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kaset'teki Yenilikler"
-          }
-        }
-      }
-    },
-    "Moods & Genres" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حالات وأنواع"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ruh Halleri ve Türler"
-          }
-        }
-      }
-    },
-    "New Releases" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إصدارات جديدة"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yeni Çıkanlar"
-          }
-        }
-      }
-    },
-    "Liked Music" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الموسيقى المعجب بها"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beğenilen Müzikler"
-          }
-        }
-      }
-    },
-    "Charts" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الأكثر رواجًا"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Listeler"
           }
         }
       }

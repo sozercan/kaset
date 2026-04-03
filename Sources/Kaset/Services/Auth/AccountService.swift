@@ -124,6 +124,8 @@ final class AccountService {
                 self.logger.debug("AccountService: Using API-selected account")
             }
 
+            SongLikeStatusManager.shared.setActiveAccountID(self.currentAccount?.id)
+
             let currentLabel = self.currentAccount?.brandId ?? "primary"
             self.logger.info("AccountService: Fetched \(self.accounts.count) accounts, current: \(self.currentAccount?.name ?? "none") (brandId=\(currentLabel))")
         } catch {
@@ -157,17 +159,18 @@ final class AccountService {
             // Currently we only update local state. Server-side switching can be added
             // when the selectActiveIdentity endpoint is explored and documented.
 
-            // Update local state
-            self.currentAccount = account
-
             if UITestConfig.isUITestMode,
                UITestConfig.environmentValue(for: UITestConfig.mockAccountSwitchFailKey) == "true"
             {
                 throw YTMusicError.apiError(message: "Mock account switch failure", code: nil)
             }
 
+            // Update local state
+            self.currentAccount = account
+
             // Reset client session state to avoid leaking continuations across accounts
             self.ytMusicClient.resetSessionStateForAccountSwitch()
+            SongLikeStatusManager.shared.setActiveAccountID(account.id)
 
             let brandLabel = account.brandId ?? "primary"
             self.logger.info("AccountService: Active account brandId=\(brandLabel)")
@@ -180,6 +183,7 @@ final class AccountService {
         } catch {
             self.logger.error("AccountService: Failed to switch account: \(error.localizedDescription)")
             self.currentAccount = previousAccount
+            SongLikeStatusManager.shared.setActiveAccountID(previousAccount?.id)
             self.lastError = error
             self.lastErrorWasFetch = false
             self.errorSequence += 1
@@ -196,6 +200,8 @@ final class AccountService {
         self.accounts = []
         self.currentAccount = nil
         UserDefaults.standard.removeObject(forKey: self.selectedBrandIdKey)
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
 
         self.logger.debug("AccountService: Accounts cleared")
     }

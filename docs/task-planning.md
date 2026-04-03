@@ -4,6 +4,8 @@ For any non-trivial task, **plan in phases with testable exit criteria** before 
 
 > ⚠️ **Never implement without an approved plan** — Planning and execution are separate phases. Do not write production code until the plan has been reviewed. When working in plan mode, always include **"don't implement yet"** as a guard. The human will say when to start.
 
+> 🔁 **Follow the repo default loop in `AGENTS.md`** — Local verification is CLI-first: `swift build`, targeted `swift test --skip KasetUITests`, then `swiftlint --strict && swiftformat .`. Use Xcode/`xcodebuild` only for UI/runtime debugging, scheme-specific investigation, or CI parity.
+
 ## Phase Structure
 
 Every task should be broken into phases. Each phase must have:
@@ -32,11 +34,11 @@ Every task should be broken into phases. Each phase must have:
 | Define new types/protocols | Type signatures compile |
 | Plan public API surface | No breaking changes to existing callers (or changes identified) |
 
-**Exit gate**: `xcodebuild build` succeeds with stub implementations.
+**Exit gate**: `swift build` succeeds with stub implementations.
 
 ### Phase 3: Core Implementation
 
-> 🔄 **Continuously verify the build** — Run `xcodebuild build` throughout implementation, not just at the end. Catch type errors and regressions early, not after 15 minutes of changes.
+> 🔄 **Continuously verify the build** — Run `swift build` throughout implementation, not just at the end. Catch type errors and regressions early, not after 15 minutes of changes.
 
 > 📋 **Track progress in the plan** — Mark tasks and phases as completed as you go. The human should be able to glance at the plan at any point and see exactly where things stand.
 
@@ -47,16 +49,16 @@ Every task should be broken into phases. Each phase must have:
 | Add logging | `DiagnosticsLogger` calls in place |
 | Performance verified | Anti-pattern checklist passed, perf tests added if applicable |
 
-**Exit gate**: `xcodebuild test -only-testing:KasetTests` passes.
+**Exit gate**: Targeted `swift test --skip KasetUITests --filter ...` passes for the new code path.
 
 ### Phase 4: Quality Assurance
 | Deliverable | Exit Criteria |
 |-------------|---------------|
 | Linting passes | `swiftlint --strict` reports 0 errors |
 | Formatting applied | `swiftformat .` makes no changes |
-| Full test suite passes | `xcodebuild test` succeeds |
+| Full default test suite passes | `swift test --skip KasetUITests` succeeds |
 
-**Exit gate**: CI-equivalent checks pass locally.
+**Exit gate**: `swift build`, `swift test --skip KasetUITests`, `swiftlint --strict`, and `swiftformat .` pass locally.
 
 ## Example: Adding a New Service
 
@@ -67,17 +69,19 @@ Phase 1: Research
 
 Phase 2: Interface
 ├── Create NewService.swift with protocol + stub
-├── Exit: `xcodebuild build` passes
+├── Exit: `swift build` passes
 
 Phase 3: Implementation
 ├── Implement methods, add error handling
 ├── Create NewServiceTests.swift
-├── Run `xcodebuild build` after each major change
-├── Exit: `xcodebuild test -only-testing:KasetTests/NewServiceTests` passes
+├── Run `swift build` after each major change
+├── Exit: `swift test --skip KasetUITests --filter NewServiceTests` passes
 
 Phase 4: QA
-├── Run swiftlint, swiftformat
-├── Exit: Full test suite passes, no lint errors
+├── Run `swift build`
+├── Run `swift test --skip KasetUITests`
+├── Run `swiftlint --strict && swiftformat .`
+├── Exit: Default local CLI loop passes
 ```
 
 ## Implementation Discipline

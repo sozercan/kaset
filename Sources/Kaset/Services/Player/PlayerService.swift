@@ -440,6 +440,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             }
         }
 
+        // SongLikeStatusManager cache is the most up-to-date source for like status;
+        // use it to correct stale/missing song.likeStatus immediately.
+        if let cachedStatus = SongLikeStatusManager.shared.status(for: song.videoId) {
+            self.currentTrackLikeStatus = cachedStatus
+        }
+
         self.pendingPlayVideoId = song.videoId
 
         // If user has already interacted this session, auto-play without popup

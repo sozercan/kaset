@@ -83,6 +83,10 @@
 
 "Check for Updates..." = "Güncellemeleri Denetle...";
 
+"Choose the language for the app interface" = "Uygulama arayüzü dilini seçin";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "Kontrol Merkezi'ndeki Şu An Çalıyor widget'ında hangi düğmelerin görüneceğini seçin";
 "Clear" = "Temizle";
 
 "Clear AI Context" = "Yapay Zeka Bağlamını Temizle";
@@ -110,6 +114,8 @@
 "Connect" = "Bağlan";
 
 "Connected as %@" = "%@ olarak bağlı";
+
+"Content Language" = "İçerik Dili";
 
 "Content may not be available in your region." = "İçerik bölgenizde kullanılamıyor olabilir.";
 
@@ -151,6 +157,8 @@
 
 "Enable Apple Intelligence in System Settings to use AI features." = "Yapay zeka özelliklerini kullanmak için Sistem Ayarları'nda Apple Intelligence'ı etkinleştirin.";
 
+
+"Enable Synced Lyrics" = "Senkronize Şarkı Sözlerini Etkinleştir";
 "Episodes" = "Bölümler";
 
 "Error: %@" = "Hata: %@";
@@ -171,6 +179,8 @@
 
 "Featured playlists" = "Öne Çıkan Çalma Listeleri";
 
+
+"Fetch and display real-time synced lyrics when available" = "Mevcut olduğunda gerçek zamanlı senkronize şarkı sözlerini getir ve göster";
 "Find songs, albums, artists, and playlists" = "Şarkıları, albümleri, sanatçıları ve çalma listelerini bulun";
 
 "Follow artists on YouTube Music to see them here." = "Burada görmek için YouTube Music'te sanatçıları takip edin.";
@@ -269,6 +279,8 @@
 
 "Next track" = "Sonraki parça";
 
+
+"Next/Previous Track" = "Sonraki/Önceki Parça";
 "No Connection" = "Bağlantı Yok";
 
 "No Content Available" = "İçerik Yok";
@@ -310,6 +322,8 @@
 /* Login help text about passkey alternative */
 "Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Not: Geçiş anahtarları çalışmazsa, parola ile oturum açmak için \"Başka bir yol dene\" seçeneğini kullanın.";
 
+
+"Now Playing Controls" = "Şu An Çalıyor Kontrolleri";
 "OK" = "Tamam";
 
 "Off" = "Kapalı";
@@ -440,6 +454,8 @@
 
 "Signed in to YouTube Music" = "YouTube Music'te oturum açık";
 
+
+"Skip Forward/Backward" = "İleri/Geri Atla";
 "Software Update" = "Yazılım Güncellemesi";
 
 "Songs" = "Şarkılar";
@@ -461,6 +477,8 @@
 "Suggested Removals" = "Önerilen Kaldırmalar";
 
 "Switch Account" = "Hesap Değiştir";
+
+"System Default" = "Sistem Varsayılanı";
 
 "Tap to retry" = "Tekrar denemek için tıklayın";
 

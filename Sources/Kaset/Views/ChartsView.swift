@@ -87,6 +87,7 @@ struct ChartsView: View {
                     }
                 }
             }
+            .scrollClipDisabled()
         }
     }
 

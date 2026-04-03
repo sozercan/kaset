@@ -14,7 +14,7 @@ struct SongLikeStatusManagerTests {
         self.manager = SongLikeStatusManager.shared
         self.mockClient = MockYTMusicClient()
         self.manager.clearCache()
-        self.manager.setClient(self.mockClient)
+        self.manager.setActiveAccountID(nil)
     }
 
     // MARK: - Status Query Tests
@@ -90,7 +90,7 @@ struct SongLikeStatusManagerTests {
     func likeUpdatesCacheAndCallsAPI() async {
         let song = TestFixtures.makeSong(id: "test-video")
 
-        await self.manager.like(song)
+        await self.manager.like(song, client: self.mockClient)
 
         #expect(self.manager.status(for: "test-video") == .like)
         #expect(self.mockClient.rateSongCalled == true)
@@ -103,7 +103,7 @@ struct SongLikeStatusManagerTests {
         let song = TestFixtures.makeSong(id: "test-video")
         self.manager.setStatus(.like, for: "test-video")
 
-        await self.manager.unlike(song)
+        await self.manager.unlike(song, client: self.mockClient)
 
         #expect(self.manager.status(for: "test-video") == .indifferent)
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
@@ -113,7 +113,7 @@ struct SongLikeStatusManagerTests {
     func dislikeUpdatesCacheAndCallsAPI() async {
         let song = TestFixtures.makeSong(id: "test-video")
 
-        await self.manager.dislike(song)
+        await self.manager.dislike(song, client: self.mockClient)
 
         #expect(self.manager.status(for: "test-video") == .dislike)
         #expect(self.mockClient.rateSongRatings.first == .dislike)
@@ -124,7 +124,7 @@ struct SongLikeStatusManagerTests {
         let song = TestFixtures.makeSong(id: "test-video")
         self.manager.setStatus(.dislike, for: "test-video")
 
-        await self.manager.undislike(song)
+        await self.manager.undislike(song, client: self.mockClient)
 
         #expect(self.manager.status(for: "test-video") == .indifferent)
     }
@@ -137,7 +137,7 @@ struct SongLikeStatusManagerTests {
         self.manager.setStatus(.indifferent, for: "test-video")
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
-        await self.manager.like(song)
+        await self.manager.like(song, client: self.mockClient)
 
         // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .indifferent)
@@ -149,7 +149,7 @@ struct SongLikeStatusManagerTests {
         // No previous status set
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
-        await self.manager.like(song)
+        await self.manager.like(song, client: self.mockClient)
 
         // Should remove the entry entirely
         #expect(self.manager.status(for: "new-video") == nil)
@@ -161,15 +161,11 @@ struct SongLikeStatusManagerTests {
         self.manager.setStatus(.like, for: "test-video")
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
-        await self.manager.dislike(song)
+        await self.manager.dislike(song, client: self.mockClient)
 
         // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .like)
     }
-
-    // Note: Cannot test "rating without client" scenario because
-    // SongLikeStatusManager has a private init and setClient has no way to unset.
-    // The shared instance always has a client after setClient is called.
 
     // MARK: - Cache Management Tests
 
@@ -180,6 +176,21 @@ struct SongLikeStatusManagerTests {
 
         #expect(self.manager.status(for: "video-1") == .like)
         #expect(self.manager.status(for: "video-2") == .dislike)
+    }
+
+    @Test("cache is isolated by active account")
+    func cacheIsIsolatedByActiveAccount() {
+        self.manager.setActiveAccountID("primary")
+        self.manager.setStatus(.like, for: "video-1")
+
+        self.manager.setActiveAccountID("brand-account")
+        #expect(self.manager.status(for: "video-1") == nil)
+
+        self.manager.setStatus(.dislike, for: "video-1")
+        #expect(self.manager.status(for: "video-1") == .dislike)
+
+        self.manager.setActiveAccountID("primary")
+        #expect(self.manager.status(for: "video-1") == .like)
     }
 
     @Test("clearCache removes all entries")

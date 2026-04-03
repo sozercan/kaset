@@ -87,6 +87,7 @@ struct NewReleasesView: View {
                     }
                 }
             }
+            .scrollClipDisabled()
         }
     }
 

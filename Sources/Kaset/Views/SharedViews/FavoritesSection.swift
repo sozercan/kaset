@@ -42,6 +42,7 @@ struct FavoritesSection: View {
                     }
                 }
             }
+            .scrollClipDisabled()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Favorites"))
