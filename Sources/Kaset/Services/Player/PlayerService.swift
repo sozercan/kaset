@@ -473,6 +473,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.info("Playback confirmed started, user interaction recorded")
     }
 
+    func markUserInteracted() {
+        self.hasUserInteractedThisSession = true
+    }
+
     /// Called when the mini player is dismissed.
     func miniPlayerDismissed() {
         self.showMiniPlayer = false
