@@ -57,7 +57,7 @@ struct WhatsNewView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(.thinMaterial, in: Capsule())
+                .glassEffect(.regular, in: .capsule)
         }
         .frame(maxWidth: .infinity)
     }
@@ -152,9 +152,8 @@ struct WhatsNewView: View {
                     .font(.headline)
                     .frame(minWidth: 160)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .controlSize(.large)
-            .glassEffect()
             .keyboardShortcut(.defaultAction)
         }
         .padding(.horizontal, 4)

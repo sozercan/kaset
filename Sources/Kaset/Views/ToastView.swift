@@ -71,11 +71,8 @@ struct ToastView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(minWidth: 250, maxWidth: 400)
-        .background {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.regularMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         .glassEffectTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Toast.container)
     }
