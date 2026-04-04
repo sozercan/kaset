@@ -76,6 +76,7 @@ struct PlaylistDetail: Identifiable {
     let description: String?
     let thumbnailURL: URL?
     let author: String?
+    let authorArtist: Artist?
     let trackCount: Int?
     let tracks: [Song]
     let duration: String?
@@ -86,12 +87,13 @@ struct PlaylistDetail: Identifiable {
         self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
     }
 
-    init(playlist: Playlist, tracks: [Song], duration: String? = nil) {
+    init(playlist: Playlist, tracks: [Song], duration: String? = nil, authorArtist: Artist? = nil) {
         self.id = playlist.id
         self.title = playlist.title
         self.description = playlist.description
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
+        self.authorArtist = authorArtist
         self.trackCount = playlist.trackCount
         self.tracks = tracks
         self.duration = duration

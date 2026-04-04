@@ -76,6 +76,23 @@ struct PlaylistParserTests {
         #expect(detail.tracks.count == 5)
     }
 
+    @Test("Parse linked playlist author from header subtitle")
+    func parsePlaylistDetailLinkedAuthor() {
+        let data = self.makePlaylistDetailData(
+            title: "My Playlist",
+            description: nil,
+            author: "Test User",
+            authorBrowseId: "UCplaylistauthor123",
+            trackCount: 1
+        )
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL123")
+
+        #expect(detail.author == "Test User")
+        #expect(detail.authorArtist?.id == "UCplaylistauthor123")
+        #expect(detail.authorArtist?.name == "Test User")
+    }
+
     @Test("Parse playlist detail tracks")
     func parsePlaylistDetailWithTracks() {
         let data = self.makePlaylistDetailData(
@@ -479,6 +496,7 @@ struct PlaylistParserTests {
         title: String,
         description: String?,
         author: String?,
+        authorBrowseId: String? = nil,
         trackCount: Int
     ) -> [String: Any] {
         var tracks: [[String: Any]] = []
@@ -512,7 +530,15 @@ struct PlaylistParserTests {
         }
 
         if let auth = author {
-            headerRenderer["subtitle"] = ["runs": [["text": auth]]]
+            var authorRun: [String: Any] = ["text": auth]
+            if let authorBrowseId {
+                authorRun["navigationEndpoint"] = [
+                    "browseEndpoint": [
+                        "browseId": authorBrowseId,
+                    ],
+                ]
+            }
+            headerRenderer["subtitle"] = ["runs": [authorRun]]
         }
 
         return [

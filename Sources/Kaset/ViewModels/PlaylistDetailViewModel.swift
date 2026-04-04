@@ -81,7 +81,8 @@ final class PlaylistDetailViewModel {
                         detail = PlaylistDetail(
                             playlist: updatedPlaylist,
                             tracks: allTracks,
-                            duration: detail.duration
+                            duration: detail.duration,
+                            authorArtist: detail.authorArtist
                         )
                         self.hasMore = false
                     }
@@ -122,7 +123,8 @@ final class PlaylistDetailViewModel {
                 detail = PlaylistDetail(
                     playlist: mergedPlaylist,
                     tracks: detail.tracks,
-                    duration: detail.duration
+                    duration: detail.duration,
+                    authorArtist: detail.authorArtist
                 )
             }
 
@@ -184,7 +186,8 @@ final class PlaylistDetailViewModel {
             self.playlistDetail = PlaylistDetail(
                 playlist: updatedPlaylist,
                 tracks: allTracks,
-                duration: currentDetail.duration
+                duration: currentDetail.duration,
+                authorArtist: currentDetail.authorArtist
             )
             self.hasMore = response.hasMore
 

@@ -13,6 +13,7 @@ enum PlaylistParser {
         var description: String?
         var thumbnailURL: URL?
         var author: String?
+        var authorArtist: Artist?
         var trackCount: Int?
         var duration: String?
     }
@@ -318,7 +319,7 @@ enum PlaylistParser {
             author: header.author
         )
 
-        return PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
+        return PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration, authorArtist: header.authorArtist)
     }
 
     /// Parses playlist detail from browse response with pagination support.
@@ -338,7 +339,7 @@ enum PlaylistParser {
             author: header.author
         )
 
-        let detail = PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
+        let detail = PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration, authorArtist: header.authorArtist)
         let continuationToken = Self.extractPlaylistContinuationToken(from: data)
 
         Self.logger.debug("parsePlaylistWithContinuation: tracks=\(tracks.count), hasToken=\(continuationToken != nil)")
@@ -851,7 +852,10 @@ enum PlaylistParser {
         if let subtitleData = renderer["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            header.author = runs.compactMap { $0["text"] as? String }.first
+            if header.authorArtist == nil {
+                header.authorArtist = Self.extractAuthorArtist(from: runs)
+            }
+            header.author = header.author ?? header.authorArtist?.name ?? Self.extractPrimaryText(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
 
@@ -887,7 +891,10 @@ enum PlaylistParser {
            let subtitleData = renderer["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            header.author = runs.compactMap { $0["text"] as? String }.first
+            if header.authorArtist == nil {
+                header.authorArtist = Self.extractAuthorArtist(from: runs)
+            }
+            header.author = header.authorArtist?.name ?? Self.extractPrimaryText(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
     }
@@ -928,7 +935,10 @@ enum PlaylistParser {
            let subtitleData = detailHeader["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            header.author = runs.compactMap { $0["text"] as? String }.first
+            if header.authorArtist == nil {
+                header.authorArtist = Self.extractAuthorArtist(from: runs)
+            }
+            header.author = header.authorArtist?.name ?? Self.extractPrimaryText(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
 
@@ -1012,6 +1022,17 @@ enum PlaylistParser {
             header.description = runs.compactMap { $0["text"] as? String }.joined()
         }
 
+        if header.authorArtist == nil,
+           let subtitleData = renderer["subtitle"] as? [String: Any],
+           let runs = subtitleData["runs"] as? [[String: Any]]
+        {
+            header.authorArtist = Self.extractAuthorArtist(from: runs)
+        }
+
+        if header.author == nil, let authorArtist = header.authorArtist {
+            header.author = authorArtist.name
+        }
+
         if header.author == nil,
            let facepile = renderer["facepile"] as? [String: Any],
            let avatarStackViewModel = facepile["avatarStackViewModel"] as? [String: Any],
@@ -1062,6 +1083,33 @@ enum PlaylistParser {
         }
 
         return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    private static func extractPrimaryText(from runs: [[String: Any]]) -> String? {
+        runs
+            .compactMap { ($0["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty && $0 != "•" }
+    }
+
+    private static func extractAuthorArtist(from runs: [[String: Any]]) -> Artist? {
+        for run in runs {
+            guard let name = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty,
+                  name != "•",
+                  let navigationEndpoint = run["navigationEndpoint"] as? [String: Any],
+                  let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+                  let browseId = browseEndpoint["browseId"] as? String
+            else {
+                continue
+            }
+
+            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+            if ParsingHelpers.isArtistPageType(pageType) || Artist.isNavigableId(browseId) {
+                return Artist(id: browseId, name: name)
+            }
+        }
+
+        return nil
     }
 
     // MARK: - Track Parsing

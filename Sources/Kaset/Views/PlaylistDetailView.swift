@@ -31,6 +31,9 @@ struct PlaylistDetailView: View {
     /// Error message from refine operation.
     @State private var refineError: String?
 
+    /// Hover state for the author link in the header.
+    @State private var isAuthorHovering: Bool = false
+
     /// Computed property to check if playlist is in library.
     private var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
@@ -155,7 +158,19 @@ struct PlaylistDetailView: View {
                     .font(.title)
                     .fontWeight(.bold)
 
-                if let author = detail.author {
+                if let authorArtist = detail.authorArtist {
+                    NavigationLink(value: authorArtist) {
+                        Text(authorArtist.name)
+                            .font(.subheadline)
+                            .foregroundStyle(self.isAuthorHovering ? Color.accentColor : .secondary)
+                            .underline(self.isAuthorHovering)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(AccessibilityID.PlaylistDetail.authorLink)
+                    .onHover { hovering in
+                        self.isAuthorHovering = hovering
+                    }
+                } else if let author = detail.author {
                     Text(author)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

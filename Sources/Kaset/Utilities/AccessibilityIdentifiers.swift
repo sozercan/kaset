@@ -118,6 +118,7 @@ enum AccessibilityID {
     enum PlaylistDetail {
         static let container = "playlistDetailView"
         static let header = "playlistDetailView.header"
+        static let authorLink = "playlistDetailView.authorLink"
         static let playButton = "playlistDetailView.playButton"
         static let shuffleButton = "playlistDetailView.shuffleButton"
         static let tracksList = "playlistDetailView.tracksList"
