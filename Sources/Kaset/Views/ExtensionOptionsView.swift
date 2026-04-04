@@ -51,7 +51,7 @@ struct ExtensionOptionsView: NSViewRepresentable {
         webView.isInspectable = true
 
         webView.navigationDelegate = context.coordinator
-        webView.load(URLRequest(url: url))
+        webView.load(URLRequest(url: self.url))
         return webView
     }
 

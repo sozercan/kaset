@@ -32,7 +32,8 @@ struct ManagedExtension: Codable, Identifiable, Equatable {
          relativePath: String,
          optionsPath: String? = nil,
          popupPath: String? = nil,
-         localBookmark: Data? = nil) {
+         localBookmark: Data? = nil)
+    {
         self.id = id
         self.name = name
         self.isEnabled = isEnabled
@@ -115,9 +116,10 @@ final class ExtensionsManager {
             if let bookmarkData = ext.localBookmark {
                 var isStale = false
                 if let resolved = try? URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale),
-                   resolved.startAccessingSecurityScopedResource() {
-                     result.append((id: ext.id, url: resolved))
-                     continue
+                   resolved.startAccessingSecurityScopedResource()
+                {
+                    result.append((id: ext.id, url: resolved))
+                    continue
                 }
             }
 
@@ -133,8 +135,7 @@ final class ExtensionsManager {
     }
 
     /// Stops security-scoped access for all currently resolved extensions (obsolete).
-    func stopAllAccess() {
-    }
+    func stopAllAccess() {}
 
     /// Adds an extension from a directory URL chosen by the user.
     /// Creates a security-scoped bookmark for persistent access.
@@ -144,14 +145,15 @@ final class ExtensionsManager {
         // 1. Analyze the manifest first
         let manifestURL = url.appendingPathComponent("manifest.json")
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {
-             throw NSError(domain: "ExtensionsManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "manifest.json not found in the selected folder."])
+            throw NSError(domain: "ExtensionsManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "manifest.json not found in the selected folder."])
         }
 
         let accessingSource = url.startAccessingSecurityScopedResource()
         defer { if accessingSource { url.stopAccessingSecurityScopedResource() } }
 
         guard let data = try? Data(contentsOf: manifestURL),
-              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
             throw NSError(domain: "ExtensionsManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not read or parse manifest.json."])
         }
 
@@ -160,11 +162,10 @@ final class ExtensionsManager {
         let name = manifestName.hasPrefix("__MSG_") ? url.lastPathComponent : manifestName
         let manifestVersion = (manifest["manifest_version"] as? Int) ?? 0
 
-        var optionsPath: String?
-        if let optionsUI = manifest["options_ui"] as? [String: Any] {
-            optionsPath = optionsUI["page"] as? String
+        var optionsPath: String? = if let optionsUI = manifest["options_ui"] as? [String: Any] {
+            optionsUI["page"] as? String
         } else {
-            optionsPath = manifest["options_page"] as? String
+            manifest["options_page"] as? String
         }
 
         var popupPath: String?

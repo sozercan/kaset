@@ -77,9 +77,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("WebKitManager initialized with persistent data store")
 
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            self.webExtensionController.delegate = self
-        }
+            if #available(macOS 14.0, *) {
+                self.webExtensionController.delegate = self
+            }
         #endif
 
         Task { await self.loadExtensions() }
@@ -88,9 +88,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Returns `true` if any web extension is currently loaded.
     var isExtensionLoaded: Bool {
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            return !self.webExtensionController.extensionContexts.isEmpty
-        }
+            if #available(macOS 14.0, *) {
+                return !self.webExtensionController.extensionContexts.isEmpty
+            }
         #endif
         return false
     }
@@ -98,9 +98,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Number of currently loaded extensions.
     var loadedExtensionCount: Int {
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            return self.webExtensionController.extensionContexts.count
-        }
+            if #available(macOS 14.0, *) {
+                return self.webExtensionController.extensionContexts.count
+            }
         #endif
         return 0
     }
@@ -108,9 +108,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Returns the version string of the first loaded extension, if any.
     var extensionVersion: String? {
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            return self.webExtensionController.extensionContexts.first?.webExtension.version
-        }
+            if #available(macOS 14.0, *) {
+                return self.webExtensionController.extensionContexts.first?.webExtension.version
+            }
         #endif
         return nil
     }
@@ -175,19 +175,19 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Loads all enabled extensions from `ExtensionsManager`.
     private func loadExtensions() async {
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            let resolvedURLs = ExtensionsManager.shared.resolvedURLs()
-            guard !resolvedURLs.isEmpty else {
-                self.logger.info("No enabled extensions to load")
-                return
-            }
+            if #available(macOS 14.0, *) {
+                let resolvedURLs = ExtensionsManager.shared.resolvedURLs()
+                guard !resolvedURLs.isEmpty else {
+                    self.logger.info("No enabled extensions to load")
+                    return
+                }
 
-            for (id, url) in resolvedURLs {
-                await self.loadSingleExtension(at: url, id: id)
-            }
+                for (id, url) in resolvedURLs {
+                    await self.loadSingleExtension(at: url, id: id)
+                }
 
-            self.logger.info("Loaded \(self.webExtensionController.extensionContexts.count) extension(s)")
-        }
+                self.logger.info("Loaded \(self.webExtensionController.extensionContexts.count) extension(s)")
+            }
         #endif
     }
 
@@ -222,7 +222,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 "*://*.youtube.com/*",
                 "*://*.google.com/*",
                 "*://*.googleusercontent.com/*",
-                "*://*.googlevideo.com/*"
+                "*://*.googlevideo.com/*",
             ]
 
             for pattern in wildcardPatterns {
@@ -237,7 +237,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 "declarativeNetRequestWithHostAccess",
                 "declarativeNetRequestFeedback",
                 "storage",
-                "unlimitedStorage"
+                "unlimitedStorage",
             ]
             for permName in extraPermissions {
                 let perm = WKWebExtension.Permission(rawValue: permName)
@@ -259,9 +259,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         configuration.websiteDataStore = self.dataStore
 
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            configuration.webExtensionController = self.webExtensionController
-        }
+            if #available(macOS 14.0, *) {
+                configuration.webExtensionController = self.webExtensionController
+            }
         #endif
 
         configuration.preferences.isElementFullscreenEnabled = true
@@ -276,28 +276,28 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Gets the options page URL for a loaded extension by its Kaset internal ID.
     func optionsPageURL(forExtensionId id: String) -> URL? {
         #if compiler(>=5.9)
-        if #available(macOS 14.0, *) {
-            guard let context = self.extensionContexts[id] else { return nil }
+            if #available(macOS 14.0, *) {
+                guard let context = self.extensionContexts[id] else { return nil }
 
-            // Check ExtensionsManager for recorded paths from manifest.json
-            guard let managedExt = ExtensionsManager.shared.extensions.first(where: { $0.id == id }) else {
-                return context.optionsPageURL
+                // Check ExtensionsManager for recorded paths from manifest.json
+                guard let managedExt = ExtensionsManager.shared.extensions.first(where: { $0.id == id }) else {
+                    return context.optionsPageURL
+                }
+
+                // Priority 1: Official options page from WebKit
+                if let optionsURL = context.optionsPageURL {
+                    return optionsURL
+                }
+
+                // Priority 2: Fallback to the path discovered in manifest.json
+                let relativePath = managedExt.optionsPath ?? managedExt.popupPath ?? "popup.html"
+
+                // On macOS 14, we try to reconstruct the URL relative to the scheme base
+                // of the extension context if it exists.
+                if let baseContextURL = context.optionsPageURL?.deletingLastPathComponent() {
+                    return URL(string: relativePath, relativeTo: baseContextURL)
+                }
             }
-
-            // Priority 1: Official options page from WebKit
-            if let optionsURL = context.optionsPageURL {
-                return optionsURL
-            }
-
-            // Priority 2: Fallback to the path discovered in manifest.json
-            let relativePath = managedExt.optionsPath ?? managedExt.popupPath ?? "popup.html"
-
-            // On macOS 14, we try to reconstruct the URL relative to the scheme base
-            // of the extension context if it exists.
-            if let baseContextURL = context.optionsPageURL?.deletingLastPathComponent() {
-                return URL(string: relativePath, relativeTo: baseContextURL)
-            }
-        }
         #endif
         return nil
     }

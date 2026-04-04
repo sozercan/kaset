@@ -47,7 +47,8 @@ enum PackageResourceLookup {
         // We use a known class from this target to find the right bundle.
         let classBundle = Bundle(for: WebKitManager.self)
         if let moduleBundleURL = classBundle.resourceURL?.appendingPathComponent(Self.resourceBundleName),
-           let moduleBundle = Bundle(url: moduleBundleURL) {
+           let moduleBundle = Bundle(url: moduleBundleURL)
+        {
             bundles.append(moduleBundle)
             seenPaths.insert(moduleBundleURL.path)
         }

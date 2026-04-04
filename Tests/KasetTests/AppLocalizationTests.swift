@@ -8,48 +8,49 @@ struct AppLocalizationTests {
     private func localizedValue(key: String, localeIdentifier: String) -> String {
         let baseBundle = AppLocalization.bundle
         guard let lprojPath = baseBundle.path(forResource: localeIdentifier, ofType: "lproj"),
-              let lprojBundle = Bundle(path: lprojPath) else {
+              let lprojBundle = Bundle(path: lprojPath)
+        else {
             return key
         }
         return lprojBundle.localizedString(forKey: key, value: nil, table: nil)
     }
 
     @Test("Arabic bundle localizes artist strings")
-    func arabicLocalizationWorks() throws {
-        let artist = localizedValue(key: "Artist", localeIdentifier: "ar")
+    func arabicLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "ar")
         #expect(artist == "فنان")
     }
 
     @Test("Arabic bundle localizes formatted subscribe strings")
-    func arabicFormattedLocalizationWorks() throws {
-        let localizedText = localizedValue(key: "Subscribe %@", localeIdentifier: "ar")
+    func arabicFormattedLocalizationWorks() {
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "ar")
         let title = String(format: localizedText, locale: Locale(identifier: "ar"), "34.6M")
         #expect(title.hasPrefix("اشترك"))
         #expect(title.contains("34.6M"))
     }
 
     @Test("Turkish bundle localizes artist strings")
-    func turkishLocalizationWorks() throws {
-        let artist = localizedValue(key: "Artist", localeIdentifier: "tr")
+    func turkishLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "tr")
         #expect(artist == "Sanatçı")
     }
 
     @Test("Turkish bundle localizes formatted subscribe strings")
-    func turkishFormattedLocalizationWorks() throws {
-        let localizedText = localizedValue(key: "Subscribe %@", localeIdentifier: "tr")
+    func turkishFormattedLocalizationWorks() {
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "tr")
         let title = String(format: localizedText, locale: Locale(identifier: "tr"), "34.6M")
         #expect(title.hasPrefix("Abone Ol"))
         #expect(title.contains("34.6M"))
     }
 
     @Test("Korean bundle localizes artist strings")
-    func koreanLocalizationWorks() throws {
-        let artist = localizedValue(key: "Artist", localeIdentifier: "ko")
+    func koreanLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "ko")
         #expect(artist == "아티스트")
     }
 
     @Test("Override bundle lookup is scoped to Kaset-owned bundles")
-    func overrideBundleLookupIsScopedToKasetBundles() throws {
+    func overrideBundleLookupIsScopedToKasetBundles() {
         AppLocalization.setLanguage("ar")
         defer { AppLocalization.setLanguage(nil) }
 
