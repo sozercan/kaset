@@ -206,7 +206,7 @@ struct ArtistDetailView: View {
                     Text(self.subscribeButtonText(detail))
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .controlSize(.large)
             .disabled(self.viewModel.isSubscribing)
         }

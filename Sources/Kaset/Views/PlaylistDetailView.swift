@@ -190,7 +190,7 @@ struct PlaylistDetailView: View {
                 } label: {
                     Label("Play", systemImage: "play.fill")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .disabled(detail.tracks.isEmpty)
 
@@ -749,7 +749,7 @@ private struct RefinePlaylistSheet: View {
                         await self.onRefine(self.promptText)
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .disabled(self.promptText.trimmingCharacters(in: .whitespaces).isEmpty)
                 .keyboardShortcut(.return)
             }
@@ -821,7 +821,7 @@ private struct RefinePlaylistSheet: View {
                 Button("Apply Changes") {
                     self.onApply()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .disabled(changes.removals.isEmpty && changes.reorderedIds == nil)
             }
             .padding()

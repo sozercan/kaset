@@ -45,7 +45,7 @@ struct ErrorView: View {
                 Button(String(localized: "Try Again")) {
                     action()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
             }
         }
     }

@@ -347,7 +347,7 @@ struct PodcastShowView: View {
                             Label("Play Latest", systemImage: "play.fill")
                                 .font(.headline)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.glassProminent)
                     }
 
                     // Add to Library button

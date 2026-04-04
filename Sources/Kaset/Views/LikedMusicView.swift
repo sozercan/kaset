@@ -161,7 +161,7 @@ struct LikedMusicView: View {
                     Label("Play All", systemImage: "play.fill")
                         .font(.headline)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
 
                 // Shuffle button
