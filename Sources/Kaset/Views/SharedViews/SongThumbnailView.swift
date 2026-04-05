@@ -1,5 +1,32 @@
 import SwiftUI
 
+// MARK: - SongThumbnailSource
+
+struct SongThumbnailSource: Equatable {
+    struct PrimaryFailureKey: Equatable {
+        let videoId: String
+        let url: URL
+    }
+
+    let videoId: String
+    let primaryURL: URL?
+    let fallbackURL: URL?
+
+    var primaryFailureKey: PrimaryFailureKey? {
+        guard let primaryURL, let fallbackURL, primaryURL != fallbackURL else { return nil }
+        return PrimaryFailureKey(videoId: self.videoId, url: primaryURL)
+    }
+
+    func activeURL(failedPrimaryKey: PrimaryFailureKey?) -> URL? {
+        if failedPrimaryKey == self.primaryFailureKey {
+            return self.fallbackURL
+        }
+        return self.primaryURL ?? self.fallbackURL
+    }
+}
+
+// MARK: - SongThumbnailView
+
 /// Displays a song's thumbnail with automatic YouTube fallback.
 /// If the API-provided thumbnail URL fails to load, falls back to
 /// YouTube's public video thumbnail (`i.ytimg.com`).
@@ -9,7 +36,7 @@ struct SongThumbnailView: View {
     var size: CGFloat = 48
     var cornerRadius: CGFloat = 6
 
-    @State private var useFallback = false
+    @State private var failedPrimaryKey: SongThumbnailSource.PrimaryFailureKey?
 
     /// The API-provided thumbnail URL.
     private var primaryURL: URL? {
@@ -21,16 +48,35 @@ struct SongThumbnailView: View {
         self.song.fallbackThumbnailURL
     }
 
-    /// The URL to display: primary first, fallback if it failed.
+    private var thumbnailSource: SongThumbnailSource {
+        SongThumbnailSource(
+            videoId: self.song.videoId,
+            primaryURL: self.primaryURL,
+            fallbackURL: self.fallbackURL
+        )
+    }
+
+    /// The URL to display: primary first, fallback only if that exact primary source failed.
     private var activeURL: URL? {
-        if self.useFallback {
-            return self.fallbackURL
+        self.thumbnailSource.activeURL(failedPrimaryKey: self.failedPrimaryKey)
+    }
+
+    private var failureHandler: (@MainActor () -> Void)? {
+        let source = self.thumbnailSource
+
+        guard self.activeURL == source.primaryURL,
+              let primaryFailureKey = source.primaryFailureKey
+        else {
+            return nil
         }
-        return self.primaryURL ?? self.fallbackURL
+
+        return {
+            self.failedPrimaryKey = primaryFailureKey
+        }
     }
 
     var body: some View {
-        CachedAsyncImage(url: self.activeURL) { image in
+        CachedAsyncImage(url: self.activeURL, onFailure: self.failureHandler) { image in
             image
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -44,19 +90,5 @@ struct SongThumbnailView: View {
         }
         .frame(width: self.size, height: self.size)
         .clipShape(.rect(cornerRadius: self.cornerRadius))
-        .task(id: self.song.videoId) {
-            self.useFallback = false
-
-            // If there's a primary URL, check if it actually loads
-            guard let primaryURL, primaryURL != self.fallbackURL else { return }
-
-            let image = await ImageCache.shared.image(
-                for: primaryURL,
-                targetSize: CGSize(width: self.size * 2, height: self.size * 2)
-            )
-            if image == nil {
-                self.useFallback = true
-            }
-        }
     }
 }

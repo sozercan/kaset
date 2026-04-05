@@ -9,6 +9,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     /// Target size for image downsampling. Images are downsampled to this size to reduce memory usage.
     /// Pass the actual display size of the image for optimal memory efficiency.
     var targetSize: CGSize = .init(width: 320, height: 320)
+    /// Optional callback invoked when an image load fails.
+    var onFailure: (@MainActor () -> Void)?
     @ViewBuilder let content: (Image) -> Content
     @ViewBuilder let placeholder: () -> Placeholder
 
@@ -39,6 +41,14 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             guard let url else { return }
             let loadedImage = await ImageCache.shared.image(for: url, targetSize: self.targetSize)
             guard !Task.isCancelled else { return }
+
+            guard let loadedImage else {
+                self.image = nil
+                self.isLoaded = false
+                self.onFailure?()
+                return
+            }
+
             self.image = loadedImage
             self.isLoaded = true
         }
@@ -58,8 +68,13 @@ struct SizedProgressView: View {
 
 extension CachedAsyncImage where Placeholder == SizedProgressView {
     /// Convenience initializer with default ProgressView placeholder.
-    init(url: URL?, @ViewBuilder content: @escaping (Image) -> Content) {
+    init(
+        url: URL?,
+        onFailure: (@MainActor () -> Void)? = nil,
+        @ViewBuilder content: @escaping (Image) -> Content
+    ) {
         self.url = url
+        self.onFailure = onFailure
         self.content = content
         self.placeholder = { SizedProgressView() }
     }
