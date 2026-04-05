@@ -70,6 +70,11 @@ struct Song: Identifiable, Codable, Hashable {
         let seconds = Int(duration) % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
+
+    /// YouTube's public video thumbnail as a fallback when the API doesn't provide one.
+    var fallbackThumbnailURL: URL? {
+        URL(string: "https://i.ytimg.com/vi/\(self.videoId)/hqdefault.jpg")
+    }
 }
 
 extension Song {

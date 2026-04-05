@@ -206,20 +206,7 @@ struct LikedMusicView: View {
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
-                CachedAsyncImage(url: song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "music.note")
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(.rect(cornerRadius: 6))
+                SongThumbnailView(song: song)
 
                 // Song info
                 VStack(alignment: .leading, spacing: 2) {

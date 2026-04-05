@@ -151,20 +151,7 @@ private struct QueueRowView: View {
                     .frame(width: 24)
 
                 // Thumbnail
-                CachedAsyncImage(url: self.song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(.quaternary)
-                        .overlay {
-                            CassetteIcon(size: 16)
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                SongThumbnailView(song: self.song, size: 40, cornerRadius: 4)
 
                 // Track info
                 VStack(alignment: .leading, spacing: 2) {
