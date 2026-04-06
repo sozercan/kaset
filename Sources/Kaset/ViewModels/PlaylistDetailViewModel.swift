@@ -6,6 +6,13 @@ import os
 @MainActor
 @Observable
 final class PlaylistDetailViewModel {
+    private struct LiveSyncTask {
+        let id: UUID
+        let task: Task<Void, Never>
+    }
+
+    private static let likedMusicPlaylistID = "LM"
+
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -20,9 +27,20 @@ final class PlaylistDetailViewModel {
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
+    @ObservationIgnored
+    private var liveSyncTasks: [String: LiveSyncTask] = [:]
+
+    private var isLikedMusicPlaylist: Bool {
+        self.playlist.id == Self.likedMusicPlaylistID
+    }
+
     init(playlist: Playlist, client: any YTMusicClientProtocol) {
         self.playlist = playlist
         self.client = client
+    }
+
+    deinit {
+        self.cancelAllLiveSyncTasks()
     }
 
     /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").
@@ -126,6 +144,10 @@ final class PlaylistDetailViewModel {
                 )
             }
 
+            if self.isLikedMusicPlaylist {
+                detail = self.normalizeLikedMusicDetail(detail)
+            }
+
             self.playlistDetail = detail
             self.loadingState = .loaded
             let loadedTrackCount = detail.tracks.count
@@ -170,8 +192,14 @@ final class PlaylistDetailViewModel {
                 return
             }
 
+            let normalizedNewTracks: [Song] = if self.isLikedMusicPlaylist {
+                self.markSongsAsLiked(newTracks)
+            } else {
+                newTracks
+            }
+
             // Append only new tracks to existing playlist
-            let allTracks = currentDetail.tracks + newTracks
+            let allTracks = currentDetail.tracks + normalizedNewTracks
             let preservedTrackCount = max(allTracks.count, currentDetail.trackCount ?? 0)
             let updatedPlaylist = Playlist(
                 id: currentDetail.id,
@@ -186,10 +214,17 @@ final class PlaylistDetailViewModel {
                 tracks: allTracks,
                 duration: currentDetail.duration
             )
+
+            if self.isLikedMusicPlaylist {
+                for song in normalizedNewTracks {
+                    SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+                }
+            }
+
             self.hasMore = response.hasMore
 
             self.loadingState = .loaded
-            self.logger.info("Loaded \(newTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
+            self.logger.info("Loaded \(normalizedNewTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
         } catch is CancellationError {
             self.logger.debug("Playlist continuation cancelled")
             self.loadingState = .loaded
@@ -200,10 +235,177 @@ final class PlaylistDetailViewModel {
         }
     }
 
+
+    /// Handles like status updates for the Liked Music playlist.
+    func handleLikeStatusChange(_ event: LikeStatusEvent) {
+        guard self.isLikedMusicPlaylist else { return }
+        guard self.loadingState == .loaded || self.loadingState == .loadingMore else { return }
+
+        switch event.status {
+        /// - Liked songs are inserted at the top.
+        case .like:
+            if let song = event.song, !Self.requiresMetadataFetchForLiveSync(song) {
+                self.cancelLiveSyncTask(for: event.videoId)
+                self.insertLiveSyncedLikedSong(song)
+            } else {
+                guard !self.containsTrack(videoId: event.videoId) else { return }
+                self.startLiveSyncTask(for: event.videoId)
+            }
+        /// - Unliked/disliked songs are removed immediately.
+        case .indifferent, .dislike:
+            self.cancelLiveSyncTask(for: event.videoId)
+            self.removeLiveSyncedLikedSong(videoId: event.videoId)
+        }
+    }
+
     /// Refreshes the playlist.
     func refresh() async {
+        self.cancelAllLiveSyncTasks()
         self.playlistDetail = nil
         self.hasMore = false
         await self.load()
+    }
+
+    private func normalizeLikedMusicDetail(_ detail: PlaylistDetail) -> PlaylistDetail {
+        let likedTracks = self.markSongsAsLiked(detail.tracks, deduplicating: true)
+        for song in likedTracks {
+            SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        }
+
+        let resolvedTrackCount = max(detail.trackCount ?? 0, likedTracks.count)
+        return self.updatedPlaylistDetail(
+            from: detail,
+            tracks: likedTracks,
+            trackCount: resolvedTrackCount
+        )
+    }
+
+    private func markSongsAsLiked(_ tracks: [Song], deduplicating: Bool = false) -> [Song] {
+        var seenVideoIds = Set<String>()
+
+        return tracks.compactMap { song in
+            if deduplicating, !seenVideoIds.insert(song.videoId).inserted {
+                return nil
+            }
+
+            var likedSong = song
+            likedSong.likeStatus = .like
+            return likedSong
+        }
+    }
+
+    private func updatedPlaylistDetail(from detail: PlaylistDetail, tracks: [Song], trackCount: Int?) -> PlaylistDetail {
+        let updatedPlaylist = Playlist(
+            id: detail.id,
+            title: detail.title,
+            description: detail.description,
+            thumbnailURL: detail.thumbnailURL,
+            trackCount: trackCount,
+            author: detail.author
+        )
+
+        return PlaylistDetail(
+            playlist: updatedPlaylist,
+            tracks: tracks,
+            duration: detail.duration
+        )
+    }
+
+    private func containsTrack(videoId: String) -> Bool {
+        self.playlistDetail?.tracks.contains(where: { $0.videoId == videoId }) == true
+    }
+
+    private func insertLiveSyncedLikedSong(_ song: Song) {
+        guard let currentDetail = self.playlistDetail else { return }
+        guard !currentDetail.tracks.contains(where: { $0.videoId == song.videoId }) else { return }
+
+        var likedSong = song
+        likedSong.likeStatus = .like
+
+        let updatedTracks = [likedSong] + currentDetail.tracks
+        let currentTotal = currentDetail.trackCount ?? currentDetail.tracks.count
+        let updatedTrackCount = max(currentTotal + 1, updatedTracks.count)
+
+        self.playlistDetail = self.updatedPlaylistDetail(
+            from: currentDetail,
+            tracks: updatedTracks,
+            trackCount: updatedTrackCount
+        )
+        SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        self.logger.info("Live sync: added song \(song.videoId) to liked music")
+    }
+
+    private func removeLiveSyncedLikedSong(videoId: String) {
+        guard let currentDetail = self.playlistDetail else { return }
+
+        let updatedTracks = currentDetail.tracks.filter { $0.videoId != videoId }
+        guard updatedTracks.count != currentDetail.tracks.count else { return }
+
+        let currentTotal = currentDetail.trackCount ?? currentDetail.tracks.count
+        let updatedTrackCount = max(currentTotal - 1, updatedTracks.count)
+
+        self.playlistDetail = self.updatedPlaylistDetail(
+            from: currentDetail,
+            tracks: updatedTracks,
+            trackCount: updatedTrackCount
+        )
+        self.logger.info("Live sync: removed song \(videoId) from liked music")
+    }
+
+    private func startLiveSyncTask(for videoId: String) {
+        let taskID = UUID()
+        self.cancelLiveSyncTask(for: videoId)
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.fetchAndInsertLiveSyncedLikedSong(videoId: videoId, taskID: taskID)
+        }
+        self.liveSyncTasks[videoId] = LiveSyncTask(id: taskID, task: task)
+    }
+
+    private func fetchAndInsertLiveSyncedLikedSong(videoId: String, taskID: UUID) async {
+        defer {
+            if self.liveSyncTasks[videoId]?.id == taskID {
+                self.liveSyncTasks.removeValue(forKey: videoId)
+            }
+        }
+
+        guard self.liveSyncTasks[videoId]?.id == taskID else { return }
+        guard !Task.isCancelled else { return }
+        guard !self.containsTrack(videoId: videoId) else { return }
+
+        do {
+            let song = try await self.client.getSong(videoId: videoId)
+
+            guard !Task.isCancelled else { return }
+            guard self.liveSyncTasks[videoId]?.id == taskID else { return }
+            guard !Self.requiresMetadataFetchForLiveSync(song) else {
+                self.logger.warning("Live sync: skipping incomplete metadata for liked song \(videoId)")
+                return
+            }
+
+            self.insertLiveSyncedLikedSong(song)
+        } catch is CancellationError {
+            return
+        } catch {
+            self.logger.warning("Live sync: failed to fetch metadata for liked song \(videoId): \(error.localizedDescription)")
+        }
+    }
+
+    private func cancelLiveSyncTask(for videoId: String) {
+        self.liveSyncTasks.removeValue(forKey: videoId)?.task.cancel()
+    }
+
+    private func cancelAllLiveSyncTasks() {
+        let tasks = self.liveSyncTasks.values.map(\.task)
+        self.liveSyncTasks.removeAll()
+        tasks.forEach { $0.cancel() }
+    }
+
+    private static func requiresMetadataFetchForLiveSync(_ song: Song) -> Bool {
+        song.title.isEmpty ||
+            song.title == "Loading..." ||
+            song.artists.isEmpty ||
+            song.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" }
     }
 }
