@@ -153,6 +153,8 @@
 
 "Edit" = "Edit";
 
+"Enable %@ Scrobbling" = "Enable %@ Scrobbling";
+
 "Enable AI Features" = "Enable AI Features";
 
 "Enable Apple Intelligence in System Settings to use AI features." = "Enable Apple Intelligence in System Settings to use AI features.";
@@ -406,6 +408,8 @@
 
 /* Button to retry failed playback */
 "Retry" = "Retry";
+
+"Romanize Lyrics" = "Romanize Lyrics";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Save playlists and subscribe to podcasts on YouTube Music to see them here.";
 

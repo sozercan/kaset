@@ -21,6 +21,12 @@
             "state" : "translated",
             "value" : "%lld şarkı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld lagu"
+          }
         }
       }
     },
@@ -42,6 +48,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "macOS için yerel bir YouTube Music deneyimi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengalaman YouTube Music asli untuk macOS"
           }
         }
       }
@@ -65,6 +77,12 @@
             "state" : "translated",
             "value" : "Yapay zeka yanıtları sistem dil ayarlarınıza uyar."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respons AI mengikuti pengaturan bahasa sistem Anda."
+          }
         }
       }
     },
@@ -86,6 +104,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hakkında"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tentang"
           }
         }
       }
@@ -109,6 +133,12 @@
             "state" : "translated",
             "value" : "Çalma listelerinize ve beğendiğiniz şarkılara erişin"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akses daftar putar dan lagu yang Anda sukai"
+          }
         }
       }
     },
@@ -130,6 +160,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hesap"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akun"
           }
         }
       }
@@ -153,6 +189,12 @@
             "state" : "translated",
             "value" : "Favorilere Ekle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah ke Favorit"
+          }
         }
       }
     },
@@ -174,6 +216,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplığa Ekle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah ke Pustaka"
           }
         }
       }
@@ -197,6 +245,12 @@
             "state" : "translated",
             "value" : "Sıraya Ekle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah ke Antrean"
+          }
         }
       }
     },
@@ -219,6 +273,12 @@
             "state" : "translated",
             "value" : "Kitaplığa Eklendi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ditambahkan ke Pustaka"
+          }
         }
       }
     },
@@ -237,6 +297,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "AirPlay"
@@ -263,6 +329,12 @@
             "state" : "translated",
             "value" : "AirPlay Bağlı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay Terhubung"
+          }
         }
       }
     },
@@ -284,6 +356,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Albüm"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Album"
           }
         }
       }
@@ -307,6 +385,12 @@
             "state" : "translated",
             "value" : "Albümler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Album"
+          }
         }
       }
     },
@@ -328,6 +412,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tümü"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semua"
           }
         }
       }
@@ -351,6 +441,12 @@
             "state" : "translated",
             "value" : "Tüm Bölümler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semua Episode"
+          }
         }
       }
     },
@@ -372,6 +468,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bilinmeyen bir hata oluştu"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terjadi kesalahan yang tidak diketahui"
           }
         }
       }
@@ -395,6 +497,12 @@
             "state" : "translated",
             "value" : "Çalma listesi analiz ediliyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menganalisis daftar putar..."
+          }
         }
       }
     },
@@ -417,6 +525,12 @@
             "state" : "translated",
             "value" : "Analiz ediliyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menganalisis..."
+          }
         }
       }
     },
@@ -435,6 +549,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence"
@@ -461,6 +581,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence ve Siri Ayarları"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence & Pengaturan Siri"
+          }
         }
       }
     },
@@ -482,6 +608,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence şu anda kullanılamıyor."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence saat ini tidak tersedia."
           }
         }
       }
@@ -505,6 +637,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence indiriliyor. Bu işlem birkaç dakika sürebilir."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence sedang diunduh. Ini mungkin memakan waktu beberapa menit."
+          }
         }
       }
     },
@@ -526,6 +664,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence kullanılamıyor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence tidak tersedia"
           }
         }
       }
@@ -549,6 +693,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence kullanıma hazır"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence siap digunakan"
+          }
         }
       }
     },
@@ -570,6 +720,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Değişiklikleri Uygula"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terapkan Perubahan"
           }
         }
       }
@@ -593,6 +749,12 @@
             "state" : "translated",
             "value" : "Sanatçı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artis"
+          }
         }
       }
     },
@@ -614,6 +776,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçı bulunamadı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artis tidak ditemukan"
           }
         }
       }
@@ -637,6 +805,12 @@
             "state" : "translated",
             "value" : "Sanatçılar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artis"
+          }
         }
       }
     },
@@ -658,6 +832,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yapay Zekaya Sor (⌘K)"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tanya AI (⌘K)"
           }
         }
       }
@@ -681,6 +861,12 @@
             "state" : "translated",
             "value" : "Müzik hakkında istediğinizi sorun..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tanya apa saja tentang musik..."
+          }
         }
       }
     },
@@ -702,6 +888,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Güncellemeleri otomatik denetle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periksa pembaruan secara otomatis"
           }
         }
       }
@@ -725,6 +917,12 @@
             "state" : "translated",
             "value" : "Kullanılabilir"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tersedia"
+          }
         }
       }
     },
@@ -746,6 +944,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Arka Planda Oynatma"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar di Latar Belakang"
           }
         }
       }
@@ -769,6 +973,12 @@
             "state" : "translated",
             "value" : "Gerçek bir macOS deneyimi için SwiftUI ile geliştirildi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dibangun dengan SwiftUI untuk pengalaman macOS yang sesungguhnya"
+          }
         }
       }
     },
@@ -790,6 +1000,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hesaplanıyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menghitung..."
           }
         }
       }
@@ -813,6 +1029,12 @@
             "state" : "translated",
             "value" : "İptal"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batal"
+          }
         }
       }
     },
@@ -834,6 +1056,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sistem dilinizi İngilizceye veya desteklenen başka bir dile değiştirin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ubah bahasa sistem Anda ke bahasa Inggris atau bahasa yang didukung lainnya."
           }
         }
       }
@@ -857,6 +1085,12 @@
             "state" : "translated",
             "value" : "Listeler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tangga Lagu"
+          }
         }
       }
     },
@@ -878,6 +1112,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şimdi Denetle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periksa Sekarang"
           }
         }
       }
@@ -901,6 +1141,12 @@
             "state" : "translated",
             "value" : "Güncellemeleri Denetle..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periksa Pembaruan..."
+          }
         }
       }
     },
@@ -922,6 +1168,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uygulama arayüzü dilini seçin"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih bahasa untuk antarmuka aplikasi"
           }
         }
       }
@@ -945,6 +1197,12 @@
             "state" : "translated",
             "value" : "Kontrol Merkezi'ndeki Şu An Çalıyor widget'ında hangi düğmelerin görüneceğini seçin"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih tombol yang muncul di widget Sedang Diputar di Pusat Kontrol"
+          }
         }
       }
     },
@@ -966,6 +1224,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temizle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus"
           }
         }
       }
@@ -989,6 +1253,12 @@
             "state" : "translated",
             "value" : "Yapay Zeka Bağlamını Temizle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus Konteks AI"
+          }
         }
       }
     },
@@ -1010,6 +1280,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Önbelleği Temizle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bersihkan Cache"
           }
         }
       }
@@ -1033,6 +1309,12 @@
             "state" : "translated",
             "value" : "Girdiyi temizle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus input"
+          }
         }
       }
     },
@@ -1054,6 +1336,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aramayı temizle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus pencarian"
           }
         }
       }
@@ -1077,6 +1365,12 @@
             "state" : "translated",
             "value" : "Temizleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membersihkan..."
+          }
         }
       }
     },
@@ -1098,6 +1392,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yapay zeka oturum durumunu temizler. Yanıtlar garip görünüyorsa veya takılı kaldıysa bunu kullanın."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menghapus status sesi AI. Gunakan ini jika respons tampak aneh atau macet."
           }
         }
       }
@@ -1121,6 +1421,12 @@
             "state" : "translated",
             "value" : "Kapat"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutup"
+          }
         }
       }
     },
@@ -1142,6 +1448,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yan paneli kapat"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutup panel samping"
           }
         }
       }
@@ -1165,6 +1477,12 @@
             "state" : "translated",
             "value" : "Koleksiyon"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koleksi"
+          }
         }
       }
     },
@@ -1186,6 +1504,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Komut Çubuğu"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Panel Perintah"
           }
         }
       }
@@ -1209,6 +1533,12 @@
             "state" : "translated",
             "value" : "Topluluk Çalma Listeleri"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daftar putar komunitas"
+          }
         }
       }
     },
@@ -1230,6 +1560,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bağlan"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hubungkan"
           }
         }
       }
@@ -1253,6 +1589,12 @@
             "state" : "translated",
             "value" : "%@ olarak bağlı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terhubung sebagai %@"
+          }
         }
       }
     },
@@ -1274,6 +1616,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "İçerik Dili"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bahasa Konten"
           }
         }
       }
@@ -1297,6 +1645,12 @@
             "state" : "translated",
             "value" : "İçerik bölgenizde kullanılamıyor olabilir."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konten mungkin tidak tersedia di wilayah Anda."
+          }
         }
       }
     },
@@ -1318,6 +1672,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Devam Et"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lanjutkan"
           }
         }
       }
@@ -1341,6 +1701,12 @@
             "state" : "translated",
             "value" : "Oynatmayı klavyenizle denetleyin"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kendalikan pemutaran dengan keyboard Anda"
+          }
         }
       }
     },
@@ -1362,6 +1728,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yapay zeka oturumu oluşturulamadı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat membuat sesi AI"
           }
         }
       }
@@ -1385,6 +1757,12 @@
             "state" : "translated",
             "value" : "Müzik aranamadı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat mencari musik"
+          }
         }
       }
     },
@@ -1406,6 +1784,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te çalma listeleri oluşturun veya kaydedin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buat atau simpan daftar putar di YouTube Music untuk melihatnya di sini."
           }
         }
       }
@@ -1429,6 +1813,12 @@
             "state" : "translated",
             "value" : "Açılışta Varsayılan Sayfa"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Halaman Default Saat Buka"
+          }
         }
       }
     },
@@ -1450,6 +1840,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bağlantıyı Kes"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putuskan"
           }
         }
       }
@@ -1473,6 +1869,12 @@
             "state" : "translated",
             "value" : "Keşif"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelajahi"
+          }
         }
       }
     },
@@ -1494,6 +1896,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Olumsuz Oy"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak suka"
           }
         }
       }
@@ -1517,6 +1925,12 @@
             "state" : "translated",
             "value" : "Olumsuz oy verildi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak disukai"
+          }
         }
       }
     },
@@ -1538,6 +1952,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kapat"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutup"
           }
         }
       }
@@ -1561,6 +1981,12 @@
             "state" : "translated",
             "value" : "Bitti"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selesai"
+          }
         }
       }
     },
@@ -1582,6 +2008,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tekrar denemek için çift tıklayın"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ketuk dua kali untuk mencoba lagi"
           }
         }
       }
@@ -1605,6 +2037,12 @@
             "state" : "translated",
             "value" : "Hesap değiştirmek için çift tıklayın"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ketuk dua kali untuk mengganti akun"
+          }
         }
       }
     },
@@ -1626,6 +2064,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "İndiriliyor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mengunduh"
           }
         }
       }
@@ -1649,6 +2093,12 @@
             "state" : "translated",
             "value" : "Yeniden sıralamak için sürükleyin"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seret untuk mengurutkan ulang"
+          }
         }
       }
     },
@@ -1670,6 +2120,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Düzenle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "Enable %@ Scrobbling" : {
+      "comment" : "Settings toggle; %@ is the scrobbling service name (e.g. Last.fm)",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تفعيل السكروبلنغ لـ %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 스크로블링 사용"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Scrobbling'i Etkinleştir"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktifkan Scrobbling %@"
           }
         }
       }
@@ -1693,6 +2178,12 @@
             "state" : "translated",
             "value" : "Yapay Zeka Özelliklerini Etkinleştir"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktifkan Fitur AI"
+          }
         }
       }
     },
@@ -1714,6 +2205,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yapay zeka özelliklerini kullanmak için Sistem Ayarları'nda Apple Intelligence'ı etkinleştirin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktifkan Apple Intelligence di Pengaturan Sistem untuk menggunakan fitur AI."
           }
         }
       }
@@ -1737,6 +2234,12 @@
             "state" : "translated",
             "value" : "Senkronize Şarkı Sözlerini Etkinleştir"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktifkan Lirik Tersinkron"
+          }
         }
       }
     },
@@ -1758,6 +2261,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bölümler"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Episode"
           }
         }
       }
@@ -1781,6 +2290,12 @@
             "state" : "translated",
             "value" : "Hata: %@"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kesalahan: %@"
+          }
         }
       }
     },
@@ -1802,6 +2317,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkı sözlerini yapay zekayla açıkla"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelaskan lirik dengan AI"
           }
         }
       }
@@ -1825,6 +2346,12 @@
             "state" : "translated",
             "value" : "Keşfet"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jelajah"
+          }
         }
       }
     },
@@ -1846,6 +2373,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yüklenemedi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gagal memuat"
           }
         }
       }
@@ -1869,6 +2402,12 @@
             "state" : "translated",
             "value" : "Hesaplar yüklenemedi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gagal memuat akun"
+          }
         }
       }
     },
@@ -1890,6 +2429,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hesaplar yüklenemedi. Lütfen tekrar deneyin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gagal memuat akun. Silakan coba lagi."
           }
         }
       }
@@ -1913,6 +2458,12 @@
             "state" : "translated",
             "value" : "Hesap değiştirilemedi. Lütfen tekrar deneyin."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gagal mengganti akun. Silakan coba lagi."
+          }
         }
       }
     },
@@ -1934,6 +2485,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Favoriler"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Favorit"
           }
         }
       }
@@ -1957,6 +2514,12 @@
             "state" : "translated",
             "value" : "Öne Çıkan Çalma Listeleri"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daftar putar unggulan"
+          }
         }
       }
     },
@@ -1978,6 +2541,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mevcut olduğunda gerçek zamanlı senkronize şarkı sözlerini getir ve göster"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambil dan tampilkan lirik tersinkron waktu nyata jika tersedia"
           }
         }
       }
@@ -2001,6 +2570,12 @@
             "state" : "translated",
             "value" : "Şarkıları, albümleri, sanatçıları ve çalma listelerini bulun"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temukan lagu, album, artis, dan daftar putar"
+          }
         }
       }
     },
@@ -2022,6 +2597,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te sanatçıları takip edin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ikuti artis di YouTube Music untuk melihatnya di sini."
           }
         }
       }
@@ -2045,6 +2626,12 @@
             "state" : "translated",
             "value" : "Genel"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Umum"
+          }
         }
       }
     },
@@ -2063,6 +2650,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub"
@@ -2089,6 +2682,12 @@
             "state" : "translated",
             "value" : "Albüme Git"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Album"
+          }
         }
       }
     },
@@ -2110,6 +2709,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçıya Git"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Artis"
           }
         }
       }
@@ -2133,6 +2738,12 @@
             "state" : "translated",
             "value" : "Haptik Geri Bildirim"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Umpan Balik Haptik"
+          }
         }
       }
     },
@@ -2154,6 +2765,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gizli"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tersembunyi"
           }
         }
       }
@@ -2177,6 +2794,12 @@
             "state" : "translated",
             "value" : "Şarkı Sözlerini Gizle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sembunyikan Lirik"
+          }
         }
       }
     },
@@ -2198,6 +2821,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkı sözü açıklamasını gizle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sembunyikan penjelasan lirik"
           }
         }
       }
@@ -2221,6 +2850,12 @@
             "state" : "translated",
             "value" : "Öne Çıkanlar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorotan"
+          }
         }
       }
     },
@@ -2242,6 +2877,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ana Sayfa"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beranda"
           }
         }
       }
@@ -2265,6 +2906,12 @@
             "state" : "translated",
             "value" : "Görüntü Önbelleği"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache Gambar"
+          }
         }
       }
     },
@@ -2286,6 +2933,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplıkta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di Pustaka"
           }
         }
       }
@@ -2309,6 +2962,12 @@
             "state" : "translated",
             "value" : "Yapay Zeka"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kecerdasan"
+          }
         }
       }
     },
@@ -2330,6 +2989,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pencere kapalıyken bile dinlemeye devam edin"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lanjutkan mendengarkan meski jendela ditutup"
           }
         }
       }
@@ -2353,6 +3018,12 @@
             "state" : "translated",
             "value" : "Dil Desteklenmiyor"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bahasa Tidak Didukung"
+          }
         }
       }
     },
@@ -2374,6 +3045,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Son Kullanılan"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terakhir Digunakan"
           }
         }
       }
@@ -2397,6 +3074,12 @@
             "state" : "translated",
             "value" : "Daha Fazla Bilgi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pelajari lebih lanjut"
+          }
         }
       }
     },
@@ -2418,6 +3101,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplık"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pustaka"
           }
         }
       }
@@ -2441,6 +3130,12 @@
             "state" : "translated",
             "value" : "Beğen"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suka"
+          }
         }
       }
     },
@@ -2462,6 +3157,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beğeni verildi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disukai"
           }
         }
       }
@@ -2485,6 +3186,12 @@
             "state" : "translated",
             "value" : "Beğenilen Müzikler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Musik yang Disukai"
+          }
         }
       }
     },
@@ -2506,6 +3213,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daha Fazla Yükle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muat Lainnya"
           }
         }
       }
@@ -2529,6 +3242,12 @@
             "state" : "translated",
             "value" : "Sanatçı yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat artis..."
+          }
         }
       }
     },
@@ -2550,6 +3269,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Listeler yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat tangga lagu..."
           }
         }
       }
@@ -2573,6 +3298,12 @@
             "state" : "translated",
             "value" : "Keşif içeriği yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat konten jelajah..."
+          }
         }
       }
     },
@@ -2594,6 +3325,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beğenilen şarkılar yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat lagu yang disukai..."
           }
         }
       }
@@ -2617,6 +3354,12 @@
             "state" : "translated",
             "value" : "Şarkı sözleri yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat lirik..."
+          }
         }
       }
     },
@@ -2638,6 +3381,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruh Halleri ve Türler yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat suasana hati & genre..."
           }
         }
       }
@@ -2661,6 +3410,12 @@
             "state" : "translated",
             "value" : "Daha fazlası yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat lainnya..."
+          }
         }
       }
     },
@@ -2682,6 +3437,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yeni çıkanlar yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat rilis baru..."
           }
         }
       }
@@ -2705,6 +3466,12 @@
             "state" : "translated",
             "value" : "Çalma listesi yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat daftar putar..."
+          }
         }
       }
     },
@@ -2726,6 +3493,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Podcastler yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat podcast..."
           }
         }
       }
@@ -2749,6 +3522,12 @@
             "state" : "translated",
             "value" : "Şarkılar yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat lagu..."
+          }
         }
       }
     },
@@ -2770,6 +3549,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplığınız yükleniyor..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat pustaka Anda..."
           }
         }
       }
@@ -2793,6 +3578,12 @@
             "state" : "translated",
             "value" : "Yükleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memuat..."
+          }
         }
       }
     },
@@ -2814,6 +3605,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkı Sözleri"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lirik"
           }
         }
       }
@@ -2837,6 +3634,12 @@
             "state" : "translated",
             "value" : "Medya Tuşları"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tombol Media"
+          }
         }
       }
     },
@@ -2855,6 +3658,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mix"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mix"
@@ -2881,6 +3690,12 @@
             "state" : "translated",
             "value" : "Ruh Halleri ve Türler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suasana & Genre"
+          }
         }
       }
     },
@@ -2902,6 +3717,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sona Taşı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pindah ke Akhir"
           }
         }
       }
@@ -2925,6 +3746,12 @@
             "state" : "translated",
             "value" : "En Üste Taşı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pindah ke Atas"
+          }
         }
       }
     },
@@ -2946,6 +3773,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sesi Kapat"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bisukan"
           }
         }
       }
@@ -2969,6 +3802,12 @@
             "state" : "translated",
             "value" : "Yerel Arayüz"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antarmuka Asli"
+          }
         }
       }
     },
@@ -2990,6 +3829,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hiç denetlenmedi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum pernah diperiksa"
           }
         }
       }
@@ -3013,6 +3858,12 @@
             "state" : "translated",
             "value" : "Yeni Çıkanlar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rilis Baru"
+          }
         }
       }
     },
@@ -3034,6 +3885,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sonraki"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berikutnya"
           }
         }
       }
@@ -3057,6 +3914,12 @@
             "state" : "translated",
             "value" : "Sonraki parça"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu berikutnya"
+          }
         }
       }
     },
@@ -3078,6 +3941,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sonraki/Önceki Parça"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu Berikutnya/Sebelumnya"
           }
         }
       }
@@ -3101,6 +3970,12 @@
             "state" : "translated",
             "value" : "Bağlantı Yok"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Koneksi"
+          }
         }
       }
     },
@@ -3122,6 +3997,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "İçerik Yok"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Konten"
           }
         }
       }
@@ -3145,6 +4026,12 @@
             "state" : "translated",
             "value" : "Şarkı Sözü Yok"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Lirik"
+          }
         }
       }
     },
@@ -3166,6 +4053,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruh Halleri ve Türler Yok"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Suasana & Genre"
           }
         }
       }
@@ -3189,6 +4082,12 @@
             "state" : "translated",
             "value" : "Sıra Boş"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Antrean"
+          }
         }
       }
     },
@@ -3210,6 +4109,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalan Şarkı Yok"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Ada Lagu Diputar"
           }
         }
       }
@@ -3233,6 +4138,12 @@
             "state" : "translated",
             "value" : "Henüz sanatçı yok"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ada artis"
+          }
         }
       }
     },
@@ -3254,6 +4165,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Herhangi bir değişiklik önerilmedi. Çalma listesi iyi görünüyor!"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada perubahan yang disarankan. Daftar putar sudah bagus!"
           }
         }
       }
@@ -3277,6 +4194,12 @@
             "state" : "translated",
             "value" : "Henüz beğenilen şarkı yok"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ada lagu yang disukai"
+          }
         }
       }
     },
@@ -3298,6 +4221,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Henüz çalma listesi yok"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ada daftar putar"
           }
         }
       }
@@ -3321,6 +4250,12 @@
             "state" : "translated",
             "value" : "Henüz podcast yok"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ada podcast"
+          }
         }
       }
     },
@@ -3342,6 +4277,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sonuç bulunamadı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada hasil"
           }
         }
       }
@@ -3365,6 +4306,12 @@
             "state" : "translated",
             "value" : "Bu kategoride şarkı veya çalma listesi bulunamadı."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada lagu atau daftar putar dalam kategori ini."
+          }
         }
       }
     },
@@ -3386,6 +4333,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Etkin Değil"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Diaktifkan"
           }
         }
       }
@@ -3409,6 +4362,12 @@
             "state" : "translated",
             "value" : "Desteklenmiyor"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak Didukung"
+          }
         }
       }
     },
@@ -3430,6 +4389,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bağlı değil"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak terhubung"
           }
         }
       }
@@ -3453,6 +4418,12 @@
             "state" : "translated",
             "value" : "Olumsuz oy verilmedi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ditandai tidak suka"
+          }
         }
       }
     },
@@ -3475,6 +4446,12 @@
             "state" : "translated",
             "value" : "Beğeni verilmedi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum disukai"
+          }
         }
       }
     },
@@ -3496,6 +4473,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oturum açık değil"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum masuk"
           }
         }
       }
@@ -3520,6 +4503,12 @@
             "state" : "translated",
             "value" : "Not: Geçiş anahtarları çalışmazsa, parola ile oturum açmak için \"Başka bir yol dene\" seçeneğini kullanın."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catatan: Jika kunci sandi tidak berfungsi, gunakan \"Coba cara lain\" untuk masuk dengan kata sandi."
+          }
         }
       }
     },
@@ -3541,6 +4530,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şu An Çalıyor Kontrolleri"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kontrol Sedang Diputar"
           }
         }
       }
@@ -3564,6 +4559,12 @@
             "state" : "translated",
             "value" : "Tamam"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
         }
       }
     },
@@ -3585,6 +4586,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kapalı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mati"
           }
         }
       }
@@ -3608,6 +4615,12 @@
             "state" : "translated",
             "value" : "Açık"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyala"
+          }
         }
       }
     },
@@ -3629,6 +4642,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bir"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satu"
           }
         }
       }
@@ -3652,6 +4671,12 @@
             "state" : "translated",
             "value" : "Sırayı yan panelde aç"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka antrean di panel samping"
+          }
         }
       }
     },
@@ -3673,6 +4698,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Müziği doğal dille kontrol etmek için komut çubuğunu açın. \"Rahat bir şey çal\" veya \"sıraya caz ekle\" demeyi deneyin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka panel perintah untuk mengontrol musik dengan bahasa alami. Coba ucapkan \"putar sesuatu yang santai\" atau \"tambahkan jazz ke antrean\"."
           }
         }
       }
@@ -3696,6 +4727,12 @@
             "state" : "translated",
             "value" : "Duraklat"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeda"
+          }
         }
       }
     },
@@ -3717,6 +4754,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çal"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar"
           }
         }
       }
@@ -3740,6 +4783,12 @@
             "state" : "translated",
             "value" : "Tümünü Çal"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar Semua"
+          }
         }
       }
     },
@@ -3761,6 +4810,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "En Sonuncuyu Çal"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar Terbaru"
           }
         }
       }
@@ -3784,6 +4839,12 @@
             "state" : "translated",
             "value" : "Sonraki Olarak Çal"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar Berikutnya"
+          }
         }
       }
     },
@@ -3805,6 +4866,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkı sözlerini burada görmek için bir şarkı çalın."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar sebuah lagu untuk melihat liriknya di sini."
           }
         }
       }
@@ -3828,6 +4895,12 @@
             "state" : "translated",
             "value" : "Sıranızı oluşturmak için bir çalma listesinden veya albümden şarkılar çalın."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putar lagu dari daftar putar atau album untuk membangun antrean Anda."
+          }
         }
       }
     },
@@ -3849,6 +4922,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oynatma"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pemutaran"
           }
         }
       }
@@ -3872,6 +4951,12 @@
             "state" : "translated",
             "value" : "Oynatıldı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diputar"
+          }
         }
       }
     },
@@ -3893,6 +4978,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalıyor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memutar"
           }
         }
       }
@@ -3916,6 +5007,12 @@
             "state" : "translated",
             "value" : "Çalma Listesi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daftar putar"
+          }
         }
       }
     },
@@ -3937,6 +5034,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalma listesi bulunamadı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daftar putar tidak ditemukan"
           }
         }
       }
@@ -3960,6 +5063,12 @@
             "state" : "translated",
             "value" : "Çalma Listeleri"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daftar putar"
+          }
         }
       }
     },
@@ -3981,6 +5090,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lütfen internet bağlantınızı kontrol edip tekrar deneyin."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periksa koneksi internet Anda dan coba lagi."
           }
         }
       }
@@ -4004,6 +5119,12 @@
             "state" : "translated",
             "value" : "Podcastler"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podcast"
+          }
         }
       }
     },
@@ -4025,6 +5146,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aramak için Enter'a basın"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tekan Enter untuk mencari"
           }
         }
       }
@@ -4048,6 +5175,12 @@
             "state" : "translated",
             "value" : "Önceki"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sebelumnya"
+          }
         }
       }
     },
@@ -4069,6 +5202,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Önceki parça"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu sebelumnya"
           }
         }
       }
@@ -4092,6 +5231,12 @@
             "state" : "translated",
             "value" : "İşleniyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memproses..."
+          }
         }
       }
     },
@@ -4113,6 +5258,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Force Touch izleme dörtgenlerindeki eylemler için dokunsal geri bildirim sağlar"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berikan umpan balik haptik untuk tindakan di trackpad Force Touch"
           }
         }
       }
@@ -4136,6 +5287,12 @@
             "state" : "translated",
             "value" : "Sıra"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antrean"
+          }
         }
       }
     },
@@ -4157,6 +5314,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hızlı Erişim"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akses Cepat"
           }
         }
       }
@@ -4180,6 +5343,12 @@
             "state" : "translated",
             "value" : "Yinele"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ulangi"
+          }
         }
       }
     },
@@ -4201,6 +5370,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "İyileştir"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sempurnakan"
           }
         }
       }
@@ -4224,6 +5399,12 @@
             "state" : "translated",
             "value" : "Çalma Listesini İyileştir"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sempurnakan Daftar Putar"
+          }
         }
       }
     },
@@ -4245,6 +5426,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sürüm Notları"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catatan Rilis"
           }
         }
       }
@@ -4268,6 +5455,12 @@
             "state" : "translated",
             "value" : "Karıştırma ve Tekrarı Hatırla"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingat Acak & Ulangi"
+          }
         }
       }
     },
@@ -4289,6 +5482,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Olumsuz Oyu Kaldır"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus tidak suka"
           }
         }
       }
@@ -4312,6 +5511,12 @@
             "state" : "translated",
             "value" : "Favorilerden Kaldır"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus dari Favorit"
+          }
         }
       }
     },
@@ -4333,6 +5538,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıradan Kaldır"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus dari Antrean"
           }
         }
       }
@@ -4356,6 +5567,12 @@
             "state" : "translated",
             "value" : "Tekrar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ulangi"
+          }
         }
       }
     },
@@ -4377,6 +5594,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tümünü Tekrarla"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ulangi Semua"
           }
         }
       }
@@ -4400,6 +5623,12 @@
             "state" : "translated",
             "value" : "Tekrar Kapalı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ulangi Mati"
+          }
         }
       }
     },
@@ -4421,6 +5650,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Birini Tekrarla"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ulangi Satu"
           }
         }
       }
@@ -4445,6 +5680,41 @@
             "state" : "translated",
             "value" : "Tekrar Dene"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba Lagi"
+          }
+        }
+      }
+    },
+    "Romanize Lyrics" : {
+      "comment" : "Settings toggle to show romanized transliteration below non-Latin lyrics",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رومنة كلمات الأغاني"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가사 로마자 표시"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Şarkı Sözlerini Romanize Et"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Romanisasi Lirik"
+          }
         }
       }
     },
@@ -4466,6 +5736,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te çalma listeleri kaydedin ve podcastlere abone olun."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simpan daftar putar dan berlangganan podcast di YouTube Music untuk melihatnya di sini."
           }
         }
       }
@@ -4489,6 +5765,12 @@
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te çalma listeleri kaydedin, sanatçıları takip edin ve podcastlere abone olun."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simpan daftar putar, ikuti artis, dan berlangganan podcast di YouTube Music untuk melihatnya di sini."
+          }
         }
       }
     },
@@ -4511,6 +5793,12 @@
             "state" : "translated",
             "value" : "Uygulama yeniden başlatıldığında karıştırma ve tekrar ayarlarını koru"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simpan pengaturan acak dan ulangi setelah aplikasi dimulai ulang"
+          }
         }
       }
     },
@@ -4529,6 +5817,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrobbling"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scrobbling"
@@ -4555,6 +5849,12 @@
             "state" : "translated",
             "value" : "Ara"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cari"
+          }
         }
       }
     },
@@ -4576,6 +5876,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Favori müziğinizi arayın"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cari musik favorit Anda"
           }
         }
       }
@@ -4599,6 +5905,12 @@
             "state" : "translated",
             "value" : "Şarkı, albüm, sanatçı ara..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cari lagu, album, artis..."
+          }
         }
       }
     },
@@ -4621,6 +5933,12 @@
             "state" : "translated",
             "value" : "Aranıyor..."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mencari..."
+          }
         }
       }
     },
@@ -4642,6 +5960,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tümünü Gör"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lihat semua"
           }
         }
       }
@@ -4666,6 +5990,12 @@
             "state" : "translated",
             "value" : "Kenar çubuğundan bir öğe seçin"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih item dari bilah samping"
+          }
         }
       }
     },
@@ -4687,6 +6017,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Paylaş"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bagikan"
           }
         }
       }
@@ -4710,6 +6046,12 @@
             "state" : "translated",
             "value" : "Tümünü Göster"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampilkan Semua"
+          }
         }
       }
     },
@@ -4731,6 +6073,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Şarkı Sözlerini Göster"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampilkan Lirik"
           }
         }
       }
@@ -4754,6 +6102,12 @@
             "state" : "translated",
             "value" : "Şimdi Çalıyor Bildirimlerini Göster"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampilkan Notifikasi Sedang Diputar"
+          }
         }
       }
     },
@@ -4775,6 +6129,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gösteriliyor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menampilkan"
           }
         }
       }
@@ -4798,6 +6158,12 @@
             "state" : "translated",
             "value" : "Karıştır"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acak"
+          }
         }
       }
     },
@@ -4819,6 +6185,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Karıştırma Kapalı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acak Mati"
           }
         }
       }
@@ -4842,6 +6214,12 @@
             "state" : "translated",
             "value" : "Karıştırma Açık"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acak Nyala"
+          }
         }
       }
     },
@@ -4863,6 +6241,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çıkış Yap"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar"
           }
         }
       }
@@ -4886,6 +6270,12 @@
             "state" : "translated",
             "value" : "YouTube Music'te oturum aç"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk ke YouTube Music"
+          }
         }
       }
     },
@@ -4907,6 +6297,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube Music kitaplığınıza erişmek için oturum açın"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk untuk mengakses pustaka YouTube Music Anda"
           }
         }
       }
@@ -4930,6 +6326,12 @@
             "state" : "translated",
             "value" : "Google ile giriş yap"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk dengan Google"
+          }
         }
       }
     },
@@ -4951,6 +6353,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube Music'te oturum açık"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sudah masuk ke YouTube Music"
           }
         }
       }
@@ -4974,6 +6382,12 @@
             "state" : "translated",
             "value" : "İleri/Geri Atla"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lompat Maju/Mundur"
+          }
         }
       }
     },
@@ -4995,6 +6409,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yazılım Güncellemesi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pembaruan Perangkat Lunak"
           }
         }
       }
@@ -5018,6 +6438,12 @@
             "state" : "translated",
             "value" : "Şarkılar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu"
+          }
         }
       }
     },
@@ -5039,6 +6465,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beğendiğiniz şarkılar burada görünecek"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu yang Anda sukai akan muncul di sini"
           }
         }
       }
@@ -5062,6 +6494,12 @@
             "state" : "translated",
             "value" : "Radyoyu Başlat"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mulai Radio"
+          }
         }
       }
     },
@@ -5083,6 +6521,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abone Ol"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berlangganan"
           }
         }
       }
@@ -5106,6 +6550,12 @@
             "state" : "translated",
             "value" : "Abone Ol %@"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berlangganan %@"
+          }
         }
       }
     },
@@ -5127,6 +6577,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burada görmek için YouTube Music'te podcastlere abone olun."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berlangganan podcast di YouTube Music untuk melihatnya di sini."
           }
         }
       }
@@ -5150,6 +6606,12 @@
             "state" : "translated",
             "value" : "Abone Olundu"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sudah berlangganan"
+          }
         }
       }
     },
@@ -5171,6 +6633,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abonelik Hatası"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kesalahan Berlangganan"
           }
         }
       }
@@ -5194,6 +6662,12 @@
             "state" : "translated",
             "value" : "Önerilen Kaldırmalar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Penghapusan yang Disarankan"
+          }
         }
       }
     },
@@ -5215,6 +6689,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hesap Değiştir"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganti Akun"
           }
         }
       }
@@ -5238,6 +6718,12 @@
             "state" : "translated",
             "value" : "Sistem Varsayılanı"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Sistem"
+          }
         }
       }
     },
@@ -5259,6 +6745,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tekrar denemek için tıklayın"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ketuk untuk mencoba lagi"
           }
         }
       }
@@ -5282,6 +6774,12 @@
             "state" : "translated",
             "value" : "Bu şarkı için kullanılabilir şarkı sözü yok."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada lirik yang tersedia untuk lagu ini."
+          }
         }
       }
     },
@@ -5303,6 +6801,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bu Mac Apple Intelligence'ı desteklemiyor. Apple Silicon özellikli bir Mac gerekiyor."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac ini tidak mendukung Apple Intelligence. Diperlukan Mac dengan chip Apple Silicon."
           }
         }
       }
@@ -5326,6 +6830,12 @@
             "state" : "translated",
             "value" : "En Popüler Şarkılar"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lagu teratas"
+          }
         }
       }
     },
@@ -5347,6 +6857,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tekrar Dene"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba Lagi"
           }
         }
       }
@@ -5370,6 +6886,12 @@
             "state" : "translated",
             "value" : "Şunun gibi komutlar deneyin:"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba perintah seperti:"
+          }
         }
       }
     },
@@ -5391,6 +6913,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Başka bir şey aramayı deneyin"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba cari hal lain"
           }
         }
       }
@@ -5414,6 +6942,12 @@
             "state" : "translated",
             "value" : "Kullanılabilirlik belirlenemedi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat menentukan ketersediaan"
+          }
         }
       }
     },
@@ -5435,6 +6969,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçı yüklenemedi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat artis"
           }
         }
       }
@@ -5458,6 +6998,12 @@
             "state" : "translated",
             "value" : "İçerik yüklenemedi"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat konten"
+          }
         }
       }
     },
@@ -5479,6 +7025,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Çalma listesi yüklenemedi"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat daftar putar"
           }
         }
       }
@@ -5502,6 +7054,12 @@
             "state" : "translated",
             "value" : "Kullanılamıyor"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak tersedia"
+          }
         }
       }
     },
@@ -5523,6 +7081,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Geri Al"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batalkan"
           }
         }
       }
@@ -5546,6 +7110,12 @@
             "state" : "translated",
             "value" : "Bilinmiyor"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak diketahui"
+          }
         }
       }
     },
@@ -5567,6 +7137,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bilinmeyen Sanatçı"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artis Tidak Dikenal"
           }
         }
       }
@@ -5590,6 +7166,12 @@
             "state" : "translated",
             "value" : "Beğeniyi Kaldır"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batal suka"
+          }
         }
       }
     },
@@ -5611,6 +7193,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sesi Aç"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bunyikan"
           }
         }
       }
@@ -5634,6 +7222,12 @@
             "state" : "translated",
             "value" : "Sıradaki"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berikutnya"
+          }
         }
       }
     },
@@ -5655,6 +7249,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Güncellemeler"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pembaruan"
           }
         }
       }
@@ -5678,6 +7278,12 @@
             "state" : "translated",
             "value" : "Sürüm"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versi"
+          }
         }
       }
     },
@@ -5696,6 +7302,12 @@
           }
         },
         "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video"
+          }
+        },
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Video"
@@ -5722,6 +7334,12 @@
             "state" : "translated",
             "value" : "Albümü Görüntüle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lihat Album"
+          }
         }
       }
     },
@@ -5743,6 +7361,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sanatçıyı Görüntüle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lihat Artis"
           }
         }
       }
@@ -5766,6 +7390,12 @@
             "state" : "translated",
             "value" : "Çalma Listesini Görüntüle"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lihat Daftar Putar"
+          }
         }
       }
     },
@@ -5787,6 +7417,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Podcasti Görüntüle"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lihat Podcast"
           }
         }
       }
@@ -5810,6 +7446,12 @@
             "state" : "translated",
             "value" : "Sesi Azalt"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volume Turun"
+          }
         }
       }
     },
@@ -5831,6 +7473,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sesi Artır"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volume Naik"
           }
         }
       }
@@ -5854,6 +7502,12 @@
             "state" : "translated",
             "value" : "Yetkilendirme bekleniyor…"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menunggu otorisasi…"
+          }
         }
       }
     },
@@ -5875,6 +7529,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kaset'e Hoş Geldiniz"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selamat datang di Kaset"
           }
         }
       }
@@ -5898,6 +7558,12 @@
             "state" : "translated",
             "value" : "Neyi değiştirmek istersiniz?"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apa yang ingin Anda ubah?"
+          }
         }
       }
     },
@@ -5919,6 +7585,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sıranızla ne yapmak istersiniz?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apa yang ingin Anda lakukan dengan antrean?"
           }
         }
       }
@@ -5942,6 +7614,12 @@
             "state" : "translated",
             "value" : "Ne yapmak istersiniz?"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apa yang ingin Anda lakukan?"
+          }
         }
       }
     },
@@ -5963,6 +7641,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kaset'teki Yenilikler"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apa yang Baru di Kaset"
           }
         }
       }
@@ -5986,6 +7670,12 @@
             "state" : "translated",
             "value" : "Etkinleştirildiğinde doğal dil komutlarını, yapay zeka destekli çalma listesi iyileştirmeyi ve şarkı sözü açıklamalarını kullanabilirsiniz."
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jika diaktifkan, Anda dapat menggunakan perintah bahasa alami, penyempurnaan daftar putar bertenaga AI, dan penjelasan lirik."
+          }
         }
       }
     },
@@ -6008,6 +7698,12 @@
             "state" : "translated",
             "value" : "Kitaplığınız"
           }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pustaka Anda"
+          }
         }
       }
     },
@@ -6029,6 +7725,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kitaplığınız boş"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pustaka Anda kosong"
           }
         }
       }

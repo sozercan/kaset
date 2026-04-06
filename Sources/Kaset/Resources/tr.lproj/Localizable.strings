@@ -153,6 +153,8 @@
 
 "Edit" = "Düzenle";
 
+"Enable %@ Scrobbling" = "%@ Scrobbling'i Etkinleştir";
+
 "Enable AI Features" = "Yapay Zeka Özelliklerini Etkinleştir";
 
 "Enable Apple Intelligence in System Settings to use AI features." = "Yapay zeka özelliklerini kullanmak için Sistem Ayarları'nda Apple Intelligence'ı etkinleştirin.";
@@ -406,6 +408,8 @@
 
 /* Button to retry failed playback */
 "Retry" = "Tekrar Dene";
+
+"Romanize Lyrics" = "Şarkı Sözlerini Romanize Et";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Burada görmek için YouTube Music'te çalma listeleri kaydedin ve podcastlere abone olun.";
 

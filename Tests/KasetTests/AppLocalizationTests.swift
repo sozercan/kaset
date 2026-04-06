@@ -43,6 +43,17 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
     }
 
+    @Test("Indonesian bundle localizes artist and subscribe strings")
+    func moduleBundleLocalizesIndonesianStrings() throws {
+        let indonesianBundle = try #require(self.localizedBundle(for: "id"))
+        let format = indonesianBundle.localizedString(forKey: "Subscribe %@", value: nil, table: nil)
+        let title = String(format: format, locale: Locale(identifier: "id"), "34.6M")
+
+        #expect(indonesianBundle.localizedString(forKey: "Artist", value: nil, table: nil) == "Artis")
+        #expect(title.hasPrefix("Berlangganan"))
+        #expect(title.contains("34.6M"))
+    }
+
     @Test("Override bundle is only used for Kaset-owned bundles")
     func overrideBundleLookupIsScopedToKasetBundles() throws {
         AppLocalization.setLanguage("ar")
