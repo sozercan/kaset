@@ -12,10 +12,42 @@ struct HistoryViewModelTests {
     init() {
         self.mockClient = MockYTMusicClient()
         self.viewModel = HistoryViewModel(client: self.mockClient)
+        HistoryViewModel.playbackRefreshDelay = .seconds(3)
+        HistoryViewModel.playbackRefreshRetryDelay = .seconds(2)
     }
 
-    private func waitForBackgroundLoading() async {
-        try? await Task.sleep(for: .milliseconds(500))
+    private func waitForBackgroundLoading(
+        timeout: Duration = .seconds(3),
+        until condition: @escaping () -> Bool
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        Issue.record("Timed out waiting for background history loading")
+    }
+
+    private func waitForHistoryRefresh(
+        timeout: Duration = .seconds(3),
+        until condition: @escaping () -> Bool
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        Issue.record("Timed out waiting for playback-triggered history refresh")
     }
 
     @Test("Initial state is idle with empty sections")
@@ -75,7 +107,10 @@ struct HistoryViewModelTests {
         self.mockClient.historyContinuationSections = [[paginatedSection]]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading()
+        await self.waitForBackgroundLoading {
+            self.viewModel.sections.map(\.title) == ["Today", "Yesterday"] &&
+                self.viewModel.hasMoreSections == false
+        }
 
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
         #expect(self.viewModel.hasMoreSections == false)
@@ -95,7 +130,10 @@ struct HistoryViewModelTests {
         self.mockClient.historyContinuationSections = [[paginatedSection]]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading()
+        await self.waitForBackgroundLoading {
+            self.viewModel.sections.map(\.title) == ["Today", "Yesterday"] &&
+                self.viewModel.hasMoreSections == false
+        }
 
         #expect(self.viewModel.hasMoreSections == false)
 
@@ -105,7 +143,10 @@ struct HistoryViewModelTests {
         #expect(self.viewModel.hasMoreSections == true)
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
 
-        await self.waitForBackgroundLoading()
+        await self.waitForBackgroundLoading {
+            self.viewModel.hasMoreSections == false &&
+                self.viewModel.sections.map(\.title) == ["Today", "Yesterday"]
+        }
 
         #expect(self.viewModel.hasMoreSections == false)
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
@@ -132,5 +173,58 @@ struct HistoryViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == false)
+    }
+
+    @Test("Playback-triggered refresh updates history once per new video ID")
+    func playbackTriggeredRefreshUpdatesHistoryOncePerNewVideoId() async {
+        let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
+        let refreshedSection = TestFixtures.makeHomeSection(id: "today-2", title: "Today")
+        self.mockClient.historyResponse = HomeResponse(sections: [initialSection])
+
+        await self.viewModel.load()
+        self.viewModel.syncObservedPlayback(videoId: "video-1")
+
+        HistoryViewModel.playbackRefreshDelay = .milliseconds(1)
+        HistoryViewModel.playbackRefreshRetryDelay = .milliseconds(1)
+        self.mockClient.historyResponseSequence = [HomeResponse(sections: [refreshedSection])]
+
+        self.viewModel.schedulePlaybackRefreshIfNeeded(for: "video-1")
+        self.viewModel.schedulePlaybackRefreshIfNeeded(for: "video-2")
+        self.viewModel.schedulePlaybackRefreshIfNeeded(for: "video-2")
+
+        await self.waitForHistoryRefresh {
+            self.mockClient.getHistoryCallCount == 2 &&
+                self.viewModel.sections.map(\.id) == ["today-2"]
+        }
+
+        #expect(self.mockClient.getHistoryCallCount == 2)
+        #expect(self.viewModel.sections.map(\.id) == ["today-2"])
+    }
+
+    @Test("Playback-triggered refresh retries when the first page is unchanged")
+    func playbackTriggeredRefreshRetriesWhenFirstPageIsUnchanged() async {
+        let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
+        let refreshedSection = TestFixtures.makeHomeSection(id: "today-2", title: "Today")
+        self.mockClient.historyResponse = HomeResponse(sections: [initialSection])
+
+        await self.viewModel.load()
+        self.viewModel.syncObservedPlayback(videoId: "video-1")
+
+        HistoryViewModel.playbackRefreshDelay = .milliseconds(1)
+        HistoryViewModel.playbackRefreshRetryDelay = .milliseconds(1)
+        self.mockClient.historyResponseSequence = [
+            HomeResponse(sections: [initialSection]),
+            HomeResponse(sections: [refreshedSection]),
+        ]
+
+        self.viewModel.schedulePlaybackRefreshIfNeeded(for: "video-2")
+
+        await self.waitForHistoryRefresh {
+            self.mockClient.getHistoryCallCount == 3 &&
+                self.viewModel.sections.map(\.id) == ["today-2"]
+        }
+
+        #expect(self.mockClient.getHistoryCallCount == 3)
+        #expect(self.viewModel.sections.map(\.id) == ["today-2"])
     }
 }

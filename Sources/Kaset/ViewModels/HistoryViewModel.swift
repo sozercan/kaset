@@ -21,6 +21,8 @@ final class HistoryViewModel {
     // swiftformat:disable modifierOrder
     /// Task for background loading, cancelled in deinit.
     nonisolated(unsafe) private var backgroundLoadTask: Task<Void, Never>?
+    /// Task for delayed playback-driven refreshes, cancelled in deinit/reset.
+    nonisolated(unsafe) private var playbackRefreshTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     /// Number of background continuations loaded.
@@ -32,12 +34,22 @@ final class HistoryViewModel {
     /// Cached first page from the last successful history fetch.
     private var initialSections: [HomeSection] = []
 
+    /// Last playback video ID observed while History was mounted.
+    private var lastSeenPlaybackVideoId: String?
+
+    /// Delay before refreshing after playback changes to allow history to propagate.
+    static var playbackRefreshDelay: Duration = .seconds(3)
+
+    /// Retry delay when the first playback refresh does not update the first page.
+    static var playbackRefreshRetryDelay: Duration = .seconds(2)
+
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
 
     deinit {
         self.backgroundLoadTask?.cancel()
+        self.playbackRefreshTask?.cancel()
     }
 
     /// Loads history content with fast initial load.
@@ -70,11 +82,40 @@ final class HistoryViewModel {
     /// Resets local history state, used when switching accounts.
     func reset() {
         self.backgroundLoadTask?.cancel()
+        self.playbackRefreshTask?.cancel()
         self.loadingState = .idle
         self.sections = []
         self.initialSections = []
         self.hasMoreSections = true
         self.continuationsLoaded = 0
+        self.lastSeenPlaybackVideoId = nil
+    }
+
+    /// Records the currently observed playback without scheduling a refresh.
+    /// Used to establish a baseline after the initial history load completes.
+    func syncObservedPlayback(videoId: String?) {
+        self.lastSeenPlaybackVideoId = videoId
+    }
+
+    /// Schedules a delayed refresh when playback changes to a new video.
+    func schedulePlaybackRefreshIfNeeded(for videoId: String?) {
+        guard let videoId else {
+            self.lastSeenPlaybackVideoId = nil
+            return
+        }
+
+        guard self.loadingState == .loaded else {
+            self.lastSeenPlaybackVideoId = videoId
+            return
+        }
+
+        guard videoId != self.lastSeenPlaybackVideoId else { return }
+
+        self.lastSeenPlaybackVideoId = videoId
+        self.playbackRefreshTask?.cancel()
+        self.playbackRefreshTask = Task { [weak self] in
+            await self?.refreshAfterPlaybackChange()
+        }
     }
 
     /// Loads more sections in the background progressively.
@@ -185,6 +226,30 @@ final class HistoryViewModel {
             self.logger.warning("History refresh failed: \(error.localizedDescription)")
             return false
         }
+    }
+
+    /// Refreshes after a playback change, retrying once if the first page is unchanged.
+    func refreshAfterPlaybackChange() async {
+        do {
+            try await Task.sleep(for: Self.playbackRefreshDelay)
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else { return }
+
+        let changed = await self.refresh()
+        guard !Task.isCancelled else { return }
+        guard !changed else { return }
+
+        do {
+            try await Task.sleep(for: Self.playbackRefreshRetryDelay)
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else { return }
+        _ = await self.refresh()
     }
 
     /// Compares refreshed first-page sections using stable section and item identifiers.

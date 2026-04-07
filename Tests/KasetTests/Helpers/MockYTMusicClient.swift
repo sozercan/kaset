@@ -28,6 +28,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var newReleasesResponse: HomeResponse = .init(sections: [])
     var newReleasesContinuationSections: [[HomeSection]] = []
     var historyResponse: HomeResponse = .init(sections: [])
+    var historyResponseSequence: [HomeResponse] = []
     var historyContinuationSections: [[HomeSection]] = []
     var podcastsSections: [PodcastSection] = []
     var podcastsContinuationSections: [[PodcastSection]] = []
@@ -131,6 +132,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getHomeContinuationCallCount = 0
     private(set) var getExploreCalled = false
     private(set) var getExploreCallCount = 0
+    private(set) var getHistoryCallCount = 0
     private(set) var getExploreContinuationCalled = false
     private(set) var getExploreContinuationCallCount = 0
     private(set) var searchCalled = false
@@ -267,8 +269,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getHistory() async throws -> HomeResponse {
+        self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
         if let error = shouldThrowError { throw error }
+        if !self.historyResponseSequence.isEmpty {
+            return self.historyResponseSequence.removeFirst()
+        }
         return self.historyResponse
     }
 

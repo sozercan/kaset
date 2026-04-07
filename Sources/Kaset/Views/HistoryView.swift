@@ -9,7 +9,6 @@ struct HistoryView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
-    @State private var lastSeenVideoId: String?
     @State private var isRefreshing = false
 
     var body: some View {
@@ -61,15 +60,14 @@ struct HistoryView: View {
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
-                self.lastSeenVideoId = self.playerService.currentTrack?.videoId
+                self.viewModel.syncObservedPlayback(videoId: self.playerService.currentTrack?.videoId)
             }
         }
         .onAppear {
-            let currentVideoId = self.playerService.currentTrack?.videoId
-            if self.viewModel.loadingState == .loaded, currentVideoId != self.lastSeenVideoId {
-                self.lastSeenVideoId = currentVideoId
-                Task { await self.performRefresh() }
-            }
+            self.viewModel.schedulePlaybackRefreshIfNeeded(for: self.playerService.currentTrack?.videoId)
+        }
+        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+            self.viewModel.schedulePlaybackRefreshIfNeeded(for: newVideoId)
         }
         .refreshable {
             await self.performRefresh()
@@ -161,12 +159,6 @@ struct HistoryView: View {
         Button {
             Task {
                 await self.playerService.playQueue(allSongs, startingAt: index)
-                try? await Task.sleep(for: .seconds(3))
-                let changed = await self.performRefresh()
-                if !changed {
-                    try? await Task.sleep(for: .seconds(2))
-                    await self.performRefresh()
-                }
             }
         } label: {
             HStack(spacing: 12) {
