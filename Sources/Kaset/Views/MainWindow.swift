@@ -219,6 +219,8 @@ struct MainWindow: View {
 
                 guard newAccountId != nil else { return }
 
+                self.historyViewModel?.reset()
+
                 DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
                 await withTaskGroup(of: Void.self) { group in
@@ -455,6 +457,7 @@ struct MainWindow: View {
             group.addTask { await self.newReleasesViewModel?.refresh() }
             group.addTask { await self.podcastsViewModel?.refresh() }
             group.addTask { await self.likedMusicViewModel?.refresh() }
+            group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
     }

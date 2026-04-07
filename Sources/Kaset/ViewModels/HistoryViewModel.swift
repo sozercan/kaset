@@ -29,6 +29,9 @@ final class HistoryViewModel {
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
 
+    /// Cached first page from the last successful history fetch.
+    private var initialSections: [HomeSection] = []
+
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
@@ -45,7 +48,8 @@ final class HistoryViewModel {
         self.logger.info("Loading history content")
 
         do {
-            let response = try await client.getHistory()
+            let response = try await self.client.getHistory()
+            self.initialSections = response.sections
             self.sections = response.sections
             self.hasMoreSections = self.client.hasMoreHistorySections
             self.loadingState = .loaded
@@ -63,8 +67,18 @@ final class HistoryViewModel {
         }
     }
 
+    /// Resets local history state, used when switching accounts.
+    func reset() {
+        self.backgroundLoadTask?.cancel()
+        self.loadingState = .idle
+        self.sections = []
+        self.initialSections = []
+        self.hasMoreSections = true
+        self.continuationsLoaded = 0
+    }
+
     /// Loads more sections in the background progressively.
-    private func startBackgroundLoading() {
+    private func startBackgroundLoading(skippingPreviouslyLoadedContinuations pagesToSkip: Int = 0) {
         self.backgroundLoadTask?.cancel()
         self.backgroundLoadTask = Task { [weak self] in
             guard let self else { return }
@@ -73,22 +87,37 @@ final class HistoryViewModel {
 
             guard !Task.isCancelled else { return }
 
-            await self.loadMoreSections()
+            await self.loadMoreSections(skippingPreviouslyLoadedContinuations: pagesToSkip)
         }
     }
 
     /// Loads additional sections from continuations progressively.
-    private func loadMoreSections() async {
+    private func loadMoreSections(skippingPreviouslyLoadedContinuations pagesToSkip: Int = 0) async {
+        var skippedContinuations = 0
+
         while self.hasMoreSections, self.continuationsLoaded < Self.maxContinuations {
             guard self.loadingState == .loaded else { break }
 
             do {
-                if let additionalSections = try await client.getHistoryContinuation() {
+                if let additionalSections = try await self.client.getHistoryContinuation() {
+                    self.hasMoreSections = self.client.hasMoreHistorySections
+
+                    if skippedContinuations < pagesToSkip {
+                        skippedContinuations += 1
+                        let skippedCount = additionalSections.count
+                        let skippedContinuation = skippedContinuations
+                        self.logger.debug(
+                            "Skipped \(skippedCount) already-loaded history sections from continuation \(skippedContinuation)"
+                        )
+                        continue
+                    }
+
                     self.sections.append(contentsOf: additionalSections)
                     self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreHistorySections
                     let continuationNum = self.continuationsLoaded
-                    self.logger.info("Background loaded \(additionalSections.count) more history sections (continuation \(continuationNum))")
+                    self.logger.info(
+                        "Background loaded \(additionalSections.count) more history sections (continuation \(continuationNum))"
+                    )
                 } else {
                     self.hasMoreSections = false
                     break
@@ -114,14 +143,34 @@ final class HistoryViewModel {
         self.backgroundLoadTask?.cancel()
 
         do {
-            let response = try await client.getHistory()
+            let response = try await self.client.getHistory()
+            let previousContinuationsLoaded = self.continuationsLoaded
+            let shouldPreservePaginatedSections =
+                previousContinuationsLoaded > 0 && self.sections.count > response.sections.count
 
-            // Skip update if data is identical (prevents scroll jitter)
-            if !self.sectionsChanged(response.sections) {
-                self.logger.debug("History unchanged, skipping update")
+            // Compare only the refreshed first page against the last successful first page.
+            // `getHistory()` rewinds the continuation cursor, so preserving already-loaded
+            // continuation pages requires skipping those pages when background loading restarts.
+            if !self.sectionsChanged(self.initialSections, comparedTo: response.sections) {
+                self.initialSections = response.sections
+                self.hasMoreSections = self.client.hasMoreHistorySections
+                self.loadingState = .loaded
+
+                if shouldPreservePaginatedSections {
+                    self.logger.debug("History first page unchanged, preserving paginated sections")
+                } else {
+                    self.sections = response.sections
+                    self.continuationsLoaded = 0
+                    self.logger.debug("History unchanged, skipping update")
+                }
+
+                self.startBackgroundLoading(
+                    skippingPreviouslyLoadedContinuations: shouldPreservePaginatedSections ? previousContinuationsLoaded : 0
+                )
                 return false
             }
 
+            self.initialSections = response.sections
             self.sections = response.sections
             self.hasMoreSections = self.client.hasMoreHistorySections
             self.loadingState = .loaded
@@ -138,13 +187,17 @@ final class HistoryViewModel {
         }
     }
 
-    /// Compares new sections against current by checking section count and first item IDs.
-    private func sectionsChanged(_ newSections: [HomeSection]) -> Bool {
-        guard self.sections.count == newSections.count else { return true }
-        for (old, new) in zip(self.sections, newSections) {
-            if old.items.count != new.items.count { return true }
-            if old.items.first?.videoId != new.items.first?.videoId { return true }
+    /// Compares refreshed first-page sections using stable section and item identifiers.
+    private func sectionsChanged(_ oldSections: [HomeSection], comparedTo newSections: [HomeSection]) -> Bool {
+        guard oldSections.count == newSections.count else { return true }
+
+        for (oldSection, newSection) in zip(oldSections, newSections) {
+            if oldSection.id != newSection.id { return true }
+            if oldSection.title != newSection.title { return true }
+            if oldSection.isChart != newSection.isChart { return true }
+            if oldSection.items.map(\.id) != newSection.items.map(\.id) { return true }
         }
+
         return false
     }
 }
