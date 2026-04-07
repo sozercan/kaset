@@ -153,6 +153,8 @@
 
 "Edit" = "편집";
 
+"Enable %@ Scrobbling" = "%@ 스크로블링 사용";
+
 "Enable AI Features" = "AI 기능 활성화";
 
 "Enable Apple Intelligence in System Settings to use AI features." = "AI 기능을 사용하려면 시스템 설정에서 Apple Intelligence를 활성화하세요.";
@@ -406,6 +408,8 @@
 
 /* Button to retry failed playback */
 "Retry" = "다시 시도";
+
+"Romanize Lyrics" = "가사 로마자 표시";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고 팟캐스트를 구독하세요.";
 

@@ -153,6 +153,8 @@
 
 "Edit" = "تعديل";
 
+"Enable %@ Scrobbling" = "تفعيل السكروبلنغ لـ %@";
+
 "Enable AI Features" = "تفعيل ميزات الذكاء الاصطناعي";
 
 "Enable Apple Intelligence in System Settings to use AI features." = "فعّل ذكاء Apple في إعدادات النظام لاستخدام ميزات الذكاء الاصطناعي.";
@@ -406,6 +408,8 @@
 
 /* Button to retry failed playback */
 "Retry" = "إعادة المحاولة";
+
+"Romanize Lyrics" = "رومنة كلمات الأغاني";
 
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
 
