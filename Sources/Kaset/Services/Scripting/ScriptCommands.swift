@@ -63,7 +63,6 @@ final class PlayVideoCommand: NSScriptCommand {
         }
         logger.info("Executing play video command with ID: \(videoId)")
         Task { @MainActor in
-            playerService.markUserInteracted()
             let song = Song(
                 id: videoId,
                 title: "Loading...",
