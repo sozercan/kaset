@@ -134,7 +134,7 @@ struct SongActionsHelperTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
-        await self.awaitArtistReconciliation()
+        await self.awaitArtistReconciliation(refreshes: 2)
 
         #expect(self.mockClient.unsubscribeFromArtistCalled == true)
         #expect(self.mockClient.getLibraryContentCallCount == 2)
