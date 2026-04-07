@@ -197,6 +197,14 @@
 
 "Hidden" = "مخفي";
 
+"History" = "السجل";
+
+"Listening History" = "سجل الاستماع";
+
+"%lld songs listened today" = "استمعت إلى %lld أغنية اليوم";
+
+"Refresh" = "تحديث";
+
 "Hide Lyrics" = "إخفاء الكلمات";
 
 "Hide lyrics explanation" = "إخفاء شرح الكلمات";

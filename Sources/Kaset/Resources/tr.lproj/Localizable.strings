@@ -197,6 +197,14 @@
 
 "Hidden" = "Gizli";
 
+"History" = "Geçmiş";
+
+"Listening History" = "Dinleme Geçmişi";
+
+"%lld songs listened today" = "Bugün %lld şarkı dinlendi";
+
+"Refresh" = "Yenile";
+
 "Hide Lyrics" = "Şarkı Sözlerini Gizle";
 
 "Hide lyrics explanation" = "Şarkı sözü açıklamasını gizle";

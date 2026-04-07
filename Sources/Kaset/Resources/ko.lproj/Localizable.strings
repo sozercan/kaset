@@ -197,6 +197,14 @@
 
 "Hidden" = "숨김";
 
+"History" = "기록";
+
+"Listening History" = "감상 기록";
+
+"%lld songs listened today" = "오늘 %lld곡 감상";
+
+"Refresh" = "새로고침";
+
 "Hide Lyrics" = "가사 숨기기";
 
 "Hide lyrics explanation" = "가사 설명 숨기기";
