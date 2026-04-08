@@ -1,0 +1,565 @@
+/* Generated from Localizable.xcstrings. */
+
+/* Playlist track count */
+"%lld songs" = "%lld morceaux";
+
+"A native YouTube Music experience for macOS" = "Une expérience YouTube Music native pour macOS";
+
+"AI responses follow your system language settings." = "Les réponses de l'IA suivent les paramètres de langue de votre système.";
+
+"About" = "À propos";
+
+"Access your playlists and liked songs" = "Accédez à vos playlists et morceaux aimés";
+
+"Account" = "Compte";
+
+"Add to Favorites" = "Ajouter aux favoris";
+
+"Add to Library" = "Ajouter à la bibliothèque";
+
+"Add to Queue" = "Ajouter à la file d'attente";
+
+"Added to Library" = "Ajouté à la bibliothèque";
+
+"AirPlay" = "AirPlay";
+
+"AirPlay Connected" = "AirPlay connecté";
+
+"Album" = "Album";
+
+"Albums" = "Albums";
+
+"All" = "Tout";
+
+"All Episodes" = "Tous les épisodes";
+
+"An unknown error occurred" = "Une erreur inconnue s'est produite";
+
+"Analyzing playlist..." = "Analyse de la playlist...";
+
+"Analyzing..." = "Analyse en cours...";
+
+"Apple Intelligence" = "Apple Intelligence";
+
+"Apple Intelligence & Siri Settings" = "Réglages Apple Intelligence et Siri";
+
+"Apple Intelligence is currently unavailable." = "Apple Intelligence est actuellement indisponible.";
+
+"Apple Intelligence is downloading. This may take a few minutes." = "Apple Intelligence est en cours de téléchargement. Cela peut prendre quelques minutes.";
+
+"Apple Intelligence is not available" = "Apple Intelligence n'est pas disponible";
+
+"Apple Intelligence is ready to use" = "Apple Intelligence est prêt à être utilisé";
+
+"Apply Changes" = "Appliquer les modifications";
+
+"Artist" = "Artiste";
+
+"Artist not found" = "Artiste introuvable";
+
+"Artists" = "Artistes";
+
+"Ask AI (⌘K)" = "Demander à l'IA (⌘K)";
+
+"Ask anything about music..." = "Posez n'importe quelle question sur la musique...";
+
+"Automatically check for updates" = "Vérifier automatiquement les mises à jour";
+
+"Available" = "Disponible";
+
+"Background Playback" = "Lecture en arrière-plan";
+
+"Built with SwiftUI for a true macOS experience" = "Conçu avec SwiftUI pour une véritable expérience macOS";
+
+"Calculating..." = "Calcul en cours...";
+
+"Cancel" = "Annuler";
+
+"Change your system language to English or another supported language." = "Changez la langue de votre système en anglais ou dans une autre langue prise en charge.";
+
+"Charts" = "Classements";
+
+"Check Now" = "Vérifier maintenant";
+
+"Check for Updates..." = "Rechercher les mises à jour...";
+
+"Choose the language for the app interface" = "Choisissez la langue de l'interface de l'application";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "Choisissez les boutons affichés dans le widget En lecture du Centre de contrôle";
+"Clear" = "Effacer";
+
+"Clear AI Context" = "Effacer le contexte IA";
+
+"Clear Cache" = "Vider le cache";
+
+"Clear input" = "Effacer la saisie";
+
+"Clear search" = "Effacer la recherche";
+
+"Clearing..." = "Nettoyage en cours...";
+
+"Clears the AI session state. Use this if responses seem off or stuck." = "Efface l'état de la session IA. Utilisez ceci si les réponses semblent incorrectes ou bloquées.";
+
+"Close" = "Fermer";
+
+"Close side panel" = "Fermer le panneau latéral";
+
+"Collection" = "Collection";
+
+"Command Bar" = "Barre de commandes";
+
+"Community playlists" = "Playlists de la communauté";
+
+"Connect" = "Connecter";
+
+"Connected as %@" = "Connecté en tant que %@";
+
+"Content Language" = "Langue du contenu";
+
+"Content may not be available in your region." = "Le contenu peut ne pas être disponible dans votre région.";
+
+"Continue" = "Continuer";
+
+"Control playback with your keyboard" = "Contrôlez la lecture avec votre clavier";
+
+"Could not create AI session" = "Impossible de créer la session IA";
+
+"Couldn't search for music" = "Impossible de rechercher de la musique";
+
+"Create or save playlists on YouTube Music to see them here." = "Créez ou enregistrez des playlists sur YouTube Music pour les voir ici.";
+
+"Default Page on Launch" = "Page par défaut au lancement";
+
+"Disconnect" = "Déconnecter";
+
+"Discover" = "Découvrir";
+
+"Dislike" = "Je n'aime pas";
+
+"Disliked" = "Non aimé";
+
+"Dismiss" = "Fermer";
+
+"Done" = "Terminé";
+
+"Double-tap to retry" = "Appuyez deux fois pour réessayer";
+
+"Double-tap to switch accounts" = "Appuyez deux fois pour changer de compte";
+
+"Downloading" = "Téléchargement";
+
+"Drag to reorder" = "Glissez pour réorganiser";
+
+"Edit" = "Modifier";
+
+"Enable %@ Scrobbling" = "Activer le Scrobbling %@";
+
+"Enable AI Features" = "Activer les fonctionnalités IA";
+
+"Enable Apple Intelligence in System Settings to use AI features." = "Activez Apple Intelligence dans les Réglages Système pour utiliser les fonctionnalités IA.";
+
+
+"Enable Synced Lyrics" = "Activer les paroles synchronisées";
+"Episodes" = "Épisodes";
+
+"Error: %@" = "Erreur : %@";
+
+"Explain lyrics with AI" = "Expliquer les paroles avec l'IA";
+
+"Explore" = "Explorer";
+
+"Failed to load" = "Échec du chargement";
+
+"Failed to load accounts" = "Échec du chargement des comptes";
+
+"Failed to load accounts. Please try again." = "Échec du chargement des comptes. Veuillez réessayer.";
+
+"Failed to switch account. Please try again." = "Échec du changement de compte. Veuillez réessayer.";
+
+"Favorites" = "Favoris";
+
+"Featured playlists" = "Playlists en vedette";
+
+
+"Fetch and display real-time synced lyrics when available" = "Récupérer et afficher les paroles synchronisées en temps réel lorsqu'elles sont disponibles";
+"Find songs, albums, artists, and playlists" = "Trouvez des morceaux, albums, artistes et playlists";
+
+"Follow artists on YouTube Music to see them here." = "Suivez des artistes sur YouTube Music pour les voir ici.";
+
+"General" = "Général";
+
+"GitHub" = "GitHub";
+
+"Go to Album" = "Aller à l'album";
+
+"Go to Artist" = "Aller à l'artiste";
+
+"Haptic Feedback" = "Retour haptique";
+
+"Hidden" = "Masqué";
+
+"History" = "Historique";
+
+"Listening History" = "Historique d'écoute";
+
+"%lld songs listened today" = "%lld morceaux écoutés aujourd'hui";
+
+"Refresh" = "Actualiser";
+
+"Hide Lyrics" = "Masquer les paroles";
+
+"Hide lyrics explanation" = "Masquer l'explication des paroles";
+
+"Highlights" = "Highlights";
+
+"Home" = "Accueil";
+
+"Image Cache" = "Cache d'images";
+
+"In Library" = "Dans la bibliothèque";
+
+"Intelligence" = "Intelligence";
+
+"Keep listening even when the window is closed" = "Continuer l'écoute même lorsque la fenêtre est fermée";
+
+"Language Not Supported" = "Langue non prise en charge";
+
+"Last Used" = "Dernière utilisation";
+
+"Learn more" = "En savoir plus";
+
+"Library" = "Bibliothèque";
+
+"Like" = "J'aime";
+
+"Liked" = "Aimé";
+
+"Liked Music" = "Musique aimée";
+
+"Load More" = "Charger plus";
+
+"Loading artist..." = "Chargement de l'artiste...";
+
+"Loading charts..." = "Chargement des classements...";
+
+"Loading explore content..." = "Chargement du contenu à explorer...";
+
+"Loading liked songs..." = "Chargement des morceaux aimés...";
+
+"Loading lyrics..." = "Chargement des paroles...";
+
+"Loading moods & genres..." = "Chargement des ambiances et genres...";
+
+"Loading more..." = "Chargement...";
+
+"Loading new releases..." = "Chargement des nouveautés...";
+
+"Loading playlist..." = "Chargement de la playlist...";
+
+"Loading podcasts..." = "Chargement des podcasts...";
+
+"Loading songs..." = "Chargement des morceaux...";
+
+"Loading your library..." = "Chargement de votre bibliothèque...";
+
+"Loading..." = "Chargement...";
+
+"Lyrics" = "Paroles";
+
+"Media Keys" = "Touches multimédia";
+
+"Mix" = "Mix";
+
+"Moods & Genres" = "Ambiances et genres";
+
+"Move to End" = "Déplacer à la fin";
+
+"Move to Top" = "Déplacer en haut";
+
+"Mute" = "Couper le son";
+
+"Native Interface" = "Interface native";
+
+"Never checked" = "Jamais vérifié";
+
+"New Releases" = "Nouveautés";
+
+"Next" = "Suivant";
+
+"Next track" = "Piste suivante";
+
+
+"Next/Previous Track" = "Piste suivante/précédente";
+"No Connection" = "Aucune connexion";
+
+"No Content Available" = "Aucun contenu disponible";
+
+"No Lyrics Available" = "Aucune parole disponible";
+
+"No Moods & Genres Available" = "Aucune ambiance et genre disponible";
+
+"No Queue" = "Aucune file d'attente";
+
+"No Song Playing" = "Aucun morceau en lecture";
+
+"No artists yet" = "Aucun artiste pour le moment";
+
+"No changes suggested. The playlist looks good!" = "Aucune modification suggérée. La playlist est parfaite !";
+
+"No liked songs yet" = "Aucun morceau aimé pour le moment";
+
+"No playlists yet" = "Aucune playlist pour le moment";
+
+"No podcasts yet" = "Aucun podcast pour le moment";
+
+"No results found" = "Aucun résultat trouvé";
+
+"No songs or playlists found in this category." = "Aucun morceau ou playlist trouvé dans cette catégorie.";
+
+"Not Enabled" = "Non activé";
+
+"Not Supported" = "Non pris en charge";
+
+"Not connected" = "Non connecté";
+
+"Not disliked" = "Non marqué comme non aimé";
+
+"Not liked" = "Non aimé";
+
+"Not signed in" = "Non connecté";
+
+/* Login help text about passkey alternative */
+"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Remarque : si les clés d'accès ne fonctionnent pas, utilisez « Essayer autrement » pour vous connecter avec un mot de passe.";
+
+
+"Now Playing Controls" = "Contrôles de lecture en cours";
+"OK" = "OK";
+
+"Off" = "Désactivé";
+
+"On" = "Activé";
+
+"One" = "Un";
+
+"Open queue in side panel" = "Ouvrir la file d'attente dans le panneau latéral";
+
+"Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Ouvrez la barre de commandes pour contrôler la musique en langage naturel. Essayez « jouer quelque chose de chill » ou « ajouter du jazz à la file d'attente ».";
+
+"Pause" = "Pause";
+
+"Play" = "Lecture";
+
+"Play All" = "Tout lire";
+
+"Play Latest" = "Lire le plus récent";
+
+"Play Next" = "Lire ensuite";
+
+"Play a song to view its lyrics here." = "Lancez un morceau pour voir ses paroles ici.";
+
+"Play songs from a playlist or album to build your queue." = "Lancez des morceaux depuis une playlist ou un album pour créer votre file d'attente.";
+
+"Playback" = "Lecture";
+
+"Played" = "Lu";
+
+"Playing" = "En lecture";
+
+"Playlist" = "Playlist";
+
+"Playlist not found" = "Playlist introuvable";
+
+"Playlists" = "Playlists";
+
+"Please check your internet connection and try again." = "Veuillez vérifier votre connexion Internet et réessayer.";
+
+"Podcasts" = "Podcasts";
+
+"Press Enter to search" = "Appuyez sur Entrée pour rechercher";
+
+"Previous" = "Précédent";
+
+"Previous track" = "Piste précédente";
+
+"Processing..." = "Traitement en cours...";
+
+"Provide tactile feedback for actions on Force Touch trackpads" = "Fournir un retour tactile pour les actions sur les trackpads Force Touch";
+
+"Queue" = "File d'attente";
+
+"Quick Access" = "Accès rapide";
+
+"Redo" = "Rétablir";
+
+"Refine" = "Affiner";
+
+"Refine Playlist" = "Affiner la playlist";
+
+"Release Notes" = "Notes de version";
+
+"Remember Shuffle & Repeat" = "Mémoriser la lecture aléatoire et la répétition";
+
+"Remove Dislike" = "Retirer le je n'aime pas";
+
+"Remove from Favorites" = "Retirer des favoris";
+
+"Remove from Queue" = "Retirer de la file d'attente";
+
+"Repeat" = "Répéter";
+
+"Repeat All" = "Tout répéter";
+
+"Repeat Off" = "Répétition désactivée";
+
+"Repeat One" = "Répéter un seul";
+
+/* Button to retry failed playback */
+"Retry" = "Réessayer";
+
+"Romanize Lyrics" = "Romaniser les paroles";
+
+"Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Enregistrez des playlists et abonnez-vous à des podcasts sur YouTube Music pour les voir ici.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Enregistrez des playlists, suivez des artistes et abonnez-vous à des podcasts sur YouTube Music pour les voir ici.";
+
+"Save shuffle and repeat settings across app restarts" = "Conserver les réglages de lecture aléatoire et de répétition entre les redémarrages";
+
+"Scrobbling" = "Scrobbling";
+
+"Search" = "Rechercher";
+
+"Search for your favorite music" = "Recherchez votre musique préférée";
+
+"Search songs, albums, artists..." = "Rechercher des morceaux, albums, artistes...";
+
+"Searching..." = "Recherche en cours...";
+
+"See all" = "Tout voir";
+
+/* Placeholder shown when no sidebar item is selected */
+"Select an item from the sidebar" = "Sélectionnez un élément dans la barre latérale";
+
+"Share" = "Partager";
+
+"Show All" = "Tout afficher";
+
+"Show Lyrics" = "Afficher les paroles";
+
+"Show Now Playing Notifications" = "Afficher les notifications de lecture en cours";
+
+"Showing" = "Affichage";
+
+"Shuffle" = "Aléatoire";
+
+"Shuffle Off" = "Aléatoire désactivé";
+
+"Shuffle On" = "Aléatoire activé";
+
+"Sign Out" = "Se déconnecter";
+
+"Sign in to YouTube Music" = "Se connecter à YouTube Music";
+
+"Sign in to access your YouTube Music library" = "Connectez-vous pour accéder à votre bibliothèque YouTube Music";
+
+"Sign in with Google" = "Se connecter avec Google";
+
+"Signed in to YouTube Music" = "Connecté à YouTube Music";
+
+
+"Skip Forward/Backward" = "Avancer/Reculer";
+"Software Update" = "Mise à jour logicielle";
+
+"Songs" = "Morceaux";
+
+"Songs you like will appear here" = "Les morceaux que vous aimez apparaîtront ici";
+
+"Start Radio" = "Lancer la radio";
+
+"Subscribe" = "S'abonner";
+
+"Subscribe %@" = "S'abonner %@";
+
+"Subscribe to podcasts on YouTube Music to see them here." = "Abonnez-vous à des podcasts sur YouTube Music pour les voir ici.";
+
+"Subscribed" = "Abonné";
+
+"Subscription Error" = "Erreur d'abonnement";
+
+"Suggested Removals" = "Suppressions suggérées";
+
+"Switch Account" = "Changer de compte";
+
+"System Default" = "Par défaut du système";
+
+"Tap to retry" = "Appuyez pour réessayer";
+
+"There aren't any lyrics available for this song." = "Aucune parole n'est disponible pour ce morceau.";
+
+"This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." = "Ce Mac ne prend pas en charge Apple Intelligence. Un Mac avec puce Apple Silicon est requis.";
+
+"Top songs" = "Meilleurs morceaux";
+
+"Try Again" = "Réessayer";
+
+"Try commands like:" = "Essayez des commandes comme :";
+
+"Try searching for something else" = "Essayez de rechercher autre chose";
+
+"Unable to determine availability" = "Impossible de déterminer la disponibilité";
+
+"Unable to load artist" = "Impossible de charger l'artiste";
+
+"Unable to load content" = "Impossible de charger le contenu";
+
+"Unable to load playlist" = "Impossible de charger la playlist";
+
+"Unavailable" = "Indisponible";
+
+"Undo" = "Annuler";
+
+"Unknown" = "Inconnu";
+
+"Unknown Artist" = "Artiste inconnu";
+
+"Unlike" = "Retirer le j'aime";
+
+"Unmute" = "Réactiver le son";
+
+"Up Next" = "À suivre";
+
+"Updates" = "Mises à jour";
+
+"Version" = "Version";
+
+"Video" = "Vidéo";
+
+"View Album" = "Voir l'album";
+
+"View Artist" = "Voir l'artiste";
+
+"View Playlist" = "Voir la playlist";
+
+"View Podcast" = "Voir le podcast";
+
+"Volume Down" = "Baisser le volume";
+
+"Volume Up" = "Augmenter le volume";
+
+"Waiting for authorization…" = "En attente d'autorisation…";
+
+"Welcome to Kaset" = "Bienvenue sur Kaset";
+
+"What would you like to change?" = "Que souhaitez-vous modifier ?";
+
+"What would you like to do with your queue?" = "Que souhaitez-vous faire avec votre file d'attente ?";
+
+"What would you like to do?" = "Que souhaitez-vous faire ?";
+
+"What's New in Kaset" = "Nouveautés de Kaset";
+
+"When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." = "Lorsque cette option est activée, vous pouvez utiliser des commandes en langage naturel, l'affinement de playlists par IA et les explications de paroles.";
+
+"Your Library" = "Votre bibliothèque";
+
+"Your library is empty" = "Votre bibliothèque est vide";
