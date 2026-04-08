@@ -70,7 +70,7 @@ private struct LocalizedNavigationTitleModifier: ViewModifier {
     @Environment(\.locale) private var locale
 
     func body(content: Content) -> some View {
-        _ = self.locale
+        let _ = self.locale // swiftlint:disable:this redundant_discardable_let
         content.navigationTitle(AppLocalization.bundle.localizedString(forKey: self.key, value: nil, table: nil))
     }
 }
