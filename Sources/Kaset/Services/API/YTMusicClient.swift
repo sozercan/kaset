@@ -833,11 +833,14 @@ final class YTMusicClient: YTMusicClientProtocol {
                     artist: detail.artist,
                     description: detail.description,
                     songs: enrichedSongs,
-                    albums: detail.albums,
+                    albumSections: detail.albumSections,
+                    playlistSections: detail.playlistSections,
+                    artistSections: detail.artistSections,
                     thumbnailURL: detail.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
+                    monthlyAudience: detail.monthlyAudience,
                     hasMoreSongs: detail.hasMoreSongs,
                     songsBrowseId: detail.songsBrowseId,
                     songsParams: detail.songsParams,
@@ -851,7 +854,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             }
         }
 
-        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs and \(detail.albums.count) albums")
+        let artistCount = detail.artistSections.reduce(0) { $0 + $1.artists.count }
+        let playlistCount = detail.playlistSections.reduce(0) { $0 + $1.playlists.count }
+        let albumCount = detail.albumSections.reduce(0) { $0 + $1.albums.count }
+        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs, \(albumCount) albums across \(detail.albumSections.count) album sections, \(playlistCount) playlists across \(detail.playlistSections.count) playlist sections and \(artistCount) related artists across \(detail.artistSections.count) artist sections")
         return detail
     }
 

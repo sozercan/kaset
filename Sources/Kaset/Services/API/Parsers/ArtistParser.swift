@@ -5,10 +5,26 @@ import os
 enum ArtistParser {
     private static let logger = DiagnosticsLogger.api
 
+    private struct CarouselAccumulator {
+        var albumSections: [AlbumCarouselSection]
+        var playlistSections: [PlaylistCarouselSection]
+        var artistSections: [ArtistCarouselSection]
+    }
+
+    private struct CarouselSectionItems {
+        var albums: [Album] = []
+        var artists: [Artist] = []
+        var playlists: [Playlist] = []
+    }
+
     /// Parses artist detail from browse response.
     static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail {
         var songs: [Song] = []
-        var albums: [Album] = []
+        var carouselAccumulator = CarouselAccumulator(
+            albumSections: [],
+            playlistSections: [],
+            artistSections: []
+        )
         var hasMoreSongs = false
         var songsBrowseId: String?
         var songsParams: String?
@@ -50,13 +66,11 @@ enum ArtistParser {
                 if let carouselRenderer = sectionData["musicCarouselShelfRenderer"] as? [String: Any],
                    let carouselContents = carouselRenderer["contents"] as? [[String: Any]]
                 {
-                    for itemData in carouselContents {
-                        if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any],
-                           let album = parseAlbumFromTwoRowRenderer(twoRowRenderer)
-                        {
-                            albums.append(album)
-                        }
-                    }
+                    self.parseCarouselSection(
+                        carouselRenderer,
+                        contents: carouselContents,
+                        accumulator: &carouselAccumulator
+                    )
                 }
             }
         }
@@ -67,11 +81,14 @@ enum ArtistParser {
             artist: artist,
             description: headerResult.description,
             songs: songs,
-            albums: albums,
+            albumSections: carouselAccumulator.albumSections,
+            playlistSections: carouselAccumulator.playlistSections,
+            artistSections: carouselAccumulator.artistSections,
             thumbnailURL: headerResult.thumbnailURL,
             channelId: headerResult.channelId,
             isSubscribed: headerResult.isSubscribed,
             subscriberCount: headerResult.subscriberCount,
+            monthlyAudience: headerResult.monthlyAudience,
             hasMoreSongs: hasMoreSongs,
             songsBrowseId: songsBrowseId,
             songsParams: songsParams,
@@ -90,6 +107,7 @@ enum ArtistParser {
         var channelId: String?
         var isSubscribed: Bool = false
         var subscriberCount: String?
+        var monthlyAudience: String?
         var mixPlaylistId: String?
         var mixVideoId: String?
     }
@@ -117,6 +135,10 @@ enum ArtistParser {
 
             // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: immersiveHeader, into: &result)
+
+            if let monthlyListenerCount = immersiveHeader["monthlyListenerCount"] as? [String: Any] {
+                result.monthlyAudience = self.parseMonthlyAudience(from: monthlyListenerCount)
+            }
 
             // Parse startRadioButton for mix (personalized radio)
             self.parseStartRadioButton(from: immersiveHeader, into: &result)
@@ -226,6 +248,18 @@ enum ArtistParser {
         }
     }
 
+    private static func parseMonthlyAudience(from data: [String: Any]) -> String? {
+        guard let runs = data["runs"] as? [[String: Any]] else { return nil }
+        let text = runs.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+
+        for suffix in [" monthly audience", " monthly listeners"] where text.hasSuffix(suffix) {
+            return String(text.dropLast(suffix.count))
+        }
+
+        return text
+    }
+
     // MARK: - Content Parsing
 
     /// Parses songs from artist songs browse response.
@@ -308,34 +342,220 @@ enum ArtistParser {
         return tracks
     }
 
-    private static func parseAlbumFromTwoRowRenderer(_ data: [String: Any]) -> Album? {
+    private static func parseCarouselSection(
+        _ renderer: [String: Any],
+        contents: [[String: Any]],
+        accumulator: inout CarouselAccumulator
+    ) {
+        let carouselSectionType = self.carouselSectionType(from: renderer)
+        let sectionTitle = self.carouselTitle(from: renderer)
+        var sectionItems = CarouselSectionItems()
+
+        for itemData in contents {
+            guard let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any],
+                  let carouselItem = self.parseCarouselItemFromTwoRowRenderer(twoRowRenderer)
+            else {
+                continue
+            }
+
+            self.appendCarouselItem(
+                carouselItem,
+                sectionType: carouselSectionType,
+                sectionItems: &sectionItems
+            )
+        }
+
+        if !sectionItems.albums.isEmpty {
+            accumulator.albumSections.append(AlbumCarouselSection(
+                title: sectionTitle ?? "Albums",
+                albums: sectionItems.albums
+            ))
+        }
+
+        if !sectionItems.playlists.isEmpty {
+            accumulator.playlistSections.append(PlaylistCarouselSection(
+                title: sectionTitle ?? "Playlists",
+                playlists: sectionItems.playlists
+            ))
+        }
+
+        guard !sectionItems.artists.isEmpty else { return }
+
+        accumulator.artistSections.append(ArtistCarouselSection(
+            title: sectionTitle ?? "Artists",
+            artists: sectionItems.artists
+        ))
+    }
+
+    private static func appendCarouselItem(
+        _ item: CarouselItem,
+        sectionType: CarouselSectionType,
+        sectionItems: inout CarouselSectionItems
+    ) {
+        switch item {
+        case let .album(album):
+            sectionItems.albums.append(album)
+        case let .playlist(playlist):
+            if sectionType != .similarArtists {
+                sectionItems.playlists.append(playlist)
+            }
+        case let .artist(artist):
+            if sectionType != .featuredOn, sectionType != .playlists {
+                sectionItems.artists.append(artist)
+            }
+        }
+    }
+
+    private enum CarouselItem {
+        case album(Album)
+        case playlist(Playlist)
+        case artist(Artist)
+    }
+
+    private enum CarouselSectionType {
+        case playlists
+        case featuredOn
+        case similarArtists
+        case other
+    }
+
+    private static func carouselSectionType(from renderer: [String: Any]) -> CarouselSectionType {
+        let title = self.carouselTitle(from: renderer)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if title.contains("featured"), title.contains("on") {
+            return .featuredOn
+        }
+        if title.contains("fans"), title.contains("like") || title.contains("similar") {
+            return .similarArtists
+        }
+        if title.contains("playlist") {
+            return .playlists
+        }
+        return .other
+    }
+
+    private static func carouselTitle(from renderer: [String: Any]) -> String? {
+        guard let header = renderer["header"] as? [String: Any],
+              let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any],
+              let title = ParsingHelpers.extractTitle(from: basicHeader)
+        else {
+            return nil
+        }
+
+        return title
+    }
+
+    private static func parseCarouselItemFromTwoRowRenderer(_ data: [String: Any]) -> CarouselItem? {
         guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String,
-              browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK")
+              let browseId = browseEndpoint["browseId"] as? String
         else {
             return nil
         }
 
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
-        let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown Album"
+        let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown"
+        let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+        let subtitleText = self.parseCarouselSubtitle(from: data)
 
-        var year: String?
         if let subtitleData = data["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            // Year is typically the last item in subtitle
-            year = runs.last?["text"] as? String
+            if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+                // Year is typically the last item in subtitle
+                let year = runs.last?["text"] as? String
+                return .album(Album(
+                    id: browseId,
+                    title: title,
+                    artists: nil,
+                    thumbnailURL: thumbnailURL,
+                    year: year,
+                    trackCount: nil
+                ))
+            }
+
+            if Self.isPlaylistBrowseId(browseId, browseEndpoint: browseEndpoint) {
+                let author = ParsingHelpers.extractFirstNavigableArtist(from: runs)?.name
+                    ?? runs.compactMap { run -> String? in
+                        guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                              !text.isEmpty,
+                              text != "•"
+                        else {
+                            return nil
+                        }
+                        return text
+                    }.first
+
+                return .playlist(Playlist(
+                    id: browseId,
+                    title: title,
+                    description: nil,
+                    thumbnailURL: thumbnailURL,
+                    trackCount: nil,
+                    author: author.map { Artist(id: UUID().uuidString, name: $0) }
+                ))
+            }
+
+            if ParsingHelpers.isArtistPageType(pageType) || Artist.isNavigableId(browseId) {
+                return .artist(Artist(
+                    id: browseId,
+                    name: title,
+                    thumbnailURL: thumbnailURL,
+                    subtitle: subtitleText
+                ))
+            }
         }
 
-        return Album(
-            id: browseId,
-            title: title,
-            artists: nil,
-            thumbnailURL: thumbnailURL,
-            year: year,
-            trackCount: nil
-        )
+        if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+            return .album(Album(
+                id: browseId,
+                title: title,
+                artists: nil,
+                thumbnailURL: thumbnailURL,
+                year: nil,
+                trackCount: nil
+            ))
+        }
+
+        if Self.isPlaylistBrowseId(browseId, browseEndpoint: browseEndpoint) {
+            return .playlist(Playlist(
+                id: browseId,
+                title: title,
+                description: nil,
+                thumbnailURL: thumbnailURL,
+                trackCount: nil,
+                author: nil
+            ))
+        }
+
+        if ParsingHelpers.isArtistPageType(pageType) || Artist.isNavigableId(browseId) {
+            return .artist(Artist(
+                id: browseId,
+                name: title,
+                thumbnailURL: thumbnailURL,
+                subtitle: subtitleText
+            ))
+        }
+
+        return nil
+    }
+
+    private static func parseCarouselSubtitle(from data: [String: Any]) -> String? {
+        guard let subtitle = data["subtitle"] as? [String: Any],
+              let runs = subtitle["runs"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        let text = runs.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
+    private static func isPlaylistBrowseId(_ browseId: String, browseEndpoint: [String: Any]) -> Bool {
+        let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+        return pageType == "MUSIC_PAGE_TYPE_PLAYLIST"
+            || browseId.hasPrefix("VL")
+            || browseId.hasPrefix("PL")
+            || browseId.hasPrefix("RD")
     }
 }

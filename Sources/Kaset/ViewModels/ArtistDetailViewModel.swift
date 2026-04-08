@@ -61,14 +61,19 @@ final class ArtistDetailViewModel {
                     artist: mergedArtist,
                     description: detail.description,
                     songs: detail.songs,
-                    albums: detail.albums,
+                    albumSections: detail.albumSections,
+                    playlistSections: detail.playlistSections,
+                    artistSections: detail.artistSections,
                     thumbnailURL: detail.thumbnailURL ?? self.artist.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
+                    monthlyAudience: detail.monthlyAudience,
                     hasMoreSongs: detail.hasMoreSongs,
                     songsBrowseId: detail.songsBrowseId,
-                    songsParams: detail.songsParams
+                    songsParams: detail.songsParams,
+                    mixPlaylistId: detail.mixPlaylistId,
+                    mixVideoId: detail.mixVideoId
                 )
             }
 

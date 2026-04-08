@@ -7,11 +7,13 @@ struct Artist: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let thumbnailURL: URL?
+    let subtitle: String?
 
-    init(id: String, name: String, thumbnailURL: URL? = nil) {
+    init(id: String, name: String, thumbnailURL: URL? = nil, subtitle: String? = nil) {
         self.id = id
         self.name = name
         self.thumbnailURL = thumbnailURL
+        self.subtitle = subtitle
     }
 
     /// Whether this artist has a valid navigable ID.
@@ -24,6 +26,11 @@ struct Artist: Identifiable, Codable, Hashable {
     /// The public channel ID for this artist, if one can be derived.
     var publicChannelId: String? {
         Self.publicChannelId(for: self.id)
+    }
+
+    func formattedSubtitle(languageCode: String) -> String? {
+        guard let subtitle else { return nil }
+        return AudienceTextFormatter.formatAudienceOrSubscriber(subtitle, languageCode: languageCode)
     }
 }
 
@@ -65,6 +72,7 @@ extension Artist {
 
         self.id = artistId
         self.name = name
+        self.subtitle = data["subtitle"] as? String
 
         // Parse thumbnail
         if let thumbnails = data["thumbnails"] as? [[String: Any]],

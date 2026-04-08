@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// swiftlint:disable type_body_length
 /// Tests for ArtistParser.
 @Suite(.tags(.parser))
 struct ArtistParserTests {
@@ -21,7 +22,9 @@ struct ArtistParserTests {
         #expect(result.name == "Taylor Swift")
         #expect(result.description == "Grammy-winning artist")
         #expect(result.songs.count == 5)
-        #expect(result.albums.count == 3)
+        #expect(result.albumSections.first?.albums.count == 3)
+        #expect(result.playlistSections.isEmpty)
+        #expect(result.artistSections.isEmpty)
     }
 
     @Test("parseArtistDetail handles empty response")
@@ -32,7 +35,7 @@ struct ArtistParserTests {
 
         #expect(result.name == "Unknown Artist")
         #expect(result.songs.isEmpty)
-        #expect(result.albums.isEmpty)
+        #expect(result.albumSections.isEmpty)
     }
 
     @Test("parseArtistDetail extracts channel ID from UC prefix")
@@ -65,6 +68,20 @@ struct ArtistParserTests {
 
         #expect(result.isSubscribed == true)
         #expect(result.subscriberCount == "1.5M subscribers")
+    }
+
+    @Test("parseArtistDetail extracts monthly audience")
+    func parseArtistDetailExtractsMonthlyAudience() {
+        let data = Self.makeArtistResponseWithSubscription(
+            name: "Monthly Artist",
+            isSubscribed: false,
+            subscriberCount: "54.4K",
+            monthlyAudience: "2.59M monthly audience"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.monthlyAudience == "2.59M")
     }
 
     @Test("parseArtistDetail extracts songs browse ID when available")
@@ -139,10 +156,12 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albums.count == 2)
-        #expect(result.albums[0].id == "MPRE-album-1")
-        #expect(result.albums[0].title == "Album One")
-        #expect(result.albums[0].year == "2024")
+        #expect(result.albumSections.count == 1)
+        let albums = result.albumSections[0].albums
+        #expect(albums.count == 2)
+        #expect(albums[0].id == "MPRE-album-1")
+        #expect(albums[0].title == "Album One")
+        #expect(albums[0].year == "2024")
     }
 
     @Test("parseArtistDetail extracts albums with OLAK prefix")
@@ -155,8 +174,8 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albums.count == 1)
-        #expect(result.albums[0].id == "OLAK-album-1")
+        #expect(result.albumSections.count == 1)
+        #expect(result.albumSections[0].albums[0].id == "OLAK-album-1")
     }
 
     @Test("parseArtistDetail ignores non-album browse IDs")
@@ -169,7 +188,108 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albums.isEmpty)
+        #expect(result.albumSections.isEmpty)
+    }
+
+    @Test("parseArtistDetail preserves album carousel titles")
+    func parseArtistDetailPreservesAlbumSectionTitles() {
+        let data = Self.makeArtistResponseWithAlbums(
+            ids: ["MPRE-single-1", "MPRE-single-2"],
+            titles: ["Single One", "EP Two"],
+            years: ["2024", "2023"],
+            sectionTitle: "Singles & EPs"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.albumSections.count == 1)
+        #expect(result.albumSections[0].albums.count == 2)
+        #expect(result.albumSections[0].title == "Singles & EPs")
+        #expect(result.albumSections[0].albums.map(\.id) == ["MPRE-single-1", "MPRE-single-2"])
+    }
+
+    @Test("parseArtistDetail extracts playlists from carousel")
+    func parseArtistDetailExtractsPlaylists() {
+        let data = Self.makeArtistResponseWithPlaylists(
+            ids: ["VLPL-playlist-1", "PL-playlist-2"],
+            titles: ["Playlist One", "Playlist Two"],
+            authors: ["Shelltoast", "Shelltoast"],
+            sectionTitle: "Playlists"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.playlistSections.count == 1)
+        #expect(result.playlistSections[0].title == "Playlists")
+        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-playlist-1", "PL-playlist-2"])
+        #expect(result.artistSections.isEmpty)
+        #expect(result.albumSections.isEmpty)
+    }
+
+    @Test("parseArtistDetail preserves featured on playlist section")
+    func parseArtistDetailExtractsFeaturedOnPlaylists() {
+        let data = Self.makeArtistResponseWithPlaylists(
+            ids: ["VLPL-featured-1"],
+            titles: ["Featured Playlist"],
+            authors: ["Editorial"],
+            sectionTitle: "Featured on"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.playlistSections.count == 1)
+        #expect(result.playlistSections[0].title == "Featured on")
+        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-featured-1"])
+        #expect(result.artistSections.isEmpty)
+    }
+
+    @Test("parseArtistDetail preserves playlist carousel titles")
+    func parseArtistDetailPreservesPlaylistSectionTitles() {
+        let data = Self.makeArtistResponseWithPlaylists(
+            ids: ["VLPL-repeat-1"],
+            titles: ["Repeated Playlist"],
+            authors: ["Shelltoast"],
+            sectionTitle: "Playlists on repeat"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.playlistSections.count == 1)
+        #expect(result.playlistSections[0].title == "Playlists on repeat")
+        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-repeat-1"])
+    }
+
+    @Test("parseArtistDetail preserves artist carousel titles")
+    func parseArtistDetailExtractsSimilarArtists() {
+        let data = Self.makeArtistResponseWithSimilarArtists(
+            ids: ["UC-similar-1", "MPLAUC-similar-2"],
+            names: ["Michael Giacchino", "Hans Zimmer"],
+            sectionTitle: "Artists on repeat"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.playlistSections.isEmpty)
+        #expect(result.artistSections.count == 1)
+        #expect(result.artistSections[0].title == "Artists on repeat")
+        #expect(result.artistSections[0].artists.count == 2)
+        #expect(result.artistSections[0].artists[0].id == "UC-similar-1")
+        #expect(result.artistSections[0].artists[0].name == "Michael Giacchino")
+    }
+
+    @Test("parseArtistDetail extracts similar artist subtitle")
+    func parseArtistDetailExtractsSimilarArtistSubtitle() {
+        let data = Self.makeArtistResponseWithSimilarArtists(
+            ids: ["UC-similar-1"],
+            names: ["Ezhel"],
+            subtitles: ["24.9M monthly audience"],
+            sectionTitle: "Fans might also like"
+        )
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.artistSections.count == 1)
+        #expect(result.artistSections[0].artists.first?.subtitle == "24.9M monthly audience")
     }
 
     // MARK: - Mix Playlist Tests
@@ -264,24 +384,32 @@ struct ArtistParserTests {
     private static func makeArtistResponseWithSubscription(
         name: String,
         isSubscribed: Bool,
-        subscriberCount: String
+        subscriberCount: String,
+        monthlyAudience: String? = nil
     ) -> [String: Any] {
-        [
-            "header": [
-                "musicImmersiveHeaderRenderer": [
-                    "title": [
-                        "runs": [["text": name]],
-                    ],
-                    "subscriptionButton": [
-                        "subscribeButtonRenderer": [
-                            "channelId": "UC-extracted",
-                            "subscribed": isSubscribed,
-                            "subscriberCountText": [
-                                "runs": [["text": subscriberCount]],
-                            ],
-                        ],
+        var header: [String: Any] = [
+            "title": [
+                "runs": [["text": name]],
+            ],
+            "subscriptionButton": [
+                "subscribeButtonRenderer": [
+                    "channelId": "UC-extracted",
+                    "subscribed": isSubscribed,
+                    "subscriberCountText": [
+                        "runs": [["text": subscriberCount]],
                     ],
                 ],
+            ],
+        ]
+        if let monthlyAudience {
+            header["monthlyListenerCount"] = [
+                "runs": [["text": monthlyAudience]],
+            ]
+        }
+
+        return [
+            "header": [
+                "musicImmersiveHeaderRenderer": header,
             ],
             "contents": [
                 "singleColumnBrowseResultsRenderer": [
@@ -367,7 +495,12 @@ struct ArtistParserTests {
         return ["musicTwoRowItemRenderer": twoRowRenderer]
     }
 
-    private static func makeArtistResponseWithAlbums(ids: [String], titles: [String], years: [String?]) -> [String: Any] {
+    private static func makeArtistResponseWithAlbums(
+        ids: [String],
+        titles: [String],
+        years: [String?],
+        sectionTitle: String = "Albums"
+    ) -> [String: Any] {
         let albumItems = zip(zip(ids, titles), years).map { pair, year in
             Self.makeAlbumItem(id: pair.0, title: pair.1, year: year)
         }
@@ -390,6 +523,13 @@ struct ArtistParserTests {
                                         "contents": [
                                             [
                                                 "musicCarouselShelfRenderer": [
+                                                    "header": [
+                                                        "musicCarouselShelfBasicHeaderRenderer": [
+                                                            "title": [
+                                                                "runs": [["text": sectionTitle]],
+                                                            ],
+                                                        ],
+                                                    ],
                                                     "contents": albumItems,
                                                 ],
                                             ],
@@ -399,6 +539,171 @@ struct ArtistParserTests {
                             ],
                         ],
                     ],
+                ],
+            ],
+        ]
+    }
+
+    private static func makeArtistResponseWithPlaylists(
+        ids: [String],
+        titles: [String],
+        authors: [String],
+        sectionTitle: String
+    ) -> [String: Any] {
+        let playlistItems = zip(zip(ids, titles), authors).map { pair, author in
+            [
+                "musicTwoRowItemRenderer": [
+                    "title": [
+                        "runs": [["text": pair.1]],
+                    ],
+                    "subtitle": [
+                        "runs": [[
+                            "text": author,
+                            "navigationEndpoint": [
+                                "browseEndpoint": [
+                                    "browseId": "UC-playlist-author",
+                                    "browseEndpointContextSupportedConfigs": [
+                                        "browseEndpointContextMusicConfig": [
+                                            "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ]],
+                    ],
+                    "navigationEndpoint": [
+                        "browseEndpoint": [
+                            "browseId": pair.0,
+                            "browseEndpointContextSupportedConfigs": [
+                                "browseEndpointContextMusicConfig": [
+                                    "pageType": "MUSIC_PAGE_TYPE_PLAYLIST",
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        }
+
+        return [
+            "header": [
+                "musicImmersiveHeaderRenderer": [
+                    "title": [
+                        "runs": [["text": "Artist"]],
+                    ],
+                ],
+            ],
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicCarouselShelfRenderer": [
+                                            "header": [
+                                                "musicCarouselShelfBasicHeaderRenderer": [
+                                                    "title": [
+                                                        "runs": [["text": sectionTitle]],
+                                                    ],
+                                                ],
+                                            ],
+                                            "contents": playlistItems,
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private static func makeArtistResponseWithSimilarArtists(
+        ids: [String],
+        names: [String],
+        subtitles: [String]? = nil,
+        sectionTitle: String
+    ) -> [String: Any] {
+        let artistSubtitles = subtitles ?? Array(repeating: "156M monthly audience", count: ids.count)
+        let artistItems = zip(zip(ids, names), artistSubtitles).map { pair, subtitle in
+            let (id, name) = pair
+            return [
+                "musicTwoRowItemRenderer": [
+                    "title": [
+                        "runs": [[
+                            "text": name,
+                            "navigationEndpoint": [
+                                "browseEndpoint": [
+                                    "browseId": id,
+                                    "browseEndpointContextSupportedConfigs": [
+                                        "browseEndpointContextMusicConfig": [
+                                            "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ]],
+                    ],
+                    "subtitle": [
+                        "runs": [["text": subtitle]],
+                    ],
+                    "navigationEndpoint": [
+                        "browseEndpoint": [
+                            "browseId": id,
+                            "browseEndpointContextSupportedConfigs": [
+                                "browseEndpointContextMusicConfig": [
+                                    "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                ],
+                            ],
+                        ],
+                    ],
+                    "thumbnailRenderer": [
+                        "musicThumbnailRenderer": [
+                            "thumbnail": [
+                                "thumbnails": [[
+                                    "url": "https://example.com/\(id).jpg",
+                                    "width": 226,
+                                    "height": 226,
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        }
+
+        return [
+            "header": [
+                "musicImmersiveHeaderRenderer": [
+                    "title": [
+                        "runs": [["text": "Artist"]],
+                    ],
+                ],
+            ],
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicCarouselShelfRenderer": [
+                                            "header": [
+                                                "musicCarouselShelfBasicHeaderRenderer": [
+                                                    "title": [
+                                                        "runs": [["text": sectionTitle]],
+                                                    ],
+                                                ],
+                                            ],
+                                            "contents": artistItems,
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
                 ],
             ],
         ]
@@ -526,3 +831,5 @@ struct ArtistParserTests {
         ]
     }
 }
+
+// swiftlint:enable type_body_length

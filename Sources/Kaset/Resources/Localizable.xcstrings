@@ -991,6 +991,72 @@
         }
       }
     },
+    "Profile": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الملف الشخصي"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "프로필"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
+          }
+        }
+      }
+    },
+    "Artists on repeat": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الفنّانون الذين يتم الاستماع إليهم بشكل متكرّر"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "반복 감상한 아티스트"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrarlı dinlenen sanatçılar"
+          }
+        }
+      }
+    },
+    "Playlists on repeat": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قوائم التشغيل التي يتم الاستماع إليها بشكل متكرّر"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "반복 감상한 재생목록"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrarlı dinlenen çalma listeleri"
+          }
+        }
+      }
+    },
     "Artists": {
       "localizations": {
         "ar": {
@@ -4577,6 +4643,28 @@
         }
       }
     },
+    "Monthly audience: %@": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ مشاهد شهريًا"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "월간 시청자 %@명"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aylık kitle: %@"
+          }
+        }
+      }
+    },
     "Moods & Genres": {
       "localizations": {
         "ar": {
@@ -6249,6 +6337,56 @@
         }
       }
     },
+    "Playlists by %@": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قوائم تشغيل من إنشاء \"%@\""
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@의 재생목록"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tarafından hazırlanan oynatma listeleri"
+          }
+        }
+      }
+    },
+    "Featured on": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قوائم تشغيل تتضمّن أعمال هذا الفنان"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추천 콘텐츠"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bulunduğu listeler"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daftar putar"
+          }
+        }
+      }
+    },
     "Please check your internet connection and try again.": {
       "localizations": {
         "ar": {
@@ -7787,6 +7925,28 @@
         }
       }
     },
+    "Similar artists": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فنّانون مشابهون"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "팬이 좋아할 만한 다른 아티스트"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benzer sanatçılar"
+          }
+        }
+      }
+    },
     "Signed in to YouTube Music": {
       "localizations": {
         "ar": {
@@ -8094,6 +8254,28 @@
         }
       }
     },
+    "Subscribed %@": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم الاشتراك %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "구독중 %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abone olundu %@"
+          }
+        }
+      }
+    },
     "Subscription Error": {
       "localizations": {
         "ar": {
@@ -8226,6 +8408,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abonné"
+          }
+        }
+      }
+    },
+    "Singles & EPs": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أغانٍ منفردة وحلقات"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "싱글 및 EP"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Single'lar ve EP'ler"
           }
         }
       }
