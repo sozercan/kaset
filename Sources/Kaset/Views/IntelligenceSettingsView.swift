@@ -90,7 +90,7 @@ struct IntelligenceSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
-        .navigationTitle("Intelligence")
+        .localizedNavigationTitle("Intelligence")
     }
 
     // MARK: - Computed Properties

@@ -32,7 +32,7 @@ struct ChartsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Charts")
+            .localizedNavigationTitle("Charts")
             .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

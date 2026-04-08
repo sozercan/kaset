@@ -154,7 +154,7 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
-        .navigationTitle("General")
+        .localizedNavigationTitle("General")
         .task {
             await self.updateCacheSize()
         }
