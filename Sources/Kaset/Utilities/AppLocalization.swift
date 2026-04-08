@@ -70,7 +70,7 @@ private struct LocalizedNavigationTitleModifier: ViewModifier {
     @Environment(\.locale) private var locale
 
     func body(content: Content) -> some View {
-        let _ = self.locale
+        _ = self.locale
         content.navigationTitle(AppLocalization.bundle.localizedString(forKey: self.key, value: nil, table: nil))
     }
 }
