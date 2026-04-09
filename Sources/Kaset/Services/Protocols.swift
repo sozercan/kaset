@@ -85,6 +85,15 @@ protocol YTMusicClientProtocol: Sendable {
     /// Whether more new releases sections are available to load.
     var hasMoreNewReleasesSections: Bool { get }
 
+    /// Fetches the history page content (initial sections only for fast display).
+    func getHistory() async throws -> HomeResponse
+
+    /// Fetches the next batch of history sections via continuation.
+    func getHistoryContinuation() async throws -> [HomeSection]?
+
+    /// Whether more history sections are available to load.
+    var hasMoreHistorySections: Bool { get }
+
     /// Fetches the podcasts page content (initial sections only for fast display).
     func getPodcasts() async throws -> [PodcastSection]
 

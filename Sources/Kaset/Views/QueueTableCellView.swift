@@ -164,14 +164,19 @@ class QueueTableCellView: NSView {
         let songId = song.id
         self.currentSongId = songId
         self.imageLoadTask?.cancel()
-        if let url = song.thumbnailURL?.highQualityThumbnailURL {
-            self.imageLoadTask = Task { [weak self] in
-                let image = await ImageCache.shared.image(for: url, targetSize: CGSize(width: 40, height: 40))
-                guard !Task.isCancelled, self?.currentSongId == songId else { return }
-                self?.thumbnailImageView.image = image
+        let primaryURL = song.thumbnailURL?.highQualityThumbnailURL
+        let fallbackURL = song.fallbackThumbnailURL
+        self.imageLoadTask = Task { [weak self] in
+            let targetSize = CGSize(width: 40, height: 40)
+            var image: NSImage?
+            if let primaryURL {
+                image = await ImageCache.shared.image(for: primaryURL, targetSize: targetSize)
             }
-        } else {
-            self.thumbnailImageView.image = nil
+            if image == nil, let fallbackURL {
+                image = await ImageCache.shared.image(for: fallbackURL, targetSize: targetSize)
+            }
+            guard !Task.isCancelled, self?.currentSongId == songId else { return }
+            self?.thumbnailImageView.image = image
         }
     }
 

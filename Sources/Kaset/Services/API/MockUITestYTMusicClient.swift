@@ -30,6 +30,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
+    var hasMoreHistorySections: Bool {
+        false
+    }
+
     var hasMoreLikedSongs: Bool {
         false
     }
@@ -100,6 +104,15 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getHistory() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getHistoryContinuation() async throws -> [HomeSection]? {
         nil
     }
 

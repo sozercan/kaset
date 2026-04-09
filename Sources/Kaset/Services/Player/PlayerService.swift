@@ -466,6 +466,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Called when the mini player confirms playback has started.
+    /// This is the only place that should open the session autoplay gate.
     func confirmPlaybackStarted() {
         self.showMiniPlayer = false
         self.state = .playing

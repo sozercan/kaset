@@ -78,6 +78,7 @@ final class SettingsManager {
         case korean
         case arabic
         case turkish
+        case indonesian
 
         var id: String {
             rawValue
@@ -90,6 +91,7 @@ final class SettingsManager {
             case .korean: "한국어"
             case .arabic: "العربية"
             case .turkish: "Türkçe"
+            case .indonesian: "Bahasa Indonesia"
             }
         }
 
@@ -101,6 +103,7 @@ final class SettingsManager {
             case .korean: "ko"
             case .arabic: "ar"
             case .turkish: "tr"
+            case .indonesian: "id"
             }
         }
 

@@ -56,4 +56,15 @@ struct AppLocalizationTests {
 
         #expect(AppLocalization.shouldOverrideLocalization(for: AppLocalization.baseBundle))
     }
+
+    @Test("Indonesian bundle localizes artist and subscribe strings")
+    func indonesianLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "id")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "id")
+        let title = String(format: localizedText, locale: Locale(identifier: "id"), "34.6M")
+
+        #expect(artist == "Artis")
+        #expect(title.hasPrefix("Berlangganan"))
+        #expect(title.contains("34.6M"))
+    }
 }

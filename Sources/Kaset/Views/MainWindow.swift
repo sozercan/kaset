@@ -47,6 +47,7 @@ struct MainWindow: View {
     @State private var podcastsViewModel: PodcastsViewModel?
     @State private var likedMusicViewModel: LikedMusicViewModel?
     @State private var libraryViewModel: LibraryViewModel?
+    @State private var historyViewModel: HistoryViewModel?
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -63,6 +64,7 @@ struct MainWindow: View {
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
         _likedMusicViewModel = State(initialValue: LikedMusicViewModel(client: client))
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
+        _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
 
     /// Access to the app delegate for persistent WebView.
@@ -225,6 +227,8 @@ struct MainWindow: View {
 
                 guard newAccountId != nil else { return }
 
+                self.historyViewModel?.reset()
+
                 DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
                 await withTaskGroup(of: Void.self) { group in
@@ -364,6 +368,8 @@ struct MainWindow: View {
                 if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+            case .history:
+                if let vm = historyViewModel { HistoryView(viewModel: vm) }
             }
         }
         .environment(self.libraryViewModel)
@@ -459,6 +465,7 @@ struct MainWindow: View {
             group.addTask { await self.newReleasesViewModel?.refresh() }
             group.addTask { await self.podcastsViewModel?.refresh() }
             group.addTask { await self.likedMusicViewModel?.refresh() }
+            group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
     }
@@ -476,6 +483,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case podcasts = "Podcasts"
     case likedMusic = "Liked Music"
     case library = "Library"
+    case history = "History"
 
     var id: String {
         rawValue
@@ -501,6 +509,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             String(localized: "Liked Music")
         case .library:
             String(localized: "Library")
+        case .history:
+            String(localized: "History")
         }
     }
 
@@ -524,6 +534,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "heart.fill"
         case .library:
             "square.stack.fill"
+        case .history:
+            "clock.arrow.circlepath"
         }
     }
 }

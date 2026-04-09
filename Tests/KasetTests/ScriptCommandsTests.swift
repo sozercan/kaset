@@ -14,6 +14,22 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(1),
+        pollInterval: Duration = .milliseconds(10),
+        _ condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !condition() {
+            guard clock.now < deadline else { return condition() }
+            try? await Task.sleep(for: pollInterval)
+        }
+
+        return true
+    }
+
     // MARK: - GetPlayerInfoCommand Tests
 
     @Test("GetPlayerInfo returns error JSON when PlayerService is nil")
@@ -229,6 +245,87 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
+    }
+
+    // MARK: - PlayVideoCommand Tests
+
+    @Test("PlayVideo keeps the first-session gate closed until playback is confirmed")
+    func playVideoKeepsFirstSessionGateClosedUntilPlaybackIsConfirmed() async {
+        let playerService = PlayerService()
+        let mockClient = MockYTMusicClient()
+        playerService.setYTMusicClient(mockClient)
+        PlayerService.shared = playerService
+
+        let firstCommand = PlayVideoCommand()
+        firstCommand.directParameter = "first-video-id" as NSString
+
+        _ = firstCommand.performDefaultImplementation()
+        let firstPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "first-video-id" &&
+                playerService.currentTrack?.videoId == "first-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "first-video-id" &&
+                playerService.showMiniPlayer == true &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id"]
+        }
+
+        #expect(firstPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "first-video-id")
+        #expect(playerService.currentTrack?.videoId == "first-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "first-video-id")
+        #expect(playerService.showMiniPlayer == true)
+
+        playerService.miniPlayerDismissed()
+        #expect(playerService.showMiniPlayer == false)
+
+        let secondCommand = PlayVideoCommand()
+        secondCommand.directParameter = "second-video-id" as NSString
+
+        _ = secondCommand.performDefaultImplementation()
+        let secondPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "second-video-id" &&
+                playerService.currentTrack?.videoId == "second-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "second-video-id" &&
+                playerService.showMiniPlayer == true &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id"]
+        }
+
+        #expect(secondPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "second-video-id")
+        #expect(playerService.currentTrack?.videoId == "second-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "second-video-id")
+        #expect(playerService.showMiniPlayer == true)
+
+        playerService.confirmPlaybackStarted()
+        #expect(playerService.showMiniPlayer == false)
+
+        let thirdCommand = PlayVideoCommand()
+        thirdCommand.directParameter = "third-video-id" as NSString
+
+        _ = thirdCommand.performDefaultImplementation()
+        let thirdPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "third-video-id" &&
+                playerService.currentTrack?.videoId == "third-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "third-video-id" &&
+                playerService.showMiniPlayer == false &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id", "third-video-id"]
+        }
+
+        #expect(thirdPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "third-video-id")
+        #expect(playerService.currentTrack?.videoId == "third-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "third-video-id")
+        #expect(playerService.showMiniPlayer == false)
+        #expect(mockClient.getRadioQueueCalled == true)
+        #expect(mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id", "third-video-id"])
+
+        // Cleanup
+        PlayerService.shared = nil
     }
 
     // MARK: - PauseCommand Tests

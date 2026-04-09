@@ -15,6 +15,7 @@ CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
 APP_NAME="Kaset"
 BUNDLE_ID="com.sertacozercan.Kaset"
+DEVELOPMENT_LOCALIZATION="en"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 
@@ -82,6 +83,28 @@ compile_asset_catalog() {
   fi
 }
 
+emit_bundle_localizations_plist() {
+  local resources_dir="$1"
+  local development_localization="$2"
+  local localization
+  local localization_dir
+
+  {
+    if [[ -n "$development_localization" ]]; then
+      printf '%s\n' "$development_localization"
+    fi
+
+    find "$resources_dir" -type d -name '*.lproj' -print | while IFS= read -r localization_dir; do
+      localization=$(basename "$localization_dir" .lproj)
+      [[ "$localization" == "Base" ]] && continue
+      printf '%s\n' "$localization"
+    done
+  } | LC_ALL=C sort -u | while IFS= read -r localization; do
+    [[ -z "$localization" ]] && continue
+    printf '        <string>%s</string>\n' "$localization"
+  done
+}
+
 # Install binary (handles universal builds)
 install_binary() {
   local name="$1"
@@ -108,96 +131,8 @@ install_binary() {
 # Copy executable
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-# Generate Info.plist with build metadata
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-
-cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleLocalizations</key>
-    <array>
-        <string>en</string>
-        <string>ar</string>
-    </array>
-    <key>CFBundleExecutable</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleIconFile</key>
-    <string>kaset</string>
-    <key>CFBundleIconName</key>
-    <string>kaset</string>
-    <key>NSAccentColorName</key>
-    <string>AccentColor</string>
-    <key>CFBundleIdentifier</key>
-    <string>${BUNDLE_ID}</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleDisplayName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>${MARKETING_VERSION}</string>
-    <key>CFBundleVersion</key>
-    <string>${BUILD_NUMBER}</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.music</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>26.0</string>
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2025 Sertac Ozercan. All rights reserved.</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-    <key>LSUIElement</key>
-    <false/>
-
-    <!-- URL Scheme Registration -->
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>com.sertacozercan.kaset</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>kaset</string>
-            </array>
-            <key>CFBundleTypeRole</key>
-            <string>Viewer</string>
-        </dict>
-    </array>
-
-    <!-- Sparkle Auto-Update Configuration -->
-    <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>qa2zoeXHqn+pluxQSGjn5HyIYA/iFtrEJz7S1BoslpI=</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
-    <key>SUScheduledCheckInterval</key>
-    <integer>86400</integer>
-    <key>SUAllowsAutomaticUpdates</key>
-    <true/>
-
-    <!-- AppleScript Support -->
-    <key>NSAppleScriptEnabled</key>
-    <true/>
-    <key>OSAScriptingDefinition</key>
-    <string>Kaset.sdef</string>
-
-    <!-- Build Metadata -->
-    <key>KasetBuildTimestamp</key>
-    <string>${BUILD_TIMESTAMP}</string>
-    <key>KasetGitCommit</key>
-    <string>${GIT_COMMIT}</string>
-</dict>
-</plist>
-PLIST
 
 # Create PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
@@ -289,6 +224,94 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
     done
   done
 fi
+
+APP_LOCALIZATIONS_PLIST=$(emit_bundle_localizations_plist "$APP_BUNDLE/Contents/Resources" "$DEVELOPMENT_LOCALIZATION")
+
+cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>${DEVELOPMENT_LOCALIZATION}</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+${APP_LOCALIZATIONS_PLIST}
+    </array>
+    <key>CFBundleExecutable</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleIconFile</key>
+    <string>kaset</string>
+    <key>CFBundleIconName</key>
+    <string>kaset</string>
+    <key>NSAccentColorName</key>
+    <string>AccentColor</string>
+    <key>CFBundleIdentifier</key>
+    <string>${BUNDLE_ID}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleDisplayName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${MARKETING_VERSION}</string>
+    <key>CFBundleVersion</key>
+    <string>${BUILD_NUMBER}</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2025 Sertac Ozercan. All rights reserved.</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSUIElement</key>
+    <false/>
+
+    <!-- URL Scheme Registration -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.sertacozercan.kaset</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>kaset</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+        </dict>
+    </array>
+
+    <!-- Sparkle Auto-Update Configuration -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>qa2zoeXHqn+pluxQSGjn5HyIYA/iFtrEJz7S1BoslpI=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
+
+    <!-- AppleScript Support -->
+    <key>NSAppleScriptEnabled</key>
+    <true/>
+    <key>OSAScriptingDefinition</key>
+    <string>Kaset.sdef</string>
+
+    <!-- Build Metadata -->
+    <key>KasetBuildTimestamp</key>
+    <string>${BUILD_TIMESTAMP}</string>
+    <key>KasetGitCommit</key>
+    <string>${GIT_COMMIT}</string>
+</dict>
+</plist>
+PLIST
 
 # Strip extended attributes to prevent AppleDouble (._*) files that break code sealing
 xattr -cr "$APP_BUNDLE" 2>/dev/null || true

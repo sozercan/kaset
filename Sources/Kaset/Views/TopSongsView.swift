@@ -77,16 +77,7 @@ struct TopSongsView: View {
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
-                CachedAsyncImage(url: song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                }
-                .frame(width: 44, height: 44)
-                .clipShape(.rect(cornerRadius: 4))
+                SongThumbnailView(song: song, size: 44, cornerRadius: 4)
 
                 // Title
                 Text(song.title)
