@@ -91,6 +91,48 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.object(forKey: repeatKey) == nil)
     }
 
+    @Test("Explicit content languages expose stable API language codes")
+    func explicitContentLanguagesExposeAPILanguageCodes() {
+        let expectedCodes: [(SettingsManager.ContentLanguage, String)] = [
+            (.english, "en"),
+            (.korean, "ko"),
+            (.arabic, "ar"),
+            (.turkish, "tr"),
+            (.indonesian, "id"),
+        ]
+
+        for (language, expectedCode) in expectedCodes {
+            #expect(language.apiLanguageCode == expectedCode)
+        }
+    }
+
+    @Test("System content language uses the current locale language code fallback")
+    func systemContentLanguageUsesCurrentLocaleLanguageCode() {
+        let expectedCode = Locale.current.language.languageCode?.identifier ?? "en"
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode == expectedCode)
+    }
+
+    @Test("Changing content language invalidates API cache and updates localization bundle")
+    func changingContentLanguageInvalidatesCacheAndUpdatesLocalizationBundle() {
+        let manager = SettingsManager.shared
+        let originalLanguage = manager.contentLanguage
+
+        defer {
+            APICache.shared.invalidateAll()
+            manager.contentLanguage = originalLanguage
+        }
+
+        manager.contentLanguage = .english
+        APICache.shared.set(key: "browse:test-home", data: ["title": "Home"], ttl: 60)
+
+        #expect(APICache.shared.get(key: "browse:test-home") != nil)
+
+        manager.contentLanguage = .korean
+
+        #expect(APICache.shared.get(key: "browse:test-home") == nil)
+        #expect(AppLocalization.bundle.localizedString(forKey: "Home", value: nil, table: nil) == "홈")
+    }
+
     // MARK: - launchPage Computed Property Tests
 
     @Test("launchPage returns defaultLaunchPage for non-lastUsed")
