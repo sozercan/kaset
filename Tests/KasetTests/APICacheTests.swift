@@ -88,6 +88,33 @@ struct APICacheTests {
         #expect(APICache.TTL.songMetadata == 30 * 60) // 30 minutes
     }
 
+    @Test("Cache keys change when API request language changes")
+    func stableCacheKeyChangesWhenRequestLanguageChanges() {
+        let englishBody: [String: Any] = [
+            "browseId": "FEmusic_home",
+            "context": [
+                "client": [
+                    "hl": "en",
+                    "gl": "US",
+                ],
+            ],
+        ]
+        let koreanBody: [String: Any] = [
+            "browseId": "FEmusic_home",
+            "context": [
+                "client": [
+                    "hl": "ko",
+                    "gl": "US",
+                ],
+            ],
+        ]
+
+        let englishKey = APICache.stableCacheKey(endpoint: "browse", body: englishBody)
+        let koreanKey = APICache.stableCacheKey(endpoint: "browse", body: koreanBody)
+
+        #expect(englishKey != koreanKey)
+    }
+
     @Test("Lyrics cache not invalidated by mutations")
     func lyricsCacheNotInvalidatedByMutations() {
         self.cache.set(key: "browse:lyrics_abc123", data: ["text": "lyrics content"], ttl: APICache.TTL.lyrics)
