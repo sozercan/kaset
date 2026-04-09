@@ -38,7 +38,7 @@ struct SearchView: View {
                 // Content
                 self.contentView
             }
-            .navigationTitle("Search")
+            .localizedNavigationTitle("Search")
             .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

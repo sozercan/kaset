@@ -32,7 +32,7 @@ struct MoodsAndGenresView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Moods & Genres")
+            .localizedNavigationTitle("Moods & Genres")
             .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

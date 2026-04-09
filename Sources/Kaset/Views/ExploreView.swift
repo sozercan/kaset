@@ -32,7 +32,7 @@ struct ExploreView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Explore")
+            .localizedNavigationTitle("Explore")
             .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

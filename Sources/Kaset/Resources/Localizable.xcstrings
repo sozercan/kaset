@@ -56,6 +56,12 @@
             "state" : "translated",
             "value" : "%lld lagu"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld morceaux"
+          }
         }
       }
     },
@@ -92,6 +98,12 @@
             "state" : "translated",
             "value" : "Pengalaman YouTube Music asli untuk macOS"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une expérience YouTube Music native pour macOS"
+          }
         }
       }
     },
@@ -119,6 +131,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Respons AI mengikuti pengaturan bahasa sistem Anda."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les réponses de l'IA suivent les paramètres de langue de votre système."
           }
         }
       }
@@ -148,6 +166,12 @@
             "state" : "translated",
             "value" : "Tentang"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos"
+          }
         }
       }
     },
@@ -175,6 +199,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Akses daftar putar dan lagu yang Anda sukai"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accédez à vos playlists et morceaux aimés"
           }
         }
       }
@@ -204,6 +234,12 @@
             "state" : "translated",
             "value" : "Akun"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte"
+          }
         }
       }
     },
@@ -231,6 +267,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tambah ke Favorit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter aux favoris"
           }
         }
       }
@@ -260,6 +302,12 @@
             "state" : "translated",
             "value" : "Tambah ke Pustaka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter à la bibliothèque"
+          }
         }
       }
     },
@@ -287,6 +335,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tambah ke Antrean"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter à la file d'attente"
           }
         }
       }
@@ -316,6 +370,12 @@
             "state" : "translated",
             "value" : "Ditambahkan ke Pustaka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouté à la bibliothèque"
+          }
         }
       }
     },
@@ -340,6 +400,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "AirPlay"
@@ -372,6 +438,12 @@
             "state" : "translated",
             "value" : "AirPlay Terhubung"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AirPlay connecté"
+          }
         }
       }
     },
@@ -396,6 +468,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Album"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Album"
@@ -428,6 +506,12 @@
             "state" : "translated",
             "value" : "Album"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Albums"
+          }
         }
       }
     },
@@ -455,6 +539,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Semua"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout"
           }
         }
       }
@@ -484,6 +574,12 @@
             "state" : "translated",
             "value" : "Semua Episode"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les épisodes"
+          }
         }
       }
     },
@@ -511,6 +607,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terjadi kesalahan yang tidak diketahui"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une erreur inconnue s'est produite"
           }
         }
       }
@@ -540,6 +642,12 @@
             "state" : "translated",
             "value" : "Menganalisis daftar putar..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analyse de la playlist..."
+          }
         }
       }
     },
@@ -568,6 +676,12 @@
             "state" : "translated",
             "value" : "Menganalisis..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analyse en cours..."
+          }
         }
       }
     },
@@ -592,6 +706,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence"
@@ -624,6 +744,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence & Pengaturan Siri"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réglages Apple Intelligence et Siri"
+          }
         }
       }
     },
@@ -651,6 +777,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence saat ini tidak tersedia."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence est actuellement indisponible."
           }
         }
       }
@@ -680,6 +812,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence sedang diunduh. Ini mungkin memakan waktu beberapa menit."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence est en cours de téléchargement. Cela peut prendre quelques minutes."
+          }
         }
       }
     },
@@ -707,6 +845,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence tidak tersedia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence n'est pas disponible"
           }
         }
       }
@@ -736,6 +880,12 @@
             "state" : "translated",
             "value" : "Apple Intelligence siap digunakan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence est prêt à être utilisé"
+          }
         }
       }
     },
@@ -763,6 +913,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terapkan Perubahan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appliquer les modifications"
           }
         }
       }
@@ -792,6 +948,12 @@
             "state" : "translated",
             "value" : "Artis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artiste"
+          }
         }
       }
     },
@@ -819,6 +981,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Artis tidak ditemukan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artiste introuvable"
           }
         }
       }
@@ -848,6 +1016,12 @@
             "state" : "translated",
             "value" : "Artis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artistes"
+          }
         }
       }
     },
@@ -875,6 +1049,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tanya AI (⌘K)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demander à l'IA (⌘K)"
           }
         }
       }
@@ -904,6 +1084,12 @@
             "state" : "translated",
             "value" : "Tanya apa saja tentang musik..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posez n'importe quelle question sur la musique..."
+          }
         }
       }
     },
@@ -931,6 +1117,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Periksa pembaruan secara otomatis"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifier automatiquement les mises à jour"
           }
         }
       }
@@ -960,6 +1152,12 @@
             "state" : "translated",
             "value" : "Tersedia"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disponible"
+          }
         }
       }
     },
@@ -987,6 +1185,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Putar di Latar Belakang"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture en arrière-plan"
           }
         }
       }
@@ -1016,6 +1220,12 @@
             "state" : "translated",
             "value" : "Dibangun dengan SwiftUI untuk pengalaman macOS yang sesungguhnya"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conçu avec SwiftUI pour une véritable expérience macOS"
+          }
         }
       }
     },
@@ -1044,6 +1254,12 @@
             "state" : "translated",
             "value" : "Menghitung..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calcul en cours..."
+          }
         }
       }
     },
@@ -1071,6 +1287,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Batal"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
           }
         }
       }
@@ -1101,6 +1323,12 @@
             "state" : "translated",
             "value" : "Ubah bahasa sistem Anda ke bahasa Inggris atau bahasa yang didukung lainnya."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changez la langue de votre système en anglais ou dans une autre langue prise en charge."
+          }
         }
       }
     },
@@ -1128,6 +1356,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tangga Lagu"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classements"
           }
         }
       }
@@ -1157,6 +1391,12 @@
             "state" : "translated",
             "value" : "Periksa Sekarang"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifier maintenant"
+          }
         }
       }
     },
@@ -1184,6 +1424,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Periksa Pembaruan..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher les mises à jour..."
           }
         }
       }
@@ -1215,6 +1461,12 @@
             "state" : "translated",
             "value" : "Pilih bahasa untuk antarmuka aplikasi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez la langue de l'interface de l'application"
+          }
         }
       }
     },
@@ -1242,6 +1494,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pilih tombol yang muncul di widget Sedang Diputar di Pusat Kontrol"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez les boutons affichés dans le widget En lecture du Centre de contrôle"
           }
         }
       }
@@ -1271,6 +1529,12 @@
             "state" : "translated",
             "value" : "Hapus"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacer"
+          }
         }
       }
     },
@@ -1298,6 +1562,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hapus Konteks AI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacer le contexte IA"
           }
         }
       }
@@ -1327,6 +1597,12 @@
             "state" : "translated",
             "value" : "Bersihkan Cache"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vider le cache"
+          }
         }
       }
     },
@@ -1354,6 +1630,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hapus input"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacer la saisie"
           }
         }
       }
@@ -1383,6 +1665,12 @@
             "state" : "translated",
             "value" : "Hapus pencarian"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacer la recherche"
+          }
         }
       }
     },
@@ -1410,6 +1698,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Membersihkan..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyage en cours..."
           }
         }
       }
@@ -1439,6 +1733,12 @@
             "state" : "translated",
             "value" : "Menghapus status sesi AI. Gunakan ini jika respons tampak aneh atau macet."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Efface l'état de la session IA. Utilisez ceci si les réponses semblent incorrectes ou bloquées."
+          }
         }
       }
     },
@@ -1466,6 +1766,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tutup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
           }
         }
       }
@@ -1495,6 +1801,12 @@
             "state" : "translated",
             "value" : "Tutup panel samping"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer le panneau latéral"
+          }
         }
       }
     },
@@ -1522,6 +1834,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Koleksi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collection"
           }
         }
       }
@@ -1551,6 +1869,12 @@
             "state" : "translated",
             "value" : "Panel Perintah"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barre de commandes"
+          }
         }
       }
     },
@@ -1578,6 +1902,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daftar putar komunitas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playlists de la communauté"
           }
         }
       }
@@ -1607,6 +1937,12 @@
             "state" : "translated",
             "value" : "Hubungkan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter"
+          }
         }
       }
     },
@@ -1634,6 +1970,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terhubung sebagai %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté en tant que %@"
           }
         }
       }
@@ -1663,6 +2005,12 @@
             "state" : "translated",
             "value" : "Bahasa Konten"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langue du contenu"
+          }
         }
       }
     },
@@ -1690,6 +2038,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Konten mungkin tidak tersedia di wilayah Anda."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le contenu peut ne pas être disponible dans votre région."
           }
         }
       }
@@ -1719,6 +2073,12 @@
             "state" : "translated",
             "value" : "Lanjutkan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer"
+          }
         }
       }
     },
@@ -1746,6 +2106,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kendalikan pemutaran dengan keyboard Anda"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contrôlez la lecture avec votre clavier"
           }
         }
       }
@@ -1775,6 +2141,12 @@
             "state" : "translated",
             "value" : "Tidak dapat membuat sesi AI"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer la session IA"
+          }
         }
       }
     },
@@ -1802,6 +2174,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak dapat mencari musik"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de rechercher de la musique"
           }
         }
       }
@@ -1831,6 +2209,12 @@
             "state" : "translated",
             "value" : "Buat atau simpan daftar putar di YouTube Music untuk melihatnya di sini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créez ou enregistrez des playlists sur YouTube Music pour les voir ici."
+          }
         }
       }
     },
@@ -1858,6 +2242,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Halaman Default Saat Buka"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page par défaut au lancement"
           }
         }
       }
@@ -1887,6 +2277,12 @@
             "state" : "translated",
             "value" : "Putuskan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déconnecter"
+          }
         }
       }
     },
@@ -1914,6 +2310,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jelajahi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Découvrir"
           }
         }
       }
@@ -1943,6 +2345,12 @@
             "state" : "translated",
             "value" : "Tidak suka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je n'aime pas"
+          }
         }
       }
     },
@@ -1970,6 +2378,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak disukai"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non aimé"
           }
         }
       }
@@ -1999,6 +2413,12 @@
             "state" : "translated",
             "value" : "Tutup"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
         }
       }
     },
@@ -2026,6 +2446,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Selesai"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminé"
           }
         }
       }
@@ -2059,6 +2485,12 @@
             "state" : "translated",
             "value" : "Ketuk dua kali untuk mencoba lagi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez deux fois pour réessayer"
+          }
         }
       }
     },
@@ -2086,6 +2518,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ketuk dua kali untuk mengganti akun"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez deux fois pour changer de compte"
           }
         }
       }
@@ -2119,6 +2557,12 @@
             "state" : "translated",
             "value" : "Mengunduh"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargement"
+          }
         }
       }
     },
@@ -2151,6 +2595,12 @@
             "state" : "translated",
             "value" : "Seret untuk mengurutkan ulang"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Glissez pour réorganiser"
+          }
         }
       }
     },
@@ -2178,6 +2628,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Edit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier"
           }
         }
       }
@@ -2207,6 +2663,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aktifkan Scrobbling %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer le Scrobbling %@"
           }
         }
       }
@@ -2238,6 +2700,12 @@
             "state" : "translated",
             "value" : "Aktifkan Fitur AI"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer les fonctionnalités IA"
+          }
         }
       }
     },
@@ -2265,6 +2733,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aktifkan Apple Intelligence di Pengaturan Sistem untuk menggunakan fitur AI."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez Apple Intelligence dans les Réglages Système pour utiliser les fonctionnalités IA."
           }
         }
       }
@@ -2294,6 +2768,12 @@
             "state" : "translated",
             "value" : "Aktifkan Lirik Tersinkron"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer les paroles synchronisées"
+          }
         }
       }
     },
@@ -2321,6 +2801,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Episode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Épisodes"
           }
         }
       }
@@ -2350,6 +2836,12 @@
             "state" : "translated",
             "value" : "Kesalahan: %@"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur : %@"
+          }
         }
       }
     },
@@ -2377,6 +2869,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jelaskan lirik dengan AI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expliquer les paroles avec l'IA"
           }
         }
       }
@@ -2406,6 +2904,12 @@
             "state" : "translated",
             "value" : "Jelajah"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explorer"
+          }
         }
       }
     },
@@ -2433,6 +2937,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gagal memuat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du chargement"
           }
         }
       }
@@ -2462,6 +2972,12 @@
             "state" : "translated",
             "value" : "Gagal memuat akun"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du chargement des comptes"
+          }
         }
       }
     },
@@ -2490,6 +3006,12 @@
             "state" : "translated",
             "value" : "Gagal memuat akun. Silakan coba lagi."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du chargement des comptes. Veuillez réessayer."
+          }
         }
       }
     },
@@ -2517,6 +3039,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gagal mengganti akun. Silakan coba lagi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du changement de compte. Veuillez réessayer."
           }
         }
       }
@@ -2548,6 +3076,12 @@
             "state" : "translated",
             "value" : "Favorit"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Favoris"
+          }
         }
       }
     },
@@ -2575,6 +3109,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daftar putar unggulan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playlists en vedette"
           }
         }
       }
@@ -2604,6 +3144,22 @@
             "state" : "translated",
             "value" : "Ambil dan tampilkan lirik tersinkron waktu nyata jika tersedia"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Récupérer et afficher les paroles synchronisées en temps réel lorsqu'elles sont disponibles"
+          }
+        }
+      }
+    },
+    "Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le texte romanisé (romaji, pinyin, etc.) sous les paroles non latines"
+          }
         }
       }
     },
@@ -2631,6 +3187,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temukan lagu, album, artis, dan daftar putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trouvez des morceaux, albums, artistes et playlists"
           }
         }
       }
@@ -2660,6 +3222,12 @@
             "state" : "translated",
             "value" : "Ikuti artis di YouTube Music untuk melihatnya di sini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivez des artistes sur YouTube Music pour les voir ici."
+          }
         }
       }
     },
@@ -2688,6 +3256,12 @@
             "state" : "translated",
             "value" : "Umum"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Général"
+          }
         }
       }
     },
@@ -2712,6 +3286,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub"
@@ -2744,6 +3324,12 @@
             "state" : "translated",
             "value" : "Buka Album"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à l'album"
+          }
         }
       }
     },
@@ -2771,6 +3357,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buka Artis"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à l'artiste"
           }
         }
       }
@@ -2800,6 +3392,12 @@
             "state" : "translated",
             "value" : "Umpan Balik Haptik"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retour haptique"
+          }
         }
       }
     },
@@ -2827,6 +3425,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tersembunyi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masqué"
           }
         }
       }
@@ -2856,6 +3460,12 @@
             "state" : "translated",
             "value" : "Sembunyikan Lirik"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer les paroles"
+          }
         }
       }
     },
@@ -2883,6 +3493,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sembunyikan penjelasan lirik"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer l'explication des paroles"
           }
         }
       }
@@ -2912,6 +3528,12 @@
             "state" : "translated",
             "value" : "Sorotan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlights"
+          }
         }
       }
     },
@@ -2940,6 +3562,12 @@
             "state" : "translated",
             "value" : "Beranda"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accueil"
+          }
         }
       }
     },
@@ -2961,6 +3589,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bugün %lld şarkı dinlendi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld morceaux écoutés aujourd'hui"
           }
         }
       }
@@ -2984,6 +3618,12 @@
             "state" : "translated",
             "value" : "Yenile"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiser"
+          }
         }
       }
     },
@@ -3006,6 +3646,12 @@
             "state" : "translated",
             "value" : "Dinleme Geçmişi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historique d'écoute"
+          }
         }
       }
     },
@@ -3027,6 +3673,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Geçmiş"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historique"
           }
         }
       }
@@ -3055,6 +3707,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cache Gambar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache d'images"
           }
         }
       }
@@ -3086,6 +3744,12 @@
             "state" : "translated",
             "value" : "Di Pustaka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans la bibliothèque"
+          }
         }
       }
     },
@@ -3113,6 +3777,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kecerdasan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intelligence"
           }
         }
       }
@@ -3146,6 +3816,12 @@
             "state" : "translated",
             "value" : "Lanjutkan mendengarkan meski jendela ditutup"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer l'écoute même lorsque la fenêtre est fermée"
+          }
         }
       }
     },
@@ -3173,6 +3849,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bahasa Tidak Didukung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langue non prise en charge"
           }
         }
       }
@@ -3202,6 +3884,12 @@
             "state" : "translated",
             "value" : "Terakhir Digunakan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière utilisation"
+          }
         }
       }
     },
@@ -3229,6 +3917,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pelajari lebih lanjut"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En savoir plus"
           }
         }
       }
@@ -3258,6 +3952,12 @@
             "state" : "translated",
             "value" : "Pustaka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bibliothèque"
+          }
         }
       }
     },
@@ -3285,6 +3985,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Suka"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'aime"
           }
         }
       }
@@ -3316,6 +4022,12 @@
             "state" : "translated",
             "value" : "Disukai"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aimé"
+          }
         }
       }
     },
@@ -3343,6 +4055,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Musik yang Disukai"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Musique aimée"
           }
         }
       }
@@ -3372,6 +4090,12 @@
             "state" : "translated",
             "value" : "Muat Lainnya"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charger plus"
+          }
         }
       }
     },
@@ -3400,6 +4124,12 @@
             "state" : "translated",
             "value" : "Memuat artis..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement de l'artiste..."
+          }
         }
       }
     },
@@ -3427,6 +4157,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat tangga lagu..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des classements..."
           }
         }
       }
@@ -3457,6 +4193,12 @@
             "state" : "translated",
             "value" : "Memuat konten jelajah..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement du contenu à explorer..."
+          }
         }
       }
     },
@@ -3484,6 +4226,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat lagu yang disukai..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des morceaux aimés..."
           }
         }
       }
@@ -3514,6 +4262,12 @@
             "state" : "translated",
             "value" : "Memuat lirik..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des paroles..."
+          }
         }
       }
     },
@@ -3541,6 +4295,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat suasana hati & genre..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des ambiances et genres..."
           }
         }
       }
@@ -3570,6 +4330,12 @@
             "state" : "translated",
             "value" : "Memuat lainnya..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement..."
+          }
         }
       }
     },
@@ -3597,6 +4363,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat rilis baru..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des nouveautés..."
           }
         }
       }
@@ -3626,6 +4398,12 @@
             "state" : "translated",
             "value" : "Memuat daftar putar..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement de la playlist..."
+          }
         }
       }
     },
@@ -3653,6 +4431,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat podcast..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des podcasts..."
           }
         }
       }
@@ -3682,6 +4466,12 @@
             "state" : "translated",
             "value" : "Memuat lagu..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des morceaux..."
+          }
         }
       }
     },
@@ -3709,6 +4499,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memuat pustaka Anda..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement de votre bibliothèque..."
           }
         }
       }
@@ -3738,6 +4534,12 @@
             "state" : "translated",
             "value" : "Memuat..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement..."
+          }
         }
       }
     },
@@ -3765,6 +4567,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lirik"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paroles"
           }
         }
       }
@@ -3794,6 +4602,12 @@
             "state" : "translated",
             "value" : "Tombol Media"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touches multimédia"
+          }
         }
       }
     },
@@ -3818,6 +4632,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mix"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mix"
@@ -3850,6 +4670,12 @@
             "state" : "translated",
             "value" : "Suasana & Genre"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambiances et genres"
+          }
         }
       }
     },
@@ -3877,6 +4703,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pindah ke Akhir"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer à la fin"
           }
         }
       }
@@ -3906,6 +4738,12 @@
             "state" : "translated",
             "value" : "Pindah ke Atas"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer en haut"
+          }
         }
       }
     },
@@ -3933,6 +4771,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bisukan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couper le son"
           }
         }
       }
@@ -3962,6 +4806,12 @@
             "state" : "translated",
             "value" : "Antarmuka Asli"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface native"
+          }
         }
       }
     },
@@ -3989,6 +4839,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Belum pernah diperiksa"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jamais vérifié"
           }
         }
       }
@@ -4018,6 +4874,12 @@
             "state" : "translated",
             "value" : "Rilis Baru"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveautés"
+          }
         }
       }
     },
@@ -4045,6 +4907,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Berikutnya"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant"
           }
         }
       }
@@ -4074,6 +4942,12 @@
             "state" : "translated",
             "value" : "Lagu berikutnya"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piste suivante"
+          }
         }
       }
     },
@@ -4101,6 +4975,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lagu Berikutnya/Sebelumnya"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piste suivante/précédente"
           }
         }
       }
@@ -4130,6 +5010,12 @@
             "state" : "translated",
             "value" : "Tidak Ada Koneksi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune connexion"
+          }
         }
       }
     },
@@ -4157,6 +5043,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak Ada Konten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun contenu disponible"
           }
         }
       }
@@ -4186,6 +5078,12 @@
             "state" : "translated",
             "value" : "Tidak Ada Lirik"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune parole disponible"
+          }
         }
       }
     },
@@ -4213,6 +5111,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak Ada Suasana & Genre"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune ambiance et genre disponible"
           }
         }
       }
@@ -4242,6 +5146,12 @@
             "state" : "translated",
             "value" : "Tidak Ada Antrean"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune file d'attente"
+          }
         }
       }
     },
@@ -4269,6 +5179,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak Ada Lagu Diputar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun morceau en lecture"
           }
         }
       }
@@ -4298,6 +5214,12 @@
             "state" : "translated",
             "value" : "Belum ada artis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun artiste pour le moment"
+          }
         }
       }
     },
@@ -4325,6 +5247,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak ada perubahan yang disarankan. Daftar putar sudah bagus!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune modification suggérée. La playlist est parfaite !"
           }
         }
       }
@@ -4354,6 +5282,12 @@
             "state" : "translated",
             "value" : "Belum ada lagu yang disukai"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun morceau aimé pour le moment"
+          }
         }
       }
     },
@@ -4381,6 +5315,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Belum ada daftar putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune playlist pour le moment"
           }
         }
       }
@@ -4410,6 +5350,12 @@
             "state" : "translated",
             "value" : "Belum ada podcast"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun podcast pour le moment"
+          }
         }
       }
     },
@@ -4437,6 +5383,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak ada hasil"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun résultat trouvé"
           }
         }
       }
@@ -4466,6 +5418,12 @@
             "state" : "translated",
             "value" : "Tidak ada lagu atau daftar putar dalam kategori ini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun morceau ou playlist trouvé dans cette catégorie."
+          }
         }
       }
     },
@@ -4493,6 +5451,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak Diaktifkan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non activé"
           }
         }
       }
@@ -4522,6 +5486,12 @@
             "state" : "translated",
             "value" : "Tidak Didukung"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non pris en charge"
+          }
         }
       }
     },
@@ -4549,6 +5519,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak terhubung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non connecté"
           }
         }
       }
@@ -4578,6 +5554,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Belum ditandai tidak suka"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non marqué comme non aimé"
           }
         }
       }
@@ -4609,6 +5591,12 @@
             "state" : "translated",
             "value" : "Belum disukai"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non aimé"
+          }
         }
       }
     },
@@ -4636,6 +5624,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Belum masuk"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non connecté"
           }
         }
       }
@@ -4665,6 +5659,12 @@
             "state" : "translated",
             "value" : "Catatan: Jika kunci sandi tidak berfungsi, gunakan \"Coba cara lain\" untuk masuk dengan kata sandi."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remarque : si les clés d'accès ne fonctionnent pas, utilisez « Essayer autrement » pour vous connecter avec un mot de passe."
+          }
         }
       }
     },
@@ -4693,6 +5693,12 @@
             "state" : "translated",
             "value" : "Kontrol Sedang Diputar"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contrôles de lecture en cours"
+          }
         }
       }
     },
@@ -4717,6 +5723,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
@@ -4749,6 +5761,12 @@
             "state" : "translated",
             "value" : "Mati"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactivé"
+          }
         }
       }
     },
@@ -4777,6 +5795,12 @@
             "state" : "translated",
             "value" : "Nyala"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activé"
+          }
         }
       }
     },
@@ -4804,6 +5828,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Satu"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un"
           }
         }
       }
@@ -4834,6 +5864,12 @@
             "state" : "translated",
             "value" : "Buka antrean di panel samping"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir la file d'attente dans le panneau latéral"
+          }
         }
       }
     },
@@ -4863,6 +5899,12 @@
             "state" : "translated",
             "value" : "Buka panel perintah untuk mengontrol musik dengan bahasa alami. Coba ucapkan \"putar sesuatu yang santai\" atau \"tambahkan jazz ke antrean\"."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez la barre de commandes pour contrôler la musique en langage naturel. Essayez « jouer quelque chose de chill » ou « ajouter du jazz à la file d'attente »."
+          }
         }
       }
     },
@@ -4890,6 +5932,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jeda"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
           }
         }
       }
@@ -4919,6 +5967,12 @@
             "state" : "translated",
             "value" : "Putar"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture"
+          }
         }
       }
     },
@@ -4946,6 +6000,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Putar Semua"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout lire"
           }
         }
       }
@@ -4975,6 +6035,12 @@
             "state" : "translated",
             "value" : "Putar Terbaru"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire le plus récent"
+          }
         }
       }
     },
@@ -5002,6 +6068,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Putar Berikutnya"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire ensuite"
           }
         }
       }
@@ -5031,6 +6103,12 @@
             "state" : "translated",
             "value" : "Putar sebuah lagu untuk melihat liriknya di sini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancez un morceau pour voir ses paroles ici."
+          }
         }
       }
     },
@@ -5058,6 +6136,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Putar lagu dari daftar putar atau album untuk membangun antrean Anda."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancez des morceaux depuis une playlist ou un album pour créer votre file d'attente."
           }
         }
       }
@@ -5088,6 +6172,12 @@
             "state" : "translated",
             "value" : "Pemutaran"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture"
+          }
         }
       }
     },
@@ -5115,6 +6205,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diputar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lu"
           }
         }
       }
@@ -5144,6 +6240,12 @@
             "state" : "translated",
             "value" : "Memutar"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En lecture"
+          }
         }
       }
     },
@@ -5171,6 +6273,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daftar putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playlist"
           }
         }
       }
@@ -5200,6 +6308,12 @@
             "state" : "translated",
             "value" : "Daftar putar tidak ditemukan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playlist introuvable"
+          }
         }
       }
     },
@@ -5227,6 +6341,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daftar putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playlists"
           }
         }
       }
@@ -5256,6 +6376,12 @@
             "state" : "translated",
             "value" : "Periksa koneksi internet Anda dan coba lagi."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez vérifier votre connexion Internet et réessayer."
+          }
         }
       }
     },
@@ -5283,6 +6409,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Podcast"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podcasts"
           }
         }
       }
@@ -5312,6 +6444,12 @@
             "state" : "translated",
             "value" : "Tekan Enter untuk mencari"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur Entrée pour rechercher"
+          }
         }
       }
     },
@@ -5339,6 +6477,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sebelumnya"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Précédent"
           }
         }
       }
@@ -5368,6 +6512,12 @@
             "state" : "translated",
             "value" : "Lagu sebelumnya"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piste précédente"
+          }
         }
       }
     },
@@ -5395,6 +6545,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memproses..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traitement en cours..."
           }
         }
       }
@@ -5424,6 +6580,12 @@
             "state" : "translated",
             "value" : "Berikan umpan balik haptik untuk tindakan di trackpad Force Touch"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fournir un retour tactile pour les actions sur les trackpads Force Touch"
+          }
         }
       }
     },
@@ -5451,6 +6613,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Antrean"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File d'attente"
           }
         }
       }
@@ -5480,6 +6648,12 @@
             "state" : "translated",
             "value" : "Akses Cepat"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accès rapide"
+          }
         }
       }
     },
@@ -5507,6 +6681,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ulangi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rétablir"
           }
         }
       }
@@ -5536,6 +6716,12 @@
             "state" : "translated",
             "value" : "Sempurnakan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiner"
+          }
         }
       }
     },
@@ -5563,6 +6749,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sempurnakan Daftar Putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiner la playlist"
           }
         }
       }
@@ -5592,6 +6784,12 @@
             "state" : "translated",
             "value" : "Catatan Rilis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes de version"
+          }
         }
       }
     },
@@ -5619,6 +6817,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ingat Acak & Ulangi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mémoriser la lecture aléatoire et la répétition"
           }
         }
       }
@@ -5648,6 +6852,12 @@
             "state" : "translated",
             "value" : "Hapus tidak suka"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le je n'aime pas"
+          }
         }
       }
     },
@@ -5675,6 +6885,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hapus dari Favorit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer des favoris"
           }
         }
       }
@@ -5704,6 +6920,12 @@
             "state" : "translated",
             "value" : "Hapus dari Antrean"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer de la file d'attente"
+          }
         }
       }
     },
@@ -5731,6 +6953,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ulangi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répéter"
           }
         }
       }
@@ -5761,6 +6989,12 @@
             "state" : "translated",
             "value" : "Ulangi Semua"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout répéter"
+          }
         }
       }
     },
@@ -5790,6 +7024,12 @@
             "state" : "translated",
             "value" : "Ulangi Mati"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répétition désactivée"
+          }
         }
       }
     },
@@ -5818,6 +7058,12 @@
             "state" : "translated",
             "value" : "Ulangi Satu"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répéter un seul"
+          }
         }
       }
     },
@@ -5845,6 +7091,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Coba Lagi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
           }
         }
       }
@@ -5875,6 +7127,12 @@
             "state" : "translated",
             "value" : "Romanisasi Lirik"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Romaniser les paroles"
+          }
         }
       }
     },
@@ -5902,6 +7160,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Simpan daftar putar dan berlangganan podcast di YouTube Music untuk melihatnya di sini."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrez des playlists et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -5931,6 +7195,12 @@
             "state" : "translated",
             "value" : "Simpan daftar putar, ikuti artis, dan berlangganan podcast di YouTube Music untuk melihatnya di sini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrez des playlists, suivez des artistes et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
+          }
         }
       }
     },
@@ -5959,6 +7229,12 @@
             "state" : "translated",
             "value" : "Simpan pengaturan acak dan ulangi setelah aplikasi dimulai ulang"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conserver les réglages de lecture aléatoire et de répétition entre les redémarrages"
+          }
         }
       }
     },
@@ -5983,6 +7259,12 @@
           }
         },
         "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrobbling"
+          }
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scrobbling"
@@ -6015,6 +7297,12 @@
             "state" : "translated",
             "value" : "Cari"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher"
+          }
         }
       }
     },
@@ -6042,6 +7330,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cari musik favorit Anda"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherchez votre musique préférée"
           }
         }
       }
@@ -6071,6 +7365,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cari lagu, album, artis..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher des morceaux, albums, artistes..."
           }
         }
       }
@@ -6104,6 +7404,12 @@
             "state" : "translated",
             "value" : "Mencari..."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche en cours..."
+          }
         }
       }
     },
@@ -6131,6 +7437,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lihat semua"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout voir"
           }
         }
       }
@@ -6160,6 +7472,12 @@
             "state" : "translated",
             "value" : "Pilih item dari bilah samping"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionnez un élément dans la barre latérale"
+          }
         }
       }
     },
@@ -6187,6 +7505,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bagikan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager"
           }
         }
       }
@@ -6216,6 +7540,12 @@
             "state" : "translated",
             "value" : "Tampilkan Semua"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout afficher"
+          }
         }
       }
     },
@@ -6243,6 +7573,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tampilkan Lirik"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les paroles"
           }
         }
       }
@@ -6272,6 +7608,12 @@
             "state" : "translated",
             "value" : "Tampilkan Notifikasi Sedang Diputar"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les notifications de lecture en cours"
+          }
         }
       }
     },
@@ -6299,6 +7641,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menampilkan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affichage"
           }
         }
       }
@@ -6328,6 +7676,12 @@
             "state" : "translated",
             "value" : "Acak"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aléatoire"
+          }
         }
       }
     },
@@ -6355,6 +7709,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Acak Mati"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aléatoire désactivé"
           }
         }
       }
@@ -6384,6 +7744,12 @@
             "state" : "translated",
             "value" : "Acak Nyala"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aléatoire activé"
+          }
         }
       }
     },
@@ -6411,6 +7777,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keluar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se déconnecter"
           }
         }
       }
@@ -6440,6 +7812,12 @@
             "state" : "translated",
             "value" : "Masuk ke YouTube Music"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter à YouTube Music"
+          }
         }
       }
     },
@@ -6468,6 +7846,12 @@
             "state" : "translated",
             "value" : "Masuk untuk mengakses pustaka YouTube Music Anda"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous pour accéder à votre bibliothèque YouTube Music"
+          }
         }
       }
     },
@@ -6495,6 +7879,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Masuk dengan Google"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter avec Google"
           }
         }
       }
@@ -6525,6 +7915,12 @@
             "state" : "translated",
             "value" : "Sudah masuk ke YouTube Music"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté à YouTube Music"
+          }
         }
       }
     },
@@ -6552,6 +7948,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lompat Maju/Mundur"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avancer/Reculer"
           }
         }
       }
@@ -6581,6 +7983,12 @@
             "state" : "translated",
             "value" : "Pembaruan Perangkat Lunak"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour logicielle"
+          }
         }
       }
     },
@@ -6608,6 +8016,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lagu"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Morceaux"
           }
         }
       }
@@ -6637,6 +8051,12 @@
             "state" : "translated",
             "value" : "Lagu yang Anda sukai akan muncul di sini"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les morceaux que vous aimez apparaîtront ici"
+          }
         }
       }
     },
@@ -6664,6 +8084,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mulai Radio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancer la radio"
           }
         }
       }
@@ -6693,6 +8119,12 @@
             "state" : "translated",
             "value" : "Berlangganan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'abonner"
+          }
         }
       }
     },
@@ -6720,6 +8152,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Berlangganan %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'abonner %@"
           }
         }
       }
@@ -6749,6 +8187,12 @@
             "state" : "translated",
             "value" : "Berlangganan podcast di YouTube Music untuk melihatnya di sini."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
+          }
         }
       }
     },
@@ -6776,6 +8220,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sudah berlangganan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abonné"
           }
         }
       }
@@ -6806,6 +8256,12 @@
             "state" : "translated",
             "value" : "Kesalahan Berlangganan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur d'abonnement"
+          }
         }
       }
     },
@@ -6833,6 +8289,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Penghapusan yang Disarankan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suppressions suggérées"
           }
         }
       }
@@ -6862,6 +8324,12 @@
             "state" : "translated",
             "value" : "Ganti Akun"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer de compte"
+          }
         }
       }
     },
@@ -6889,6 +8357,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Default Sistem"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par défaut du système"
           }
         }
       }
@@ -6918,6 +8392,12 @@
             "state" : "translated",
             "value" : "Ketuk untuk mencoba lagi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez pour réessayer"
+          }
         }
       }
     },
@@ -6945,6 +8425,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak ada lirik yang tersedia untuk lagu ini."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune parole n'est disponible pour ce morceau."
           }
         }
       }
@@ -6974,6 +8460,12 @@
             "state" : "translated",
             "value" : "Mac ini tidak mendukung Apple Intelligence. Diperlukan Mac dengan chip Apple Silicon."
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac ne prend pas en charge Apple Intelligence. Un Mac avec puce Apple Silicon est requis."
+          }
         }
       }
     },
@@ -7001,6 +8493,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lagu teratas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meilleurs morceaux"
           }
         }
       }
@@ -7030,6 +8528,12 @@
             "state" : "translated",
             "value" : "Coba Lagi"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
+          }
         }
       }
     },
@@ -7057,6 +8561,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Coba perintah seperti:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essayez des commandes comme :"
           }
         }
       }
@@ -7086,6 +8596,12 @@
             "state" : "translated",
             "value" : "Coba cari hal lain"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essayez de rechercher autre chose"
+          }
         }
       }
     },
@@ -7113,6 +8629,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak dapat menentukan ketersediaan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de déterminer la disponibilité"
           }
         }
       }
@@ -7142,6 +8664,12 @@
             "state" : "translated",
             "value" : "Tidak dapat memuat artis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger l'artiste"
+          }
         }
       }
     },
@@ -7169,6 +8697,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak dapat memuat konten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger le contenu"
           }
         }
       }
@@ -7198,6 +8732,12 @@
             "state" : "translated",
             "value" : "Tidak dapat memuat daftar putar"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger la playlist"
+          }
         }
       }
     },
@@ -7225,6 +8765,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak tersedia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indisponible"
           }
         }
       }
@@ -7254,6 +8800,12 @@
             "state" : "translated",
             "value" : "Batalkan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
         }
       }
     },
@@ -7281,6 +8833,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tidak diketahui"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inconnu"
           }
         }
       }
@@ -7310,6 +8868,12 @@
             "state" : "translated",
             "value" : "Artis Tidak Dikenal"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artiste inconnu"
+          }
         }
       }
     },
@@ -7337,6 +8901,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Batal suka"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le j'aime"
           }
         }
       }
@@ -7366,6 +8936,12 @@
             "state" : "translated",
             "value" : "Bunyikan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réactiver le son"
+          }
         }
       }
     },
@@ -7393,6 +8969,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Berikutnya"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À suivre"
           }
         }
       }
@@ -7422,6 +9004,12 @@
             "state" : "translated",
             "value" : "Pembaruan"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mises à jour"
+          }
         }
       }
     },
@@ -7449,6 +9037,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Versi"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
           }
         }
       }
@@ -7478,6 +9072,12 @@
             "state" : "translated",
             "value" : "Video"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vidéo"
+          }
         }
       }
     },
@@ -7505,6 +9105,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lihat Album"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir l'album"
           }
         }
       }
@@ -7534,6 +9140,12 @@
             "state" : "translated",
             "value" : "Lihat Artis"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir l'artiste"
+          }
         }
       }
     },
@@ -7561,6 +9173,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lihat Daftar Putar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir la playlist"
           }
         }
       }
@@ -7590,6 +9208,12 @@
             "state" : "translated",
             "value" : "Lihat Podcast"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir le podcast"
+          }
         }
       }
     },
@@ -7617,6 +9241,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Volume Turun"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baisser le volume"
           }
         }
       }
@@ -7646,6 +9276,12 @@
             "state" : "translated",
             "value" : "Volume Naik"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Augmenter le volume"
+          }
         }
       }
     },
@@ -7673,6 +9309,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menunggu otorisasi…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente d'autorisation…"
           }
         }
       }
@@ -7702,6 +9344,12 @@
             "state" : "translated",
             "value" : "Selamat datang di Kaset"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenue sur Kaset"
+          }
         }
       }
     },
@@ -7729,6 +9377,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apa yang ingin Anda ubah?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que souhaitez-vous modifier ?"
           }
         }
       }
@@ -7758,6 +9412,12 @@
             "state" : "translated",
             "value" : "Apa yang ingin Anda lakukan dengan antrean?"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que souhaitez-vous faire avec votre file d'attente ?"
+          }
         }
       }
     },
@@ -7785,6 +9445,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apa yang ingin Anda lakukan?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que souhaitez-vous faire ?"
           }
         }
       }
@@ -7814,6 +9480,12 @@
             "state" : "translated",
             "value" : "Apa yang Baru di Kaset"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveautés de Kaset"
+          }
         }
       }
     },
@@ -7841,6 +9513,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jika diaktifkan, Anda dapat menggunakan perintah bahasa alami, penyempurnaan daftar putar bertenaga AI, dan penjelasan lirik."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque cette option est activée, vous pouvez utiliser des commandes en langage naturel, l'affinement de playlists par IA et les explications de paroles."
           }
         }
       }
@@ -7870,6 +9548,12 @@
             "state" : "translated",
             "value" : "Pustaka Anda"
           }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre bibliothèque"
+          }
         }
       }
     },
@@ -7897,6 +9581,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pustaka Anda kosong"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre bibliothèque est vide"
           }
         }
       }

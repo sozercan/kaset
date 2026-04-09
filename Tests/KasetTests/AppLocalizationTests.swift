@@ -4,14 +4,21 @@ import Testing
 
 @Suite(.serialized, .tags(.service))
 struct AppLocalizationTests {
-    /// Helper to find the specific .lproj bundle and use the legacy API for reliable test verification.
+    /// Helper to find the specific `.lproj` bundle for direct string verification.
+    private func localizedBundle(for localization: String) -> Bundle? {
+        guard let bundlePath = AppLocalization.baseBundle.path(forResource: localization, ofType: "lproj") else {
+            return nil
+        }
+
+        return Bundle(path: bundlePath)
+    }
+
+    /// Helper to read a localized string from a specific locale bundle.
     private func localizedValue(key: String, localeIdentifier: String) -> String {
-        let baseBundle = AppLocalization.bundle
-        guard let lprojPath = baseBundle.path(forResource: localeIdentifier, ofType: "lproj"),
-              let lprojBundle = Bundle(path: lprojPath)
-        else {
+        guard let lprojBundle = self.localizedBundle(for: localeIdentifier) else {
             return key
         }
+
         return lprojBundle.localizedString(forKey: key, value: nil, table: nil)
     }
 
@@ -25,6 +32,7 @@ struct AppLocalizationTests {
     func arabicFormattedLocalizationWorks() {
         let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "ar")
         let title = String(format: localizedText, locale: Locale(identifier: "ar"), "34.6M")
+
         #expect(title.hasPrefix("اشترك"))
         #expect(title.contains("34.6M"))
     }
@@ -39,22 +47,20 @@ struct AppLocalizationTests {
     func turkishFormattedLocalizationWorks() {
         let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "tr")
         let title = String(format: localizedText, locale: Locale(identifier: "tr"), "34.6M")
+
         #expect(title.hasPrefix("Abone Ol"))
         #expect(title.contains("34.6M"))
     }
 
-    @Test("Korean bundle localizes artist strings")
+    @Test("Korean bundle localizes artist and subscribe strings")
     func koreanLocalizationWorks() {
         let artist = self.localizedValue(key: "Artist", localeIdentifier: "ko")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "ko")
+        let title = String(format: localizedText, locale: Locale(identifier: "ko"), "34.6M")
+
         #expect(artist == "아티스트")
-    }
-
-    @Test("Override bundle lookup is scoped to Kaset-owned bundles")
-    func overrideBundleLookupIsScopedToKasetBundles() {
-        AppLocalization.setLanguage("ar")
-        defer { AppLocalization.setLanguage(nil) }
-
-        #expect(AppLocalization.shouldOverrideLocalization(for: AppLocalization.baseBundle))
+        #expect(title.hasPrefix("구독"))
+        #expect(title.contains("34.6M"))
     }
 
     @Test("Indonesian bundle localizes artist and subscribe strings")
@@ -66,5 +72,83 @@ struct AppLocalizationTests {
         #expect(artist == "Artis")
         #expect(title.hasPrefix("Berlangganan"))
         #expect(title.contains("34.6M"))
+    }
+
+    @Test("French bundle localizes artist and subscribe strings")
+    func frenchLocalizationWorks() throws {
+        let frenchBundle = try #require(self.localizedBundle(for: "fr"))
+        let format = frenchBundle.localizedString(forKey: "Subscribe %@", value: nil, table: nil)
+        let title = String(format: format, locale: Locale(identifier: "fr"), "34.6M")
+        let romanizeLabel = frenchBundle.localizedString(forKey: "Romanize Lyrics", value: nil, table: nil)
+        let romanizeHelp = frenchBundle.localizedString(
+            forKey: "Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics",
+            value: nil,
+            table: nil
+        )
+
+        #expect(frenchBundle.localizedString(forKey: "Artist", value: nil, table: nil) == "Artiste")
+        #expect(title.hasPrefix("S'abonner"))
+        #expect(title.contains("34.6M"))
+        #expect(romanizeLabel == "Romaniser les paroles")
+        #expect(romanizeHelp == "Afficher le texte romanisé (romaji, pinyin, etc.) sous les paroles non latines")
+    }
+
+    @Test("Override bundle lookup is scoped to Kaset-owned bundles")
+    func overrideBundleLookupIsScopedToKasetBundles() throws {
+        AppLocalization.setLanguage("ar")
+        defer { AppLocalization.setLanguage(nil) }
+
+        let overrideBundle = try #require(AppLocalization.overrideBundle)
+        let frameworkBundle = try #require(
+            Bundle.allFrameworks.first { bundle in
+                bundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL !=
+                    AppLocalization.baseBundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL
+                    && bundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL !=
+                    Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL
+            }
+        )
+
+        #expect(AppLocalization.shouldOverrideLocalization(for: AppLocalization.baseBundle))
+        #expect(AppLocalization.lookupBundle(for: AppLocalization.baseBundle).bundleURL == overrideBundle.bundleURL)
+        #expect(AppLocalization.shouldOverrideLocalization(for: frameworkBundle) == false)
+        #expect(AppLocalization.lookupBundle(for: frameworkBundle).bundleURL == frameworkBundle.bundleURL)
+    }
+
+    @Test("Navigation title keys resolve correctly from lproj sub-bundles")
+    func lprojBundleResolvesNavigationTitleKeys() throws {
+        let koreanBundle = try #require(self.localizedBundle(for: "ko"))
+        let englishBundle = try #require(self.localizedBundle(for: "en"))
+
+        #expect(koreanBundle.localizedString(forKey: "Home", value: nil, table: nil) == "홈")
+        #expect(koreanBundle.localizedString(forKey: "Explore", value: nil, table: nil) == "둘러보기")
+        #expect(koreanBundle.localizedString(forKey: "Library", value: nil, table: nil) == "보관함")
+        #expect(koreanBundle.localizedString(forKey: "Listening History", value: nil, table: nil) == "감상 기록")
+
+        #expect(englishBundle.localizedString(forKey: "Home", value: nil, table: nil) == "Home")
+        #expect(englishBundle.localizedString(forKey: "Explore", value: nil, table: nil) == "Explore")
+        #expect(englishBundle.localizedString(forKey: "Library", value: nil, table: nil) == "Library")
+        #expect(englishBundle.localizedString(forKey: "Listening History", value: nil, table: nil) == "Listening History")
+    }
+
+    @Test("Language override applies to navigation title lookups via AppLocalization.bundle")
+    func overrideBundleResolvesNavigationTitles() {
+        AppLocalization.setLanguage("ko")
+        defer { AppLocalization.setLanguage(nil) }
+
+        let title = AppLocalization.bundle.localizedString(forKey: "Home", value: nil, table: nil)
+        #expect(title == "홈")
+
+        AppLocalization.setLanguage("en")
+        let englishTitle = AppLocalization.bundle.localizedString(forKey: "Home", value: nil, table: nil)
+        #expect(englishTitle == "Home")
+    }
+
+    @Test("Clearing language override reverts to base bundle")
+    func clearingOverrideRevertsToBaseBundle() {
+        AppLocalization.setLanguage("ko")
+        AppLocalization.setLanguage(nil)
+
+        #expect(AppLocalization.overrideBundle == nil)
+        #expect(AppLocalization.bundle.bundleURL == AppLocalization.baseBundle.bundleURL)
     }
 }

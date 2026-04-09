@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - AppLocalization
 
@@ -55,6 +56,29 @@ enum AppLocalization {
 extension String {
     init(localized key: LocalizationValue) {
         self = String(localized: key, bundle: AppLocalization.bundle)
+    }
+}
+
+// MARK: - LocalizedNavigationTitleModifier
+
+/// Re-evaluates the navigation title when the app language changes.
+/// Uses `Bundle.localizedString(forKey:value:table:)` because `AppLocalization.bundle`
+/// may be a resolved `.lproj` sub-bundle, and this method reads strings from it directly.
+@available(macOS 26.0, *)
+private struct LocalizedNavigationTitleModifier: ViewModifier {
+    let key: String
+    @Environment(\.locale) private var locale
+
+    func body(content: Content) -> some View {
+        let _ = self.locale // swiftlint:disable:this redundant_discardable_let
+        content.navigationTitle(AppLocalization.bundle.localizedString(forKey: self.key, value: nil, table: nil))
+    }
+}
+
+@available(macOS 26.0, *)
+extension View {
+    func localizedNavigationTitle(_ key: String) -> some View {
+        self.modifier(LocalizedNavigationTitleModifier(key: key))
     }
 }
 
