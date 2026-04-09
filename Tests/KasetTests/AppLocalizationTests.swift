@@ -6,11 +6,7 @@ import Testing
 struct AppLocalizationTests {
     /// Helper to find the specific `.lproj` bundle for direct string verification.
     private func localizedBundle(for localization: String) -> Bundle? {
-        guard let bundlePath = AppLocalization.baseBundle.path(forResource: localization, ofType: "lproj") else {
-            return nil
-        }
-
-        return Bundle(path: bundlePath)
+        AppLocalization.bundle(forLocalization: localization)
     }
 
     /// Helper to read a localized string from a specific locale bundle.
@@ -131,7 +127,7 @@ struct AppLocalizationTests {
     }
 
     @Test("Language override applies to navigation title lookups via AppLocalization.bundle")
-    func overrideBundleResolvesNavigationTitles() {
+    func overrideBundleResolvesNavigationTitles() throws {
         AppLocalization.setLanguage("ko")
         defer { AppLocalization.setLanguage(nil) }
 
@@ -139,6 +135,9 @@ struct AppLocalizationTests {
         #expect(title == "홈")
 
         AppLocalization.setLanguage("en")
+        let englishBundle = try #require(AppLocalization.bundle(forLocalization: "en"))
+        #expect(AppLocalization.lookupBundle(for: AppLocalization.baseBundle).bundleURL == englishBundle.bundleURL)
+
         let englishTitle = AppLocalization.bundle.localizedString(forKey: "Home", value: nil, table: nil)
         #expect(englishTitle == "Home")
     }

@@ -29,13 +29,30 @@ enum AppLocalization {
             self.overrideBundle = nil
             return
         }
-        if let path = self.baseBundle.path(forResource: code, ofType: "lproj"),
-           let lprojBundle = Bundle(path: path)
+
+        self.overrideBundle = Self.bundle(forLocalization: code)
+    }
+
+    /// Finds a bundle for a specific localization, including development-region
+    /// localizations that may be emitted from `.xcstrings` resources.
+    static func bundle(forLocalization localization: String) -> Bundle? {
+        if let bundlePath = self.baseBundle.path(forResource: localization, ofType: "lproj"),
+           let bundle = Bundle(path: bundlePath)
         {
-            self.overrideBundle = lprojBundle
-        } else {
-            self.overrideBundle = nil
+            return bundle
         }
+
+        guard let stringsPath = self.baseBundle.path(
+            forResource: "Localizable",
+            ofType: "strings",
+            inDirectory: nil,
+            forLocalization: localization
+        ) else {
+            return nil
+        }
+
+        let localizationDirectory = URL(fileURLWithPath: stringsPath).deletingLastPathComponent()
+        return Bundle(url: localizationDirectory)
     }
 
     static func shouldOverrideLocalization(for bundle: Bundle) -> Bool {
