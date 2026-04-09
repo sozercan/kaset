@@ -480,28 +480,22 @@ Right-click WebView → Inspect Element
 
 ### GitHub Actions Workflow
 
-CI can use Xcode-specific commands for macOS runner parity. Keep this separate from the default local CLI loop above.
+CI uses Xcode-specific commands for macOS runner parity. Keep that separate from
+the default local CLI loop above.
 
-```yaml
-name: Build & Test
+- Pull requests to `main` run the non-UI suite only.
+- Pushes to `main` run the non-UI suite plus the full `KasetUITests` suite.
+- Manual `workflow_dispatch` runs keep the full UI suite available on demand.
+- A failing post-merge UI run updates the rolling tracker issue
+  `CI: Full UI Suite failing on main`, and the next green `main` run closes it.
 
-on: [push, pull_request]
+The full UI suite still uses the packaged app install flow from
+`.github/workflows/tests.yml`:
 
-jobs:
-  build:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
-
-      - name: Build
-        run: xcodebuild -scheme Kaset -destination 'platform=macOS' build
-
-      - name: Test
-        run: xcodebuild -scheme Kaset -destination 'platform=macOS' test
-
-      - name: Lint
-        run: swiftlint --strict
+```bash
+xcodebuild \
+  -project KasetUITests.xcodeproj \
+  -scheme KasetUITests \
+  -destination 'platform=macOS' \
+  test
 ```

@@ -4,6 +4,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  issues: write
+
 on:
   push:
     branches: [main]
@@ -12,6 +16,11 @@ on:
       - "Package.swift"
       - "Sources/**"
       - "Tests/**"
+      - "Info.plist"
+      - "Kaset.entitlements"
+      - "Scripts/**"
+      - "KasetUITests.xcodeproj/**"
+      - "Sources/Kaset/Resources/**"
       - ".github/workflows/tests.yml"
   pull_request:
     branches: [main]
@@ -20,6 +29,11 @@ on:
       - "Package.swift"
       - "Sources/**"
       - "Tests/**"
+      - "Info.plist"
+      - "Kaset.entitlements"
+      - "Scripts/**"
+      - "KasetUITests.xcodeproj/**"
+      - "Sources/Kaset/Resources/**"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
@@ -58,6 +72,11 @@ jobs:
     name: macOS UI Tests
     timeout-minutes: 30
     runs-on: macos-26
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    env:
+      UI_TEST_ARTIFACT_NAME: macOS-UITestResults-${{ github.run_attempt }}
+      UI_TEST_ISSUE_TITLE: "CI: Full UI Suite failing on main"
+      UI_TEST_ISSUE_MARKER: "<!-- kaset-ci-full-ui-suite -->"
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
@@ -82,17 +101,20 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Build app bundle for UI tests
+        id: build_ui_app
         env:
           KASET_SIGNING: adhoc
         run: Scripts/build-app.sh debug
 
       - name: Install app for UI tests
+        id: install_ui_app
         run: |
           sudo cp -R .build/app/Kaset.app /Applications/Kaset.app
           # Register with Launch Services so XCUIApplication can find it
           /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/Kaset.app
 
       - name: Run UI tests
+        id: run_ui_tests
         run: |
           set -o pipefail
           xcodebuild \
@@ -105,10 +127,35 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test
 
+      - name: Locate UI test results
+        id: locate_ui_results
+        if: always()
+        run: |
+          xcresult_path="$(find ./build -type d -name '*.xcresult' -print | sort | tail -n 1)"
+          if [ -n "$xcresult_path" ]; then
+            echo "xcresult_path=$xcresult_path" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload test results on failure
-        if: failure()
+        if: failure() && steps.locate_ui_results.outputs.xcresult_path != ''
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
         with:
-          name: macOS-UITestResults
-          path: ./build/*.xcresult
+          name: ${{ env.UI_TEST_ARTIFACT_NAME }}
+          path: ${{ steps.locate_ui_results.outputs.xcresult_path }}
           retention-days: 7
+
+      - name: Report UI test failure on main
+        if: always() && failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UI_BUILD_OUTCOME: ${{ steps.build_ui_app.outcome }}
+          UI_INSTALL_OUTCOME: ${{ steps.install_ui_app.outcome }}
+          UI_TEST_OUTCOME: ${{ steps.run_ui_tests.outcome }}
+          UI_XCRESULT_PATH: ${{ steps.locate_ui_results.outputs.xcresult_path }}
+        run: python3 Scripts/ui_test_ci_issue_tracker.py failure
+
+      - name: Close UI failure tracker on recovery
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Scripts/ui_test_ci_issue_tracker.py success
