@@ -1373,7 +1373,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             "client": [
                 "clientName": "WEB_REMIX",
                 "clientVersion": Self.clientVersion,
-                "hl": "en",
+                "hl": SettingsManager.shared.contentLanguage.apiLanguageCode,
                 "gl": "US",
                 "experimentIds": [],
                 "experimentsToken": "",
