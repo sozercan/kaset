@@ -10,7 +10,7 @@ struct ExtensionsSettingsView: View {
     @State private var manager = ExtensionsManager.shared
     @State private var showRestartAlert = false
     @State private var pendingChangeDescription = ""
-    @State private var configuringExtensionURL: URL?
+    @State private var configuringExtensionPage: WebKitManager.ExtensionPage?
 
     var body: some View {
         ScrollView {
@@ -93,17 +93,14 @@ struct ExtensionsSettingsView: View {
         } message: {
             Text("\(self.pendingChangeDescription) will take effect after restarting Kaset.")
         }
-        .sheet(item: Binding(
-            get: { self.configuringExtensionURL.map { IdentifiableURL(url: $0) } },
-            set: { self.configuringExtensionURL = $0?.url }
-        )) { identURL in
+        .sheet(item: self.$configuringExtensionPage) { extensionPage in
             NavigationStack {
-                ExtensionOptionsView(url: identURL.url)
+                ExtensionOptionsView(page: extensionPage)
                     .frame(minWidth: 600, minHeight: 450)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") {
-                                self.configuringExtensionURL = nil
+                                self.configuringExtensionPage = nil
                             }
                         }
                     }
@@ -140,9 +137,9 @@ struct ExtensionsSettingsView: View {
             ))
             .labelsHidden()
 
-            if ext.isEnabled, let contextURL = WebKitManager.shared.optionsPageURL(forExtensionId: ext.id) {
+            if ext.isEnabled, let extensionPage = WebKitManager.shared.extensionPage(forExtensionId: ext.id) {
                 Button("Options…") {
-                    self.configuringExtensionURL = contextURL
+                    self.configuringExtensionPage = extensionPage
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
@@ -215,14 +212,5 @@ struct ExtensionsSettingsView: View {
             try? fallbackTask.run()
             NSApplication.shared.terminate(nil)
         }
-    }
-}
-
-// MARK: - IdentifiableURL
-
-private struct IdentifiableURL: Identifiable {
-    let url: URL
-    var id: URL {
-        self.url
     }
 }

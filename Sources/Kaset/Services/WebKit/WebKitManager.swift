@@ -201,44 +201,8 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 context.setPermissionStatus(.grantedExplicitly, for: permission)
             }
 
-            for permission in webExtension.optionalPermissions {
-                context.setPermissionStatus(.grantedExplicitly, for: permission)
-            }
-
             for matchPattern in webExtension.requestedPermissionMatchPatterns {
                 context.setPermissionStatus(.grantedExplicitly, for: matchPattern)
-            }
-
-            for matchPattern in webExtension.optionalPermissionMatchPatterns {
-                context.setPermissionStatus(.grantedExplicitly, for: matchPattern)
-            }
-
-            let wildcardPatterns = [
-                "<all_urls>",
-                "*://*/*",
-                "*://*.youtube.com/*",
-                "*://*.google.com/*",
-                "*://*.googleusercontent.com/*",
-                "*://*.googlevideo.com/*",
-            ]
-
-            for pattern in wildcardPatterns {
-                if let match = try? WKWebExtension.MatchPattern(string: pattern) {
-                    context.setPermissionStatus(.grantedExplicitly, for: match)
-                }
-            }
-
-            // Explicitly grant declarativeNetRequest if available in current SDK
-            let extraPermissions = [
-                "declarativeNetRequest",
-                "declarativeNetRequestWithHostAccess",
-                "declarativeNetRequestFeedback",
-                "storage",
-                "unlimitedStorage",
-            ]
-            for permName in extraPermissions {
-                let perm = WKWebExtension.Permission(rawValue: permName)
-                context.setPermissionStatus(.grantedExplicitly, for: perm)
             }
 
             try self.webExtensionController.load(context)
@@ -269,33 +233,40 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return configuration
     }
 
-    /// Gets the options page URL for a loaded extension by its Kaset internal ID.
-    func optionsPageURL(forExtensionId id: String) -> URL? {
+    /// Metadata required to present an extension-owned page in a dedicated web view.
+    struct ExtensionPage: Identifiable {
+        let id: String
+        let url: URL
+        let configuration: WKWebViewConfiguration
+    }
+
+    /// Resolves the options or popup page for a loaded extension.
+    func extensionPage(forExtensionId id: String) -> ExtensionPage? {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
                 guard let context = self.extensionContexts[id] else { return nil }
+                guard let configuration = context.webViewConfiguration else { return nil }
 
-                // Check ExtensionsManager for recorded paths from manifest.json
-                guard let managedExt = ExtensionsManager.shared.extensions.first(where: { $0.id == id }) else {
-                    return context.optionsPageURL
-                }
-
-                // Priority 1: Official options page from WebKit
                 if let optionsURL = context.optionsPageURL {
-                    return optionsURL
+                    return ExtensionPage(id: id, url: optionsURL, configuration: configuration)
                 }
 
-                // Priority 2: Fallback to the path discovered in manifest.json
-                let relativePath = managedExt.optionsPath ?? managedExt.popupPath ?? "popup.html"
-
-                // On macOS 14, we try to reconstruct the URL relative to the scheme base
-                // of the extension context if it exists.
-                if let baseContextURL = context.optionsPageURL?.deletingLastPathComponent() {
-                    return URL(string: relativePath, relativeTo: baseContextURL)
+                guard let managedExt = ExtensionsManager.shared.extensions.first(where: { $0.id == id }),
+                      let relativePath = managedExt.optionsPath ?? managedExt.popupPath,
+                      let fallbackURL = Self.extensionResourceURL(relativePath: relativePath, baseURL: context.baseURL)
+                else {
+                    return nil
                 }
+
+                return ExtensionPage(id: id, url: fallbackURL, configuration: configuration)
             }
         #endif
         return nil
+    }
+
+    /// Gets the options page URL for a loaded extension by its Kaset internal ID.
+    func optionsPageURL(forExtensionId id: String) -> URL? {
+        self.extensionPage(forExtensionId: id)?.url
     }
 
     /// Gets the options page URL for a loaded extension by name (deprecated/fallback).
@@ -316,6 +287,21 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             }
         #endif
         return nil
+    }
+
+    static func extensionResourceURL(relativePath: String, baseURL: URL) -> URL? {
+        let trimmedPath = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else { return nil }
+
+        if let components = URLComponents(string: trimmedPath), components.scheme != nil || components.host != nil {
+            return nil
+        }
+
+        let normalizedPath = trimmedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalizedPath.isEmpty else { return nil }
+
+        let rootURL = baseURL.hasDirectoryPath ? baseURL : baseURL.appendingPathComponent("", isDirectory: true)
+        return URL(string: normalizedPath, relativeTo: rootURL)?.absoluteURL
     }
 
     /// Waits for the one-time startup cookie restore to finish.
@@ -534,12 +520,12 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     @available(macOS 14.0, *)
     extension WebKitManager: WKWebExtensionControllerDelegate {
         func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor permissions: Set<WKWebExtension.Permission>, in _: WKWebExtensionContext) async -> Bool {
-            self.logger.info("Auto-granting prompt for permissions: \(permissions.map(\.rawValue).joined(separator: ", "))")
+            self.logger.info("Showing permission prompt for: \(permissions.map(\.rawValue).joined(separator: ", "))")
             return true
         }
 
         func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor matchPatterns: Set<WKWebExtension.MatchPattern>, in _: WKWebExtensionContext) async -> Bool {
-            self.logger.info("Auto-granting prompt for match patterns: \(matchPatterns.map(\.string).joined(separator: ", "))")
+            self.logger.info("Showing match-pattern prompt for: \(matchPatterns.map(\.string).joined(separator: ", "))")
             return true
         }
     }

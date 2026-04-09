@@ -4,13 +4,10 @@ import WebKit
 /// A view that displays the options page of a WebKit extension.
 @available(macOS 26.0, *)
 struct ExtensionOptionsView: NSViewRepresentable {
-    let url: URL
+    let page: WebKitManager.ExtensionPage
 
     func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        #if os(macOS)
-            config.webExtensionController = WebKitManager.shared.webExtensionController
-        #endif
+        let config = (self.page.configuration.copy() as? WKWebViewConfiguration) ?? self.page.configuration
 
         // Inject script to pipe console to native
         let consoleProxyScript = WKUserScript(
@@ -47,17 +44,17 @@ struct ExtensionOptionsView: NSViewRepresentable {
         webView.isInspectable = true
 
         webView.navigationDelegate = context.coordinator
-        webView.load(URLRequest(url: self.url))
+        webView.load(URLRequest(url: self.page.url))
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context _: Context) {
-        if webView.url != self.url, !webView.isLoading {
+        if webView.url != self.page.url, !webView.isLoading {
             // Tiny delay to ensure WebKit's internal extension registry has catch up with the ID
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(100))
-                DiagnosticsLogger.extensions.info("ExtensionOptionsView loading URL: \(self.url.absoluteString)")
-                webView.load(URLRequest(url: self.url))
+                DiagnosticsLogger.extensions.info("ExtensionOptionsView loading URL: \(self.page.url.absoluteString)")
+                webView.load(URLRequest(url: self.page.url))
             }
         }
     }

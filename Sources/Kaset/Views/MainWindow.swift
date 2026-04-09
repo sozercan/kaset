@@ -269,12 +269,12 @@ struct MainWindow: View {
                 self.detailView(for: self.navigationSelection, client: self.client)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            //     // Ensure sidebar is visible when window becomes key (e.g., restored from dock)
-            //     if self.columnVisibility != .all {
-            //         self.columnVisibility = .all
-            //     }
-            // }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
+                if self.columnVisibility != .all {
+                    self.columnVisibility = .all
+                }
+            }
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
