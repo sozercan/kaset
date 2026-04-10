@@ -111,3 +111,26 @@ struct LyricsSummaryTests {
         #expect(summary.themes.count <= 5)
     }
 }
+
+// MARK: - FoundationModelsBudgetTests
+
+@Suite(.tags(.model))
+struct FoundationModelsBudgetTests {
+    @Test("bestFittingPrefixCount allows zero-line fallback")
+    func bestFittingPrefixCountAllowsZeroLineFallback() async {
+        let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 4) { count in
+            count == 0
+        }
+
+        #expect(bestFit == 0)
+    }
+
+    @Test("bestFittingPrefixCount returns the largest fitting prefix")
+    func bestFittingPrefixCountReturnsLargestFit() async {
+        let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 6) { count in
+            count <= 3
+        }
+
+        #expect(bestFit == 3)
+    }
+}

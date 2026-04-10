@@ -8,12 +8,17 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct CommandBarView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(\.navigationSelection) private var navigationSelection
+    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
 
     /// The YTMusicClient for search operations.
     let client: any YTMusicClientProtocol
 
     /// Binding to control visibility (used for dismiss).
     @Binding var isPresented: Bool
+
+    /// Shared search view model for routing search-only intents into the Search tab.
+    let searchViewModel: SearchViewModel?
 
     /// The user's input text.
     @State private var inputText = ""
@@ -32,6 +37,12 @@ struct CommandBarView: View {
 
     private let logger = DiagnosticsLogger.ai
     @Namespace private var commandBarNamespace
+
+    init(client: any YTMusicClientProtocol, isPresented: Binding<Bool>, searchViewModel: SearchViewModel? = nil) {
+        self.client = client
+        self._isPresented = isPresented
+        self.searchViewModel = searchViewModel
+    }
 
     /// Dismisses the command bar.
     private func dismissCommandBar() {
@@ -572,8 +583,8 @@ struct CommandBarView: View {
 
         case .search:
             HapticService.success()
-            // Switch to search view with the query
-            self.fallbackToSearch()
+            let fallbackQuery = intent.query.isEmpty ? searchQuery : intent.query
+            await self.fallbackToSearch(query: fallbackQuery)
         }
 
         // Auto-dismiss after successful action (except search)
@@ -643,10 +654,23 @@ struct CommandBarView: View {
         }
     }
 
-    private func fallbackToSearch() {
-        // Dismiss and trigger search view navigation
-        // This would need to be wired up to the navigation system
-        self.dismissCommandBar()
+    private func fallbackToSearch(query: String) async {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        await MainActor.run {
+            self.navigationSelection.wrappedValue = .search
+            if let searchViewModel = self.searchViewModel {
+                searchViewModel.selectedFilter = .all
+                searchViewModel.query = trimmedQuery
+                if !trimmedQuery.isEmpty {
+                    searchViewModel.search()
+                }
+            }
+            self.dismissCommandBar()
+        }
+        try? await Task.sleep(for: .milliseconds(100))
+        await MainActor.run {
+            self.searchFocusTrigger.wrappedValue = true
+        }
     }
 
     // MARK: - Content Routing

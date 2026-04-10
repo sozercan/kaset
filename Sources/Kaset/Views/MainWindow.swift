@@ -23,6 +23,7 @@ struct MainWindow: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -159,7 +160,7 @@ struct MainWindow: View {
                         }
 
                     VStack(spacing: 0) {
-                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
+                        self.commandBar
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
 
                         Spacer(minLength: 0)
@@ -346,6 +347,14 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var commandBar: some View {
+        CommandBarView(
+            client: self.client,
+            isPresented: self.$isCommandBarPresented,
+            searchViewModel: self.searchViewModel
+        )
+    }
+
     /// Returns the view for a specific navigation item.
     private func viewForNavigationItem(_ item: NavigationItem) -> some View { // swiftlint:disable:this cyclomatic_complexity
         Group {
@@ -355,7 +364,9 @@ struct MainWindow: View {
             case .explore:
                 if let vm = exploreViewModel { ExploreView(viewModel: vm) }
             case .search:
-                if let vm = searchViewModel { SearchView(viewModel: vm) }
+                if let vm = searchViewModel {
+                    SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
+                }
             case .charts:
                 if let vm = chartsViewModel { ChartsView(viewModel: vm) }
             case .moodsAndGenres:

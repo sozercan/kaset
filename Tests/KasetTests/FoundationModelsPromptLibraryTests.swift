@@ -77,6 +77,20 @@ struct FoundationModelsPromptLibraryTests {
         )
 
         #expect(prompt.contains("Total songs: 10"))
-        #expect(prompt.contains("Return only the removals and optional reordering needed for the request."))
+        #expect(prompt.contains("Return only the removals, optional reordering, and a brief reasoning string needed for the request."))
+    }
+
+    @Test("26.4 playlist prompt includes zero-track fallback guidance")
+    func optimizedPlaylistPromptHandlesZeroTrackFallback() {
+        let prompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
+            trackList: "",
+            totalTracks: 10,
+            shownTracks: 0,
+            request: "Remove duplicates",
+            version: .optimized26_4AndLater
+        )
+
+        #expect(prompt.contains("No track details fit in the on-device context window."))
+        #expect(prompt.contains("Return no removals or reordering"))
     }
 }

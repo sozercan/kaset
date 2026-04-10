@@ -303,6 +303,30 @@ final class FoundationModelsService {
     ///
     /// This is useful for playlist review prompts where dropping whole lines is better than
     /// trimming arbitrary characters mid-track.
+    static func bestFittingPrefixCount(
+        maxCount: Int,
+        fits: (Int) async -> Bool
+    ) async -> Int {
+        guard maxCount > 0 else { return 0 }
+
+        var low = 0
+        var high = maxCount
+        var bestFit = 0
+
+        while low <= high {
+            let midpoint = (low + high) / 2
+
+            if await fits(midpoint) {
+                bestFit = midpoint
+                low = midpoint + 1
+            } else {
+                high = midpoint - 1
+            }
+        }
+
+        return bestFit
+    }
+
     func fittedLineCount(
         context: String,
         instructions: String,
@@ -335,35 +359,38 @@ final class FoundationModelsService {
             return lines.count
         }
 
-        var low = 1
-        var high = lines.count
-        var bestFit = 1
-
-        while low <= high {
-            let midpoint = (low + high) / 2
-            let candidateLines = Array(lines.prefix(midpoint))
+        let bestFit = await Self.bestFittingPrefixCount(maxCount: lines.count) { candidateCount in
+            let candidateLines = Array(lines.prefix(candidateCount))
             let candidatePrompt = promptBuilder(candidateLines)
 
-            if let budget = await self.promptBudget(
+            guard let budget = await self.promptBudget(
                 context: context,
                 instructions: instructions,
                 prompt: candidatePrompt,
                 tools: tools,
                 shouldLog: false
-            ), budget.totalTokens <= tokenLimit {
-                bestFit = midpoint
-                low = midpoint + 1
-            } else {
-                high = midpoint - 1
+            ) else {
+                return false
             }
+
+            return budget.totalTokens <= tokenLimit
         }
 
-        self.logger.info(
-            """
-            Trimmed \(context, privacy: .public) lines from \
-            \(lines.count, privacy: .public) to \(bestFit, privacy: .public)
-            """
-        )
+        if bestFit == 0 {
+            self.logger.warning(
+                """
+                No \(context, privacy: .public) lines fit the available \
+                Foundation Models budget; using zero-line fallback
+                """
+            )
+        } else {
+            self.logger.info(
+                """
+                Trimmed \(context, privacy: .public) lines from \
+                \(lines.count, privacy: .public) to \(bestFit, privacy: .public)
+                """
+            )
+        }
         await self.logPromptBudget(
             context: context,
             instructions: instructions,

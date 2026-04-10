@@ -201,6 +201,7 @@ enum FoundationModelsPromptLibrary {
             - Only remove tracks that clearly miss the requested vibe or criteria.
             - Prefer keeping songs when uncertain.
             - Reorder only when it meaningfully improves the requested flow.
+            - Always include a brief reasoning string, even when no changes are needed.
             """
         }
     }
@@ -226,7 +227,7 @@ enum FoundationModelsPromptLibrary {
     ) -> String {
         switch version {
         case .legacy26_0To26_3:
-            """
+            return """
             Playlist (\(totalTracks) songs, showing \(shownTracks)):
 
             \(trackList)
@@ -235,17 +236,26 @@ enum FoundationModelsPromptLibrary {
             """
 
         case .optimized26_4AndLater:
-            """
+            let tracksSection = if shownTracks == 0 {
+                """
+                No track details fit in the on-device context window.
+                Return no removals or reordering, and explain that the request needs to be shorter.
+                """
+            } else {
+                trackList
+            }
+
+            return """
             Playlist review:
             - Total songs: \(totalTracks)
             - Songs shown: \(shownTracks)
 
             Tracks:
-            \(trackList)
+            \(tracksSection)
 
             Request: \(request)
 
-            Return only the removals and optional reordering needed for the request.
+            Return only the removals, optional reordering, and a brief reasoning string needed for the request.
             """
         }
     }
