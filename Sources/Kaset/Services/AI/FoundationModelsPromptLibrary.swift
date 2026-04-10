@@ -214,7 +214,7 @@ enum FoundationModelsPromptLibrary {
         tracks.prefix(limit).enumerated().map { index, track in
             let safeTitle = track.title.prefix(50)
             let safeArtist = track.artistsDisplay.prefix(30)
-            return "\(index + 1). \(safeTitle) - \(safeArtist) [id:\(track.videoId)]"
+            return "\(index + 1). \(safeTitle) - \(safeArtist) (video ID: \(track.videoId))"
         }
     }
 
@@ -236,6 +236,8 @@ enum FoundationModelsPromptLibrary {
             """
 
         case .optimized26_4AndLater:
+            let totalSongLabel = totalTracks == 1 ? "song" : "songs"
+            let shownSongLabel = shownTracks == 1 ? "song" : "songs"
             let tracksSection = if shownTracks == 0 {
                 """
                 No track details fit in the on-device context window.
@@ -246,9 +248,7 @@ enum FoundationModelsPromptLibrary {
             }
 
             return """
-            Playlist review:
-            - Total songs: \(totalTracks)
-            - Songs shown: \(shownTracks)
+            Playlist has \(totalTracks) \(totalSongLabel). You can review details for \(shownTracks) \(shownSongLabel).
 
             Tracks:
             \(tracksSection)

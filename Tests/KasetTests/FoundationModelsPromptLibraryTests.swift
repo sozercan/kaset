@@ -59,24 +59,25 @@ struct FoundationModelsPromptLibraryTests {
         let trackList = FoundationModelsPromptLibrary.playlistTrackList(from: [song], limit: 1)
         let trackLines = FoundationModelsPromptLibrary.playlistTrackLines(from: [song], limit: 1)
 
-        #expect(trackList.contains("[id:video-1]"))
+        #expect(trackList.contains("(video ID: video-1)"))
+        #expect(!trackList.contains("[id:"))
         #expect(!trackList.contains(String(repeating: "T", count: 60)))
         #expect(!trackList.contains(String(repeating: "A", count: 40)))
         #expect(trackLines.count == 1)
-        #expect(trackLines[0].contains("[id:video-1]"))
+        #expect(trackLines[0].contains("(video ID: video-1)"))
     }
 
     @Test("26.4 playlist prompt asks for minimal changes only")
     func optimizedPlaylistPromptNarrowsTheTask() {
         let prompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
-            trackList: "1. Song - Artist [id:abc]",
+            trackList: "1. Song - Artist (video ID: abc)",
             totalTracks: 10,
             shownTracks: 1,
             request: "Remove duplicates",
             version: .optimized26_4AndLater
         )
 
-        #expect(prompt.contains("Total songs: 10"))
+        #expect(prompt.contains("Playlist has 10 songs. You can review details for 1 song."))
         #expect(prompt.contains("Return only the removals, optional reordering, and a brief reasoning string needed for the request."))
     }
 

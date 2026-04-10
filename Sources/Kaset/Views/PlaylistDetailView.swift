@@ -533,7 +533,8 @@ struct PlaylistDetailView: View {
         let trackLimit = await FoundationModelsService.shared.fittedLineCount(
             context: "playlist refinement",
             instructions: instructions,
-            lines: trackLines
+            lines: trackLines,
+            generationSchema: PlaylistChanges.generationSchema
         ) { candidateLines in
             FoundationModelsPromptLibrary.playlistRefinementPrompt(
                 trackList: candidateLines.joined(separator: "\n"),
@@ -544,18 +545,35 @@ struct PlaylistDetailView: View {
             )
         }
         let trackList = Array(trackLines.prefix(trackLimit)).joined(separator: "\n")
+        let fittedRequest = await FoundationModelsService.shared.fittedPromptContent(
+            context: "playlist refinement request",
+            instructions: instructions,
+            content: prompt,
+            generationSchema: PlaylistChanges.generationSchema
+        ) { candidateRequest in
+            FoundationModelsPromptLibrary.playlistRefinementPrompt(
+                trackList: trackList,
+                totalTracks: tracks.count,
+                shownTracks: trackLimit,
+                request: candidateRequest,
+                version: promptVersion
+            )
+        }
 
         let userPrompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
             trackList: trackList,
             totalTracks: tracks.count,
             shownTracks: trackLimit,
-            request: prompt,
+            request: fittedRequest,
             version: promptVersion
         )
 
         do {
             // Use streaming for progressive UI updates
-            let stream = session.streamResponse(to: userPrompt, generating: PlaylistChanges.self)
+            let stream = session.streamResponse(
+                to: userPrompt,
+                generating: PlaylistChanges.self
+            )
 
             for try await snapshot in stream {
                 // Update partial content for streaming UI
@@ -567,12 +585,19 @@ struct PlaylistDetailView: View {
                let removals = final.removals,
                let reasoning = final.reasoning
             {
-                self.playlistChanges = PlaylistChanges(
+                let normalizedChanges = PlaylistChanges(
                     removals: removals,
                     reorderedIds: final.reorderedIds,
                     reasoning: reasoning
                 )
-                self.logger.info("Got playlist changes: \(removals.count) removals")
+                .normalized(forOriginalTrackIds: tracks.map(\.videoId))
+                self.playlistChanges = normalizedChanges
+                self.logger.info(
+                    """
+                    Got playlist changes: \(removals.count) removals, \
+                    reordered=\(normalizedChanges.reorderedIds != nil)
+                    """
+                )
             }
         } catch {
             // Use centralized error handler for consistent messaging

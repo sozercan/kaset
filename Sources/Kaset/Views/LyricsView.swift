@@ -470,7 +470,8 @@ struct LyricsView: View {
         textToExplain = await FoundationModelsService.shared.fittedPromptContent(
             context: "lyrics explanation",
             instructions: instructions,
-            content: textToExplain
+            content: textToExplain,
+            generationSchema: LyricsSummary.generationSchema
         ) { fittedLyrics in
             FoundationModelsPromptLibrary.lyricsExplanationPrompt(
                 trackTitle: track.title,

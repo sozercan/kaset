@@ -55,6 +55,45 @@ struct PlaylistChangesTests {
 
         #expect(changes.reasoning.contains("Removed"))
     }
+
+    @Test("PlaylistChanges normalizes empty reordering to nil")
+    func normalizesEmptyReordering() {
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: [],
+            reasoning: "No changes needed"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: ["video1", "video2"])
+        #expect(normalized.reorderedIds == nil)
+    }
+
+    @Test("PlaylistChanges normalizes unchanged ordering to nil")
+    func normalizesUnchangedOrdering() {
+        let originalOrder = ["video1", "video2", "video3"]
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: originalOrder,
+            reasoning: "Order already works well"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: originalOrder)
+        #expect(normalized.reorderedIds == nil)
+    }
+
+    @Test("PlaylistChanges preserves meaningful reordering")
+    func preservesMeaningfulReordering() {
+        let originalOrder = ["video1", "video2", "video3"]
+        let newOrder = ["video3", "video1", "video2"]
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: newOrder,
+            reasoning: "Sorted by energy level"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: originalOrder)
+        #expect(normalized.reorderedIds == newOrder)
+    }
 }
 
 // MARK: - LyricsSummaryTests
@@ -116,6 +155,20 @@ struct LyricsSummaryTests {
 
 @Suite(.tags(.model))
 struct FoundationModelsBudgetTests {
+    @Test("prompt budget total includes schema tokens")
+    func promptBudgetTotalIncludesSchemaTokens() {
+        let budget = FoundationModelsPromptBudget(
+            contextSize: 4096,
+            instructionsTokens: 100,
+            promptTokens: 200,
+            toolsTokens: 300,
+            schemaTokens: 400
+        )
+
+        #expect(budget.totalTokens == 1000)
+        #expect(budget.remainingTokens == 3096)
+    }
+
     @Test("bestFittingPrefixCount allows zero-line fallback")
     func bestFittingPrefixCountAllowsZeroLineFallback() async {
         let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 4) { count in

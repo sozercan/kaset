@@ -281,7 +281,8 @@ struct CommandBarView: View {
             context: "command processing",
             instructions: self.aiSystemInstructions,
             prompt: query,
-            tools: [searchTool, queueTool]
+            tools: [searchTool, queueTool],
+            generationSchema: MusicIntent.generationSchema
         )
 
         guard let session = FoundationModelsService.shared.createCommandSession(

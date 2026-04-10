@@ -11,9 +11,10 @@ struct FoundationModelsPromptBudget: Equatable {
     let instructionsTokens: Int
     let promptTokens: Int
     let toolsTokens: Int
+    let schemaTokens: Int
 
     var totalTokens: Int {
-        self.instructionsTokens + self.promptTokens + self.toolsTokens
+        self.instructionsTokens + self.promptTokens + self.toolsTokens + self.schemaTokens
     }
 
     var remainingTokens: Int {
@@ -202,14 +203,29 @@ final class FoundationModelsService {
         context: String,
         instructions: String,
         prompt: String,
-        tools: [any Tool] = []
+        tools: [any Tool] = [],
+        generationSchema: GenerationSchema? = nil
     ) async {
-        _ = await self.promptBudget(
+        guard let budget = await self.promptBudget(
             context: context,
             instructions: instructions,
             prompt: prompt,
             tools: tools,
-            shouldLog: true
+            generationSchema: generationSchema
+        ) else {
+            return
+        }
+
+        self.logger.debug(
+            """
+            \(context, privacy: .public) prompt budget: \
+            instructions=\(budget.instructionsTokens, privacy: .public), \
+            prompt=\(budget.promptTokens, privacy: .public), \
+            tools=\(budget.toolsTokens, privacy: .public), \
+            schema=\(budget.schemaTokens, privacy: .public), \
+            total=\(budget.totalTokens, privacy: .public)/\(budget.contextSize, privacy: .public) \
+            (\(budget.utilizationPercent, privacy: .public)%)
+            """
         )
     }
 
@@ -221,6 +237,7 @@ final class FoundationModelsService {
         instructions: String,
         content: String,
         tools: [any Tool] = [],
+        generationSchema: GenerationSchema? = nil,
         reserveTokens: Int = 1024,
         truncationMarker: String = "\n...[truncated for on-device analysis]...\n",
         promptBuilder: (String) -> String
@@ -233,7 +250,7 @@ final class FoundationModelsService {
             instructions: instructions,
             prompt: fullPrompt,
             tools: tools,
-            shouldLog: false
+            generationSchema: generationSchema
         ) else {
             return content
         }
@@ -244,7 +261,8 @@ final class FoundationModelsService {
                 context: context,
                 instructions: instructions,
                 prompt: fullPrompt,
-                tools: tools
+                tools: tools,
+                generationSchema: generationSchema
             )
             return content
         }
@@ -267,7 +285,7 @@ final class FoundationModelsService {
                 instructions: instructions,
                 prompt: candidatePrompt,
                 tools: tools,
-                shouldLog: false
+                generationSchema: generationSchema
             ), budget.totalTokens <= tokenLimit {
                 bestFit = candidateContent
                 low = midpoint + 1
@@ -293,7 +311,8 @@ final class FoundationModelsService {
             context: context,
             instructions: instructions,
             prompt: fittedPrompt,
-            tools: tools
+            tools: tools,
+            generationSchema: generationSchema
         )
 
         return fittedContent
@@ -332,6 +351,7 @@ final class FoundationModelsService {
         instructions: String,
         lines: [String],
         tools: [any Tool] = [],
+        generationSchema: GenerationSchema? = nil,
         reserveTokens: Int = 1024,
         promptBuilder: ([String]) -> String
     ) async -> Int {
@@ -343,7 +363,7 @@ final class FoundationModelsService {
             instructions: instructions,
             prompt: fullPrompt,
             tools: tools,
-            shouldLog: false
+            generationSchema: generationSchema
         ) else {
             return lines.count
         }
@@ -354,7 +374,8 @@ final class FoundationModelsService {
                 context: context,
                 instructions: instructions,
                 prompt: fullPrompt,
-                tools: tools
+                tools: tools,
+                generationSchema: generationSchema
             )
             return lines.count
         }
@@ -368,7 +389,7 @@ final class FoundationModelsService {
                 instructions: instructions,
                 prompt: candidatePrompt,
                 tools: tools,
-                shouldLog: false
+                generationSchema: generationSchema
             ) else {
                 return false
             }
@@ -395,7 +416,8 @@ final class FoundationModelsService {
             context: context,
             instructions: instructions,
             prompt: promptBuilder(Array(lines.prefix(bestFit))),
-            tools: tools
+            tools: tools,
+            generationSchema: generationSchema
         )
 
         return bestFit
@@ -416,7 +438,7 @@ final class FoundationModelsService {
         instructions: String,
         prompt: String,
         tools: [any Tool],
-        shouldLog: Bool
+        generationSchema: GenerationSchema?
     ) async -> FoundationModelsPromptBudget? {
         guard #available(macOS 26.4, *) else { return nil }
 
@@ -430,28 +452,19 @@ final class FoundationModelsService {
             } else {
                 try await model.tokenCount(for: tools)
             }
+            let schemaTokens = if let generationSchema {
+                try await model.tokenCount(for: generationSchema)
+            } else {
+                0
+            }
 
-            let budget = FoundationModelsPromptBudget(
+            return FoundationModelsPromptBudget(
                 contextSize: model.contextSize,
                 instructionsTokens: instructionsTokens,
                 promptTokens: promptTokens,
-                toolsTokens: toolsTokens
+                toolsTokens: toolsTokens,
+                schemaTokens: schemaTokens
             )
-
-            if shouldLog {
-                self.logger.debug(
-                    """
-                    \(context, privacy: .public) prompt budget: \
-                    instructions=\(budget.instructionsTokens, privacy: .public), \
-                    prompt=\(budget.promptTokens, privacy: .public), \
-                    tools=\(budget.toolsTokens, privacy: .public), \
-                    total=\(budget.totalTokens, privacy: .public)/\(budget.contextSize, privacy: .public) \
-                    (\(budget.utilizationPercent, privacy: .public)%)
-                    """
-                )
-            }
-
-            return budget
         } catch {
             self.logger.warning(
                 "Unable to measure \(context, privacy: .public) prompt budget: \(error.localizedDescription, privacy: .public)"
