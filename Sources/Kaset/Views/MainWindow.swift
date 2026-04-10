@@ -22,6 +22,7 @@ struct MainWindow: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -46,6 +47,7 @@ struct MainWindow: View {
     @State private var podcastsViewModel: PodcastsViewModel?
     @State private var likedMusicViewModel: LikedMusicViewModel?
     @State private var libraryViewModel: LibraryViewModel?
+    @State private var historyViewModel: HistoryViewModel?
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -62,6 +64,7 @@ struct MainWindow: View {
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
         _likedMusicViewModel = State(initialValue: LikedMusicViewModel(client: client))
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
+        _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
 
     /// Access to the app delegate for persistent WebView.
@@ -82,6 +85,14 @@ struct MainWindow: View {
                 } else {
                     OnboardingView()
                 }
+            }
+            .onAppear {
+                DiagnosticsLogger.app.info("MainWindow: UI appeared")
+            }
+            .task {
+                DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
+                await self.authService.checkLoginStatus()
+                DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
             // Persistent WebView - always present once a video has been requested
@@ -208,18 +219,46 @@ struct MainWindow: View {
             }
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
-            // Refresh all content when user switches accounts
-            guard newAccountId != nil else { return }
-            DiagnosticsLogger.auth.info("Account switched, refreshing content...")
-            // Clear API cache to ensure fresh data for new account
+            self.playerService.resetTrackStatus()
+
             Task { @MainActor in
                 APICache.shared.invalidateAll()
                 URLCache.shared.removeAllCachedResponses()
-                await self.refreshAllContent()
+
+                guard newAccountId != nil else { return }
+
+                self.historyViewModel?.reset()
+
+                DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
+
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await self.refreshAllContent()
+                    }
+
+                    if let currentVideoId = self.playerService.currentTrack?.videoId {
+                        group.addTask {
+                            await self.playerService.fetchSongMetadata(videoId: currentVideoId)
+                        }
+                    }
+                }
             }
         }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+
+            // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
+            if let currentVideoId = self.playerService.currentTrack?.videoId,
+               event.videoId == currentVideoId
+            {
+                self.playerService.currentTrackLikeStatus = event.status
+            }
+
+            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
+            self.likedMusicViewModel?.handleLikeStatusChange(event)
         }
     }
 
@@ -235,7 +274,7 @@ struct MainWindow: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure sidebar is visible when window becomes key (e.g., restored from dock)
+                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
                 if self.columnVisibility != .all {
                     self.columnVisibility = .all
                 }
@@ -329,6 +368,8 @@ struct MainWindow: View {
                 if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+            case .history:
+                if let vm = historyViewModel { HistoryView(viewModel: vm) }
             }
         }
         .environment(self.libraryViewModel)
@@ -424,6 +465,7 @@ struct MainWindow: View {
             group.addTask { await self.newReleasesViewModel?.refresh() }
             group.addTask { await self.podcastsViewModel?.refresh() }
             group.addTask { await self.likedMusicViewModel?.refresh() }
+            group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
     }
@@ -441,6 +483,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case podcasts = "Podcasts"
     case likedMusic = "Liked Music"
     case library = "Library"
+    case history = "History"
 
     var id: String {
         rawValue
@@ -466,6 +509,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             String(localized: "Liked Music")
         case .library:
             String(localized: "Library")
+        case .history:
+            String(localized: "History")
         }
     }
 
@@ -489,6 +534,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "heart.fill"
         case .library:
             "square.stack.fill"
+        case .history:
+            "clock.arrow.circlepath"
         }
     }
 }

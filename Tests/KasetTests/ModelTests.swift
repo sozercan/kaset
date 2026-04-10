@@ -294,6 +294,7 @@ struct ModelTests {
         #expect(detail.title == "Test Playlist")
         #expect(detail.description == "A description")
         #expect(detail.author == "Test Author")
+        #expect(detail.trackCount == 5)
         #expect(detail.tracks.count == 2)
         #expect(detail.duration == "6:20")
     }

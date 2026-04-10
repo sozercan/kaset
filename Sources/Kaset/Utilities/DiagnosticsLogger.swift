@@ -44,4 +44,10 @@ enum DiagnosticsLogger {
 
     /// Logger for scrobbling-related events (Last.fm, etc.).
     static let scrobbling = Logger(subsystem: "com.sertacozercan.Kaset", category: "Scrobbling")
+
+    /// Logger for web extension management events.
+    static let extensions = Logger(subsystem: "com.sertacozercan.Kaset", category: "Extensions")
+
+    /// Logger for listening history-related events.
+    static let history = Logger(subsystem: "com.sertacozercan.Kaset", category: "History")
 }

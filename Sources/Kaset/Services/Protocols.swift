@@ -85,6 +85,15 @@ protocol YTMusicClientProtocol: Sendable {
     /// Whether more new releases sections are available to load.
     var hasMoreNewReleasesSections: Bool { get }
 
+    /// Fetches the history page content (initial sections only for fast display).
+    func getHistory() async throws -> HomeResponse
+
+    /// Fetches the next batch of history sections via continuation.
+    func getHistoryContinuation() async throws -> [HomeSection]?
+
+    /// Whether more history sections are available to load.
+    var hasMoreHistorySections: Bool { get }
+
     /// Fetches the podcasts page content (initial sections only for fast display).
     func getPodcasts() async throws -> [PodcastSection]
 
@@ -205,6 +214,10 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches lyrics for a song.
     func getLyrics(videoId: String) async throws -> Lyrics
+
+    /// Fetches timed (synced) lyrics for a song from YouTube Music.
+    /// Returns synced lyrics if available, falls back to plain lyrics, or returns unavailable.
+    func getTimedLyrics(videoId: String) async throws -> LyricResult
 
     /// Fetches song metadata by video ID.
     func getSong(videoId: String) async throws -> Song

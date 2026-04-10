@@ -353,11 +353,11 @@ enum ParsingHelpers {
         return Self.extractSongCount(from: subtitle)
     }
 
-    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 1 song").
+    /// Strips song count patterns from a string (e.g., " • 145 songs" or " • 2,429 tracks").
     /// The song count is typically displayed separately in the UI from the actual parsed count.
     static func stripSongCountPattern(from text: String) -> String {
         var result = text.replacingOccurrences(
-            of: #" • \d+ songs?"#,
+            of: #" • [\d,]+ (?:songs?|tracks?)"#,
             with: "",
             options: .regularExpression
         )
@@ -372,14 +372,17 @@ enum ParsingHelpers {
 
     /// Extracts song count from subtitle text (e.g., "Playlist • YouTube Music • 145 songs" → 145).
     static func extractSongCount(from text: String) -> Int? {
-        // Match patterns like "145 songs" or "1 song"
-        guard let regex = try? NSRegularExpression(pattern: #"(\d+)\s+songs?"#, options: .caseInsensitive),
-              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let countRange = Range(match.range(at: 1), in: text)
+        // Match patterns like "145 songs", "1 song", or "2,429 tracks"
+        guard let regex = try? NSRegularExpression(
+            pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
+            options: .caseInsensitive
+        ),
+            let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+            let countRange = Range(match.range(at: 1), in: text)
         else {
             return nil
         }
-        return Int(text[countRange])
+        return Int(text[countRange].replacingOccurrences(of: ",", with: ""))
     }
 
     /// Extracts title from flex columns.

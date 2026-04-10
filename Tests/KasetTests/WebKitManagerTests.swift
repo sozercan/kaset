@@ -82,4 +82,26 @@ struct WebKitManagerTests {
 
         #expect(coordinator.beginSaveIfNeeded(archive) == false)
     }
+
+    @Test("Extension resource URL resolves relative paths against the extension base URL")
+    func extensionResourceURLUsesExtensionBaseURL() throws {
+        let baseURL = try #require(URL(string: "webkit-extension://example-extension/"))
+        let resolvedURL = WebKitManager.extensionResourceURL(
+            relativePath: "/pages/options.html",
+            baseURL: baseURL
+        )
+
+        #expect(resolvedURL?.absoluteString == "webkit-extension://example-extension/pages/options.html")
+    }
+
+    @Test("Extension resource URL rejects absolute external paths")
+    func extensionResourceURLRejectsAbsoluteURLs() throws {
+        let baseURL = try #require(URL(string: "webkit-extension://example-extension/"))
+        let resolvedURL = WebKitManager.extensionResourceURL(
+            relativePath: "https://example.com/options.html",
+            baseURL: baseURL
+        )
+
+        #expect(resolvedURL == nil)
+    }
 }

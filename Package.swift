@@ -31,6 +31,7 @@ let package = Package(
             ],
             resources: [
                 .process("Resources"),
+                .copy("Extensions"),
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),

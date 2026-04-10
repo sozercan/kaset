@@ -99,6 +99,35 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 7)
     }
 
+    @Test("Load more preserves reported total track count")
+    func loadMorePreservesReportedTotalTrackCount() async {
+        let playlist = Playlist(
+            id: "VL-test-playlist",
+            title: "Large Playlist",
+            description: "A test playlist",
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 2429,
+            author: "Test User"
+        )
+        let playlistDetail = PlaylistDetail(
+            playlist: playlist,
+            tracks: TestFixtures.makeSongs(count: 100),
+            duration: "135+ hours"
+        )
+        let continuationTracks = (100 ..< 150).map { index in
+            TestFixtures.makeSong(id: "video-\(index)", title: "Song \(index)")
+        }
+
+        self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+        self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [continuationTracks]
+
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.playlistDetail?.tracks.count == 150)
+        #expect(self.viewModel.playlistDetail?.trackCount == 2429)
+    }
+
     @Test("Load more deduplicates tracks")
     func loadMoreDeduplicatesTracks() async {
         let playlistDetail = TestFixtures.makePlaylistDetail(

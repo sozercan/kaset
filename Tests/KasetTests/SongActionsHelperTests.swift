@@ -27,8 +27,14 @@ struct SongActionsHelperTests {
         SongActionsHelper.artistLibraryReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
     }
 
-    private func awaitArtistReconciliation() async {
-        try? await Task.sleep(for: .milliseconds(50))
+    private func awaitArtistReconciliation(refreshes expectedRefreshCount: Int = 1) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while self.mockClient.getLibraryContentCallCount < expectedRefreshCount {
+            guard clock.now < deadline else { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     @Test("addPlaylistToLibrary keeps optimistic playlist when refresh response is stale")
@@ -128,7 +134,7 @@ struct SongActionsHelperTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
-        await self.awaitArtistReconciliation()
+        await self.awaitArtistReconciliation(refreshes: 2)
 
         #expect(self.mockClient.unsubscribeFromArtistCalled == true)
         #expect(self.mockClient.getLibraryContentCallCount == 2)
@@ -345,7 +351,7 @@ struct SongActionsHelperTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
-        await self.awaitArtistReconciliation()
+        await self.awaitArtistReconciliation(refreshes: 2)
 
         #expect(self.libraryViewModel.artists.count == 1)
         #expect(self.libraryViewModel.artists.first?.id == "UC-library-browse-123")
@@ -375,7 +381,7 @@ struct SongActionsHelperTests {
             client: self.mockClient,
             libraryViewModel: self.libraryViewModel
         )
-        await self.awaitArtistReconciliation()
+        await self.awaitArtistReconciliation(refreshes: 2)
 
         #expect(self.libraryViewModel.artists.count == 1)
         #expect(self.libraryViewModel.artists.first?.id == libraryBrowseId)

@@ -181,20 +181,17 @@ struct PlayerBar: View {
     private var trackInfoView: some View {
         HStack(spacing: 10) {
             // Thumbnail
-            CachedAsyncImage(url: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
+            if let track = self.playerService.currentTrack {
+                SongThumbnailView(song: track, size: 36, cornerRadius: 4)
+            } else {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(.quaternary)
                     .overlay {
                         CassetteIcon(size: 20)
                             .foregroundStyle(.secondary)
                     }
+                    .frame(width: 36, height: 36)
             }
-            .frame(width: 36, height: 36)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
 
             // Track info
             if let track = playerService.currentTrack {

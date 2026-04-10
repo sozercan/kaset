@@ -206,7 +206,7 @@ struct ArtistDetailView: View {
                     Text(self.subscribeButtonText(detail))
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .controlSize(.large)
             .disabled(self.viewModel.isSubscribing)
         }
@@ -264,16 +264,7 @@ struct ArtistDetailView: View {
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
-                CachedAsyncImage(url: song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(.rect(cornerRadius: 4))
+                SongThumbnailView(song: song, size: 40, cornerRadius: 4)
 
                 // Title
                 Text(song.title)

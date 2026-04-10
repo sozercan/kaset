@@ -16,6 +16,7 @@ enum AccessibilityID {
         static let podcastsItem = "sidebar.podcasts"
         static let likedMusicItem = "sidebar.likedMusic"
         static let libraryItem = "sidebar.library"
+        static let historyItem = "sidebar.history"
     }
 
     // MARK: - PlayerBar
@@ -165,6 +166,12 @@ enum AccessibilityID {
         static func songRow(index: Int) -> String {
             "likedMusicView.song.\(index)"
         }
+    }
+
+    // MARK: - History View
+
+    enum History {
+        static let scrollView = "historyView.scrollView"
     }
 
     // MARK: - Video Window

@@ -443,7 +443,7 @@ final class FoundationModelsService {
         let session = LanguageModelSession()
 
         // Use the official prewarm API to load model resources
-        await session.prewarm()
+        session.prewarm()
         self.logger.debug("Foundation Models prewarm completed successfully")
     }
 }

@@ -62,6 +62,24 @@ extension PlayerService {
         } else {
             self.resetTrackStatus()
         }
+
+        // Seed the SongLikeStatusManager cache from the persisted song's likeStatus
+        // so that fetchSongMetadata won't overwrite it with a parsed .indifferent default.
+        if let persistedLikeStatus = currentSong.likeStatus, persistedLikeStatus != .indifferent {
+            SongLikeStatusManager.shared.setStatus(persistedLikeStatus, for: currentSong.videoId)
+            self.currentTrackLikeStatus = persistedLikeStatus
+        }
+
+        // SongLikeStatusManager cache is the most up-to-date source for like status
+        if let cachedStatus = SongLikeStatusManager.shared.status(for: currentSong.videoId) {
+            self.currentTrackLikeStatus = cachedStatus
+        }
+
+        // At app launch the cache may be empty and the persisted song may lack likeStatus.
+        // Fetch metadata from the API to get the correct like status.
+        Task { [videoId = currentSong.videoId] in
+            await self.fetchSongMetadata(videoId: videoId)
+        }
     }
 
     /// Clears one-shot state used while reconciling a restored playback session.

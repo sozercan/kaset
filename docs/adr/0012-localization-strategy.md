@@ -10,10 +10,12 @@ Kaset has no localization infrastructure. All ~300 user-facing strings are hardc
 
 Requirements:
 1. **Minimal disruption** — Adding localization should not require architectural changes
-2. **SPM compatibility** — Kaset is an SPM-only project (no `.xcodeproj`)
+2. **SwiftPM-first compatibility** — Kaset builds primarily via SwiftPM, with checked-in Xcode projects for app and UI-test workflows
 3. **Modern tooling** — Leverage Swift 6 / Xcode 16+ capabilities
 4. **Arabic support** — Must handle RTL layout, Arabic plural forms (6 categories), and mixed-language content
 5. **Maintainability** — New strings added by contributors should be easy to localize
+
+The repo is SwiftPM-first, but it also includes `Kaset.xcodeproj` and `KasetUITests.xcodeproj` for app packaging, runtime debugging, and UI-test workflows.
 
 ## Decision
 

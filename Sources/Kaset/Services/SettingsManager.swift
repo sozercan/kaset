@@ -20,6 +20,8 @@ final class SettingsManager {
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
+        static let romanizationEnabled = "settings.romanizationEnabled"
+        static let contentLanguage = "settings.contentLanguage"
     }
 
     // MARK: - Launch Page Options
@@ -63,6 +65,64 @@ final class SettingsManager {
             case .likedMusic: .likedMusic
             case .playlists: .library
             case .lastUsed: .home // Fallback, actual value comes from lastUsedPage
+            }
+        }
+    }
+
+    // MARK: - Content Language
+
+    /// Available language options for app UI localization.
+    enum ContentLanguage: String, CaseIterable, Identifiable {
+        case system
+        case english
+        case korean
+        case arabic
+        case turkish
+        case indonesian
+        case french
+
+        var id: String {
+            rawValue
+        }
+
+        var displayName: String {
+            switch self {
+            case .system: String(localized: "System Default")
+            case .english: "English"
+            case .korean: "한국어"
+            case .arabic: "العربية"
+            case .turkish: "Türkçe"
+            case .indonesian: "Bahasa Indonesia"
+            case .french: "Français"
+            }
+        }
+
+        /// The language code for bundle lookup, or `nil` for the system default.
+        var languageCode: String? {
+            switch self {
+            case .system: nil
+            case .english: "en"
+            case .korean: "ko"
+            case .arabic: "ar"
+            case .turkish: "tr"
+            case .indonesian: "id"
+            case .french: "fr"
+            }
+        }
+
+        /// The language code for YouTube Music API requests (`hl` parameter).
+        /// Returns the explicit language code or derives one from the system locale,
+        /// falling back to `"en"`.
+        var apiLanguageCode: String {
+            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
+        }
+
+        /// The locale matching this language selection.
+        var locale: Locale {
+            if let code = self.languageCode {
+                Locale(identifier: code)
+            } else {
+                Locale.current
             }
         }
     }
@@ -175,6 +235,22 @@ final class SettingsManager {
         }
     }
 
+    /// Whether romanization of non-Latin lyrics is enabled.
+    var romanizationEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.romanizationEnabled, forKey: Keys.romanizationEnabled)
+        }
+    }
+
+    /// The language used for the app interface and API content.
+    var contentLanguage: ContentLanguage {
+        didSet {
+            UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
+            AppLocalization.setLanguage(self.contentLanguage.languageCode)
+            APICache.shared.invalidateAll()
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -195,6 +271,7 @@ final class SettingsManager {
         self.scrobblePercentThreshold = UserDefaults.standard.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
+        self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)
@@ -211,6 +288,16 @@ final class SettingsManager {
         } else {
             self.defaultLaunchPage = .home
         }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.contentLanguage),
+           let language = ContentLanguage(rawValue: rawValue)
+        {
+            self.contentLanguage = language
+        } else {
+            self.contentLanguage = .system
+        }
+
+        AppLocalization.setLanguage(self.contentLanguage.languageCode)
 
         // Persist migration from legacy lastFMEnabled key (must run after all properties initialized)
         if UserDefaults.standard.object(forKey: Keys.enabledServices) == nil,

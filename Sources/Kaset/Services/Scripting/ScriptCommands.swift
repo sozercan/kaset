@@ -42,6 +42,39 @@ final class PlayCommand: NSScriptCommand {
     }
 }
 
+// MARK: - PlayVideoCommand
+
+/// PlayVideo command: play a specific video by its YouTube video ID.
+@objc(KasetPlayVideoCommand)
+final class PlayVideoCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let videoId = self.directParameter as? String, !videoId.isEmpty else {
+            logger.error("PlayVideo command failed: invalid or empty video ID")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = "Video ID must be a non-empty string."
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("PlayVideo command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+        logger.info("Executing play video command with ID: \(videoId)")
+        Task { @MainActor in
+            let song = Song(
+                id: videoId,
+                title: "Loading...",
+                artists: [],
+                videoId: videoId
+            )
+            await playerService.playWithRadio(song: song)
+        }
+        return nil
+    }
+}
+
 // MARK: - PauseCommand
 
 /// Pause command: pause playback.

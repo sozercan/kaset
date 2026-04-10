@@ -35,7 +35,7 @@ struct LikedMusicView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Liked Music")
+            .localizedNavigationTitle("Liked Music")
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(
                     artist: artist,
@@ -161,7 +161,7 @@ struct LikedMusicView: View {
                     Label("Play All", systemImage: "play.fill")
                         .font(.headline)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
 
                 // Shuffle button
@@ -206,20 +206,7 @@ struct LikedMusicView: View {
         } label: {
             HStack(spacing: 12) {
                 // Thumbnail
-                CachedAsyncImage(url: song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "music.note")
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(.rect(cornerRadius: 6))
+                SongThumbnailView(song: song)
 
                 // Song info
                 VStack(alignment: .leading, spacing: 2) {

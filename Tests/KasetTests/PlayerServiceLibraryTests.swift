@@ -13,6 +13,8 @@ struct PlayerServiceLibraryTests {
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
         self.playerService.setYTMusicClient(self.mockClient)
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
 
     // MARK: - Like Current Track Tests
@@ -24,7 +26,7 @@ struct PlayerServiceLibraryTests {
         self.playerService.likeCurrentTrack()
 
         // Allow time for any async task to complete
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
     }
@@ -39,7 +41,7 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
         // Wait for the async API call
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == true)
         #expect(self.mockClient.rateSongVideoIds.first == "test-video")
@@ -55,7 +57,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
     }
@@ -69,7 +71,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .like)
     }
@@ -85,10 +87,47 @@ struct PlayerServiceLibraryTests {
         // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for the async API call to fail and revert
-        try? await Task.sleep(for: .milliseconds(100))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
+        try? await Task.sleep(for: .milliseconds(300))
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+    }
+
+    @Test("likeCurrentTrack ignores stale completion after current track changes")
+    func likeCurrentTrackIgnoresStaleCompletionAfterTrackChange() async {
+        self.mockClient.rateSongDelay = .milliseconds(200)
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "song-a")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.likeCurrentTrack()
+        #expect(self.playerService.currentTrackLikeStatus == .like)
+
+        try? await Task.sleep(for: .milliseconds(50))
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "song-b")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        try? await Task.sleep(for: .milliseconds(250))
+
+        #expect(self.playerService.currentTrack?.videoId == "song-b")
+        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+    }
+
+    @Test("likeCurrentTrack uses captured client even if singleton client changes before task runs")
+    func likeCurrentTrackUsesCapturedClient() async {
+        let replacementClient = MockYTMusicClient()
+        let originalClient = SongLikeStatusManager.shared.currentClient
+        defer { SongLikeStatusManager.shared.setClient(originalClient) }
+
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackLikeStatus = .like
+
+        self.playerService.likeCurrentTrack()
+        SongLikeStatusManager.shared.setClient(replacementClient)
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(self.mockClient.rateSongRatings.first == .indifferent)
+        #expect(replacementClient.rateSongCalled == false)
     }
 
     // MARK: - Dislike Current Track Tests
@@ -99,7 +138,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.dislikeCurrentTrack()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
     }
@@ -113,7 +152,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == true)
         #expect(self.mockClient.rateSongRatings.first == .dislike)
@@ -128,7 +167,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
     }
@@ -142,7 +181,7 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongRatings.first == .dislike)
     }
@@ -157,8 +196,28 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        try? await Task.sleep(for: .milliseconds(100))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
+        try? await Task.sleep(for: .milliseconds(300))
 
+        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+    }
+
+    @Test("dislikeCurrentTrack ignores stale completion after current track changes")
+    func dislikeCurrentTrackIgnoresStaleCompletionAfterTrackChange() async {
+        self.mockClient.rateSongDelay = .milliseconds(200)
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "song-a")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.dislikeCurrentTrack()
+        #expect(self.playerService.currentTrackLikeStatus == .dislike)
+
+        try? await Task.sleep(for: .milliseconds(50))
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "song-b")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        try? await Task.sleep(for: .milliseconds(250))
+
+        #expect(self.playerService.currentTrack?.videoId == "song-b")
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }
 
@@ -170,7 +229,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.toggleLibraryStatus()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.editSongLibraryStatusCalled == false)
     }
@@ -182,7 +241,7 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.toggleLibraryStatus()
 
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.editSongLibraryStatusCalled == false)
     }
@@ -299,6 +358,27 @@ struct PlayerServiceLibraryTests {
 
         self.playerService.updateLikeStatus(.indifferent)
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+    }
+
+    @Test("fetchSongMetadata preserves cached like status when API like status is unknown")
+    func fetchSongMetadataPreservesCachedLikeStatusWhenAPILikeStatusIsUnknown() async {
+        let song = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .like
+        SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.videoId,
+            title: "Fetched Song",
+            artists: [Artist(id: "artist-1", name: "Artist")],
+            videoId: song.videoId,
+            likeStatus: nil
+        )
+
+        await self.playerService.fetchSongMetadata(videoId: song.videoId)
+
+        #expect(SongLikeStatusManager.shared.status(for: song.videoId) == .like)
+        #expect(self.playerService.currentTrackLikeStatus == .like)
+        #expect(self.playerService.currentTrack?.likeStatus == .like)
     }
 
     // MARK: - Reset Track Status Tests

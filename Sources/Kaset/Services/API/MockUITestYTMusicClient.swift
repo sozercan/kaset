@@ -30,6 +30,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
+    var hasMoreHistorySections: Bool {
+        false
+    }
+
     var hasMoreLikedSongs: Bool {
         false
     }
@@ -100,6 +104,15 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getHistory() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: Self.defaultHomeSections())
+    }
+
+    func getHistoryContinuation() async throws -> [HomeSection]? {
         nil
     }
 
@@ -341,6 +354,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             text: "These are mock lyrics for UI testing.\n\nVerse 1 of the song.\nVerse 2 of the song.",
             source: "Mock Source"
         )
+    }
+
+    func getTimedLyrics(videoId _: String) async throws -> LyricResult {
+        try? await Task.sleep(for: .milliseconds(100))
+        return .unavailable
     }
 
     func getSong(videoId: String) async throws -> Song {

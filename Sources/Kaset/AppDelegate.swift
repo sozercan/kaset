@@ -16,8 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindow: NSWindow?
 
     func applicationDidFinishLaunching(_: Notification) {
+        DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
         // Set up notification center delegate to show notifications in foreground
-        UNUserNotificationCenter.current().delegate = self
+        if !UITestConfig.isRunningUnitTests {
+            UNUserNotificationCenter.current().delegate = self
+        }
 
         // In UI test mode, activate the app to bring window to foreground
         if UITestConfig.isUITestMode {
@@ -88,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupWindowDelegate() {
+        DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
         for window in NSApplication.shared.windows where window.canBecomeMain {
             // Skip if this is the video window (has specific identifier)
             if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
@@ -185,6 +189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Shows the main window if it's not visible.
     private func showMainWindowIfNeeded() {
+        DiagnosticsLogger.app.info("AppDelegate: showMainWindowIfNeeded")
         // Try stored reference first
         if let mainWindow {
             if !mainWindow.isVisible {

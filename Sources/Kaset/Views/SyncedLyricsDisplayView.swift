@@ -63,20 +63,32 @@ struct SyncedLineView: View {
     private let animation = Animation.spring(response: 0.4, dampingFraction: 0.8)
 
     var body: some View {
-        Text(self.line.text.isEmpty ? "♪" : self.line.text)
-            .font(.system(size: self.status == .current ? 26 : 20, weight: self.status == .current ? .bold : .medium, design: .default))
-            .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
-            .opacity(self.status == .current ? 1.0 : (self.status == .previous ? 0.6 : 0.4))
-            .scaleEffect(self.status == .current ? 1.05 : 1.0)
-            .blur(radius: self.status == .current ? 0 : 0.5)
-            .animation(self.animation, value: self.status)
-            .multilineTextAlignment(.center)
-            .lineLimit(nil)
-            // Use content shape to allow tapping on empty space around text too
-            .contentShape(Rectangle())
-            .onTapGesture {
-                self.onTap()
+        VStack(spacing: 4) {
+            // Original text
+            Text(self.line.text.isEmpty ? "♪" : self.line.text)
+                .font(.system(size: self.status == .current ? 26 : 20, weight: self.status == .current ? .bold : .medium, design: .default))
+                .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
+
+            // Romanized text (only if present and differs from original)
+            if let romaji = self.line.romanizedText {
+                Text(romaji)
+                    .font(.system(size: self.status == .current ? 18 : 14, weight: .regular, design: .default))
+                    .italic()
+                    .foregroundStyle(self.status == .current ? .secondary : .tertiary)
+                    .opacity(self.status == .current ? 0.8 : 0.5)
             }
-            .padding(.vertical, 4)
+        }
+        .opacity(self.status == .current ? 1.0 : (self.status == .previous ? 0.6 : 0.4))
+        .scaleEffect(self.status == .current ? 1.05 : 1.0)
+        .blur(radius: self.status == .current ? 0 : 0.5)
+        .animation(self.animation, value: self.status)
+        .multilineTextAlignment(.center)
+        .lineLimit(nil)
+        // Use content shape to allow tapping on empty space around text too
+        .contentShape(Rectangle())
+        .onTapGesture {
+            self.onTap()
+        }
+        .padding(.vertical, 4)
     }
 }

@@ -73,7 +73,7 @@ struct LibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Library")
+            .localizedNavigationTitle("Library")
             .navigationDestination(for: Playlist.self) { playlist in
                 PlaylistDetailView(
                     playlist: playlist,

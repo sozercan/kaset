@@ -79,6 +79,7 @@ struct MoodCategoryDetailView: View {
                     }
                 }
             }
+            .scrollClipDisabled()
         }
     }
 

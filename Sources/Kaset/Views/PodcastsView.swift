@@ -35,7 +35,7 @@ struct PodcastsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Podcasts")
+            .localizedNavigationTitle("Podcasts")
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
@@ -347,7 +347,7 @@ struct PodcastShowView: View {
                             Label("Play Latest", systemImage: "play.fill")
                                 .font(.headline)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.glassProminent)
                     }
 
                     // Add to Library button
@@ -616,7 +616,7 @@ struct AllEpisodesView: View {
             .padding(24)
         }
         .accentBackground(from: self.show.thumbnailURL)
-        .navigationTitle("All Episodes")
+        .localizedNavigationTitle("All Episodes")
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
