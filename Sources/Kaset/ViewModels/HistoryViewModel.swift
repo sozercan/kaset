@@ -20,9 +20,9 @@ final class HistoryViewModel {
     private let logger = DiagnosticsLogger.history
     // swiftformat:disable modifierOrder
     /// Task for background loading, cancelled in deinit.
-    nonisolated(unsafe) private var backgroundLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var backgroundLoadTask: Task<Void, Never>?
     /// Task for delayed playback-driven refreshes, cancelled in deinit/reset.
-    nonisolated(unsafe) private var playbackRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var playbackRefreshTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     /// Number of background continuations loaded.

@@ -317,7 +317,9 @@ class WaveformView: NSView {
 
         // Use Timer for 30fps animation - simpler and safer than CVDisplayLink
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.updateBars()
+            MainActor.assumeIsolated {
+                self?.updateBars()
+            }
         }
         // Add to common run loop modes to ensure it runs during tracking/dragging
         if let timer {
@@ -351,6 +353,8 @@ class WaveformView: NSView {
     }
 
     deinit {
-        stopAnimation()
+        MainActor.assumeIsolated {
+            self.stopAnimation()
+        }
     }
 }
