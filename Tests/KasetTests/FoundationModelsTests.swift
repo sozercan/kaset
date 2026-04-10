@@ -186,4 +186,28 @@ struct FoundationModelsBudgetTests {
 
         #expect(bestFit == 3)
     }
+
+    @Test("bestFittingTruncatedContent trims short content below the old 128-char floor")
+    func bestFittingTruncatedContentHandlesShortInputs() async {
+        let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
+            "small input",
+            truncationMarker: "..."
+        ) { candidate in
+            candidate.count <= 3
+        }
+
+        #expect(bestFit == "sma")
+    }
+
+    @Test("bestFittingTruncatedContent allows an empty fallback")
+    func bestFittingTruncatedContentAllowsEmptyFallback() async {
+        let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
+            "small input",
+            truncationMarker: "..."
+        ) { candidate in
+            candidate.isEmpty
+        }
+
+        #expect(bestFit?.isEmpty == true)
+    }
 }

@@ -240,6 +240,36 @@ final class FoundationModelsService {
     /// Fits large free-form content to the available context window on 26.4+.
     ///
     /// This preserves behavior on 26.0-26.3 by returning the original content unchanged.
+    static func bestFittingTruncatedContent(
+        _ content: String,
+        truncationMarker: String = "\n...[truncated for on-device analysis]...\n",
+        fits: (String) async -> Bool
+    ) async -> String? {
+        guard !content.isEmpty else { return "" }
+
+        var low = 0
+        var high = content.count
+        var bestFit: String?
+
+        while low <= high {
+            let midpoint = (low + high) / 2
+            let candidateContent = FoundationModelsPromptLibrary.middleTruncate(
+                content,
+                targetLength: midpoint,
+                marker: truncationMarker
+            )
+
+            if await fits(candidateContent) {
+                bestFit = candidateContent
+                low = midpoint + 1
+            } else {
+                high = midpoint - 1
+            }
+        }
+
+        return bestFit
+    }
+
     func fittedPromptContent(
         context: String,
         instructions: String,
@@ -276,17 +306,10 @@ final class FoundationModelsService {
                 return content
             }
 
-            var low = max(truncationMarker.count + 64, 128)
-            var high = content.count
-            var bestFit: String?
-
-            while low <= high {
-                let midpoint = (low + high) / 2
-                let candidateContent = FoundationModelsPromptLibrary.middleTruncate(
-                    content,
-                    targetLength: midpoint,
-                    marker: truncationMarker
-                )
+            let bestFit = await Self.bestFittingTruncatedContent(
+                content,
+                truncationMarker: truncationMarker
+            ) { candidateContent in
                 let candidatePrompt = promptBuilder(candidateContent)
 
                 if let budget = await self.promptBudget(
@@ -296,26 +319,29 @@ final class FoundationModelsService {
                     tools: tools,
                     generationSchema: generationSchema
                 ), budget.totalTokens <= tokenLimit {
-                    bestFit = candidateContent
-                    low = midpoint + 1
-                } else {
-                    high = midpoint - 1
+                    return true
                 }
+                return false
             }
 
-            let fittedContent = bestFit ?? FoundationModelsPromptLibrary.middleTruncate(
-                content,
-                targetLength: min(content.count, max(truncationMarker.count + 64, 128)),
-                marker: truncationMarker
-            )
+            let fittedContent = bestFit ?? ""
             let fittedPrompt = promptBuilder(fittedContent)
 
-            self.logger.info(
-                """
-                Trimmed \(context, privacy: .public) content from \
-                \(content.count, privacy: .public) to \(fittedContent.count, privacy: .public) characters
-                """
-            )
+            if bestFit == nil {
+                self.logger.warning(
+                    """
+                    No \(context, privacy: .public) content fit the available \
+                    Foundation Models budget; using empty-content fallback
+                    """
+                )
+            } else {
+                self.logger.info(
+                    """
+                    Trimmed \(context, privacy: .public) content from \
+                    \(content.count, privacy: .public) to \(fittedContent.count, privacy: .public) characters
+                    """
+                )
+            }
             await self.logPromptBudget(
                 context: context,
                 instructions: instructions,

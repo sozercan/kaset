@@ -45,6 +45,17 @@ struct FoundationModelsPromptLibraryTests {
         #expect(truncated.contains("..."))
     }
 
+    @Test("middleTruncate can drop content entirely")
+    func middleTruncateAllowsEmptyFallback() {
+        let truncated = FoundationModelsPromptLibrary.middleTruncate(
+            "abcdefghij",
+            targetLength: 0,
+            marker: "..."
+        )
+
+        #expect(truncated.isEmpty)
+    }
+
     @Test("playlist track list truncates titles and artists for prompt safety")
     func playlistTrackListTruncatesFields() {
         let song = Song(

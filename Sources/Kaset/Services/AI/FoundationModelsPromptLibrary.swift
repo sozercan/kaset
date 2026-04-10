@@ -34,7 +34,8 @@ enum FoundationModelsPromptLibrary {
         targetLength: Int,
         marker: String = "\n...[truncated]...\n"
     ) -> String {
-        guard targetLength > 0, text.count > targetLength else { return text }
+        guard targetLength > 0 else { return "" }
+        guard text.count > targetLength else { return text }
         guard targetLength > marker.count else {
             return String(text.prefix(targetLength))
         }
