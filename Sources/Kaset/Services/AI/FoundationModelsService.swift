@@ -206,27 +206,35 @@ final class FoundationModelsService {
         tools: [any Tool] = [],
         generationSchema: GenerationSchema? = nil
     ) async {
-        guard let budget = await self.promptBudget(
-            context: context,
-            instructions: instructions,
-            prompt: prompt,
-            tools: tools,
-            generationSchema: generationSchema
-        ) else {
-            return
-        }
+        #if compiler(>=6.3)
+            guard let budget = await self.promptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: prompt,
+                tools: tools,
+                generationSchema: generationSchema
+            ) else {
+                return
+            }
 
-        self.logger.debug(
-            """
-            \(context, privacy: .public) prompt budget: \
-            instructions=\(budget.instructionsTokens, privacy: .public), \
-            prompt=\(budget.promptTokens, privacy: .public), \
-            tools=\(budget.toolsTokens, privacy: .public), \
-            schema=\(budget.schemaTokens, privacy: .public), \
-            total=\(budget.totalTokens, privacy: .public)/\(budget.contextSize, privacy: .public) \
-            (\(budget.utilizationPercent, privacy: .public)%)
-            """
-        )
+            self.logger.debug(
+                """
+                \(context, privacy: .public) prompt budget: \
+                instructions=\(budget.instructionsTokens, privacy: .public), \
+                prompt=\(budget.promptTokens, privacy: .public), \
+                tools=\(budget.toolsTokens, privacy: .public), \
+                schema=\(budget.schemaTokens, privacy: .public), \
+                total=\(budget.totalTokens, privacy: .public)/\(budget.contextSize, privacy: .public) \
+                (\(budget.utilizationPercent, privacy: .public)%)
+                """
+            )
+        #else
+            _ = context
+            _ = instructions
+            _ = prompt
+            _ = tools
+            _ = generationSchema
+        #endif
     }
 
     /// Fits large free-form content to the available context window on 26.4+.
@@ -242,80 +250,91 @@ final class FoundationModelsService {
         truncationMarker: String = "\n...[truncated for on-device analysis]...\n",
         promptBuilder: (String) -> String
     ) async -> String {
-        guard #available(macOS 26.4, *), !content.isEmpty else { return content }
+        #if compiler(>=6.3)
+            guard #available(macOS 26.4, *), !content.isEmpty else { return content }
 
-        let fullPrompt = promptBuilder(content)
-        guard let fullBudget = await self.promptBudget(
-            context: context,
-            instructions: instructions,
-            prompt: fullPrompt,
-            tools: tools,
-            generationSchema: generationSchema
-        ) else {
-            return content
-        }
-
-        let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
-        guard fullBudget.totalTokens > tokenLimit else {
-            await self.logPromptBudget(
+            let fullPrompt = promptBuilder(content)
+            guard let fullBudget = await self.promptBudget(
                 context: context,
                 instructions: instructions,
                 prompt: fullPrompt,
                 tools: tools,
                 generationSchema: generationSchema
-            )
-            return content
-        }
+            ) else {
+                return content
+            }
 
-        var low = max(truncationMarker.count + 64, 128)
-        var high = content.count
-        var bestFit: String?
+            let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
+            guard fullBudget.totalTokens > tokenLimit else {
+                await self.logPromptBudget(
+                    context: context,
+                    instructions: instructions,
+                    prompt: fullPrompt,
+                    tools: tools,
+                    generationSchema: generationSchema
+                )
+                return content
+            }
 
-        while low <= high {
-            let midpoint = (low + high) / 2
-            let candidateContent = FoundationModelsPromptLibrary.middleTruncate(
+            var low = max(truncationMarker.count + 64, 128)
+            var high = content.count
+            var bestFit: String?
+
+            while low <= high {
+                let midpoint = (low + high) / 2
+                let candidateContent = FoundationModelsPromptLibrary.middleTruncate(
+                    content,
+                    targetLength: midpoint,
+                    marker: truncationMarker
+                )
+                let candidatePrompt = promptBuilder(candidateContent)
+
+                if let budget = await self.promptBudget(
+                    context: context,
+                    instructions: instructions,
+                    prompt: candidatePrompt,
+                    tools: tools,
+                    generationSchema: generationSchema
+                ), budget.totalTokens <= tokenLimit {
+                    bestFit = candidateContent
+                    low = midpoint + 1
+                } else {
+                    high = midpoint - 1
+                }
+            }
+
+            let fittedContent = bestFit ?? FoundationModelsPromptLibrary.middleTruncate(
                 content,
-                targetLength: midpoint,
+                targetLength: min(content.count, max(truncationMarker.count + 64, 128)),
                 marker: truncationMarker
             )
-            let candidatePrompt = promptBuilder(candidateContent)
+            let fittedPrompt = promptBuilder(fittedContent)
 
-            if let budget = await self.promptBudget(
+            self.logger.info(
+                """
+                Trimmed \(context, privacy: .public) content from \
+                \(content.count, privacy: .public) to \(fittedContent.count, privacy: .public) characters
+                """
+            )
+            await self.logPromptBudget(
                 context: context,
                 instructions: instructions,
-                prompt: candidatePrompt,
+                prompt: fittedPrompt,
                 tools: tools,
                 generationSchema: generationSchema
-            ), budget.totalTokens <= tokenLimit {
-                bestFit = candidateContent
-                low = midpoint + 1
-            } else {
-                high = midpoint - 1
-            }
-        }
+            )
 
-        let fittedContent = bestFit ?? FoundationModelsPromptLibrary.middleTruncate(
-            content,
-            targetLength: min(content.count, max(truncationMarker.count + 64, 128)),
-            marker: truncationMarker
-        )
-        let fittedPrompt = promptBuilder(fittedContent)
-
-        self.logger.info(
-            """
-            Trimmed \(context, privacy: .public) content from \
-            \(content.count, privacy: .public) to \(fittedContent.count, privacy: .public) characters
-            """
-        )
-        await self.logPromptBudget(
-            context: context,
-            instructions: instructions,
-            prompt: fittedPrompt,
-            tools: tools,
-            generationSchema: generationSchema
-        )
-
-        return fittedContent
+            return fittedContent
+        #else
+            _ = context
+            _ = instructions
+            _ = tools
+            _ = generationSchema
+            _ = reserveTokens
+            _ = truncationMarker
+            _ = promptBuilder
+            return content
+        #endif
     }
 
     /// Fits a list of prompt lines to the available context window on 26.4+.
@@ -355,72 +374,82 @@ final class FoundationModelsService {
         reserveTokens: Int = 1024,
         promptBuilder: ([String]) -> String
     ) async -> Int {
-        guard #available(macOS 26.4, *), !lines.isEmpty else { return lines.count }
+        #if compiler(>=6.3)
+            guard #available(macOS 26.4, *), !lines.isEmpty else { return lines.count }
 
-        let fullPrompt = promptBuilder(lines)
-        guard let fullBudget = await self.promptBudget(
-            context: context,
-            instructions: instructions,
-            prompt: fullPrompt,
-            tools: tools,
-            generationSchema: generationSchema
-        ) else {
-            return lines.count
-        }
-
-        let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
-        guard fullBudget.totalTokens > tokenLimit else {
-            await self.logPromptBudget(
+            let fullPrompt = promptBuilder(lines)
+            guard let fullBudget = await self.promptBudget(
                 context: context,
                 instructions: instructions,
                 prompt: fullPrompt,
                 tools: tools,
                 generationSchema: generationSchema
-            )
-            return lines.count
-        }
-
-        let bestFit = await Self.bestFittingPrefixCount(maxCount: lines.count) { candidateCount in
-            let candidateLines = Array(lines.prefix(candidateCount))
-            let candidatePrompt = promptBuilder(candidateLines)
-
-            guard let budget = await self.promptBudget(
-                context: context,
-                instructions: instructions,
-                prompt: candidatePrompt,
-                tools: tools,
-                generationSchema: generationSchema
             ) else {
-                return false
+                return lines.count
             }
 
-            return budget.totalTokens <= tokenLimit
-        }
+            let tokenLimit = max(0, fullBudget.contextSize - reserveTokens)
+            guard fullBudget.totalTokens > tokenLimit else {
+                await self.logPromptBudget(
+                    context: context,
+                    instructions: instructions,
+                    prompt: fullPrompt,
+                    tools: tools,
+                    generationSchema: generationSchema
+                )
+                return lines.count
+            }
 
-        if bestFit == 0 {
-            self.logger.warning(
-                """
-                No \(context, privacy: .public) lines fit the available \
-                Foundation Models budget; using zero-line fallback
-                """
-            )
-        } else {
-            self.logger.info(
-                """
-                Trimmed \(context, privacy: .public) lines from \
-                \(lines.count, privacy: .public) to \(bestFit, privacy: .public)
-                """
-            )
-        }
-        await self.logPromptBudget(
-            context: context,
-            instructions: instructions,
-            prompt: promptBuilder(Array(lines.prefix(bestFit))),
-            tools: tools,
-            generationSchema: generationSchema
-        )
+            let bestFit = await Self.bestFittingPrefixCount(maxCount: lines.count) { candidateCount in
+                let candidateLines = Array(lines.prefix(candidateCount))
+                let candidatePrompt = promptBuilder(candidateLines)
 
-        return bestFit
+                guard let budget = await self.promptBudget(
+                    context: context,
+                    instructions: instructions,
+                    prompt: candidatePrompt,
+                    tools: tools,
+                    generationSchema: generationSchema
+                ) else {
+                    return false
+                }
+
+                return budget.totalTokens <= tokenLimit
+            }
+
+            if bestFit == 0 {
+                self.logger.warning(
+                    """
+                    No \(context, privacy: .public) lines fit the available \
+                    Foundation Models budget; using zero-line fallback
+                    """
+                )
+            } else {
+                self.logger.info(
+                    """
+                    Trimmed \(context, privacy: .public) lines from \
+                    \(lines.count, privacy: .public) to \(bestFit, privacy: .public)
+                    """
+                )
+            }
+            await self.logPromptBudget(
+                context: context,
+                instructions: instructions,
+                prompt: promptBuilder(Array(lines.prefix(bestFit))),
+                tools: tools,
+                generationSchema: generationSchema
+            )
+
+            return bestFit
+        #else
+            _ = context
+            _ = instructions
+            _ = tools
+            _ = generationSchema
+            _ = reserveTokens
+            _ = promptBuilder
+            return lines.count
+        #endif
     }
 
     /// Clears any cached session state.
@@ -440,37 +469,46 @@ final class FoundationModelsService {
         tools: [any Tool],
         generationSchema: GenerationSchema?
     ) async -> FoundationModelsPromptBudget? {
-        guard #available(macOS 26.4, *) else { return nil }
+        #if compiler(>=6.3)
+            guard #available(macOS 26.4, *) else { return nil }
 
-        let model = SystemLanguageModel.default
+            let model = SystemLanguageModel.default
 
-        do {
-            let instructionsTokens = try await model.tokenCount(for: Instructions(instructions))
-            let promptTokens = try await model.tokenCount(for: prompt)
-            let toolsTokens = if tools.isEmpty {
-                0
-            } else {
-                try await model.tokenCount(for: tools)
+            do {
+                let instructionsTokens = try await model.tokenCount(for: Instructions(instructions))
+                let promptTokens = try await model.tokenCount(for: prompt)
+                let toolsTokens = if tools.isEmpty {
+                    0
+                } else {
+                    try await model.tokenCount(for: tools)
+                }
+                let schemaTokens = if let generationSchema {
+                    try await model.tokenCount(for: generationSchema)
+                } else {
+                    0
+                }
+
+                return FoundationModelsPromptBudget(
+                    contextSize: model.contextSize,
+                    instructionsTokens: instructionsTokens,
+                    promptTokens: promptTokens,
+                    toolsTokens: toolsTokens,
+                    schemaTokens: schemaTokens
+                )
+            } catch {
+                self.logger.warning(
+                    "Unable to measure \(context, privacy: .public) prompt budget: \(error.localizedDescription, privacy: .public)"
+                )
+                return nil
             }
-            let schemaTokens = if let generationSchema {
-                try await model.tokenCount(for: generationSchema)
-            } else {
-                0
-            }
-
-            return FoundationModelsPromptBudget(
-                contextSize: model.contextSize,
-                instructionsTokens: instructionsTokens,
-                promptTokens: promptTokens,
-                toolsTokens: toolsTokens,
-                schemaTokens: schemaTokens
-            )
-        } catch {
-            self.logger.warning(
-                "Unable to measure \(context, privacy: .public) prompt budget: \(error.localizedDescription, privacy: .public)"
-            )
+        #else
+            _ = context
+            _ = instructions
+            _ = prompt
+            _ = tools
+            _ = generationSchema
             return nil
-        }
+        #endif
     }
 
     /// Pre-warms the Foundation Models using the official prewarm API.
