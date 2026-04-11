@@ -62,11 +62,7 @@ struct ArtistDetailViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.artistDetail != nil)
         #expect(self.viewModel.artistDetail?.songs.count == 10)
-        #expect(self.viewModel.artistDetail?.albumSections.map(\.title) == ["Albums"])
-        #expect(self.viewModel.artistDetail?.albumSections.first?.albums.count == 3)
-        #expect(self.viewModel.artistDetail?.playlistSections.map(\.title) == ["Featured on", "Playlists"])
-        #expect(self.viewModel.artistDetail?.artistSections.count == 1)
-        #expect(self.viewModel.artistDetail?.artistSections.first?.artists.count == 2)
+        #expect(self.viewModel.artistDetail?.orderedSections.map(\.title) == ["Albums", "Featured on", "Playlists", "Similar artists"])
     }
 
     @Test("Load error sets error state")
@@ -123,26 +119,22 @@ struct ArtistDetailViewModelTests {
             artist: unknownArtist,
             description: nil,
             songs: TestFixtures.makeSongs(count: 3),
-            albumSections: [
-                AlbumCarouselSection(
+            orderedSections: [
+                ArtistDetailSection(
                     title: "Singles & EPs",
-                    albums: [TestFixtures.makeAlbum(id: "MPRE-single", title: "Single")]
+                    content: .albums([TestFixtures.makeAlbum(id: "MPRE-single", title: "Single")])
                 ),
-            ],
-            playlistSections: [
-                PlaylistCarouselSection(
+                ArtistDetailSection(
                     title: "Featured on",
-                    playlists: [TestFixtures.makePlaylist(id: "VL-featured", title: "Featured Playlist")]
+                    content: .playlists([TestFixtures.makePlaylist(id: "VL-featured", title: "Featured Playlist")])
                 ),
-                PlaylistCarouselSection(
+                ArtistDetailSection(
                     title: "Playlists on repeat",
-                    playlists: [TestFixtures.makePlaylist(id: "VL-preserved", title: "Preserved Playlist")]
+                    content: .playlists([TestFixtures.makePlaylist(id: "VL-preserved", title: "Preserved Playlist")])
                 ),
-            ],
-            artistSections: [
-                ArtistCarouselSection(
+                ArtistDetailSection(
                     title: "Artists on repeat",
-                    artists: [TestFixtures.makeArtist(id: "UC-similar", name: "Similar Artist")]
+                    content: .artists([TestFixtures.makeArtist(id: "UC-similar", name: "Similar Artist")])
                 ),
             ],
             thumbnailURL: nil,
@@ -155,11 +147,8 @@ struct ArtistDetailViewModelTests {
         // Should use original artist name "Test Artist" instead of "Unknown Artist"
         #expect(viewModel.artistDetail?.name == "Test Artist")
         #expect(viewModel.artistDetail?.profileKind == .profile)
-        #expect(viewModel.artistDetail?.albumSections.map(\.title) == ["Singles & EPs"])
-        #expect(viewModel.artistDetail?.playlistSections.map(\.title) == ["Featured on", "Playlists on repeat"])
-        #expect(viewModel.artistDetail?.artistSections.map(\.title) == ["Artists on repeat"])
-        #expect(viewModel.artistDetail?.artistSections.first?.artists.map(\.id) == ["UC-similar"])
         #expect(viewModel.artistDetail?.monthlyAudience == "2.59M")
+        #expect(viewModel.artistDetail?.orderedSections.map(\.title) == ["Singles & EPs", "Featured on", "Playlists on repeat", "Artists on repeat"])
     }
 
     // MARK: - Refresh Tests

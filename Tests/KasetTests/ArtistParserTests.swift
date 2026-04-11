@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 /// Tests for ArtistParser.
 @Suite(.tags(.parser))
 struct ArtistParserTests {
@@ -13,6 +13,7 @@ struct ArtistParserTests {
         let data = Self.makeArtistResponse(
             name: "Taylor Swift",
             description: "Grammy-winning artist",
+            songsSectionTitle: "Top songs",
             songs: 5,
             albums: 3
         )
@@ -22,9 +23,10 @@ struct ArtistParserTests {
         #expect(result.name == "Taylor Swift")
         #expect(result.description == "Grammy-winning artist")
         #expect(result.songs.count == 5)
-        #expect(result.albumSections.first?.albums.count == 3)
-        #expect(result.playlistSections.isEmpty)
-        #expect(result.artistSections.isEmpty)
+        #expect(result.songsSectionTitle == "Top songs")
+        #expect(Self.albums(in: result, titled: "Albums")?.count == 3)
+        #expect(Self.playlists(in: result, titled: "Playlists") == nil)
+        #expect(Self.artists(in: result, titled: "Artists") == nil)
     }
 
     @Test("parseArtistDetail handles empty response")
@@ -35,7 +37,7 @@ struct ArtistParserTests {
 
         #expect(result.name == "Unknown Artist")
         #expect(result.songs.isEmpty)
-        #expect(result.albumSections.isEmpty)
+        #expect(result.orderedSections.isEmpty)
     }
 
     @Test("parseArtistDetail extracts channel ID from UC prefix")
@@ -61,13 +63,18 @@ struct ArtistParserTests {
         let data = Self.makeArtistResponseWithSubscription(
             name: "Subscribed Artist",
             isSubscribed: true,
-            subscriberCount: "1.5M subscribers"
+            subscriberCount: "1.5M subscribers",
+            shortSubscriberCount: "1.5M",
+            subscribedButtonText: "Subscribed",
+            unsubscribedButtonText: "Subscribe"
         )
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
         #expect(result.isSubscribed == true)
-        #expect(result.subscriberCount == "1.5M subscribers")
+        #expect(result.subscriberCount == "1.5M")
+        #expect(result.subscribedButtonText == "Subscribed")
+        #expect(result.unsubscribedButtonText == "Subscribe")
     }
 
     @Test("parseArtistDetail extracts monthly audience")
@@ -81,7 +88,7 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.monthlyAudience == "2.59M")
+        #expect(result.monthlyAudience == "2.59M monthly audience")
     }
 
     @Test("parseArtistDetail extracts songs browse ID when available")
@@ -156,12 +163,11 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albumSections.count == 1)
-        let albums = result.albumSections[0].albums
-        #expect(albums.count == 2)
-        #expect(albums[0].id == "MPRE-album-1")
-        #expect(albums[0].title == "Album One")
-        #expect(albums[0].year == "2024")
+        let albums = Self.albums(in: result, titled: "Albums")
+        #expect(albums?.count == 2)
+        #expect(albums?[0].id == "MPRE-album-1")
+        #expect(albums?[0].title == "Album One")
+        #expect(albums?[0].year == "2024")
     }
 
     @Test("parseArtistDetail extracts albums with OLAK prefix")
@@ -174,8 +180,7 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albumSections.count == 1)
-        #expect(result.albumSections[0].albums[0].id == "OLAK-album-1")
+        #expect(Self.albums(in: result, titled: "Albums")?.first?.id == "OLAK-album-1")
     }
 
     @Test("parseArtistDetail ignores non-album browse IDs")
@@ -188,7 +193,8 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albumSections.isEmpty)
+        #expect(Self.albums(in: result, titled: "Albums") == nil)
+        #expect(Self.playlists(in: result, titled: "Albums")?.map(\.id) == ["VLPL-playlist"])
     }
 
     @Test("parseArtistDetail preserves album carousel titles")
@@ -202,10 +208,8 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.albumSections.count == 1)
-        #expect(result.albumSections[0].albums.count == 2)
-        #expect(result.albumSections[0].title == "Singles & EPs")
-        #expect(result.albumSections[0].albums.map(\.id) == ["MPRE-single-1", "MPRE-single-2"])
+        #expect(Self.albums(in: result, titled: "Singles & EPs")?.count == 2)
+        #expect(Self.albums(in: result, titled: "Singles & EPs")?.map(\.id) == ["MPRE-single-1", "MPRE-single-2"])
     }
 
     @Test("parseArtistDetail extracts playlists from carousel")
@@ -219,11 +223,10 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.playlistSections.count == 1)
-        #expect(result.playlistSections[0].title == "Playlists")
-        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-playlist-1", "PL-playlist-2"])
-        #expect(result.artistSections.isEmpty)
-        #expect(result.albumSections.isEmpty)
+        #expect(Self.playlists(in: result, titled: "Playlists")?.map(\.id) == ["VLPL-playlist-1", "PL-playlist-2"])
+        #expect(Self.firstSection(of: result, matching: "Playlists") != nil)
+        #expect(Self.artists(in: result, titled: "Artists") == nil)
+        #expect(Self.albums(in: result, titled: "Albums") == nil)
     }
 
     @Test("parseArtistDetail preserves featured on playlist section")
@@ -237,10 +240,8 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.playlistSections.count == 1)
-        #expect(result.playlistSections[0].title == "Featured on")
-        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-featured-1"])
-        #expect(result.artistSections.isEmpty)
+        #expect(Self.playlists(in: result, titled: "Featured on")?.map(\.id) == ["VLPL-featured-1"])
+        #expect(Self.artists(in: result, titled: "Artists") == nil)
     }
 
     @Test("parseArtistDetail preserves playlist carousel titles")
@@ -254,9 +255,7 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.playlistSections.count == 1)
-        #expect(result.playlistSections[0].title == "Playlists on repeat")
-        #expect(result.playlistSections[0].playlists.map(\.id) == ["VLPL-repeat-1"])
+        #expect(Self.playlists(in: result, titled: "Playlists on repeat")?.map(\.id) == ["VLPL-repeat-1"])
     }
 
     @Test("parseArtistDetail preserves artist carousel titles")
@@ -269,12 +268,24 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.playlistSections.isEmpty)
-        #expect(result.artistSections.count == 1)
-        #expect(result.artistSections[0].title == "Artists on repeat")
-        #expect(result.artistSections[0].artists.count == 2)
-        #expect(result.artistSections[0].artists[0].id == "UC-similar-1")
-        #expect(result.artistSections[0].artists[0].name == "Michael Giacchino")
+        let artists = Self.artists(in: result, titled: "Artists on repeat")
+        #expect(Self.playlists(in: result, titled: "Playlists") == nil)
+        #expect(artists?.count == 2)
+        #expect(artists?[0].id == "UC-similar-1")
+        #expect(artists?[0].name == "Michael Giacchino")
+    }
+
+    @Test("parseArtistDetail preserves carousel response order across section types")
+    func parseArtistDetailPreservesCarouselResponseOrder() {
+        let data = Self.makeArtistResponseWithCarousels([
+            (title: "Albums", items: [Self.makeAlbumItem(id: "MPRE-album-1", title: "Album", year: "2024")]),
+            (title: "Featured on", items: [Self.makePlaylistCarouselItem(id: "VL-playlist-1", title: "Featured Playlist", author: "Editorial")]),
+            (title: "Similar artists", items: [Self.makeArtistCarouselItem(id: "UC-artist-1", name: "Similar Artist")]),
+        ])
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.orderedSections.map(\.title) == ["Albums", "Featured on", "Similar artists"])
     }
 
     @Test("parseArtistDetail extracts similar artist subtitle")
@@ -288,8 +299,7 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.artistSections.count == 1)
-        #expect(result.artistSections[0].artists.first?.subtitle == "24.9M monthly audience")
+        #expect(Self.artists(in: result, titled: "Fans might also like")?.first?.subtitle == "24.9M monthly audience")
     }
 
     @Test("parseArtistDetail marks user channel carousel items as profiles")
@@ -303,7 +313,7 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(result.artistSections.first?.artists.first?.profileKind == .profile)
+        #expect(Self.artists(in: result, titled: "Artists on repeat")?.first?.profileKind == .profile)
     }
 
     // MARK: - Mix Playlist Tests
@@ -326,6 +336,7 @@ struct ArtistParserTests {
         name: String,
         description: String? = nil,
         thumbnailURL: String? = nil,
+        songsSectionTitle: String? = nil,
         songs: Int,
         albums: Int
     ) -> [String: Any] {
@@ -359,8 +370,9 @@ struct ArtistParserTests {
         if songs > 0 {
             sectionContents.append([
                 "musicShelfRenderer": [
+                    "title": songsSectionTitle.map { ["runs": [["text": $0]]] } as Any,
                     "contents": Self.makeSongItems(count: songs),
-                ],
+                ].compactMapValues { $0 },
             ])
         }
 
@@ -399,20 +411,43 @@ struct ArtistParserTests {
         name: String,
         isSubscribed: Bool,
         subscriberCount: String,
+        shortSubscriberCount: String? = nil,
+        subscribedButtonText: String? = nil,
+        unsubscribedButtonText: String? = nil,
         monthlyAudience: String? = nil
     ) -> [String: Any] {
+        var subscribeButtonRenderer: [String: Any] = [
+            "channelId": "UC-extracted",
+            "subscribed": isSubscribed,
+            "subscriberCountText": [
+                "runs": [["text": subscriberCount]],
+            ],
+        ]
+
+        if let shortSubscriberCount {
+            subscribeButtonRenderer["shortSubscriberCountText"] = [
+                "runs": [["text": shortSubscriberCount]],
+            ]
+        }
+
+        if let subscribedButtonText {
+            subscribeButtonRenderer["subscribedButtonText"] = [
+                "runs": [["text": subscribedButtonText]],
+            ]
+        }
+
+        if let unsubscribedButtonText {
+            subscribeButtonRenderer["unsubscribedButtonText"] = [
+                "runs": [["text": unsubscribedButtonText]],
+            ]
+        }
+
         var header: [String: Any] = [
             "title": [
                 "runs": [["text": name]],
             ],
             "subscriptionButton": [
-                "subscribeButtonRenderer": [
-                    "channelId": "UC-extracted",
-                    "subscribed": isSubscribed,
-                    "subscriberCountText": [
-                        "runs": [["text": subscriberCount]],
-                    ],
-                ],
+                "subscribeButtonRenderer": subscribeButtonRenderer,
             ],
         ]
         if let monthlyAudience {
@@ -481,6 +516,160 @@ struct ArtistParserTests {
                                     ],
                                 ],
                             ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func makeArtistResponseWithCarousels(_ carousels: [(title: String, items: [[String: Any]])]) -> [String: Any] {
+        let sectionContents: [[String: Any]] = carousels.map { carousel in
+            [
+                "musicCarouselShelfRenderer": [
+                    "header": [
+                        "musicCarouselShelfBasicHeaderRenderer": [
+                            "title": [
+                                "runs": [["text": carousel.title]],
+                            ],
+                        ],
+                    ],
+                    "contents": carousel.items,
+                ],
+            ]
+        }
+
+        return [
+            "header": [
+                "musicImmersiveHeaderRenderer": [
+                    "title": [
+                        "runs": [["text": "Artist"]],
+                    ],
+                ],
+            ],
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [
+                        [
+                            "tabRenderer": [
+                                "content": [
+                                    "sectionListRenderer": [
+                                        "contents": sectionContents,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func firstSection(of detail: ArtistDetail, matching title: String) -> ArtistDetailSection? {
+        detail.orderedSections.first { $0.title == title }
+    }
+
+    private static func albums(in detail: ArtistDetail, titled title: String) -> [Album]? {
+        guard let section = self.firstSection(of: detail, matching: title),
+              case let .albums(albums) = section.content
+        else {
+            return nil
+        }
+        return albums
+    }
+
+    private static func playlists(in detail: ArtistDetail, titled title: String) -> [Playlist]? {
+        guard let section = self.firstSection(of: detail, matching: title),
+              case let .playlists(playlists) = section.content
+        else {
+            return nil
+        }
+        return playlists
+    }
+
+    private static func artists(in detail: ArtistDetail, titled title: String) -> [Artist]? {
+        guard let section = self.firstSection(of: detail, matching: title),
+              case let .artists(artists) = section.content
+        else {
+            return nil
+        }
+        return artists
+    }
+
+    private static func makePlaylistCarouselItem(id: String, title: String, author: String) -> [String: Any] {
+        [
+            "musicTwoRowItemRenderer": [
+                "title": [
+                    "runs": [["text": title]],
+                ],
+                "subtitle": [
+                    "runs": [[
+                        "text": author,
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": "UC-playlist-author",
+                                "browseEndpointContextSupportedConfigs": [
+                                    "browseEndpointContextMusicConfig": [
+                                        "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL",
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": id,
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_PLAYLIST",
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func makeArtistCarouselItem(id: String, name: String, subtitle: String = "156M monthly audience", pageType: String = "MUSIC_PAGE_TYPE_ARTIST") -> [String: Any] {
+        [
+            "musicTwoRowItemRenderer": [
+                "title": [
+                    "runs": [[
+                        "text": name,
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": id,
+                                "browseEndpointContextSupportedConfigs": [
+                                    "browseEndpointContextMusicConfig": [
+                                        "pageType": pageType,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+                "subtitle": [
+                    "runs": [["text": subtitle]],
+                ],
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": id,
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": pageType,
+                            ],
+                        ],
+                    ],
+                ],
+                "thumbnailRenderer": [
+                    "musicThumbnailRenderer": [
+                        "thumbnail": [
+                            "thumbnails": [[
+                                "url": "https://example.com/\(id).jpg",
+                                "width": 226,
+                                "height": 226,
+                            ]],
                         ],
                     ],
                 ],
@@ -847,4 +1036,4 @@ struct ArtistParserTests {
     }
 }
 
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length file_length

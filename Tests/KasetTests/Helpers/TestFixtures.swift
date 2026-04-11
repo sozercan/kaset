@@ -121,30 +121,28 @@ enum TestFixtures {
             artist: a,
             description: "A test artist description",
             songs: self.makeSongs(count: songCount),
-            albumSections: albums.isEmpty ? [] : [
-                AlbumCarouselSection(
+            orderedSections: [
+                albums.isEmpty ? nil : ArtistDetailSection(
                     title: "Albums",
-                    albums: albums
+                    content: .albums(albums)
                 ),
-            ],
-            playlistSections: featuredOnSectionPlaylists.isEmpty && playlists.isEmpty ? [] : [
-                featuredOnSectionPlaylists.isEmpty ? nil : PlaylistCarouselSection(
+                featuredOnSectionPlaylists.isEmpty ? nil : ArtistDetailSection(
                     title: "Featured on",
-                    playlists: featuredOnSectionPlaylists
+                    content: .playlists(featuredOnSectionPlaylists)
                 ),
-                playlists.isEmpty ? nil : PlaylistCarouselSection(
+                playlists.isEmpty ? nil : ArtistDetailSection(
                     title: "Playlists",
-                    playlists: playlists
+                    content: .playlists(playlists)
                 ),
+                similarArtistCount > 0
+                    ? ArtistDetailSection(
+                        title: "Similar artists",
+                        content: .artists((0 ..< similarArtistCount).map { index in
+                            self.makeArtist(id: "UC-similar-\(index)", name: "Similar Artist \(index)")
+                        })
+                    )
+                    : nil,
             ].compactMap(\.self),
-            artistSections: similarArtistCount > 0 ? [
-                ArtistCarouselSection(
-                    title: "Similar artists",
-                    artists: (0 ..< similarArtistCount).map { index in
-                        self.makeArtist(id: "UC-similar-\(index)", name: "Similar Artist \(index)")
-                    }
-                ),
-            ] : [],
             thumbnailURL: a.thumbnailURL,
             monthlyAudience: monthlyAudience
         )

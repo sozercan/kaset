@@ -59,17 +59,6 @@
 
 "Profile" = "프로필";
 
-"Artists on repeat" = "반복 감상한 아티스트";
-
-"Playlists on repeat" = "반복 감상한 재생목록";
-
-"Compact suffix billion" = "B";
-"Compact decimal separator" = ".";
-"Compact suffix hundred-million" = "억";
-"Compact suffix million" = "M";
-"Compact suffix ten-thousand" = "만";
-"Compact suffix thousand" = "K";
-
 "Artists" = "아티스트";
 
 "Ask AI (⌘K)" = "AI에게 질문 (⌘K)";
@@ -284,8 +273,6 @@
 
 "Mix" = "믹스";
 
-"Monthly audience: %@" = "월간 시청자 %@명";
-
 "Moods & Genres" = "분위기 및 장르";
 
 "Move to End" = "맨 끝으로 이동";
@@ -387,10 +374,6 @@
 
 "Playlists" = "재생목록";
 
-"Playlists by %@" = "%@의 재생목록";
-
-"Featured on" = "추천 콘텐츠";
-
 "Please check your internet connection and try again." = "인터넷 연결을 확인하고 다시 시도해 주세요.";
 
 "Podcasts" = "팟캐스트";
@@ -483,8 +466,6 @@
 
 "Sign in with Google" = "Google로 로그인";
 
-"Similar artists" = "팬이 좋아할 만한 다른 아티스트";
-
 "Signed in to YouTube Music" = "YouTube Music에 로그인됨";
 
 
@@ -505,8 +486,6 @@
 
 "Subscribed" = "구독중";
 
-"Subscribed %@" = "구독중 %@";
-
 "Subscription Error" = "구독 오류";
 
 "Suggested Removals" = "삭제 추천";
@@ -516,8 +495,6 @@
 "System Default" = "시스템 기본값";
 
 "Tap to retry" = "탭하여 다시 시도";
-
-"Singles & EPs" = "싱글 및 EP";
 
 "There aren't any lyrics available for this song." = "이 노래에 사용할 수 있는 가사가 없습니다.";
 

@@ -49,6 +49,12 @@ nonisolated(unsafe) var globalAuthUserIndex = 0
 /// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
 nonisolated(unsafe) var globalBrandAccountId: String?
 
+/// Global language code override for request context.
+nonisolated(unsafe) var globalLanguageCode = "en"
+
+/// Global region code override for request context.
+nonisolated(unsafe) var globalRegionCode = "US"
+
 // MARK: - Cookie Management
 
 /// Reads cookies from Kaset app's backup file in Application Support.
@@ -170,8 +176,8 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
         "client": [
             "clientName": "WEB_REMIX",
             "clientVersion": clientVersion,
-            "hl": "en",
-            "gl": "US",
+            "hl": globalLanguageCode,
+            "gl": globalRegionCode,
             "browserName": "Safari",
             "browserVersion": "17.0",
             "osName": "Macintosh",
@@ -1235,6 +1241,8 @@ func showHelp() {
       -o, --output <file>            Save raw JSON response to a file
       --authuser N                   Use Google account at index N (for multi-account)
       --brand <ID>                   Use brand account ID (21-digit number)
+      --hl <code>                    Override request language (default: en)
+      --gl <code>                    Override request region (default: US)
 
     Examples:
       # Explore public endpoints
@@ -1304,6 +1312,22 @@ func runMain() async {
         }
     }
 
+    // Parse language option
+    for (index, arg) in args.enumerated() {
+        if arg == "--hl", index + 1 < args.count {
+            globalLanguageCode = args[index + 1]
+            break
+        }
+    }
+
+    // Parse region option
+    for (index, arg) in args.enumerated() {
+        if arg == "--gl", index + 1 < args.count {
+            globalRegionCode = args[index + 1]
+            break
+        }
+    }
+
     // Filter out option flags and their values
     var filteredArgs: [String] = []
     var skipNext = false
@@ -1315,7 +1339,7 @@ func runMain() async {
         if arg == "-v" || arg == "--verbose" {
             continue
         }
-        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {
+        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" || arg == "--hl" || arg == "--gl" {
             skipNext = true
             continue
         }

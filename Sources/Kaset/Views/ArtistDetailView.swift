@@ -49,14 +49,7 @@ struct ArtistDetailView: View {
     // MARK: - Views
 
     private func contentView(_ detail: ArtistDetail) -> some View {
-        let prioritizedArtistSections = detail.artistSections.filter { self.artistSectionPriority(for: $0.title) != nil }
-            .sorted { (self.artistSectionPriority(for: $0.title) ?? Int.max) < (self.artistSectionPriority(for: $1.title) ?? Int.max) }
-        let remainingArtistSections = detail.artistSections.filter { self.artistSectionPriority(for: $0.title) == nil }
-        let prioritizedPlaylistSections = detail.playlistSections.filter { self.playlistSectionPriority(for: $0.title) != nil }
-            .sorted { (self.playlistSectionPriority(for: $0.title) ?? Int.max) < (self.playlistSectionPriority(for: $1.title) ?? Int.max) }
-        let remainingPlaylistSections = detail.playlistSections.filter { self.playlistSectionPriority(for: $0.title) == nil }
-
-        return ScrollView {
+        ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
                 self.headerView(detail)
@@ -68,31 +61,14 @@ struct ArtistDetailView: View {
                     self.songsSection()
                 }
 
-                ForEach(detail.albumSections) { section in
-                    self.albumsSection(section.albums, title: self.localizedAlbumSectionTitle(section.title))
-                }
-
-                if !prioritizedArtistSections.isEmpty {
-                    ForEach(prioritizedArtistSections) { section in
-                        self.artistsSection(section.artists, title: self.localizedArtistSectionTitle(section.title))
-                    }
-                }
-
-                if !prioritizedPlaylistSections.isEmpty {
-                    ForEach(prioritizedPlaylistSections) { section in
-                        self.playlistsSection(section.playlists, title: self.localizedPlaylistSectionTitle(section.title))
-                    }
-                }
-
-                if !remainingPlaylistSections.isEmpty {
-                    ForEach(remainingPlaylistSections) { section in
-                        self.playlistsSection(section.playlists, title: self.localizedPlaylistSectionTitle(section.title))
-                    }
-                }
-
-                if !remainingArtistSections.isEmpty {
-                    ForEach(remainingArtistSections) { section in
-                        self.artistsSection(section.artists, title: self.localizedArtistSectionTitle(section.title))
+                ForEach(detail.orderedSections) { section in
+                    switch section.content {
+                    case let .albums(albums):
+                        self.albumsSection(albums, title: section.title)
+                    case let .artists(artists):
+                        self.artistsSection(artists, title: section.title)
+                    case let .playlists(playlists):
+                        self.playlistsSection(playlists, title: section.title)
                     }
                 }
             }
@@ -132,9 +108,8 @@ struct ArtistDetailView: View {
                     .font(.title)
                     .fontWeight(.bold)
 
-                // Subscriber count
-                if let audienceSubtitle = self.audienceSubtitle(for: detail) {
-                    Text(audienceSubtitle)
+                if let monthlyAudience = detail.monthlyAudience {
+                    Text(monthlyAudience)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -187,31 +162,16 @@ struct ArtistDetailView: View {
         }
     }
 
-    private var currentLanguageCode: String {
-        AppLocalization.bundle.preferredLocalizations.first
-            ?? Locale.current.language.languageCode?.identifier
-            ?? "en"
-    }
-
     /// Returns the text for the subscribe button.
     private func subscribeButtonText(_ detail: ArtistDetail) -> String {
-        let formattedSubscriberCount = detail.formattedSubscriberCount(languageCode: self.currentLanguageCode)
-        if detail.isSubscribed {
-            if let formattedSubscriberCount {
-                let format = String(localized: "Subscribed %@")
-                return String(format: format, formattedSubscriberCount)
-            }
-            return String(localized: "Subscribed")
-        }
-        if let formattedSubscriberCount {
-            let format = String(localized: "Subscribe %@")
-            return String(format: format, formattedSubscriberCount)
-        }
-        return String(localized: "Subscribe")
-    }
+        let baseText = detail.isSubscribed
+            ? (detail.subscribedButtonText ?? String(localized: "Subscribed"))
+            : (detail.unsubscribedButtonText ?? String(localized: "Subscribe"))
 
-    private func audienceSubtitle(for detail: ArtistDetail) -> String? {
-        detail.audienceSubtitle(languageCode: self.currentLanguageCode)
+        if let subscriberCount = detail.subscriberCount, !subscriberCount.isEmpty {
+            return "\(baseText) \(subscriberCount)"
+        }
+        return baseText
     }
 
     private func headerTypeLabel(for detail: ArtistDetail) -> String? {
@@ -269,7 +229,7 @@ struct ArtistDetailView: View {
     private func songsSection() -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Top songs")
+                Text(self.viewModel.artistDetail?.songsSectionTitle ?? String(localized: "Top songs"))
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -280,6 +240,7 @@ struct ArtistDetailView: View {
                     NavigationLink(value: TopSongsDestination(
                         artistId: detail.id,
                         artistName: detail.name,
+                        title: detail.songsSectionTitle ?? String(localized: "Top songs"),
                         songs: detail.songs,
                         songsBrowseId: detail.songsBrowseId,
                         songsParams: detail.songsParams
@@ -472,69 +433,6 @@ struct ArtistDetailView: View {
         }
     }
 
-    private func localizedArtistSectionTitle(_ title: String) -> String {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if normalizedTitle == "fans might also like" {
-            return String(localized: "Similar artists")
-        }
-        if normalizedTitle == "artists on repeat" {
-            return String(localized: "Artists on repeat")
-        }
-        return title
-    }
-
-    private func artistSectionPriority(for title: String) -> Int? {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if normalizedTitle == "artists on repeat" {
-            return 0
-        }
-        return nil
-    }
-
-    private func localizedAlbumSectionTitle(_ title: String) -> String {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if normalizedTitle == "albums" {
-            return String(localized: "Albums")
-        }
-        if normalizedTitle == "singles & eps" {
-            return String(localized: "Singles & EPs")
-        }
-        return title
-    }
-
-    private func localizedPlaylistSectionTitle(_ title: String) -> String {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedTitle = trimmedTitle.lowercased()
-        if normalizedTitle == "featured on" {
-            return String(localized: "Featured on")
-        }
-        if normalizedTitle == "playlists" {
-            return String(localized: "Playlists")
-        }
-        if normalizedTitle == "playlists on repeat" {
-            return String(localized: "Playlists on repeat")
-        }
-        let englishPrefix = "playlists by "
-        if normalizedTitle.hasPrefix(englishPrefix) {
-            let creatorName = String(trimmedTitle.dropFirst(englishPrefix.count))
-            let format = String(localized: "Playlists by %@")
-            return String(format: format, creatorName)
-        }
-        return title
-    }
-
-    private func playlistSectionPriority(for title: String) -> Int? {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        switch normalizedTitle {
-        case "playlists on repeat":
-            return 1
-        case "playlists":
-            return 2
-        default:
-            return nil
-        }
-    }
-
     private func playlistFromAlbum(_ album: Album) -> Playlist {
         Playlist(
             id: album.id,
@@ -645,7 +543,7 @@ struct ArtistDetailView: View {
                 .multilineTextAlignment(.center)
                 .frame(width: 140, alignment: .center)
 
-            if let subtitle = artist.formattedSubtitle(languageCode: self.currentLanguageCode) {
+            if let subtitle = artist.subtitle {
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)

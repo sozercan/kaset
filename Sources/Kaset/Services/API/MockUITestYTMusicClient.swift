@@ -306,8 +306,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             artist: artist,
             description: "A mock artist for UI testing",
             songs: Self.defaultSongs(count: 5),
-            albumSections: [
-                AlbumCarouselSection(title: "Albums", albums: Self.defaultAlbums(count: 3)),
+            orderedSections: [
+                ArtistDetailSection(
+                    title: "Albums",
+                    content: .albums(Self.defaultAlbums(count: 3))
+                ),
             ],
             thumbnailURL: nil
         )

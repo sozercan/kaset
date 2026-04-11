@@ -833,13 +833,14 @@ final class YTMusicClient: YTMusicClientProtocol {
                     artist: detail.artist,
                     description: detail.description,
                     songs: enrichedSongs,
-                    albumSections: detail.albumSections,
-                    playlistSections: detail.playlistSections,
-                    artistSections: detail.artistSections,
+                    songsSectionTitle: detail.songsSectionTitle,
+                    orderedSections: detail.orderedSections,
                     thumbnailURL: detail.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
+                    subscribedButtonText: detail.subscribedButtonText,
+                    unsubscribedButtonText: detail.unsubscribedButtonText,
                     monthlyAudience: detail.monthlyAudience,
                     hasMoreSongs: detail.hasMoreSongs,
                     songsBrowseId: detail.songsBrowseId,
@@ -854,10 +855,19 @@ final class YTMusicClient: YTMusicClientProtocol {
             }
         }
 
-        let artistCount = detail.artistSections.reduce(0) { $0 + $1.artists.count }
-        let playlistCount = detail.playlistSections.reduce(0) { $0 + $1.playlists.count }
-        let albumCount = detail.albumSections.reduce(0) { $0 + $1.albums.count }
-        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs, \(albumCount) albums across \(detail.albumSections.count) album sections, \(playlistCount) playlists across \(detail.playlistSections.count) playlist sections and \(artistCount) related artists across \(detail.artistSections.count) artist sections")
+        let albumSections = detail.orderedSections.compactMap {
+            if case let .albums(albums) = $0.content { albums } else { nil }
+        }
+        let playlistSections = detail.orderedSections.compactMap {
+            if case let .playlists(playlists) = $0.content { playlists } else { nil }
+        }
+        let artistSections = detail.orderedSections.compactMap {
+            if case let .artists(artists) = $0.content { artists } else { nil }
+        }
+        let artistCount = artistSections.reduce(0) { $0 + $1.count }
+        let playlistCount = playlistSections.reduce(0) { $0 + $1.count }
+        let albumCount = albumSections.reduce(0) { $0 + $1.count }
+        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs, \(albumCount) albums across \(albumSections.count) album sections, \(playlistCount) playlists across \(playlistSections.count) playlist sections and \(artistCount) related artists across \(artistSections.count) artist sections")
         return detail
     }
 

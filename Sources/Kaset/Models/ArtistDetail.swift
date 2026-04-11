@@ -1,35 +1,31 @@
 import Foundation
 
-// MARK: - AlbumCarouselSection
+// MARK: - ArtistDetailSectionContent
 
-struct AlbumCarouselSection: Identifiable, Hashable {
-    let title: String
-    let albums: [Album]
-
-    var id: String {
-        self.title
-    }
+enum ArtistDetailSectionContent: Hashable {
+    case albums([Album])
+    case playlists([Playlist])
+    case artists([Artist])
 }
 
-// MARK: - ArtistCarouselSection
+// MARK: - ArtistDetailSection
 
-struct ArtistCarouselSection: Identifiable, Hashable {
+struct ArtistDetailSection: Identifiable, Hashable {
     let title: String
-    let artists: [Artist]
+    let content: ArtistDetailSectionContent
 
     var id: String {
-        self.title
-    }
-}
-
-// MARK: - PlaylistCarouselSection
-
-struct PlaylistCarouselSection: Identifiable, Hashable {
-    let title: String
-    let playlists: [Playlist]
-
-    var id: String {
-        self.title
+        switch self.content {
+        case let .albums(albums):
+            let firstID = albums.first?.id ?? "empty"
+            return "albums:\(self.title):\(firstID)"
+        case let .playlists(playlists):
+            let firstID = playlists.first?.id ?? "empty"
+            return "playlists:\(self.title):\(firstID)"
+        case let .artists(artists):
+            let firstID = artists.first?.id ?? "empty"
+            return "artists:\(self.title):\(firstID)"
+        }
     }
 }
 
@@ -40,17 +36,20 @@ struct ArtistDetail {
     let artist: Artist
     let description: String?
     let songs: [Song]
-    let albumSections: [AlbumCarouselSection]
-    let playlistSections: [PlaylistCarouselSection]
-    let artistSections: [ArtistCarouselSection]
+    let songsSectionTitle: String?
+    let orderedSections: [ArtistDetailSection]
     let thumbnailURL: URL?
     /// The channel ID for subscription operations (e.g., UCxxxxx).
     let channelId: String?
     /// Whether the user is subscribed to this artist.
     var isSubscribed: Bool
-    /// Subscriber count text (e.g., "34.6M subscribers").
+    /// Localized subscriber count text from the API (e.g., "54.5K" or locale-specific equivalent).
     let subscriberCount: String?
-    /// Monthly audience count text (e.g., "2.59M").
+    /// Localized button label for the subscribed state.
+    let subscribedButtonText: String?
+    /// Localized button label for the unsubscribed state.
+    let unsubscribedButtonText: String?
+    /// Localized monthly audience text from the API (e.g., "2.59M monthly audience").
     let monthlyAudience: String?
     /// Whether there are more songs available beyond what's loaded.
     let hasMoreSongs: Bool
@@ -75,32 +74,18 @@ struct ArtistDetail {
         self.artist.profileKind
     }
 
-    func audienceSubtitle(languageCode: String) -> String? {
-        if let monthlyAudience = self.monthlyAudience,
-           let formattedMonthlyAudience = AudienceTextFormatter.formatMonthlyAudience(monthlyAudience, languageCode: languageCode)
-        {
-            return formattedMonthlyAudience
-        }
-
-        return nil
-    }
-
-    func formattedSubscriberCount(languageCode: String) -> String? {
-        guard let subscriberCount = self.subscriberCount else { return nil }
-        return AudienceTextFormatter.formatSubscriberCount(subscriberCount, languageCode: languageCode)
-    }
-
     init(
         artist: Artist,
         description: String?,
         songs: [Song],
-        albumSections: [AlbumCarouselSection] = [],
-        playlistSections: [PlaylistCarouselSection] = [],
-        artistSections: [ArtistCarouselSection] = [],
+        songsSectionTitle: String? = nil,
+        orderedSections: [ArtistDetailSection] = [],
         thumbnailURL: URL?,
         channelId: String? = nil,
         isSubscribed: Bool = false,
         subscriberCount: String? = nil,
+        subscribedButtonText: String? = nil,
+        unsubscribedButtonText: String? = nil,
         monthlyAudience: String? = nil,
         hasMoreSongs: Bool = false,
         songsBrowseId: String? = nil,
@@ -111,13 +96,14 @@ struct ArtistDetail {
         self.artist = artist
         self.description = description
         self.songs = songs
-        self.albumSections = albumSections
-        self.playlistSections = playlistSections
-        self.artistSections = artistSections
+        self.songsSectionTitle = songsSectionTitle
+        self.orderedSections = orderedSections
         self.thumbnailURL = thumbnailURL
         self.channelId = channelId
         self.isSubscribed = isSubscribed
         self.subscriberCount = subscriberCount
+        self.subscribedButtonText = subscribedButtonText
+        self.unsubscribedButtonText = unsubscribedButtonText
         self.monthlyAudience = monthlyAudience
         self.hasMoreSongs = hasMoreSongs
         self.songsBrowseId = songsBrowseId

@@ -20,7 +20,9 @@ struct ArtistDetailTests {
             artist: artist,
             description: "A great artist",
             songs: songs,
-            albumSections: [AlbumCarouselSection(title: "Albums", albums: albums)],
+            orderedSections: [
+                ArtistDetailSection(title: "Albums", content: .albums(albums)),
+            ],
             thumbnailURL: URL(string: "https://example.com/large.jpg")
         )
 
@@ -28,9 +30,8 @@ struct ArtistDetailTests {
         #expect(detail.name == "Test Artist")
         #expect(detail.description == "A great artist")
         #expect(detail.songs.count == 2)
-        #expect(detail.albumSections.first?.albums.count == 1)
-        #expect(detail.playlistSections.isEmpty)
-        #expect(detail.artistSections.isEmpty)
+        #expect(detail.orderedSections.count == 1)
+        #expect(detail.orderedSections.first?.title == "Albums")
         #expect(detail.thumbnailURL?.absoluteString == "https://example.com/large.jpg")
     }
 
@@ -68,9 +69,7 @@ struct ArtistDetailTests {
         let artist = Artist(id: "1", name: "New Artist")
         let detail = ArtistDetail(artist: artist, description: "Just starting out", songs: [], thumbnailURL: nil)
         #expect(detail.songs.isEmpty)
-        #expect(detail.albumSections.isEmpty)
-        #expect(detail.playlistSections.isEmpty)
-        #expect(detail.artistSections.isEmpty)
+        #expect(detail.orderedSections.isEmpty)
     }
 
     @Test("ArtistDetail artist property")
@@ -83,121 +82,57 @@ struct ArtistDetailTests {
         #expect(detail.artist.thumbnailURL != nil)
     }
 
-    @Test("ArtistDetail formats monthly audience for English")
-    func artistDetailFormatsMonthlyAudienceEnglish() {
+    @Test("ArtistDetail preserves monthly audience text")
+    func artistDetailPreservesMonthlyAudienceText() {
         let detail = ArtistDetail(
             artist: Artist(id: "1", name: "BEGE"),
             description: nil,
             songs: [],
             thumbnailURL: nil,
-            monthlyAudience: "2.59M"
+            monthlyAudience: "Aylık kitle: 2,61 Mn"
         )
 
-        #expect(detail.audienceSubtitle(languageCode: "en") == "2.59M monthly audience")
+        #expect(detail.monthlyAudience == "Aylık kitle: 2,61 Mn")
     }
 
-    @Test("ArtistDetail formats monthly audience for Turkish")
-    func artistDetailFormatsMonthlyAudienceTurkish() {
+    @Test("ArtistDetail does not fall back to subscriber count")
+    func artistDetailDoesNotFallbackToSubscriberCount() {
         let detail = ArtistDetail(
             artist: Artist(id: "1", name: "BEGE"),
             description: nil,
             songs: [],
             thumbnailURL: nil,
-            monthlyAudience: "2.59M"
+            subscriberCount: "203 B"
         )
 
-        #expect(detail.audienceSubtitle(languageCode: "tr") == "Aylık kitle: 2,59 Mn")
+        #expect(detail.monthlyAudience == nil)
     }
 
-    @Test("ArtistDetail formats monthly audience for Arabic")
-    func artistDetailFormatsMonthlyAudienceArabic() {
+    @Test("ArtistDetail preserves subscriber count text")
+    func artistDetailPreservesSubscriberCountText() {
         let detail = ArtistDetail(
             artist: Artist(id: "1", name: "BEGE"),
             description: nil,
             songs: [],
             thumbnailURL: nil,
-            monthlyAudience: "2.59M"
+            subscriberCount: "54,5 B"
         )
 
-        #expect(detail.audienceSubtitle(languageCode: "ar") == "2.59 مليون مشاهد شهريًا")
+        #expect(detail.subscriberCount == "54,5 B")
     }
 
-    @Test("ArtistDetail formats monthly audience for Korean")
-    func artistDetailFormatsMonthlyAudienceKorean() {
+    @Test("ArtistDetail preserves subscribed button text")
+    func artistDetailPreservesSubscribedButtonText() {
         let detail = ArtistDetail(
             artist: Artist(id: "1", name: "BEGE"),
             description: nil,
             songs: [],
             thumbnailURL: nil,
-            monthlyAudience: "2.59M"
+            subscribedButtonText: "Abone olundu",
+            unsubscribedButtonText: "Abone ol"
         )
 
-        #expect(detail.audienceSubtitle(languageCode: "ko") == "월간 시청자 259만명")
-    }
-
-    @Test("ArtistDetail audience subtitle does not fall back to subscriber count")
-    func artistDetailAudienceSubtitleDoesNotFallbackToSubscriberCount() {
-        let detail = ArtistDetail(
-            artist: Artist(id: "1", name: "BEGE"),
-            description: nil,
-            songs: [],
-            thumbnailURL: nil,
-            subscriberCount: "203K subscribers"
-        )
-
-        #expect(detail.audienceSubtitle(languageCode: "tr") == nil)
-    }
-
-    @Test("ArtistDetail formats subscriber count for Turkish")
-    func artistDetailFormatsSubscriberCountTurkish() {
-        let detail = ArtistDetail(
-            artist: Artist(id: "1", name: "BEGE"),
-            description: nil,
-            songs: [],
-            thumbnailURL: nil,
-            subscriberCount: "203K subscribers"
-        )
-
-        #expect(detail.formattedSubscriberCount(languageCode: "tr") == "203 B")
-    }
-
-    @Test("ArtistDetail formats subscriber count for Arabic")
-    func artistDetailFormatsSubscriberCountArabic() {
-        let detail = ArtistDetail(
-            artist: Artist(id: "1", name: "BEGE"),
-            description: nil,
-            songs: [],
-            thumbnailURL: nil,
-            subscriberCount: "203K subscribers"
-        )
-
-        #expect(detail.formattedSubscriberCount(languageCode: "ar") == "203 ألف")
-    }
-
-    @Test("ArtistDetail formats subscriber count for Korean")
-    func artistDetailFormatsSubscriberCountKorean() {
-        let detail = ArtistDetail(
-            artist: Artist(id: "1", name: "BEGE"),
-            description: nil,
-            songs: [],
-            thumbnailURL: nil,
-            subscriberCount: "203K subscribers"
-        )
-
-        #expect(detail.formattedSubscriberCount(languageCode: "ko") == "20.3만")
-    }
-
-    @Test("Artist formats monthly audience subtitle for Turkish")
-    func artistFormatsMonthlyAudienceSubtitleTurkish() {
-        let artist = Artist(id: "1", name: "Ezhel", subtitle: "24.9M monthly audience")
-
-        #expect(artist.formattedSubtitle(languageCode: "tr") == "Aylık kitle: 24,9 Mn")
-    }
-
-    @Test("Artist formats subscriber subtitle for Korean")
-    func artistFormatsSubscriberSubtitleKorean() {
-        let artist = Artist(id: "1", name: "Profile", subtitle: "919 subscribers")
-
-        #expect(artist.formattedSubtitle(languageCode: "ko") == "919")
+        #expect(detail.subscribedButtonText == "Abone olundu")
+        #expect(detail.unsubscribedButtonText == "Abone ol")
     }
 }

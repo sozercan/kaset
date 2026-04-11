@@ -6,9 +6,7 @@ enum ArtistParser {
     private static let logger = DiagnosticsLogger.api
 
     private struct CarouselAccumulator {
-        var albumSections: [AlbumCarouselSection]
-        var playlistSections: [PlaylistCarouselSection]
-        var artistSections: [ArtistCarouselSection]
+        var orderedSections: [ArtistDetailSection]
     }
 
     private struct CarouselSectionItems {
@@ -20,10 +18,9 @@ enum ArtistParser {
     /// Parses artist detail from browse response.
     static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail {
         var songs: [Song] = []
+        var songsSectionTitle: String?
         var carouselAccumulator = CarouselAccumulator(
-            albumSections: [],
-            playlistSections: [],
-            artistSections: []
+            orderedSections: []
         )
         var hasMoreSongs = false
         var songsBrowseId: String?
@@ -47,6 +44,7 @@ enum ArtistParser {
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
+                    songsSectionTitle = songsSectionTitle ?? ParsingHelpers.extractTitle(from: shelfRenderer)
                     songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
 
                     // Check if there are more songs available via bottomEndpoint
@@ -86,13 +84,14 @@ enum ArtistParser {
             artist: artist,
             description: headerResult.description,
             songs: songs,
-            albumSections: carouselAccumulator.albumSections,
-            playlistSections: carouselAccumulator.playlistSections,
-            artistSections: carouselAccumulator.artistSections,
+            songsSectionTitle: songsSectionTitle,
+            orderedSections: carouselAccumulator.orderedSections,
             thumbnailURL: headerResult.thumbnailURL,
             channelId: headerResult.channelId,
             isSubscribed: headerResult.isSubscribed,
             subscriberCount: headerResult.subscriberCount,
+            subscribedButtonText: headerResult.subscribedButtonText,
+            unsubscribedButtonText: headerResult.unsubscribedButtonText,
             monthlyAudience: headerResult.monthlyAudience,
             hasMoreSongs: hasMoreSongs,
             songsBrowseId: songsBrowseId,
@@ -113,6 +112,8 @@ enum ArtistParser {
         var channelId: String?
         var isSubscribed: Bool = false
         var subscriberCount: String?
+        var subscribedButtonText: String?
+        var unsubscribedButtonText: String?
         var monthlyAudience: String?
         var mixPlaylistId: String?
         var mixVideoId: String?
@@ -191,14 +192,28 @@ enum ArtistParser {
             }
 
             // Extract subscriber count text
-            if let subscriberCountText = subscribeButtonRenderer["subscriberCountText"] as? [String: Any],
-               let runs = subscriberCountText["runs"] as? [[String: Any]]
+            if let shortSubscriberCountText = subscribeButtonRenderer["shortSubscriberCountText"] as? [String: Any],
+               let runs = shortSubscriberCountText["runs"] as? [[String: Any]]
             {
                 result.subscriberCount = runs.compactMap { $0["text"] as? String }.joined()
-            } else if let shortSubscriberCountText = subscribeButtonRenderer["shortSubscriberCountText"] as? [String: Any],
-                      let runs = shortSubscriberCountText["runs"] as? [[String: Any]]
+            } else if let subscriberCountText = subscribeButtonRenderer["subscriberCountText"] as? [String: Any],
+                      let runs = subscriberCountText["runs"] as? [[String: Any]]
             {
                 result.subscriberCount = runs.compactMap { $0["text"] as? String }.joined()
+            }
+
+            if let subscribedButtonText = subscribeButtonRenderer["subscribedButtonText"] as? [String: Any],
+               let runs = subscribedButtonText["runs"] as? [[String: Any]]
+            {
+                result.subscribedButtonText = runs.compactMap { $0["text"] as? String }.joined()
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+
+            if let unsubscribedButtonText = subscribeButtonRenderer["unsubscribedButtonText"] as? [String: Any],
+               let runs = unsubscribedButtonText["runs"] as? [[String: Any]]
+            {
+                result.unsubscribedButtonText = runs.compactMap { $0["text"] as? String }.joined()
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
 
@@ -259,10 +274,6 @@ enum ArtistParser {
         guard let runs = data["runs"] as? [[String: Any]] else { return nil }
         let text = runs.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
-
-        for suffix in [" monthly audience", " monthly listeners"] where text.hasSuffix(suffix) {
-            return String(text.dropLast(suffix.count))
-        }
 
         return text
     }
@@ -354,7 +365,6 @@ enum ArtistParser {
         contents: [[String: Any]],
         accumulator: inout CarouselAccumulator
     ) {
-        let carouselSectionType = self.carouselSectionType(from: renderer)
         let sectionTitle = self.carouselTitle(from: renderer)
         var sectionItems = CarouselSectionItems()
 
@@ -365,51 +375,42 @@ enum ArtistParser {
                 continue
             }
 
-            self.appendCarouselItem(
-                carouselItem,
-                sectionType: carouselSectionType,
-                sectionItems: &sectionItems
-            )
+            self.appendCarouselItem(carouselItem, sectionItems: &sectionItems)
         }
 
         if !sectionItems.albums.isEmpty {
-            accumulator.albumSections.append(AlbumCarouselSection(
+            accumulator.orderedSections.append(ArtistDetailSection(
                 title: sectionTitle ?? "Albums",
-                albums: sectionItems.albums
+                content: .albums(sectionItems.albums)
             ))
         }
 
         if !sectionItems.playlists.isEmpty {
-            accumulator.playlistSections.append(PlaylistCarouselSection(
+            accumulator.orderedSections.append(ArtistDetailSection(
                 title: sectionTitle ?? "Playlists",
-                playlists: sectionItems.playlists
+                content: .playlists(sectionItems.playlists)
             ))
         }
 
         guard !sectionItems.artists.isEmpty else { return }
 
-        accumulator.artistSections.append(ArtistCarouselSection(
+        accumulator.orderedSections.append(ArtistDetailSection(
             title: sectionTitle ?? "Artists",
-            artists: sectionItems.artists
+            content: .artists(sectionItems.artists)
         ))
     }
 
     private static func appendCarouselItem(
         _ item: CarouselItem,
-        sectionType: CarouselSectionType,
         sectionItems: inout CarouselSectionItems
     ) {
         switch item {
         case let .album(album):
             sectionItems.albums.append(album)
         case let .playlist(playlist):
-            if sectionType != .similarArtists {
-                sectionItems.playlists.append(playlist)
-            }
+            sectionItems.playlists.append(playlist)
         case let .artist(artist):
-            if sectionType != .featuredOn, sectionType != .playlists {
-                sectionItems.artists.append(artist)
-            }
+            sectionItems.artists.append(artist)
         }
     }
 
@@ -417,27 +418,6 @@ enum ArtistParser {
         case album(Album)
         case playlist(Playlist)
         case artist(Artist)
-    }
-
-    private enum CarouselSectionType {
-        case playlists
-        case featuredOn
-        case similarArtists
-        case other
-    }
-
-    private static func carouselSectionType(from renderer: [String: Any]) -> CarouselSectionType {
-        let title = self.carouselTitle(from: renderer)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-        if title.contains("featured"), title.contains("on") {
-            return .featuredOn
-        }
-        if title.contains("fans"), title.contains("like") || title.contains("similar") {
-            return .similarArtists
-        }
-        if title.contains("playlist") {
-            return .playlists
-        }
-        return .other
     }
 
     private static func carouselTitle(from renderer: [String: Any]) -> String? {
