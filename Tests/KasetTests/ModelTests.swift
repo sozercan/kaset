@@ -260,6 +260,73 @@ struct ModelTests {
         #expect(playlist.trackCount == 1234)
     }
 
+    @Test("Decodes legacy artist payload without profile kind")
+    func decodeLegacyArtistPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "UC123",
+              "name": "Legacy Artist",
+              "subtitle": "123 subscribers"
+            }
+            """.utf8
+        )
+
+        let artist = try JSONDecoder().decode(Artist.self, from: data)
+        #expect(artist.id == "UC123")
+        #expect(artist.name == "Legacy Artist")
+        #expect(artist.subtitle == "123 subscribers")
+        #expect(artist.profileKind == .unknown)
+    }
+
+    @Test("Decodes legacy song payload with artists missing profile kind")
+    func decodeLegacySongPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "song-1",
+              "title": "Legacy Song",
+              "artists": [
+                {
+                  "id": "UC123",
+                  "name": "Legacy Artist"
+                }
+              ],
+              "videoId": "video-1"
+            }
+            """.utf8
+        )
+
+        let song = try JSONDecoder().decode(Song.self, from: data)
+        #expect(song.title == "Legacy Song")
+        #expect(song.artists.count == 1)
+        #expect(song.artists.first?.name == "Legacy Artist")
+        #expect(song.artists.first?.profileKind == .unknown)
+        #expect(song.isPlayable)
+    }
+
+    @Test("Decodes legacy playlist payload with string author")
+    func decodeLegacyPlaylistPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "PL123",
+              "title": "Legacy Playlist",
+              "description": "A saved playlist",
+              "trackCount": 12,
+              "author": "Legacy Curator"
+            }
+            """.utf8
+        )
+
+        let playlist = try JSONDecoder().decode(Playlist.self, from: data)
+        #expect(playlist.id == "PL123")
+        #expect(playlist.title == "Legacy Playlist")
+        #expect(playlist.author?.name == "Legacy Curator")
+        #expect(playlist.author?.id == Artist.inlineId(for: "Legacy Curator", namespace: "playlist-author"))
+        #expect(playlist.author?.profileKind == .unknown)
+    }
+
     @Test("Returns nil for playlist with no ID")
     func playlistWithNoId() {
         let data: [String: Any] = [

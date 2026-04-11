@@ -87,7 +87,8 @@ final class LibraryViewModel {
             id: normalizedArtistId,
             name: artist.name,
             thumbnailURL: artist.thumbnailURL,
-            subtitle: artist.subtitle
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
         )
     }
 

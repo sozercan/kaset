@@ -18,6 +18,14 @@ struct Artist: Identifiable, Codable, Hashable {
     let subtitle: String?
     let profileKind: ArtistProfileKind
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case thumbnailURL
+        case subtitle
+        case profileKind
+    }
+
     init(
         id: String,
         name: String,
@@ -32,6 +40,17 @@ struct Artist: Identifiable, Codable, Hashable {
         self.profileKind = profileKind
     }
 
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+        self.subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+
+        let rawProfileKind = try container.decodeIfPresent(String.self, forKey: .profileKind)
+        self.profileKind = rawProfileKind.flatMap(ArtistProfileKind.init(rawValue:)) ?? .unknown
+    }
+
     /// Whether this artist has a valid navigable ID.
     /// Valid artist IDs are YouTube channel IDs ("UC...") and library artist browse IDs ("MPLAUC...").
     /// Generated IDs (UUIDs with hyphens, SHA256 hashes) are not navigable.
@@ -42,11 +61,6 @@ struct Artist: Identifiable, Codable, Hashable {
     /// The public channel ID for this artist, if one can be derived.
     var publicChannelId: String? {
         Self.publicChannelId(for: self.id)
-    }
-
-    func formattedSubtitle(languageCode: String) -> String? {
-        guard let subtitle else { return nil }
-        return AudienceTextFormatter.formatAudienceOrSubscriber(subtitle, languageCode: languageCode)
     }
 }
 

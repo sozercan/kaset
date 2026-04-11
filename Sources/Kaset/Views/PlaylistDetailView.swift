@@ -12,25 +12,18 @@ struct PlaylistDetailView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
-
     /// Tracks whether this playlist has been added to library in this session.
     @State private var isAddedToLibrary: Bool = false
-
     /// Whether the refine playlist sheet is visible.
     @State private var showRefineSheet: Bool = false
-
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
-
     /// Partial playlist changes during streaming.
     @State private var partialChanges: PlaylistChanges.PartiallyGenerated?
-
     /// Whether AI is processing the refine request.
     @State private var isRefining: Bool = false
-
     /// Error message from refine operation.
     @State private var refineError: String?
-
     /// Computed property to check if playlist is in library.
     private var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
@@ -456,7 +449,13 @@ struct PlaylistDetailView: View {
                 if cleanName.hasPrefix("Album, ") {
                     cleanName = String(cleanName.dropFirst(7))
                 }
-                return Artist(id: artist.id, name: cleanName)
+                return Artist(
+                    id: artist.id,
+                    name: cleanName,
+                    thumbnailURL: artist.thumbnailURL,
+                    subtitle: artist.subtitle,
+                    profileKind: artist.profileKind
+                )
             }
 
             // Use fallback artist if artists are empty (and clean the fallback too)

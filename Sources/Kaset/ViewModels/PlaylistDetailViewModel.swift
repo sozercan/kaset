@@ -39,7 +39,15 @@ final class PlaylistDetailViewModel {
             result = String(result.dropFirst(3))
         }
         result = result.trimmingCharacters(in: .whitespaces)
-        return result.isEmpty ? nil : Artist(id: author.id, name: result, thumbnailURL: author.thumbnailURL)
+        return result.isEmpty
+            ? nil
+            : Artist(
+                id: author.id,
+                name: result,
+                thumbnailURL: author.thumbnailURL,
+                subtitle: author.subtitle,
+                profileKind: author.profileKind
+            )
     }
 
     /// Loads the playlist details including tracks.
