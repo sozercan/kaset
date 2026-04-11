@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchFilterParams
-
 private enum SearchFilterParams {
     static let songs = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
     static let albums = "EgWKAQIYAWoMEA4QChADEAQQCRAF"
