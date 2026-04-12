@@ -199,6 +199,10 @@ final class MyServiceTests: XCTestCase {
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
 
+### Maintainer Demo Workflow Examples
+
+For maintainers, this repository may include automation demos for **chat orchestration**, **parallel review**, **scheduled workflows**, and **security scanning**. These are example workflow patterns for repository operations and evaluation only — they are **not** end-user product features of Kaset.
+
 ## AI-Assisted Contributions & Prompt Requests
 
 We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
