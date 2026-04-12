@@ -199,6 +199,15 @@ final class MyServiceTests: XCTestCase {
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
 
+### Maintainer Demo Workflow Examples
+
+These repository automation flows are **demo examples for maintainers**. They help evaluate repo automation and review tooling; they are **not end-user product features in Kaset**.
+
+- **Chat orchestration** — Drive a repo change from a maintainer chat prompt through implementation and review handoff.
+- **Parallel review** — Run multiple review passes or agent roles at the same time to compare findings quickly.
+- **Scheduled workflows** — Exercise recurring automation on a timer for maintenance or demo scenarios.
+- **Security scanning** — Validate automated checks that look for risky changes, dependency issues, or policy violations.
+
 ## AI-Assisted Contributions & Prompt Requests
 
 We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
