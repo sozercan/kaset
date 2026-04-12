@@ -58,7 +58,7 @@ For repository automation demos around Kaset development and maintenance, Orka c
 - **Chat orchestration** — collect a change request, turn it into a concrete implementation plan, and prepare a prompt request or PR summary for this repo.
 - **Parallel review** — run an implementation pass and a separate review pass in parallel, then compare the results before maintainers merge changes.
 - **Scheduled workflows** — run recurring repo tasks such as release checklists, dependency update follow-ups, or issue triage summaries on a schedule.
-- **Security scanning** — add repository scanning steps such as secret or dependency checks to a workflow and report the results for maintainer review.
+- **Security scanning** — add configured security checks such as secret or dependency scanning to a demo workflow and report the results for maintainer review.
 
 We welcome AI-assisted contributions! You can submit traditional PRs or **prompt requests** — share the AI prompt that generates your changes, and maintainers can review the intent before running the code. See the [AI-Assisted Contributions](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests) section for details.
 
