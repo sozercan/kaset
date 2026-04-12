@@ -199,6 +199,14 @@ final class MyServiceTests: XCTestCase {
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
 
+### Maintainer Demo Workflow Checklist
+
+- Prepare demo credentials locally and keep all tokens, cookies, and secrets out of the repository.
+- Create or switch to a dedicated demo branch before making changes.
+- Validate the change with the usual build, test, and lint steps for the scope of the demo.
+- Review the final diff to confirm it is small, intentional, and free of sensitive data.
+- Open a PR from the demo branch after validation, with a concise summary of what changed.
+
 ## AI-Assisted Contributions & Prompt Requests
 
 We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
