@@ -53,5 +53,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and 
 
 We welcome AI-assisted contributions! You can submit traditional PRs or **prompt requests** — share the AI prompt that generates your changes, and maintainers can review the intent before running the code. See the [AI-Assisted Contributions](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests) section for details.
 
+### Maintainer demo workflows
+
+> These repository automation workflows are demo examples for maintainers, not end-user product features.
+
+The demo set covers chat orchestration, parallel review, scheduled workflows, and security scanning.
+
 ## Disclaimer
 Kaset is an unofficial application and not affiliated with YouTube or Google Inc. in any way. "YouTube", "YouTube Music" and the "YouTube Logo" are registered trademarks of Google Inc.
