@@ -203,6 +203,12 @@ final class MyServiceTests: XCTestCase {
 
 We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
 
+### Maintainer Demo Workflow Examples
+
+For repository maintainers, this repo may also include **demo workflow examples** for repository automation such as **chat orchestration**, **parallel review**, **scheduled workflows**, and **security scanning**.
+
+These are examples for maintainers evaluating automation in the repository, **not end-user product features** in Kaset itself.
+
 ### What is a Prompt Request?
 
 A **prompt request** is a contribution where you share the AI prompt that generates code, rather than (or in addition to) the code itself. This approach:
