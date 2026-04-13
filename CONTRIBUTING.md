@@ -199,6 +199,15 @@ final class MyServiceTests: XCTestCase {
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
 
+### Maintainer Demo Workflows
+
+> **Maintainer note:** The repository automation items below are **demo workflow examples for maintainers**, not end-user product features.
+
+- **Chat orchestration** — Example automation for turning a maintainer chat request into a scoped repository change or documentation update.
+- **Parallel review** — Example automation for splitting review or validation work across multiple repository checks in parallel.
+- **Scheduled workflows** — Example automation for recurring maintenance tasks that run on a schedule.
+- **Security scanning** — Example automation for maintainers to run repository security and dependency checks.
+
 ## AI-Assisted Contributions & Prompt Requests
 
 We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Cursor, or other AI tools, we welcome contributions that leverage these capabilities.
