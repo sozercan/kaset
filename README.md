@@ -51,6 +51,16 @@ brew install sozercan/repo/kaset
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and coding guidelines.
 
+### Maintainer Demo Workflow Examples
+
+These are demo workflow examples for maintainers, not end-user product features.
+- chat orchestration
+- parallel review
+- scheduled workflows
+- security scanning
+
+Demos must use placeholder or sample data only, never real secrets, tokens, or cookies, and require human approval for privileged actions.
+
 We welcome AI-assisted contributions! You can submit traditional PRs or **prompt requests** — share the AI prompt that generates your changes, and maintainers can review the intent before running the code. See the [AI-Assisted Contributions](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests) section for details.
 
 ## Disclaimer
