@@ -120,6 +120,45 @@ struct CommandExecutor {
         }
     }
 
+    func describeQueueLocally(previewLimit: Int = 3) -> Outcome {
+        let queue = self.playerService.queue
+
+        guard !queue.isEmpty else {
+            return .result("Your queue is empty.", shouldDismiss: false)
+        }
+
+        let safeCurrentIndex = min(max(self.playerService.currentIndex, 0), queue.count - 1)
+        let currentTrack = queue[safe: safeCurrentIndex] ?? queue[0]
+        let currentArtist = currentTrack.artistsDisplay.isEmpty ? "Unknown Artist" : currentTrack.artistsDisplay
+        let intro = if self.playerService.isPlaying {
+            "Now playing"
+        } else {
+            "Currently on"
+        }
+
+        let upcoming = Array(queue.dropFirst(safeCurrentIndex + 1).prefix(previewLimit))
+        var summary = "\(intro) \"\(currentTrack.title)\" by \(currentArtist)."
+
+        if !upcoming.isEmpty {
+            let preview = upcoming.map { song in
+                let artist = song.artistsDisplay.isEmpty ? "Unknown Artist" : song.artistsDisplay
+                return "\"\(song.title)\" by \(artist)"
+            }.joined(separator: ", ")
+
+            let remainingCount = max(0, queue.count - safeCurrentIndex - 1 - upcoming.count)
+            summary += " Up next: \(preview)"
+            if remainingCount > 0 {
+                summary += ", and \(remainingCount) more."
+            } else {
+                summary += "."
+            }
+        } else if queue.count == 1 {
+            summary += " That's the only song in your queue."
+        }
+
+        return .result(summary, shouldDismiss: false)
+    }
+
     private func executeMusicIntent(_ intent: MusicIntent) async -> Outcome {
         let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent)
         let description = ContentSourceResolver.queryDescription(for: intent)
@@ -143,10 +182,6 @@ struct CommandExecutor {
 
         case .queue:
             HapticService.success()
-            if intent.query == "__clear__" {
-                self.playerService.clearQueue()
-                return .result("Queue cleared")
-            }
             if !searchQuery.isEmpty {
                 return await self.queueContent(intent: intent, query: searchQuery, description: description, source: contentSource)
             }

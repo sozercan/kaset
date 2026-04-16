@@ -49,13 +49,13 @@ struct FoundationModelsOptimizedPromptIntegrationTests {
         throw lastError!
     }
 
-    private func optimizedCommandIntent(for prompt: String) async throws -> MusicIntent {
+    private func optimizedCommandIntent(for prompt: String) async throws -> CommandBarParseResult {
         let session = LanguageModelSession(
             instructions: FoundationModelsPromptLibrary.commandBarInstructions(
                 version: .optimized26_4AndLater
             )
         )
-        let response = try await session.respond(to: prompt, generating: MusicIntent.self)
+        let response = try await session.respond(to: prompt, generating: CommandBarParseResult.self)
         return response.content
     }
 
@@ -93,6 +93,32 @@ struct FoundationModelsOptimizedPromptIntegrationTests {
         return response.content.normalized(forOriginalTrackIds: tracks.map(\.videoId))
     }
 
+    private func optimizedQueueAnalysis(
+        tracks: [Song],
+        currentIndex: Int,
+        isPlaying: Bool
+    ) async throws -> QueueAnalysisSummary {
+        let instructions = FoundationModelsPromptLibrary.queueDescriptionInstructions(
+            version: .optimized26_4AndLater
+        )
+        let trackLines = FoundationModelsPromptLibrary.queueTrackLines(
+            from: tracks,
+            currentIndex: currentIndex,
+            isPlaying: isPlaying,
+            limit: tracks.count
+        )
+        let prompt = FoundationModelsPromptLibrary.queueDescriptionPrompt(
+            trackList: trackLines.joined(separator: "\n"),
+            totalTracks: tracks.count,
+            shownTracks: trackLines.count,
+            version: .optimized26_4AndLater
+        )
+
+        let session = LanguageModelSession(instructions: instructions)
+        let response = try await session.respond(to: prompt, generating: QueueAnalysisSummary.self)
+        return response.content
+    }
+
     private var samplePlaylistTracks: [Song] {
         [
             Song(
@@ -122,21 +148,29 @@ struct FoundationModelsOptimizedPromptIntegrationTests {
             try await self.optimizedCommandIntent(for: "Search for Billie Eilish")
         } validate: { intent in
             #expect(intent.action == .search || intent.action == .play)
-            let combined = "\(intent.artist) \(intent.query)".lowercased()
+            let combined = "\(intent.artist) \(intent.subject)".lowercased()
             #expect(
                 combined.contains("billie") || combined.contains("eilish"),
-                "Expected Billie Eilish in artist or query, got: \(combined)"
+                "Expected Billie Eilish in artist or subject, got: \(combined)"
             )
         }
     }
 
-    @Test("26.4 command prompt preserves clear-queue sentinel")
-    func optimizedCommandPromptPreservesClearQueueSentinel() async throws {
+    @Test("26.4 command prompt uses the dedicated clear-queue action")
+    func optimizedCommandPromptUsesDedicatedClearQueueAction() async throws {
         try await self.withRetry {
             try await self.optimizedCommandIntent(for: "Clear queue")
         } validate: { intent in
-            #expect(intent.action == .queue)
-            #expect(intent.query == "__clear__")
+            #expect(intent.action == .clearQueue)
+        }
+    }
+
+    @Test("26.4 command prompt supports explicit queue inspection")
+    func optimizedCommandPromptSupportsQueueInspection() async throws {
+        try await self.withRetry {
+            try await self.optimizedCommandIntent(for: "What's in my queue?")
+        } validate: { intent in
+            #expect(intent.action == .inspectQueue)
         }
     }
 
@@ -171,6 +205,25 @@ struct FoundationModelsOptimizedPromptIntegrationTests {
                 #expect(reorderedIds == self.samplePlaylistTracks.map(\.videoId))
             }
             #expect(!changes.reasoning.isEmpty)
+        }
+    }
+
+    @Test("26.4 queue prompt produces structured analysis")
+    func optimizedQueuePromptProducesStructuredAnalysis() async throws {
+        try await self.withRetry {
+            try await self.optimizedQueueAnalysis(
+                tracks: self.samplePlaylistTracks,
+                currentIndex: 1,
+                isPlaying: true
+            )
+        } validate: { analysis in
+            #expect(!analysis.opening.isEmpty)
+            #expect(!analysis.vibe.isEmpty)
+            #expect(!analysis.summary.isEmpty)
+            #expect(!analysis.highlights.isEmpty)
+
+            let combined = "\(analysis.opening) \(analysis.summary)".lowercased()
+            #expect(combined.contains("afterglow") || combined.contains("static bloom"))
         }
     }
 }

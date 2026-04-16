@@ -54,36 +54,36 @@ enum FoundationModelsPromptLibrary {
         case .legacy26_0To26_3:
             """
             You are a music assistant for the Kaset app. Parse the user's natural language command
-            and determine what action they want to perform. Return a MusicIntent with:
-            1. The action (play, queue, shuffle, like, skip, pause, etc.)
-            2. Parsed query components (artist, genre, mood, era, version, activity)
-            3. The full original query (IMPORTANT: preserve keywords like "hits", "greatest", "best of")
+            into a CommandBarParseResult with:
+            1. The action (play, queue, search, inspectQueue, shuffle, clearQueue, like, skip, pause, etc.)
+            2. A concise subject string for content requests
+            3. Parsed search modifiers (artist, genre, mood, era, version, activity)
 
             PARSE NATURAL LANGUAGE INTO STRUCTURED COMPONENTS:
 
             Example: "rolling stones 90s hits"
-            -> action: play, query: "rolling stones 90s hits", artist: "Rolling Stones", era: "1990s"
+            -> action: play, subject: "rolling stones 90s hits", artist: "Rolling Stones", era: "1990s"
 
             Example: "upbeat rolling stones songs from the 90s"
-            -> action: play, query: "upbeat rolling stones songs", artist: "Rolling Stones", mood: "upbeat", era: "1990s"
+            -> action: play, subject: "upbeat rolling stones songs", artist: "Rolling Stones", mood: "upbeat", era: "1990s"
 
             Example: "chill jazz for studying"
-            -> action: play, query: "chill jazz for studying", genre: "jazz", mood: "chill", activity: "study"
+            -> action: play, subject: "chill jazz for studying", genre: "jazz", mood: "chill", activity: "study"
 
             Example: "acoustic covers of pop hits"
-            -> action: play, query: "acoustic covers of pop hits", genre: "pop", version: "acoustic cover"
+            -> action: play, subject: "acoustic covers of pop hits", genre: "pop", version: "acoustic cover"
 
             Example: "80s synthwave"
-            -> action: play, query: "80s synthwave", genre: "synthwave", era: "1980s"
+            -> action: play, subject: "80s synthwave", genre: "synthwave", era: "1980s"
 
             Example: "add some energetic workout music to queue"
-            -> action: queue, query: "energetic workout music", mood: "energetic", activity: "workout"
+            -> action: queue, subject: "energetic workout music", mood: "energetic", activity: "workout"
 
             Example: "best of queen"
-            -> action: play, query: "best of queen", artist: "Queen"
+            -> action: play, subject: "best of queen", artist: "Queen"
 
             COMPONENT EXTRACTION RULES:
-            - query: ALWAYS include the full natural language request (minus action words)
+            - subject: include the essential search words, not filler or command words
             - artist: Extract artist name if mentioned ("Beatles", "Taylor Swift", "Rolling Stones")
             - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop
             - mood: upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy
@@ -92,16 +92,17 @@ enum FoundationModelsPromptLibrary {
             - activity: workout, study, sleep, party, driving, cooking, focus, running, yoga
 
             For simple commands: skip/next -> skip, pause/stop -> pause, play/resume -> resume,
-            shuffle my queue -> shuffle (shuffleScope: queue), like this -> like, clear queue -> queue (query: "__clear__")
+            shuffle my queue -> shuffle (shuffleScope: queue), like this -> like,
+            clear queue -> clearQueue, what's in my queue -> inspectQueue
             """
 
         case .optimized26_4AndLater:
             """
-            You are Kaset's music command parser. Return the best MusicIntent for the user's request.
+            You are Kaset's command-bar parser. Return the best CommandBarParseResult for the user's request.
 
             Field rules:
-            - action: play, queue, shuffle, like, dislike, skip, previous, pause, resume, search
-            - query: keep the important search words, including qualifiers like "hits", "greatest", and "best of"
+            - action: play, queue, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, resume
+            - subject: keep the important search words, including qualifiers like "hits", "greatest", and "best of"
             - artist: artist or band name only
             - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop
             - mood: upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy
@@ -113,14 +114,17 @@ enum FoundationModelsPromptLibrary {
             - skip or next -> skip
             - pause or stop -> pause
             - resume only when the user clearly wants to continue current playback
-            - clear queue -> action queue with query "__clear__"
+            - clear queue -> clearQueue
+            - what's in my queue, show queue, or describe my queue -> inspectQueue
             - shuffle my queue -> action shuffle with shuffleScope "queue"
 
             Examples:
-            - "best of queen" -> play, query "best of queen", artist "Queen"
-            - "add some energetic workout music to queue" -> queue, query "energetic workout music", mood "energetic", activity "workout"
+            - "best of queen" -> play, subject "best of queen", artist "Queen"
+            - "add some energetic workout music to queue" -> queue, subject "energetic workout music", mood "energetic", activity "workout"
+            - "what's in my queue?" -> inspectQueue
+            - "clear queue" -> clearQueue
 
-            Prefer play for requests to start music and search for explicit browse or lookup requests. Keep the query concise without dropping meaning.
+            Prefer play for requests to start music and search for explicit browse or lookup requests. Keep subject concise without dropping meaning.
             """
         }
     }
@@ -172,6 +176,118 @@ enum FoundationModelsPromptLibrary {
             - Identify 2-5 main themes
             - Name the overall mood
             - Explain what the song is saying in 2-4 sentences
+            """
+        }
+    }
+
+    static func queueDescriptionInstructions(
+        version: FoundationModelsPromptVersion = .current
+    ) -> String {
+        switch version {
+        case .legacy26_0To26_3:
+            """
+            You are a thoughtful music curator for the Kaset app. Analyze the user's queue
+            like a radio host or DJ, not a playback UI. Start with the current song, describe
+            the momentum across nearby tracks, call out a few notable pivots or recurring vibes,
+            and return a QueueAnalysisSummary.
+            """
+
+        case .optimized26_4AndLater:
+            """
+            You analyze the user's current Kaset queue like a great radio host or tastemaker.
+
+            Rules:
+            - Sound specific and musical, not robotic.
+            - Start with the current song when one is marked.
+            - Describe the arc of the queue: energy shifts, artist clusters, mood pivots, or likely intent.
+            - Mention 2-4 concrete songs or artists from the list, but do not just enumerate the queue.
+            - Return a QueueAnalysisSummary with opening, vibe, highlights, and summary.
+            - The summary field should be 3-5 sentences of flowing prose with no bullets or headings.
+            - Use only the provided tracks and markers.
+            - Do not invent facts like release history, lyrics, or album context that are not shown.
+            - If the list is truncated, say the read is based on the visible slice.
+            """
+        }
+    }
+
+    static func queueTrackLines(
+        from tracks: [Song],
+        currentIndex: Int,
+        isPlaying: Bool,
+        limit: Int
+    ) -> [String] {
+        guard !tracks.isEmpty, limit > 0 else { return [] }
+
+        let safeCurrentIndex = if tracks.isEmpty {
+            -1
+        } else {
+            min(max(currentIndex, 0), tracks.count - 1)
+        }
+
+        let maxPreviousContext = min(4, max(0, limit - 1))
+        var startIndex = max(0, safeCurrentIndex - maxPreviousContext)
+        var endIndex = min(tracks.count, startIndex + limit)
+
+        if safeCurrentIndex >= endIndex {
+            endIndex = min(tracks.count, safeCurrentIndex + 1)
+            startIndex = max(0, endIndex - limit)
+        }
+
+        let window = Array(tracks[startIndex ..< endIndex])
+
+        return window.enumerated().map { offset, track in
+            let actualIndex = startIndex + offset
+            let safeTitle = track.title.prefix(50)
+            let safeArtist = (track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay).prefix(30)
+            let marker = if actualIndex == safeCurrentIndex {
+                isPlaying ? "NOW PLAYING" : "CURRENT"
+            } else if actualIndex > safeCurrentIndex {
+                "UP NEXT"
+            } else {
+                "PLAYED"
+            }
+            return "\(actualIndex + 1). [\(marker)] \(safeTitle) - \(safeArtist)"
+        }
+    }
+
+    static func queueDescriptionPrompt(
+        trackList: String,
+        totalTracks: Int,
+        shownTracks: Int,
+        version: FoundationModelsPromptVersion = .current
+    ) -> String {
+        switch version {
+        case .legacy26_0To26_3:
+            return """
+            Queue (\(totalTracks) songs, showing \(shownTracks)):
+
+            \(trackList)
+
+            Give a short, specific analysis of the queue's flow and vibe.
+            """
+
+        case .optimized26_4AndLater:
+            let totalSongLabel = totalTracks == 1 ? "song" : "songs"
+            let shownSongLabel = shownTracks == 1 ? "song" : "songs"
+            let tracksSection = if shownTracks == 0 {
+                "No tracks are currently in the queue."
+            } else {
+                trackList
+            }
+
+            return """
+            Queue has \(totalTracks) \(totalSongLabel). You can inspect \(shownTracks) \(shownSongLabel).
+            \(shownTracks < totalTracks ? "This is a focused slice around the current position, not the entire queue." : "This is the full queue.")
+
+            Tracks:
+            \(tracksSection)
+
+            Task:
+            - Open with the current song if one is marked CURRENT or NOW PLAYING
+            - Analyze the queue's momentum, taste, and likely mood rather than just listing tracks
+            - Call out a few concrete songs or artists that define the run
+            - Keep the response vivid, compact, and natural
+            - Fill the QueueAnalysisSummary fields instead of returning plain text
             """
         }
     }

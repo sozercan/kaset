@@ -101,7 +101,7 @@ enum AIError: LocalizedError {
 ///
 /// ```swift
 /// do {
-///     let response = try await session.respond(to: prompt, generating: MusicIntent.self)
+///     let response = try await session.respond(to: prompt, generating: CommandBarParseResult.self)
 /// } catch {
 ///     let aiError = AIErrorHandler.handle(error)
 ///     if aiError.shouldDisplay {

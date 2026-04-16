@@ -2,6 +2,17 @@ import Foundation
 
 @available(macOS 26.0, *)
 struct CommandIntentParser {
+    func isQueueInspectionQuery(_ query: String) -> Bool {
+        if self.deterministicRequest(for: query) != nil {
+            return false
+        }
+
+        let normalized = self.normalized(query)
+        guard normalized.contains("queue") else { return false }
+
+        return Self.queueInspectionPrefixes.contains { normalized.hasPrefix($0) }
+    }
+
     func deterministicRequest(for query: String) -> CommandExecutor.Request? {
         let normalized = self.normalized(query)
 
@@ -320,5 +331,17 @@ struct CommandIntentParser {
         "shuffle queue",
         "shuffle my queue",
         "shuffle the queue",
+    ]
+
+    private static let queueInspectionPrefixes: Set<String> = [
+        "describe",
+        "how many",
+        "list",
+        "show",
+        "tell me",
+        "what",
+        "what is",
+        "what s",
+        "whats",
     ]
 }

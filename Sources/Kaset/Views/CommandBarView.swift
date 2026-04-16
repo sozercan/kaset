@@ -148,13 +148,15 @@ struct CommandBarView: View {
     }
 
     private func resultView(_ result: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)
 
             Text(result)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
         }

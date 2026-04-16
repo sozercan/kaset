@@ -42,4 +42,12 @@ struct CommandIntentParserTests {
                 .queueSearch(query: "jazz", description: "jazz")
         )
     }
+
+    @Test("Queue inspection phrases are detected without being treated as commands")
+    func queueInspectionDetection() {
+        #expect(self.parser.isQueueInspectionQuery("What's in my queue?"))
+        #expect(self.parser.isQueueInspectionQuery("show my queue"))
+        #expect(!self.parser.isQueueInspectionQuery("clear my queue"))
+        #expect(!self.parser.isQueueInspectionQuery("add jazz to queue"))
+    }
 }
