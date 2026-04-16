@@ -165,10 +165,11 @@ final class VideoWindowController {
         let windowSize = window.frame.size
         let padding: CGFloat = 40
 
-        // Default to bottom right
+        // Default to top right so the floating window does not cover player-bar controls
+        // on first launch, keeping the video toggle reachable for a true second-click close.
         let origin = NSPoint(
             x: screenFrame.maxX - windowSize.width - padding,
-            y: screenFrame.minY + padding
+            y: screenFrame.maxY - windowSize.height - padding
         )
 
         window.setFrameOrigin(origin)
