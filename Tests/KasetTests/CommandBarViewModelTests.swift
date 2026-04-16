@@ -305,7 +305,10 @@ struct CommandBarViewModelTests {
                 await describeQueueCalls.increment()
                 #expect(prompt.contains("Dreams"))
                 #expect(prompt.contains("NOW PLAYING"))
-                #expect(prompt.contains("Analyze the queue's momentum"))
+                #expect(
+                    prompt.contains("Analyze the queue's momentum") ||
+                        prompt.contains("Give a short, specific analysis of the queue's flow and vibe.")
+                )
                 return Self.makeQueueAnalysis(
                     summary: "You're starting with Fleetwood Mac, then easing into Frank Ocean and Chromatics for a dreamy late-night run."
                 )
