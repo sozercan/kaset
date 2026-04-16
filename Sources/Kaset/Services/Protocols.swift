@@ -378,6 +378,15 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     ///   - startVideoId: Optional starting video ID
     func playWithMix(playlistId: String, startVideoId: String?) async
 
+    /// Clears the queue while preserving the current track when possible.
+    func clearQueue()
+
+    /// Shuffles the current queue order.
+    func shuffleQueue()
+
+    /// Appends songs to the end of the queue.
+    func appendToQueue(_ songs: [Song])
+
     // MARK: - Like/Library Actions
 
     /// Likes the current track.

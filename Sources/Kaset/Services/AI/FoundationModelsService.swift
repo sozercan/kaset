@@ -120,7 +120,7 @@ final class FoundationModelsService {
         self.logger.info("Starting Foundation Models warmup")
 
         // Check availability
-        self.availability = SystemLanguageModel.default.availability
+        self.refreshAvailability()
 
         switch self.availability {
         case .available:
@@ -147,6 +147,8 @@ final class FoundationModelsService {
     ///   - tools: Tools the model can use (e.g., MusicSearchTool, QueueTool).
     /// - Returns: A configured LanguageModelSession, or nil if unavailable.
     func createCommandSession(instructions: String, tools: [any Tool]) -> LanguageModelSession? {
+        self.refreshAvailability()
+
         guard self.isAvailable else {
             self.logger.warning("Attempted to create command session but AI is not available")
             return nil
@@ -157,6 +159,55 @@ final class FoundationModelsService {
             tools: tools,
             instructions: instructions
         )
+    }
+
+    /// Refreshes the cached availability state from the system.
+    func refreshAvailability() {
+        self.availability = SystemLanguageModel.default.availability
+    }
+
+    /// Returns whether the system model supports a given locale.
+    func supportsLocale(_ locale: Locale = .current) -> Bool {
+        SystemLanguageModel.default.supportsLocale(locale)
+    }
+
+    /// Pre-warms command-bar parsing with the most likely prompt prefix.
+    func prewarmCommandBar(promptPrefix: String) {
+        self.refreshAvailability()
+
+        guard self.isAvailable else { return }
+        guard self.supportsLocale(Locale.current) else { return }
+
+        self.logger.debug("Pre-warming Foundation Models command bar prompt prefix")
+        let session = LanguageModelSession()
+        session.prewarm(promptPrefix: Prompt(promptPrefix))
+    }
+
+    /// Resolves a natural-language command into a `MusicIntent` using a fresh tool-free session.
+    func resolveCommandIntent(query: String, instructions: String) async throws -> MusicIntent {
+        self.refreshAvailability()
+
+        guard self.isAvailable else {
+            throw AIError.notAvailable(reason: self.availabilityDescription)
+        }
+
+        guard self.supportsLocale(Locale.current) else {
+            throw AIError.notAvailable(reason: "Current language or locale is not supported")
+        }
+
+        await self.logPromptBudget(
+            context: "command parsing",
+            instructions: instructions,
+            prompt: query,
+            generationSchema: MusicIntent.generationSchema
+        )
+
+        guard let session = self.createCommandSession(instructions: instructions, tools: []) else {
+            throw AIError.modelNotReady
+        }
+
+        let response = try await session.respond(to: query, generating: MusicIntent.self)
+        return response.content
     }
 
     /// Creates a session optimized for creative content analysis.
@@ -549,5 +600,16 @@ final class FoundationModelsService {
         // Use the official prewarm API to load model resources
         session.prewarm()
         self.logger.debug("Foundation Models prewarm completed successfully")
+    }
+
+    private var availabilityDescription: String {
+        switch self.availability {
+        case .available:
+            "Available"
+        case let .unavailable(reason):
+            String(describing: reason)
+        @unknown default:
+            "Unknown availability state"
+        }
     }
 }

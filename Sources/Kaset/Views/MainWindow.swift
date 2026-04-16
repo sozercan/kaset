@@ -350,7 +350,10 @@ struct MainWindow: View {
     private var commandBar: some View {
         CommandBarView(
             client: self.client,
+            playerService: self.playerService,
             isPresented: self.$isCommandBarPresented,
+            navigationSelection: self.$navigationSelection,
+            searchFocusTrigger: self.searchFocusTrigger,
             searchViewModel: self.searchViewModel
         )
     }
