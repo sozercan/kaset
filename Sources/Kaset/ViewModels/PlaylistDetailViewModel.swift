@@ -231,14 +231,13 @@ final class PlaylistDetailViewModel {
         }
     }
 
-
     /// Handles like status updates for the Liked Music playlist.
     func handleLikeStatusChange(_ event: LikeStatusEvent) {
         guard self.isLikedMusicPlaylist else { return }
         guard self.loadingState == .loaded || self.loadingState == .loadingMore else { return }
 
         switch event.status {
-        /// - Liked songs are inserted at the top.
+        // - Liked songs are inserted at the top.
         case .like:
             if let song = event.song, !Self.requiresMetadataFetchForLiveSync(song) {
                 self.cancelLiveSyncTask(for: event.videoId)
@@ -247,7 +246,7 @@ final class PlaylistDetailViewModel {
                 guard !self.containsTrack(videoId: event.videoId) else { return }
                 self.startLiveSyncTask(for: event.videoId)
             }
-        /// - Unliked/disliked songs are removed immediately.
+        // - Unliked/disliked songs are removed immediately.
         case .indifferent, .dislike:
             self.cancelLiveSyncTask(for: event.videoId)
             self.removeLiveSyncedLikedSong(videoId: event.videoId)
