@@ -19,6 +19,11 @@
             <cocoa class="KasetPlayCommand"/>
         </command>
 
+        <command name="play video" code="Kastpvid" description="Play a video by its YouTube video ID.">
+            <cocoa class="KasetPlayVideoCommand"/>
+            <direct-parameter type="text" description="The YouTube video ID to play."/>
+        </command>
+
         <command name="pause" code="Kastpaus" description="Pause playback.">
             <cocoa class="KasetPauseCommand"/>
         </command>

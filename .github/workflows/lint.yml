@@ -30,6 +30,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
+      - name: Cache Homebrew
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            /usr/local/Homebrew
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-homebrew-swiftlint
+
       - name: Install SwiftLint
         run: brew install swiftlint
 
@@ -46,9 +54,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
+      - name: Cache Homebrew
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            /usr/local/Homebrew
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-homebrew-swiftformat
+
       - name: Install SwiftFormat
         run: |
-          brew update
           brew install swiftformat
           swiftformat --version
 

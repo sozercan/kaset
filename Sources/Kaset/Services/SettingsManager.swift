@@ -78,6 +78,8 @@ final class SettingsManager {
         case korean
         case arabic
         case turkish
+        case indonesian
+        case french
 
         var id: String {
             rawValue
@@ -90,6 +92,8 @@ final class SettingsManager {
             case .korean: "한국어"
             case .arabic: "العربية"
             case .turkish: "Türkçe"
+            case .indonesian: "Bahasa Indonesia"
+            case .french: "Français"
             }
         }
 
@@ -101,7 +105,16 @@ final class SettingsManager {
             case .korean: "ko"
             case .arabic: "ar"
             case .turkish: "tr"
+            case .indonesian: "id"
+            case .french: "fr"
             }
+        }
+
+        /// The language code for YouTube Music API requests (`hl` parameter).
+        /// Returns the explicit language code or derives one from the system locale,
+        /// falling back to `"en"`.
+        var apiLanguageCode: String {
+            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
         }
 
         /// The locale matching this language selection.
@@ -229,11 +242,12 @@ final class SettingsManager {
         }
     }
 
-    /// The language used for the app interface.
+    /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
             UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
             AppLocalization.setLanguage(self.contentLanguage.languageCode)
+            APICache.shared.invalidateAll()
         }
     }
 

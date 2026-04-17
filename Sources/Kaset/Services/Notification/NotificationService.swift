@@ -30,15 +30,15 @@ final class NotificationService {
     // MARK: - Authorization
 
     private func requestAuthorization() {
-        // UNUserNotificationCenter crashes without an app bundle (e.g., swift test)
-        guard Bundle.main.bundleIdentifier != nil else { return }
+        // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)
+        guard Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests else { return }
         Task {
             do {
                 let granted = try await UNUserNotificationCenter.current()
                     .requestAuthorization(options: [.alert])
                 self.logger.info("Notification authorization: \(granted)")
             } catch {
-                self.logger.error("Notification authorization failed: \(error.localizedDescription)")
+                self.logger.error("Notification authorization failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -79,8 +79,8 @@ final class NotificationService {
     // MARK: - Notification
 
     private func postTrackNotification(_ track: Song) async {
-        // UNUserNotificationCenter crashes without an app bundle (e.g., swift test)
-        guard Bundle.main.bundleIdentifier != nil else { return }
+        // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)
+        guard Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests else { return }
         // Check if notifications are enabled in settings
         guard self.settingsManager.showNowPlayingNotifications else {
             self.logger.debug("Notifications disabled in settings, skipping: \(track.title)")

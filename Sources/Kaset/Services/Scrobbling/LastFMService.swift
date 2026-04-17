@@ -25,7 +25,7 @@ final class LastFMService: ScrobbleServiceProtocol {
 
     // swiftformat:disable modifierOrder
     /// Task for polling auth session, cancelled on deinit or disconnect.
-    nonisolated(unsafe) private var authPollingTask: Task<Void, Never>?
+    @ObservationIgnored private var authPollingTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     /// Creates a LastFMService with the given credential store and worker URL.

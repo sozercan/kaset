@@ -1,0 +1,557 @@
+/* Generated from Localizable.xcstrings. */
+
+/* Playlist track count */
+"%lld songs" = "%lld lagu";
+
+"A native YouTube Music experience for macOS" = "Pengalaman YouTube Music asli untuk macOS";
+
+"AI responses follow your system language settings." = "Respons AI mengikuti pengaturan bahasa sistem Anda.";
+
+"About" = "Tentang";
+
+"Access your playlists and liked songs" = "Akses daftar putar dan lagu yang Anda sukai";
+
+"Account" = "Akun";
+
+"Add to Favorites" = "Tambah ke Favorit";
+
+"Add to Library" = "Tambah ke Pustaka";
+
+"Add to Queue" = "Tambah ke Antrean";
+
+"Added to Library" = "Ditambahkan ke Pustaka";
+
+"AirPlay" = "AirPlay";
+
+"AirPlay Connected" = "AirPlay Terhubung";
+
+"Album" = "Album";
+
+"Albums" = "Album";
+
+"All" = "Semua";
+
+"All Episodes" = "Semua Episode";
+
+"An unknown error occurred" = "Terjadi kesalahan yang tidak diketahui";
+
+"Analyzing playlist..." = "Menganalisis daftar putar...";
+
+"Analyzing..." = "Menganalisis...";
+
+"Apple Intelligence" = "Apple Intelligence";
+
+"Apple Intelligence & Siri Settings" = "Apple Intelligence & Pengaturan Siri";
+
+"Apple Intelligence is currently unavailable." = "Apple Intelligence saat ini tidak tersedia.";
+
+"Apple Intelligence is downloading. This may take a few minutes." = "Apple Intelligence sedang diunduh. Ini mungkin memakan waktu beberapa menit.";
+
+"Apple Intelligence is not available" = "Apple Intelligence tidak tersedia";
+
+"Apple Intelligence is ready to use" = "Apple Intelligence siap digunakan";
+
+"Apply Changes" = "Terapkan Perubahan";
+
+"Artist" = "Artis";
+
+"Artist not found" = "Artis tidak ditemukan";
+
+"Artists" = "Artis";
+
+"Ask AI (⌘K)" = "Tanya AI (⌘K)";
+
+"Ask anything about music..." = "Tanya apa saja tentang musik...";
+
+"Automatically check for updates" = "Periksa pembaruan secara otomatis";
+
+"Available" = "Tersedia";
+
+"Background Playback" = "Putar di Latar Belakang";
+
+"Built with SwiftUI for a true macOS experience" = "Dibangun dengan SwiftUI untuk pengalaman macOS yang sesungguhnya";
+
+"Calculating..." = "Menghitung...";
+
+"Cancel" = "Batal";
+
+"Change your system language to English or another supported language." = "Ubah bahasa sistem Anda ke bahasa Inggris atau bahasa yang didukung lainnya.";
+
+"Charts" = "Tangga Lagu";
+
+"Check Now" = "Periksa Sekarang";
+
+"Check for Updates..." = "Periksa Pembaruan...";
+
+"Choose the language for the app interface" = "Pilih bahasa untuk antarmuka aplikasi";
+
+
+"Choose which buttons appear in the Now Playing widget in Control Center" = "Pilih tombol yang muncul di widget Sedang Diputar di Pusat Kontrol";
+"Clear" = "Hapus";
+
+"Clear AI Context" = "Hapus Konteks AI";
+
+"Clear Cache" = "Bersihkan Cache";
+
+"Clear input" = "Hapus input";
+
+"Clear search" = "Hapus pencarian";
+
+"Clearing..." = "Membersihkan...";
+
+"Clears the AI session state. Use this if responses seem off or stuck." = "Menghapus status sesi AI. Gunakan ini jika respons tampak aneh atau macet.";
+
+"Close" = "Tutup";
+
+"Close side panel" = "Tutup panel samping";
+
+"Collection" = "Koleksi";
+
+"Command Bar" = "Panel Perintah";
+
+"Community playlists" = "Daftar putar komunitas";
+
+"Connect" = "Hubungkan";
+
+"Connected as %@" = "Terhubung sebagai %@";
+
+"Content Language" = "Bahasa Konten";
+
+"Content may not be available in your region." = "Konten mungkin tidak tersedia di wilayah Anda.";
+
+"Continue" = "Lanjutkan";
+
+"Control playback with your keyboard" = "Kendalikan pemutaran dengan keyboard Anda";
+
+"Could not create AI session" = "Tidak dapat membuat sesi AI";
+
+"Couldn't search for music" = "Tidak dapat mencari musik";
+
+"Create or save playlists on YouTube Music to see them here." = "Buat atau simpan daftar putar di YouTube Music untuk melihatnya di sini.";
+
+"Default Page on Launch" = "Halaman Default Saat Buka";
+
+"Disconnect" = "Putuskan";
+
+"Discover" = "Jelajahi";
+
+"Dislike" = "Tidak suka";
+
+"Disliked" = "Tidak disukai";
+
+"Dismiss" = "Tutup";
+
+"Done" = "Selesai";
+
+"Double-tap to retry" = "Ketuk dua kali untuk mencoba lagi";
+
+"Double-tap to switch accounts" = "Ketuk dua kali untuk mengganti akun";
+
+"Downloading" = "Mengunduh";
+
+"Drag to reorder" = "Seret untuk mengurutkan ulang";
+
+"Edit" = "Edit";
+
+"Enable %@ Scrobbling" = "Aktifkan Scrobbling %@";
+
+"Enable AI Features" = "Aktifkan Fitur AI";
+
+"Enable Apple Intelligence in System Settings to use AI features." = "Aktifkan Apple Intelligence di Pengaturan Sistem untuk menggunakan fitur AI.";
+
+
+"Enable Synced Lyrics" = "Aktifkan Lirik Tersinkron";
+"Episodes" = "Episode";
+
+"Error: %@" = "Kesalahan: %@";
+
+"Explain lyrics with AI" = "Jelaskan lirik dengan AI";
+
+"Explore" = "Jelajah";
+
+"Failed to load" = "Gagal memuat";
+
+"Failed to load accounts" = "Gagal memuat akun";
+
+"Failed to load accounts. Please try again." = "Gagal memuat akun. Silakan coba lagi.";
+
+"Failed to switch account. Please try again." = "Gagal mengganti akun. Silakan coba lagi.";
+
+"Favorites" = "Favorit";
+
+"Featured playlists" = "Daftar putar unggulan";
+
+
+"Fetch and display real-time synced lyrics when available" = "Ambil dan tampilkan lirik tersinkron waktu nyata jika tersedia";
+"Find songs, albums, artists, and playlists" = "Temukan lagu, album, artis, dan daftar putar";
+
+"Follow artists on YouTube Music to see them here." = "Ikuti artis di YouTube Music untuk melihatnya di sini.";
+
+"General" = "Umum";
+
+"GitHub" = "GitHub";
+
+"Go to Album" = "Buka Album";
+
+"Go to Artist" = "Buka Artis";
+
+"Haptic Feedback" = "Umpan Balik Haptik";
+
+"Hidden" = "Tersembunyi";
+
+"Hide Lyrics" = "Sembunyikan Lirik";
+
+"Hide lyrics explanation" = "Sembunyikan penjelasan lirik";
+
+"Highlights" = "Sorotan";
+
+"Home" = "Beranda";
+
+"Image Cache" = "Cache Gambar";
+
+"In Library" = "Di Pustaka";
+
+"Intelligence" = "Kecerdasan";
+
+"Keep listening even when the window is closed" = "Lanjutkan mendengarkan meski jendela ditutup";
+
+"Language Not Supported" = "Bahasa Tidak Didukung";
+
+"Last Used" = "Terakhir Digunakan";
+
+"Learn more" = "Pelajari lebih lanjut";
+
+"Library" = "Pustaka";
+
+"Like" = "Suka";
+
+"Liked" = "Disukai";
+
+"Liked Music" = "Musik yang Disukai";
+
+"Load More" = "Muat Lainnya";
+
+"Loading artist..." = "Memuat artis...";
+
+"Loading charts..." = "Memuat tangga lagu...";
+
+"Loading explore content..." = "Memuat konten jelajah...";
+
+"Loading liked songs..." = "Memuat lagu yang disukai...";
+
+"Loading lyrics..." = "Memuat lirik...";
+
+"Loading moods & genres..." = "Memuat suasana hati & genre...";
+
+"Loading more..." = "Memuat lainnya...";
+
+"Loading new releases..." = "Memuat rilis baru...";
+
+"Loading playlist..." = "Memuat daftar putar...";
+
+"Loading podcasts..." = "Memuat podcast...";
+
+"Loading songs..." = "Memuat lagu...";
+
+"Loading your library..." = "Memuat pustaka Anda...";
+
+"Loading..." = "Memuat...";
+
+"Lyrics" = "Lirik";
+
+"Media Keys" = "Tombol Media";
+
+"Mix" = "Mix";
+
+"Moods & Genres" = "Suasana & Genre";
+
+"Move to End" = "Pindah ke Akhir";
+
+"Move to Top" = "Pindah ke Atas";
+
+"Mute" = "Bisukan";
+
+"Native Interface" = "Antarmuka Asli";
+
+"Never checked" = "Belum pernah diperiksa";
+
+"New Releases" = "Rilis Baru";
+
+"Next" = "Berikutnya";
+
+"Next track" = "Lagu berikutnya";
+
+
+"Next/Previous Track" = "Lagu Berikutnya/Sebelumnya";
+"No Connection" = "Tidak Ada Koneksi";
+
+"No Content Available" = "Tidak Ada Konten";
+
+"No Lyrics Available" = "Tidak Ada Lirik";
+
+"No Moods & Genres Available" = "Tidak Ada Suasana & Genre";
+
+"No Queue" = "Tidak Ada Antrean";
+
+"No Song Playing" = "Tidak Ada Lagu Diputar";
+
+"No artists yet" = "Belum ada artis";
+
+"No changes suggested. The playlist looks good!" = "Tidak ada perubahan yang disarankan. Daftar putar sudah bagus!";
+
+"No liked songs yet" = "Belum ada lagu yang disukai";
+
+"No playlists yet" = "Belum ada daftar putar";
+
+"No podcasts yet" = "Belum ada podcast";
+
+"No results found" = "Tidak ada hasil";
+
+"No songs or playlists found in this category." = "Tidak ada lagu atau daftar putar dalam kategori ini.";
+
+"Not Enabled" = "Tidak Diaktifkan";
+
+"Not Supported" = "Tidak Didukung";
+
+"Not connected" = "Tidak terhubung";
+
+"Not disliked" = "Belum ditandai tidak suka";
+
+"Not liked" = "Belum disukai";
+
+"Not signed in" = "Belum masuk";
+
+/* Login help text about passkey alternative */
+"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Catatan: Jika kunci sandi tidak berfungsi, gunakan \"Coba cara lain\" untuk masuk dengan kata sandi.";
+
+
+"Now Playing Controls" = "Kontrol Sedang Diputar";
+"OK" = "OK";
+
+"Off" = "Mati";
+
+"On" = "Nyala";
+
+"One" = "Satu";
+
+"Open queue in side panel" = "Buka antrean di panel samping";
+
+"Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Buka panel perintah untuk mengontrol musik dengan bahasa alami. Coba ucapkan \"putar sesuatu yang santai\" atau \"tambahkan jazz ke antrean\".";
+
+"Pause" = "Jeda";
+
+"Play" = "Putar";
+
+"Play All" = "Putar Semua";
+
+"Play Latest" = "Putar Terbaru";
+
+"Play Next" = "Putar Berikutnya";
+
+"Play a song to view its lyrics here." = "Putar sebuah lagu untuk melihat liriknya di sini.";
+
+"Play songs from a playlist or album to build your queue." = "Putar lagu dari daftar putar atau album untuk membangun antrean Anda.";
+
+"Playback" = "Pemutaran";
+
+"Played" = "Diputar";
+
+"Playing" = "Memutar";
+
+"Playlist" = "Daftar putar";
+
+"Playlist not found" = "Daftar putar tidak ditemukan";
+
+"Playlists" = "Daftar putar";
+
+"Please check your internet connection and try again." = "Periksa koneksi internet Anda dan coba lagi.";
+
+"Podcasts" = "Podcast";
+
+"Press Enter to search" = "Tekan Enter untuk mencari";
+
+"Previous" = "Sebelumnya";
+
+"Previous track" = "Lagu sebelumnya";
+
+"Processing..." = "Memproses...";
+
+"Provide tactile feedback for actions on Force Touch trackpads" = "Berikan umpan balik haptik untuk tindakan di trackpad Force Touch";
+
+"Queue" = "Antrean";
+
+"Quick Access" = "Akses Cepat";
+
+"Redo" = "Ulangi";
+
+"Refine" = "Sempurnakan";
+
+"Refine Playlist" = "Sempurnakan Daftar Putar";
+
+"Release Notes" = "Catatan Rilis";
+
+"Remember Shuffle & Repeat" = "Ingat Acak & Ulangi";
+
+"Remove Dislike" = "Hapus tidak suka";
+
+"Remove from Favorites" = "Hapus dari Favorit";
+
+"Remove from Queue" = "Hapus dari Antrean";
+
+"Repeat" = "Ulangi";
+
+"Repeat All" = "Ulangi Semua";
+
+"Repeat Off" = "Ulangi Mati";
+
+"Repeat One" = "Ulangi Satu";
+
+/* Button to retry failed playback */
+"Retry" = "Coba Lagi";
+
+"Romanize Lyrics" = "Romanisasi Lirik";
+
+"Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
+
+"Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar, ikuti artis, dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
+
+"Save shuffle and repeat settings across app restarts" = "Simpan pengaturan acak dan ulangi setelah aplikasi dimulai ulang";
+
+"Scrobbling" = "Scrobbling";
+
+"Search" = "Cari";
+
+"Search for your favorite music" = "Cari musik favorit Anda";
+
+"Search songs, albums, artists..." = "Cari lagu, album, artis...";
+
+"Searching..." = "Mencari...";
+
+"See all" = "Lihat semua";
+
+/* Placeholder shown when no sidebar item is selected */
+"Select an item from the sidebar" = "Pilih item dari bilah samping";
+
+"Share" = "Bagikan";
+
+"Show All" = "Tampilkan Semua";
+
+"Show Lyrics" = "Tampilkan Lirik";
+
+"Show Now Playing Notifications" = "Tampilkan Notifikasi Sedang Diputar";
+
+"Showing" = "Menampilkan";
+
+"Shuffle" = "Acak";
+
+"Shuffle Off" = "Acak Mati";
+
+"Shuffle On" = "Acak Nyala";
+
+"Sign Out" = "Keluar";
+
+"Sign in to YouTube Music" = "Masuk ke YouTube Music";
+
+"Sign in to access your YouTube Music library" = "Masuk untuk mengakses pustaka YouTube Music Anda";
+
+"Sign in with Google" = "Masuk dengan Google";
+
+"Signed in to YouTube Music" = "Sudah masuk ke YouTube Music";
+
+
+"Skip Forward/Backward" = "Lompat Maju/Mundur";
+"Software Update" = "Pembaruan Perangkat Lunak";
+
+"Songs" = "Lagu";
+
+"Songs you like will appear here" = "Lagu yang Anda sukai akan muncul di sini";
+
+"Start Radio" = "Mulai Radio";
+
+"Subscribe" = "Berlangganan";
+
+"Subscribe %@" = "Berlangganan %@";
+
+"Subscribe to podcasts on YouTube Music to see them here." = "Berlangganan podcast di YouTube Music untuk melihatnya di sini.";
+
+"Subscribed" = "Sudah berlangganan";
+
+"Subscription Error" = "Kesalahan Berlangganan";
+
+"Suggested Removals" = "Penghapusan yang Disarankan";
+
+"Switch Account" = "Ganti Akun";
+
+"System Default" = "Default Sistem";
+
+"Tap to retry" = "Ketuk untuk mencoba lagi";
+
+"There aren't any lyrics available for this song." = "Tidak ada lirik yang tersedia untuk lagu ini.";
+
+"This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required." = "Mac ini tidak mendukung Apple Intelligence. Diperlukan Mac dengan chip Apple Silicon.";
+
+"Top songs" = "Lagu teratas";
+
+"Try Again" = "Coba Lagi";
+
+"Try commands like:" = "Coba perintah seperti:";
+
+"Try searching for something else" = "Coba cari hal lain";
+
+"Unable to determine availability" = "Tidak dapat menentukan ketersediaan";
+
+"Unable to load artist" = "Tidak dapat memuat artis";
+
+"Unable to load content" = "Tidak dapat memuat konten";
+
+"Unable to load playlist" = "Tidak dapat memuat daftar putar";
+
+"Unavailable" = "Tidak tersedia";
+
+"Undo" = "Batalkan";
+
+"Unknown" = "Tidak diketahui";
+
+"Unknown Artist" = "Artis Tidak Dikenal";
+
+"Unlike" = "Batal suka";
+
+"Unmute" = "Bunyikan";
+
+"Up Next" = "Berikutnya";
+
+"Updates" = "Pembaruan";
+
+"Version" = "Versi";
+
+"Video" = "Video";
+
+"View Album" = "Lihat Album";
+
+"View Artist" = "Lihat Artis";
+
+"View Playlist" = "Lihat Daftar Putar";
+
+"View Podcast" = "Lihat Podcast";
+
+"Volume Down" = "Volume Turun";
+
+"Volume Up" = "Volume Naik";
+
+"Waiting for authorization…" = "Menunggu otorisasi…";
+
+"Welcome to Kaset" = "Selamat datang di Kaset";
+
+"What would you like to change?" = "Apa yang ingin Anda ubah?";
+
+"What would you like to do with your queue?" = "Apa yang ingin Anda lakukan dengan antrean?";
+
+"What would you like to do?" = "Apa yang ingin Anda lakukan?";
+
+"What's New in Kaset" = "Apa yang Baru di Kaset";
+
+"When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations." = "Jika diaktifkan, Anda dapat menggunakan perintah bahasa alami, penyempurnaan daftar putar bertenaga AI, dan penjelasan lirik.";
+
+"Your Library" = "Pustaka Anda";
+
+"Your library is empty" = "Pustaka Anda kosong";

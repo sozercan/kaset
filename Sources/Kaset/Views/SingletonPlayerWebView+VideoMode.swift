@@ -6,7 +6,8 @@ import WebKit
 extension SingletonPlayerWebView {
     /// Updates WebView size based on display mode.
     func updateDisplayMode(_ mode: DisplayMode) {
-        guard let webView else { return }
+        guard let webView, self.displayMode != mode else { return }
+        DiagnosticsLogger.player.info("SingletonPlayerWebView.updateDisplayMode: \(String(describing: mode), privacy: .public)")
         self.displayMode = mode
 
         switch mode {
@@ -49,11 +50,7 @@ extension SingletonPlayerWebView {
                 }
             })();
         """
-        webView.evaluateJavaScript(script) { _, error in
-            if let error {
-                DiagnosticsLogger.player.error("Failed to inject blackout CSS: \(error.localizedDescription)")
-            }
-        }
+        webView.evaluateJavaScript(script) { _, _ in }
     }
 
     /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
@@ -116,7 +113,13 @@ extension SingletonPlayerWebView {
             })();
         """
 
-        webView.evaluateJavaScript(debugScript) { [weak self] _, _ in
+        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
+            if let error {
+                DiagnosticsLogger.player.error("Video debug script failed: \(error.localizedDescription, privacy: .public)")
+            }
+            if let dict = result as? [String: Any] {
+                DiagnosticsLogger.player.info("Video mode debug result (Info): \(String(describing: dict), privacy: .public)")
+            }
             // Now click the Video tab
             self?.clickVideoTabAndInjectCSS()
         }
@@ -130,53 +133,47 @@ extension SingletonPlayerWebView {
         // It appears as a segmented control near the top of the player page
         let clickVideoTabScript = """
             (function() {
-                // Method 1: Look for the Song/Video toggle buttons
-                // These are typically in a toggle group with "Song" and "Video" labels
-                const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
-                for (const btn of toggleButtons) {
+                // Method 1: Internal State Enforcement (Most robust)
+                const playerPage = document.querySelector('ytmusic-player-page');
+                if (playerPage && typeof playerPage.videoMode !== 'undefined') {
+                    if (playerPage.videoMode !== true) {
+                        playerPage.videoMode = true;
+                        if (typeof playerPage.onVideoModeChanged === 'function') {
+                            playerPage.onVideoModeChanged();
+                        }
+                        console.log('[Kaset] Forced videoMode = true via property');
+                        return { clicked: true, method: 'propertySet' };
+                    }
+                    return { clicked: false, message: 'Already in video mode (property)' };
+                }
+
+                // Method 2: Click the AV Switcher (Native feel)
+                const switcher = document.querySelector('ytmusic-av-switcher');
+                if (switcher) {
+                    const videoBtn = switcher.querySelector('#video-button');
+                    if (videoBtn && !videoBtn.hasAttribute('active')) {
+                        videoBtn.click();
+                        console.log('[Kaset] Clicked Video toggle via switcher');
+                        return { clicked: true, method: 'switcher' };
+                    }
+                }
+
+                // Method 3: Fallback Button Search
+                const allButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
+                for (const btn of allButtons) {
                     const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
                     if (text === 'video') {
-                        btn.click();
-                        console.log('[Kaset] Clicked Video toggle button');
-                        return { clicked: true, method: 'toggleButton', text: text };
-                    }
-                }
-
-                // Method 2: Look for ytmusic-player-page and find the toggle there
-                const playerPage = document.querySelector('ytmusic-player-page');
-                if (playerPage) {
-                    // The toggle might be in a specific container
-                    const toggleContainer = playerPage.querySelector('.toggle-container, .segment-button-container, [class*="toggle"]');
-                    if (toggleContainer) {
-                        const buttons = toggleContainer.querySelectorAll('button, [role="button"]');
-                        for (const btn of buttons) {
-                            const text = (btn.textContent || '').trim().toLowerCase();
-                            if (text === 'video') {
-                                btn.click();
-                                return { clicked: true, method: 'toggleContainer', text: text };
-                            }
+                        const isActive = btn.hasAttribute('active') || btn.classList.contains('active') || btn.getAttribute('aria-pressed') === 'true';
+                        if (!isActive) {
+                            btn.click();
+                            console.log('[Kaset] Clicked Video button by text');
+                            return { clicked: true, method: 'textMatch' };
                         }
+                        return { clicked: false, message: 'Already in video mode (text)' };
                     }
                 }
 
-                // Method 3: Find by aria-label or data attributes
-                const videoBtn = document.querySelector('[aria-label*="Video" i], [data-value="VIDEO"]');
-                if (videoBtn) {
-                    videoBtn.click();
-                    return { clicked: true, method: 'ariaLabel' };
-                }
-
-                // Method 4: Look in the header area for Song/Video chips
-                const chips = document.querySelectorAll('yt-chip-cloud-chip-renderer, ytmusic-chip-renderer, .chip');
-                for (const chip of chips) {
-                    const text = (chip.textContent || '').trim().toLowerCase();
-                    if (text === 'video') {
-                        chip.click();
-                        return { clicked: true, method: 'chip', text: text };
-                    }
-                }
-
-                return { clicked: false, message: 'Video toggle not found' };
+                return { clicked: false, message: 'Video toggle/property not found' };
             })();
         """
 
@@ -186,7 +183,13 @@ extension SingletonPlayerWebView {
                let clicked = resultDict["clicked"] as? Bool,
                !clicked
             {
-                self?.logger.warning("Video tab not found - YouTube UI may have changed")
+                let msg = resultDict["message"] as? String ?? "unknown"
+                self?.logger.warning("Video tab not found: \(msg, privacy: .public)")
+                // Fallback: Remove blackout if we can't find the toggle, so user at least sees SOMETHING
+                self?.removeBlackoutOnly()
+            } else if result == nil {
+                self?.logger.warning("Video tab script returned nil result - blackout may persist")
+                self?.removeBlackoutOnly()
             }
 
             // Wait a moment for the video mode to activate, then inject CSS
@@ -197,137 +200,137 @@ extension SingletonPlayerWebView {
         }
     }
 
+    /// Helper to remove blackout overlay on failures
+    private func removeBlackoutOnly() {
+        self.webView?.evaluateJavaScript("const b = document.getElementById('kaset-blackout'); if (b) b.remove();")
+    }
+
     /// Actually injects the CSS styles for video mode.
     func injectVideoModeStyles() {
         guard let webView else { return }
 
         // Use superview frame since that's the actual container size
-        let superviewFrame = webView.superview?.frame ?? .zero
-        let width = Int(superviewFrame.width > 0 ? superviewFrame.width : 480)
-        let height = Int(superviewFrame.height > 0 ? superviewFrame.height : 270)
+        _ = webView.superview?.frame ?? .zero
 
-        let script = Self.videoContainerScript(width: width, height: height)
-        webView.evaluateJavaScript(script) { result, error in
+        let script = Self.videoContainerScriptInPlace()
+        webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
-                DiagnosticsLogger.player.error("Failed to inject video mode styles: \(error.localizedDescription)")
+                DiagnosticsLogger.player.error("Failed to inject video mode styles: \(error.localizedDescription, privacy: .public)")
+                self?.removeBlackoutOnly()
                 return
             }
-            if let dict = result as? [String: Any],
-               let success = dict["success"] as? Bool,
-               !success
-            {
-                DiagnosticsLogger.player.warning("Video mode CSS injection reported failure: \(dict)")
-            }
+            DiagnosticsLogger.player.info("Video mode styles (In-place) successfully injected")
+            self?.removeBlackoutOnly()
         }
     }
 
     // swiftlint:disable function_body_length
-    /// Generates the JavaScript to extract video into a fullscreen container.
-    private static func videoContainerScript(width: Int, height: Int) -> String {
-        // JavaScript to extract the video element into a fullscreen container
-        // Use explicit pixel values since viewport units don't update reliably in WKWebView
+    /// Generates the JavaScript to hide UI and show only video in-place.
+    private static func videoContainerScriptInPlace() -> String {
         """
         (function() {
             'use strict';
 
-            const containerWidth = \(width);
-            const containerHeight = \(height);
+            // 1. Create a global style to hide EVERYTHING by default
+            // Then specifically un-hide only the player tree.
+            const styleId = 'kaset-video-mode-style-v2';
+            let style = document.getElementById(styleId);
+            if (!style) {
+                style = document.createElement('style');
+                style.id = styleId;
+                document.head.appendChild(style);
+            }
 
-            // Remove existing Kaset video container if present
-            const existingContainer = document.getElementById('kaset-video-container');
-            if (existingContainer) {
-                // Move video back to original parent before removing container
-                const video = existingContainer.querySelector('video');
+            style.textContent = `
+                /* Hide everything by default */
+                html, body, * {
+                    visibility: hidden !important;
+                }
+
+                /* Show precisely the ancestor chain and its required layout */
+                .kaset-visible {
+                    visibility: visible !important;
+                    display: block !important;
+                    opacity: 1 !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: #000 !important;
+                    z-index: 2147483640 !important;
+                }
+
+                /* Ensure containers don't clip the video */
+                .kaset-visible {
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    overflow: visible !important;
+                }
+
+                /* The actual video element gets highest priority */
+                video.kaset-visible, .video-stream.kaset-visible {
+                    z-index: 2147483647 !important;
+                    object-fit: contain !important;
+                }
+
+                body {
+                    background: #000 !important;
+                    overflow: hidden !important;
+                    visibility: visible !important;
+                }
+                html {
+                    visibility: visible !important;
+                }
+            `;
+
+            // 2. Identify the video and mark its ancestors
+            const markAncestors = () => {
+                const video = document.querySelector('video');
+                if (!video) return;
+
+                // Clear old marks
+                document.querySelectorAll('.kaset-visible').forEach(el => el.classList.remove('kaset-visible'));
+
+                // Mark current video and all its parents
+                let current = video;
+                while (current && current !== document.documentElement) {
+                    current.classList.add('kaset-visible');
+                    current = current.parentElement;
+                }
+            };
+
+            // 3. Continuous Enforcement Loop
+            const enforceVisibility = () => {
+                markAncestors();
+                const video = document.querySelector('video');
+                if (video && typeof window.__kasetVideoModeActive === 'boolean' && window.__kasetVideoModeActive) {
+                    // Force Video Mode via Redux/Property if needed
+                    const playerPage = document.querySelector('ytmusic-player-page');
+                    if (playerPage && playerPage.videoMode !== true) {
+                        playerPage.videoMode = true;
+                        if (typeof playerPage.onVideoModeChanged === 'function') playerPage.onVideoModeChanged();
+                    }
+                }
+                if (window.__kasetVideoModeActive) {
+                    requestAnimationFrame(enforceVisibility);
+                }
+            };
+            window.__kasetVideoModeActive = true;
+            requestAnimationFrame(enforceVisibility);
+
+            // Remove the extraction container if it exists from previous attempts
+            const oldContainer = document.getElementById('kaset-video-container');
+            if (oldContainer) {
+                const video = oldContainer.querySelector('video');
                 if (video && video.__kasetOriginalParent) {
                     video.__kasetOriginalParent.appendChild(video);
+                    delete video.__kasetOriginalParent;
                 }
-                existingContainer.remove();
+                oldContainer.remove();
             }
 
-            // Find the video element
-            const video = document.querySelector('video');
-            if (!video) {
-                console.log('[Kaset] No video element found');
-                return { success: false, error: 'No video element' };
-            }
-
-            // Store original parent for restoration later
-            video.__kasetOriginalParent = video.parentElement;
-
-            // Create a fullscreen container for the video
-            const container = document.createElement('div');
-            container.id = 'kaset-video-container';
-            container.style.cssText = `
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: ${containerWidth}px !important;
-                height: ${containerHeight}px !important;
-                background: #000 !important;
-                z-index: 2147483647 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            `;
-
-            // Prevent clicks from bubbling to YouTube's underlying player
-            // This stops YouTube from intercepting clicks and changing volume
-            container.addEventListener('click', (e) => {
-                e.stopPropagation();
-            }, true);
-            container.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-            }, true);
-            container.addEventListener('mouseup', (e) => {
-                e.stopPropagation();
-            }, true);
-
-            // Style the video element with native controls
-            // Use explicit pixel values AND override any max-width/max-height from YouTube CSS
-            video.style.cssText = `
-                width: ${containerWidth}px !important;
-                height: ${containerHeight}px !important;
-                max-width: ${containerWidth}px !important;
-                max-height: ${containerHeight}px !important;
-                min-width: ${containerWidth}px !important;
-                min-height: ${containerHeight}px !important;
-                object-fit: contain !important;
-                background: #000 !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                pointer-events: auto !important;
-            `;
-            // Disable native controls - users should use app's player bar for control
-            // This prevents volume conflicts from native control interactions
-            video.controls = false;
-
-            // Prevent video click events from reaching YouTube's handlers
-            video.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-            }, true);
-
-            // Move video into our container (audio continues uninterrupted)
-            container.appendChild(video);
-            document.body.appendChild(container);
-
-            // Remove blackout now that video container is in place
-            const blackout = document.getElementById('kaset-blackout');
-            if (blackout) blackout.remove();
-
-            // Restore volume to app's target value (YouTube may have reset it)
-            if (typeof window.__kasetTargetVolume === 'number') {
-                video.volume = window.__kasetTargetVolume;
-            }
-
-            return {
-                success: true,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-                containerWidth: containerWidth,
-                containerHeight: containerHeight
-            };
+            return { success: true };
         })();
         """
     }
@@ -344,37 +347,29 @@ extension SingletonPlayerWebView {
                 const blackout = document.getElementById('kaset-blackout');
                 if (blackout) blackout.remove();
 
-                // Remove old CSS-based style if present
-                const style = document.getElementById('kaset-video-mode-style');
+                // Remove the in-place style
+                const style = document.getElementById('kaset-video-mode-style-v2');
                 if (style) style.remove();
 
-                // Remove video style
-                const videoStyle = document.getElementById('kaset-video-style');
-                if (videoStyle) videoStyle.remove();
+                // Stop the enforcement loop
+                window.__kasetVideoModeActive = false;
 
-                // Remove video container and restore video to original parent
-                const container = document.getElementById('kaset-video-container');
-                if (container) {
-                    const video = container.querySelector('video');
-                    if (video && video.__kasetOriginalParent) {
-                        // Restore video styles and remove controls
-                        video.style.cssText = '';
-                        video.controls = false;
-                        // Move back to original parent
-                        video.__kasetOriginalParent.appendChild(video);
-                        delete video.__kasetOriginalParent;
-                    }
-                    container.remove();
-                    console.log('[Kaset] Video restored to original location');
+                // Remove video styles manually too
+                const videos = document.querySelectorAll('video');
+                for (const video of videos) {
+                    video.style.setProperty('width', '', '');
+                    video.style.setProperty('height', '', '');
+                    video.style.setProperty('position', '', '');
+                    video.style.setProperty('display', '', '');
+                    video.style.setProperty('visibility', '', '');
                 }
+
+                // Restore body
+                document.body.style.overflow = '';
+                document.body.style.background = '';
             })();
         """
-
-        webView.evaluateJavaScript(script) { _, error in
-            if let error {
-                DiagnosticsLogger.player.error("Failed to remove video mode CSS: \(error.localizedDescription)")
-            }
-        }
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Re-injects video mode after resize or other layout changes.
@@ -389,44 +384,30 @@ extension SingletonPlayerWebView {
 
         guard width > 0, height > 0 else { return }
 
-        // Update the video container to match WebView bounds exactly
-        let resizeScript = """
+        // Update the video UI to ensure everything stays hidden and centered
+        let refreshScript = """
             (function() {
-                const container = document.getElementById('kaset-video-container');
-                if (!container) return { success: false };
+                const style = document.getElementById('kaset-video-mode-style-v2');
+                if (!style) return { success: false, error: 'no video-mode-style' };
 
-                const width = \(width);
-                const height = \(height);
-
-                // Update container to fill viewport
-                container.style.width = width + 'px';
-                container.style.height = height + 'px';
-
-                // Also update the video element with explicit pixel dimensions
-                const video = container.querySelector('video');
-                if (video) {
-                    video.style.width = width + 'px';
-                    video.style.height = height + 'px';
-                    video.style.maxWidth = width + 'px';
-                    video.style.maxHeight = height + 'px';
-                    video.style.minWidth = width + 'px';
-                    video.style.minHeight = height + 'px';
-                    video.style.objectFit = 'contain';
+                // Re-apply videoMode property if it drifted
+                const playerPage = document.querySelector('ytmusic-player-page');
+                if (playerPage && typeof playerPage.videoMode !== 'undefined' && playerPage.videoMode !== true) {
+                    playerPage.videoMode = true;
+                    if (typeof playerPage.onVideoModeChanged === 'function') {
+                        playerPage.onVideoModeChanged();
+                    }
                 }
 
-                return { success: true, width: width, height: height };
+                return { success: true };
             })();
         """
-        webView.evaluateJavaScript(resizeScript) { result, error in
-            if let error {
-                DiagnosticsLogger.player.error("Failed to refresh video mode CSS: \(error.localizedDescription)")
-                return
-            }
+        webView.evaluateJavaScript(refreshScript) { result, _ in
             if let dict = result as? [String: Any],
                let success = dict["success"] as? Bool,
                !success
             {
-                DiagnosticsLogger.player.warning("Video mode CSS resize reported failure")
+                DiagnosticsLogger.player.debug("Video refresh skipped: no style yet")
             }
         }
     }

@@ -38,7 +38,17 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+            .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
@@ -58,7 +68,17 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+            .build
+          key: ${{ runner.os }}-spm-ui-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-ui-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Build app bundle for UI tests
@@ -87,7 +107,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: macOS-UITestResults
           path: ./build/*.xcresult

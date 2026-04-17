@@ -68,7 +68,7 @@ struct OnboardingView: View {
                         .font(.headline)
                         .frame(maxWidth: 280)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
 
                 Text("Sign in to access your YouTube Music library")

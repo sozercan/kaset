@@ -444,11 +444,11 @@ struct LyricsView: View {
         self.partialSummary = nil
         self.logger.info("Explaining lyrics for: \(track.title)")
 
-        let instructions = """
-        You are a music critic and lyricist. Analyze song lyrics and provide insights about
-        their meaning, themes, and emotional content. Be insightful but accessible.
-        Don't be overly academic or pretentious.
-        """
+        let promptVersion = FoundationModelsPromptVersion.current
+        let instructions = FoundationModelsPromptLibrary.lyricsExplanationInstructions(
+            version: promptVersion
+        )
+        self.logger.debug("Using Foundation Models lyrics prompt version \(promptVersion.logDescription)")
 
         guard let session = FoundationModelsService.shared.createAnalysisSession(instructions: instructions) else {
             self.logger.warning("Apple Intelligence not available for lyrics explanation")
@@ -457,7 +457,7 @@ struct LyricsView: View {
             return
         }
 
-        let textToExplain: String
+        var textToExplain: String
         switch self.syncedLyricsService.currentLyrics {
         case let .synced(synced):
             textToExplain = synced.lines.map(\.text).joined(separator: "\n")
@@ -467,13 +467,26 @@ struct LyricsView: View {
             return
         }
 
-        let prompt = """
-        Analyze these lyrics for "\(track.title)" by \(track.artistsDisplay):
+        textToExplain = await FoundationModelsService.shared.fittedPromptContent(
+            context: "lyrics explanation",
+            instructions: instructions,
+            content: textToExplain,
+            generationSchema: LyricsSummary.generationSchema
+        ) { fittedLyrics in
+            FoundationModelsPromptLibrary.lyricsExplanationPrompt(
+                trackTitle: track.title,
+                artistsDisplay: track.artistsDisplay,
+                lyrics: fittedLyrics,
+                version: promptVersion
+            )
+        }
 
-        \(textToExplain)
-
-        Identify the key themes, overall mood, and explain what the song is about.
-        """
+        let prompt = FoundationModelsPromptLibrary.lyricsExplanationPrompt(
+            trackTitle: track.title,
+            artistsDisplay: track.artistsDisplay,
+            lyrics: textToExplain,
+            version: promptVersion
+        )
 
         do {
             // Use streaming for progressive UI updates

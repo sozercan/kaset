@@ -22,8 +22,14 @@ struct ArtistDetailViewModelTests {
         SongActionsHelper.artistLibraryReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
     }
 
-    private func awaitArtistReconciliation() async {
-        try? await Task.sleep(for: .milliseconds(50))
+    private func awaitArtistReconciliation(refreshes expectedRefreshCount: Int = 1) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while self.mockClient.getLibraryContentCallCount < expectedRefreshCount {
+            guard clock.now < deadline else { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     // MARK: - Initial State Tests
@@ -267,7 +273,7 @@ struct ArtistDetailViewModelTests {
         await self.viewModel.load()
         self.mockClient.reset()
         await self.viewModel.toggleSubscription()
-        await self.awaitArtistReconciliation()
+        await self.awaitArtistReconciliation(refreshes: 2)
 
         #expect(self.mockClient.subscribeToArtistCalled == true)
         #expect(self.mockClient.getLibraryContentCalled == true)

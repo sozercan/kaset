@@ -21,7 +21,7 @@ final class MoodsAndGenresViewModel {
     // swiftformat:disable modifierOrder
     /// Task for background loading, cancelled in deinit.
     /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
-    nonisolated(unsafe) private var backgroundLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var backgroundLoadTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     /// Number of background continuations loaded.

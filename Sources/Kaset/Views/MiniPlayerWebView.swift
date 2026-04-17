@@ -324,7 +324,11 @@ final class SingletonPlayerWebView {
         webView.translatesAutoresizingMaskIntoConstraints = true
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
-        // Note: Don't inject CSS here - updateDisplayMode() handles it after layout completes
+
+        // Note: Don't re-inject CSS here if we're already in video mode.
+        // Re-injecting causes the YouTube UI to briefly flicker back in because it
+        // removes and re-creates our custom video container.
+        // updateDisplayMode(.video) handles the initial injection perfectly.
     }
 
     /// Starts high frequency polling for synced lyrics
@@ -507,13 +511,14 @@ final class SingletonPlayerWebView {
                         videoId: observedVideoId
                     )
 
-                    // Close video window on track change, but skip during grace period
-                    // (grace period prevents false positives during initial video mode setup)
-                    // Note: trackChanged detection now uses videoId changes too, so this
-                    // can fire before the player bar text has caught up to the new track.
-                    if self.playerService.showVideo, !self.playerService.isVideoGracePeriodActive {
+                    // Close video window on track change, but skip during grace period.
+                    // We only close if the videoId actually changed to prevent closing
+                    // due to spurious metadata (title/artist) glitches during resize.
+                    let videoIdChanged = observedVideoId != nil && observedVideoId != self.playerService.currentTrack?.videoId
+
+                    if self.playerService.showVideo, videoIdChanged, !self.playerService.isVideoGracePeriodActive {
                         DiagnosticsLogger.player.info(
-                            "trackChanged to '\(title)' while video shown - closing video window"
+                            "trackChanged to videoId '\(observedVideoId ?? "unknown")' while video shown - closing video window"
                         )
                         self.playerService.showVideo = false
                     }
@@ -531,32 +536,32 @@ final class SingletonPlayerWebView {
             let savedVolume = self.playerService.volume
             let applyVolumeScript = """
                 (function() {
-                    // Set target volume for enforcement
-                    window.__kasetTargetVolume = \(savedVolume);
-                    // Set flag to prevent enforcement from reverting our change
-                    window.__kasetIsSettingVolume = true;
+                    try {
+                        const volume = \(savedVolume);
+                        window.__kasetTargetVolume = volume;
+                        window.__kasetIsSettingVolume = true;
 
-                    // Apply to video element if it exists
-                    const video = document.querySelector('video');
-                    if (video) {
-                        video.volume = \(savedVolume);
+                        const video = document.querySelector('video');
+                        if (video) {
+                            video.volume = volume;
+                        }
+
+                        // Sync YouTube's internal player APIs if ready
+                        const ytVolume = Math.round(volume * 100);
+                        const player = document.querySelector('ytmusic-player');
+                        if (player && player.playerApi && typeof player.playerApi.setVolume === 'function') {
+                            player.playerApi.setVolume(ytVolume);
+                        }
+                        const moviePlayer = document.getElementById('movie_player');
+                        if (moviePlayer && typeof moviePlayer.setVolume === 'function') {
+                            moviePlayer.setVolume(ytVolume);
+                        }
+
+                        setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
+                        return video ? 'applied' : 'no-video-yet';
+                    } catch (e) {
+                         return 'error: ' + e;
                     }
-
-                    // Sync YouTube's internal player APIs to prevent overrides
-                    const ytVolume = Math.round(\(savedVolume) * 100);
-                    const player = document.querySelector('ytmusic-player');
-                    if (player && player.playerApi) {
-                        player.playerApi.setVolume(ytVolume);
-                    }
-                    const moviePlayer = document.getElementById('movie_player');
-                    if (moviePlayer && moviePlayer.setVolume) {
-                        moviePlayer.setVolume(ytVolume);
-                    }
-
-                    // Clear flag after a moment
-                    setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
-
-                    return video ? 'applied' : 'no-video-yet';
                 })();
             """
             webView.evaluateJavaScript(applyVolumeScript) { result, error in
@@ -570,8 +575,15 @@ final class SingletonPlayerWebView {
 
                 // Restore lyrics high-frequency polling if it was active
                 if SingletonPlayerWebView.shared.isLyricsPollActive {
-                    // Re-start to inject interval onto fresh JS context
                     SingletonPlayerWebView.shared.startLyricsPoll()
+                }
+
+                // Re-inject video mode CSS if it was active
+                if SingletonPlayerWebView.shared.displayMode == .video {
+                    SingletonPlayerWebView.shared.refreshVideoModeCSS()
+                    // If refresh fails to find the container (because it's a new page),
+                    // it will log a debug message. We should also call the full injection.
+                    SingletonPlayerWebView.shared.injectVideoModeCSS()
                 }
             }
         }

@@ -14,6 +14,7 @@ enum PaginatedContentType: String, Hashable {
     case moodsAndGenres = "FEmusic_moods_and_genres"
     case newReleases = "FEmusic_new_releases"
     case podcasts = "FEmusic_podcasts"
+    case history = "FEmusic_history"
 
     /// Display name for logging.
     var displayName: String {
@@ -24,6 +25,7 @@ enum PaginatedContentType: String, Hashable {
         case .moodsAndGenres: "moods and genres"
         case .newReleases: "new releases"
         case .podcasts: "podcasts"
+        case .history: "history"
         }
     }
 }
@@ -80,14 +82,14 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Fetches paginated content for the given content type.
     /// Stores the continuation token for subsequent calls to `getContinuation`.
-    private func fetchPaginatedContent(type: PaginatedContentType) async throws -> HomeResponse {
+    private func fetchPaginatedContent(type: PaginatedContentType, ttl: TimeInterval? = APICache.TTL.home) async throws -> HomeResponse {
         self.logger.info("Fetching \(type.displayName) page")
 
         let body: [String: Any] = [
             "browseId": type.rawValue,
         ]
 
-        let data = try await request("browse", body: body, ttl: APICache.TTL.home)
+        let data = try await request("browse", body: body, ttl: ttl)
         let response = HomeResponseParser.parse(data)
 
         // Store continuation token for progressive loading
@@ -206,6 +208,22 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Whether more new releases sections are available to load.
     var hasMoreNewReleasesSections: Bool {
         self.hasMoreSections(for: .newReleases)
+    }
+
+    /// Fetches the history page content (initial sections only for fast display).
+    /// No cache — history changes with every song played.
+    func getHistory() async throws -> HomeResponse {
+        try await self.fetchPaginatedContent(type: .history, ttl: nil)
+    }
+
+    /// Fetches the next batch of history sections via continuation.
+    func getHistoryContinuation() async throws -> [HomeSection]? {
+        try await self.fetchContinuation(type: .history)
+    }
+
+    /// Whether more history sections are available to load.
+    var hasMoreHistorySections: Bool {
+        self.hasMoreSections(for: .history)
     }
 
     /// Fetches the podcasts page content (initial sections only for fast display).
@@ -1355,7 +1373,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             "client": [
                 "clientName": "WEB_REMIX",
                 "clientVersion": Self.clientVersion,
-                "hl": "en",
+                "hl": SettingsManager.shared.contentLanguage.apiLanguageCode,
                 "gl": "US",
                 "experimentIds": [],
                 "experimentsToken": "",

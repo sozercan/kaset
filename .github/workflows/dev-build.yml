@@ -39,7 +39,17 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+            .build
+          key: ${{ runner.os }}-spm-build-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-build-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Get short SHA
@@ -78,7 +88,7 @@ jobs:
             kaset-dev.dmg
 
       - name: Upload DMG
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         if: github.event_name != 'pull_request'
         with:
           name: kaset-dev-${{ steps.slug.outputs.sha_short }}

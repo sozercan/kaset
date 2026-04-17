@@ -9,11 +9,10 @@ struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
-        // Video content (WebView container) with native HTML5 controls
+        // The Window controls the aspect ratio and min size;
+        // using .fit here can cause the webview to shrink/be letterboxed incorrectly during fast resize.
         VideoWebViewContainer()
             .background(.black)
-            .aspectRatio(16.0 / 9.0, contentMode: .fit)
-            .frame(minWidth: 320, minHeight: 180)
             .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
     }
 }
@@ -59,16 +58,21 @@ final class VideoContainerView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private var refreshTask: Task<Void, Never>?
+
     @objc private func frameDidChange(_: Notification) {
-        // Immediately update container size (no debounce for instant feedback)
-        Task { @MainActor in
-            if SingletonPlayerWebView.shared.displayMode == .video {
+        // Debounce slightly to prevent JS overload during continuous resize
+        self.refreshTask?.cancel()
+        self.refreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .nanoseconds(16_666_666)) // ~60fps
+            if !Task.isCancelled, SingletonPlayerWebView.shared.displayMode == .video {
                 SingletonPlayerWebView.shared.refreshVideoModeCSS()
             }
         }
     }
 
     deinit {
+        self.refreshTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 }

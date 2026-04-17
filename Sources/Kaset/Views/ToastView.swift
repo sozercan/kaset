@@ -41,40 +41,39 @@ struct ToastView: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Icon
-            Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(self.isError ? .red : .blue)
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 10) {
+                // Icon
+                Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(self.isError ? .red : .blue)
 
-            // Message
-            Text(self.message)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(2)
+                // Message
+                Text(self.message)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            // Dismiss button
-            if let dismiss = self.onDismiss {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
+                // Dismiss button
+                if let dismiss = self.onDismiss {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "Dismiss"))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Dismiss"))
             }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minWidth: 250, maxWidth: 400)
-        .background {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.regularMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(minWidth: 250, maxWidth: 400)
+            .glassEffect(.regular, in: .rect(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         }
         .glassEffectTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Toast.container)

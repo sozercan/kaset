@@ -21,7 +21,7 @@ final class LRCLibProvider: LyricsProvider {
     func search(info: LyricsSearchInfo) async -> LyricResult {
         var components = URLComponents(string: "https://lrclib.net/api/search")!
 
-        var items = [
+        let items = [
             URLQueryItem(name: "track_name", value: info.title),
             URLQueryItem(name: "artist_name", value: info.artist),
         ]

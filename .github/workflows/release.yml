@@ -41,7 +41,17 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+            .build
+          key: ${{ runner.os }}-spm-release-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-release-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
@@ -70,6 +80,15 @@ jobs:
           echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
+
+      - name: Cache Homebrew
+        id: cache-homebrew
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            /usr/local/Homebrew
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-homebrew-create-dmg
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -143,7 +162,7 @@ jobs:
         run: mv kaset.dmg "${{ steps.artifact.outputs.filename }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ${{ steps.artifact.outputs.filename }}

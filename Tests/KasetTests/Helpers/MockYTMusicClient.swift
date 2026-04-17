@@ -3,7 +3,7 @@ import Foundation
 
 /// A mock implementation of YTMusicClientProtocol for testing.
 @MainActor
-final class MockYTMusicClient: YTMusicClientProtocol {
+final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this type_body_length
     private static func normalizedPlaylistId(_ playlistId: String) -> String {
         if playlistId.hasPrefix("VL") {
             return String(playlistId.dropFirst(2))
@@ -27,6 +27,9 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     var moodsAndGenresContinuationSections: [[HomeSection]] = []
     var newReleasesResponse: HomeResponse = .init(sections: [])
     var newReleasesContinuationSections: [[HomeSection]] = []
+    var historyResponse: HomeResponse = .init(sections: [])
+    var historyResponseSequence: [HomeResponse] = []
+    var historyContinuationSections: [[HomeSection]] = []
     var podcastsSections: [PodcastSection] = []
     var podcastsContinuationSections: [[PodcastSection]] = []
     var searchResponse: SearchResponse = .empty
@@ -70,6 +73,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private var _chartsContinuationIndex = 0
     private var _moodsAndGenresContinuationIndex = 0
     private var _newReleasesContinuationIndex = 0
+    private var _historyContinuationIndex = 0
     private var _podcastsContinuationIndex = 0
     private var _likedSongsContinuationIndex = 0
     private var _playlistContinuationIndex = 0
@@ -93,6 +97,10 @@ final class MockYTMusicClient: YTMusicClientProtocol {
 
     var hasMoreNewReleasesSections: Bool {
         self._newReleasesContinuationIndex < self.newReleasesContinuationSections.count
+    }
+
+    var hasMoreHistorySections: Bool {
+        self._historyContinuationIndex < self.historyContinuationSections.count
     }
 
     var hasMorePodcastsSections: Bool {
@@ -124,6 +132,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
     private(set) var getHomeContinuationCallCount = 0
     private(set) var getExploreCalled = false
     private(set) var getExploreCallCount = 0
+    private(set) var getHistoryCallCount = 0
     private(set) var getExploreContinuationCalled = false
     private(set) var getExploreContinuationCallCount = 0
     private(set) var searchCalled = false
@@ -256,6 +265,26 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         }
         let sections = self.newReleasesContinuationSections[self._newReleasesContinuationIndex]
         self._newReleasesContinuationIndex += 1
+        return sections
+    }
+
+    func getHistory() async throws -> HomeResponse {
+        self.getHistoryCallCount += 1
+        self._historyContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        if !self.historyResponseSequence.isEmpty {
+            return self.historyResponseSequence.removeFirst()
+        }
+        return self.historyResponse
+    }
+
+    func getHistoryContinuation() async throws -> [HomeSection]? {
+        if let error = shouldThrowError { throw error }
+        guard self._historyContinuationIndex < self.historyContinuationSections.count else {
+            return nil
+        }
+        let sections = self.historyContinuationSections[self._historyContinuationIndex]
+        self._historyContinuationIndex += 1
         return sections
     }
 
@@ -433,6 +462,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0
+        self._historyContinuationIndex = 0
         self._podcastsContinuationIndex = 0
         self._likedSongsContinuationIndex = 0
         self._playlistContinuationIndex = 0
@@ -741,6 +771,7 @@ final class MockYTMusicClient: YTMusicClientProtocol {
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0
+        self._historyContinuationIndex = 0
         self._podcastsContinuationIndex = 0
         self._likedSongsContinuationIndex = 0
         self._playlistContinuationIndex = 0

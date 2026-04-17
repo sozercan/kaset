@@ -34,6 +34,7 @@ struct MainWindow: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -57,6 +58,7 @@ struct MainWindow: View {
     @State private var newReleasesViewModel: NewReleasesViewModel?
     @State private var podcastsViewModel: PodcastsViewModel?
     @State private var libraryViewModel: LibraryViewModel?
+    @State private var historyViewModel: HistoryViewModel?
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -72,6 +74,7 @@ struct MainWindow: View {
         _newReleasesViewModel = State(initialValue: NewReleasesViewModel(client: client))
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
+        _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
 
     /// Access to the app delegate for persistent WebView.
@@ -92,6 +95,14 @@ struct MainWindow: View {
                 } else {
                     OnboardingView()
                 }
+            }
+            .onAppear {
+                DiagnosticsLogger.app.info("MainWindow: UI appeared")
+            }
+            .task {
+                DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
+                await self.authService.checkLoginStatus()
+                DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
             // Persistent WebView - always present once a video has been requested
@@ -158,7 +169,7 @@ struct MainWindow: View {
                         }
 
                     VStack(spacing: 0) {
-                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
+                        self.commandBar
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
 
                         Spacer(minLength: 0)
@@ -226,6 +237,8 @@ struct MainWindow: View {
 
                 guard newAccountId != nil else { return }
 
+                self.historyViewModel?.reset()
+
                 DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
                 await withTaskGroup(of: Void.self) { group in
@@ -268,7 +281,7 @@ struct MainWindow: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure sidebar is visible when window becomes key (e.g., restored from dock)
+                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
                 if self.columnVisibility != .all {
                     self.columnVisibility = .all
                 }
@@ -340,6 +353,14 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var commandBar: some View {
+        CommandBarView(
+            client: self.client,
+            isPresented: self.$isCommandBarPresented,
+            searchViewModel: self.searchViewModel
+        )
+    }
+
     /// Returns the view for a specific navigation item.
     private func viewForNavigationItem(_ item: NavigationItem) -> some View { // swiftlint:disable:this cyclomatic_complexity
         Group {
@@ -349,7 +370,9 @@ struct MainWindow: View {
             case .explore:
                 if let vm = exploreViewModel { ExploreView(viewModel: vm) }
             case .search:
-                if let vm = searchViewModel { SearchView(viewModel: vm) }
+                if let vm = searchViewModel {
+                    SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
+                }
             case .charts:
                 if let vm = chartsViewModel { ChartsView(viewModel: vm) }
             case .moodsAndGenres:
@@ -368,6 +391,8 @@ struct MainWindow: View {
                 )
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+            case .history:
+                if let vm = historyViewModel { HistoryView(viewModel: vm) }
             }
         }
         .environment(self.libraryViewModel)
@@ -462,6 +487,8 @@ struct MainWindow: View {
             group.addTask { await self.moodsAndGenresViewModel?.refresh() }
             group.addTask { await self.newReleasesViewModel?.refresh() }
             group.addTask { await self.podcastsViewModel?.refresh() }
+            group.addTask { await self.likedMusicViewModel?.refresh() }
+            group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
     }
@@ -479,6 +506,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case podcasts = "Podcasts"
     case likedMusic = "Liked Music"
     case library = "Library"
+    case history = "History"
 
     var id: String {
         rawValue
@@ -504,6 +532,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             String(localized: "Liked Music")
         case .library:
             String(localized: "Library")
+        case .history:
+            String(localized: "History")
         }
     }
 
@@ -527,6 +557,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "heart.fill"
         case .library:
             "square.stack.fill"
+        case .history:
+            "clock.arrow.circlepath"
         }
     }
 }

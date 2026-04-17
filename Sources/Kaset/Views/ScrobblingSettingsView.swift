@@ -16,7 +16,7 @@ struct ScrobblingSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
-        .navigationTitle("Scrobbling")
+        .localizedNavigationTitle("Scrobbling")
     }
 }
 
@@ -31,10 +31,9 @@ struct ScrobbleServiceRow: View {
 
     var body: some View {
         Section {
-            Toggle(
-                "Enable \(self.service.serviceName) Scrobbling",
-                isOn: self.enabledBinding
-            )
+            Toggle(isOn: self.enabledBinding) {
+                Text(self.enableScrobblingToggleLabel)
+            }
 
             // Connection status
             HStack {
@@ -56,6 +55,19 @@ struct ScrobbleServiceRow: View {
     }
 
     // MARK: - Bindings
+
+    /// Localized “Enable (service) Scrobbling” using `%@` so translators can reorder the service name.
+    private var enableScrobblingToggleLabel: String {
+        let format = String(
+            localized: String.LocalizationValue("Enable %@ Scrobbling"),
+            bundle: AppLocalization.bundle
+        )
+        return String(
+            format: format,
+            locale: self.settings.contentLanguage.locale,
+            self.service.serviceName as CVarArg
+        )
+    }
 
     private var enabledBinding: Binding<Bool> {
         Binding(

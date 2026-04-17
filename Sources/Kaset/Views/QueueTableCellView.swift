@@ -311,18 +311,18 @@ class WaveformView: NSView {
     }
 
     private func startAnimation() {
-        guard timer == nil else { return }
+        guard self.timer == nil else { return }
 
         self.startTime = CACurrentMediaTime()
 
-        // Use Timer for 30fps animation - simpler and safer than CVDisplayLink
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.updateBars()
+        // Keep the timer on the main run loop and hop explicitly before touching view state.
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateBars()
+            }
         }
-        // Add to common run loop modes to ensure it runs during tracking/dragging
-        if let timer {
-            RunLoop.current.add(timer, forMode: .common)
-        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     private func stopAnimation() {
@@ -350,7 +350,7 @@ class WaveformView: NSView {
         CATransaction.commit()
     }
 
-    deinit {
-        stopAnimation()
+    isolated deinit {
+        self.stopAnimation()
     }
 }

@@ -120,8 +120,8 @@ final class SearchViewModel {
     // swiftformat:disable modifierOrder
     /// Tasks for search operations, cancelled in deinit.
     /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
-    nonisolated(unsafe) private var searchTask: Task<Void, Never>?
-    nonisolated(unsafe) private var suggestionsTask: Task<Void, Never>?
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var suggestionsTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     init(client: any YTMusicClientProtocol) {

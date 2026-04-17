@@ -52,13 +52,13 @@ final class ScrobblingCoordinator {
 
     // swiftformat:disable modifierOrder
     /// Polling task, cancelled in deinit.
-    nonisolated(unsafe) private var pollingTask: Task<Void, Never>?
+    private var pollingTask: Task<Void, Never>?
 
     /// Queue flush task, cancelled in deinit.
-    nonisolated(unsafe) private var flushTask: Task<Void, Never>?
+    private var flushTask: Task<Void, Never>?
 
     /// Now-playing tasks, cancelled in stopMonitoring/deinit.
-    nonisolated(unsafe) private var nowPlayingTasks: [Task<Void, Never>] = []
+    private var nowPlayingTasks: [Task<Void, Never>] = []
     // swiftformat:enable modifierOrder
 
     /// Whether the coordinator is actively monitoring.
@@ -84,10 +84,9 @@ final class ScrobblingCoordinator {
         self.queue = queue
     }
 
+    /// Note: Do not reference main actor properties here. All cleanup should be done in stopMonitoring().
     deinit {
-        pollingTask?.cancel()
-        flushTask?.cancel()
-        nowPlayingTasks.forEach { $0.cancel() }
+        // All async tasks must be cancelled via stopMonitoring() before deinit.
     }
 
     // MARK: - Service Helpers
@@ -108,6 +107,7 @@ final class ScrobblingCoordinator {
 
     // MARK: - Lifecycle
 
+    /// Must be called before deinit to ensure all async tasks are cancelled on the main actor.
     /// Starts monitoring PlayerService for scrobble-worthy events.
     func startMonitoring() {
         guard !self.isMonitoring else { return }

@@ -32,7 +32,7 @@ struct NewReleasesView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("New Releases")
+            .localizedNavigationTitle("New Releases")
             .navigationDestinations(client: self.viewModel.client)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

@@ -8,12 +8,17 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct CommandBarView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(\.navigationSelection) private var navigationSelection
+    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
 
     /// The YTMusicClient for search operations.
     let client: any YTMusicClientProtocol
 
     /// Binding to control visibility (used for dismiss).
     @Binding var isPresented: Bool
+
+    /// Shared search view model for routing search-only intents into the Search tab.
+    let searchViewModel: SearchViewModel?
 
     /// The user's input text.
     @State private var inputText = ""
@@ -32,6 +37,12 @@ struct CommandBarView: View {
 
     private let logger = DiagnosticsLogger.ai
     @Namespace private var commandBarNamespace
+
+    init(client: any YTMusicClientProtocol, isPresented: Binding<Bool>, searchViewModel: SearchViewModel? = nil) {
+        self.client = client
+        self._isPresented = isPresented
+        self.searchViewModel = searchViewModel
+    }
 
     /// Dismisses the command bar.
     private func dismissCommandBar() {
@@ -238,50 +249,13 @@ struct CommandBarView: View {
         }
     }
 
+    private var aiPromptVersion: FoundationModelsPromptVersion {
+        .current
+    }
+
     /// System instructions for the AI session.
     private var aiSystemInstructions: String {
-        """
-        You are a music assistant for the Kaset app. Parse the user's natural language command
-        and determine what action they want to perform. Return a MusicIntent with:
-        1. The action (play, queue, shuffle, like, skip, pause, etc.)
-        2. Parsed query components (artist, genre, mood, era, version, activity)
-        3. The full original query (IMPORTANT: preserve keywords like "hits", "greatest", "best of")
-
-        PARSE NATURAL LANGUAGE INTO STRUCTURED COMPONENTS:
-
-        Example: "rolling stones 90s hits"
-        → action: play, query: "rolling stones 90s hits", artist: "Rolling Stones", era: "1990s"
-
-        Example: "upbeat rolling stones songs from the 90s"
-        → action: play, query: "upbeat rolling stones songs", artist: "Rolling Stones", mood: "upbeat", era: "1990s"
-
-        Example: "chill jazz for studying"
-        → action: play, query: "chill jazz for studying", genre: "jazz", mood: "chill", activity: "study"
-
-        Example: "acoustic covers of pop hits"
-        → action: play, query: "acoustic covers of pop hits", genre: "pop", version: "acoustic cover"
-
-        Example: "80s synthwave"
-        → action: play, query: "80s synthwave", genre: "synthwave", era: "1980s"
-
-        Example: "add some energetic workout music to queue"
-        → action: queue, query: "energetic workout music", mood: "energetic", activity: "workout"
-
-        Example: "best of queen"
-        → action: play, query: "best of queen", artist: "Queen"
-
-        COMPONENT EXTRACTION RULES:
-        - query: ALWAYS include the full natural language request (minus action words)
-        - artist: Extract artist name if mentioned ("Beatles", "Taylor Swift", "Rolling Stones")
-        - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop
-        - mood: upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy
-        - era: Use decade format (1960s, 1970s, 1980s, 1990s, 2000s, 2010s, 2020s) or "classic"
-        - version: acoustic, live, remix, instrumental, cover, unplugged, remastered
-        - activity: workout, study, sleep, party, driving, cooking, focus, running, yoga
-
-        For simple commands: skip/next → skip, pause/stop → pause, play/resume → resume,
-        shuffle my queue → shuffle (shuffleScope: queue), like this → like, clear queue → queue (query: "__clear__")
-        """
+        FoundationModelsPromptLibrary.commandBarInstructions(version: self.aiPromptVersion)
     }
 
     private func processCommand() async {
@@ -293,6 +267,7 @@ struct CommandBarView: View {
         self.resultMessage = nil
 
         self.logger.info("Processing command: \(query)")
+        self.logger.debug("Using Foundation Models command prompt version \(self.aiPromptVersion.logDescription)")
 
         guard FoundationModelsService.shared.isAvailable else {
             self.errorMessage = String(localized: "Apple Intelligence is not available")
@@ -302,6 +277,13 @@ struct CommandBarView: View {
 
         let searchTool = MusicSearchTool(client: self.client)
         let queueTool = QueueTool(playerService: self.playerService)
+        await FoundationModelsService.shared.logPromptBudget(
+            context: "command processing",
+            instructions: self.aiSystemInstructions,
+            prompt: query,
+            tools: [searchTool, queueTool],
+            generationSchema: MusicIntent.generationSchema
+        )
 
         guard let session = FoundationModelsService.shared.createCommandSession(
             instructions: self.aiSystemInstructions,
@@ -602,8 +584,8 @@ struct CommandBarView: View {
 
         case .search:
             HapticService.success()
-            // Switch to search view with the query
-            self.fallbackToSearch()
+            let fallbackQuery = intent.query.isEmpty ? searchQuery : intent.query
+            await self.fallbackToSearch(query: fallbackQuery)
         }
 
         // Auto-dismiss after successful action (except search)
@@ -673,10 +655,23 @@ struct CommandBarView: View {
         }
     }
 
-    private func fallbackToSearch() {
-        // Dismiss and trigger search view navigation
-        // This would need to be wired up to the navigation system
-        self.dismissCommandBar()
+    private func fallbackToSearch(query: String) async {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        await MainActor.run {
+            self.navigationSelection.wrappedValue = .search
+            if let searchViewModel = self.searchViewModel {
+                searchViewModel.selectedFilter = .all
+                searchViewModel.query = trimmedQuery
+                if !trimmedQuery.isEmpty {
+                    searchViewModel.search()
+                }
+            }
+            self.dismissCommandBar()
+        }
+        try? await Task.sleep(for: .milliseconds(100))
+        await MainActor.run {
+            self.searchFocusTrigger.wrappedValue = true
+        }
     }
 
     // MARK: - Content Routing
