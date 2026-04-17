@@ -39,10 +39,6 @@ final class PlaylistDetailViewModel {
         self.client = client
     }
 
-    deinit {
-        self.cancelAllLiveSyncTasks()
-    }
-
     /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").
     /// Used to clean fallback author values that may contain redundant song counts.
     private func stripSongCount(from text: String?) -> String? {
