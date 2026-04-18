@@ -1,3 +1,4 @@
+import CoreAudio
 import Foundation
 import Observation
 
@@ -115,6 +116,47 @@ final class EqualizerService {
         self.defaults = defaults
         self.settings = Self.loadPersistedSettings(from: defaults)
         self.syncEngine()
+        self.installDefaultOutputDeviceListener()
+    }
+
+    // MARK: - Output device tracking
+
+    /// Rebinds the engine when the user plugs in headphones, switches to
+    /// Bluetooth, etc. The aggregate device is tied to a specific output
+    /// sub-device at creation time, so we tear down and rebuild on each
+    /// system default-output change.
+    private func installDefaultOutputDeviceListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            Task { @MainActor in
+                self?.handleDefaultOutputDeviceChange()
+            }
+        }
+        // Passing nil lets Core Audio invoke the block on its own
+        // callback thread; the block hops to the main actor via
+        // `Task { @MainActor in ... }`.
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            nil,
+            listener
+        )
+        if status != noErr {
+            self.logger.warning("failed to listen for default-output changes: \(status)")
+        }
+    }
+
+    private func handleDefaultOutputDeviceChange() {
+        guard self.settings.isEnabled else { return }
+        self.logger.info("default output device changed — rebinding equalizer engine")
+        self.engine.stop()
+        // Re-attempt start with playback-known-active so a missing tap
+        // source at this exact moment doesn't fail silently.
+        self.attemptStart(playbackKnownActive: self.isPlaybackActive())
     }
 
     // MARK: - Public API
