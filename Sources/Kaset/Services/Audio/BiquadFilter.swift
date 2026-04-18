@@ -7,10 +7,9 @@ import Foundation
 ///
 /// Designed for use inside a Core Audio render callback:
 /// - No allocation during `process(...)`
-/// - No locking; coefficient updates are atomic on 64-bit platforms for each
-///   `Float` write, and the smoothing one-pole absorbs whatever transient
-///   sliver the audio thread sees mid-update — so a slider sweep from the
-///   main thread reads as a slew, not a click.
+/// - No locking; coefficient target writes from the main thread can tear
+///   across the 5 `Double` stores, but the per-sample smoothing one-pole
+///   absorbs the transient so a slider sweep reads as a slew, not a click.
 /// - State is kept per channel so stereo processing doesn't leak between
 ///   left and right.
 ///

@@ -7,7 +7,7 @@ import Foundation
 /// `EqualizerServiceTests` can exercise the service's state machine
 /// without touching Core Audio. Lives in `Helpers/` because multiple
 /// suites may grow to need it.
-final class MockEqualizerAudioEngine: EqualizerAudioEngineProtocol, @unchecked Sendable {
+final class MockEqualizerAudioEngine: EqualizerAudioEngineProtocol {
     var startResult: Result<Void, EqualizerAudioEngine.StartFailure>
     private(set) var startCallCount = 0
     private(set) var stopCallCount = 0

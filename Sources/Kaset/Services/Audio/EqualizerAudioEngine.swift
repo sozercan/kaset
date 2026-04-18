@@ -1,5 +1,4 @@
 import AudioToolbox
-import AVFoundation
 import CoreAudio
 import Foundation
 
@@ -8,23 +7,15 @@ import Foundation
 /// HAL-level duplex implementation of the Kaset equalizer.
 ///
 /// An `AudioDeviceIOProcID` is registered directly on the aggregate
-/// device created by ``ProcessTapHelper`` (which contains the WebKit
-/// process tap + the system default output). The HAL delivers input
-/// (tap samples) and output (speaker) buffer lists to the same I/O
-/// block, where we run six cascaded ``BiquadFilter`` sections, apply
-/// an envelope-follower limiter with stereo linking, and blend wet/dry.
-///
-/// This replaces an earlier AUHAL-based design that called
-/// `AudioUnitRender` on bus 1 from a bus 0 render callback. AUHAL
-/// refuses those pulls with `-10863 kAudioUnitErr_CannotDoInCurrentContext`
-/// on macOS 26 whenever the tap's sample rate differs from the main
-/// sub-device's — a configuration Core Audio accepts but AUHAL can't
-/// render through. Driving the HAL directly avoids that bus plumbing.
+/// device created by ``ProcessTapHelper`` (WebKit process tap + system
+/// default output). The HAL delivers input (tap samples) and output
+/// (speaker) buffer lists to the same I/O block, where we run six
+/// cascaded ``BiquadFilter`` sections, apply an envelope-follower
+/// limiter with stereo linking, and blend wet/dry.
 ///
 /// **Not** `@MainActor`-isolated: the I/O block runs on Core Audio's
-/// real-time thread and must be able to call back into the engine
-/// without hopping actors. Lifecycle calls (`start`, `stop`, `apply`)
-/// are invoked from the main-actor-isolated ``EqualizerService``.
+/// real-time thread. Lifecycle calls (`start`, `stop`, `apply`) are
+/// invoked from the main-actor-isolated ``EqualizerService``.
 final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// Sample rate used when the tap hasn't reported one yet — only matters
     /// for biquad coefficient pre-seeding before the first audio cycle.
@@ -48,9 +39,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
     private let tapHelper = ProcessTapHelper()
 
-    /// HAL I/O proc registered on the aggregate device. See the
-    /// file-level docstring for why this replaced the earlier AUHAL
-    /// render callback.
+    /// HAL I/O proc registered on the aggregate device.
     private var ioProcID: AudioDeviceIOProcID?
 
     /// Format derived from the aggregate device's nominal sample rate.
@@ -289,11 +278,14 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
         // Run filters unconditionally; the wet/dry mix below handles bypass.
         // Iteration uses an explicit index so the render thread doesn't
-        // create an array iterator (RT-safety).
+        // create an array iterator (RT-safety). Hoist the filter array
+        // out of `self.` so each loop iteration skips a class-pointer
+        // load + bounds check.
         let gain = self.preampLinear
         var mix = self.wetMix
         let target = self.wetMixTarget
-        let filterCount = self.filters.count
+        let filters = self.filters
+        let filterCount = filters.count
 
         if channelCount >= 2 {
             guard let leftPtr = mutableOutput[0].mData?
@@ -308,7 +300,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 return
             }
             for filterIndex in 0 ..< filterCount {
-                self.filters[filterIndex].processNonInterleavedStereo(
+                filters[filterIndex].processNonInterleavedStereo(
                     left: leftPtr,
                     right: rightPtr,
                     frameCount: frames
@@ -337,7 +329,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 return
             }
             for filterIndex in 0 ..< filterCount {
-                self.filters[filterIndex].processMono(samples: ptr, frameCount: frames)
+                filters[filterIndex].processMono(samples: ptr, frameCount: frames)
             }
             var env = self.envMono
             var gm = self.limiterGainMono

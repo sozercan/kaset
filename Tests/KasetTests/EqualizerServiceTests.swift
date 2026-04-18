@@ -247,11 +247,12 @@ struct EqualizerServiceTests {
     }
 
     @Test("Decoded settings with a mismatched band-count are normalised to the default shape")
-    func persistenceNormalisesBandCount() {
-        let harness = Self.makeService()
-        let service = harness.service
-        let defaults = harness.defaults
-        // Write a short payload directly to simulate an older build.
+    func persistenceNormalisesBandCount() throws {
+        // Fresh defaults suite (discarding the makeService harness; we
+        // need a clean UserDefaults to pre-seed before the service init
+        // reads from it).
+        let defaults = try #require(UserDefaults(suiteName: Self.suiteName))
+        defaults.removePersistentDomain(forName: Self.suiteName)
         let shortPayload = EQSettings(
             isEnabled: false,
             preampDB: 0,
@@ -260,7 +261,6 @@ struct EqualizerServiceTests {
         )
         let data = try? JSONEncoder().encode(shortPayload)
         defaults.set(data, forKey: "settings.equalizer")
-        _ = service // silence unused
 
         let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
         #expect(revived.settings.bandGainsDB.count == EQBand.defaultBands.count)

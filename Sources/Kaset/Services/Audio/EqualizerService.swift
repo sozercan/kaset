@@ -300,6 +300,7 @@ final class EqualizerService {
         } else {
             self.retryTask?.cancel()
             self.verificationTask?.cancel()
+            self.deviceChangeTask?.cancel()
             self.engine.stop()
             self.lastFailure = nil
             // `inferredPermissionDenial` deliberately survives the recursive
