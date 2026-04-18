@@ -70,23 +70,23 @@ final class EqualizerService {
 
     /// Cancelled and replaced on every ``retryStartIfEnabled()`` call so
     /// rapid `PlayerService.isPlaying` toggles don't pile up pending tasks.
-    private var retryTask: Task<Void, Never>?
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
 
     /// Cancelled and replaced on every ``scheduleTapVerification()`` call
     /// for the same reason.
-    private var verificationTask: Task<Void, Never>?
+    @ObservationIgnored private var verificationTask: Task<Void, Never>?
 
     /// Cancelled and replaced on every settings mutation. A slider drag
     /// fires `didSet` at UI frame rate; debouncing keeps `UserDefaults`
     /// writes off the hot path while still flushing within ~250 ms of the
     /// last edit.
-    private var persistTask: Task<Void, Never>?
+    @ObservationIgnored private var persistTask: Task<Void, Never>?
 
     private static let persistDebounceInterval: Duration = .milliseconds(250)
 
     /// Cancelled and replaced on every default-output change so a rapid
     /// plug/unplug storm doesn't pile up pending rebinds.
-    private var deviceChangeTask: Task<Void, Never>?
+    @ObservationIgnored private var deviceChangeTask: Task<Void, Never>?
 
     /// Probe used by ``scheduleTapVerification`` to decide whether a silent
     /// tap really means "no permission" or just "user paused playback". A
@@ -95,7 +95,6 @@ final class EqualizerService {
     private let isPlaybackActive: @MainActor () -> Bool
 
     private let logger = DiagnosticsLogger.equalizer
-    private static let logger = DiagnosticsLogger.equalizer
 
     /// Reused across persist/load to avoid allocating a fresh coder on
     /// every slider tick (settings can mutate at UI frame rate during a
@@ -286,7 +285,7 @@ final class EqualizerService {
             decoded.clampGains()
             return decoded
         } catch {
-            Self.logger.warning("failed to decode stored settings, falling back to flat: \(error.localizedDescription)")
+            DiagnosticsLogger.equalizer.warning("failed to decode stored settings, falling back to flat: \(error.localizedDescription)")
             return .flat
         }
     }

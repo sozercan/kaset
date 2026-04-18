@@ -89,7 +89,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     private let bands: [EQBand]
 
     private let logger = DiagnosticsLogger.equalizer
-    private static let logger = DiagnosticsLogger.equalizer
 
     // MARK: - Init
 
