@@ -20,19 +20,21 @@ Earlier sessions (recorded in the project memory) confirmed:
 
 ## Decision
 
-Build the equalizer on **macOS 14.2+ Core Audio Process Tap** plus a **single duplex `AUHAL`** unit, with all DSP implemented in-app.
+Build the equalizer on **macOS 14.2+ Core Audio Process Tap** plus an **`AudioDeviceIOProc`** registered directly on the aggregate device, with all DSP implemented in-app.
 
 ### Audio path
 
 ```
-WebKit GPU process  ──tap──▶  Aggregate device  ──AUHAL bus 1──▶  Render callback
-                              (output device =                      ▶ Biquad x6
-                               main subdevice,                      ▶ Preamp + soft limiter
-                               drift-comp on tap)                   ▶ Wet/dry crossfade
-                                                  ◀──AUHAL bus 0──  ──▶  Speakers
+WebKit GPU process  ──tap──▶  Aggregate device  ──┐
+                              (main sub-device =   │
+                               default output,     ├─▶ AudioDeviceIOProc
+                               drift-comp on tap)  │   ▶ Biquad x6
+                                                   │   ▶ Preamp + envelope limiter
+                                                   │   ▶ Wet/dry crossfade
+                                                   └─▶  Speakers
 ```
 
-Single clock domain (the aggregate device clock-masters off the system default output), single `AUHAL` running both directions, no ring buffer.
+Single clock domain (aggregate device clock-masters off the system default output); input and output buffers are delivered to the same I/O-proc callback, so there's no ring buffer and no cross-device drift.
 
 ### Process discovery
 
@@ -43,17 +45,18 @@ Single clock domain (the aggregate device clock-masters off the system default o
 `BiquadFilter` is a hand-rolled RBJ-cookbook biquad in Transposed Direct Form II:
 - **Topology**: low-shelf @ 60 Hz, peaking @ 150 / 400 / 1 k / 2.4 k Hz, high-shelf @ 15 kHz — matches the standard six-band EQ frequency layout.
 - **Coefficient slewing**: per-sample one-pole interpolation toward target coefficients (~5 ms time constant) prevents zipper noise on slider sweeps.
-- **Headroom**: `EQSettings.autoTrimDB` attenuates by half the peak band gain so boosts don't immediately clip; a tanh soft limiter at 0.9 catches whatever transients still exceed full scale.
-- **Bypass crossfade**: render callback always runs the filter chain and then mixes wet vs. dry by a slewed factor — toggling the EQ never clicks and re-enable doesn't trigger filter-warm-up transients.
+- **Headroom**: `EQSettings.autoTrimDB` attenuates by 0.25× the peak positive band gain so boosted presets keep most of their loudness while staying off the limiter.
+- **Envelope-follower limiter**: stereo-linked peak follower with fast attack (~0.5 ms) and slower release (~150 ms), gain-slew smoothed. Produces no harmonic distortion, unlike a memoryless `tanh` saturator, so ±12 dB slider extremes stay transparent.
+- **Bypass crossfade**: the I/O proc always runs the filter chain and then mixes wet vs. dry by a slewed factor — toggling the EQ never clicks and re-enable doesn't trigger filter-warm-up transients.
 
 ### Why not `AVAudioUnitEQ` or `AVAudioEngine`?
 
 - `AVAudioEngine.inputNode` cannot be rebound to an aggregate device at runtime (`kAudioUnitErr_FailedInitialization`).
 - `AVAudioUnitEQ` only accepts peaking filters via the standard `parametric` mode and isn't callable outside an `AVAudioEngine`. Implementing biquads directly gives us the shelf topology and parameter slewing in ~250 lines.
 
-### Why `AUHAL` duplex over two separate `AUHAL`s?
+### Why HAL `AudioDeviceIOProc` over duplex `AUHAL`?
 
-Two `AUHAL`s on different devices (one input on aggregate, one output on default) was the prior session's path and produced "underwater sound" — the read/write clocks drift independently. A single duplex `AUHAL` bound to an aggregate that already includes the output device shares one clock domain, so the input and output cycles are inherently locked.
+An earlier revision of this feature used a single duplex `AUHAL` (`kAudioUnitSubType_HALOutput`) calling `AudioUnitRender` on bus 1 from a bus-0 render callback. On macOS 26 that path returns `kAudioUnitErr_CannotDoInCurrentContext` (-10863) whenever the tap's sample rate differs from the aggregate's main sub-device (i.e. the system output) — a configuration Core Audio happily accepts but AUHAL can't render through. Registering an `AudioDeviceIOProc` directly on the aggregate bypasses AUHAL: HAL delivers input and output buffer lists in the same callback, resolves the sample-rate conversion internally, and never hits the bus-plumbing restriction.
 
 ## Required system surface
 
@@ -65,7 +68,7 @@ Two `AUHAL`s on different devices (one input on aggregate, one output on default
 
 - New code lives under `Sources/Kaset/Models/` (`EQSettings`, `EQBand`, `EQPreset`), `Sources/Kaset/Services/Audio/` (`EqualizerService`, `EqualizerAudioEngine`, `ProcessTapHelper`, `BiquadFilter`), and `Sources/Kaset/Views/EqualizerSettingsView.swift`.
 - **Permission UX is intent-preserving.** `EQSettings.isEnabled` is the user's intent and persists across launches. The actual engine state is shown separately via the status row (Active / Waiting for playback / Permission needed / Engine error). When TCC permission for *Screen & System Audio Recording* is missing the toggle auto-disables and the status row offers a deep-link to the right System Settings pane; otherwise a transient launch-time tap failure (no playback yet) leaves the toggle on so the engine spins up automatically when playback starts.
-- **No additional latency** in the audio path — duplex `AUHAL` renders input and output in the same cycle.
+- **No additional latency** in the audio path — the HAL I/O proc delivers input and output in the same callback.
 - **Other macOS apps' audio is unaffected** — the tap targets only Kaset's WebKit subprocess.
 - **WebKit subprocess restarts** invalidate the tap. The user must toggle the EQ off and on to refresh; we don't currently observe XPC lifecycle to do this automatically.
 
