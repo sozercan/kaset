@@ -55,10 +55,10 @@ struct EQBand: Identifiable, Hashable {
     /// musical (wider lows, slightly narrower around the presence region).
     static let defaultBands: [EQBand] = [
         EQBand(frequencyHz: 60, q: 0.71, type: .lowShelf),
-        EQBand(frequencyHz: 150, q: 0.85, type: .peaking),
-        EQBand(frequencyHz: 400, q: 1.0, type: .peaking),
-        EQBand(frequencyHz: 1000, q: 1.0, type: .peaking),
-        EQBand(frequencyHz: 2400, q: 1.1, type: .peaking),
+        EQBand(frequencyHz: 150, q: 0.55, type: .peaking),
+        EQBand(frequencyHz: 400, q: 0.5, type: .peaking),
+        EQBand(frequencyHz: 1000, q: 0.5, type: .peaking),
+        EQBand(frequencyHz: 2400, q: 0.55, type: .peaking),
         EQBand(frequencyHz: 15000, q: 0.71, type: .highShelf),
     ]
 }

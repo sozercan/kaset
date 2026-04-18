@@ -71,52 +71,56 @@ enum EQPreset: String, CaseIterable, Identifiable, Codable {
     }
 
     /// Gain values in dB for the six bands at 60 / 150 / 400 / 1 k / 2.4 k / 15 k Hz.
+    ///
+    /// Values follow the Spotify mobile preset tables, nudged slightly to
+    /// play well with our wider Q (≈0.5 on the mid peaking bands) so each
+    /// preset's character is recognisable without pushing the limiter.
     var bandGainsDB: [Float] {
         switch self {
         case .flat, .custom:
             [0, 0, 0, 0, 0, 0]
         case .acoustic:
-            [5, 4.5, 3.5, 1, 1.5, 2.5]
+            [4, 3, 2, 1, 2, 3]
         case .bassBooster:
-            [5.5, 4.5, 3.5, 1, 0, 0]
+            [5, 4, 3, 0, 0, 0]
         case .bassReducer:
-            [-5.5, -4.5, -3.5, -1, 0, 0]
+            [-5, -4, -3, -1, 0, 0]
         case .classical:
-            [5, 4, -1, -1, 1.5, 4]
+            [4, 3, 0, 0, 2, 4]
         case .dance:
-            [4, 6, 2, -2, 2, 4]
+            [4, 5, 2, -1, 2, 4]
         case .deep:
-            [5, 3, 1, 1, -2, -4]
+            [4, 3, 1, 0, -2, -3]
         case .electronic:
-            [4.5, 3.5, -2, 1, 2.5, 4]
+            [4, 3, -1, 1, 2, 4]
         case .hipHop:
-            [5, 4, 1.5, -1, 1.5, 3]
+            [5, 3, 1, 0, 1, 3]
         case .jazz:
-            [4, 3, 1, 2, -1, 3]
+            [3, 2, 1, 2, 1, 3]
         case .latin:
-            [4, 0, -1, -1, 0, 4]
+            [4, 1, -1, 0, 1, 4]
         case .loudness:
-            [6, 4, 0, 0, 2, 5]
+            [5, 3, 0, 0, 2, 5]
         case .lounge:
-            [-3, -1, 2, 4, 1.5, -2]
+            [-2, 0, 2, 3, 2, -1]
         case .piano:
-            [3, 1, 0, 2.5, 3, 1.5]
+            [2, 1, 0, 2, 3, 2]
         case .pop:
-            [-1.5, 2, 4, 4, 1, -1.5]
+            [-1, 1, 3, 4, 2, -1]
         case .rnb:
-            [3, 5, 2.5, -2, 2, 3]
+            [3, 4, 2, -1, 2, 3]
         case .rock:
-            [5, 3, -1, -2, 2, 4.5]
+            [4, 3, -1, -1, 2, 4]
         case .smallSpeakers:
-            [5, 4, 1.5, -1, -2, -4]
+            [4, 3, 1, 0, -2, -3]
         case .spokenWord:
-            [-3, -1, 1.5, 4, 2.5, -1]
+            [-2, -1, 1, 4, 3, -1]
         case .trebleBooster:
-            [0, 0, 0, 1.5, 4, 6]
+            [0, 0, 0, 1, 3, 5]
         case .trebleReducer:
-            [0, 0, 0, -1.5, -4, -6]
+            [0, 0, 0, -1, -3, -5]
         case .vocalBooster:
-            [-2, -1, 3, 4.5, 2.5, -1]
+            [-1, 0, 3, 5, 3, 0]
         }
     }
 

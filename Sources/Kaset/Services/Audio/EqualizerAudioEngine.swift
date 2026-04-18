@@ -172,7 +172,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         guard createStatus == noErr, let procID else {
             self.logger.error("AudioDeviceCreateIOProcID failed: \(createStatus)")
             self.tapHelper.stop()
-            return .failure(.renderCallback(createStatus))
+            return .failure(.ioProcInstall(createStatus))
         }
         self.ioProcID = procID
 
@@ -370,8 +370,12 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     // shape without the "tearing" artefacts a waveshaper introduces at
     // ±12 dB slider extremes.
 
-    /// Threshold (linear amplitude) — ≈ −0.26 dBFS ceiling.
-    private static let limiterThreshold: Float = 0.97
+    /// Threshold (linear amplitude) — ≈ −0.09 dBFS ceiling. Close to
+    /// 0 dBFS so the limiter only intervenes on true clipping peaks;
+    /// sustained content sits below threshold and the gain multiplier
+    /// stays flat at 1.0, eliminating the subtle noise-floor modulation
+    /// a tighter ceiling (e.g. 0.97) introduced.
+    private static let limiterThreshold: Float = 0.99
     /// Envelope-follower attack (~0.5 ms @ 48 kHz).
     private static let limiterAttackCoeff: Float = 0.959
     /// Envelope-follower release (~150 ms @ 48 kHz) — slow enough to
@@ -451,7 +455,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     enum StartFailure: Error {
         case tap(ProcessTapHelper.StartFailure)
         case invalidTapFormat
-        case renderCallback(OSStatus)
+        case ioProcInstall(OSStatus)
         case engineStart(String)
 
         /// Whether the failure is recoverable just by playing audio — we
@@ -485,8 +489,8 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 String(localized: "The equalizer requires macOS 14.2 or later.")
             case .invalidTapFormat:
                 String(localized: "The system didn't report a valid audio format for Kaset's output. Try disabling the equalizer, starting playback, then enabling it again.")
-            case let .renderCallback(status):
-                String(localized: "Couldn't install the audio render callback (\(status)).")
+            case let .ioProcInstall(status):
+                String(localized: "Couldn't install the audio I/O proc (\(status)).")
             case let .engineStart(detail):
                 String(localized: "Audio engine failed to start: \(detail)")
             }

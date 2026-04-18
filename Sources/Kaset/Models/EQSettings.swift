@@ -59,13 +59,13 @@ struct EQSettings: Codable, Equatable {
     /// reserves enough headroom that normal content sits below the
     /// threshold while presets keep most of their perceptual boost.
     ///
-    /// Formula: `-max(0, peak) × 0.25`. Examples:
-    ///   peak = +3 dB  → trim = −0.75 dB
-    ///   peak = +6 dB  → trim = −1.5 dB
-    ///   peak = +12 dB → trim = −3.0 dB
+    /// Formula: `-max(0, peak) × 0.2`. Examples:
+    ///   peak = +3 dB  → trim = −0.6 dB
+    ///   peak = +6 dB  → trim = −1.2 dB
+    ///   peak = +12 dB → trim = −2.4 dB
     var autoTrimDB: Float {
         let peak = self.bandGainsDB.max() ?? 0
-        return -max(0, peak) * 0.25
+        return -max(0, peak) * 0.2
     }
 
     private static func clamp(_ value: Float) -> Float {
