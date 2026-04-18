@@ -215,23 +215,41 @@ final class ProcessTapHelper {
 
     /// Returns the audio process objects we want to tap.
     ///
-    /// Kaset's audio is decoded by `WKWebView`'s WebKit subprocesses, not by
-    /// the app's main process — tapping `selfPID` therefore captures
-    /// silence. We enumerate Core Audio's process list, filter to WebKit
-    /// audio hosts, and return only those whose parent PID matches this
-    /// app. We deliberately don't fall back to "any WebKit process" — doing
-    /// so could mute Safari, Mail, or other unrelated apps.
+    /// Kaset's audio is decoded by `WKWebView`'s WebKit subprocesses, not
+    /// by the app's main process — tapping `selfPID` captures silence
+    /// because the host process is upstream of WKWebView's XPC audio
+    /// path. We therefore filter Core Audio's process list to WebKit
+    /// audio candidates whose parent PID is this app; if none are found
+    /// (the parent-PID lookup can fail under the hardened runtime), we
+    /// log a warning and fall back to any WebKit audio process rather
+    /// than leave the user silent. Self (`com.sertacozercan.Kaset`) is
+    /// excluded automatically — it isn't in ``webKitAudioBundleIDs``.
     private static func audioObjectsToTap() -> [AudioObjectID] {
         let allObjects = Self.allAudioProcessObjects()
+        let ourPID = ProcessInfo.processInfo.processIdentifier
 
-        // Tap WebKit audio subprocesses only. Deliberately excluding
-        // Kaset's own process object: Core Audio returns all-zero samples
-        // for a tap-on-self (even when the host process *is* the one
-        // emitting audio via WKWebView), which yields silent EQ output.
-        return allObjects.filter { objectID in
-            guard let bundleID = Self.processBundleID(of: objectID) else { return false }
-            return Self.isWebKitAudioCandidate(bundleID: bundleID)
+        var ours: [AudioObjectID] = []
+        var candidates: [AudioObjectID] = []
+        for objectID in allObjects {
+            guard let bundleID = Self.processBundleID(of: objectID),
+                  Self.isWebKitAudioCandidate(bundleID: bundleID)
+            else { continue }
+            let pid = Self.processPID(of: objectID)
+            let parent = pid > 0 ? Self.parentPID(of: pid) : -1
+            if parent == ourPID {
+                ours.append(objectID)
+            } else {
+                candidates.append(objectID)
+            }
         }
+        if !ours.isEmpty { return ours }
+        if !candidates.isEmpty {
+            Self.logger.warning(
+                "parent-PID match failed; tapping \(candidates.count) WebKit process(es) without ownership proof"
+            )
+            return candidates
+        }
+        return []
     }
 
     /// Enumerates all process objects currently registered with Core Audio.
