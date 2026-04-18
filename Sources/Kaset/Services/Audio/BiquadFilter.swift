@@ -65,7 +65,7 @@ final class BiquadFilter {
               q > 0
         else { return }
 
-        let alpha = terms.sinOmega / Double(2 * q)
+        let alpha = terms.sinOmega / (2 * Double(q))
         let capitalA = terms.capitalA
 
         self.installTargets(Coefficients(

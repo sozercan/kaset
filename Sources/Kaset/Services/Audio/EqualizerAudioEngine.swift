@@ -374,7 +374,10 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// 0 dBFS so the limiter only intervenes on true clipping peaks;
     /// sustained content sits below threshold and the gain multiplier
     /// stays flat at 1.0, eliminating the subtle noise-floor modulation
-    /// a tighter ceiling (e.g. 0.97) introduced.
+    /// a tighter ceiling (e.g. 0.97) introduced. Trade-off: with a
+    /// ~0.5 ms attack envelope, a step to ±1.0+ may briefly overshoot
+    /// before `gain` catches up — safe for our Float32 HAL output path
+    /// but worth keeping in mind if the device format ever narrows.
     private static let limiterThreshold: Float = 0.99
     /// Envelope-follower attack (~0.5 ms @ 48 kHz).
     private static let limiterAttackCoeff: Float = 0.959
