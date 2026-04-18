@@ -19,20 +19,23 @@ import Foundation
 final class BiquadFilter {
     // MARK: - Coefficients (current, ramped toward target each sample)
 
-    private var b0: Float = 1
-    private var b1: Float = 0
-    private var b2: Float = 0
-    private var a1: Float = 0
-    private var a2: Float = 0
+    // Coefficients are `Double` so round-off doesn't leak into the cascade
+    // quantization noise. Only the per-sample Float ↔ Double conversion at
+    // the input/output of the biquad happens at Float precision.
+    private var b0: Double = 1
+    private var b1: Double = 0
+    private var b2: Double = 0
+    private var a1: Double = 0
+    private var a2: Double = 0
 
     /// Coefficient targets written by the parameter-update path on the main
     /// actor. The render thread linearly slews the live coefficients toward
     /// these targets at ``smoothingAlpha`` per sample.
-    private var targetB0: Float = 1
-    private var targetB1: Float = 0
-    private var targetB2: Float = 0
-    private var targetA1: Float = 0
-    private var targetA2: Float = 0
+    private var targetB0: Double = 1
+    private var targetB1: Double = 0
+    private var targetB2: Double = 0
+    private var targetA1: Double = 0
+    private var targetA2: Double = 0
 
     /// One-pole smoothing coefficient.
     ///
@@ -40,14 +43,19 @@ final class BiquadFilter {
     /// roughly 0.0042. Hard-coded to keep the render loop allocation-free
     /// (we don't know the SR at construction); the constant is tuned for
     /// 44.1–96 kHz and stays inaudible across that range.
-    private let smoothingAlpha: Float = 0.004
+    private let smoothingAlpha: Double = 0.004
 
     // MARK: - State (z^-1, z^-2 per channel)
 
-    private var leftZ1: Float = 0
-    private var leftZ2: Float = 0
-    private var rightZ1: Float = 0
-    private var rightZ2: Float = 0
+    // State variables are `Double` rather than `Float` so round-off
+    // error doesn't accumulate audibly across a 6-biquad cascade. Input
+    // and output samples stay `Float` — only the feedback state (where
+    // accumulation happens) benefits from the extra precision, and the
+    // widening happens inside the inner loop below.
+    private var leftZ1: Double = 0
+    private var leftZ2: Double = 0
+    private var rightZ1: Double = 0
+    private var rightZ2: Double = 0
 
     // MARK: - Coefficient setters (call from main thread)
 
@@ -57,7 +65,7 @@ final class BiquadFilter {
               q > 0
         else { return }
 
-        let alpha = terms.sinOmega / (2 * q)
+        let alpha = terms.sinOmega / Double(2 * q)
         let capitalA = terms.capitalA
 
         self.installTargets(Coefficients(
@@ -89,7 +97,7 @@ final class BiquadFilter {
 
         /// Sign that flips the cosine-coupled term: `+1` for low-shelf,
         /// `-1` for high-shelf.
-        var sign: Float {
+        var sign: Double {
             switch self {
             case .low: 1
             case .high: -1
@@ -117,10 +125,10 @@ final class BiquadFilter {
         // negative, which can drive the radicand below zero and produce NaN
         // alphas at high gain. The default bands stay below this; the clamp
         // protects API callers that don't.
-        let safeSlope = min(slope, 1)
+        let safeSlope = min(Double(slope), 1)
         let capitalA = terms.capitalA
-        let sqrtA = sqrtf(capitalA)
-        let alpha = terms.sinOmega / 2 * sqrtf((capitalA + 1 / capitalA) * (1 / safeSlope - 1) + 2)
+        let sqrtA = sqrt(capitalA)
+        let alpha = terms.sinOmega / 2 * sqrt((capitalA + 1 / capitalA) * (1 / safeSlope - 1) + 2)
         let cosOmega = terms.cosOmega
         let sign = kind.sign
         let aPlus1 = capitalA + 1
@@ -163,17 +171,17 @@ final class BiquadFilter {
             a1 += (ta1 - a1) * alpha
             a2 += (ta2 - a2) * alpha
 
-            let xLeft = left[index]
+            let xLeft = Double(left[index])
             let yLeft = b0 * xLeft + lz1
             lz1 = b1 * xLeft - a1 * yLeft + lz2
             lz2 = b2 * xLeft - a2 * yLeft
-            left[index] = yLeft
+            left[index] = Float(yLeft)
 
-            let xRight = right[index]
+            let xRight = Double(right[index])
             let yRight = b0 * xRight + rz1
             rz1 = b1 * xRight - a1 * yRight + rz2
             rz2 = b2 * xRight - a2 * yRight
-            right[index] = yRight
+            right[index] = Float(yRight)
         }
 
         self.b0 = b0
@@ -208,11 +216,11 @@ final class BiquadFilter {
             a1 += (ta1 - a1) * alpha
             a2 += (ta2 - a2) * alpha
 
-            let x = samples[index]
+            let x = Double(samples[index])
             let y = b0 * x + z1
             z1 = b1 * x - a1 * y + z2
             z2 = b2 * x - a2 * y
-            samples[index] = y
+            samples[index] = Float(y)
         }
 
         self.b0 = b0
@@ -228,29 +236,29 @@ final class BiquadFilter {
 
     /// Pre-normalised RBJ terms shared by every coefficient setter.
     private struct CommonTerms {
-        let capitalA: Float
-        let cosOmega: Float
-        let sinOmega: Float
+        let capitalA: Double
+        let cosOmega: Double
+        let sinOmega: Double
     }
 
     private static func commonTerms(frequency: Float, gainDB: Float, sampleRate: Float) -> CommonTerms? {
         guard sampleRate > 0, frequency > 0 else { return nil }
-        let omega = 2 * .pi * frequency / sampleRate
+        let omega = 2 * Double.pi * Double(frequency) / Double(sampleRate)
         return CommonTerms(
-            capitalA: powf(10, gainDB / 40),
-            cosOmega: cosf(omega),
-            sinOmega: sinf(omega)
+            capitalA: pow(10, Double(gainDB) / 40),
+            cosOmega: cos(omega),
+            sinOmega: sin(omega)
         )
     }
 
     /// Raw RBJ-cookbook coefficient set, normalised by `installTargets`.
     private struct Coefficients {
-        let b0: Float
-        let b1: Float
-        let b2: Float
-        let a0: Float
-        let a1: Float
-        let a2: Float
+        let b0: Double
+        let b1: Double
+        let b2: Double
+        let a0: Double
+        let a1: Double
+        let a2: Double
     }
 
     private func installTargets(_ coeffs: Coefficients) {
