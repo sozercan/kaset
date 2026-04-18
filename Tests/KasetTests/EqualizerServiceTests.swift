@@ -9,7 +9,7 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct EqualizerServiceTests {
-    private static let storageKey = "settings.equalizer.v1"
+    private static let storageKey = "settings.equalizer"
 
     /// Returns a service backed by a fresh mock engine. Each call wipes
     /// the persisted settings so tests start from `.flat`. Note: a stray

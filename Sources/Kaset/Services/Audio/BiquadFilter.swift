@@ -113,9 +113,14 @@ final class BiquadFilter {
               slope > 0
         else { return }
 
+        // Clamp to (0, 1]: above 1 the cookbook's `(1/slope − 1)` term goes
+        // negative, which can drive the radicand below zero and produce NaN
+        // alphas at high gain. The default bands stay below this; the clamp
+        // protects API callers that don't.
+        let safeSlope = min(slope, 1)
         let capitalA = terms.capitalA
         let sqrtA = sqrtf(capitalA)
-        let alpha = terms.sinOmega / 2 * sqrtf((capitalA + 1 / capitalA) * (1 / slope - 1) + 2)
+        let alpha = terms.sinOmega / 2 * sqrtf((capitalA + 1 / capitalA) * (1 / safeSlope - 1) + 2)
         let cosOmega = terms.cosOmega
         let sign = kind.sign
         let aPlus1 = capitalA + 1

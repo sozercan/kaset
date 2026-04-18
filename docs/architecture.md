@@ -305,7 +305,7 @@ Owns the equalizer feature's user-facing state and lifecycle. The actual DSP run
 | `status` | `Status` | Computed engine status (`off` / `active` / `standby` / `permissionNeeded` / `error`) surfaced to the settings UI |
 | `lastFailure` | `StartFailure?` | Last raw engine failure; the UI reads it via `status` rather than directly |
 
-**Persistence**: Every mutation triggers a JSON round-trip under the `settings.equalizer.v1` UserDefaults key. The full settings shape (isEnabled, preampDB, bandGainsDB, preset) restores on next launch.
+**Persistence**: Every mutation triggers a JSON round-trip under the `settings.equalizer` UserDefaults key. The full settings shape (isEnabled, preampDB, bandGainsDB, preset) restores on next launch.
 
 **Engine seam**: `EqualizerAudioEngineProtocol` lets tests inject a no-op stub so `EqualizerServiceTests` can verify state transitions without touching Core Audio.
 

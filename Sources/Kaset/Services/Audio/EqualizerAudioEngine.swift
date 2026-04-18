@@ -91,6 +91,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     private let bands: [EQBand]
 
     private let logger = DiagnosticsLogger.equalizer
+    private static let logger = DiagnosticsLogger.equalizer
 
     // MARK: - Init
 
@@ -248,6 +249,9 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         self.tapHelper.stop()
         self.renderFormat = nil
         self.isRunning = false
+        // Reset so a stop/start cycle (e.g., after permission revoke) starts
+        // the silence verifier with a clean slate.
+        self.hasObservedAudio = false
     }
 
     /// Applies the latest user-facing settings to the DSP chain.
@@ -547,13 +551,13 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             componentFlagsMask: 0
         )
         guard let component = AudioComponentFindNext(nil, &description) else {
-            DiagnosticsLogger.equalizer.error("HAL AudioComponent not found")
+            Self.logger.error("HAL AudioComponent not found")
             return nil
         }
         var unit: AudioUnit?
         let status = AudioComponentInstanceNew(component, &unit)
         guard status == noErr, let unit else {
-            DiagnosticsLogger.equalizer.error("AudioComponentInstanceNew failed: \(status)")
+            Self.logger.error("AudioComponentInstanceNew failed: \(status)")
             return nil
         }
         return unit
@@ -567,14 +571,14 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enabled, size
         )
         if outputStatus != noErr {
-            DiagnosticsLogger.equalizer.error("EnableIO output failed: \(outputStatus)")
+            Self.logger.error("EnableIO output failed: \(outputStatus)")
             return outputStatus
         }
         let inputStatus = AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enabled, size
         )
         if inputStatus != noErr {
-            DiagnosticsLogger.equalizer.error("EnableIO input failed: \(inputStatus)")
+            Self.logger.error("EnableIO input failed: \(inputStatus)")
             return inputStatus
         }
         return nil

@@ -54,6 +54,10 @@ final class ProcessTapHelper {
     /// UID of the aggregate device (kept for teardown).
     private var aggregateUID: String?
 
+    private static let logger = DiagnosticsLogger.equalizer
+
+    // MARK: - StartFailure
+
     /// High-level reason a `start()` call didn't succeed. Lets the caller
     /// distinguish "user hasn't started playback yet" from "we hit a real
     /// Core Audio error" so the UI can phrase the message accordingly.
@@ -75,6 +79,8 @@ final class ProcessTapHelper {
         case unsupportedOS
     }
 
+    // MARK: - Lifecycle
+
     /// Starts the tap and installs the aggregate device.
     ///
     /// Discovers the WebKit XPC subprocess(es) that this app owns, taps them
@@ -84,7 +90,7 @@ final class ProcessTapHelper {
     /// - Returns: `.success` once `aggregateDeviceID` is usable by AUHAL.
     func start() -> Result<Void, StartFailure> {
         guard #available(macOS 14.2, *) else {
-            DiagnosticsLogger.equalizer.error("process tap requires macOS 14.2+")
+            Self.logger.error("process tap requires macOS 14.2+")
             return .failure(.unsupportedOS)
         }
 
@@ -104,7 +110,7 @@ final class ProcessTapHelper {
         // would silence the player without us noticing. Bailing here keeps
         // WebKit untouched.
         if !CGPreflightScreenCaptureAccess() {
-            DiagnosticsLogger.equalizer.warning(
+            Self.logger.warning(
                 "screen / system-audio recording permission missing — not creating tap"
             )
             return .failure(.permissionDenied)
@@ -113,12 +119,12 @@ final class ProcessTapHelper {
         // Find the process objects whose audio we actually want to tap.
         let processObjects = Self.audioObjectsToTap()
         guard !processObjects.isEmpty else {
-            DiagnosticsLogger.equalizer.info(
+            Self.logger.info(
                 "no WebKit audio process registered yet — waiting for playback"
             )
             return .failure(.noAudioSource)
         }
-        DiagnosticsLogger.equalizer.info(
+        Self.logger.info(
             "tapping \(processObjects.count) WebKit process object(s)"
         )
 
@@ -133,7 +139,7 @@ final class ProcessTapHelper {
         var newTapID = AudioObjectID(kAudioObjectUnknown)
         let tapStatus = AudioHardwareCreateProcessTap(description, &newTapID)
         guard tapStatus == noErr else {
-            DiagnosticsLogger.equalizer.error("AudioHardwareCreateProcessTap failed: \(tapStatus)")
+            Self.logger.error("AudioHardwareCreateProcessTap failed: \(tapStatus)")
             // Defensive: some Core Audio paths populate `newTapID` even
             // when returning an error. A leaked tap with `mutedWhenTapped`
             // would silently mute WebKit's audio with no engine to render
@@ -185,24 +191,20 @@ final class ProcessTapHelper {
 
     /// Bundle IDs of WebKit XPC subprocesses that host audio playback.
     /// On macOS Sonoma+ WebKit moved media decode into the "GPU" process,
-    /// so the name is misleading — both must be considered.
+    /// so the name is misleading — both must be considered. The list is
+    /// intentionally explicit: a `com.apple.WebKit.*` prefix would also
+    /// match `Networking`/`Plugin` subprocesses that host no audio, and
+    /// muting them would be a no-op at best and unexpected at worst.
     private static let webKitAudioBundleIDs: Set<String> = [
         "com.apple.WebKit.WebContent",
         "com.apple.WebKit.GPU",
     ]
 
-    /// Common prefix used by every current and (we hope) future WebKit XPC
-    /// subprocess. We accept anything matching it as a tap candidate so a
-    /// future macOS that introduces e.g. `com.apple.WebKit.GPUMedia` keeps
-    /// working without a code change.
-    private static let webKitBundleIDPrefix = "com.apple.WebKit."
-
-    /// Returns `true` for any WebKit XPC subprocess that's plausibly the
-    /// audio source. The explicit set above is checked first so the common
-    /// case stays predictable; the prefix fallback covers future renames.
+    /// Returns `true` only for the WebKit XPC subprocesses known to host
+    /// media playback today. Future renames will need a code change — that's
+    /// preferable to muting unrelated WebKit helpers system-wide.
     private static func isWebKitAudioCandidate(bundleID: String) -> Bool {
         self.webKitAudioBundleIDs.contains(bundleID)
-            || bundleID.hasPrefix(self.webKitBundleIDPrefix)
     }
 
     /// Returns the audio process objects we want to tap.
@@ -210,39 +212,22 @@ final class ProcessTapHelper {
     /// Kaset's audio is decoded by `WKWebView`'s WebKit subprocesses, not by
     /// the app's main process — tapping `selfPID` therefore captures
     /// silence. We enumerate Core Audio's process list, filter to WebKit
-    /// audio hosts, and prefer those whose parent PID matches this app. If
-    /// the parent-PID lookup is unavailable (sandbox), we fall back to any
-    /// WebKit audio process so the feature still works.
+    /// audio hosts, and return only those whose parent PID matches this
+    /// app. We deliberately don't fall back to "any WebKit process" — doing
+    /// so could mute Safari, Mail, or other unrelated apps.
     private static func audioObjectsToTap() -> [AudioObjectID] {
         let allObjects = Self.allAudioProcessObjects()
         let ourPID = ProcessInfo.processInfo.processIdentifier
 
-        var ours: [AudioObjectID] = []
-        var fallback: [AudioObjectID] = []
-
-        for objectID in allObjects {
+        return allObjects.filter { objectID in
             guard let bundleID = Self.processBundleID(of: objectID),
                   Self.isWebKitAudioCandidate(bundleID: bundleID)
             else {
-                continue
+                return false
             }
             let pid = Self.processPID(of: objectID)
-            let parent = pid > 0 ? Self.parentPID(of: pid) : -1
-            if parent == ourPID {
-                ours.append(objectID)
-            } else {
-                fallback.append(objectID)
-            }
+            return pid > 0 && Self.parentPID(of: pid) == ourPID
         }
-
-        if !ours.isEmpty { return ours }
-        if !fallback.isEmpty {
-            DiagnosticsLogger.equalizer.warning(
-                "parent-PID match failed; tapping \(fallback.count) unowned WebKit process(es)"
-            )
-            return fallback
-        }
-        return []
     }
 
     /// Enumerates all process objects currently registered with Core Audio.
@@ -348,7 +333,7 @@ final class ProcessTapHelper {
         let tapUID = Self.stringProperty(tapID, selector: kAudioTapPropertyUID) ?? ""
 
         guard let outputDeviceUID = Self.defaultOutputDeviceUID() else {
-            DiagnosticsLogger.equalizer.error("could not resolve default output device UID")
+            Self.logger.error("could not resolve default output device UID")
             return nil
         }
 
@@ -375,7 +360,7 @@ final class ProcessTapHelper {
         var aggregateID = AudioObjectID(kAudioObjectUnknown)
         let status = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
         guard status == noErr else {
-            DiagnosticsLogger.equalizer.error("AudioHardwareCreateAggregateDevice failed: \(status)")
+            Self.logger.error("AudioHardwareCreateAggregateDevice failed: \(status)")
             return nil
         }
         return (aggregateID, uid)

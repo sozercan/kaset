@@ -7,7 +7,7 @@ import SwiftUI
 /// picker, a preamp slider, and a master toggle.
 @available(macOS 26.0, *)
 struct EqualizerSettingsView: View {
-    @State private var service = EqualizerService.shared
+    @Environment(EqualizerService.self) private var service
 
     private let bands: [EQBand] = EQBand.defaultBands
 

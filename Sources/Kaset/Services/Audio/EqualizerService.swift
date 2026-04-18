@@ -38,7 +38,7 @@ final class EqualizerService {
     // MARK: - Keys
 
     private enum Keys {
-        static let settings = "settings.equalizer.v1"
+        static let settings = "settings.equalizer"
     }
 
     // MARK: - Observable state
@@ -67,6 +67,14 @@ final class EqualizerService {
 
     private let engine: any EqualizerAudioEngineProtocol
 
+    /// Cancelled and replaced on every ``retryStartIfEnabled()`` call so
+    /// rapid `PlayerService.isPlaying` toggles don't pile up pending tasks.
+    private var retryTask: Task<Void, Never>?
+
+    /// Cancelled and replaced on every ``scheduleTapVerification()`` call
+    /// for the same reason.
+    private var verificationTask: Task<Void, Never>?
+
     /// Probe used by ``scheduleTapVerification`` to decide whether a silent
     /// tap really means "no permission" or just "user paused playback". A
     /// closure rather than a `PlayerServiceProtocol` reference keeps the
@@ -74,6 +82,7 @@ final class EqualizerService {
     private let isPlaybackActive: @MainActor () -> Bool
 
     private let logger = DiagnosticsLogger.equalizer
+    private static let logger = DiagnosticsLogger.equalizer
 
     /// Reused across persist/load to avoid allocating a fresh coder on
     /// every slider tick (settings can mutate at UI frame rate during a
@@ -152,9 +161,12 @@ final class EqualizerService {
     /// before we scan for it.
     func retryStartIfEnabled() {
         guard self.settings.isEnabled, !self.engine.isRunning else { return }
-        Task { @MainActor in
+        self.retryTask?.cancel()
+        self.retryTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
-            guard self.settings.isEnabled, !self.engine.isRunning else { return }
+            guard let self, !Task.isCancelled,
+                  self.settings.isEnabled, !self.engine.isRunning
+            else { return }
             self.attemptStart(playbackKnownActive: true)
         }
     }
@@ -202,7 +214,7 @@ final class EqualizerService {
             decoded.clampGains()
             return decoded
         } catch {
-            DiagnosticsLogger.equalizer.warning("failed to decode stored settings, falling back to flat: \(error.localizedDescription)")
+            Self.logger.warning("failed to decode stored settings, falling back to flat: \(error.localizedDescription)")
             return .flat
         }
     }
@@ -213,6 +225,8 @@ final class EqualizerService {
         if self.settings.isEnabled {
             self.attemptStart(playbackKnownActive: false)
         } else {
+            self.retryTask?.cancel()
+            self.verificationTask?.cancel()
             self.engine.stop()
             self.lastFailure = nil
             // `inferredPermissionDenial` deliberately survives the recursive
@@ -275,23 +289,17 @@ final class EqualizerService {
         self.settings = next
     }
 
-    /// Counter so the verification task can ignore stale checks (e.g.,
-    /// user toggled off and on quickly).
-    private var tapVerificationGeneration: Int = 0
-
     /// After a successful start, give the tap ~2 s to deliver audio. If it
     /// stays completely silent while WebKit is supposed to be playing,
     /// that's the symptom of a TCC denial that snuck past the preflight
     /// check (different TCC service, stale cache, etc.). Tear down so we
     /// stop muting WebKit and surface the permission CTA.
     private func scheduleTapVerification() {
-        self.tapVerificationGeneration &+= 1
-        let generation = self.tapVerificationGeneration
-        Task { @MainActor in
+        self.verificationTask?.cancel()
+        self.verificationTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
-            guard generation == self.tapVerificationGeneration,
-                  self.engine.isRunning,
-                  self.settings.isEnabled
+            guard let self, !Task.isCancelled,
+                  self.engine.isRunning, self.settings.isEnabled
             else { return }
             guard self.isPlaybackActive(), !self.engine.hasObservedAudio else { return }
             self.logger.warning(
