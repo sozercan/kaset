@@ -123,18 +123,13 @@ final class EqualizerService {
 
     // MARK: - Output device tracking
 
-    /// Rebinds the engine when the user plugs in headphones, switches to
-    /// Bluetooth, etc. The aggregate device is tied to a specific output
-    /// sub-device at creation time, so we tear down and rebuild on each
-    /// system default-output change.
-    /// Core Audio invokes the listener block on its own callback queue
-    /// (`com.apple.root.default-qos`). Swift 6 infers closures declared
-    /// inside `@MainActor` methods as MainActor-isolated, so when the
-    /// block fires off-main the runtime isolation check trips with
-    /// `dispatch_assert_queue_fail`. Defining the listener as a
-    /// `nonisolated` static constant severs that inheritance — the
-    /// closure is plain `@Sendable` and only hops to MainActor inside
-    /// the scheduled Task.
+    // Listener block invoked by Core Audio on its own callback queue
+    // (`com.apple.root.default-qos`). Declared as a `nonisolated static`
+    // constant so it doesn't inherit MainActor isolation from the
+    // enclosing class — otherwise Swift 6's runtime isolation check
+    // trips with `dispatch_assert_queue_fail` the first time the block
+    // fires off-main. The hop to MainActor happens inside the Task.
+    // swiftformat:disable:next modifierOrder
     nonisolated private static let defaultOutputDeviceListener:
         @Sendable (UInt32, UnsafePointer<AudioObjectPropertyAddress>) -> Void = { _, _ in
             Task { @MainActor in
@@ -142,6 +137,10 @@ final class EqualizerService {
             }
         }
 
+    /// Rebinds the engine when the user plugs in headphones, switches to
+    /// Bluetooth, etc. The aggregate device is tied to a specific output
+    /// sub-device at creation time, so we tear down and rebuild on each
+    /// system default-output change.
     private func installDefaultOutputDeviceListener() {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
