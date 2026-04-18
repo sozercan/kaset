@@ -82,8 +82,6 @@ final class EqualizerService {
     /// last edit.
     @ObservationIgnored private var persistTask: Task<Void, Never>?
 
-    private static let persistDebounceInterval: Duration = .milliseconds(250)
-
     /// Cancelled and replaced on every default-output change so a rapid
     /// plug/unplug storm doesn't pile up pending rebinds.
     @ObservationIgnored private var deviceChangeTask: Task<Void, Never>?
@@ -101,6 +99,7 @@ final class EqualizerService {
     /// drag).
     private static let encoder = JSONEncoder()
     private static let decoder = JSONDecoder()
+    private static let persistDebounceInterval: Duration = .milliseconds(250)
 
     // MARK: - Init
 
@@ -134,17 +133,20 @@ final class EqualizerService {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        // Core Audio retains the block internally for the lifetime of
-        // the listener registration, and `EqualizerService.shared` lives
-        // for the whole process — so we don't symmetrise with an
-        // `AudioObjectRemovePropertyListenerBlock` call in deinit.
+        // Core Audio invokes the block on its own callback thread. We
+        // must NOT capture `self` here — Swift 6 infers the closure as
+        // `@MainActor`-isolated if we do, and the isolation assertion
+        // trips with `dispatch_assert_queue_fail` the first time Core
+        // Audio fires the callback off-main. Hopping to main via a Task
+        // that re-resolves `EqualizerService.shared` keeps the listener
+        // closure fully non-isolated.
         let status = AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject),
             &address,
             nil
-        ) { [weak self] _, _ in
-            Task { @MainActor [weak self] in
-                self?.handleDefaultOutputDeviceChange()
+        ) { _, _ in
+            Task { @MainActor in
+                EqualizerService.shared.handleDefaultOutputDeviceChange()
             }
         }
         if status != noErr {
