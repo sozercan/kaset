@@ -116,6 +116,12 @@ final class ProcessTapHelper {
             return .failure(.permissionDenied)
         }
 
+        // Clean up any aggregate devices left behind by a prior crash —
+        // Core Audio keeps them until the system reboots otherwise, and
+        // they show up in Audio MIDI Setup as lingering "Kaset EQ Aggregate"
+        // entries. Identified by our UID prefix.
+        Self.destroyOrphanedAggregates()
+
         // Find the process objects whose audio we actually want to tap.
         let processObjects = Self.audioObjectsToTap()
         guard !processObjects.isEmpty else {
@@ -319,6 +325,41 @@ final class ProcessTapHelper {
         )
         let status = AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &format)
         return status == noErr ? format : nil
+    }
+
+    /// Destroys every aggregate device whose UID starts with
+    /// ``aggregateUIDPrefix``. Called at startup so a prior crash's leaked
+    /// devices don't accumulate in Audio MIDI Setup across launches.
+    private static func destroyOrphanedAggregates() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
+        ) == noErr, size > 0 else { return }
+        let count = Int(size) / MemoryLayout<AudioObjectID>.size
+        var devices = [AudioObjectID](repeating: 0, count: count)
+        let status = devices.withUnsafeMutableBufferPointer { buffer -> OSStatus in
+            guard let base = buffer.baseAddress else { return -1 }
+            return AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, base
+            )
+        }
+        guard status == noErr else { return }
+        for deviceID in devices {
+            guard let uid = Self.stringProperty(deviceID, selector: kAudioDevicePropertyDeviceUID),
+                  uid.hasPrefix(Self.aggregateUIDPrefix)
+            else { continue }
+            let destroyStatus = AudioHardwareDestroyAggregateDevice(deviceID)
+            if destroyStatus == noErr {
+                Self.logger.info("destroyed orphaned aggregate \(uid)")
+            } else {
+                Self.logger.warning("failed to destroy orphaned aggregate \(uid): \(destroyStatus)")
+            }
+        }
     }
 
     /// Creates a duplex aggregate device: the default output device is the

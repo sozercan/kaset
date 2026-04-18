@@ -254,6 +254,11 @@ final class BiquadFilter {
     }
 
     private func installTargets(_ coeffs: Coefficients) {
+        // Pathological inputs (e.g. frequency near Nyquist with extreme Q)
+        // can drive a0 to zero, which would publish ±∞ targets to the render
+        // thread and permanently poison the slewed coefficients. Bail before
+        // dividing.
+        guard coeffs.a0.isFinite, abs(coeffs.a0) > 1e-10 else { return }
         let inverseA0 = 1 / coeffs.a0
         self.targetB0 = coeffs.b0 * inverseA0
         self.targetB1 = coeffs.b1 * inverseA0

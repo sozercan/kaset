@@ -35,9 +35,18 @@ struct EQSettings: Codable, Equatable {
         preset: .flat
     )
 
-    /// Clamps all gains to the legal range defined by ``minGainDB``/``maxGainDB``.
+    /// Clamps all gains to the legal range defined by ``minGainDB``/``maxGainDB``,
+    /// and normalises the band-gain array length to ``EQBand/defaultBands``
+    /// so settings persisted by an older build (with a different band count)
+    /// still load cleanly.
     mutating func clampGains() {
         self.preampDB = Self.clamp(self.preampDB)
+        let expected = EQBand.defaultBands.count
+        if self.bandGainsDB.count < expected {
+            self.bandGainsDB.append(contentsOf: Array(repeating: 0, count: expected - self.bandGainsDB.count))
+        } else if self.bandGainsDB.count > expected {
+            self.bandGainsDB = Array(self.bandGainsDB.prefix(expected))
+        }
         self.bandGainsDB = self.bandGainsDB.map(Self.clamp)
     }
 

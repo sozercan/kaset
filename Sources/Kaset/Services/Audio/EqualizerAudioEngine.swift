@@ -516,19 +516,23 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     }
 
     private func freeInputBuffers() {
-        if let list = self.inputBufferList {
-            UnsafeMutableRawPointer(list).deallocate()
-            self.inputBufferList = nil
-        }
-        if let leftPtr = self.leftStorage {
+        // Publish nil before freeing so a render callback that slips in
+        // after `AudioOutputUnitStop` (rare but documented) reads nil and
+        // bails instead of dereferencing freed memory.
+        let list = self.inputBufferList
+        let leftPtr = self.leftStorage
+        let rightPtr = self.rightStorage
+        self.inputBufferList = nil
+        self.leftStorage = nil
+        self.rightStorage = nil
+        if let list { UnsafeMutableRawPointer(list).deallocate() }
+        if let leftPtr {
             leftPtr.deinitialize(count: Int(Self.maxFramesPerCycle))
             leftPtr.deallocate()
-            self.leftStorage = nil
         }
-        if let rightPtr = self.rightStorage {
+        if let rightPtr {
             rightPtr.deinitialize(count: Int(Self.maxFramesPerCycle))
             rightPtr.deallocate()
-            self.rightStorage = nil
         }
     }
 
