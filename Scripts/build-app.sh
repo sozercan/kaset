@@ -304,6 +304,12 @@ ${APP_LOCALIZATIONS_PLIST}
     <key>OSAScriptingDefinition</key>
     <string>Kaset.sdef</string>
 
+    <!-- Core Audio process tap (Equalizer) - macOS 14.2+ TCC requires these -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Kaset taps its own audio output (not the screen) so the built-in equalizer can apply effects to your music. No screen content is recorded.</string>
+
     <!-- Build Metadata -->
     <key>KasetBuildTimestamp</key>
     <string>${BUILD_TIMESTAMP}</string>
