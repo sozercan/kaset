@@ -127,28 +127,33 @@ final class EqualizerService {
     /// Bluetooth, etc. The aggregate device is tied to a specific output
     /// sub-device at creation time, so we tear down and rebuild on each
     /// system default-output change.
+    /// Core Audio invokes the listener block on its own callback queue
+    /// (`com.apple.root.default-qos`). Swift 6 infers closures declared
+    /// inside `@MainActor` methods as MainActor-isolated, so when the
+    /// block fires off-main the runtime isolation check trips with
+    /// `dispatch_assert_queue_fail`. Defining the listener as a
+    /// `nonisolated` static constant severs that inheritance — the
+    /// closure is plain `@Sendable` and only hops to MainActor inside
+    /// the scheduled Task.
+    nonisolated private static let defaultOutputDeviceListener:
+        @Sendable (UInt32, UnsafePointer<AudioObjectPropertyAddress>) -> Void = { _, _ in
+            Task { @MainActor in
+                EqualizerService.shared.handleDefaultOutputDeviceChange()
+            }
+        }
+
     private func installDefaultOutputDeviceListener() {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        // Core Audio invokes the block on its own callback thread. We
-        // must NOT capture `self` here — Swift 6 infers the closure as
-        // `@MainActor`-isolated if we do, and the isolation assertion
-        // trips with `dispatch_assert_queue_fail` the first time Core
-        // Audio fires the callback off-main. Hopping to main via a Task
-        // that re-resolves `EqualizerService.shared` keeps the listener
-        // closure fully non-isolated.
         let status = AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject),
             &address,
-            nil
-        ) { _, _ in
-            Task { @MainActor in
-                EqualizerService.shared.handleDefaultOutputDeviceChange()
-            }
-        }
+            nil,
+            Self.defaultOutputDeviceListener
+        )
         if status != noErr {
             self.logger.warning("failed to listen for default-output changes: \(status)")
         }
