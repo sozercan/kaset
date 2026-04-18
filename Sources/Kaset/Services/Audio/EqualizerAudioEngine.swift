@@ -44,17 +44,13 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     nonisolated(unsafe) private(set) var hasObservedAudio: Bool = false
     // swiftformat:enable modifierOrder
 
-    // MARK: - Private — audio unit / graph
+    // MARK: - Private — HAL I/O
 
     private let tapHelper = ProcessTapHelper()
 
-    /// HAL I/O proc registered on the aggregate device. The block receives
-    /// input (tap samples) and output (speaker) buffers on the same call,
-    /// so there's no `AudioUnitRender` — AUHAL is bypassed entirely. This
-    /// avoids the -10863 / -50 errors AUHAL raises on macOS 26 when the
-    /// aggregate's main sub-device (speaker) has a different sample rate
-    /// than the tap, which is a configuration Core Audio accepts but AUHAL
-    /// can't render through reliably.
+    /// HAL I/O proc registered on the aggregate device. See the
+    /// file-level docstring for why this replaced the earlier AUHAL
+    /// render callback.
     private var ioProcID: AudioDeviceIOProcID?
 
     /// Format derived from the aggregate device's nominal sample rate.
@@ -168,9 +164,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         let format = Self.stereoFloat32NonInterleaved(sampleRate: sampleRate)
         self.renderFormat = format
 
-        // 3. Install HAL I/O proc on the aggregate. The block receives
-        // both input (tap) and output (speaker) buffer lists in the same
-        // call — no `AudioUnitRender`, no bus plumbing, no -10863.
+        // 3. Install HAL I/O proc on the aggregate.
         let selfRef = Unmanaged.passUnretained(self).toOpaque()
         var procID: AudioDeviceIOProcID?
         let createStatus = AudioDeviceCreateIOProcID(
@@ -261,9 +255,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
     // MARK: - Render (called on HAL I/O thread)
 
-    /// HAL I/O proc body: reads input (tap) samples, runs the EQ chain,
-    /// writes to output (speaker). Called at real-time priority on a HAL
-    /// thread; must never allocate or block.
+    /// HAL I/O proc body. RT-thread: no allocations, no blocking.
     func performRender(
         inputBuffers: UnsafePointer<AudioBufferList>,
         frameCount: UInt32,
@@ -369,26 +361,16 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// ~40 ms, fast enough to feel responsive but slow enough to avoid clicks.
     private static let crossfadeAlpha: Float = 0.002
 
-    /// Envelope-follower peak limiter.
-    ///
-    /// Models the behaviour of mastering-grade limiters: an internal peak
-    /// follower with fast attack and slower release tracks the signal
-    /// envelope; a gain-reduction multiplier is slewed toward
-    /// `threshold / envelope` whenever the envelope exceeds the ceiling.
-    /// Unlike a memoryless `tanh` saturator this produces **no harmonic
-    /// distortion on sustained content** — the signal is simply ducked
-    /// while the envelope is above threshold, so boosted presets keep
-    /// their tonal shape without the "tearing" artefacts a waveshaper
-    /// introduces at ±12 dB slider extremes.
-    ///
-    /// Constants tuned for 48 kHz operation:
-    ///   - threshold = 0.97 (≈ −0.26 dBFS ceiling)
-    ///   - attack ≈ 0.5 ms  (envelope rises to a peak in ~half a ms)
-    ///   - release ≈ 80 ms (recovers smoothly, no pumping)
-    ///   - gain slew ≈ 1 ms (audible zipper prevented)
-    ///
-    /// Render-thread safe: all operations are in-place arithmetic, no
-    /// allocations.
+    // Envelope-follower peak limiter. An internal peak follower with
+    // fast attack and slower release tracks the signal envelope and
+    // slews a gain-reduction multiplier toward `threshold / envelope`
+    // whenever the envelope exceeds the ceiling. Unlike a memoryless
+    // `tanh` saturator this produces **no harmonic distortion on
+    // sustained content** — the signal is simply ducked while the
+    // envelope is above threshold, so boosted presets keep their tonal
+    // shape without the "tearing" artefacts a waveshaper introduces at
+    // ±12 dB slider extremes.
+
     /// Threshold (linear amplitude) — ≈ −0.26 dBFS ceiling.
     private static let limiterThreshold: Float = 0.97
     /// Envelope-follower attack (~0.5 ms @ 48 kHz).
@@ -463,15 +445,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             mBitsPerChannel: 32,
             mReserved: 0
         )
-    }
-
-    private static func silence(bufferList: UnsafeMutablePointer<AudioBufferList>) {
-        let mutable = UnsafeMutableAudioBufferListPointer(bufferList)
-        for index in 0 ..< mutable.count {
-            if let data = mutable[index].mData {
-                memset(data, 0, Int(mutable[index].mDataByteSize))
-            }
-        }
     }
 
     // MARK: - Errors
