@@ -84,6 +84,15 @@ final class EqualizerService {
 
     private static let persistDebounceInterval: Duration = .milliseconds(250)
 
+    /// Cancelled and replaced on every default-output change so a rapid
+    /// plug/unplug storm doesn't pile up pending rebinds.
+    private var deviceChangeTask: Task<Void, Never>?
+
+    /// Held for the lifetime of the service so we can remove the listener
+    /// in `deinit`. Core Audio needs the same block reference passed in
+    /// and out.
+    private var defaultOutputListenerBlock: AudioObjectPropertyListenerBlock?
+
     /// Probe used by ``scheduleTapVerification`` to decide whether a silent
     /// tap really means "no permission" or just "user paused playback". A
     /// closure rather than a `PlayerServiceProtocol` reference keeps the
@@ -132,10 +141,11 @@ final class EqualizerService {
             mElement: kAudioObjectPropertyElementMain
         )
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.handleDefaultOutputDeviceChange()
             }
         }
+        self.defaultOutputListenerBlock = listener
         // Passing nil lets Core Audio invoke the block on its own
         // callback thread; the block hops to the main actor via
         // `Task { @MainActor in ... }`.
@@ -147,17 +157,31 @@ final class EqualizerService {
         )
         if status != noErr {
             self.logger.warning("failed to listen for default-output changes: \(status)")
+            self.defaultOutputListenerBlock = nil
         }
     }
 
     private func handleDefaultOutputDeviceChange() {
         guard self.settings.isEnabled else { return }
-        self.logger.info("default output device changed — rebinding equalizer engine")
-        self.engine.stop()
-        // Re-attempt start with playback-known-active so a missing tap
-        // source at this exact moment doesn't fail silently.
-        self.attemptStart(playbackKnownActive: self.isPlaybackActive())
+        // Coalesce — a flapping audio route (e.g. repeated
+        // plug/unplug) otherwise spawns one rebind per event.
+        self.deviceChangeTask?.cancel()
+        self.deviceChangeTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled, self.settings.isEnabled else { return }
+            self.logger.info("default output device changed — rebinding equalizer engine")
+            self.engine.stop()
+            self.attemptStart(playbackKnownActive: self.isPlaybackActive())
+        }
     }
+
+    // No `deinit` teardown: production goes through ``shared`` which
+    // lives for the whole process, and tests create instances inside a
+    // short-lived test binary — both cases discard the listener with
+    // the process itself. Main-actor-isolated storage can't be touched
+    // from a nonisolated `deinit` in Swift 6 strict concurrency mode,
+    // so trying to symmetrise with `removeDefaultOutputDeviceListener`
+    // here would force `nonisolated(unsafe)` on the listener storage
+    // for no real benefit.
 
     // MARK: - Public API
 

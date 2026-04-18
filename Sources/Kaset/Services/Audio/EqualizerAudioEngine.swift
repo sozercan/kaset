@@ -5,35 +5,33 @@ import Foundation
 
 // MARK: - EqualizerAudioEngine
 
-/// Full-duplex AUHAL implementation of the Kaset equalizer.
+/// HAL-level duplex implementation of the Kaset equalizer.
 ///
-/// A single `AUHAL` unit (`kAudioUnitSubType_HALOutput`) is bound to the
-/// aggregate device created by ``ProcessTapHelper``:
-/// - the aggregate's **tap** is exposed as the unit's input bus (1);
-/// - the aggregate's **main sub-device** (the system default output) is the
-///   unit's output bus (0);
-/// - a single render callback pulls tap samples, runs six cascaded
-///   ``BiquadFilter`` sections, blends wet/dry, soft-limits, and writes
-///   straight to the output buffer.
+/// An `AudioDeviceIOProcID` is registered directly on the aggregate
+/// device created by ``ProcessTapHelper`` (which contains the WebKit
+/// process tap + the system default output). The HAL delivers input
+/// (tap samples) and output (speaker) buffer lists to the same I/O
+/// block, where we run six cascaded ``BiquadFilter`` sections, apply
+/// an envelope-follower limiter with stereo linking, and blend wet/dry.
 ///
-/// Input and output share the aggregate clock domain, so there is no ring
-/// buffer and no cross-device drift.
+/// This replaces an earlier AUHAL-based design that called
+/// `AudioUnitRender` on bus 1 from a bus 0 render callback. AUHAL
+/// refuses those pulls with `-10863 kAudioUnitErr_CannotDoInCurrentContext`
+/// on macOS 26 whenever the tap's sample rate differs from the main
+/// sub-device's — a configuration Core Audio accepts but AUHAL can't
+/// render through. Driving the HAL directly avoids that bus plumbing.
 ///
-/// **Not** `@MainActor`-isolated: the render callback runs on Core Audio's
-/// real-time thread and must be able to call back into the engine without
-/// hopping actors. Lifecycle calls (`start`, `stop`, `apply`) are invoked
-/// from the main-actor-isolated ``EqualizerService``.
+/// **Not** `@MainActor`-isolated: the I/O block runs on Core Audio's
+/// real-time thread and must be able to call back into the engine
+/// without hopping actors. Lifecycle calls (`start`, `stop`, `apply`)
+/// are invoked from the main-actor-isolated ``EqualizerService``.
 final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
-    /// Maximum frames per render cycle we pre-allocate input buffers for.
-    /// AUHAL typically requests 512–1024 frames; 8192 is a comfortable cap.
-    private static let maxFramesPerCycle: UInt32 = 8192
-
     /// Sample rate used when the tap hasn't reported one yet — only matters
     /// for biquad coefficient pre-seeding before the first audio cycle.
     private static let fallbackSampleRate: Float64 = 48000
 
-    /// Channel count of the tap stream we negotiate with AUHAL. Stereo is
-    /// the only mixdown CATap exposes today, and biquads operate per channel.
+    /// Channel count of the tap stream. Stereo is the only mixdown CATap
+    /// exposes today, and biquads operate per channel.
     private static let tapChannelCount: Int = 2
 
     // MARK: - Public state
@@ -104,9 +102,23 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         self.filters = bands.map { _ in BiquadFilter() }
     }
 
+    /// Defensive: if the service drops the engine without calling
+    /// ``stop()``, the HAL thread could still trampoline into freed
+    /// memory via the `AudioDeviceIOProcID` we registered. `stop()` is
+    /// idempotent and safe to call here.
+    deinit {
+        if let procID = self.ioProcID {
+            let aggregateID = self.tapHelper.aggregateDeviceID
+            if aggregateID != kAudioObjectUnknown {
+                AudioDeviceStop(aggregateID, procID)
+                AudioDeviceDestroyIOProcID(aggregateID, procID)
+            }
+        }
+    }
+
     // MARK: - Lifecycle
 
-    /// Brings the tap, aggregate device, AUHAL, and render graph up.
+    /// Brings the tap, aggregate device, and HAL I/O proc up.
     ///
     /// Rolls back partial state in reverse order on any failure, so the app
     /// is always in either "fully running" or "fully torn down" state on
@@ -118,8 +130,8 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         // ``EqualizerService`` measures only this run.
         self.hasObservedAudio = false
 
-        // Reset oversample interpolation history so the first frame after
-        // a restart doesn't pull a stale previous sample into the limiter.
+        // Reset envelope-follower and gain-smoothing state so a
+        // stop/start cycle starts the limiter with a clean slate.
         self.envStereo = 0
         self.envMono = 0
         self.limiterGainStereo = 1
@@ -467,10 +479,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     enum StartFailure: Error {
         case tap(ProcessTapHelper.StartFailure)
         case invalidTapFormat
-        case unitCreation
-        case unitConfiguration(OSStatus)
-        case deviceBind
-        case formatNegotiation
         case renderCallback(OSStatus)
         case engineStart(String)
 
@@ -505,14 +513,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 String(localized: "The equalizer requires macOS 14.2 or later.")
             case .invalidTapFormat:
                 String(localized: "The system didn't report a valid audio format for Kaset's output. Try disabling the equalizer, starting playback, then enabling it again.")
-            case .unitCreation:
-                String(localized: "Couldn't create the audio unit.")
-            case let .unitConfiguration(status):
-                String(localized: "Couldn't configure the audio unit (\(status)).")
-            case .deviceBind:
-                String(localized: "Couldn't route Kaset's audio into the equalizer engine.")
-            case .formatNegotiation:
-                String(localized: "Couldn't negotiate a compatible audio format with the output device.")
             case let .renderCallback(status):
                 String(localized: "Couldn't install the audio render callback (\(status)).")
             case let .engineStart(detail):
@@ -524,9 +524,8 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
 // MARK: - C render callback
 
-// Top-level C render callback. Trampolines into the engine instance carried
-// C-convention trampoline to let Core Audio's `AudioDeviceIOProc` call back
-// into the Swift engine. Six-parameter signature is dictated by
+// C-convention trampoline that lets Core Audio's `AudioDeviceIOProc`
+// invoke the Swift engine. The seven-parameter signature is dictated by
 // `AudioDeviceIOProc` and cannot be reduced.
 // swiftlint:disable:next function_parameter_count
 private func kasetEQIOProc(
