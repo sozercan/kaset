@@ -49,18 +49,18 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     // MARK: - Private — audio unit / graph
 
     private let tapHelper = ProcessTapHelper()
-    private var audioUnit: AudioUnit?
 
-    /// Format negotiated with the audio unit (stereo Float32 non-interleaved).
-    /// Kept so we can configure biquads at the same sample rate we render at.
+    /// HAL I/O proc registered on the aggregate device. The block receives
+    /// input (tap samples) and output (speaker) buffers on the same call,
+    /// so there's no `AudioUnitRender` — AUHAL is bypassed entirely. This
+    /// avoids the -10863 / -50 errors AUHAL raises on macOS 26 when the
+    /// aggregate's main sub-device (speaker) has a different sample rate
+    /// than the tap, which is a configuration Core Audio accepts but AUHAL
+    /// can't render through reliably.
+    private var ioProcID: AudioDeviceIOProcID?
+
+    /// Format derived from the aggregate device's nominal sample rate.
     private var renderFormat: AudioStreamBasicDescription?
-
-    /// Heap-allocated input buffer list handed to `AudioUnitRender`.
-    private var inputBufferList: UnsafeMutablePointer<AudioBufferList>?
-
-    /// Backing storage for the two channels of the input buffer list.
-    private var leftStorage: UnsafeMutablePointer<Float>?
-    private var rightStorage: UnsafeMutablePointer<Float>?
 
     // MARK: - Private — DSP
 
@@ -80,11 +80,15 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// `0 = dry`, `1 = fully filtered`.
     private var wetMix: Float = 1
 
-    /// Previous post-gain sample per channel, used by ``softLimitOversampled``
-    /// to interpolate the half-rate point. Render-thread state.
-    private var prevLeftSample: Float = 0
-    private var prevRightSample: Float = 0
-    private var prevMonoSample: Float = 0
+    /// Envelope-follower state. For stereo we use a single shared
+    /// envelope and gain — "stereo linked" — so a transient on one
+    /// channel pulls both channels down equally and the centre image
+    /// stays stable (behaviour matches Logic / Ableton / Spotify's
+    /// mastering limiters). Mono keeps its own pair.
+    private var envStereo: Float = 0
+    private var envMono: Float = 0
+    private var limiterGainStereo: Float = 1
+    private var limiterGainMono: Float = 1
 
     /// Snapshot of the band layout so we can reconfigure coefficients when
     /// settings change.
@@ -116,9 +120,10 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
         // Reset oversample interpolation history so the first frame after
         // a restart doesn't pull a stale previous sample into the limiter.
-        self.prevLeftSample = 0
-        self.prevRightSample = 0
-        self.prevMonoSample = 0
+        self.envStereo = 0
+        self.envMono = 0
+        self.limiterGainStereo = 1
+        self.limiterGainMono = 1
 
         // 1. Tap + aggregate device.
         switch self.tapHelper.start() {
@@ -128,124 +133,70 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             return .failure(.tap(reason))
         }
 
-        // 2. Create AUHAL.
-        guard let unit = Self.createHALAudioUnit() else {
-            self.tapHelper.stop()
-            return .failure(.unitCreation)
-        }
+        let aggregateID = self.tapHelper.aggregateDeviceID
 
-        // 3. Enable input + output buses.
-        if let status = Self.enableIO(unit: unit) {
-            self.tearDown(partialUnit: unit)
-            return .failure(.unitConfiguration(status))
-        }
-
-        // 4. Bind to the aggregate device.
-        var aggregateID = self.tapHelper.aggregateDeviceID
-        let bindStatus = AudioUnitSetProperty(
-            unit,
-            kAudioOutputUnitProperty_CurrentDevice,
-            kAudioUnitScope_Global,
-            0,
-            &aggregateID,
-            UInt32(MemoryLayout<AudioDeviceID>.size)
+        // 2. Read the aggregate's nominal sample rate. The HAL I/O proc
+        // will present input and output at this rate so the biquad chain
+        // has a single known rate.
+        var sampleRate: Float64 = 0
+        var srateSize = UInt32(MemoryLayout<Float64>.size)
+        var srateAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
         )
-        guard bindStatus == noErr else {
-            self.logger.error("CurrentDevice bind failed: \(bindStatus)")
-            self.tearDown(partialUnit: unit)
-            return .failure(.deviceBind)
-        }
-
-        // 5. Negotiate format: stereo non-interleaved Float32 at the tap's
-        // sample rate, so biquads work on a simple predictable layout.
-        let sampleRate = self.tapHelper.tapStreamDescription?.mSampleRate ?? Self.fallbackSampleRate
-        guard sampleRate > 0 else {
-            self.tearDown(partialUnit: unit)
+        let srateStatus = AudioObjectGetPropertyData(
+            aggregateID, &srateAddr, 0, nil, &srateSize, &sampleRate
+        )
+        guard srateStatus == noErr, sampleRate > 0 else {
+            self.logger.error("aggregate sample rate read failed: \(srateStatus)")
+            self.tapHelper.stop()
             return .failure(.invalidTapFormat)
         }
-
-        var format = Self.stereoFloat32NonInterleaved(sampleRate: sampleRate)
-        let formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-
-        // Format the unit hands to us on the INPUT bus (1, output scope = to client).
-        let inputFormatStatus = AudioUnitSetProperty(
-            unit,
-            kAudioUnitProperty_StreamFormat,
-            kAudioUnitScope_Output,
-            1,
-            &format,
-            formatSize
-        )
-        // Format we hand to the unit on the OUTPUT bus (0, input scope = from client).
-        let outputFormatStatus = AudioUnitSetProperty(
-            unit,
-            kAudioUnitProperty_StreamFormat,
-            kAudioUnitScope_Input,
-            0,
-            &format,
-            formatSize
-        )
-        guard inputFormatStatus == noErr, outputFormatStatus == noErr else {
-            self.logger.error(
-                "format set failed (input=\(inputFormatStatus) output=\(outputFormatStatus))"
-            )
-            self.tearDown(partialUnit: unit)
-            return .failure(.formatNegotiation)
-        }
-
-        // 6. Pre-allocate input buffers and install render callback.
-        self.allocateInputBuffers(frameCapacity: Self.maxFramesPerCycle)
-
-        var callback = AURenderCallbackStruct(
-            inputProc: kasetEQRenderCallback,
-            inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        )
-        let cbStatus = AudioUnitSetProperty(
-            unit,
-            kAudioUnitProperty_SetRenderCallback,
-            kAudioUnitScope_Input,
-            0,
-            &callback,
-            UInt32(MemoryLayout<AURenderCallbackStruct>.size)
-        )
-        guard cbStatus == noErr else {
-            self.logger.error("render callback install failed: \(cbStatus)")
-            self.tearDown(partialUnit: unit)
-            return .failure(.renderCallback(cbStatus))
-        }
-
-        // 7. Initialize + start.
-        let initStatus = AudioUnitInitialize(unit)
-        guard initStatus == noErr else {
-            self.logger.error("AudioUnitInitialize failed: \(initStatus)")
-            self.tearDown(partialUnit: unit)
-            return .failure(.engineStart("AudioUnitInitialize: \(initStatus)"))
-        }
-
-        let startStatus = AudioOutputUnitStart(unit)
-        guard startStatus == noErr else {
-            self.logger.error("AudioOutputUnitStart failed: \(startStatus)")
-            AudioUnitUninitialize(unit)
-            self.tearDown(partialUnit: unit)
-            return .failure(.engineStart("AudioOutputUnitStart: \(startStatus)"))
-        }
-
-        self.audioUnit = unit
+        let format = Self.stereoFloat32NonInterleaved(sampleRate: sampleRate)
         self.renderFormat = format
+
+        // 3. Install HAL I/O proc on the aggregate. The block receives
+        // both input (tap) and output (speaker) buffer lists in the same
+        // call — no `AudioUnitRender`, no bus plumbing, no -10863.
+        let selfRef = Unmanaged.passUnretained(self).toOpaque()
+        var procID: AudioDeviceIOProcID?
+        let createStatus = AudioDeviceCreateIOProcID(
+            aggregateID, kasetEQIOProc, selfRef, &procID
+        )
+        guard createStatus == noErr, let procID else {
+            self.logger.error("AudioDeviceCreateIOProcID failed: \(createStatus)")
+            self.tapHelper.stop()
+            return .failure(.renderCallback(createStatus))
+        }
+        self.ioProcID = procID
+
+        // 4. Start the aggregate — the HAL now drives our I/O proc on its
+        // own thread.
+        let startStatus = AudioDeviceStart(aggregateID, procID)
+        guard startStatus == noErr else {
+            self.logger.error("AudioDeviceStart failed: \(startStatus)")
+            AudioDeviceDestroyIOProcID(aggregateID, procID)
+            self.ioProcID = nil
+            self.tapHelper.stop()
+            return .failure(.engineStart("AudioDeviceStart: \(startStatus)"))
+        }
+
         self.isRunning = true
-        self.logger.info("AUHAL started at \(format.mSampleRate) Hz")
+        self.logger.info("HAL I/O proc started at \(sampleRate) Hz")
         return .success(())
     }
 
     /// Stops rendering and destroys the tap. Safe to call repeatedly.
     func stop() {
-        if let unit = self.audioUnit {
-            AudioOutputUnitStop(unit)
-            AudioUnitUninitialize(unit)
-            AudioComponentInstanceDispose(unit)
-            self.audioUnit = nil
+        if let procID = self.ioProcID {
+            let aggregateID = self.tapHelper.aggregateDeviceID
+            if aggregateID != kAudioObjectUnknown {
+                AudioDeviceStop(aggregateID, procID)
+                AudioDeviceDestroyIOProcID(aggregateID, procID)
+            }
+            self.ioProcID = nil
         }
-        self.freeInputBuffers()
         self.tapHelper.stop()
         self.renderFormat = nil
         self.isRunning = false
@@ -296,41 +247,20 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         }
     }
 
-    // MARK: - Render (called on audio I/O thread)
+    // MARK: - Render (called on HAL I/O thread)
 
-    /// Render callback body. Pulls input samples from the tap, runs the EQ
-    /// chain in place, and writes the result to `outputBuffers`.
+    /// HAL I/O proc body: reads input (tap) samples, runs the EQ chain,
+    /// writes to output (speaker). Called at real-time priority on a HAL
+    /// thread; must never allocate or block.
     func performRender(
-        flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
-        timestamp: UnsafePointer<AudioTimeStamp>,
+        inputBuffers: UnsafePointer<AudioBufferList>,
         frameCount: UInt32,
-        outputBuffers: UnsafeMutablePointer<AudioBufferList>?
-    ) -> OSStatus {
-        guard let unit = self.audioUnit,
-              let inputList = self.inputBufferList,
-              let outputList = outputBuffers
-        else {
-            return kAudioUnitErr_NoConnection
-        }
-
-        // Reset the sizes of the pre-allocated input buffers for this cycle.
-        let mutableInput = UnsafeMutableAudioBufferListPointer(inputList)
-        let bytesPerBuffer = frameCount * UInt32(MemoryLayout<Float>.size)
-        for index in 0 ..< mutableInput.count {
-            mutableInput[index].mDataByteSize = bytesPerBuffer
-        }
-
-        // Pull input samples from the tap side of the unit.
-        let pullStatus = AudioUnitRender(unit, flags, timestamp, 1, frameCount, inputList)
-        if pullStatus != noErr {
-            // Emit silence on the output so the render thread doesn't go
-            // critical; the render engine will recover on the next cycle.
-            Self.silence(bufferList: outputList)
-            return noErr
-        }
-
-        // Copy input → output and run biquads in place on the output buffers.
-        let mutableOutput = UnsafeMutableAudioBufferListPointer(outputList)
+        outputBuffers: UnsafeMutablePointer<AudioBufferList>
+    ) {
+        let mutableInput = UnsafeMutableAudioBufferListPointer(
+            UnsafeMutablePointer(mutating: inputBuffers)
+        )
+        let mutableOutput = UnsafeMutableAudioBufferListPointer(outputBuffers)
         let frames = Int(frameCount)
 
         let channelCount = min(mutableInput.count, mutableOutput.count)
@@ -372,7 +302,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 let dryRight = mutableInput[1].mData?
                 .bindMemory(to: Float.self, capacity: frames)
             else {
-                return noErr
+                return
             }
             for filterIndex in 0 ..< filterCount {
                 self.filters[filterIndex].processNonInterleavedStereo(
@@ -381,48 +311,45 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                     frameCount: frames
                 )
             }
-            var prevLeft = self.prevLeftSample
-            var prevRight = self.prevRightSample
+            var env = self.envStereo
+            var gR = self.limiterGainStereo
             for index in 0 ..< frames {
                 mix += (target - mix) * Self.crossfadeAlpha
-                let wetL = Self.softLimitOversampled(
-                    leftPtr[index] * gain,
-                    prevSample: &prevLeft
-                )
-                let wetR = Self.softLimitOversampled(
-                    rightPtr[index] * gain,
-                    prevSample: &prevRight
+                let lSample = leftPtr[index] * gain
+                let rSample = rightPtr[index] * gain
+                let (wetL, wetR) = Self.limiterProcessStereo(
+                    left: lSample, right: rSample, envelope: &env, gain: &gR
                 )
                 leftPtr[index] = dryLeft[index] * (1 - mix) + wetL * mix
                 rightPtr[index] = dryRight[index] * (1 - mix) + wetR * mix
             }
-            self.prevLeftSample = prevLeft
-            self.prevRightSample = prevRight
+            self.envStereo = env
+            self.limiterGainStereo = gR
         } else if channelCount == 1 {
             guard let ptr = mutableOutput[0].mData?
                 .bindMemory(to: Float.self, capacity: frames),
                 let dry = mutableInput[0].mData?
                 .bindMemory(to: Float.self, capacity: frames)
             else {
-                return noErr
+                return
             }
             for filterIndex in 0 ..< filterCount {
                 self.filters[filterIndex].processMono(samples: ptr, frameCount: frames)
             }
-            var prev = self.prevMonoSample
+            var env = self.envMono
+            var gm = self.limiterGainMono
             for index in 0 ..< frames {
                 mix += (target - mix) * Self.crossfadeAlpha
-                let wet = Self.softLimitOversampled(
-                    ptr[index] * gain,
-                    prevSample: &prev
+                let wet = Self.limiterProcess(
+                    sample: ptr[index] * gain, envelope: &env, gain: &gm
                 )
                 ptr[index] = dry[index] * (1 - mix) + wet * mix
             }
-            self.prevMonoSample = prev
+            self.envMono = env
+            self.limiterGainMono = gm
         }
 
         self.wetMix = mix
-        return noErr
     }
 
     /// One-pole smoothing constant for the wet/dry crossfade.
@@ -430,163 +357,84 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// ~40 ms, fast enough to feel responsive but slow enough to avoid clicks.
     private static let crossfadeAlpha: Float = 0.002
 
-    /// Soft-knee limiter with a fixed −1 dBFS ceiling.
+    /// Envelope-follower peak limiter.
     ///
-    /// Below ±0.9 (≈ −0.92 dBFS) the signal is passed through unchanged so
-    /// quiet music isn't coloured. Above the threshold the excess is folded
-    /// into the remaining 0.1 of headroom via `tanh`, so the output is hard
-    /// capped at ±1.0 without the snap-clip artefacts of digital truncation.
-    @inline(__always)
-    private static func softLimit(_ sample: Float) -> Float {
-        let threshold: Float = 0.9
-        let absValue = abs(sample)
-        if absValue <= threshold { return sample }
-        let sign: Float = sample >= 0 ? 1 : -1
-        let knee: Float = 1 - threshold
-        let excess = absValue - threshold
-        return sign * (threshold + knee * tanhf(excess / knee))
-    }
+    /// Models the behaviour of mastering-grade limiters: an internal peak
+    /// follower with fast attack and slower release tracks the signal
+    /// envelope; a gain-reduction multiplier is slewed toward
+    /// `threshold / envelope` whenever the envelope exceeds the ceiling.
+    /// Unlike a memoryless `tanh` saturator this produces **no harmonic
+    /// distortion on sustained content** — the signal is simply ducked
+    /// while the envelope is above threshold, so boosted presets keep
+    /// their tonal shape without the "tearing" artefacts a waveshaper
+    /// introduces at ±12 dB slider extremes.
+    ///
+    /// Constants tuned for 48 kHz operation:
+    ///   - threshold = 0.97 (≈ −0.26 dBFS ceiling)
+    ///   - attack ≈ 0.5 ms  (envelope rises to a peak in ~half a ms)
+    ///   - release ≈ 80 ms (recovers smoothly, no pumping)
+    ///   - gain slew ≈ 1 ms (audible zipper prevented)
+    ///
+    /// Render-thread safe: all operations are in-place arithmetic, no
+    /// allocations.
+    /// Threshold (linear amplitude) — ≈ −0.26 dBFS ceiling.
+    private static let limiterThreshold: Float = 0.97
+    /// Envelope-follower attack (~0.5 ms @ 48 kHz).
+    private static let limiterAttackCoeff: Float = 0.959
+    /// Envelope-follower release (~150 ms @ 48 kHz) — slow enough to
+    /// prevent audible pumping on content that hovers near threshold.
+    private static let limiterReleaseCoeff: Float = 0.9999
+    /// Gain slew coefficient (~1 ms settling) — blocks zipper noise.
+    private static let limiterGainSlew: Float = 0.04
 
-    /// 2× oversampled wrapper around ``softLimit``.
-    ///
-    /// `tanh` saturation generates harmonics that, at our 48 kHz render
-    /// rate, can fold above 24 kHz back into the audible band as a
-    /// crackly fizz when every band is pushed to +12 dB. Linearly
-    /// interpolating the half-rate point, applying the limiter at twice
-    /// the rate, then box-filter decimating gives ~30 dB of alias
-    /// suppression — enough to remove the audible artifact without the
-    /// cost of a polyphase FIR.
-    ///
-    /// `prevSample` is in/out: callers pass a per-channel state slot that
-    /// the function reads (for interpolation) and updates (for next call).
+    /// Mono variant of the envelope-follower limiter.
     @inline(__always)
-    private static func softLimitOversampled(
-        _ sample: Float,
-        prevSample: inout Float
+    private static func limiterProcess(
+        sample: Float,
+        envelope: inout Float,
+        gain: inout Float
     ) -> Float {
-        let interpolated = (prevSample + sample) * 0.5
-        let limitedInterpolated = Self.softLimit(interpolated)
-        let limitedSample = Self.softLimit(sample)
-        prevSample = sample
-        return (limitedInterpolated + limitedSample) * 0.5
+        let level = abs(sample)
+        if level > envelope {
+            envelope = Self.limiterAttackCoeff * envelope
+                + (1 - Self.limiterAttackCoeff) * level
+        } else {
+            envelope = Self.limiterReleaseCoeff * envelope
+                + (1 - Self.limiterReleaseCoeff) * level
+        }
+        let target: Float = envelope > Self.limiterThreshold
+            ? Self.limiterThreshold / envelope
+            : 1
+        gain += (target - gain) * Self.limiterGainSlew
+        return sample * gain
     }
 
-    // MARK: - Buffer management
-
-    private func allocateInputBuffers(frameCapacity: UInt32) {
-        self.freeInputBuffers()
-
-        let channelCount = Self.tapChannelCount
-        let bytesPerChannel = Int(frameCapacity) * MemoryLayout<Float>.size
-
-        let leftPtr = UnsafeMutablePointer<Float>.allocate(capacity: Int(frameCapacity))
-        let rightPtr = UnsafeMutablePointer<Float>.allocate(capacity: Int(frameCapacity))
-        leftPtr.initialize(repeating: 0, count: Int(frameCapacity))
-        rightPtr.initialize(repeating: 0, count: Int(frameCapacity))
-        self.leftStorage = leftPtr
-        self.rightStorage = rightPtr
-
-        // `AudioBufferList` is declared with one inline `AudioBuffer`, so for
-        // N channels we allocate sizeof(list) + (N-1) trailing buffers.
-        let listSize = MemoryLayout<AudioBufferList>.size
-            + MemoryLayout<AudioBuffer>.size * (channelCount - 1)
-        let rawList = UnsafeMutableRawPointer.allocate(
-            byteCount: listSize,
-            alignment: MemoryLayout<AudioBufferList>.alignment
-        )
-        let list = rawList.assumingMemoryBound(to: AudioBufferList.self)
-        list.pointee.mNumberBuffers = UInt32(channelCount)
-
-        // `mDataByteSize` is overwritten per render cycle from the actual
-        // `frameCount` AUHAL hands us; the value here is a defensive
-        // prefill so the buffers never report zero-sized regions before
-        // the first cycle runs.
-        let mutable = UnsafeMutableAudioBufferListPointer(list)
-        mutable[0] = AudioBuffer(
-            mNumberChannels: 1,
-            mDataByteSize: UInt32(bytesPerChannel),
-            mData: UnsafeMutableRawPointer(leftPtr)
-        )
-        mutable[1] = AudioBuffer(
-            mNumberChannels: 1,
-            mDataByteSize: UInt32(bytesPerChannel),
-            mData: UnsafeMutableRawPointer(rightPtr)
-        )
-        self.inputBufferList = list
+    /// Stereo-linked variant: one envelope/gain pair driven by
+    /// `max(|L|, |R|)`. A peak on either channel ducks both equally, so
+    /// the centre image stays anchored (no imbalance pumping).
+    @inline(__always)
+    private static func limiterProcessStereo(
+        left: Float,
+        right: Float,
+        envelope: inout Float,
+        gain: inout Float
+    ) -> (Float, Float) {
+        let level = max(abs(left), abs(right))
+        if level > envelope {
+            envelope = Self.limiterAttackCoeff * envelope
+                + (1 - Self.limiterAttackCoeff) * level
+        } else {
+            envelope = Self.limiterReleaseCoeff * envelope
+                + (1 - Self.limiterReleaseCoeff) * level
+        }
+        let target: Float = envelope > Self.limiterThreshold
+            ? Self.limiterThreshold / envelope
+            : 1
+        gain += (target - gain) * Self.limiterGainSlew
+        return (left * gain, right * gain)
     }
 
-    private func freeInputBuffers() {
-        // Publish nil before freeing so a render callback that slips in
-        // after `AudioOutputUnitStop` (rare but documented) reads nil and
-        // bails instead of dereferencing freed memory.
-        let list = self.inputBufferList
-        let leftPtr = self.leftStorage
-        let rightPtr = self.rightStorage
-        self.inputBufferList = nil
-        self.leftStorage = nil
-        self.rightStorage = nil
-        if let list { UnsafeMutableRawPointer(list).deallocate() }
-        if let leftPtr {
-            leftPtr.deinitialize(count: Int(Self.maxFramesPerCycle))
-            leftPtr.deallocate()
-        }
-        if let rightPtr {
-            rightPtr.deinitialize(count: Int(Self.maxFramesPerCycle))
-            rightPtr.deallocate()
-        }
-    }
-
-    // MARK: - Teardown helpers
-
-    private func tearDown(partialUnit: AudioUnit) {
-        AudioComponentInstanceDispose(partialUnit)
-        self.freeInputBuffers()
-        self.tapHelper.stop()
-    }
-
-    // MARK: - AUHAL plumbing
-
-    private static func createHALAudioUnit() -> AudioUnit? {
-        var description = AudioComponentDescription(
-            componentType: kAudioUnitType_Output,
-            componentSubType: kAudioUnitSubType_HALOutput,
-            componentManufacturer: kAudioUnitManufacturer_Apple,
-            componentFlags: 0,
-            componentFlagsMask: 0
-        )
-        guard let component = AudioComponentFindNext(nil, &description) else {
-            Self.logger.error("HAL AudioComponent not found")
-            return nil
-        }
-        var unit: AudioUnit?
-        let status = AudioComponentInstanceNew(component, &unit)
-        guard status == noErr, let unit else {
-            Self.logger.error("AudioComponentInstanceNew failed: \(status)")
-            return nil
-        }
-        return unit
-    }
-
-    private static func enableIO(unit: AudioUnit) -> OSStatus? {
-        // Output bus 0 = render to device, input bus 1 = capture from tap.
-        var enabled: UInt32 = 1
-        let size = UInt32(MemoryLayout<UInt32>.size)
-        let outputStatus = AudioUnitSetProperty(
-            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enabled, size
-        )
-        if outputStatus != noErr {
-            Self.logger.error("EnableIO output failed: \(outputStatus)")
-            return outputStatus
-        }
-        let inputStatus = AudioUnitSetProperty(
-            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enabled, size
-        )
-        if inputStatus != noErr {
-            Self.logger.error("EnableIO input failed: \(inputStatus)")
-            return inputStatus
-        }
-        return nil
-    }
+    // MARK: - Format helper
 
     private static func stereoFloat32NonInterleaved(sampleRate: Float64) -> AudioStreamBasicDescription {
         let bytesPerSample = UInt32(MemoryLayout<Float>.size)
@@ -677,25 +525,32 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 // MARK: - C render callback
 
 // Top-level C render callback. Trampolines into the engine instance carried
-// in `refCon`. Must be `@convention(c)` so Core Audio can invoke it without
-// Swift closure context. The six-parameter signature is dictated by
-// `AURenderCallback` and cannot be reduced.
+// C-convention trampoline to let Core Audio's `AudioDeviceIOProc` call back
+// into the Swift engine. Six-parameter signature is dictated by
+// `AudioDeviceIOProc` and cannot be reduced.
 // swiftlint:disable:next function_parameter_count
-private func kasetEQRenderCallback(
-    refCon: UnsafeMutableRawPointer,
-    ioActionFlags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
-    inTimeStamp: UnsafePointer<AudioTimeStamp>,
-    inBusNumber _: UInt32,
-    inNumberFrames: UInt32,
-    ioData: UnsafeMutablePointer<AudioBufferList>?
+private func kasetEQIOProc(
+    inDevice _: AudioObjectID,
+    inNow _: UnsafePointer<AudioTimeStamp>,
+    inInputData: UnsafePointer<AudioBufferList>,
+    inInputTime _: UnsafePointer<AudioTimeStamp>,
+    outOutputData: UnsafeMutablePointer<AudioBufferList>,
+    inOutputTime _: UnsafePointer<AudioTimeStamp>,
+    inClientData: UnsafeMutableRawPointer?
 ) -> OSStatus {
+    guard let inClientData else { return kAudioUnitErr_NoConnection }
     let engine = Unmanaged<EqualizerAudioEngine>
-        .fromOpaque(refCon)
+        .fromOpaque(inClientData)
         .takeUnretainedValue()
-    return engine.performRender(
-        flags: ioActionFlags,
-        timestamp: inTimeStamp,
-        frameCount: inNumberFrames,
-        outputBuffers: ioData
+    // Derive frameCount from output buffer0's mDataByteSize (4 bytes/Float).
+    let outList = UnsafeMutableAudioBufferListPointer(outOutputData)
+    let frames = outList.isEmpty
+        ? 0
+        : outList[0].mDataByteSize / UInt32(MemoryLayout<Float>.size)
+    engine.performRender(
+        inputBuffers: inInputData,
+        frameCount: frames,
+        outputBuffers: outOutputData
     )
+    return noErr
 }

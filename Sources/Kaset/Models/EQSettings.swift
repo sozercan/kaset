@@ -50,22 +50,22 @@ struct EQSettings: Codable, Equatable {
         self.bandGainsDB = self.bandGainsDB.map(Self.clamp)
     }
 
-    /// Headroom protection applied automatically on top of the user preamp.
+    /// Automatic headroom applied ahead of the biquad chain.
     ///
-    /// When the user pushes bands into positive gain, overlapping biquad
-    /// sections compound their boosts and the signal can exceed 0 dBFS by
-    /// 20–30 dB at frequencies between band centres. We pre-attenuate by
-    /// roughly a third of the maximum positive band gain so peaks usually
-    /// stay below 0 dBFS without flattening the perceived effect; the soft
-    /// limiter in the audio engine catches whatever still pokes above.
+    /// Balanced so the envelope limiter handles only occasional
+    /// transients rather than continuously riding the signal — when the
+    /// limiter fires constantly you start hearing its gain reduction as
+    /// low-level pumping / raised noise floor. A 0.25 coefficient
+    /// reserves enough headroom that normal content sits below the
+    /// threshold while presets keep most of their perceptual boost.
     ///
-    /// The factor is intentionally lighter than the "halve the peak" rule
-    /// used by some EQs because Kaset doesn't get the loudness-normalised
-    /// source Spotify-style players start from — too much attenuation here
-    /// makes presets feel inaudible.
+    /// Formula: `-max(0, peak) × 0.25`. Examples:
+    ///   peak = +3 dB  → trim = −0.75 dB
+    ///   peak = +6 dB  → trim = −1.5 dB
+    ///   peak = +12 dB → trim = −3.0 dB
     var autoTrimDB: Float {
         let peak = self.bandGainsDB.max() ?? 0
-        return peak > 0 ? -peak * 0.3 : 0
+        return -max(0, peak) * 0.25
     }
 
     private static func clamp(_ value: Float) -> Float {

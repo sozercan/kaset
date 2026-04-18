@@ -49,17 +49,20 @@ struct EQSettingsTests {
         #expect(negative.autoTrimDB == 0)
     }
 
-    @Test("autoTrimDB attenuates by ~0.3× the peak boost")
+    @Test("autoTrimDB scales with peak positive gain at 0.25x")
     func autoTrimScalesWithPeak() {
         var settings = EQSettings.flat
-        settings.bandGainsDB = [10, 0, 0, 0, 0, 0]
-        #expect(abs(settings.autoTrimDB - -3) < 0.01)
+        settings.bandGainsDB = [3, 0, 0, 0, 0, 0]
+        #expect(abs(settings.autoTrimDB - -0.75) < 0.001)
+
+        settings.bandGainsDB = [0, 0, 0, 6, 0, 0]
+        #expect(abs(settings.autoTrimDB - -1.5) < 0.001)
 
         settings.bandGainsDB = [0, 0, 0, 12, 0, 0]
-        #expect(abs(settings.autoTrimDB - -3.6) < 0.01)
+        #expect(abs(settings.autoTrimDB - -3.0) < 0.001)
 
         settings.bandGainsDB = [3, 7, 1, -2, 5, 4]
-        #expect(abs(settings.autoTrimDB - -2.1) < 0.01)
+        #expect(abs(settings.autoTrimDB - -1.75) < 0.001)
     }
 
     // MARK: - Codable round-trip

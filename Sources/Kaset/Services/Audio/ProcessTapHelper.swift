@@ -223,16 +223,14 @@ final class ProcessTapHelper {
     /// so could mute Safari, Mail, or other unrelated apps.
     private static func audioObjectsToTap() -> [AudioObjectID] {
         let allObjects = Self.allAudioProcessObjects()
-        let ourPID = ProcessInfo.processInfo.processIdentifier
 
+        // Tap WebKit audio subprocesses only. Deliberately excluding
+        // Kaset's own process object: Core Audio returns all-zero samples
+        // for a tap-on-self (even when the host process *is* the one
+        // emitting audio via WKWebView), which yields silent EQ output.
         return allObjects.filter { objectID in
-            guard let bundleID = Self.processBundleID(of: objectID),
-                  Self.isWebKitAudioCandidate(bundleID: bundleID)
-            else {
-                return false
-            }
-            let pid = Self.processPID(of: objectID)
-            return pid > 0 && Self.parentPID(of: pid) == ourPID
+            guard let bundleID = Self.processBundleID(of: objectID) else { return false }
+            return Self.isWebKitAudioCandidate(bundleID: bundleID)
         }
     }
 
