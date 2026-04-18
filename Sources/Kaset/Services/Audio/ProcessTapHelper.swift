@@ -19,9 +19,9 @@ import Foundation
 /// Design notes:
 ///
 /// * The aggregate device contains the system default output as its main
-///   sub-device, so a single AUHAL bound to it can read the tap and write
-///   to the speakers in one render cycle — no ring buffer, no cross-clock
-///   drift.
+///   sub-device, so an `AudioDeviceIOProc` registered on it can read the
+///   tap and write to the speakers in one callback — no ring buffer, no
+///   cross-clock drift.
 /// * Drift compensation is enabled on the tap so its sample rate tracks the
 ///   output device.
 /// * The helper exposes the negotiated stream format so callers can match
@@ -44,8 +44,8 @@ final class ProcessTapHelper {
     /// Negotiated audio stream format of the tap output.
     private(set) var tapStreamDescription: AudioStreamBasicDescription?
 
-    /// ID of the private aggregate device that fronts the tap. Bind this to
-    /// an AUHAL via `kAudioOutputUnitProperty_CurrentDevice`.
+    /// ID of the private aggregate device that fronts the tap. Pass this
+    /// to `AudioDeviceCreateIOProcID` to install a render callback.
     private(set) var aggregateDeviceID: AudioObjectID = .init(kAudioObjectUnknown)
 
     /// ID of the underlying tap object.
@@ -87,7 +87,7 @@ final class ProcessTapHelper {
     /// with mute-when-tapped behaviour, and wraps the tap in an aggregate
     /// device that fronts the system default output for clock alignment.
     ///
-    /// - Returns: `.success` once `aggregateDeviceID` is usable by AUHAL.
+    /// - Returns: `.success` once `aggregateDeviceID` is ready for a HAL I/O proc.
     func start() -> Result<Void, StartFailure> {
         guard #available(macOS 14.2, *) else {
             Self.logger.error("process tap requires macOS 14.2+")
@@ -380,9 +380,10 @@ final class ProcessTapHelper {
 
     /// Creates a duplex aggregate device: the default output device is the
     /// clock master sub-device, and the process tap is attached as a
-    /// drift-compensated input. A single `AUHAL` bound to this aggregate can
-    /// therefore render the tapped audio straight into the output device in
-    /// the same render cycle — no ring buffer, no cross-clock drift.
+    /// drift-compensated input. A HAL I/O proc registered on this
+    /// aggregate therefore reads the tapped audio and writes to the
+    /// output device in the same callback — no ring buffer, no
+    /// cross-clock drift.
     private static func makeAggregateDevice(
         wrapping tapID: AudioObjectID
     ) -> (objectID: AudioObjectID, uid: String)? {

@@ -434,6 +434,8 @@ struct SettingsView: View {
                     Label("Extensions", systemImage: "puzzlepiece.extension")
                 }
         }
+        // 520×520 fits the Equalizer tab's six-band slider grid + curve
+        // preview; the other tabs grow comfortably into the extra space.
         .frame(width: 520, height: 520)
     }
 }
