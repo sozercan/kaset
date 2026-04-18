@@ -307,13 +307,17 @@ private struct EQCurveShape: Shape {
     let gains: [Float]
     let range: ClosedRange<Float>
 
+    /// Vertical fill ratio — reserves a 15% margin top/bottom so the
+    /// stroked curve isn't clipped at extremes (±12 dB).
+    private static let verticalFillRatio: CGFloat = 0.85
+
     func path(in rect: CGRect) -> Path {
         guard self.gains.count >= 2 else { return Path() }
 
         let stepX = rect.width / CGFloat(self.gains.count)
         let midY = rect.midY
         let span = CGFloat(self.range.upperBound - self.range.lowerBound)
-        let scaleY = rect.height * 0.85 / span
+        let scaleY = rect.height * Self.verticalFillRatio / span
 
         let points: [CGPoint] = self.gains.enumerated().map { index, gain in
             let x = stepX * (CGFloat(index) + 0.5)
@@ -325,11 +329,11 @@ private struct EQCurveShape: Shape {
         path.move(to: points[0])
 
         // Catmull-Rom → Bezier conversion with tension 0.5.
-        for i in 0 ..< points.count - 1 {
-            let p0 = i == 0 ? points[0] : points[i - 1]
-            let p1 = points[i]
-            let p2 = points[i + 1]
-            let p3 = i + 2 < points.count ? points[i + 2] : p2
+        for index in 0 ..< points.count - 1 {
+            let p0 = index == 0 ? points[0] : points[index - 1]
+            let p1 = points[index]
+            let p2 = points[index + 1]
+            let p3 = index + 2 < points.count ? points[index + 2] : p2
 
             let control1 = CGPoint(
                 x: p1.x + (p2.x - p0.x) / 6,

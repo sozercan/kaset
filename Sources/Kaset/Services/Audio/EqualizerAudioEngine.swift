@@ -379,6 +379,29 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// Gain slew coefficient (~1 ms settling) — blocks zipper noise.
     private static let limiterGainSlew: Float = 0.04
 
+    /// Shared envelope-follower update. Advances `envelope` toward
+    /// `level` and slews `gain` toward `threshold / envelope` (or `1`).
+    /// Returns the current gain multiplier.
+    @inline(__always)
+    private static func limiterGainStep(
+        level: Float,
+        envelope: inout Float,
+        gain: inout Float
+    ) -> Float {
+        if level > envelope {
+            envelope = self.limiterAttackCoeff * envelope
+                + (1 - self.limiterAttackCoeff) * level
+        } else {
+            envelope = self.limiterReleaseCoeff * envelope
+                + (1 - self.limiterReleaseCoeff) * level
+        }
+        let target: Float = envelope > Self.limiterThreshold
+            ? Self.limiterThreshold / envelope
+            : 1
+        gain += (target - gain) * Self.limiterGainSlew
+        return gain
+    }
+
     /// Mono variant of the envelope-follower limiter.
     @inline(__always)
     private static func limiterProcess(
@@ -386,19 +409,8 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         envelope: inout Float,
         gain: inout Float
     ) -> Float {
-        let level = abs(sample)
-        if level > envelope {
-            envelope = Self.limiterAttackCoeff * envelope
-                + (1 - Self.limiterAttackCoeff) * level
-        } else {
-            envelope = Self.limiterReleaseCoeff * envelope
-                + (1 - Self.limiterReleaseCoeff) * level
-        }
-        let target: Float = envelope > Self.limiterThreshold
-            ? Self.limiterThreshold / envelope
-            : 1
-        gain += (target - gain) * Self.limiterGainSlew
-        return sample * gain
+        let g = Self.limiterGainStep(level: abs(sample), envelope: &envelope, gain: &gain)
+        return sample * g
     }
 
     /// Stereo-linked variant: one envelope/gain pair driven by
@@ -411,19 +423,10 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         envelope: inout Float,
         gain: inout Float
     ) -> (Float, Float) {
-        let level = max(abs(left), abs(right))
-        if level > envelope {
-            envelope = Self.limiterAttackCoeff * envelope
-                + (1 - Self.limiterAttackCoeff) * level
-        } else {
-            envelope = Self.limiterReleaseCoeff * envelope
-                + (1 - Self.limiterReleaseCoeff) * level
-        }
-        let target: Float = envelope > Self.limiterThreshold
-            ? Self.limiterThreshold / envelope
-            : 1
-        gain += (target - gain) * Self.limiterGainSlew
-        return (left * gain, right * gain)
+        let g = Self.limiterGainStep(
+            level: max(abs(left), abs(right)), envelope: &envelope, gain: &gain
+        )
+        return (left * g, right * g)
     }
 
     // MARK: - Format helper

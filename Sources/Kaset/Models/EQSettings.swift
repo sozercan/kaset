@@ -55,7 +55,7 @@ struct EQSettings: Codable, Equatable {
     /// Balanced so the envelope limiter handles only occasional
     /// transients rather than continuously riding the signal — when the
     /// limiter fires constantly you start hearing its gain reduction as
-    /// low-level pumping / raised noise floor. A 0.25 coefficient
+    /// low-level pumping / raised noise floor. A 0.2 coefficient
     /// reserves enough headroom that normal content sits below the
     /// threshold while presets keep most of their perceptual boost.
     ///
