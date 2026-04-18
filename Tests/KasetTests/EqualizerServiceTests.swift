@@ -9,30 +9,38 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct EqualizerServiceTests {
-    private static let storageKey = "settings.equalizer"
+    private static let suiteName = "com.kaset.test.EqualizerService"
 
-    /// Returns a service backed by a fresh mock engine. Each call wipes
-    /// the persisted settings so tests start from `.flat`. Note: a stray
-    /// write from the last test in the suite remains in UserDefaults
-    /// until the next test run wipes it again — acceptable because the
-    /// tests use the same key as production and the suite is `.serialized`.
-    /// Swift Testing `Suite` types are structs and can't host a `deinit`,
-    /// so a "save snapshot, restore on teardown" pattern would require a
-    /// class wrapper that isn't worth the boilerplate here.
+    private struct TestHarness {
+        let service: EqualizerService
+        let mock: MockEqualizerAudioEngine
+        let defaults: UserDefaults
+    }
+
+    /// Returns a service backed by a fresh mock engine, using an isolated
+    /// `UserDefaults` suite so tests never touch the shared production
+    /// defaults domain.
     private static func makeService(
-        startResult: Result<Void, EqualizerAudioEngine.StartFailure> = .success(())
-    ) -> (EqualizerService, MockEqualizerAudioEngine) {
-        UserDefaults.standard.removeObject(forKey: self.storageKey)
+        startResult: Result<Void, EqualizerAudioEngine.StartFailure> = .success(()),
+        isPlaybackActive: @escaping @MainActor () -> Bool = { false }
+    ) -> TestHarness {
+        let defaults = UserDefaults(suiteName: self.suiteName)!
+        defaults.removePersistentDomain(forName: self.suiteName)
         let mock = MockEqualizerAudioEngine(startResult: startResult)
-        let service = EqualizerService(engine: mock, isPlaybackActive: { false })
-        return (service, mock)
+        let service = EqualizerService(
+            engine: mock,
+            isPlaybackActive: isPlaybackActive,
+            defaults: defaults
+        )
+        return TestHarness(service: service, mock: mock, defaults: defaults)
     }
 
     // MARK: - Preset application
 
     @Test("Applying a preset replaces every band gain")
     func applyPresetReplacesBands() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         service.apply(preset: .bassBooster)
 
         #expect(service.settings.preset == .bassBooster)
@@ -41,7 +49,8 @@ struct EqualizerServiceTests {
 
     @Test("Applying a preset clamps any out-of-range values")
     func applyPresetClamps() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         // Sanity: every preset already lives in range, so this verifies
         // clampGains doesn't mutate values that are already legal.
         service.apply(preset: .classical)
@@ -54,7 +63,8 @@ struct EqualizerServiceTests {
 
     @Test("setGain snaps the active preset to .custom")
     func setGainSnapsToCustom() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         service.apply(preset: .rock)
         #expect(service.settings.preset == .rock)
 
@@ -65,7 +75,8 @@ struct EqualizerServiceTests {
 
     @Test("setGain clamps to the legal range")
     func setGainClamps() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         service.setGain(forBandAt: 0, to: 999)
         #expect(service.settings.bandGainsDB[0] == EQSettings.maxGainDB)
         service.setGain(forBandAt: 0, to: -999)
@@ -74,7 +85,8 @@ struct EqualizerServiceTests {
 
     @Test("setGain ignores out-of-bounds indices")
     func setGainIgnoresInvalidIndex() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         let original = service.settings.bandGainsDB
         service.setGain(forBandAt: 999, to: 5)
         #expect(service.settings.bandGainsDB == original)
@@ -84,7 +96,8 @@ struct EqualizerServiceTests {
 
     @Test("setPreamp does not change the active preset")
     func setPreampPreservesPreset() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         service.apply(preset: .pop)
         service.setPreamp(-3)
         #expect(service.settings.preset == .pop)
@@ -95,7 +108,8 @@ struct EqualizerServiceTests {
 
     @Test("reset returns to flat bands but preserves isEnabled")
     func resetPreservesEnabledState() {
-        let (service, _) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
         service.apply(preset: .rock)
         service.setEnabled(true)
         // Engine started successfully; reset should not flip enabled off.
@@ -109,7 +123,9 @@ struct EqualizerServiceTests {
 
     @Test("Successful start applies settings to the engine")
     func startAppliesSettings() {
-        let (service, mock) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
+        let mock = harness.mock
         service.apply(preset: .jazz)
         service.setEnabled(true)
 
@@ -120,7 +136,9 @@ struct EqualizerServiceTests {
 
     @Test("Explicit tap-creation failure auto-disables the toggle and surfaces the permission CTA")
     func permissionFailureAutoDisables() {
-        let (service, mock) = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(true)
 
         #expect(mock.startCallCount == 1)
@@ -137,7 +155,9 @@ struct EqualizerServiceTests {
 
     @Test("Re-enabling clears the inferred permission warning and retries")
     func reEnableClearsPermissionFlag() {
-        let (service, mock) = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(true)
         // Now the toggle is off + permission warning is showing.
         #expect(service.settings.isEnabled == false)
@@ -151,7 +171,9 @@ struct EqualizerServiceTests {
 
     @Test("No-audio-source failure stays silent (waiting for playback)")
     func noAudioSourceShowsStandby() {
-        let (service, mock) = Self.makeService(startResult: .failure(.tap(.noAudioSource)))
+        let harness = Self.makeService(startResult: .failure(.tap(.noAudioSource)))
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(true)
 
         #expect(mock.startCallCount == 1)
@@ -162,7 +184,9 @@ struct EqualizerServiceTests {
 
     @Test("retryStartIfEnabled is a no-op when toggle is off")
     func retryNoOpsWhenDisabled() async {
-        let (service, mock) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(false)
         let baseline = mock.startCallCount
 
@@ -173,7 +197,9 @@ struct EqualizerServiceTests {
 
     @Test("retryStartIfEnabled tries again when enabled and not running")
     func retrySpinsUpEngineWhenAudioBecomesAvailable() async {
-        let (service, mock) = Self.makeService(startResult: .failure(.tap(.noAudioSource)))
+        let harness = Self.makeService(startResult: .failure(.tap(.noAudioSource)))
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(true)
         let firstAttempt = mock.startCallCount
 
@@ -187,7 +213,9 @@ struct EqualizerServiceTests {
 
     @Test("Disabling stops the engine and clears the error")
     func disableStopsEngine() {
-        let (service, mock) = Self.makeService()
+        let harness = Self.makeService()
+        let service = harness.service
+        let mock = harness.mock
         service.setEnabled(true)
         #expect(mock.startCallCount == 1)
 
@@ -199,18 +227,85 @@ struct EqualizerServiceTests {
     // MARK: - Persistence
 
     @Test("Settings round-trip through UserDefaults")
-    func persistenceRoundTrip() {
-        let (service, _) = Self.makeService()
+    func persistenceRoundTrip() async {
+        let harness = Self.makeService()
+        let service = harness.service
+        let defaults = harness.defaults
         service.apply(preset: .rock)
         service.setPreamp(-2)
         service.setGain(forBandAt: 1, to: 3.5)
 
-        // New service should load the same settings.
+        // Persistence is debounced; wait past the debounce window.
+        try? await Task.sleep(for: .milliseconds(400))
+
+        // New service should load the same settings from the same suite.
         let mock = MockEqualizerAudioEngine()
-        let revived = EqualizerService(engine: mock)
+        let revived = EqualizerService(engine: mock, defaults: defaults)
         #expect(revived.settings.preset == .custom) // setGain snapped it
         #expect(revived.settings.preampDB == -2)
         #expect(revived.settings.bandGainsDB[1] == 3.5)
+    }
+
+    @Test("Decoded settings with a mismatched band-count are normalised to the default shape")
+    func persistenceNormalisesBandCount() {
+        let harness = Self.makeService()
+        let service = harness.service
+        let defaults = harness.defaults
+        // Write a short payload directly to simulate an older build.
+        let shortPayload = EQSettings(
+            isEnabled: false,
+            preampDB: 0,
+            bandGainsDB: [1, 2, 3],
+            preset: .custom
+        )
+        let data = try? JSONEncoder().encode(shortPayload)
+        defaults.set(data, forKey: "settings.equalizer")
+        _ = service // silence unused
+
+        let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
+        #expect(revived.settings.bandGainsDB.count == EQBand.defaultBands.count)
+        #expect(revived.settings.bandGainsDB.prefix(3) == [1, 2, 3])
+    }
+
+    // MARK: - Tap silence verification
+
+    @Test("Silent tap while playback is active infers permission denial after ~2s")
+    func silentTapInfersPermissionDenial() async {
+        let harness = Self.makeService(isPlaybackActive: { true })
+        let service = harness.service
+        let mock = harness.mock
+        mock.hasObservedAudio = false
+        service.setEnabled(true)
+        #expect(service.status == .active)
+
+        // The verifier fires ~2s after a successful start.
+        try? await Task.sleep(for: .milliseconds(2300))
+        #expect(mock.stopCallCount >= 1)
+        #expect(service.settings.isEnabled == false)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded, got \(service.status)")
+        }
+    }
+
+    @Test("Rapid retry toggling coalesces to a single engine start")
+    func retryCoalescesRapidToggles() async {
+        let harness = Self.makeService(startResult: .failure(.tap(.noAudioSource)))
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+        let baseline = mock.startCallCount
+
+        mock.startResult = .success(())
+        // Five rapid calls should all cancel each other — only the final
+        // scheduled attempt runs.
+        for _ in 0 ..< 5 {
+            service.retryStartIfEnabled()
+        }
+        try? await Task.sleep(for: .milliseconds(700))
+
+        #expect(mock.startCallCount == baseline + 1)
     }
 }
 

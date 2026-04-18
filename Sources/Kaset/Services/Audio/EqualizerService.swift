@@ -47,7 +47,7 @@ final class EqualizerService {
     var settings: EQSettings {
         didSet {
             guard self.settings != oldValue else { return }
-            self.persist()
+            self.schedulePersist()
             self.syncEngine()
         }
     }
@@ -75,6 +75,14 @@ final class EqualizerService {
     /// for the same reason.
     private var verificationTask: Task<Void, Never>?
 
+    /// Cancelled and replaced on every settings mutation. A slider drag
+    /// fires `didSet` at UI frame rate; debouncing keeps `UserDefaults`
+    /// writes off the hot path while still flushing within ~250 ms of the
+    /// last edit.
+    private var persistTask: Task<Void, Never>?
+
+    private static let persistDebounceInterval: Duration = .milliseconds(250)
+
     /// Probe used by ``scheduleTapVerification`` to decide whether a silent
     /// tap really means "no permission" or just "user paused playback". A
     /// closure rather than a `PlayerServiceProtocol` reference keeps the
@@ -92,15 +100,20 @@ final class EqualizerService {
 
     // MARK: - Init
 
-    /// Tests construct an isolated instance with a stub engine and a stub
-    /// playback probe; production code goes through ``shared``.
+    private let defaults: UserDefaults
+
+    /// Tests construct an isolated instance with a stub engine, stub
+    /// playback probe, and a private `UserDefaults` suite; production code
+    /// goes through ``shared``.
     init(
         engine: any EqualizerAudioEngineProtocol = EqualizerAudioEngine(),
-        isPlaybackActive: @escaping @MainActor () -> Bool = { PlayerService.shared?.isPlaying ?? false }
+        isPlaybackActive: @escaping @MainActor () -> Bool = { PlayerService.shared?.isPlaying ?? false },
+        defaults: UserDefaults = .standard
     ) {
         self.engine = engine
         self.isPlaybackActive = isPlaybackActive
-        self.settings = Self.loadPersistedSettings()
+        self.defaults = defaults
+        self.settings = Self.loadPersistedSettings(from: defaults)
         self.syncEngine()
     }
 
@@ -196,17 +209,26 @@ final class EqualizerService {
 
     // MARK: - Persistence
 
+    private func schedulePersist() {
+        self.persistTask?.cancel()
+        self.persistTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.persistDebounceInterval)
+            guard let self, !Task.isCancelled else { return }
+            self.persist()
+        }
+    }
+
     private func persist() {
         do {
             let data = try Self.encoder.encode(self.settings)
-            UserDefaults.standard.set(data, forKey: Keys.settings)
+            self.defaults.set(data, forKey: Keys.settings)
         } catch {
             self.logger.error("persist failed: \(error.localizedDescription)")
         }
     }
 
-    private static func loadPersistedSettings() -> EQSettings {
-        guard let data = UserDefaults.standard.data(forKey: Keys.settings) else {
+    private static func loadPersistedSettings(from defaults: UserDefaults) -> EQSettings {
+        guard let data = defaults.data(forKey: Keys.settings) else {
             return .flat
         }
         do {
