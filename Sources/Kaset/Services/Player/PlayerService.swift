@@ -48,6 +48,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Currently playing track.
     var currentTrack: Song?
 
+    /// Set when the current playback was started from an artist-page episode
+    /// (including live radio streams). Cleared by `play(song:)` and
+    /// `play(videoId:)` so regular playback never reports as live.
+    var currentEpisode: ArtistEpisode?
+
+    /// Convenience flag for UI gating (disables seek/queue UI for live streams).
+    var isCurrentItemLive: Bool {
+        self.currentEpisode?.isLive ?? false
+    }
+
     /// Whether playback is active.
     var isPlaying: Bool {
         self.state.isPlaying
@@ -377,6 +387,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
+        self.currentEpisode = nil
         self.state = .loading
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
@@ -422,6 +433,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.info("Playing song: \(song.title)")
         self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
+        self.currentEpisode = nil
         // Brief `.loading` until the observer reports playback; in-place restarts may flash loading briefly.
         self.state = .loading
         self.songNearingEnd = false
@@ -463,6 +475,37 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         if song.feedbackTokens == nil {
             await self.fetchSongMetadata(videoId: song.videoId)
         }
+    }
+
+    /// Plays an artist-page episode as a standalone item (not enqueued).
+    ///
+    /// Episodes — including live radio streams from channel-style artists —
+    /// don't belong in the song queue: they have no duration, can't be
+    /// seeked, and next/previous has no meaning. This clears the queue,
+    /// synthesizes a minimal `Song` so `PlayerBar` can render title and
+    /// thumbnail, then assigns `currentEpisode` so the UI can gate live
+    /// behavior.
+    func playEpisode(_ episode: ArtistEpisode) async {
+        self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
+
+        // Live streams / channel videos play standalone — clear queue state.
+        self.queue = []
+        self.currentIndex = 0
+        self.clearForwardSkipNavigationStack()
+
+        let representative = Song(
+            id: episode.videoId,
+            title: episode.title,
+            artists: [],
+            album: nil,
+            duration: nil,
+            thumbnailURL: episode.thumbnailURL,
+            videoId: episode.videoId
+        )
+
+        // `play(song:)` resets `currentEpisode = nil`; reassign it afterwards.
+        await self.play(song: representative)
+        self.currentEpisode = episode
     }
 
     /// Called when the mini player confirms playback has started.

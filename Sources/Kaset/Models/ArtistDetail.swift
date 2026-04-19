@@ -8,6 +8,18 @@ struct ArtistDetail {
     let description: String?
     let songs: [Song]
     let albums: [Album]
+    /// Singles & EPs, which use the same renderer as albums but live in their
+    /// own shelf on the artist page. Empty when the artist has none.
+    let singles: [Album]
+    /// Latest episodes / video uploads on the artist's channel. Includes live
+    /// radio streams (`isLive == true`).
+    let episodes: [ArtistEpisode]
+    /// Playlists curated by this artist (e.g. "Playlists by Lofi Girl").
+    let playlistsByArtist: [Playlist]
+    /// Related artists from the "Fans might also like" shelf.
+    let relatedArtists: [Artist]
+    /// Podcast shows the artist owns (`MPSPP…` browseIds).
+    let podcasts: [PodcastShow]
     let thumbnailURL: URL?
     /// The channel ID for subscription operations (e.g., UCxxxxx).
     let channelId: String?
@@ -39,6 +51,11 @@ struct ArtistDetail {
         description: String?,
         songs: [Song],
         albums: [Album],
+        singles: [Album] = [],
+        episodes: [ArtistEpisode] = [],
+        playlistsByArtist: [Playlist] = [],
+        relatedArtists: [Artist] = [],
+        podcasts: [PodcastShow] = [],
         thumbnailURL: URL?,
         channelId: String? = nil,
         isSubscribed: Bool = false,
@@ -53,6 +70,11 @@ struct ArtistDetail {
         self.description = description
         self.songs = songs
         self.albums = albums
+        self.singles = singles
+        self.episodes = episodes
+        self.playlistsByArtist = playlistsByArtist
+        self.relatedArtists = relatedArtists
+        self.podcasts = podcasts
         self.thumbnailURL = thumbnailURL
         self.channelId = channelId
         self.isSubscribed = isSubscribed

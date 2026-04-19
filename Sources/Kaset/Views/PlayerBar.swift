@@ -135,14 +135,36 @@ struct PlayerBar: View {
                     .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
                     .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
 
-                // Seek bar (shown when hovering and track is playing)
+                // On hover: seek bar for normal tracks, LIVE indicator for live streams.
                 if self.isHovering, self.playerService.currentTrack != nil {
-                    self.seekBarView
-                        .transition(.opacity)
+                    if self.playerService.isCurrentItemLive {
+                        self.liveIndicatorView
+                            .transition(.opacity)
+                    } else {
+                        self.seekBarView
+                            .transition(.opacity)
+                    }
                 }
             }
         }
         .frame(maxWidth: 400)
+    }
+
+    // MARK: - Live Indicator View (replaces seek bar for live streams)
+
+    private var liveIndicatorView: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(.red)
+                .frame(width: 8, height: 8)
+
+            Text("LIVE", comment: "Label shown on the player bar when playing a live radio stream")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.red)
+                .tracking(0.5)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Live stream"))
     }
 
     // MARK: - Error View
