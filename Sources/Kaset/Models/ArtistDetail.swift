@@ -20,6 +20,9 @@ struct ArtistDetail {
     let relatedArtists: [Artist]
     /// Podcast shows the artist owns (`MPSPP…` browseIds).
     let podcasts: [PodcastShow]
+    /// Per-shelf "See all" endpoints captured from each `moreContentButton`.
+    /// Sparse: shelves without a More button are absent from the map.
+    let moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint]
     let thumbnailURL: URL?
     /// The channel ID for subscription operations (e.g., UCxxxxx).
     let channelId: String?
@@ -56,6 +59,7 @@ struct ArtistDetail {
         playlistsByArtist: [Playlist] = [],
         relatedArtists: [Artist] = [],
         podcasts: [PodcastShow] = [],
+        moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint] = [:],
         thumbnailURL: URL?,
         channelId: String? = nil,
         isSubscribed: Bool = false,
@@ -75,6 +79,7 @@ struct ArtistDetail {
         self.playlistsByArtist = playlistsByArtist
         self.relatedArtists = relatedArtists
         self.podcasts = podcasts
+        self.moreEndpoints = moreEndpoints
         self.thumbnailURL = thumbnailURL
         self.channelId = channelId
         self.isSubscribed = isSubscribed

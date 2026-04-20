@@ -8,7 +8,7 @@ import Foundation
 /// artists like Lofi Girl — not formal podcast episodes (`PodcastEpisode`).
 /// Playback is via `videoId` through the standard WebView path; live items
 /// have no duration and should bypass queue/seek/scrobble behavior.
-struct ArtistEpisode: Identifiable, Sendable, Hashable {
+struct ArtistEpisode: Identifiable, Hashable {
     /// Stable identifier (mirrors `videoId`).
     let id: String
     /// Video ID used for playback via the singleton WebView.

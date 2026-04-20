@@ -67,6 +67,7 @@ final class ArtistDetailViewModel {
                     playlistsByArtist: detail.playlistsByArtist,
                     relatedArtists: detail.relatedArtists,
                     podcasts: detail.podcasts,
+                    moreEndpoints: detail.moreEndpoints,
                     thumbnailURL: detail.thumbnailURL ?? self.artist.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,

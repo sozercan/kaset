@@ -388,9 +388,7 @@ struct ArtistDetailView: View {
 
     private func albumsSection(_ albums: [Album]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Albums")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Albums", shelfKind: .albums)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -479,9 +477,7 @@ struct ArtistDetailView: View {
 
     private func episodesSection(_ episodes: [ArtistEpisode]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Latest episodes")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Latest episodes", shelfKind: .episodes)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -555,9 +551,7 @@ struct ArtistDetailView: View {
 
     private func singlesSection(_ singles: [Album]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Singles & EPs")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Singles & EPs", shelfKind: .singles)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -576,9 +570,7 @@ struct ArtistDetailView: View {
 
     private func playlistsByArtistSection(_ playlists: [Playlist]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Playlists")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Playlists", shelfKind: .playlistsByArtist)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -619,9 +611,7 @@ struct ArtistDetailView: View {
 
     private func podcastsSection(_ podcasts: [PodcastShow]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Podcasts")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Podcasts", shelfKind: .podcasts)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -666,9 +656,7 @@ struct ArtistDetailView: View {
 
     private func relatedArtistsSection(_ artists: [Artist]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Fans might also like")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Fans might also like", shelfKind: .relatedArtists)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -706,6 +694,60 @@ struct ArtistDetailView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(width: 120, alignment: .center)
+        }
+    }
+
+    // MARK: - Section Header with Optional See-all
+
+    private func sectionHeader(title: String, shelfKind: ArtistShelfKind) -> some View {
+        HStack {
+            Text(LocalizedStringKey(title))
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Spacer()
+
+            if let detail = viewModel.artistDetail,
+               let more = detail.moreEndpoints[shelfKind]
+            {
+                self.seeAllLink(more: more, sectionTitle: title, artistName: detail.name)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func seeAllLink(
+        more: ShelfMoreEndpoint,
+        sectionTitle: String,
+        artistName: String
+    ) -> some View {
+        switch more.pageType {
+        case .playlist:
+            // Playlist-backed See-all destinations reuse the existing
+            // `Playlist` navigation route so `PlaylistDetailView` can render
+            // the full list.
+            NavigationLink(value: Playlist(
+                id: more.browseId,
+                title: sectionTitle,
+                description: nil,
+                thumbnailURL: nil,
+                trackCount: nil,
+                author: artistName
+            )) {
+                Text("See all").font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+        case .artist, .discography:
+            NavigationLink(value: ArtistSeeAllDestination(
+                artistName: artistName,
+                sectionTitle: sectionTitle,
+                endpoint: more
+            )) {
+                Text("See all").font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
         }
     }
 }

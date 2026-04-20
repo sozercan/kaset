@@ -178,6 +178,39 @@ is worse than not offering them. Live items play standalone; the queue
 remains untouched (and is restored when the user plays a regular song
 next).
 
+## See-all / More button
+
+Each carousel shelf optionally carries a `moreContentButton` in its header
+pointing at a browse endpoint. Three `pageType` destinations are observed in
+practice across artists:
+
+| pageType | Example | Response shape |
+|---|---|---|
+| `MUSIC_PAGE_TYPE_PLAYLIST` | Top songs (`bottomEndpoint`), Videos shelf (`VLOLAK…`) | Standard playlist page — reuses existing `Playlist` / `PlaylistDetailView` route. No new code. |
+| `MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY` | Nirvana Albums (`MPAD…`) | `gridRenderer` of `musicTwoRowItemRenderer` album cards. New parser (`parseArtistDiscography`) + view (`ArtistDiscographyView`). |
+| `MUSIC_PAGE_TYPE_ARTIST` | Lofi Girl Latest episodes (`UC…` + 304-char `params`) | Single `gridRenderer` of `musicMultiRowListItemRenderer` items (authenticated only). New parser (`parseArtistEpisodesGrid`) + view (`ArtistEpisodesListView`). |
+
+The parser captures these into `ArtistDetail.moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint]`
+while classifying each shelf. `ArtistDetailView` renders a **See all** link
+next to any section header whose `moreEndpoints[kind]` is populated — zero
+links appear on shelves without a More button, which is most of them for
+most artists. Dispatch:
+
+- `.playlist` — `NavigationLink(value: Playlist)` constructed from the
+  endpoint's `browseId`. Routes through the existing `Playlist` destination.
+- `.discography` / `.artist` — wrapped in `ArtistSeeAllDestination` so
+  `NavigationDestinationsModifier` can switch on `endpoint.pageType` and
+  pick the right view.
+
+Anonymous requests against the `MUSIC_PAGE_TYPE_ARTIST` endpoint return the
+page skeleton but no items — the filter-params aren't honored without
+authentication. The parser was therefore designed against an authenticated
+HAR capture of the Latest-episodes More response, preserved as
+`artist_lofi_girl_episodes_more.json` (`visitorData` redacted).
+
+Unknown `pageType` values are dropped at parse time — we never surface a
+See-all link to a destination we don't know how to render.
+
 ## Follow-ups
 
 - **Videos shelf**: separate slice — depends on an explicit UX decision for
@@ -185,6 +218,7 @@ next).
 - **Live stream stability**: resolve channel → current live `videoId` on
   open, so Favorites / deep links survive stream restarts.
 - **Fixture-backed regression tests for other shelves**: the
-  `parseArtistDetailFromLofiGirlFixture` test covers the capture used here;
-  similar captures for a conventional recording artist (e.g. Taylor Swift)
-  would catch regressions when YouTube changes the Singles & EPs layout.
+  `parseArtistDetailFromLofiGirlFixture` test covers the carousel capture;
+  `parseArtistEpisodesGridExtractsEpisodes` covers the See-all grid. Similar
+  captures for a conventional recording artist (e.g. Taylor Swift) would
+  catch regressions when YouTube changes the Singles & EPs layout.

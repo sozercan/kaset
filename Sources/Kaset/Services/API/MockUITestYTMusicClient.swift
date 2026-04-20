@@ -316,6 +316,16 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return Self.defaultSongs(count: 20)
     }
 
+    func getArtistDiscography(browseId _: String, params _: String?) async throws -> [Album] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return Self.defaultAlbums(count: 20)
+    }
+
+    func getArtistEpisodesList(browseId _: String, params _: String?) async throws -> [ArtistEpisode] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return []
+    }
+
     func rateSong(videoId _: String, rating _: LikeStatus) async throws {
         // No-op for UI tests
     }

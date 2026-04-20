@@ -242,6 +242,50 @@ struct ArtistParserTests {
         }
     }
 
+    @Test("parseArtistDetail captures shelf moreContentButton endpoints")
+    func parseArtistDetailCapturesMoreEndpoints() throws {
+        let data = try Self.loadArtistFixture("artist_lofi_girl")
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UCSJ4gkVC6NrvII8umztf0Ow")
+
+        // Lofi Girl's Latest episodes shelf has a More button pointing to a
+        // MUSIC_PAGE_TYPE_ARTIST destination.
+        let episodesMore = try #require(result.moreEndpoints[.episodes])
+        #expect(episodesMore.pageType == .artist)
+        #expect(episodesMore.browseId.hasPrefix("UC"))
+        #expect(episodesMore.params != nil)
+    }
+
+    @Test("parseArtistDiscography extracts albums from grid response")
+    func parseArtistDiscographyExtractsAlbums() throws {
+        let data = try Self.loadArtistFixture("artist_nirvana_discography")
+
+        let albums = ArtistParser.parseArtistDiscography(data)
+
+        #expect(!albums.isEmpty)
+        for album in albums {
+            #expect(album.id.hasPrefix("MPRE") || album.id.hasPrefix("OLAK"))
+            #expect(!album.title.isEmpty)
+        }
+    }
+
+    @Test("parseArtistEpisodesGrid extracts full episode list (authenticated)")
+    func parseArtistEpisodesGridExtractsEpisodes() throws {
+        let data = try Self.loadArtistFixture("artist_lofi_girl_episodes_more")
+
+        let episodes = ArtistParser.parseArtistEpisodesGrid(data)
+
+        // Full list behind the Latest-episodes "See all"; user-reported target
+        // video is item 39 of 92 in the captured HAR.
+        #expect(episodes.count >= 50)
+        for episode in episodes {
+            #expect(!episode.videoId.isEmpty)
+            #expect(!episode.title.isEmpty)
+        }
+        let liveEpisodes = episodes.filter(\.isLive)
+        #expect(!liveEpisodes.isEmpty, "Expected at least one live stream in the full episodes list")
+        #expect(episodes.contains { $0.videoId == "IxPANmjPaek" })
+    }
+
     // MARK: - Test Helpers
 
     private static func makeArtistResponse(

@@ -839,6 +839,7 @@ final class YTMusicClient: YTMusicClientProtocol {
                     playlistsByArtist: detail.playlistsByArtist,
                     relatedArtists: detail.relatedArtists,
                     podcasts: detail.podcasts,
+                    moreEndpoints: detail.moreEndpoints,
                     thumbnailURL: detail.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
@@ -918,6 +919,43 @@ final class YTMusicClient: YTMusicClientProtocol {
         let songs = ArtistParser.parseArtistSongs(data)
         self.logger.info("Parsed \(songs.count) artist songs")
         return songs
+    }
+
+    /// Fetches an artist's full discography (`MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`).
+    func getArtistDiscography(browseId: String, params: String?) async throws -> [Album] {
+        self.logger.info("Fetching artist discography: \(browseId)")
+
+        var body: [String: Any] = [
+            "browseId": browseId,
+        ]
+        if let params {
+            body["params"] = params
+        }
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.artist)
+        let albums = ArtistParser.parseArtistDiscography(data)
+        self.logger.info("Parsed \(albums.count) discography albums")
+        return albums
+    }
+
+    /// Fetches a filtered artist-page subset (`MUSIC_PAGE_TYPE_ARTIST`) — the
+    /// full Latest-episodes listing behind a shelf's "See all". The
+    /// authenticated response is a single `gridRenderer` of
+    /// `musicMultiRowListItemRenderer` items (including live streams).
+    func getArtistEpisodesList(browseId: String, params: String?) async throws -> [ArtistEpisode] {
+        self.logger.info("Fetching artist episodes list: \(browseId)")
+
+        var body: [String: Any] = [
+            "browseId": browseId,
+        ]
+        if let params {
+            body["params"] = params
+        }
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.artist)
+        let episodes = ArtistParser.parseArtistEpisodesGrid(data)
+        self.logger.info("Parsed \(episodes.count) episodes")
+        return episodes
     }
 
     // MARK: - Lyrics
