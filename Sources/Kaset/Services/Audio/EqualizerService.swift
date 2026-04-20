@@ -203,13 +203,10 @@ final class EqualizerService {
 
     /// Enables or disables the equalizer.
     func setEnabled(_ enabled: Bool) {
-        if enabled {
-            // The user is asking to turn the EQ on — clear any sticky
-            // permission warning so we attempt fresh; if permission really
-            // is still missing, the next start attempt will surface it
-            // again.
-            self.inferredPermissionDenial = false
-        }
+        // A direct user toggle resets any inferred permission warning.
+        // If permission is still missing, the next start attempt will
+        // immediately infer it again.
+        self.inferredPermissionDenial = false
         var next = self.settings
         next.isEnabled = enabled
         self.settings = next
@@ -243,12 +240,12 @@ final class EqualizerService {
 
     /// Computed status used by the UI badge.
     var status: Status {
-        // Permission warnings outrank toggle state — when we've inferred
-        // a denial we want the user to see the call-to-action even after
-        // the toggle has been auto-disabled below.
+        // Permission warnings outrank the engine's live state so the user
+        // still sees the call-to-action while their persisted "enabled"
+        // intent remains on.
         if self.inferredPermissionDenial {
             return .permissionNeeded(message: String(
-                localized: "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again."
+                localized: "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then retry playback or toggle the equalizer off and on."
             ))
         }
         guard self.settings.isEnabled else { return .off }
@@ -307,9 +304,6 @@ final class EqualizerService {
             self.deviceChangeTask?.cancel()
             self.engine.stop()
             self.lastFailure = nil
-            // `inferredPermissionDenial` deliberately survives the recursive
-            // sync triggered by ``flagPermissionDenialAndDisable`` so the
-            // permission CTA outlives the auto-toggle-off.
         }
     }
 
@@ -337,10 +331,10 @@ final class EqualizerService {
                 self.logger.warning(
                     "process scan empty while playback active — inferring permission denial"
                 )
-                self.flagPermissionDenialAndDisable()
+                self.flagPermissionDenial()
             } else if failure.isPermissionLikely {
                 self.logger.warning("permission failure — \(String(describing: failure))")
-                self.flagPermissionDenialAndDisable()
+                self.flagPermissionDenial()
             } else {
                 // Other engine errors keep the toggle on (user intent
                 // persists) and surface the message via ``status``.
@@ -350,21 +344,13 @@ final class EqualizerService {
         }
     }
 
-    /// Records an inferred permission denial and auto-disables the toggle
-    /// so the UI matches the engine's actual state. The status row keeps
-    /// showing the permission CTA via ``inferredPermissionDenial``.
-    ///
-    /// The `self.settings = next` assignment recurses into ``syncEngine``
-    /// via the property's `didSet`; that call takes the disabled branch
-    /// (which intentionally preserves ``inferredPermissionDenial``) and
-    /// stops at depth 1.
-    private func flagPermissionDenialAndDisable() {
+    /// Records an inferred permission denial without mutating the
+    /// persisted `isEnabled` intent. That lets future launches or playback
+    /// state changes retry automatically once permission is restored.
+    private func flagPermissionDenial() {
         self.inferredPermissionDenial = true
         self.lastFailure = nil
-        guard self.settings.isEnabled else { return }
-        var next = self.settings
-        next.isEnabled = false
-        self.settings = next
+        self.engine.stop()
     }
 
     /// After a successful start, give the tap ~2 s to deliver audio. If it
@@ -383,8 +369,7 @@ final class EqualizerService {
             self.logger.warning(
                 "tap stayed silent for ~2s while playback active — inferring permission denial"
             )
-            self.engine.stop()
-            self.flagPermissionDenialAndDisable()
+            self.flagPermissionDenial()
         }
     }
 }

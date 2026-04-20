@@ -40,16 +40,21 @@ struct EQSettingsTests {
 
     // MARK: - autoTrimDB
 
-    @Test("autoTrimDB is zero when no band is boosted")
+    @Test("autoTrimDB is zero when net gain never boosts above unity")
     func autoTrimZeroWhenFlat() {
         #expect(EQSettings.flat.autoTrimDB == 0)
 
         var negative = EQSettings.flat
         negative.bandGainsDB = [-3, -6, -1, 0, -2, -4]
         #expect(negative.autoTrimDB == 0)
+
+        var cutPreamp = EQSettings.flat
+        cutPreamp.preampDB = -6
+        cutPreamp.bandGainsDB = [4, 0, 0, 0, 0, 0]
+        #expect(cutPreamp.autoTrimDB == 0)
     }
 
-    @Test("autoTrimDB scales with peak positive gain at 0.2x")
+    @Test("autoTrimDB scales with the highest net positive gain at 0.2x")
     func autoTrimScalesWithPeak() {
         var settings = EQSettings.flat
         settings.bandGainsDB = [3, 0, 0, 0, 0, 0]
@@ -63,6 +68,17 @@ struct EQSettingsTests {
 
         settings.bandGainsDB = [3, 7, 1, -2, 5, 4]
         #expect(abs(settings.autoTrimDB - -1.4) < 0.001)
+
+        settings.preampDB = 6
+        settings.bandGainsDB = [0, 0, 0, 0, 0, 0]
+        #expect(abs(settings.autoTrimDB - -1.2) < 0.001)
+
+        settings.bandGainsDB = [0, 0, 0, 6, 0, 0]
+        #expect(abs(settings.autoTrimDB - -2.4) < 0.001)
+
+        settings.preampDB = -6
+        settings.bandGainsDB = [0, 0, 0, 12, 0, 0]
+        #expect(abs(settings.autoTrimDB - -1.2) < 0.001)
     }
 
     // MARK: - Codable round-trip

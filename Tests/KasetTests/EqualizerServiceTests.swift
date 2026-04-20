@@ -134,18 +134,17 @@ struct EqualizerServiceTests {
         #expect(service.lastFailure == nil)
     }
 
-    @Test("Explicit tap-creation failure auto-disables the toggle and surfaces the permission CTA")
-    func permissionFailureAutoDisables() {
+    @Test("Explicit tap-creation failure preserves enabled intent and surfaces the permission CTA")
+    func permissionFailurePreservesEnabledIntent() {
         let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
         let service = harness.service
         let mock = harness.mock
         service.setEnabled(true)
 
         #expect(mock.startCallCount == 1)
-        // Toggle flips off so the UI matches the engine's actual state.
-        #expect(service.settings.isEnabled == false)
-        // But the permission warning persists so the user sees the
-        // call-to-action even after the toggle has gone back to off.
+        // User intent stays enabled so future playback changes or a
+        // relaunch can retry automatically once permission is restored.
+        #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
             // expected
         } else {
@@ -153,20 +152,37 @@ struct EqualizerServiceTests {
         }
     }
 
-    @Test("Re-enabling clears the inferred permission warning and retries")
-    func reEnableClearsPermissionFlag() {
+    @Test("retryStartIfEnabled retries automatically after permission is restored")
+    func retryAfterPermissionRestoreSucceeds() async {
         let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
         let service = harness.service
         let mock = harness.mock
         service.setEnabled(true)
-        // Now the toggle is off + permission warning is showing.
-        #expect(service.settings.isEnabled == false)
+        #expect(service.settings.isEnabled == true)
 
-        // User grants permission and re-toggles.
+        // User grants permission; the next automatic retry should recover
+        // without losing the saved enabled preference.
         mock.startResult = .success(())
-        service.setEnabled(true)
+        service.retryStartIfEnabled()
+        try? await Task.sleep(for: .milliseconds(700))
         #expect(service.settings.isEnabled == true)
         #expect(service.status == .active)
+    }
+
+    @Test("Manual disable clears the sticky permission warning")
+    func manualDisableClearsPermissionWarning() {
+        let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let service = harness.service
+        service.setEnabled(true)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded status, got \(service.status)")
+        }
+
+        service.setEnabled(false)
+        #expect(service.status == .off)
+        #expect(service.settings.isEnabled == false)
     }
 
     @Test("No-audio-source failure stays silent (waiting for playback)")
@@ -281,12 +297,30 @@ struct EqualizerServiceTests {
         // The verifier fires ~2s after a successful start.
         try? await Task.sleep(for: .milliseconds(2300))
         #expect(mock.stopCallCount >= 1)
-        #expect(service.settings.isEnabled == false)
+        #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
             // expected
         } else {
             Issue.record("Expected .permissionNeeded, got \(service.status)")
         }
+    }
+
+    @Test("Permission failures do not overwrite the persisted enabled preference")
+    func permissionFailurePreservesPersistedEnabledPreference() async {
+        let harness = Self.makeService(startResult: .failure(.tap(.tapCreation(-1))))
+        let service = harness.service
+        let defaults = harness.defaults
+        service.setEnabled(true)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded status, got \(service.status)")
+        }
+
+        try? await Task.sleep(for: .milliseconds(400))
+
+        let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
+        #expect(revived.settings.isEnabled == true)
     }
 
     @Test("Rapid retry toggling coalesces to a single engine start")

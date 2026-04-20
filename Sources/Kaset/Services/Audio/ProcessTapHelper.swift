@@ -1,3 +1,4 @@
+import ApplicationServices
 import CoreAudio
 import CoreGraphics
 import Darwin
@@ -11,8 +12,8 @@ import Foundation
 /// **Critical detail**: Kaset doesn't decode music itself — `WKWebView` does,
 /// inside its `WebContent` XPC subprocess. Tapping our own PID therefore
 /// captures silence. The helper enumerates Core Audio's process-object list,
-/// filters to `WebContent` processes whose parent is this app, and taps
-/// those instead. The original output is silenced via
+/// filters to WebKit processes whose ownership can be proven for this app,
+/// and taps those instead. The original output is silenced via
 /// ``CATapMuteBehavior/mutedWhenTapped`` so the user only hears our
 /// post-EQ render.
 ///
@@ -30,6 +31,14 @@ import Foundation
 /// Not MainActor-isolated: it owns only OS audio-object IDs and calls C
 /// APIs, safe to tear down from any context.
 final class ProcessTapHelper {
+    struct AudioProcessCandidate: Equatable {
+        let objectID: AudioObjectID
+        let pid: pid_t
+        let parentPID: pid_t
+        let processName: String?
+        let launcherName: String?
+    }
+
     /// User-visible name of the private tap object (shown in diagnostic
     /// audio tools like Audio MIDI Setup).
     private static let tapName = "com.sertacozercan.Kaset.EQ.Tap"
@@ -55,6 +64,18 @@ final class ProcessTapHelper {
     private var aggregateUID: String?
 
     private static let logger = DiagnosticsLogger.equalizer
+
+    private static let hostProcessNames: [String] = {
+        let bundle = Bundle.main
+        let candidates = [
+            ProcessInfo.processInfo.processName,
+            bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String,
+            bundle.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String,
+        ]
+        return Array(Set(candidates.compactMap {
+            $0?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }))
+    }()
 
     // MARK: - StartFailure
 
@@ -219,37 +240,66 @@ final class ProcessTapHelper {
     /// by the app's main process — tapping `selfPID` captures silence
     /// because the host process is upstream of WKWebView's XPC audio
     /// path. We therefore filter Core Audio's process list to WebKit
-    /// audio candidates whose parent PID is this app; if none are found
-    /// (the parent-PID lookup can fail under the hardened runtime), we
-    /// log a warning and fall back to any WebKit audio process rather
-    /// than leave the user silent. Self (`com.sertacozercan.Kaset`) is
-    /// excluded automatically — it isn't in ``webKitAudioBundleIDs``.
+    /// audio candidates whose ownership can be proven for this app via
+    /// either a direct parent-PID match or our own child-process list.
+    /// If ownership cannot be proven, we intentionally skip the tap
+    /// rather than risk muting unrelated WebKit apps system-wide.
     private static func audioObjectsToTap() -> [AudioObjectID] {
-        let allObjects = Self.allAudioProcessObjects()
         let ourPID = ProcessInfo.processInfo.processIdentifier
-
-        var ours: [AudioObjectID] = []
-        var candidates: [AudioObjectID] = []
-        for objectID in allObjects {
+        let candidates = Self.allAudioProcessObjects().compactMap { objectID -> AudioProcessCandidate? in
             guard let bundleID = Self.processBundleID(of: objectID),
                   Self.isWebKitAudioCandidate(bundleID: bundleID)
-            else { continue }
+            else { return nil }
             let pid = Self.processPID(of: objectID)
-            let parent = pid > 0 ? Self.parentPID(of: pid) : -1
-            if parent == ourPID {
-                ours.append(objectID)
-            } else {
-                candidates.append(objectID)
-            }
+            let parentPID = pid > 0 ? Self.parentPID(of: pid) : -1
+            return AudioProcessCandidate(
+                objectID: objectID,
+                pid: pid,
+                parentPID: parentPID,
+                processName: pid > 0 ? Self.processName(of: pid) : nil,
+                launcherName: pid > 0 ? Self.launcherProcessName(of: pid) : nil
+            )
         }
+        let ours = Self.selectOwnedAudioObjects(
+            from: candidates,
+            ourPID: ourPID,
+            ownedChildPIDs: Self.childPIDs(of: ourPID),
+            hostProcessNames: Self.hostProcessNames
+        )
         if !ours.isEmpty { return ours }
         if !candidates.isEmpty {
             Self.logger.warning(
-                "parent-PID match failed; tapping \(candidates.count) WebKit process(es) without ownership proof"
+                "found \(candidates.count) WebKit audio process(es) but none were provably owned by Kaset; skipping tap to avoid hijacking unrelated audio"
             )
-            return candidates
         }
         return []
+    }
+
+    static func selectOwnedAudioObjects(
+        from candidates: [AudioProcessCandidate],
+        ourPID: pid_t,
+        ownedChildPIDs: Set<pid_t>,
+        hostProcessNames: [String]? = nil
+    ) -> [AudioObjectID] {
+        let hostProcessNames = hostProcessNames ?? Self.hostProcessNames
+        return candidates.compactMap { candidate -> AudioObjectID? in
+            guard candidate.pid > 0 else { return nil }
+            if candidate.parentPID == ourPID ||
+                ownedChildPIDs.contains(candidate.pid) ||
+                Self.isOwnedProcessName(candidate.processName, hostProcessNames: hostProcessNames) ||
+                Self.isOwnedProcessName(candidate.launcherName, hostProcessNames: hostProcessNames)
+            {
+                return candidate.objectID
+            }
+            return nil
+        }
+    }
+
+    private static func isOwnedProcessName(_ name: String?, hostProcessNames: [String]) -> Bool {
+        guard let name else { return false }
+        return hostProcessNames.contains { hostName in
+            name.range(of: hostName, options: [.caseInsensitive, .anchored]) != nil
+        }
     }
 
     /// Enumerates all process objects currently registered with Core Audio.
@@ -327,6 +377,87 @@ final class ProcessTapHelper {
         }
         return result == infoSize ? pid_t(info.pbi_ppid) : -1
     }
+
+    /// Reads the user-facing legacy process name for a PID.
+    ///
+    /// WebKit helper names include the host app ("Kaset Web Content",
+    /// "Kaset Graphics and Media"), which survives even when their Unix
+    /// parent PID has been reparented to launchd.
+    private static func processName(of pid: pid_t) -> String? {
+        var psn = ProcessSerialNumber()
+        guard Self.legacyGetProcessForPID(pid, &psn) == noErr else { return nil }
+        return Self.copyProcessName(for: psn)
+    }
+
+    /// Reads the launcher process name from Process Manager metadata.
+    ///
+    /// Web Content helpers often report a launcher like
+    /// "Kaset Networking", which provides a second ownership proof path.
+    private static func launcherProcessName(of pid: pid_t) -> String? {
+        var psn = ProcessSerialNumber()
+        guard Self.legacyGetProcessForPID(pid, &psn) == noErr else { return nil }
+        var info = ProcessInfoRec()
+        info.processInfoLength = UInt32(MemoryLayout<ProcessInfoRec>.size)
+        guard Self.legacyGetProcessInformation(&psn, &info) == noErr else { return nil }
+        guard info.processLauncher.highLongOfPSN != 0 || info.processLauncher.lowLongOfPSN != 0 else {
+            return nil
+        }
+        return Self.copyProcessName(for: info.processLauncher)
+    }
+
+    private static func copyProcessName(for psn: ProcessSerialNumber) -> String? {
+        var mutablePSN = psn
+        var cfName: Unmanaged<CFString>?
+        guard Self.legacyCopyProcessName(&mutablePSN, &cfName) == noErr,
+              let cfName
+        else { return nil }
+        return cfName.takeRetainedValue() as String
+    }
+
+    /// Enumerates the direct child PIDs of `parentPID`.
+    ///
+    /// `proc_pidinfo` can fail to reveal a candidate's parent under the
+    /// hardened runtime, but asking libproc for our own children is still
+    /// a valid ownership proof. Resize until the result fits to avoid
+    /// silently truncating the child list.
+    private static func childPIDs(of parentPID: pid_t) -> Set<pid_t> {
+        var capacity = 8
+        while true {
+            var children = [pid_t](repeating: 0, count: capacity)
+            let byteCount = children.withUnsafeMutableBufferPointer { buffer -> Int32 in
+                guard let base = buffer.baseAddress else { return -1 }
+                return proc_listchildpids(
+                    parentPID,
+                    UnsafeMutableRawPointer(base),
+                    Int32(buffer.count * MemoryLayout<pid_t>.size)
+                )
+            }
+            guard byteCount >= 0 else { return [] }
+            let childCount = Int(byteCount) / MemoryLayout<pid_t>.size
+            if childCount < capacity {
+                return Set(children.prefix(childCount).filter { $0 > 0 })
+            }
+            capacity *= 2
+        }
+    }
+
+    @_silgen_name("GetProcessForPID")
+    private static func legacyGetProcessForPID(
+        _ pid: pid_t,
+        _ psn: UnsafeMutablePointer<ProcessSerialNumber>
+    ) -> OSStatus
+
+    @_silgen_name("GetProcessInformation")
+    private static func legacyGetProcessInformation(
+        _ psn: UnsafeMutablePointer<ProcessSerialNumber>,
+        _ info: UnsafeMutablePointer<ProcessInfoRec>
+    ) -> OSErr
+
+    @_silgen_name("CopyProcessName")
+    private static func legacyCopyProcessName(
+        _ psn: UnsafeMutablePointer<ProcessSerialNumber>,
+        _ name: UnsafeMutablePointer<Unmanaged<CFString>?>
+    ) -> OSStatus
 
     // MARK: - Audio-object lookup
 
