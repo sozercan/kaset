@@ -11,6 +11,14 @@ import Testing
 struct EqualizerServiceTests {
     private static let suiteName = "com.kaset.test.EqualizerService"
 
+    private final class PlaybackProbe: @unchecked Sendable {
+        var progress: TimeInterval = 0
+    }
+
+    private final class PermissionProbe: @unchecked Sendable {
+        var granted = false
+    }
+
     private struct TestHarness {
         let service: EqualizerService
         let mock: MockEqualizerAudioEngine
@@ -22,7 +30,10 @@ struct EqualizerServiceTests {
     /// defaults domain.
     private static func makeService(
         startResult: Result<Void, EqualizerAudioEngine.StartFailure> = .success(()),
-        isPlaybackActive: @escaping @MainActor () -> Bool = { false }
+        isPlaybackActive: @escaping @MainActor () -> Bool = { false },
+        playbackProgress: @escaping @MainActor () -> TimeInterval = { 0 },
+        hasCapturePermission: @escaping @MainActor () -> Bool = { true },
+        requestCapturePermission: @escaping @MainActor () -> Bool = { true }
     ) -> TestHarness {
         let defaults = UserDefaults(suiteName: self.suiteName)!
         defaults.removePersistentDomain(forName: self.suiteName)
@@ -30,6 +41,9 @@ struct EqualizerServiceTests {
         let service = EqualizerService(
             engine: mock,
             isPlaybackActive: isPlaybackActive,
+            playbackProgress: playbackProgress,
+            hasCapturePermission: hasCapturePermission,
+            requestCapturePermission: requestCapturePermission,
             defaults: defaults
         )
         return TestHarness(service: service, mock: mock, defaults: defaults)
@@ -145,6 +159,86 @@ struct EqualizerServiceTests {
         // User intent stays enabled so future playback changes or a
         // relaunch can retry automatically once permission is restored.
         #expect(service.settings.isEnabled == true)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded status, got \(service.status)")
+        }
+    }
+
+    @Test("Directly enabling the EQ requests capture permission when it is missing")
+    func enablingRequestsCapturePermission() {
+        let permission = PermissionProbe()
+        var requestCount = 0
+        let harness = Self.makeService(
+            hasCapturePermission: { permission.granted },
+            requestCapturePermission: {
+                requestCount += 1
+                permission.granted = true
+                return true
+            }
+        )
+        let service = harness.service
+        let mock = harness.mock
+
+        service.setEnabled(true)
+
+        #expect(requestCount == 1)
+        #expect(mock.startCallCount == 1)
+        #expect(service.status == .active)
+    }
+
+    @Test("Denied capture permission keeps intent enabled and avoids starting the engine")
+    func deniedCapturePermissionDoesNotStartEngine() {
+        var requestCount = 0
+        let harness = Self.makeService(
+            hasCapturePermission: { false },
+            requestCapturePermission: {
+                requestCount += 1
+                return false
+            }
+        )
+        let service = harness.service
+        let mock = harness.mock
+
+        service.setEnabled(true)
+
+        #expect(requestCount == 1)
+        #expect(mock.startCallCount == 0)
+        #expect(service.settings.isEnabled == true)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded status, got \(service.status)")
+        }
+    }
+
+    @Test("Permission prompt is not auto-requested from persisted enabled state on launch")
+    func launchDoesNotPromptWithoutExplicitUserRetry() throws {
+        let defaults = try #require(UserDefaults(suiteName: Self.suiteName))
+        defaults.removePersistentDomain(forName: Self.suiteName)
+        let persisted = EQSettings(
+            isEnabled: true,
+            preampDB: 0,
+            bandGainsDB: Array(repeating: 0, count: EQBand.defaultBands.count),
+            preset: .flat
+        )
+        try defaults.set(JSONEncoder().encode(persisted), forKey: "settings.equalizer")
+
+        var requestCount = 0
+        let mock = MockEqualizerAudioEngine()
+        let service = EqualizerService(
+            engine: mock,
+            hasCapturePermission: { false },
+            requestCapturePermission: {
+                requestCount += 1
+                return true
+            },
+            defaults: defaults
+        )
+
+        #expect(requestCount == 0)
+        #expect(mock.startCallCount == 0)
         if case .permissionNeeded = service.status {
             // expected
         } else {
@@ -285,18 +379,45 @@ struct EqualizerServiceTests {
 
     // MARK: - Tap silence verification
 
-    @Test("Silent tap while playback is active infers permission denial after ~2s")
-    func silentTapInfersPermissionDenial() async {
-        let harness = Self.makeService(isPlaybackActive: { true })
+    @Test("Silent tap while active playback barely advances does not infer permission denial")
+    func shortSilentPlaybackDoesNotInferPermissionDenial() async {
+        let probe = PlaybackProbe()
+        let harness = Self.makeService(
+            isPlaybackActive: { true },
+            playbackProgress: { probe.progress }
+        )
         let service = harness.service
         let mock = harness.mock
         mock.hasObservedAudio = false
         service.setEnabled(true)
         #expect(service.status == .active)
+        let baselineStopCount = mock.stopCallCount
 
-        // The verifier fires ~2s after a successful start.
+        probe.progress = 1.5
         try? await Task.sleep(for: .milliseconds(2300))
-        #expect(mock.stopCallCount >= 1)
+
+        #expect(mock.stopCallCount == baselineStopCount)
+        #expect(service.status == .active)
+        service.setEnabled(false)
+    }
+
+    @Test("Silent tap after a long stretch of active playback infers permission denial")
+    func silentTapInfersPermissionDenial() async {
+        let probe = PlaybackProbe()
+        let harness = Self.makeService(
+            isPlaybackActive: { true },
+            playbackProgress: { probe.progress }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        mock.hasObservedAudio = false
+        service.setEnabled(true)
+        #expect(service.status == .active)
+        let baselineStopCount = mock.stopCallCount
+
+        probe.progress = 8
+        try? await Task.sleep(for: .milliseconds(2300))
+        #expect(mock.stopCallCount > baselineStopCount)
         #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
             // expected

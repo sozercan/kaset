@@ -119,12 +119,13 @@ final class ProcessTapHelper {
             return .success(()) // already running
         }
 
-        // Gate everything on the *Screen Recording / System Audio Recording*
+        // Final guard on the *Screen Recording / System Audio Recording*
         // TCC permission — this is what Core Audio process taps actually
         // require, despite the dialog text mentioning audio capture.
-        // `AVCaptureDevice.authorizationStatus(for: .audio)` checks the
-        // **microphone** TCC service which is unrelated, so it can report
-        // .authorized while taps are still silently denied.
+        // `EqualizerService` owns the first-use prompt so automatic retries
+        // and device-change rebinds do not keep reopening System Settings.
+        // This preflight still protects us if macOS reports the permission
+        // as unavailable after that request path.
         //
         // When permission is missing the tap APIs return `noErr` but feed
         // us only zeros while still installing the mute on WebKit, which

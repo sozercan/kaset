@@ -78,6 +78,7 @@ struct EqualizerSettingsView: View {
                 )
                 .frame(height: 220)
                 .padding(.vertical, 8)
+                .disabled(!self.service.settings.isEnabled)
                 .opacity(self.service.settings.isEnabled ? 1 : 0.45)
                 .animation(.easeInOut(duration: 0.2), value: self.service.settings.isEnabled)
             } header: {

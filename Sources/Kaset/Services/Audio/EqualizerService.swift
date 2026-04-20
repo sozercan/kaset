@@ -1,4 +1,5 @@
 import CoreAudio
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -92,6 +93,17 @@ final class EqualizerService {
     /// coupling minimal — `KasetApp` wires `PlayerService.isPlaying` in.
     private let isPlaybackActive: @MainActor () -> Bool
 
+    /// Current playback progress in seconds. Used by the tap verifier to
+    /// distinguish "a couple of silent opening frames" from "we have stayed
+    /// silent for a long stretch of active playback", which is much more
+    /// indicative of a permission problem.
+    private let playbackProgress: @MainActor () -> TimeInterval
+
+    /// Screen / system-audio recording TCC helpers are injected for tests so
+    /// the permission flow can be exercised without touching macOS privacy APIs.
+    private let hasCapturePermission: @MainActor () -> Bool
+    private let requestCapturePermission: @MainActor () -> Bool
+
     private let logger = DiagnosticsLogger.equalizer
 
     /// Reused across persist/load to avoid allocating a fresh coder on
@@ -100,6 +112,13 @@ final class EqualizerService {
     private static let encoder = JSONEncoder()
     private static let decoder = JSONDecoder()
     private static let persistDebounceInterval: Duration = .milliseconds(250)
+    private static let tapVerificationPollInterval: Duration = .seconds(2)
+    private static let tapVerificationProgressThreshold: TimeInterval = 8
+
+    /// Set when the user explicitly turns the EQ on so the next start attempt
+    /// may trigger the system permission prompt. Automatic retries consume
+    /// this flag rather than reopening System Settings over and over.
+    private var shouldRequestCapturePermissionOnNextStart: Bool = false
 
     // MARK: - Init
 
@@ -111,10 +130,16 @@ final class EqualizerService {
     init(
         engine: any EqualizerAudioEngineProtocol = EqualizerAudioEngine(),
         isPlaybackActive: @escaping @MainActor () -> Bool = { PlayerService.shared?.isPlaying ?? false },
+        playbackProgress: @escaping @MainActor () -> TimeInterval = { PlayerService.shared?.progress ?? 0 },
+        hasCapturePermission: @escaping @MainActor () -> Bool = { CGPreflightScreenCaptureAccess() },
+        requestCapturePermission: @escaping @MainActor () -> Bool = { CGRequestScreenCaptureAccess() },
         defaults: UserDefaults = .standard
     ) {
         self.engine = engine
         self.isPlaybackActive = isPlaybackActive
+        self.playbackProgress = playbackProgress
+        self.hasCapturePermission = hasCapturePermission
+        self.requestCapturePermission = requestCapturePermission
         self.defaults = defaults
         self.settings = Self.loadPersistedSettings(from: defaults)
         self.syncEngine()
@@ -207,6 +232,7 @@ final class EqualizerService {
         // If permission is still missing, the next start attempt will
         // immediately infer it again.
         self.inferredPermissionDenial = false
+        self.shouldRequestCapturePermissionOnNextStart = enabled
         var next = self.settings
         next.isEnabled = enabled
         self.settings = next
@@ -313,6 +339,23 @@ final class EqualizerService {
     /// is happening it strongly implies the sandbox is silently blocking
     /// our process-list scan due to missing audio-capture permission.
     private func attemptStart(playbackKnownActive: Bool) {
+        if !self.hasCapturePermission() {
+            if self.shouldRequestCapturePermissionOnNextStart {
+                self.shouldRequestCapturePermissionOnNextStart = false
+                _ = self.requestCapturePermission()
+                guard self.hasCapturePermission() else {
+                    self.logger.warning("capture permission request did not grant access yet")
+                    self.flagPermissionDenial()
+                    return
+                }
+            } else {
+                self.logger.warning("capture permission missing — awaiting explicit user retry")
+                self.flagPermissionDenial()
+                return
+            }
+        }
+        self.shouldRequestCapturePermissionOnNextStart = false
+
         switch self.engine.start() {
         case .success:
             self.lastFailure = nil
@@ -348,28 +391,41 @@ final class EqualizerService {
     /// persisted `isEnabled` intent. That lets future launches or playback
     /// state changes retry automatically once permission is restored.
     private func flagPermissionDenial() {
+        self.verificationTask?.cancel()
         self.inferredPermissionDenial = true
         self.lastFailure = nil
         self.engine.stop()
     }
 
-    /// After a successful start, give the tap ~2 s to deliver audio. If it
-    /// stays completely silent while WebKit is supposed to be playing,
-    /// that's the symptom of a TCC denial that snuck past the preflight
-    /// check (different TCC service, stale cache, etc.). Tear down so we
-    /// stop muting WebKit and surface the permission CTA.
+    /// After a successful start, poll until the tap either observes audio
+    /// or playback has advanced a meaningful amount with nothing but zeros.
+    /// A short silent intro is valid content; several seconds of active
+    /// playback progress with a permanently silent tap is much more likely
+    /// to mean the system admitted the tap but TCC is still denying audio.
     private func scheduleTapVerification() {
         self.verificationTask?.cancel()
-        self.verificationTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(2))
-            guard let self, !Task.isCancelled,
-                  self.engine.isRunning, self.settings.isEnabled
-            else { return }
-            guard self.isPlaybackActive(), !self.engine.hasObservedAudio else { return }
-            self.logger.warning(
-                "tap stayed silent for ~2s while playback active — inferring permission denial"
-            )
-            self.flagPermissionDenial()
+        let initialProgress = self.playbackProgress()
+        self.verificationTask = Task { @MainActor [weak self, initialProgress] in
+            while true {
+                try? await Task.sleep(for: Self.tapVerificationPollInterval)
+                guard let self, !Task.isCancelled,
+                      self.engine.isRunning, self.settings.isEnabled
+                else { return }
+                if self.engine.hasObservedAudio {
+                    return
+                }
+                guard self.isPlaybackActive() else { continue }
+
+                let progressedPlayback = max(0, self.playbackProgress() - initialProgress)
+                guard progressedPlayback >= Self.tapVerificationProgressThreshold else { continue }
+                let progressedPlaybackString = String(format: "%.1f", progressedPlayback)
+
+                self.logger.warning(
+                    "tap stayed silent for \(progressedPlaybackString)s of active playback — inferring permission denial"
+                )
+                self.flagPermissionDenial()
+                return
+            }
         }
     }
 }
