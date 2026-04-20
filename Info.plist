@@ -38,5 +38,13 @@
 	<true/>
 	<key>OSAScriptingDefinition</key>
 	<string>Kaset.sdef</string>
+
+	<!-- Core Audio Process Tap (Equalizer) -->
+	<!-- Process tap on macOS 14.2+ is gated by Screen Recording / System Audio Recording TCC, -->
+	<!-- not microphone TCC, despite what the dialog button text might suggest. -->
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Kaset taps its own audio output (not the screen) so the built-in equalizer can apply effects to your music. No screen content is recorded.</string>
 </dict>
 </plist>

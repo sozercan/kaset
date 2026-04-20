@@ -12,6 +12,7 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
 - 🎶 **Track Notifications** — Get notified when a new track starts playing
 - 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
+- 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to YouTube Music output
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 🧭 **Explore** — Discover new releases, charts, and moods & genres
 - 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
