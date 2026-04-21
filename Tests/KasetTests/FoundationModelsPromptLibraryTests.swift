@@ -14,6 +14,9 @@ struct FoundationModelsPromptLibraryTests {
 
         #expect(latest.count < legacy.count)
         #expect(latest.contains("resume only when the user clearly wants to continue current playback"))
+        #expect(latest.contains("inspectQueue"))
+        #expect(latest.contains("clearQueue"))
+        #expect(latest.contains("CommandBarParseResult"))
     }
 
     @Test("26.4 lyrics prompt keeps the structured output guidance")
@@ -28,6 +31,50 @@ struct FoundationModelsPromptLibraryTests {
         #expect(prompt.contains("Song: \"Nights\" by Frank Ocean"))
         #expect(prompt.contains("Identify 2-5 main themes"))
         #expect(prompt.contains("Explain what the song is saying in 2-4 sentences"))
+    }
+
+    @Test("26.4 queue prompt asks for vivid analysis instead of a dry listing")
+    func optimizedQueuePromptPrefersAnalysis() {
+        let instructions = FoundationModelsPromptLibrary.queueDescriptionInstructions(
+            version: .optimized26_4AndLater
+        )
+        let prompt = FoundationModelsPromptLibrary.queueDescriptionPrompt(
+            trackList: "8. [CURRENT] Nights - Frank Ocean\n9. [UP NEXT] Self Control - Frank Ocean",
+            totalTracks: 100,
+            shownTracks: 2,
+            version: .optimized26_4AndLater
+        )
+
+        #expect(instructions.contains("radio host or tastemaker"))
+        #expect(instructions.contains("Do not invent facts"))
+        #expect(instructions.contains("QueueAnalysisSummary"))
+        #expect(prompt.contains("focused slice around the current position"))
+        #expect(prompt.contains("Analyze the queue's momentum"))
+        #expect(prompt.contains("Fill the QueueAnalysisSummary fields"))
+    }
+
+    @Test("queue track lines keep the current song inside the visible window")
+    func queueTrackLinesCenterOnCurrentSong() {
+        let songs = (1 ... 10).map { index in
+            Song(
+                id: "video-\(index)",
+                title: "Song \(index)",
+                artists: [Artist(id: "artist-\(index)", name: "Artist \(index)")],
+                videoId: "video-\(index)"
+            )
+        }
+
+        let lines = FoundationModelsPromptLibrary.queueTrackLines(
+            from: songs,
+            currentIndex: 7,
+            isPlaying: true,
+            limit: 5
+        )
+
+        #expect(lines.count == 5)
+        #expect(lines[0].hasPrefix("4. "))
+        #expect(lines.contains { $0.contains("[NOW PLAYING] Song 8") })
+        #expect(lines.last?.hasPrefix("8. ") == true)
     }
 
     @Test("middleTruncate preserves both ends of long text")

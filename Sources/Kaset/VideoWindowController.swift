@@ -35,9 +35,9 @@ final class VideoWindowController {
         playerService.videoWindowDidOpen()
 
         if let existingWindow = self.window {
-            // Window exists - just bring it to front
+            // Window exists - just bring it to front without stealing focus
             self.isClosing = false // Reset in case of interrupted close
-            existingWindow.makeKeyAndOrderFront(nil)
+            existingWindow.orderFront(nil)
             // Ensure video mode is active
             SingletonPlayerWebView.shared.updateDisplayMode(.video)
             return
@@ -83,7 +83,9 @@ final class VideoWindowController {
             self.positionAtDefaultLocation(window: window)
         }
 
-        window.makeKeyAndOrderFront(nil)
+        // Show the floating video window without taking key focus away from the main window,
+        // so the player bar toggle remains a true one-click toggle while video is open.
+        window.orderFront(nil)
         self.window = window
         self.isClosing = false
 
@@ -163,10 +165,11 @@ final class VideoWindowController {
         let windowSize = window.frame.size
         let padding: CGFloat = 40
 
-        // Default to bottom right
+        // Default to top right so the floating window does not cover player-bar controls
+        // on first launch, keeping the video toggle reachable for a true second-click close.
         let origin = NSPoint(
             x: screenFrame.maxX - windowSize.width - padding,
-            y: screenFrame.minY + padding
+            y: screenFrame.maxY - windowSize.height - padding
         )
 
         window.setFrameOrigin(origin)
