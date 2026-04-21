@@ -281,6 +281,57 @@ struct CommandBarViewModelTests {
         #expect(viewModel.isInteractionDisabled == false)
     }
 
+    @Test("Dismiss cancels an in-flight queue analysis")
+    func dismissCancelsInFlightQueueAnalysis() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [
+            self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
+            self.makeSong(title: "Pink + White", artist: "Frank Ocean", videoId: "song-2"),
+        ]
+        playerService.currentIndex = 0
+        playerService.state = .playing
+
+        let recorder = Recorder()
+        let wasCancelled = Flag()
+
+        let aiClient = self.makeAIClient(
+            resolveCommand: { _, _ in
+                Self.makeParsedCommand(action: .play)
+            },
+            describeQueue: { _, _, _ in
+                try await withTaskCancellationHandler(operation: {
+                    try await Task.sleep(for: .seconds(1))
+                    return Self.makeQueueAnalysis()
+                }, onCancel: {
+                    Task { await wasCancelled.setTrue() }
+                })
+            }
+        )
+
+        let viewModel = self.makeViewModel(
+            playerService: playerService,
+            aiClient: aiClient,
+            recorder: recorder
+        )
+
+        viewModel.inputText = "What's in my queue?"
+        viewModel.submit()
+        try? await Task.sleep(for: .milliseconds(20))
+        viewModel.dismiss()
+
+        await self.waitUntil {
+            recorder.dismissCount == 1
+        }
+
+        await self.waitUntil {
+            await wasCancelled.get()
+        }
+
+        #expect(await wasCancelled.get())
+        #expect(viewModel.isInteractionDisabled == false)
+        #expect(viewModel.resultMessage == nil)
+    }
+
     @Test("Queue inspection uses Apple Intelligence description without clearing the queue")
     func queueInspectionUsesAIDescription() async {
         let playerService = MockPlayerService()

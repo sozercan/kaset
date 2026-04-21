@@ -265,8 +265,14 @@ final class CommandBarViewModel {
                 throw AIError.timedOut
             }
 
-            let parsedCommand = try await group.next()!
-            group.cancelAll()
+            defer {
+                group.cancelAll()
+            }
+
+            guard let parsedCommand = try await group.next() else {
+                throw CancellationError()
+            }
+
             return parsedCommand
         }
     }
@@ -363,8 +369,14 @@ final class CommandBarViewModel {
                 throw AIError.timedOut
             }
 
-            let summary = try await group.next()!
-            group.cancelAll()
+            defer {
+                group.cancelAll()
+            }
+
+            guard let summary = try await group.next() else {
+                throw CancellationError()
+            }
+
             return summary
         }
     }

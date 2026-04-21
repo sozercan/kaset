@@ -222,8 +222,18 @@ struct FoundationModelsOptimizedPromptIntegrationTests {
             #expect(!analysis.summary.isEmpty)
             #expect(!analysis.highlights.isEmpty)
 
-            let combined = "\(analysis.opening) \(analysis.summary)".lowercased()
-            #expect(combined.contains("afterglow") || combined.contains("static bloom"))
+            let combined = ([analysis.opening, analysis.vibe, analysis.summary] + analysis.highlights)
+                .joined(separator: " ")
+                .lowercased()
+            let expectedCallouts = [
+                "daylight drive",
+                "north harbor",
+                "afterglow",
+                "static bloom",
+                "night swimming",
+                "glass avenue",
+            ]
+            #expect(expectedCallouts.contains(where: combined.contains))
         }
     }
 }

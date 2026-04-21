@@ -8,9 +8,13 @@ struct CommandIntentParser {
         }
 
         let normalized = self.normalized(query)
-        guard normalized.contains("queue") else { return false }
 
-        return Self.queueInspectionPrefixes.contains { normalized.hasPrefix($0) }
+        if normalized.contains("queue") {
+            return Self.queueInspectionPrefixes.contains { normalized.hasPrefix($0) }
+        }
+
+        return Self.upcomingQueueInspectionPrefixes.contains { normalized.hasPrefix($0) } &&
+            Self.upcomingQueueInspectionPhrases.contains { normalized.hasSuffix($0) }
     }
 
     func deterministicRequest(for query: String) -> CommandExecutor.Request? {
@@ -343,5 +347,20 @@ struct CommandIntentParser {
         "what is",
         "what s",
         "whats",
+    ]
+
+    private static let upcomingQueueInspectionPrefixes: Set<String> = [
+        "show me what",
+        "tell me what",
+        "what",
+        "what is",
+        "what s",
+        "whats",
+    ]
+
+    private static let upcomingQueueInspectionPhrases: Set<String> = [
+        "coming up",
+        "playing next",
+        "up next",
     ]
 }

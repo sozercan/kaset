@@ -47,7 +47,11 @@ struct CommandIntentParserTests {
     func queueInspectionDetection() {
         #expect(self.parser.isQueueInspectionQuery("What's in my queue?"))
         #expect(self.parser.isQueueInspectionQuery("show my queue"))
+        #expect(self.parser.isQueueInspectionQuery("What's playing next?"))
+        #expect(self.parser.isQueueInspectionQuery("Tell me what's coming up"))
         #expect(!self.parser.isQueueInspectionQuery("clear my queue"))
         #expect(!self.parser.isQueueInspectionQuery("add jazz to queue"))
+        #expect(!self.parser.isQueueInspectionQuery("show me Coming Up"))
+        #expect(!self.parser.isQueueInspectionQuery("next track"))
     }
 }

@@ -154,6 +154,8 @@ struct CommandExecutor {
             }
         } else if queue.count == 1 {
             summary += " That's the only song in your queue."
+        } else {
+            summary += " That's the end of your queue."
         }
 
         return .result(summary, shouldDismiss: false)
