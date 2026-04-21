@@ -208,7 +208,9 @@ struct CommandBarViewModelTests {
         viewModel.submit()
         viewModel.submit()
 
-        try? await Task.sleep(for: .milliseconds(30))
+        await self.waitUntil {
+            await aiCallCounter.get() == 1
+        }
         #expect(await aiCallCounter.get() == 1)
 
         viewModel.cancelActiveRequest()
