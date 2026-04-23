@@ -1,12 +1,27 @@
 // MARK: - SingletonPlayerWebView Observer Script Extension
 
 extension SingletonPlayerWebView {
+    /// Pure JS function used by the observer script's `canplay` handler.
+    /// Exposed as a named function so unit tests can exercise the branching
+    /// inside a `JSContext` without standing up a real `WKWebView`.
+    nonisolated static var autoplayRecoveryFunctionJS: String {
+        """
+        function __kasetAttemptAutoplayRecovery(video, playBtn) {
+            if (!window.__kasetAutoplayPending || !video.paused) return 'noop';
+            window.__kasetAutoplayPending = false;
+            if (playBtn) { playBtn.click(); return 'clicked'; }
+            try { video.play(); return 'played'; } catch (e) { return 'error'; }
+        }
+        """
+    }
+
     /// Observer script for playback state.
-    static var observerScript: String {
+    nonisolated static var observerScript: String {
         """
         (function() {
             'use strict';
             const bridge = window.webkit.messageHandlers.singletonPlayer;
+            \(autoplayRecoveryFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
@@ -118,7 +133,13 @@ extension SingletonPlayerWebView {
                     // YouTube's player often restores its stored volume at these points.
                     video.addEventListener('loadedmetadata', () => enforceVolumeNow());
                     video.addEventListener('loadeddata', () => enforceVolumeNow());
-                    video.addEventListener('canplay', () => enforceVolumeNow());
+                    video.addEventListener('canplay', () => {
+                        enforceVolumeNow();
+                        // Autoplay recovery: YTM sometimes leaves the video paused
+                        // after navigation even with the WebKit autoplay allowance.
+                        const btn = document.querySelector('.play-pause-button.ytmusic-player-bar');
+                        __kasetAttemptAutoplayRecovery(video, btn);
+                    });
 
                     // Apply target volume immediately when video element is first detected
                     enforceVolumeNow();

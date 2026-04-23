@@ -388,12 +388,21 @@ final class SingletonPlayerWebView {
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
 
-            // Set target volume BEFORE loading so it's ready when video element appears
-            let setTargetScript = "window.__kasetTargetVolume = \(currentVolume);"
-            webView.evaluateJavaScript(setTargetScript, completionHandler: nil)
+            // The new page gets its own window, so the autoplay intent is injected
+            // from `didFinish` instead — the volume flag is still preseeded because
+            // the observer script can attach before that completion handler runs.
+            let prepareScript = "window.__kasetTargetVolume = \(currentVolume);"
+            webView.evaluateJavaScript(prepareScript, completionHandler: nil)
 
             webView.load(URLRequest(url: urlToLoad))
         }
+    }
+
+    /// Returns the JS snippet that hands the autoplay intent to the freshly loaded
+    /// page's window. Restored sessions suppress autoplay so the reconcile path
+    /// resumes at the saved seek rather than at 0s.
+    nonisolated static func autoplayIntentScript(isRestoringPlaybackSession: Bool) -> String {
+        "window.__kasetAutoplayPending = \(isRestoringPlaybackSession ? "false" : "true");"
     }
 
     // MARK: - Coordinator
@@ -529,6 +538,13 @@ final class SingletonPlayerWebView {
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
             DiagnosticsLogger.player.info(
                 "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
+            )
+
+            webView.evaluateJavaScript(
+                SingletonPlayerWebView.autoplayIntentScript(
+                    isRestoringPlaybackSession: self.playerService.isRestoringPlaybackSession
+                ),
+                completionHandler: nil
             )
 
             // Apply the current volume when page finishes loading
