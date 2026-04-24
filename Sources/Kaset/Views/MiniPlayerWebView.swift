@@ -272,35 +272,14 @@ final class SingletonPlayerWebView {
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
 
-        // Note: We do NOT inject a static volume init script here because the volume
-        // may change between WebView creation and page loads. Instead, we:
-        // 1. Set __kasetTargetVolume in loadVideo() before loading a new page
-        // 2. Update it in didFinish after each page load completes
-        // This ensures we always use the CURRENT volume, not a stale value.
+        // Dynamic startup state is refreshed before each full page load so the
+        // next document gets current volume/autoplay flags at document start.
 
-        // Keep the page preference in sync before any page script reads localStorage.
-        let mediaControlBootstrapScript = WKUserScript(
-            source: self.mediaControlBootstrapScript(),
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
+        self.installUserScripts(
+            on: configuration.userContentController,
+            isRestoringPlaybackSession: playerService.isRestoringPlaybackSession,
+            targetVolume: playerService.volume
         )
-        configuration.userContentController.addUserScript(mediaControlBootstrapScript)
-
-        // Inject mediaSession override at document end without allowing duplicate RAF loops.
-        let mediaOverrideScript = WKUserScript(
-            source: Self.mediaControlOverrideScript,
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
-        )
-        configuration.userContentController.addUserScript(mediaOverrideScript)
-
-        // Inject observer script (at document end)
-        let script = WKUserScript(
-            source: Self.observerScript,
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
-        )
-        configuration.userContentController.addUserScript(script)
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
         newWebView.navigationDelegate = self.coordinator
@@ -381,19 +360,94 @@ final class SingletonPlayerWebView {
 
         // Get current volume from PlayerService via coordinator
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
+        let isRestoringPlaybackSession = self.coordinator?.playerService.isRestoringPlaybackSession ?? false
         self.logger.info("Will apply volume \(currentVolume) after page load")
+
+        self.installUserScripts(
+            on: webView.configuration.userContentController,
+            isRestoringPlaybackSession: isRestoringPlaybackSession,
+            targetVolume: currentVolume
+        )
 
         // Stop current playback first, then load new video
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
 
-            // Set target volume BEFORE loading so it's ready when video element appears
-            let setTargetScript = "window.__kasetTargetVolume = \(currentVolume);"
-            webView.evaluateJavaScript(setTargetScript, completionHandler: nil)
+            // Keep the current page's target volume fresh until the new document
+            // finishes loading and gets the same value from didFinish.
+            let prepareScript = "window.__kasetTargetVolume = \(currentVolume);"
+            webView.evaluateJavaScript(prepareScript, completionHandler: nil)
 
             webView.load(URLRequest(url: urlToLoad))
         }
+    }
+
+    /// Returns the JS snippet that hands the autoplay intent to the freshly loaded
+    /// page's window. Restored sessions suppress autoplay so the reconcile path
+    /// resumes at the saved seek rather than at 0s.
+    nonisolated static func autoplayIntentScript(isRestoringPlaybackSession: Bool) -> String {
+        "window.__kasetAutoplayPending = \(isRestoringPlaybackSession ? "false" : "true");"
+    }
+
+    nonisolated static func pageBootstrapScript(
+        isRestoringPlaybackSession: Bool,
+        targetVolume: Double
+    ) -> String {
+        let clampedVolume = if targetVolume.isFinite {
+            min(max(targetVolume, 0), 1)
+        } else {
+            1.0
+        }
+
+        return """
+            \(Self.autoplayIntentScript(isRestoringPlaybackSession: isRestoringPlaybackSession))
+            window.__kasetTargetVolume = \(clampedVolume);
+        """
+    }
+
+    private func installUserScripts(
+        on contentController: WKUserContentController,
+        isRestoringPlaybackSession: Bool,
+        targetVolume: Double
+    ) {
+        contentController.removeAllUserScripts()
+
+        // Autoplay intent must exist before media lifecycle events like `canplay`.
+        // `didFinish` is too late on fast or cached player loads.
+        let pageBootstrapScript = WKUserScript(
+            source: Self.pageBootstrapScript(
+                isRestoringPlaybackSession: isRestoringPlaybackSession,
+                targetVolume: targetVolume
+            ),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(pageBootstrapScript)
+
+        // Keep the page preference in sync before any page script reads localStorage.
+        let mediaControlBootstrapScript = WKUserScript(
+            source: self.mediaControlBootstrapScript(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(mediaControlBootstrapScript)
+
+        // Inject mediaSession override at document end without allowing duplicate RAF loops.
+        let mediaOverrideScript = WKUserScript(
+            source: Self.mediaControlOverrideScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(mediaOverrideScript)
+
+        // Inject observer script (at document end)
+        let script = WKUserScript(
+            source: Self.observerScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(script)
     }
 
     // MARK: - Coordinator
