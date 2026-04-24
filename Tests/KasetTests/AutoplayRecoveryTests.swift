@@ -50,7 +50,7 @@ struct AutoplayRecoveryJSTests {
         #expect(ctx.evaluateScript("window.__kasetAutoplayPending").toBool() == false)
     }
 
-    @Test("Does nothing and preserves the flag when the video is already playing")
+    @Test("Does nothing and clears the flag when the video is already playing")
     func skipsWhenAlreadyPlaying() {
         let ctx = self.makeContext()
         ctx.evaluateScript(
@@ -64,7 +64,7 @@ struct AutoplayRecoveryJSTests {
         )
         #expect(ctx.evaluateScript("clicked").toBool() == false)
         #expect(ctx.evaluateScript("result").toString() == "noop")
-        #expect(ctx.evaluateScript("window.__kasetAutoplayPending").toBool() == true)
+        #expect(ctx.evaluateScript("window.__kasetAutoplayPending").toBool() == false)
     }
 
     @Test("Does nothing when the autoplay flag is not set")
@@ -106,6 +106,16 @@ struct AutoplayRecoveryJSTests {
     func observerScriptEmbedsRecoveryFunction() {
         #expect(SingletonPlayerWebView.observerScript.contains("__kasetAttemptAutoplayRecovery"))
     }
+
+    @Test("Observer script clears autoplay intent on successful playback")
+    func observerScriptClearsAutoplayIntentOnPlayback() {
+        #expect(SingletonPlayerWebView.observerScript.contains("window.__kasetAutoplayPending = false;"))
+    }
+
+    @Test("Observer script retries recovery when media is already ready")
+    func observerScriptRetriesRecoveryWhenMediaAlreadyReady() {
+        #expect(SingletonPlayerWebView.observerScript.contains("video.readyState >= 3"))
+    }
 }
 
 // MARK: - AutoplayIntentScriptTests
@@ -122,5 +132,26 @@ struct AutoplayIntentScriptTests {
     func clearsPendingForRestoredSession() {
         let script = SingletonPlayerWebView.autoplayIntentScript(isRestoringPlaybackSession: true)
         #expect(script == "window.__kasetAutoplayPending = false;")
+    }
+
+    @Test("Page bootstrap seeds autoplay intent and target volume")
+    func pageBootstrapSeedsIntentAndTargetVolume() {
+        let script = SingletonPlayerWebView.pageBootstrapScript(
+            isRestoringPlaybackSession: false,
+            targetVolume: 0.42
+        )
+
+        #expect(script.contains("window.__kasetAutoplayPending = true;"))
+        #expect(script.contains("window.__kasetTargetVolume = 0.42;"))
+    }
+
+    @Test("Page bootstrap clamps invalid target volume")
+    func pageBootstrapClampsInvalidTargetVolume() {
+        let script = SingletonPlayerWebView.pageBootstrapScript(
+            isRestoringPlaybackSession: false,
+            targetVolume: .infinity
+        )
+
+        #expect(script.contains("window.__kasetTargetVolume = 1.0;"))
     }
 }

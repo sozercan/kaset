@@ -7,7 +7,8 @@ extension SingletonPlayerWebView {
     nonisolated static var autoplayRecoveryFunctionJS: String {
         """
         function __kasetAttemptAutoplayRecovery(video, playBtn) {
-            if (!window.__kasetAutoplayPending || !video.paused) return 'noop';
+            if (!window.__kasetAutoplayPending) return 'noop';
+            if (!video.paused) { window.__kasetAutoplayPending = false; return 'noop'; }
             window.__kasetAutoplayPending = false;
             if (playBtn) { playBtn.click(); return 'clicked'; }
             try { video.play(); return 'played'; } catch (e) { return 'error'; }
@@ -76,7 +77,10 @@ extension SingletonPlayerWebView {
                     video.addEventListener('playing', startPolling);
                     // Enforce volume on playing event to catch all track changes
                     // (auto-advance, SPA navigation, button clicks)
-                    video.addEventListener('playing', () => enforceVolumeNow());
+                    video.addEventListener('playing', () => {
+                        window.__kasetAutoplayPending = false;
+                        enforceVolumeNow();
+                    });
                     video.addEventListener('pause', stopPolling);
                     video.addEventListener('ended', () => {
                         sendTrackEnded();
@@ -133,16 +137,24 @@ extension SingletonPlayerWebView {
                     // YouTube's player often restores its stored volume at these points.
                     video.addEventListener('loadedmetadata', () => enforceVolumeNow());
                     video.addEventListener('loadeddata', () => enforceVolumeNow());
-                    video.addEventListener('canplay', () => {
+                    function recoverAutoplayIfNeeded() {
                         enforceVolumeNow();
                         // Autoplay recovery: YTM sometimes leaves the video paused
                         // after navigation even with the WebKit autoplay allowance.
                         const btn = document.querySelector('.play-pause-button.ytmusic-player-bar');
                         __kasetAttemptAutoplayRecovery(video, btn);
-                    });
+                    }
+
+                    video.addEventListener('canplay', recoverAutoplayIfNeeded);
 
                     // Apply target volume immediately when video element is first detected
                     enforceVolumeNow();
+
+                    // If the media was already ready before this listener attached,
+                    // there may not be another `canplay` event to drive recovery.
+                    if (video.readyState >= 3) {
+                        recoverAutoplayIfNeeded();
+                    }
 
                     // Startup enforcement burst: YouTube may reset volume up to ~2s after
                     // playback starts (via internal player init, quality switching, etc.).
