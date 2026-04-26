@@ -48,10 +48,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Currently playing track.
     var currentTrack: Song?
 
-    /// Set when the current playback was started from an artist-page episode
-    /// (including live radio streams). Non-episode playback clears this before
-    /// any async metadata fetch so stale episode tasks cannot overwrite later tracks.
-    /// Read via `isCurrentItemLive` (defined in `PlayerService+Episodes.swift`).
+    /// Artist-page episode backing the current playback, when applicable.
     var currentEpisode: ArtistEpisode?
 
     /// Whether playback is active.
