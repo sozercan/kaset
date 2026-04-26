@@ -46,9 +46,12 @@ struct MainWindow: View {
     @State private var moodsAndGenresViewModel: MoodsAndGenresViewModel?
     @State private var newReleasesViewModel: NewReleasesViewModel?
     @State private var podcastsViewModel: PodcastsViewModel?
-    @State private var likedMusicViewModel: LikedMusicViewModel?
+    @State private var likedMusicViewModel: PlaylistDetailViewModel?
     @State private var libraryViewModel: LibraryViewModel?
     @State private var historyViewModel: HistoryViewModel?
+
+    /// Navigation path for the Liked Music route.
+    @State private var likedMusicNavigationPath = NavigationPath()
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -63,7 +66,12 @@ struct MainWindow: View {
         _moodsAndGenresViewModel = State(initialValue: MoodsAndGenresViewModel(client: client))
         _newReleasesViewModel = State(initialValue: NewReleasesViewModel(client: client))
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
-        _likedMusicViewModel = State(initialValue: LikedMusicViewModel(client: client))
+        _likedMusicViewModel = State(
+            initialValue: PlaylistDetailViewModel(
+                playlist: LikedMusicPlaylist.playlist,
+                client: client
+            )
+        )
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
         _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
@@ -258,8 +266,11 @@ struct MainWindow: View {
                 self.playerService.currentTrackLikeStatus = event.status
             }
 
-            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
-            self.likedMusicViewModel?.handleLikeStatusChange(event)
+            // Global sync 2: keep Liked Music list in sync when the active
+            // Liked Music detail view is not already forwarding this event.
+            if self.navigationSelection != .likedMusic {
+                self.likedMusicViewModel?.handleLikeStatusChange(event)
+            }
         }
     }
 
@@ -378,7 +389,15 @@ struct MainWindow: View {
             case .podcasts:
                 if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
             case .likedMusic:
-                if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
+                if let vm = likedMusicViewModel {
+                    NavigationStack(path: self.$likedMusicNavigationPath) {
+                        PlaylistDetailView(
+                            playlist: LikedMusicPlaylist.playlist,
+                            viewModel: vm
+                        )
+                        .navigationDestinations(client: self.client)
+                    }
+                }
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
             case .history:

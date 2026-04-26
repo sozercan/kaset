@@ -38,10 +38,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
-    var hasMorePlaylistTracks: Bool {
-        false
-    }
-
     // MARK: - Mock Data
 
     private let homeSections: [HomeSection]
@@ -290,8 +286,8 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return PlaylistTracksResponse(detail: detail, continuationToken: nil)
     }
 
-    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse? {
-        nil
+    func getPlaylistContinuation(token _: String) async throws -> PlaylistContinuationResponse {
+        PlaylistContinuationResponse(tracks: [], continuationToken: nil)
     }
 
     func getPlaylistAllTracks(playlistId _: String) async throws -> [Song] {

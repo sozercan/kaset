@@ -77,6 +77,11 @@ struct PlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+            guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
+            self.viewModel.handleLikeStatusChange(event)
+        }
         .sheet(isPresented: self.$showRefineSheet) {
             if let detail = viewModel.playlistDetail {
                 RefinePlaylistSheet(
