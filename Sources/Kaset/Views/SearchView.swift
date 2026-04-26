@@ -461,7 +461,7 @@ struct SearchView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             NavigationLink(value: playlist) {
                 Label("Go to Album", systemImage: "square.stack")
@@ -478,7 +478,7 @@ struct SearchView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.navigationPath.append(playlist)
         } label: {
@@ -618,7 +618,7 @@ struct SearchView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.navigationPath.append(playlist)
         case let .playlist(playlist):

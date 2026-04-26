@@ -1,5 +1,34 @@
 import Foundation
 
+// MARK: - ArtistDetailSectionContent
+
+enum ArtistDetailSectionContent: Hashable {
+    case albums([Album])
+    case playlists([Playlist])
+    case artists([Artist])
+}
+
+// MARK: - ArtistDetailSection
+
+struct ArtistDetailSection: Identifiable, Hashable {
+    let title: String
+    let content: ArtistDetailSectionContent
+
+    var id: String {
+        switch self.content {
+        case let .albums(albums):
+            let firstID = albums.first?.id ?? "empty"
+            return "albums:\(self.title):\(firstID)"
+        case let .playlists(playlists):
+            let firstID = playlists.first?.id ?? "empty"
+            return "playlists:\(self.title):\(firstID)"
+        case let .artists(artists):
+            let firstID = artists.first?.id ?? "empty"
+            return "artists:\(self.title):\(firstID)"
+        }
+    }
+}
+
 // MARK: - ArtistDetail
 
 /// Contains detailed artist information including their songs.
@@ -7,6 +36,8 @@ struct ArtistDetail {
     let artist: Artist
     let description: String?
     let songs: [Song]
+    let songsSectionTitle: String?
+    let orderedSections: [ArtistDetailSection]
     let albums: [Album]
     /// Singles & EPs, which use the same renderer as albums but live in their
     /// own shelf on the artist page. Empty when the artist has none.
@@ -28,8 +59,14 @@ struct ArtistDetail {
     let channelId: String?
     /// Whether the user is subscribed to this artist.
     var isSubscribed: Bool
-    /// Subscriber count text (e.g., "34.6M subscribers").
+    /// Localized subscriber count text from the API (e.g., "54.5K" or locale-specific equivalent).
     let subscriberCount: String?
+    /// Localized button label for the subscribed state.
+    let subscribedButtonText: String?
+    /// Localized button label for the unsubscribed state.
+    let unsubscribedButtonText: String?
+    /// Localized monthly audience text from the API (e.g., "2.59M monthly audience").
+    let monthlyAudience: String?
     /// Whether there are more songs available beyond what's loaded.
     let hasMoreSongs: Bool
     /// Browse ID for loading all songs (e.g., from "More songs" button).
@@ -49,11 +86,17 @@ struct ArtistDetail {
         self.artist.name
     }
 
+    var profileKind: ArtistProfileKind {
+        self.artist.profileKind
+    }
+
     init(
         artist: Artist,
         description: String?,
         songs: [Song],
-        albums: [Album],
+        songsSectionTitle: String? = nil,
+        orderedSections: [ArtistDetailSection] = [],
+        albums: [Album] = [],
         singles: [Album] = [],
         episodes: [ArtistEpisode] = [],
         playlistsByArtist: [Playlist] = [],
@@ -64,6 +107,9 @@ struct ArtistDetail {
         channelId: String? = nil,
         isSubscribed: Bool = false,
         subscriberCount: String? = nil,
+        subscribedButtonText: String? = nil,
+        unsubscribedButtonText: String? = nil,
+        monthlyAudience: String? = nil,
         hasMoreSongs: Bool = false,
         songsBrowseId: String? = nil,
         songsParams: String? = nil,
@@ -73,6 +119,8 @@ struct ArtistDetail {
         self.artist = artist
         self.description = description
         self.songs = songs
+        self.songsSectionTitle = songsSectionTitle
+        self.orderedSections = orderedSections
         self.albums = albums
         self.singles = singles
         self.episodes = episodes
@@ -84,6 +132,9 @@ struct ArtistDetail {
         self.channelId = channelId
         self.isSubscribed = isSubscribed
         self.subscriberCount = subscriberCount
+        self.subscribedButtonText = subscribedButtonText
+        self.unsubscribedButtonText = unsubscribedButtonText
+        self.monthlyAudience = monthlyAudience
         self.hasMoreSongs = hasMoreSongs
         self.songsBrowseId = songsBrowseId
         self.songsParams = songsParams

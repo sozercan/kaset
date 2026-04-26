@@ -36,7 +36,7 @@ struct TopSongsView: View {
                 }
             }
         }
-        .localizedNavigationTitle("Top songs")
+        .navigationTitle(self.viewModel.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
@@ -55,7 +55,7 @@ struct TopSongsView: View {
     private var songsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(self.viewModel.songs.enumerated()), id: \.offset) { index, song in
                     self.songRow(song, index: index)
 
                     if index < self.viewModel.songs.count - 1 {
@@ -168,7 +168,7 @@ struct TopSongsView: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
                     Label("Go to Album", systemImage: "square.stack")

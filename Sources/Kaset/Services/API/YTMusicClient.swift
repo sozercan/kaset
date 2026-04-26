@@ -833,6 +833,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                     artist: detail.artist,
                     description: detail.description,
                     songs: enrichedSongs,
+                    songsSectionTitle: detail.songsSectionTitle,
+                    orderedSections: detail.orderedSections,
                     albums: detail.albums,
                     singles: detail.singles,
                     episodes: detail.episodes,
@@ -844,6 +846,9 @@ final class YTMusicClient: YTMusicClientProtocol {
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
+                    subscribedButtonText: detail.subscribedButtonText,
+                    unsubscribedButtonText: detail.unsubscribedButtonText,
+                    monthlyAudience: detail.monthlyAudience,
                     hasMoreSongs: detail.hasMoreSongs,
                     songsBrowseId: detail.songsBrowseId,
                     songsParams: detail.songsParams,
@@ -857,7 +862,19 @@ final class YTMusicClient: YTMusicClientProtocol {
             }
         }
 
-        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs and \(detail.albums.count) albums")
+        let albumSections = detail.orderedSections.compactMap {
+            if case let .albums(albums) = $0.content { albums } else { nil }
+        }
+        let playlistSections = detail.orderedSections.compactMap {
+            if case let .playlists(playlists) = $0.content { playlists } else { nil }
+        }
+        let artistSections = detail.orderedSections.compactMap {
+            if case let .artists(artists) = $0.content { artists } else { nil }
+        }
+        let artistCount = artistSections.reduce(0) { $0 + $1.count }
+        let playlistCount = playlistSections.reduce(0) { $0 + $1.count }
+        let albumCount = albumSections.reduce(0) { $0 + $1.count }
+        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs, \(albumCount) albums across \(albumSections.count) album sections, \(playlistCount) playlists across \(playlistSections.count) playlist sections and \(artistCount) related artists across \(artistSections.count) artist sections")
         return detail
     }
 

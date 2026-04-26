@@ -90,7 +90,7 @@ struct LikedMusicView: View {
                 if self.viewModel.songs.isEmpty {
                     self.emptyStateView
                 } else {
-                    ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(self.viewModel.songs.enumerated()), id: \.offset) { index, song in
                         self.songRow(song, index: index)
                             .onAppear {
                                 // Load more when reaching the last few items
@@ -285,7 +285,7 @@ struct LikedMusicView: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
                     Label("Go to Album", systemImage: "square.stack")

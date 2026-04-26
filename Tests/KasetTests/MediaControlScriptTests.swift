@@ -27,6 +27,126 @@ struct MediaControlScriptTests {
         #expect(windowPreference == "true")
     }
 
+    @Test("Bootstrap wrapper blocks seekforward/seekbackward registrations when nextPrev is enabled")
+    func bootstrapWrapperBlocksSeekHandlersInNextPrevMode() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('seekforward', function() {});
+            navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            navigator.mediaSession.setActionHandler('nexttrack', function() {});
+            """,
+            in: context
+        )
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls == "seekforward:clear,seekbackward:clear,nexttrack:set")
+    }
+
+    @Test("Bootstrap wrapper passes seekforward/seekbackward through when nextPrev is disabled")
+    func bootstrapWrapperPassesSeekHandlersInSkipMode() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: false), in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('seekforward', function() {});
+            navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            """,
+            in: context
+        )
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls == "seekforward:set,seekbackward:set")
+    }
+
+    @Test("Bootstrap wrapper honors runtime toggle skip → nextPrev")
+    func bootstrapWrapperHonorsRuntimeToggleToNextPrev() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: false), in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+        self.evaluate("window.__kasetUseNextPrev = true;", in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls == "seekforward:set,seekforward:clear")
+    }
+
+    @Test("Bootstrap wrapper honors runtime toggle nextPrev → skip")
+    func bootstrapWrapperHonorsRuntimeToggleToSkip() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+        self.evaluate("window.__kasetUseNextPrev = false;", in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls == "seekforward:clear,seekforward:set")
+    }
+
+    @Test("Bootstrap wrapper installs only once per page even on repeat injection")
+    func bootstrapWrapperInstallsOnlyOnce() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+
+        let clearCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'seekforward:clear'; }).length
+        """)?.toInt32() ?? -1
+        #expect(clearCount == 1)
+    }
+
+    @Test("Bootstrap wrapper preserves passed-through handler reference for nexttrack")
+    func bootstrapWrapperPreservesHandlerReference() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(
+            """
+            window.__handlerInvoked = false;
+            navigator.mediaSession.setActionHandler('nexttrack', function() {
+                window.__handlerInvoked = true;
+            });
+            mediaSessionHandlers.nexttrack();
+            """,
+            in: context
+        )
+
+        let invoked = context.evaluateScript("String(window.__handlerInvoked)")?.toString()
+        #expect(invoked == "true")
+    }
+
+    @Test("Bootstrap wrapper coexists with the override script's seek-handler clearing")
+    func bootstrapWrapperCoexistsWithOverrideScript() throws {
+        let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
+        self.evaluate("runNextAnimationFrame();", in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('seekforward', function() {});
+            navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            """,
+            in: context
+        )
+
+        let seekForwardClearCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'seekforward:clear'; }).length
+        """)?.toInt32() ?? 0
+        let seekForwardSetCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'seekforward:set'; }).length
+        """)?.toInt32() ?? -1
+        #expect(seekForwardClearCount > 0)
+        #expect(seekForwardSetCount == 0)
+    }
+
     @Test("Override script keeps a single animation-frame loop active")
     func overrideScriptKeepsSingleAnimationFrameLoop() throws {
         let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
@@ -57,6 +177,40 @@ struct MediaControlScriptTests {
         self.evaluate("runNextAnimationFrame();", in: context)
         let callbacksAfterFrameDrain = context.evaluateScript("pendingRafCallbacks.length")?.toInt32() ?? -1
         #expect(callbacksAfterFrameDrain == 1)
+    }
+
+    private func makeBootstrapWrapperContext() -> JSContext? {
+        guard let context = JSContext() else { return nil }
+
+        self.evaluate(
+            """
+            var localStorageValues = {};
+            var localStorage = {
+                getItem: function(key) {
+                    return Object.prototype.hasOwnProperty.call(localStorageValues, key)
+                        ? localStorageValues[key]
+                        : null;
+                },
+                setItem: function(key, value) {
+                    localStorageValues[key] = value;
+                }
+            };
+            var window = {};
+            var mediaSessionCalls = [];
+            var mediaSessionHandlers = {};
+            var navigator = {
+                mediaSession: {
+                    setActionHandler: function(name, handler) {
+                        mediaSessionCalls.push(name + ':' + (handler ? 'set' : 'clear'));
+                        mediaSessionHandlers[name] = handler;
+                    }
+                }
+            };
+            """,
+            in: context
+        )
+
+        return context
     }
 
     private func evaluateBootstrapStateScript(in context: JSContext) {

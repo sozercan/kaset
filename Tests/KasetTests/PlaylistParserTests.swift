@@ -28,7 +28,7 @@ struct PlaylistParserTests {
 
         #expect(content.playlists.map(\.id) == ["VLGRID123", "VLSHELF456"])
         #expect(content.playlists.map(\.title) == ["Grid Playlist", "Shelf Playlist"])
-        #expect(content.playlists.map(\.author) == ["Grid Curator", "Shelf Curator"])
+        #expect(content.playlists.map(\.author?.name) == ["Grid Curator", "Shelf Curator"])
 
         #expect(content.artists.map(\.id) == ["MPLAUCGRIDARTIST123", "MPLAUCSHELFARTIST456"])
         #expect(content.artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
@@ -72,7 +72,7 @@ struct PlaylistParserTests {
         #expect(detail.id == "VL123")
         #expect(detail.title == "My Playlist")
         #expect(detail.description == "A great playlist")
-        #expect(detail.author == "Test User")
+        #expect(detail.author?.name == "Test User")
         #expect(detail.tracks.count == 5)
     }
 
@@ -92,6 +92,24 @@ struct PlaylistParserTests {
         #expect(detail.tracks[0].videoId == "video0")
     }
 
+    @Test("Parse playlist detail marks greyed out tracks as unavailable")
+    func parsePlaylistDetailUnavailableTrack() {
+        let data = self.makePlaylistDetailData(
+            title: "Unavailable Track Test",
+            description: nil,
+            author: nil,
+            trackCount: 3,
+            unavailableTrackIndices: [1]
+        )
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL-unavailable")
+
+        #expect(detail.tracks.count == 3)
+        #expect(detail.tracks[0].isPlayable == true)
+        #expect(detail.tracks[1].isPlayable == false)
+        #expect(detail.tracks[2].isPlayable == true)
+    }
+
     @Test("Parse empty playlist detail")
     func parsePlaylistDetailEmpty() {
         let data: [String: Any] = [:]
@@ -108,6 +126,7 @@ struct PlaylistParserTests {
             self.makeResponsivePlaylistDetailData(
                 title: "Best Video Game Music",
                 author: "Shelltoast",
+                authorBrowseId: "UCCXHOViev5sTR81Vi9_ysQA",
                 reportedTrackCountText: "2,429 tracks",
                 duration: "135+ hours",
                 loadedTrackCount: 100
@@ -116,7 +135,8 @@ struct PlaylistParserTests {
         )
 
         #expect(response.detail.title == "Best Video Game Music")
-        #expect(response.detail.author == "Shelltoast")
+        #expect(response.detail.author?.name == "Shelltoast")
+        #expect(response.detail.author?.id == "UCCXHOViev5sTR81Vi9_ysQA")
         #expect(response.detail.trackCount == 2429)
         #expect(response.detail.duration == "135+ hours")
         #expect(response.detail.tracks.count == 100)
@@ -479,27 +499,33 @@ struct PlaylistParserTests {
         title: String,
         description: String?,
         author: String?,
-        trackCount: Int
+        trackCount: Int,
+        unavailableTrackIndices: Set<Int> = []
     ) -> [String: Any] {
         var tracks: [[String: Any]] = []
 
         for i in 0 ..< trackCount {
-            tracks.append([
-                "musicResponsiveListItemRenderer": [
-                    "playlistItemData": ["videoId": "video\(i)"],
-                    "flexColumns": [
-                        [
-                            "musicResponsiveListItemFlexColumnRenderer": [
-                                "text": ["runs": [["text": "Track \(i)"]]],
-                            ],
+            var renderer: [String: Any] = [
+                "playlistItemData": ["videoId": "video\(i)"],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Track \(i)"]]],
                         ],
-                        [
-                            "musicResponsiveListItemFlexColumnRenderer": [
-                                "text": ["runs": [["text": "Artist \(i)"]]],
-                            ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Artist \(i)"]]],
                         ],
                     ],
                 ],
+            ]
+            if unavailableTrackIndices.contains(i) {
+                renderer["musicItemRendererDisplayPolicy"] = "MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT"
+            }
+
+            tracks.append([
+                "musicResponsiveListItemRenderer": renderer,
             ])
         }
 
@@ -542,6 +568,7 @@ struct PlaylistParserTests {
     private func makeResponsivePlaylistDetailData(
         title: String,
         author: String,
+        authorBrowseId: String? = nil,
         reportedTrackCountText: String,
         duration: String,
         loadedTrackCount: Int
@@ -609,6 +636,24 @@ struct PlaylistParserTests {
                                                     "text": [
                                                         "content": author,
                                                     ],
+                                                    "rendererContext": authorBrowseId.map { browseId in
+                                                        [
+                                                            "commandContext": [
+                                                                "onTap": [
+                                                                    "innertubeCommand": [
+                                                                        "browseEndpoint": [
+                                                                            "browseId": browseId,
+                                                                            "browseEndpointContextSupportedConfigs": [
+                                                                                "browseEndpointContextMusicConfig": [
+                                                                                    "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL",
+                                                                                ],
+                                                                            ],
+                                                                        ],
+                                                                    ],
+                                                                ],
+                                                            ],
+                                                        ]
+                                                    } ?? [:],
                                                 ],
                                             ],
                                         ],

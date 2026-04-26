@@ -20,7 +20,7 @@ struct QueueSidePanelView: View {
                 self.emptyQueueView
             } else {
                 QueueListControllerRepresentable(
-                    queue: self.playerService.queue,
+                    entries: self.playerService.queueEntries,
                     currentIndex: self.playerService.currentIndex,
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
@@ -32,8 +32,8 @@ struct QueueSidePanelView: View {
                     onReorder: { source, destination in
                         self.playerService.reorderQueue(from: IndexSet(integer: source), to: destination)
                     },
-                    onRemove: { videoId in
-                        self.playerService.removeFromQueue(videoIds: Set([videoId]))
+                    onRemove: { entryID in
+                        self.playerService.removeFromQueue(entryIDs: Set([entryID]))
                     },
                     onStartRadio: { song in
                         Task {
@@ -80,13 +80,13 @@ struct QueueSidePanelView: View {
 
 @available(macOS 26.0, *)
 struct QueueListControllerRepresentable: NSViewControllerRepresentable {
-    let queue: [Song]
+    let entries: [QueueEntry]
     let currentIndex: Int
     let isPlaying: Bool
     let favoritesManager: FavoritesManager
     let onSelect: (Int) -> Void
     let onReorder: (Int, Int) -> Void
-    let onRemove: (String) -> Void
+    let onRemove: (UUID) -> Void
     let onStartRadio: (Song) -> Void
 
     func makeNSViewController(context: Context) -> QueueListViewController {
@@ -97,7 +97,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     }
 
     func updateNSViewController(_ viewController: QueueListViewController, context: Context) {
-        context.coordinator.queue = self.queue
+        context.coordinator.entries = self.entries
         context.coordinator.currentIndex = self.currentIndex
         context.coordinator.isPlaying = self.isPlaying
         context.coordinator.favoritesManager = self.favoritesManager
@@ -108,7 +108,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         // Update current track highlighting and waveform animation
         if let tableView = viewController.tableView {
-            for row in 0 ..< self.queue.count {
+            for row in 0 ..< self.entries.count {
                 if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? QueueTableCellView {
                     cellView.updateAppearance(
                         isCurrentTrack: row == self.currentIndex,
@@ -122,7 +122,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
-            queue: self.queue,
+            entries: self.entries,
             currentIndex: self.currentIndex,
             isPlaying: self.isPlaying,
             favoritesManager: self.favoritesManager,
@@ -191,22 +191,22 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
     @MainActor
     class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
-        var queue: [Song]
+        var entries: [QueueEntry]
         var currentIndex: Int
         var isPlaying: Bool
         var favoritesManager: FavoritesManager
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
-        let onRemove: (String) -> Void
+        let onRemove: (UUID) -> Void
         let onStartRadio: (Song) -> Void
         weak var viewController: QueueListViewController?
         var isDragging = false
         private let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
 
-        init(queue: [Song], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
-             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (String) -> Void, onStartRadio: @escaping (Song) -> Void)
+        init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
+             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (UUID) -> Void, onStartRadio: @escaping (Song) -> Void)
         {
-            self.queue = queue
+            self.entries = entries
             self.currentIndex = currentIndex
             self.isPlaying = isPlaying
             self.favoritesManager = favoritesManager
@@ -219,16 +219,16 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         /// Removes the row with slide-out animation, then calls onRemove.
         /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
-        func removeRowWithAnimation(row: Int, song: Song, slideDirection: CGFloat) {
+        func removeRowWithAnimation(row: Int, entry: QueueEntry, slideDirection: CGFloat) {
             guard let tableView = viewController?.tableView else {
-                self.onRemove(song.videoId)
+                self.onRemove(entry.id)
                 return
             }
             guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
-                self.onRemove(song.videoId)
+                self.onRemove(entry.id)
                 return
             }
-            let videoId = song.videoId
+            let entryID = entry.id
             let offsetX = slideDirection * rowView.bounds.width
             let originalFrame = rowView.frame
             NSAnimationContext.runAnimationGroup { context in
@@ -241,18 +241,19 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     // Reset row view so it can be reused without a stuck frame/alpha (fixes misaligned rows).
                     rowView.alphaValue = 1
                     rowView.frame = originalFrame
-                    self?.onRemove(videoId)
+                    self?.onRemove(entryID)
                 }
             }
         }
 
         func numberOfRows(in _: NSTableView) -> Int {
-            self.queue.count
+            self.entries.count
         }
 
         func tableView(_: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
             let cellView = QueueTableCellView()
-            let song = self.queue[row]
+            let entry = self.entries[row]
+            let song = entry.song
             cellView.configure(
                 song: song,
                 index: row,
@@ -260,7 +261,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 isPlaying: self.isPlaying,
                 actions: QueueCellActions(
                     onPlay: { [weak self] in self?.onSelect(row) },
-                    onRemove: { [weak self] in self?.onRemove(song.videoId) }
+                    onRemove: { [weak self] in self?.onRemove(entry.id) }
                 )
             )
             return cellView
@@ -319,7 +320,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         // MARK: - Context Menu
 
         func tableView(_: NSTableView, menuForRow row: Int, event _: NSEvent) -> NSMenu? {
-            guard row >= 0, let song = queue[safe: row] else { return nil }
+            guard row >= 0, let entry = entries[safe: row] else { return nil }
+            let song = entry.song
             let menu = NSMenu()
             let manager = self.favoritesManager
             let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
@@ -356,7 +358,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             if row != self.currentIndex {
                 let removeItem = NSMenuItem(title: "Remove from Queue", action: #selector(Coordinator.contextMenuRemove(_:)), keyEquivalent: "")
                 removeItem.target = self
-                removeItem.representedObject = song
+                removeItem.representedObject = entry.id.uuidString
                 removeItem.image = NSImage(systemSymbolName: "minus.circle", accessibilityDescription: nil)
                 menu.addItem(removeItem)
             }
@@ -383,8 +385,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         @objc private func contextMenuRemove(_ sender: NSMenuItem) {
-            guard let song = sender.representedObject as? Song else { return }
-            self.onRemove(song.videoId)
+            guard let entryIDString = sender.representedObject as? String,
+                  let entryID = UUID(uuidString: entryIDString)
+            else { return }
+            self.onRemove(entryID)
         }
     }
 }
@@ -485,7 +489,7 @@ class DraggableTableView: NSTableView {
         if let coord = coordinator,
            swipeRemoveTargetRow >= 0,
            swipeRemoveTargetRow != coord.currentIndex,
-           coord.queue[safe: swipeRemoveTargetRow] != nil,
+           coord.entries[safe: swipeRemoveTargetRow] != nil,
            abs(horizontalSwipeAccumulator) > Self.swipeCommitThreshold,
            abs(horizontalSwipeAccumulator) > abs(verticalSwipeAccumulator)
         {
@@ -516,7 +520,7 @@ class DraggableTableView: NSTableView {
             self.swipeTrackedInitialOriginX = nil
             guard let coord = coordinator,
                   swipeRemoveTargetRow >= 0,
-                  let song = coord.queue[safe: swipeRemoveTargetRow]
+                  let entry = coord.entries[safe: swipeRemoveTargetRow]
             else {
                 self.swipeRemoveTargetRow = -1
                 return false
@@ -535,7 +539,7 @@ class DraggableTableView: NSTableView {
             if passed {
                 let slideDirection: CGFloat = accH > 0 ? 1 : -1
                 let targetX = initialX + slideDirection * rowView.bounds.width
-                let videoId = song.videoId
+                let entryID = entry.id
                 self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
@@ -550,7 +554,7 @@ class DraggableTableView: NSTableView {
                         var f = rowView.frame
                         f.origin.x = initialX
                         rowView.frame = f
-                        coord.onRemove(videoId)
+                        coord.onRemove(entryID)
                     }
                 }
                 return true
@@ -576,10 +580,10 @@ class DraggableTableView: NSTableView {
         self.swipeRemoveTargetRow = -1
         if row < 0 { return false }
         if row == coord.currentIndex { return false }
-        guard let song = coord.queue[safe: row] else { return false }
+        guard let entry = coord.entries[safe: row] else { return false }
         let slideDirection: CGFloat = accH > 0 ? 1 : -1
         self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
-        coord.removeRowWithAnimation(row: row, song: song, slideDirection: slideDirection)
+        coord.removeRowWithAnimation(row: row, entry: entry, slideDirection: slideDirection)
         return true
     }
 }

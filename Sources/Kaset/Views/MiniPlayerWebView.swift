@@ -689,6 +689,23 @@ extension SingletonPlayerWebView {
                     localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
                 } catch (e) {}
                 window.__kasetUseNextPrev = \(jsBoolean);
+                // Wrap setActionHandler at document start so YouTube's seekforward/seekbackward
+                // registrations are blocked before Control Center can reflect them. Without this
+                // the existing RAF override only clears them on the next frame, leaving a window
+                // where the macOS Now Playing widget briefly shows the 15s skip buttons.
+                try {
+                    var ms = navigator.mediaSession;
+                    if (ms && !ms.__kasetSetActionHandlerWrapped) {
+                        var orig = ms.setActionHandler.bind(ms);
+                        ms.setActionHandler = function(type, handler) {
+                            if (window.__kasetUseNextPrev && (type === 'seekforward' || type === 'seekbackward')) {
+                                return orig(type, null);
+                            }
+                            return orig(type, handler);
+                        };
+                        ms.__kasetSetActionHandlerWrapped = true;
+                    }
+                } catch (e) {}
             })();
         """
     }

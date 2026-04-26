@@ -10,7 +10,7 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let safeIndex = max(0, min(index, songs.count - 1))
-        self.queue = songs
+        self.setQueue(songs)
         self.currentIndex = safeIndex
         // Clear mix continuation since this is not a mix queue
         self.mixContinuationToken = nil
@@ -31,7 +31,7 @@ extension PlayerService {
         self.mixContinuationToken = nil
 
         // Start with just this song in the queue
-        self.queue = [song]
+        self.setQueue([song])
         self.currentIndex = 0
         await self.play(song: song)
 
@@ -73,7 +73,7 @@ extension PlayerService {
             let shuffledSongs = result.songs.shuffled()
 
             // Set up the queue and play the first song
-            self.queue = shuffledSongs
+            self.setQueue(shuffledSongs)
             self.currentIndex = 0
             self.currentTrack = shuffledSongs[0]
 
@@ -118,10 +118,8 @@ extension PlayerService {
             let newSongs = result.songs.filter { !existingIds.contains($0.videoId) }
 
             if !newSongs.isEmpty {
-                // Create a new array to ensure @Observable triggers UI update
-                var updatedQueue = self.queue
-                updatedQueue.append(contentsOf: newSongs)
-                self.queue = updatedQueue
+                let updatedEntries = self.queueEntries + newSongs.map { QueueEntry(id: UUID(), song: $0) }
+                self.setQueue(entries: updatedEntries)
                 self.logger.info("Added \(newSongs.count) new songs to queue, total: \(self.queue.count)")
                 self.saveQueueForPersistence()
             }
@@ -181,7 +179,7 @@ extension PlayerService {
 
             self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
-            self.queue = newQueue
+            self.setQueue(newQueue)
             self.currentIndex = 0
             self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
             self.saveQueueForPersistence()
@@ -195,7 +193,7 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         self.mixContinuationToken = nil
-        self.queue = []
+        self.setQueue([])
         self.currentIndex = 0
         self.logger.info("Queue cleared entirely")
         self.saveQueueForPersistence()
@@ -209,13 +207,14 @@ extension PlayerService {
         self.mixContinuationToken = nil
 
         guard let currentTrack else {
-            self.queue = []
+            self.setQueue([])
             self.currentIndex = 0
             self.saveQueueForPersistence()
             return
         }
         // Keep only the current track
-        self.queue = [currentTrack]
+        let currentEntryID = self.queueEntryIDs[safe: self.currentIndex]
+        self.setQueue([currentTrack], entryIDs: currentEntryID.map { [$0] })
         self.currentIndex = 0
         self.logger.info("Queue cleared, keeping current track")
         self.saveQueueForPersistence()
@@ -241,8 +240,32 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let insertIndex = min(self.currentIndex + 1, self.queue.count)
-        self.queue.insert(contentsOf: songs, at: insertIndex)
+        var updatedEntries = self.queueEntries
+        updatedEntries.insert(contentsOf: songs.map { QueueEntry(id: UUID(), song: $0) }, at: insertIndex)
+        self.setQueue(entries: updatedEntries)
         self.logger.info("Inserted \(songs.count) songs at position \(insertIndex)")
+        self.saveQueueForPersistence()
+    }
+
+    /// Removes songs from the queue by stable entry IDs.
+    /// - Parameter entryIDs: Set of queue entry IDs to remove.
+    func removeFromQueue(entryIDs: Set<UUID>) {
+        self.clearForwardSkipNavigationStack()
+        self.recordQueueStateForUndo()
+        let previousCount = self.queue.count
+        let currentEntryID = self.currentQueueEntryID
+        let remainingEntries = self.queueEntries.filter { !entryIDs.contains($0.id) }
+        self.setQueue(entries: remainingEntries)
+
+        if let currentEntryID,
+           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
+        {
+            self.currentIndex = newIndex
+        } else if self.currentIndex >= self.queue.count {
+            self.currentIndex = max(0, self.queue.count - 1)
+        }
+
+        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
         self.saveQueueForPersistence()
     }
 
@@ -252,11 +275,13 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
-        self.queue.removeAll { videoIds.contains($0.videoId) }
+        let currentEntryID = self.currentQueueEntryID
+        let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
+        self.setQueue(entries: remainingEntries)
 
         // Adjust currentIndex if needed
-        if let current = currentTrack,
-           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
+        if let currentEntryID,
+           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
         {
             self.currentIndex = newIndex
         } else if self.currentIndex >= self.queue.count {
@@ -284,17 +309,18 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
-        var newQueue = self.queue
-        newQueue.move(fromOffsets: source, toOffset: destination)
+        var updatedEntries = self.queueEntries
+        let currentEntryID = self.currentQueueEntryID
+        updatedEntries.move(fromOffsets: source, toOffset: destination)
 
         // Adjust currentIndex if needed (current track moved in the array)
-        if let oldCurrent = self.queue[safe: self.currentIndex],
-           let newCurrentIndex = newQueue.firstIndex(where: { $0.videoId == oldCurrent.videoId })
+        if let currentEntryID,
+           let newCurrentIndex = updatedEntries.firstIndex(where: { $0.id == currentEntryID })
         {
             self.currentIndex = newCurrentIndex
         }
 
-        self.queue = newQueue
+        self.setQueue(entries: updatedEntries)
         self.logger.info("Queue reordered: moved from \(source) to \(destination)")
         self.saveQueueForPersistence()
     }
@@ -304,29 +330,29 @@ extension PlayerService {
     func reorderQueue(videoIds: [String]) {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
-        var reordered: [Song] = []
-        var videoIdToSong: [String: Song] = [:]
-
-        for song in self.queue {
-            videoIdToSong[song.videoId] = song
+        let currentEntryID = self.currentQueueEntryID
+        var entriesByVideoId: [String: [QueueEntry]] = [:]
+        for entry in self.queueEntries {
+            entriesByVideoId[entry.song.videoId, default: []].append(entry)
         }
 
+        var reorderedEntries: [QueueEntry] = []
         for videoId in videoIds {
-            if let song = videoIdToSong[videoId] {
-                reordered.append(song)
-            }
+            guard var entries = entriesByVideoId[videoId], !entries.isEmpty else { continue }
+            reorderedEntries.append(entries.removeFirst())
+            entriesByVideoId[videoId] = entries
         }
 
-        self.queue = reordered
+        self.setQueue(entries: reorderedEntries)
 
         // Update currentIndex to match current track's new position
-        if let current = currentTrack,
-           let newIndex = queue.firstIndex(where: { $0.videoId == current.videoId })
+        if let currentEntryID,
+           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
         {
             self.currentIndex = newIndex
         }
 
-        self.logger.info("Queue reordered with \(reordered.count) songs")
+        self.logger.info("Queue reordered with \(reorderedEntries.count) songs")
         self.saveQueueForPersistence()
     }
 
@@ -337,15 +363,17 @@ extension PlayerService {
         self.recordQueueStateForUndo()
 
         // Remove current track, shuffle the rest, put current track at front
-        if let currentSong = queue[safe: currentIndex] {
-            var shuffled = self.queue
-            shuffled.remove(at: self.currentIndex)
-            shuffled.shuffle()
-            shuffled.insert(currentSong, at: 0)
-            self.queue = shuffled
+        if queue[safe: currentIndex] != nil {
+            var shuffledEntries = self.queueEntries
+            let currentEntry = shuffledEntries.remove(at: self.currentIndex)
+            shuffledEntries.shuffle()
+            shuffledEntries.insert(currentEntry, at: 0)
+            self.setQueue(entries: shuffledEntries)
             self.currentIndex = 0
         } else {
-            self.queue.shuffle()
+            var shuffledEntries = self.queueEntries
+            shuffledEntries.shuffle()
+            self.setQueue(entries: shuffledEntries)
             self.currentIndex = 0
         }
 
@@ -358,7 +386,7 @@ extension PlayerService {
     func appendToQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         self.recordQueueStateForUndo()
-        self.queue.append(contentsOf: songs)
+        self.setQueue(entries: self.queueEntries + songs.map { QueueEntry(id: UUID(), song: $0) })
         self.logger.info("Appended \(songs.count) songs to queue")
         self.saveQueueForPersistence()
     }
@@ -508,12 +536,18 @@ extension PlayerService {
         UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
     }
 
-    /// Resolves the queue index from saved metadata, preferring the saved video ID when available.
+    /// Resolves the queue index from saved metadata.
+    /// Prefers the persisted index when it is valid so duplicate tracks restore to the exact entry.
+    /// Falls back to the saved video ID only for legacy or invalid payloads.
     private func resolvedPersistedQueueIndex(
         savedIndex: Int,
         currentVideoId: String?,
         in queue: [Song]
     ) -> Int {
+        if queue.indices.contains(savedIndex) {
+            return savedIndex
+        }
+
         if let currentVideoId,
            let matchingIndex = queue.firstIndex(where: { $0.videoId == currentVideoId })
         {
@@ -598,7 +632,9 @@ extension PlayerService {
 
                 // Update the queue in-place
                 if index < queue.count, queue[index].videoId == videoId {
-                    queue[index] = enrichedSong
+                    var updatedEntries = self.queueEntries
+                    updatedEntries[index] = QueueEntry(id: updatedEntries[index].id, song: enrichedSong)
+                    self.setQueue(entries: updatedEntries)
                     self.logger.debug("Enriched song \(index): '\(enrichedSong.title)' - artists: \(enrichedSong.artistsDisplay)")
                 }
 

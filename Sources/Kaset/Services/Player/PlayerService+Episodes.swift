@@ -21,7 +21,7 @@ extension PlayerService {
         self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
 
         // Live streams / channel videos play standalone — clear queue state.
-        self.queue = []
+        self.setQueue([])
         self.currentIndex = 0
         self.clearForwardSkipNavigationStack()
 
