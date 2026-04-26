@@ -19,7 +19,7 @@ struct PlaylistDetailViewModelTests {
 
     private func makeLikedMusicPlaylist(trackCount: Int? = nil) -> Playlist {
         Playlist(
-            id: "LM",
+            id: LikedMusicPlaylist.id,
             title: "Liked Music",
             description: nil,
             thumbnailURL: URL(string: "https://example.com/liked.jpg"),
@@ -138,6 +138,32 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.mockClient.getPlaylistContinuationCalled == true)
         #expect(self.viewModel.playlistDetail?.tracks.count == 7)
+    }
+
+    @Test("Load more uses the view model's own continuation token after another playlist loads")
+    func loadMoreUsesOwnContinuationTokenAfterAnotherPlaylistLoads() async {
+        let firstPlaylist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "First Playlist")
+        let secondPlaylist = TestFixtures.makePlaylist(id: "VL-other-playlist", title: "Other Playlist")
+        let firstDetail = TestFixtures.makePlaylistDetail(playlist: firstPlaylist, trackCount: 2)
+        let secondDetail = TestFixtures.makePlaylistDetail(playlist: secondPlaylist, trackCount: 2)
+        let secondViewModel = PlaylistDetailViewModel(playlist: secondPlaylist, client: self.mockClient)
+
+        self.mockClient.playlistDetails[firstPlaylist.id] = firstDetail
+        self.mockClient.playlistDetails[secondPlaylist.id] = secondDetail
+        self.mockClient.playlistContinuationTracks[firstPlaylist.id] = [
+            [TestFixtures.makeSong(id: "first-continuation")],
+        ]
+        self.mockClient.playlistContinuationTracks[secondPlaylist.id] = [
+            [TestFixtures.makeSong(id: "other-continuation")],
+        ]
+
+        await self.viewModel.load()
+        await secondViewModel.load()
+        await self.viewModel.loadMore()
+
+        let videoIDs = self.viewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(videoIDs.contains("first-continuation"))
+        #expect(!videoIDs.contains("other-continuation"))
     }
 
     @Test("Load more preserves reported total track count")

@@ -14,17 +14,6 @@ struct MainWindow: View {
         }
     }
 
-    private static var likedMusicPlaylist: Playlist {
-        Playlist(
-            id: "LM",
-            title: String(localized: "Liked Music"),
-            description: nil,
-            thumbnailURL: nil,
-            trackCount: nil,
-            author: nil
-        )
-    }
-
     private enum Layout {
         static let commandBarTopPadding: CGFloat = 72
     }
@@ -79,7 +68,7 @@ struct MainWindow: View {
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
         _likedMusicViewModel = State(
             initialValue: PlaylistDetailViewModel(
-                playlist: Self.likedMusicPlaylist,
+                playlist: LikedMusicPlaylist.playlist,
                 client: client
             )
         )
@@ -277,8 +266,11 @@ struct MainWindow: View {
                 self.playerService.currentTrackLikeStatus = event.status
             }
 
-            // Global sync 2: keep Liked Music list in sync regardless of which tab is active.
-            self.likedMusicViewModel?.handleLikeStatusChange(event)
+            // Global sync 2: keep Liked Music list in sync when the active
+            // Liked Music detail view is not already forwarding this event.
+            if self.navigationSelection != .likedMusic {
+                self.likedMusicViewModel?.handleLikeStatusChange(event)
+            }
         }
     }
 
@@ -400,7 +392,7 @@ struct MainWindow: View {
                 if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
                         PlaylistDetailView(
-                            playlist: Self.likedMusicPlaylist,
+                            playlist: LikedMusicPlaylist.playlist,
                             viewModel: vm
                         )
                         .navigationDestinations(client: self.client)

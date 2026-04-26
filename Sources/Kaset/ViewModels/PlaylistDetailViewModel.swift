@@ -11,8 +11,6 @@ final class PlaylistDetailViewModel {
         let task: Task<Void, Never>
     }
 
-    private static let likedMusicPlaylistID = "LM"
-
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -26,12 +24,13 @@ final class PlaylistDetailViewModel {
     /// The API client (exposed for add to library action).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
+    private var continuationToken: String?
 
     @ObservationIgnored
     private var liveSyncTasks: [String: LiveSyncTask] = [:]
 
     private var isLikedMusicPlaylist: Bool {
-        self.playlist.id == Self.likedMusicPlaylistID
+        LikedMusicPlaylist.matches(id: self.playlist.id)
     }
 
     init(playlist: Playlist, client: any YTMusicClientProtocol) {
@@ -69,6 +68,7 @@ final class PlaylistDetailViewModel {
         guard self.loadingState != .loading else { return }
 
         self.loadingState = .loading
+        self.continuationToken = nil
         let playlistTitle = self.playlist.title
         let playlistId = self.playlist.id
         self.logger.info("Loading playlist: \(playlistTitle), ID: \(playlistId)")
@@ -83,6 +83,7 @@ final class PlaylistDetailViewModel {
             let response = try await client.getPlaylist(id: self.playlist.id)
             var detail = response.detail
             self.hasMore = response.hasMore
+            var nextContinuationToken = response.continuationToken
 
             // If it's a radio playlist, always fetch all tracks via queue API
             // The browse API often returns hasMore=false even when there are more tracks
@@ -107,6 +108,7 @@ final class PlaylistDetailViewModel {
                             duration: detail.duration
                         )
                         self.hasMore = false
+                        nextContinuationToken = nil
                     }
                 } catch {
                     // If queue API fails, fall back to browse results
@@ -154,6 +156,7 @@ final class PlaylistDetailViewModel {
             }
 
             self.playlistDetail = detail
+            self.continuationToken = self.hasMore ? nextContinuationToken : nil
             self.loadingState = .loaded
             let loadedTrackCount = detail.tracks.count
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
@@ -170,17 +173,17 @@ final class PlaylistDetailViewModel {
 
     /// Loads more tracks via continuation.
     func loadMore() async {
-        guard self.loadingState == .loaded, self.hasMore, let currentDetail = playlistDetail else { return }
+        guard self.loadingState == .loaded,
+              self.hasMore,
+              let continuationToken,
+              let currentDetail = playlistDetail
+        else { return }
 
         self.loadingState = .loadingMore
         self.logger.info("Loading more playlist tracks")
 
         do {
-            guard let response = try await client.getPlaylistContinuation() else {
-                self.hasMore = false
-                self.loadingState = .loaded
-                return
-            }
+            let response = try await client.getPlaylistContinuation(token: continuationToken)
 
             // Build a set of existing video IDs for deduplication
             let existingVideoIds = Set(currentDetail.tracks.map(\.videoId))
@@ -192,6 +195,7 @@ final class PlaylistDetailViewModel {
             // This handles radio playlists that return overlapping data
             if newTracks.isEmpty {
                 self.hasMore = false
+                self.continuationToken = nil
                 self.loadingState = .loaded
                 self.logger.info("No new unique tracks in continuation, stopping pagination")
                 return
@@ -226,6 +230,7 @@ final class PlaylistDetailViewModel {
                 }
             }
 
+            self.continuationToken = response.continuationToken
             self.hasMore = response.hasMore
 
             self.loadingState = .loaded
@@ -267,6 +272,7 @@ final class PlaylistDetailViewModel {
         self.cancelAllLiveSyncTasks()
         self.playlistDetail = nil
         self.hasMore = false
+        self.continuationToken = nil
         await self.load()
     }
 
