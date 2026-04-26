@@ -251,9 +251,9 @@ extension PlayerService {
 
                 // Also update the corresponding song in the queue with enriched metadata
                 // This ensures the queue displays complete info without separate API calls
-                if let queueIndex = self.queue.firstIndex(where: { $0.videoId == videoId }) {
+                if let queueIndex = self.queueEntries.firstIndex(where: { $0.song.videoId == videoId }) {
                     // Only update if the queue entry is missing metadata
-                    let currentQueueSong = self.queue[queueIndex]
+                    let currentQueueSong = self.queueEntries[queueIndex].song
                     let needsUpdate = currentQueueSong.artists.isEmpty ||
                         currentQueueSong.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" } ||
                         currentQueueSong.title.isEmpty ||
@@ -263,7 +263,9 @@ extension PlayerService {
                     if needsUpdate {
                         var enrichedQueueSong = songData
                         enrichedQueueSong.likeStatus = resolvedLikeStatus
-                        self.queue[queueIndex] = enrichedQueueSong
+                        var updatedEntries = self.queueEntries
+                        updatedEntries[queueIndex] = QueueEntry(id: updatedEntries[queueIndex].id, song: enrichedQueueSong)
+                        self.setQueue(entries: updatedEntries)
                         self.logger.debug("Enriched queue entry at index \(queueIndex): '\(enrichedQueueSong.title)' with artists: \(enrichedQueueSong.artistsDisplay)")
                         // Save the enriched queue to persistence
                         self.saveQueueForPersistence()

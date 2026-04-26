@@ -188,6 +188,17 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches all songs for an artist using the songs browse endpoint.
     func getArtistSongs(browseId: String, params: String?) async throws -> [Song]
 
+    /// Fetches an artist's full discography (`MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`).
+    /// Returns every album / single / EP behind an Albums-shelf "See all".
+    func getArtistDiscography(browseId: String, params: String?) async throws -> [Album]
+
+    /// Fetches a filtered artist-page subset (`MUSIC_PAGE_TYPE_ARTIST`) — the
+    /// full Latest-episodes listing behind the shelf's "See all". The
+    /// authenticated response is a single `gridRenderer` of
+    /// `musicMultiRowListItemRenderer` items (including live streams), so the
+    /// return type is a flat list.
+    func getArtistEpisodesList(browseId: String, params: String?) async throws -> [ArtistEpisode]
+
     /// Rates a song (like/dislike/indifferent).
     func rateSong(videoId: String, rating: LikeStatus) async throws
 
@@ -377,6 +388,15 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
     ///   - startVideoId: Optional starting video ID
     func playWithMix(playlistId: String, startVideoId: String?) async
+
+    /// Clears the queue while preserving the current track when possible.
+    func clearQueue()
+
+    /// Shuffles the current queue order.
+    func shuffleQueue()
+
+    /// Appends songs to the end of the queue.
+    func appendToQueue(_ songs: [Song])
 
     // MARK: - Like/Library Actions
 

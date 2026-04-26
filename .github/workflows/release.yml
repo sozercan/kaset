@@ -42,7 +42,7 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
@@ -83,7 +83,7 @@ jobs:
 
       - name: Cache Homebrew
         id: cache-homebrew
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             /usr/local/Homebrew

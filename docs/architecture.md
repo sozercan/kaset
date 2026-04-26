@@ -14,6 +14,7 @@ Sources/
       ├── Models/       → Data types (Song, Playlist, Album, Artist, etc.)
       ├── Services/     → Business logic
       │   ├── API/      → YTMusicClient, Parsers/
+      │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
       │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
@@ -291,6 +292,24 @@ Manages user preferences persisted via `UserDefaults`:
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 
 **LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
+
+### EqualizerService
+
+**File**: `Sources/Kaset/Services/Audio/EqualizerService.swift`
+
+Owns the equalizer feature's user-facing state and lifecycle. The actual DSP runs in ``EqualizerAudioEngine`` via an `AudioDeviceIOProc` registered on an aggregate device that wraps a Core Audio process tap on WebKit's GPU subprocess. See [ADR-0017](adr/0017-equalizer.md) for the full architecture rationale.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `settings` | `EQSettings` | Active band gains, preamp, preset, enabled flag — persisted as JSON in UserDefaults |
+| `status` | `Status` | Computed engine status (`off` / `active` / `standby` / `permissionNeeded` / `error`) surfaced to the settings UI |
+| `lastFailure` | `StartFailure?` | Last raw engine failure; the UI reads it via `status` rather than directly |
+
+**Persistence**: Every mutation triggers a JSON round-trip under the `settings.equalizer` UserDefaults key. The full settings shape (isEnabled, preampDB, bandGainsDB, preset) restores on next launch.
+
+**Engine seam**: `EqualizerAudioEngineProtocol` lets tests inject a no-op stub so `EqualizerServiceTests` can verify state transitions without touching Core Audio.
+
+> ⚠️ **Naming note**: `Sources/Kaset/Views/SharedViews/EqualizerView.swift` is unrelated — it's a small now-playing animation indicator (three bouncing bars). The settings UI is `EqualizerSettingsView`.
 
 ### SyncedLyricsService
 

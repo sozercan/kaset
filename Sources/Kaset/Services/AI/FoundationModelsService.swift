@@ -33,6 +33,7 @@ struct FoundationModelsPromptBudget: Equatable {
 ///
 /// This service provides on-device AI capabilities for:
 /// - Natural language music control (command parsing)
+/// - Queue analysis and description
 /// - Lyrics explanation and analysis
 /// - Playlist refinement suggestions
 ///
@@ -48,7 +49,7 @@ struct FoundationModelsPromptBudget: Equatable {
 /// ) else { return }
 ///
 /// // Use with guided generation
-/// let response = try await session.respond(to: prompt, generating: MusicIntent.self)
+/// let response = try await session.respond(to: prompt, generating: CommandBarParseResult.self)
 /// ```
 ///
 /// ## Session Types
@@ -120,7 +121,7 @@ final class FoundationModelsService {
         self.logger.info("Starting Foundation Models warmup")
 
         // Check availability
-        self.availability = SystemLanguageModel.default.availability
+        self.refreshAvailability()
 
         switch self.availability {
         case .available:
@@ -147,6 +148,8 @@ final class FoundationModelsService {
     ///   - tools: Tools the model can use (e.g., MusicSearchTool, QueueTool).
     /// - Returns: A configured LanguageModelSession, or nil if unavailable.
     func createCommandSession(instructions: String, tools: [any Tool]) -> LanguageModelSession? {
+        self.refreshAvailability()
+
         guard self.isAvailable else {
             self.logger.warning("Attempted to create command session but AI is not available")
             return nil
@@ -156,6 +159,107 @@ final class FoundationModelsService {
         return LanguageModelSession(
             tools: tools,
             instructions: instructions
+        )
+    }
+
+    /// Refreshes the cached availability state from the system.
+    func refreshAvailability() {
+        self.availability = SystemLanguageModel.default.availability
+    }
+
+    /// Returns whether the system model supports a given locale.
+    func supportsLocale(_ locale: Locale = .current) -> Bool {
+        SystemLanguageModel.default.supportsLocale(locale)
+    }
+
+    /// Pre-warms command-bar parsing with the most likely prompt prefix.
+    func prewarmCommandBar(promptPrefix: String) {
+        self.refreshAvailability()
+
+        guard self.isAvailable else { return }
+        guard self.supportsLocale(Locale.current) else { return }
+
+        self.logger.debug("Pre-warming Foundation Models command bar prompt prefix")
+        let session = LanguageModelSession()
+        session.prewarm(promptPrefix: Prompt(promptPrefix))
+    }
+
+    /// Resolves a natural-language command into a `CommandBarParseResult` using a fresh tool-free session.
+    func resolveCommand(query: String, instructions: String) async throws -> CommandBarParseResult {
+        self.refreshAvailability()
+
+        guard self.isAvailable else {
+            throw AIError.notAvailable(reason: self.availabilityDescription)
+        }
+
+        guard self.supportsLocale(Locale.current) else {
+            throw AIError.notAvailable(reason: "Current language or locale is not supported")
+        }
+
+        await self.logPromptBudget(
+            context: "command parsing",
+            instructions: instructions,
+            prompt: query,
+            generationSchema: CommandBarParseResult.generationSchema
+        )
+
+        guard let session = self.createCommandSession(instructions: instructions, tools: []) else {
+            throw AIError.modelNotReady
+        }
+
+        let response = try await session.respond(to: query, generating: CommandBarParseResult.self)
+        return response.content
+    }
+
+    /// Streams a structured description of the current queue using a fresh analysis session.
+    func analyzeQueue(
+        prompt: String,
+        instructions: String,
+        onPartial: @escaping @MainActor @Sendable (QueueAnalysisSummary.PartiallyGenerated) -> Void
+    ) async throws -> QueueAnalysisSummary {
+        self.refreshAvailability()
+
+        guard self.isAvailable else {
+            throw AIError.notAvailable(reason: self.availabilityDescription)
+        }
+
+        guard self.supportsLocale(Locale.current) else {
+            throw AIError.notAvailable(reason: "Current language or locale is not supported")
+        }
+
+        await self.logPromptBudget(
+            context: "queue description",
+            instructions: instructions,
+            prompt: prompt,
+            generationSchema: QueueAnalysisSummary.generationSchema
+        )
+
+        guard let session = self.createAnalysisSession(instructions: instructions) else {
+            throw AIError.modelNotReady
+        }
+
+        let stream = session.streamResponse(to: prompt, generating: QueueAnalysisSummary.self)
+        var partial: QueueAnalysisSummary.PartiallyGenerated?
+
+        for try await snapshot in stream {
+            partial = snapshot.content
+            await onPartial(snapshot.content)
+        }
+
+        guard let final = partial,
+              let opening = final.opening,
+              let vibe = final.vibe,
+              let highlights = final.highlights,
+              let summary = final.summary
+        else {
+            throw AIError.decodingFailure
+        }
+
+        return QueueAnalysisSummary(
+            opening: opening,
+            vibe: vibe,
+            highlights: highlights,
+            summary: summary
         )
     }
 
@@ -478,14 +582,6 @@ final class FoundationModelsService {
         #endif
     }
 
-    /// Clears any cached session state.
-    /// This can help if the model gets into a bad state.
-    func clearContext() {
-        self.logger.info("Clearing Foundation Models context")
-        // Sessions are created fresh each time, so this is mainly for future use
-        // if we decide to keep a persistent session
-    }
-
     // MARK: - Private Methods
 
     private func promptBudget(
@@ -549,5 +645,16 @@ final class FoundationModelsService {
         // Use the official prewarm API to load model resources
         session.prewarm()
         self.logger.debug("Foundation Models prewarm completed successfully")
+    }
+
+    private var availabilityDescription: String {
+        switch self.availability {
+        case .available:
+            "Available"
+        case let .unavailable(reason):
+            String(describing: reason)
+        @unknown default:
+            "Unknown availability state"
+        }
     }
 }

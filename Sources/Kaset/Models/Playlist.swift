@@ -9,7 +9,49 @@ struct Playlist: Identifiable, Codable, Hashable {
     let description: String?
     let thumbnailURL: URL?
     let trackCount: Int?
-    let author: String?
+    let author: Artist?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case thumbnailURL
+        case trackCount
+        case author
+    }
+
+    init(
+        id: String,
+        title: String,
+        description: String?,
+        thumbnailURL: URL?,
+        trackCount: Int?,
+        author: Artist? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.thumbnailURL = thumbnailURL
+        self.trackCount = trackCount
+        self.author = author
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+        self.trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount)
+
+        if let legacyAuthor = try? container.decode(String.self, forKey: .author) {
+            self.author = Artist.inline(name: legacyAuthor, namespace: "playlist-author")
+        } else if let author = try? container.decode(Artist.self, forKey: .author) {
+            self.author = author
+        } else {
+            self.author = nil
+        }
+    }
 
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
@@ -60,9 +102,17 @@ extension Playlist {
         if let authors = data["authors"] as? [[String: Any]],
            let firstAuthor = authors.first
         {
-            self.author = firstAuthor["name"] as? String
+            if let artist = Artist(from: firstAuthor) {
+                self.author = artist
+            } else if let name = firstAuthor["name"] as? String {
+                self.author = Artist.inline(name: name, namespace: "playlist-author")
+            } else {
+                self.author = nil
+            }
+        } else if let authorName = data["author"] as? String {
+            self.author = Artist.inline(name: authorName, namespace: "playlist-author")
         } else {
-            self.author = data["author"] as? String
+            self.author = nil
         }
     }
 }
@@ -75,7 +125,7 @@ struct PlaylistDetail: Identifiable {
     let title: String
     let description: String?
     let thumbnailURL: URL?
-    let author: String?
+    let author: Artist?
     let trackCount: Int?
     let tracks: [Song]
     let duration: String?

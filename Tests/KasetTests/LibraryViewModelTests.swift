@@ -365,6 +365,29 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.artists.first?.id == "UC-channel-1")
     }
 
+    @Test("load preserves profile kind when normalizing equivalent artist IDs")
+    func loadPreservesProfileKindWhenNormalizingArtistIds() async {
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [
+                    TestFixtures.makeArtist(
+                        id: "MPLAUC-channel-1",
+                        name: "Profile Artist",
+                        profileKind: .profile
+                    ),
+                ],
+                podcastShows: []
+            ),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+        #expect(self.viewModel.artists.first?.profileKind == .profile)
+    }
+
     // MARK: - Playlist Library Tests
 
     @Test("addToLibrary inserts playlist at beginning and updates ID set")

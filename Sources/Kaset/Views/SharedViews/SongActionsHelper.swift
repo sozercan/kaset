@@ -10,6 +10,26 @@ enum SongActionsHelper {
 
     private static var artistLibraryReconciliationTasks: [String: Task<Void, Never>] = [:]
 
+    private static func cleanedArtistPreservingMetadata(_ artist: Artist) -> Artist? {
+        var cleanName = artist.name
+
+        if cleanName == "Album" {
+            return nil
+        }
+
+        if cleanName.hasPrefix("Album, ") {
+            cleanName = String(cleanName.dropFirst(7))
+        }
+
+        return Artist(
+            id: artist.id,
+            name: cleanName,
+            thumbnailURL: artist.thumbnailURL,
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
+        )
+    }
+
     private static func artistLibraryAliases(for artist: Artist, channelId: String) -> [String] {
         var ids = Set([channelId, artist.id])
         if let publicChannelId = artist.publicChannelId {
@@ -370,14 +390,7 @@ enum SongActionsHelper {
 
         // Clean artists and use fallback when empty
         let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(id: artist.id, name: cleanName)
-            }
+            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
 
             // Use fallback artist if artists are empty (and clean the fallback too)
             if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
@@ -433,14 +446,7 @@ enum SongActionsHelper {
 
         // Clean artists and use fallback when empty
         let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(id: artist.id, name: cleanName)
-            }
+            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
 
             // Use fallback artist if artists are empty (and clean the fallback too)
             if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
@@ -499,21 +505,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -521,20 +513,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create updated song with album info and proper artists
                     return Song(
@@ -578,21 +557,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -600,20 +565,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create updated song with album info and proper artists
                     return Song(
@@ -657,21 +609,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -679,20 +617,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create album object for the song
                     let songAlbum = Album(

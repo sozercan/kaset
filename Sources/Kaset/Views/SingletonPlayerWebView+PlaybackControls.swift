@@ -104,6 +104,24 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    /// Atomically pause and seek the underlying video.
+    func seekAndPause(to time: Double) {
+        guard let webView else { return }
+
+        let safeTime = time.isFinite ? max(time, 0) : 0
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) { return 'no-video'; }
+                video.pause();
+                video.currentTime = \(safeTime);
+                video.pause();
+                return 'seeked-paused';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
         self.seek(to: 0)

@@ -148,7 +148,7 @@ struct PlaylistDetailViewModelTests {
             description: "A test playlist",
             thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
             trackCount: 2429,
-            author: "Test User"
+            author: Artist(id: "UC123456", name: "Test User")
         )
         let playlistDetail = PlaylistDetail(
             playlist: playlist,
@@ -167,6 +167,7 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.viewModel.playlistDetail?.tracks.count == 150)
         #expect(self.viewModel.playlistDetail?.trackCount == 2429)
+        #expect(self.viewModel.playlistDetail?.author?.id == "UC123456")
     }
 
     @Test("Load more deduplicates tracks")
@@ -396,5 +397,46 @@ struct PlaylistDetailViewModelTests {
 
         // Should use original playlist title "Test Playlist" instead of "Unknown Playlist"
         #expect(self.viewModel.playlistDetail?.title == "Test Playlist")
+    }
+
+    @Test("Load preserves fallback author metadata when cleaning song count suffix")
+    func loadPreservesFallbackAuthorMetadataWhenCleaningSongCountSuffix() async {
+        let mockClient = MockYTMusicClient()
+        let originalPlaylist = Playlist(
+            id: "VL-test-playlist",
+            title: "Test Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 145,
+            author: Artist(
+                id: "UC123456",
+                name: "Test User • 145 songs",
+                thumbnailURL: URL(string: "https://example.com/author.jpg"),
+                subtitle: "123 subscribers",
+                profileKind: .profile
+            )
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: originalPlaylist, client: mockClient)
+        let unknownPlaylist = Playlist(
+            id: "VL-test-playlist",
+            title: "Unknown Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 3,
+            author: nil
+        )
+        let playlistDetail = PlaylistDetail(
+            playlist: unknownPlaylist,
+            tracks: TestFixtures.makeSongs(count: 3),
+            duration: "10 min"
+        )
+        mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+
+        await viewModel.load()
+
+        #expect(viewModel.playlistDetail?.author?.name == "Test User")
+        #expect(viewModel.playlistDetail?.author?.id == "UC123456")
+        #expect(viewModel.playlistDetail?.author?.subtitle == "123 subscribers")
+        #expect(viewModel.playlistDetail?.author?.profileKind == .profile)
     }
 }

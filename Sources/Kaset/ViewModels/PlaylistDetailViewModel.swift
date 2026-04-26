@@ -41,8 +41,9 @@ final class PlaylistDetailViewModel {
 
     /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").
     /// Used to clean fallback author values that may contain redundant song counts.
-    private func stripSongCount(from text: String?) -> String? {
-        guard var result = text else { return nil }
+    private func stripSongCountAuthor(from author: Artist?) -> Artist? {
+        guard let author else { return nil }
+        var result = author.name
         result = result.replacingOccurrences(
             of: #" • [\d,]+ (?:songs?|tracks?)"#,
             with: "",
@@ -52,7 +53,15 @@ final class PlaylistDetailViewModel {
             result = String(result.dropFirst(3))
         }
         result = result.trimmingCharacters(in: .whitespaces)
-        return result.isEmpty ? nil : result
+        return result.isEmpty
+            ? nil
+            : Artist(
+                id: author.id,
+                name: result,
+                thumbnailURL: author.thumbnailURL,
+                subtitle: author.subtitle,
+                profileKind: author.profileKind
+            )
     }
 
     /// Loads the playlist details including tracks.
@@ -131,7 +140,7 @@ final class PlaylistDetailViewModel {
                     description: detail.description ?? self.playlist.description,
                     thumbnailURL: resolvedThumbnailURL,
                     trackCount: mergedTrackCount,
-                    author: detail.author ?? self.stripSongCount(from: self.playlist.author)
+                    author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author)
                 )
                 detail = PlaylistDetail(
                     playlist: mergedPlaylist,

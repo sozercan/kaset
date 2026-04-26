@@ -34,7 +34,7 @@ struct IntelligenceSettingsView: View {
                 ))
                 .disabled(!self.isSystemAvailable)
 
-                Text("When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations.")
+                Text("When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations. Basic command-bar controls still work without Apple Intelligence.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -58,17 +58,20 @@ struct IntelligenceSettingsView: View {
                 Text("Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\".")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Text("The command bar stays available even if Apple Intelligence is off, with AI enhancing only the richer interpretations and summaries.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             } header: {
                 Text("Quick Access")
             }
 
             Section {
-                Button("Clear AI Context") {
-                    self.aiService.clearContext()
+                Button("Refresh AI Status") {
+                    self.aiService.refreshAvailability()
                 }
-                .disabled(!self.aiService.isAvailable)
 
-                Text("Clears the AI session state. Use this if responses seem off or stuck.")
+                Text("Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

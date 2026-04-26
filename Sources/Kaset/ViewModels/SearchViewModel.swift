@@ -207,6 +207,24 @@ final class SearchViewModel {
         }
     }
 
+    /// Performs a search immediately without debounce.
+    func searchImmediately() {
+        self.searchTask?.cancel()
+        self.suggestionsTask?.cancel()
+        self.suggestions = []
+        self.client.clearSearchContinuation()
+
+        guard !self.query.isEmpty else {
+            self.results = .empty
+            self.loadingState = .idle
+            return
+        }
+
+        self.searchTask = Task {
+            await self.performSearch()
+        }
+    }
+
     /// Performs a search with the current filter (no debounce, called when filter changes).
     private func searchWithFilter() {
         self.searchTask?.cancel()

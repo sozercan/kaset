@@ -1,4 +1,4 @@
-# ADR-0012: Localization Strategy (String Catalogs)
+# ADR-0013: Localization Strategy (String Catalogs)
 
 ## Status
 

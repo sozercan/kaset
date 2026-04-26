@@ -233,7 +233,7 @@ struct ModelTests {
         ]
 
         let playlist = try #require(Playlist(from: data))
-        #expect(playlist.author == "Playlist Creator")
+        #expect(playlist.author?.name == "Playlist Creator")
     }
 
     @Test("Parses author from string field")
@@ -245,7 +245,7 @@ struct ModelTests {
         ]
 
         let playlist = try #require(Playlist(from: data))
-        #expect(playlist.author == "Direct Author")
+        #expect(playlist.author?.name == "Direct Author")
     }
 
     @Test("Parses track count from formatted string")
@@ -258,6 +258,73 @@ struct ModelTests {
 
         let playlist = try #require(Playlist(from: data))
         #expect(playlist.trackCount == 1234)
+    }
+
+    @Test("Decodes legacy artist payload without profile kind")
+    func decodeLegacyArtistPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "UC123",
+              "name": "Legacy Artist",
+              "subtitle": "123 subscribers"
+            }
+            """.utf8
+        )
+
+        let artist = try JSONDecoder().decode(Artist.self, from: data)
+        #expect(artist.id == "UC123")
+        #expect(artist.name == "Legacy Artist")
+        #expect(artist.subtitle == "123 subscribers")
+        #expect(artist.profileKind == .unknown)
+    }
+
+    @Test("Decodes legacy song payload with artists missing profile kind")
+    func decodeLegacySongPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "song-1",
+              "title": "Legacy Song",
+              "artists": [
+                {
+                  "id": "UC123",
+                  "name": "Legacy Artist"
+                }
+              ],
+              "videoId": "video-1"
+            }
+            """.utf8
+        )
+
+        let song = try JSONDecoder().decode(Song.self, from: data)
+        #expect(song.title == "Legacy Song")
+        #expect(song.artists.count == 1)
+        #expect(song.artists.first?.name == "Legacy Artist")
+        #expect(song.artists.first?.profileKind == .unknown)
+        #expect(song.isPlayable)
+    }
+
+    @Test("Decodes legacy playlist payload with string author")
+    func decodeLegacyPlaylistPayload() throws {
+        let data = Data(
+            """
+            {
+              "id": "PL123",
+              "title": "Legacy Playlist",
+              "description": "A saved playlist",
+              "trackCount": 12,
+              "author": "Legacy Curator"
+            }
+            """.utf8
+        )
+
+        let playlist = try JSONDecoder().decode(Playlist.self, from: data)
+        #expect(playlist.id == "PL123")
+        #expect(playlist.title == "Legacy Playlist")
+        #expect(playlist.author?.name == "Legacy Curator")
+        #expect(playlist.author?.id == Artist.inlineId(for: "Legacy Curator", namespace: "playlist-author"))
+        #expect(playlist.author?.profileKind == .unknown)
     }
 
     @Test("Returns nil for playlist with no ID")
@@ -280,7 +347,7 @@ struct ModelTests {
             description: "A description",
             thumbnailURL: URL(string: "https://example.com/thumb.jpg"),
             trackCount: 5,
-            author: "Test Author"
+            author: Artist.inline(name: "Test Author", namespace: "playlist-author")
         )
 
         let songs = [
@@ -293,7 +360,7 @@ struct ModelTests {
         #expect(detail.id == "PL123")
         #expect(detail.title == "Test Playlist")
         #expect(detail.description == "A description")
-        #expect(detail.author == "Test Author")
+        #expect(detail.author?.name == "Test Author")
         #expect(detail.trackCount == 5)
         #expect(detail.tracks.count == 2)
         #expect(detail.duration == "6:20")
