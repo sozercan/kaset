@@ -757,13 +757,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func seek(to time: TimeInterval) async {
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
         self.logger.debug("Seeking to \(clampedTime)")
-
         if self.isPendingRestoredLoadDeferred {
             self.progress = clampedTime
             self.pendingRestoredSeek = clampedTime
             return
         }
-
+        if self.duration > 0, clampedTime >= self.duration - Self.seekToEndThreshold {
+            await self.handleManualSeekToEnd()
+            return
+        }
         self.clearRestoredPlaybackSessionState()
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.seek(to: clampedTime)

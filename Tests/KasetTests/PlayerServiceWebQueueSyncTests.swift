@@ -740,4 +740,132 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queue.count == 1)
         #expect(self.playerService.queue.first?.videoId == "lonely-video")
     }
+
+    // MARK: - Manual Seek to End Tests
+
+    @Test("Manual seek to end of track advances to next queue song")
+    func manualSeekToEndAdvancesQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.duration = 180
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Manual seek within end-threshold still advances queue")
+    func manualSeekWithinEndThresholdAdvancesQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.duration = 180
+
+        await self.playerService.seek(to: 180 - PlayerService.seekToEndThreshold + 0.01)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Manual seek to mid-track does not advance queue")
+    func manualSeekToMidTrackDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.duration = 180
+
+        await self.playerService.seek(to: 90)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+        #expect(self.playerService.progress == 90)
+    }
+
+    @Test("Manual seek to end with repeat one replays the same song")
+    func manualSeekToEndWithRepeatOneReplaysSameSong() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+        self.playerService.duration = 180
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Manual seek to end of last queue song with repeat off pauses at end")
+    func manualSeekToEndOfLastQueueSongPausesPlayback() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.duration = 200
+
+        await self.playerService.seek(to: 200)
+
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd == true)
+    }
+
+    @Test("Manual seek to end with repeat all wraps from last song to first")
+    func manualSeekToEndWithRepeatAllWrapsToFirst() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .all)
+        self.playerService.duration = 200
+
+        await self.playerService.seek(to: 200)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Restored seek before load is not treated as seek-to-end")
+    func manualSeekToEndDuringRestorationIsDeferred() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+
+        #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 180)
+    }
 }
