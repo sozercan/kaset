@@ -297,7 +297,7 @@ Manages user preferences persisted via `UserDefaults`:
 
 **File**: `Sources/Kaset/Services/Audio/EqualizerService.swift`
 
-Owns the equalizer feature's user-facing state and lifecycle. The actual DSP runs in ``EqualizerAudioEngine`` via an `AudioDeviceIOProc` registered on an aggregate device that wraps a Core Audio process tap on WebKit's GPU subprocess. See [ADR-0014](adr/0014-equalizer.md) for the full architecture rationale.
+Owns the equalizer feature's user-facing state and lifecycle. The actual DSP runs in ``EqualizerAudioEngine`` via an `AudioDeviceIOProc` registered on an aggregate device that wraps a Core Audio process tap on WebKit's GPU subprocess. See [ADR-0017](adr/0017-equalizer.md) for the full architecture rationale.
 
 | Property | Type | Description |
 |----------|------|-------------|

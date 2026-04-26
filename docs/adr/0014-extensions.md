@@ -1,4 +1,4 @@
-# ADR 0013: Extensions — User-Managed Web Extensions
+# ADR 0014: Extensions — User-Managed Web Extensions
 
 **Date:** 2026-04-03  
 **Status:** Accepted

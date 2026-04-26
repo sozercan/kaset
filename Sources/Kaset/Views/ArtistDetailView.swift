@@ -61,9 +61,34 @@ struct ArtistDetailView: View {
                     self.songsSection()
                 }
 
+                // Latest episodes (includes live radio streams)
+                if !detail.episodes.isEmpty {
+                    self.episodesSection(detail.episodes)
+                }
+
                 // Albums section
                 if !detail.albums.isEmpty {
                     self.albumsSection(detail.albums)
+                }
+
+                // Singles & EPs section
+                if !detail.singles.isEmpty {
+                    self.singlesSection(detail.singles)
+                }
+
+                // Playlists curated by this artist
+                if !detail.playlistsByArtist.isEmpty {
+                    self.playlistsByArtistSection(detail.playlistsByArtist)
+                }
+
+                // Podcast shows owned by this artist
+                if !detail.podcasts.isEmpty {
+                    self.podcastsSection(detail.podcasts)
+                }
+
+                // Related artists ("Fans might also like")
+                if !detail.relatedArtists.isEmpty {
+                    self.relatedArtistsSection(detail.relatedArtists)
                 }
             }
             .padding(24)
@@ -363,9 +388,7 @@ struct ArtistDetailView: View {
 
     private func albumsSection(_ albums: [Album]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Albums")
-                .font(.title2)
-                .fontWeight(.semibold)
+            self.sectionHeader(title: "Albums", shelfKind: .albums)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
@@ -448,6 +471,284 @@ struct ArtistDetailView: View {
         guard !allSongs.isEmpty else { return }
         let shuffledSongs = allSongs.shuffled()
         await self.playerService.playQueue(shuffledSongs, startingAt: 0)
+    }
+
+    // MARK: - Episodes Section (Latest episodes / live radios)
+
+    private func episodesSection(_ episodes: [ArtistEpisode]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: "Latest episodes", shelfKind: .episodes)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(episodes) { episode in
+                        Button {
+                            Task {
+                                await self.playerService.playEpisode(episode)
+                            }
+                        } label: {
+                            self.episodeCard(episode)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func episodeCard(_ episode: ArtistEpisode) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "play.rectangle")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 220, height: 124)
+                .clipShape(.rect(cornerRadius: 8))
+
+                if episode.isLive {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 6, height: 6)
+                        Text("LIVE", comment: "Live badge on artist episode card")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .tracking(0.5)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.red, in: .capsule)
+                    .padding(8)
+                }
+            }
+
+            Text(episode.title)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: 220, alignment: .leading)
+
+            if let subtitle = episode.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 220, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: - Singles & EPs Section
+
+    private func singlesSection(_ singles: [Album]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: "Singles & EPs", shelfKind: .singles)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(singles) { album in
+                        NavigationLink(value: self.playlistFromAlbum(album)) {
+                            self.albumCard(album)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Playlists by Artist Section
+
+    private func playlistsByArtistSection(_ playlists: [Playlist]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: "Playlists", shelfKind: .playlistsByArtist)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(playlists) { playlist in
+                        NavigationLink(value: playlist) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(.quaternary)
+                                        .overlay {
+                                            Image(systemName: "music.note.list")
+                                                .font(.largeTitle)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                }
+                                .frame(width: 140, height: 140)
+                                .clipShape(.rect(cornerRadius: 8))
+
+                                Text(playlist.title)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(width: 140, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Podcasts Section
+
+    private func podcastsSection(_ podcasts: [PodcastShow]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: "Podcasts", shelfKind: .podcasts)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(podcasts) { show in
+                        NavigationLink(value: show) {
+                            self.podcastCard(show)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func podcastCard(_ show: PodcastShow) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "mic")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+            .frame(width: 140, height: 140)
+            .clipShape(.rect(cornerRadius: 8))
+
+            Text(show.title)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: 140, alignment: .leading)
+        }
+    }
+
+    // MARK: - Related Artists Section
+
+    private func relatedArtistsSection(_ artists: [Artist]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: "Fans might also like", shelfKind: .relatedArtists)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(artists) { artist in
+                        NavigationLink(value: artist) {
+                            self.relatedArtistCard(artist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func relatedArtistCard(_ artist: Artist) -> some View {
+        VStack(alignment: .center, spacing: 8) {
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+            .frame(width: 120, height: 120)
+            .clipShape(.circle)
+
+            Text(artist.name)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: 120, alignment: .center)
+        }
+    }
+
+    // MARK: - Section Header with Optional See-all
+
+    private func sectionHeader(title: String, shelfKind: ArtistShelfKind) -> some View {
+        HStack {
+            Text(LocalizedStringKey(title))
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Spacer()
+
+            if let detail = viewModel.artistDetail,
+               let more = detail.moreEndpoints[shelfKind]
+            {
+                self.seeAllLink(more: more, sectionTitle: title, artistName: detail.name)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func seeAllLink(
+        more: ShelfMoreEndpoint,
+        sectionTitle: String,
+        artistName: String
+    ) -> some View {
+        switch more.pageType {
+        case .playlist:
+            // Playlist-backed See-all destinations reuse the existing
+            // `Playlist` navigation route so `PlaylistDetailView` can render
+            // the full list.
+            NavigationLink(value: Playlist(
+                id: more.browseId,
+                title: sectionTitle,
+                description: nil,
+                thumbnailURL: nil,
+                trackCount: nil,
+                author: artistName
+            )) {
+                Text("See all").font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+        case .artist, .discography:
+            NavigationLink(value: ArtistSeeAllDestination(
+                artistName: artistName,
+                sectionTitle: sectionTitle,
+                endpoint: more
+            )) {
+                Text("See all").font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+        }
     }
 }
 

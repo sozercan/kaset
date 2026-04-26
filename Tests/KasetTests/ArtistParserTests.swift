@@ -186,6 +186,106 @@ struct ArtistParserTests {
         #expect(result.mixPlaylistId == "RDCLAK-mix-123")
     }
 
+    // MARK: - Fixture-backed Tests (real payload shape)
+
+    /// Loads and parses `artist_lofi_girl.json`, a snapshot of the artist page
+    /// for a channel-style artist (Lofi Girl). Asserts every non-default
+    /// shelf type the parser is now expected to surface.
+    @Test("parseArtistDetail routes all artist-page shelves from real payload")
+    func parseArtistDetailFromLofiGirlFixture() throws {
+        let data = try Self.loadArtistFixture("artist_lofi_girl")
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UCSJ4gkVC6NrvII8umztf0Ow")
+
+        // Header
+        #expect(result.name == "Lofi Girl")
+        #expect(result.channelId == "UCSJ4gkVC6NrvII8umztf0Ow")
+
+        // Top songs
+        #expect(!result.songs.isEmpty)
+
+        // Albums vs Singles split by shelf title
+        #expect(!result.albums.isEmpty)
+        #expect(!result.singles.isEmpty)
+        for album in result.albums {
+            #expect(album.id.hasPrefix("MPRE") || album.id.hasPrefix("OLAK"))
+        }
+        for single in result.singles {
+            #expect(single.id.hasPrefix("MPRE") || single.id.hasPrefix("OLAK"))
+        }
+
+        // Latest episodes — at least one live stream must be present
+        #expect(!result.episodes.isEmpty)
+        for episode in result.episodes {
+            #expect(!episode.videoId.isEmpty)
+            #expect(!episode.title.isEmpty)
+        }
+        let liveEpisodes = result.episodes.filter(\.isLive)
+        #expect(!liveEpisodes.isEmpty, "Expected at least one live episode in the Lofi Girl fixture")
+
+        // Playlists by artist (VL browseIds)
+        #expect(!result.playlistsByArtist.isEmpty)
+        for playlist in result.playlistsByArtist {
+            #expect(playlist.id.hasPrefix("VL") || playlist.id.hasPrefix("PL"))
+        }
+
+        // Related artists (UC browseIds)
+        #expect(!result.relatedArtists.isEmpty)
+        for artist in result.relatedArtists {
+            #expect(artist.id.hasPrefix("UC"))
+        }
+
+        // Podcast shows on the artist page (MPSPP browseIds)
+        #expect(!result.podcasts.isEmpty)
+        for show in result.podcasts {
+            #expect(show.id.hasPrefix("MPSPP"))
+        }
+    }
+
+    @Test("parseArtistDetail captures shelf moreContentButton endpoints")
+    func parseArtistDetailCapturesMoreEndpoints() throws {
+        let data = try Self.loadArtistFixture("artist_lofi_girl")
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UCSJ4gkVC6NrvII8umztf0Ow")
+
+        // Lofi Girl's Latest episodes shelf has a More button pointing to a
+        // MUSIC_PAGE_TYPE_ARTIST destination.
+        let episodesMore = try #require(result.moreEndpoints[.episodes])
+        #expect(episodesMore.pageType == .artist)
+        #expect(episodesMore.browseId.hasPrefix("UC"))
+        #expect(episodesMore.params != nil)
+    }
+
+    @Test("parseArtistDiscography extracts albums from grid response")
+    func parseArtistDiscographyExtractsAlbums() throws {
+        let data = try Self.loadArtistFixture("artist_nirvana_discography")
+
+        let albums = ArtistParser.parseArtistDiscography(data)
+
+        #expect(!albums.isEmpty)
+        for album in albums {
+            #expect(album.id.hasPrefix("MPRE") || album.id.hasPrefix("OLAK"))
+            #expect(!album.title.isEmpty)
+        }
+    }
+
+    @Test("parseArtistEpisodesGrid extracts full episode list (authenticated)")
+    func parseArtistEpisodesGridExtractsEpisodes() throws {
+        let data = try Self.loadArtistFixture("artist_lofi_girl_episodes_more")
+
+        let episodes = ArtistParser.parseArtistEpisodesGrid(data)
+
+        // Full list behind the Latest-episodes "See all"; user-reported target
+        // video is item 39 of 92 in the captured HAR.
+        #expect(episodes.count >= 50)
+        for episode in episodes {
+            #expect(!episode.videoId.isEmpty)
+            #expect(!episode.title.isEmpty)
+        }
+        let liveEpisodes = episodes.filter(\.isLive)
+        #expect(!liveEpisodes.isEmpty, "Expected at least one live stream in the full episodes list")
+        #expect(episodes.contains { $0.videoId == "IxPANmjPaek" })
+    }
+
     // MARK: - Test Helpers
 
     private static func makeArtistResponse(
@@ -524,5 +624,24 @@ struct ArtistParserTests {
                 ],
             ],
         ]
+    }
+
+    /// Loads a JSON fixture bundled with the test target and decodes it to a
+    /// plain dictionary. Fixtures live in `Tests/KasetTests/Fixtures/` and are
+    /// exposed via `Bundle.module` by SwiftPM's `.process("Fixtures")` rule.
+    private static func loadArtistFixture(_ name: String) throws -> [String: Any] {
+        guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
+            throw FixtureError.notFound(name)
+        }
+        let raw = try Data(contentsOf: url)
+        guard let dict = try JSONSerialization.jsonObject(with: raw) as? [String: Any] else {
+            throw FixtureError.invalidJSON(name)
+        }
+        return dict
+    }
+
+    private enum FixtureError: Error {
+        case notFound(String)
+        case invalidJSON(String)
     }
 }

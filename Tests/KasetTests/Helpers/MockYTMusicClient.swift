@@ -587,6 +587,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.artistSongs[browseId] ?? []
     }
 
+    func getArtistDiscography(browseId _: String, params _: String?) async throws -> [Album] {
+        if let error = shouldThrowError { throw error }
+        return []
+    }
+
+    func getArtistEpisodesList(browseId _: String, params _: String?) async throws -> [ArtistEpisode] {
+        if let error = shouldThrowError { throw error }
+        return []
+    }
+
     func rateSong(videoId: String, rating: LikeStatus) async throws {
         self.rateSongCalled = true
         self.rateSongVideoIds.append(videoId)

@@ -48,6 +48,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Currently playing track.
     var currentTrack: Song?
 
+    /// Artist-page episode backing the current playback, when applicable.
+    var currentEpisode: ArtistEpisode?
+
     /// Whether playback is active.
     var isPlaying: Bool {
         self.state.isPlaying
@@ -377,6 +380,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
+        self.currentEpisode = nil
         self.state = .loading
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
@@ -418,10 +422,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Plays a song.
     /// - Parameter webLoadStrategy: Controls duplicate-`videoId` behavior in ``SingletonPlayerWebView/loadVideo(videoId:strategy:)``
     ///   (repeat-one prefers in-place restart; queue drift correction may force a full page load).
-    func play(song: Song, webLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy) async {
+    /// - Parameter episode: Artist episode metadata to preserve for standalone episode playback.
+    func play(
+        song: Song,
+        webLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy,
+        episode: ArtistEpisode? = nil
+    ) async {
         self.logger.info("Playing song: \(song.title)")
         self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
+        self.currentEpisode = episode
         // Brief `.loading` until the observer reports playback; in-place restarts may flash loading briefly.
         self.state = .loading
         self.songNearingEnd = false
@@ -677,6 +687,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             return
         }
 
+        // Standalone artist episodes are intentionally not in the local queue.
+        // Do not let them fall through to YouTube Music's ambient next button.
+        guard self.currentEpisode == nil else {
+            self.logger.debug("Ignoring next for standalone artist episode playback")
+            return
+        }
+
         // Fall back to YouTube's next if no local queue
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.next()
@@ -721,13 +738,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             return
         }
 
+        // Standalone artist episodes are intentionally not in the local queue.
+        // Do not restart them or fall through to YouTube Music's ambient previous button.
+        guard self.currentEpisode == nil else {
+            self.logger.debug("Ignoring previous for standalone artist episode playback")
+            return
+        }
+
         // Fall back to YouTube's previous if no local queue
         if self.progress > 3 {
-            if self.pendingPlayVideoId != nil {
-                await self.seek(to: 0)
-            } else {
-                await self.seek(to: 0)
-            }
+            await self.seek(to: 0)
         } else {
             SingletonPlayerWebView.shared.previous()
         }
@@ -831,6 +851,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.currentEpisode = nil
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0

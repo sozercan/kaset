@@ -7,8 +7,7 @@ enum ArtistParser {
 
     /// Parses artist detail from browse response.
     static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail {
-        var songs: [Song] = []
-        var albums: [Album] = []
+        var buckets = ShelfBuckets()
         var hasMoreSongs = false
         var songsBrowseId: String?
         var songsParams: String?
@@ -16,7 +15,7 @@ enum ArtistParser {
         // Parse header
         let headerResult = self.parseArtistHeader(data, artistId: artistId)
 
-        // Parse content sections for songs and albums
+        // Parse content sections
         if let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
            let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -31,7 +30,7 @@ enum ArtistParser {
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
-                    songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
+                    buckets.songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
 
                     // Check if there are more songs available via bottomEndpoint
                     if let bottomEndpoint = shelfRenderer["bottomEndpoint"] as? [String: Any],
@@ -46,16 +45,27 @@ enum ArtistParser {
                     }
                 }
 
-                // Parse albums from musicCarouselShelfRenderer
+                // Parse carousel shelves — classify per-item by renderer + browseId prefix,
+                // with the shelf title as a tiebreaker (e.g. Albums vs Singles & EPs).
                 if let carouselRenderer = sectionData["musicCarouselShelfRenderer"] as? [String: Any],
                    let carouselContents = carouselRenderer["contents"] as? [[String: Any]]
                 {
+                    let shelfTitle = self.extractCarouselShelfTitle(from: carouselRenderer)
+                    var shelfKind: ArtistShelfKind?
                     for itemData in carouselContents {
-                        if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any],
-                           let album = parseAlbumFromTwoRowRenderer(twoRowRenderer)
-                        {
-                            albums.append(album)
-                        }
+                        let kind = self.classifyCarouselItem(
+                            itemData,
+                            shelfTitle: shelfTitle,
+                            buckets: &buckets
+                        )
+                        if shelfKind == nil { shelfKind = kind }
+                    }
+                    // Record the shelf's "See all" endpoint against the first
+                    // bucket an item landed in.
+                    if let shelfKind,
+                       let endpoint = self.extractShelfMoreEndpoint(from: carouselRenderer)
+                    {
+                        buckets.moreEndpoints[shelfKind] = endpoint
                     }
                 }
             }
@@ -66,8 +76,14 @@ enum ArtistParser {
         return ArtistDetail(
             artist: artist,
             description: headerResult.description,
-            songs: songs,
-            albums: albums,
+            songs: buckets.songs,
+            albums: buckets.albums,
+            singles: buckets.singles,
+            episodes: buckets.episodes,
+            playlistsByArtist: buckets.playlists,
+            relatedArtists: buckets.relatedArtists,
+            podcasts: buckets.podcasts,
+            moreEndpoints: buckets.moreEndpoints,
             thumbnailURL: headerResult.thumbnailURL,
             channelId: headerResult.channelId,
             isSubscribed: headerResult.isSubscribed,
@@ -77,6 +93,320 @@ enum ArtistParser {
             songsParams: songsParams,
             mixPlaylistId: headerResult.mixPlaylistId,
             mixVideoId: headerResult.mixVideoId
+        )
+    }
+
+    // MARK: - Shelf Classification
+
+    /// Accumulator for content routed out of artist-page carousel shelves.
+    private struct ShelfBuckets {
+        var songs: [Song] = []
+        var albums: [Album] = []
+        var singles: [Album] = []
+        var episodes: [ArtistEpisode] = []
+        var playlists: [Playlist] = []
+        var relatedArtists: [Artist] = []
+        var podcasts: [PodcastShow] = []
+        var moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint] = [:]
+    }
+
+    /// Reads the shelf header title if present.
+    private static func extractCarouselShelfTitle(from data: [String: Any]) -> String? {
+        guard let header = data["header"] as? [String: Any],
+              let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+        return ParsingHelpers.extractTitle(from: basicHeader)
+    }
+
+    /// Extracts the shelf's "See all" / "More" browse endpoint, if present.
+    /// Only returns endpoints whose `pageType` we recognize — unknown
+    /// pageTypes are dropped so the UI never surfaces a destination we
+    /// don't know how to render.
+    private static func extractShelfMoreEndpoint(from data: [String: Any]) -> ShelfMoreEndpoint? {
+        guard let header = data["header"] as? [String: Any],
+              let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any],
+              let moreButton = basicHeader["moreContentButton"] as? [String: Any],
+              let buttonRenderer = moreButton["buttonRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        let endpointContainer = (buttonRenderer["command"] as? [String: Any])
+            ?? (buttonRenderer["navigationEndpoint"] as? [String: Any])
+
+        guard let browseEndpoint = endpointContainer?["browseEndpoint"] as? [String: Any],
+              let browseId = browseEndpoint["browseId"] as? String
+        else {
+            return nil
+        }
+
+        let params = browseEndpoint["params"] as? String
+
+        // The pageType lives under browseEndpointContextSupportedConfigs.
+        guard let supportedConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
+              let musicConfig = supportedConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
+              let pageTypeRaw = musicConfig["pageType"] as? String,
+              let pageType = ShelfMoreEndpoint.PageType(rawValue: pageTypeRaw)
+        else {
+            return nil
+        }
+
+        return ShelfMoreEndpoint(browseId: browseId, params: params, pageType: pageType)
+    }
+
+    // MARK: - Episodes list (ARTIST pageType with 304-char params)
+
+    /// Parses the "See all episodes" response for a `MUSIC_PAGE_TYPE_ARTIST`
+    /// destination — a single `gridRenderer` of `musicMultiRowListItemRenderer`
+    /// items. Reuses the same per-item shape that appears in the artist page's
+    /// Latest-episodes carousel, so `parseEpisodeFromMultiRowRenderer` does the
+    /// per-item work.
+    static func parseArtistEpisodesGrid(_ data: [String: Any]) -> [ArtistEpisode] {
+        guard let contents = data["contents"] as? [String: Any],
+              let singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumn["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionList = tabContent["sectionListRenderer"] as? [String: Any],
+              let sections = sectionList["contents"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        var episodes: [ArtistEpisode] = []
+        for section in sections {
+            guard let grid = section["gridRenderer"] as? [String: Any],
+                  let items = grid["items"] as? [[String: Any]]
+            else {
+                continue
+            }
+            for itemData in items {
+                if let multiRow = itemData["musicMultiRowListItemRenderer"] as? [String: Any],
+                   let episode = self.parseEpisodeFromMultiRowRenderer(multiRow)
+                {
+                    episodes.append(episode)
+                }
+            }
+        }
+        return episodes
+    }
+
+    // MARK: - Discography (ARTIST_DISCOGRAPHY pageType)
+
+    /// Parses a discography browse response — a `gridRenderer` of
+    /// `musicTwoRowItemRenderer` album cards.
+    static func parseArtistDiscography(_ data: [String: Any]) -> [Album] {
+        guard let contents = data["contents"] as? [String: Any],
+              let singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumn["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionList = tabContent["sectionListRenderer"] as? [String: Any],
+              let sections = sectionList["contents"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        var albums: [Album] = []
+        for section in sections {
+            guard let grid = section["gridRenderer"] as? [String: Any],
+                  let items = grid["items"] as? [[String: Any]]
+            else {
+                continue
+            }
+            for itemData in items {
+                if let twoRow = itemData["musicTwoRowItemRenderer"] as? [String: Any],
+                   let album = self.parseAlbumFromTwoRowRenderer(twoRow)
+                {
+                    albums.append(album)
+                }
+            }
+        }
+        return albums
+    }
+
+    /// Returns `true` when a shelf title indicates a singles/EPs shelf.
+    private static func shelfTitleIndicatesSingles(_ title: String?) -> Bool {
+        guard let title = title?.lowercased() else { return false }
+        return title.contains("single") || title.contains(" ep") || title.hasPrefix("ep")
+    }
+
+    /// Routes a carousel item into the matching bucket based on its renderer
+    /// shape and (for album-shaped items) the shelf title. Returns the
+    /// `ArtistShelfKind` it matched (or `nil` if nothing applied) so the
+    /// caller can attribute the shelf's `moreContentButton` to the right kind.
+    @discardableResult
+    private static func classifyCarouselItem(
+        _ itemData: [String: Any],
+        shelfTitle: String?,
+        buckets: inout ShelfBuckets
+    ) -> ArtistShelfKind? {
+        // Episodes / video uploads on the artist channel (including live radios).
+        if let multiRow = itemData["musicMultiRowListItemRenderer"] as? [String: Any],
+           let episode = self.parseEpisodeFromMultiRowRenderer(multiRow)
+        {
+            buckets.episodes.append(episode)
+            return .episodes
+        }
+
+        guard let twoRow = itemData["musicTwoRowItemRenderer"] as? [String: Any],
+              let navigationEndpoint = twoRow["navigationEndpoint"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        // Albums / Singles & EPs (MPRE/OLAK browseIds)
+        if let album = self.parseAlbumFromTwoRowRenderer(twoRow) {
+            if self.shelfTitleIndicatesSingles(shelfTitle) {
+                buckets.singles.append(album)
+                return .singles
+            } else {
+                buckets.albums.append(album)
+                return .albums
+            }
+        }
+
+        // Podcast shows (MPSPP browseIds)
+        if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+           let browseId = browseEndpoint["browseId"] as? String,
+           browseId.hasPrefix("MPSPP")
+        {
+            if let show = self.parsePodcastShowFromTwoRowRenderer(twoRow, browseId: browseId) {
+                buckets.podcasts.append(show)
+                return .podcasts
+            }
+            return nil
+        }
+
+        // Related artists (UC browseIds in "Fans might also like")
+        if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+           let browseId = browseEndpoint["browseId"] as? String,
+           browseId.hasPrefix("UC")
+        {
+            if let artist = self.parseRelatedArtistFromTwoRowRenderer(twoRow, browseId: browseId) {
+                buckets.relatedArtists.append(artist)
+                return .relatedArtists
+            }
+            return nil
+        }
+
+        // Artist-curated playlists (VL/PL browseIds)
+        if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+           let browseId = browseEndpoint["browseId"] as? String,
+           browseId.hasPrefix("VL") || browseId.hasPrefix("PL")
+        {
+            if let playlist = self.parsePlaylistFromTwoRowRenderer(twoRow, browseId: browseId) {
+                buckets.playlists.append(playlist)
+                return .playlistsByArtist
+            }
+            return nil
+        }
+
+        // Videos shelf (watchEndpoint with videoId) is intentionally deferred —
+        // see Phase 3a scope notes.
+        return nil
+    }
+
+    // MARK: - Item Parsers (carousel)
+
+    /// Parses a Latest-episodes item. Video ID lives under `onTap.watchEndpoint`
+    /// (not `navigationEndpoint`) for this renderer.
+    private static func parseEpisodeFromMultiRowRenderer(_ data: [String: Any]) -> ArtistEpisode? {
+        guard let onTap = data["onTap"] as? [String: Any],
+              let watchEndpoint = onTap["watchEndpoint"] as? [String: Any],
+              let videoId = watchEndpoint["videoId"] as? String,
+              !videoId.isEmpty
+        else {
+            return nil
+        }
+
+        let title = (data["title"] as? [String: Any])
+            .flatMap { ($0["runs"] as? [[String: Any]])?.first?["text"] as? String }
+            ?? "Unknown"
+
+        let subtitle = (data["subtitle"] as? [String: Any])
+            .flatMap { subtitleData in
+                (subtitleData["runs"] as? [[String: Any]])?
+                    .compactMap { $0["text"] as? String }
+                    .joined()
+            }
+
+        let description = (data["description"] as? [String: Any])
+            .flatMap { descData in
+                (descData["runs"] as? [[String: Any]])?
+                    .compactMap { $0["text"] as? String }
+                    .joined()
+            }
+
+        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+
+        let isLive = (data["badges"] as? [[String: Any]])?
+            .contains { $0["liveBadgeRenderer"] != nil } ?? false
+
+        return ArtistEpisode(
+            videoId: videoId,
+            title: title,
+            subtitle: (subtitle?.isEmpty == true) ? nil : subtitle,
+            description: (description?.isEmpty == true) ? nil : description,
+            thumbnailURL: thumbnailURL,
+            isLive: isLive
+        )
+    }
+
+    private static func parsePodcastShowFromTwoRowRenderer(
+        _ data: [String: Any],
+        browseId: String
+    ) -> PodcastShow? {
+        let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown Show"
+        let author = ParsingHelpers.extractSubtitle(from: data)
+        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+
+        return PodcastShow(
+            id: browseId,
+            title: title,
+            author: author,
+            description: nil,
+            thumbnailURL: thumbnailURL,
+            episodeCount: nil
+        )
+    }
+
+    private static func parseRelatedArtistFromTwoRowRenderer(
+        _ data: [String: Any],
+        browseId: String
+    ) -> Artist? {
+        guard let name = ParsingHelpers.extractTitle(from: data) else {
+            return nil
+        }
+        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        return Artist(id: browseId, name: name, thumbnailURL: thumbnailURL)
+    }
+
+    private static func parsePlaylistFromTwoRowRenderer(
+        _ data: [String: Any],
+        browseId: String
+    ) -> Playlist? {
+        guard let title = ParsingHelpers.extractTitle(from: data) else {
+            return nil
+        }
+        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let author = ParsingHelpers.extractSubtitle(from: data)
+
+        return Playlist(
+            id: browseId,
+            title: title,
+            description: nil,
+            thumbnailURL: thumbnailURL,
+            trackCount: nil,
+            author: author
         )
     }
 
