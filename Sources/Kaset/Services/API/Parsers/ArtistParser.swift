@@ -1,8 +1,10 @@
+// swiftlint:disable file_length
+
 import Foundation
 import os
 
 /// Parser for artist-related responses from YouTube Music API.
-enum ArtistParser {
+enum ArtistParser { // swiftlint:disable:this type_body_length
     private static let logger = DiagnosticsLogger.api
 
     private struct CarouselAccumulator {
@@ -17,7 +19,7 @@ enum ArtistParser {
     }
 
     /// Parses artist detail from browse response.
-    static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail {
+    static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail { // swiftlint:disable:this function_body_length cyclomatic_complexity
         var buckets = ShelfBuckets()
         var songsSectionTitle: String?
         var orderedSections: [ArtistDetailSection] = []

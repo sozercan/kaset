@@ -1,8 +1,10 @@
+// swiftlint:disable file_length
+
 import SwiftUI
 
 /// Detail view for an artist showing their songs and albums.
 @available(macOS 26.0, *)
-struct ArtistDetailView: View {
+struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
