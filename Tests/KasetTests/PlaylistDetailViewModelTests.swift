@@ -24,7 +24,7 @@ struct PlaylistDetailViewModelTests {
             description: nil,
             thumbnailURL: URL(string: "https://example.com/liked.jpg"),
             trackCount: trackCount,
-            author: "You"
+            author: Artist.inline(name: "You", namespace: "playlist-author")
         )
     }
 
