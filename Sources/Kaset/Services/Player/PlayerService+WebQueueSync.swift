@@ -15,7 +15,20 @@ extension PlayerService {
         self.logger.info("Manual seek reached end of track; routing through track-ended path")
         self.clearRestoredPlaybackSessionState()
         self.progress = self.duration
+
+        if self.shouldSynchronizeWebViewForTerminalManualSeekToEnd {
+            SingletonPlayerWebView.shared.seekAndPause(to: self.duration)
+        }
+
         await self.handleTrackEnded(observedVideoId: self.currentTrack?.videoId)
+    }
+
+    private var shouldSynchronizeWebViewForTerminalManualSeekToEnd: Bool {
+        if self.queue.isEmpty {
+            return !(self.repeatMode == .one && (self.currentTrack != nil || self.pendingPlayVideoId != nil))
+        }
+
+        return !self.canAdvanceNativeQueueAfterTrackEnd
     }
 
     private func normalizedObservedVideoId(_ videoId: String?) -> String? {
