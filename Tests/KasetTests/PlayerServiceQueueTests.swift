@@ -45,6 +45,20 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.queue[4].title == "Song 3")
     }
 
+    @Test("Reorder queue preserves stable entry identities")
+    func reorderQueuePreservesEntryIdentities() async {
+        let songs = TestFixtures.makeSongs(count: 5)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let originalEntryIDs = self.playerService.queueEntryIDs
+
+        self.playerService.reorderQueue(from: IndexSet(integer: 4), to: 1)
+
+        #expect(self.playerService.queueEntryIDs.count == originalEntryIDs.count)
+        #expect(Set(self.playerService.queueEntryIDs) == Set(originalEntryIDs))
+        #expect(self.playerService.queueEntryIDs[0] == originalEntryIDs[0])
+        #expect(self.playerService.queueEntryIDs[1] == originalEntryIDs[4])
+    }
+
     @Test("Reorder queue with invalid indices does nothing")
     func reorderQueueInvalidIndices() async {
         // Arrange
@@ -85,6 +99,32 @@ struct PlayerServiceQueueTests {
 
         // Assert - Current index should decrement
         #expect(self.playerService.currentIndex == 1)
+    }
+
+    @Test("Remove from queue by entry ID removes only the targeted duplicate")
+    func removeFromQueueByEntryIDRemovesSingleDuplicate() async throws {
+        let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")
+        await self.playerService.playQueue([duplicateSong, duplicateSong, TestFixtures.makeSong(id: "other")], startingAt: 0)
+        let secondEntryID = try #require(self.playerService.queueEntryIDs[safe: 1])
+
+        self.playerService.removeFromQueue(entryIDs: Set([secondEntryID]))
+
+        #expect(self.playerService.queue.count == 2)
+        #expect(self.playerService.queue.count(where: { $0.videoId == "dup" }) == 1)
+        #expect(!self.playerService.queueEntryIDs.contains(secondEntryID))
+    }
+
+    @Test("Reorder queue keeps current duplicate entry selected")
+    func reorderQueueKeepsCurrentDuplicateEntrySelected() async throws {
+        let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")
+        await self.playerService.playQueue([duplicateSong, duplicateSong, TestFixtures.makeSong(id: "other")], startingAt: 1)
+        let currentEntryID = try #require(self.playerService.currentQueueEntryID)
+
+        self.playerService.reorderQueue(from: IndexSet(integer: 0), to: 3)
+
+        #expect(self.playerService.currentQueueEntryID == currentEntryID)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.queueEntryIDs[safe: self.playerService.currentIndex] == currentEntryID)
     }
 
     // MARK: - Undo/Redo Tests
@@ -267,6 +307,25 @@ struct PlayerServiceQueueTests {
         #expect(newService.currentTrackLikeStatus == .like)
         #expect(newService.currentTrackInLibrary == true)
         #expect(newService.currentTrackFeedbackTokens == songs[1].feedbackTokens)
+    }
+
+    @Test("Save and restore playback session preserves duplicate track index")
+    func playbackSessionPersistencePreservesDuplicateTrackIndex() async {
+        let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")
+        let songs = [duplicateSong, duplicateSong, TestFixtures.makeSong(id: "other", title: "Other Song")]
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.updatePlaybackState(isPlaying: false, progress: 12, duration: 180)
+
+        self.playerService.saveQueueForPersistence()
+
+        let newService = PlayerService()
+        newService.setYTMusicClient(self.mockClient)
+        let restored = newService.restoreQueueFromPersistence()
+
+        #expect(restored == true)
+        #expect(newService.currentIndex == 1)
+        #expect(newService.currentTrack?.videoId == duplicateSong.videoId)
+        #expect(newService.pendingPlayVideoId == duplicateSong.videoId)
     }
 
     @Test("Resume on a restored session reveals the mini player before loading playback")

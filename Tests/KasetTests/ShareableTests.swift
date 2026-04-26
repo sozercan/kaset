@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Kaset
 
@@ -56,7 +57,7 @@ struct ShareableTests {
             description: nil,
             thumbnailURL: nil,
             trackCount: 10,
-            author: "John"
+            author: Artist.inline(name: "John", namespace: "playlist-author")
         )
 
         #expect(playlist.shareText == "My Favorites by John")
@@ -70,7 +71,7 @@ struct ShareableTests {
             description: nil,
             thumbnailURL: nil,
             trackCount: 5,
-            author: "Test Author"
+            author: Artist.inline(name: "Test Author", namespace: "playlist-author")
         )
 
         #expect(playlist.shareURL?.absoluteString == "https://music.youtube.com/playlist?list=PLtest123")

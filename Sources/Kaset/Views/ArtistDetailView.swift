@@ -1,8 +1,10 @@
+// swiftlint:disable file_length
+
 import SwiftUI
 
 /// Detail view for an artist showing their songs and albums.
 @available(macOS 26.0, *)
-struct ArtistDetailView: View {
+struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
@@ -61,34 +63,51 @@ struct ArtistDetailView: View {
                     self.songsSection()
                 }
 
-                // Latest episodes (includes live radio streams)
+                // Latest episodes (includes live radio streams). Episodes are
+                // kept out of orderedSections because they use their own card
+                // layout and route.
                 if !detail.episodes.isEmpty {
                     self.episodesSection(detail.episodes)
                 }
 
-                // Albums section
-                if !detail.albums.isEmpty {
-                    self.albumsSection(detail.albums)
+                if !detail.orderedSections.isEmpty {
+                    ForEach(detail.orderedSections) { section in
+                        switch section.content {
+                        case let .albums(albums):
+                            self.albumsSection(
+                                albums,
+                                title: section.title,
+                                shelfKind: self.albumShelfKind(for: section.title)
+                            )
+                        case let .artists(artists):
+                            self.artistsSection(artists, title: section.title)
+                        case let .playlists(playlists):
+                            self.playlistsSection(playlists, title: section.title)
+                        }
+                    }
+                } else {
+                    // Fallback for older/parser-test ArtistDetail values that do
+                    // not populate orderedSections.
+                    if !detail.albums.isEmpty {
+                        self.albumsSection(detail.albums)
+                    }
+
+                    if !detail.singles.isEmpty {
+                        self.singlesSection(detail.singles)
+                    }
+
+                    if !detail.playlistsByArtist.isEmpty {
+                        self.playlistsByArtistSection(detail.playlistsByArtist)
+                    }
+
+                    if !detail.relatedArtists.isEmpty {
+                        self.relatedArtistsSection(detail.relatedArtists)
+                    }
                 }
 
-                // Singles & EPs section
-                if !detail.singles.isEmpty {
-                    self.singlesSection(detail.singles)
-                }
-
-                // Playlists curated by this artist
-                if !detail.playlistsByArtist.isEmpty {
-                    self.playlistsByArtistSection(detail.playlistsByArtist)
-                }
-
-                // Podcast shows owned by this artist
+                // Podcast shows owned by this artist.
                 if !detail.podcasts.isEmpty {
                     self.podcastsSection(detail.podcasts)
-                }
-
-                // Related artists ("Fans might also like")
-                if !detail.relatedArtists.isEmpty {
-                    self.relatedArtistsSection(detail.relatedArtists)
                 }
             }
             .padding(24)
@@ -116,18 +135,19 @@ struct ArtistDetailView: View {
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "Artist"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
+                if let headerTypeLabel = self.headerTypeLabel(for: detail) {
+                    Text(headerTypeLabel)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                }
 
                 Text(detail.name)
                     .font(.title)
                     .fontWeight(.bold)
 
-                // Subscriber count
-                if let subscriberCount = detail.subscriberCount {
-                    Text(subscriberCount)
+                if let monthlyAudience = detail.monthlyAudience {
+                    Text(monthlyAudience)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -142,17 +162,19 @@ struct ArtistDetailView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
-                    // Shuffle button - shuffles all artist's songs (fetches if needed)
-                    Button {
-                        Task {
-                            await self.shuffleAllSongs()
+                    if detail.profileKind == .artist {
+                        // Shuffle button - shuffles all artist's songs (fetches if needed)
+                        Button {
+                            Task {
+                                await self.shuffleAllSongs()
+                            }
+                        } label: {
+                            Label("Shuffle", systemImage: "shuffle")
                         }
-                    } label: {
-                        Label("Shuffle", systemImage: "shuffle")
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(detail.songs.isEmpty && !detail.hasMoreSongs)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(detail.songs.isEmpty && !detail.hasMoreSongs)
 
                     // Mix button - plays personalized radio with mix of artists
                     // Only shown if mix data is available from the API
@@ -180,20 +202,25 @@ struct ArtistDetailView: View {
 
     /// Returns the text for the subscribe button.
     private func subscribeButtonText(_ detail: ArtistDetail) -> String {
-        if detail.isSubscribed {
-            return String(localized: "Subscribed")
+        let baseText = detail.isSubscribed
+            ? (detail.subscribedButtonText ?? String(localized: "Subscribed"))
+            : (detail.unsubscribedButtonText ?? String(localized: "Subscribe"))
+
+        if let subscriberCount = detail.subscriberCount, !subscriberCount.isEmpty {
+            return "\(baseText) \(subscriberCount)"
         }
-        if let count = detail.subscriberCount {
-            return String(localized: "Subscribe \(self.trimmedSubscriberCount(count))")
-        }
-        return String(localized: "Subscribe")
+        return baseText
     }
 
-    private func trimmedSubscriberCount(_ count: String) -> String {
-        count
-            .replacingOccurrences(of: " subscribers", with: "")
-            .replacingOccurrences(of: " subscriber", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+    private func headerTypeLabel(for detail: ArtistDetail) -> String? {
+        switch detail.profileKind {
+        case .artist:
+            String(localized: "Artist")
+        case .profile:
+            String(localized: "Profile")
+        case .unknown:
+            nil
+        }
     }
 
     @ViewBuilder
@@ -240,7 +267,7 @@ struct ArtistDetailView: View {
     private func songsSection() -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Top songs")
+                Text(self.viewModel.artistDetail?.songsSectionTitle ?? String(localized: "Top songs"))
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -251,6 +278,7 @@ struct ArtistDetailView: View {
                     NavigationLink(value: TopSongsDestination(
                         artistId: detail.id,
                         artistName: detail.name,
+                        title: detail.songsSectionTitle ?? String(localized: "Top songs"),
                         songs: detail.songs,
                         songsBrowseId: detail.songsBrowseId,
                         songsParams: detail.songsParams
@@ -264,7 +292,7 @@ struct ArtistDetailView: View {
             }
 
             VStack(spacing: 0) {
-                ForEach(Array(self.viewModel.displayedSongs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(self.viewModel.displayedSongs.enumerated()), id: \.offset) { index, song in
                     self.topSongRow(song, index: index)
 
                     if index < self.viewModel.displayedSongs.count - 1 {
@@ -377,7 +405,7 @@ struct ArtistDetailView: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
                     Label("Go to Album", systemImage: "square.stack")
@@ -386,15 +414,53 @@ struct ArtistDetailView: View {
         }
     }
 
-    private func albumsSection(_ albums: [Album]) -> some View {
+    private func albumsSection(
+        _ albums: [Album],
+        title: String = "Albums",
+        shelfKind: ArtistShelfKind = .albums
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            self.sectionHeader(title: "Albums", shelfKind: .albums)
+            self.sectionHeader(title: title, shelfKind: shelfKind)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
                     ForEach(albums) { album in
                         NavigationLink(value: self.playlistFromAlbum(album)) {
                             self.albumCard(album)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func playlistsSection(_ playlists: [Playlist], title: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: title, shelfKind: .playlistsByArtist)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(playlists) { playlist in
+                        NavigationLink(value: playlist) {
+                            self.playlistCard(playlist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func artistsSection(_ artists: [Artist], title: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            self.sectionHeader(title: title, shelfKind: .relatedArtists)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 16) {
+                    ForEach(artists) { artist in
+                        NavigationLink(value: artist) {
+                            self.artistCard(artist)
                         }
                         .buttonStyle(.plain)
                     }
@@ -410,7 +476,7 @@ struct ArtistDetailView: View {
             description: nil,
             thumbnailURL: album.thumbnailURL,
             trackCount: album.trackCount,
-            author: album.artistsDisplay
+            author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
         )
     }
 
@@ -446,6 +512,80 @@ struct ArtistDetailView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .frame(width: 140, alignment: .leading)
+            }
+        }
+    }
+
+    private func playlistCard(_ playlist: Playlist) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "music.note.list")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+            .frame(width: 140, height: 140)
+            .clipShape(.rect(cornerRadius: 8))
+
+            Text(playlist.title)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: 140, alignment: .leading)
+
+            if let authorName = playlist.author?.name, !authorName.isEmpty {
+                Text(authorName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 140, alignment: .leading)
+            } else if let trackCount = playlist.trackCount {
+                Text(trackCount == 1 ? "1 song" : "\(trackCount) songs")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 140, alignment: .leading)
+            }
+        }
+    }
+
+    private func artistCard(_ artist: Artist) -> some View {
+        VStack(alignment: .center, spacing: 8) {
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+            .frame(width: 140, height: 140)
+            .clipShape(.circle)
+
+            Text(artist.name)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: 140, alignment: .center)
+
+            if let subtitle = artist.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 140, alignment: .center)
             }
         }
     }
@@ -697,6 +837,15 @@ struct ArtistDetailView: View {
         }
     }
 
+    private func albumShelfKind(for title: String) -> ArtistShelfKind {
+        let lowercasedTitle = title.lowercased()
+        return lowercasedTitle.contains("single")
+            || lowercasedTitle.contains(" ep")
+            || lowercasedTitle.hasPrefix("ep")
+            ? .singles
+            : .albums
+    }
+
     // MARK: - Section Header with Optional See-all
 
     private func sectionHeader(title: String, shelfKind: ArtistShelfKind) -> some View {
@@ -732,7 +881,7 @@ struct ArtistDetailView: View {
                 description: nil,
                 thumbnailURL: nil,
                 trackCount: nil,
-                author: artistName
+                author: Artist.inline(name: artistName, namespace: "playlist-author")
             )) {
                 Text("See all").font(.subheadline)
             }

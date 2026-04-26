@@ -57,13 +57,15 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
     guard let appSupport = FileManager.default.urls(
         for: .applicationSupportDirectory,
         in: .userDomainMask
-    ).first else {
+    ).first
+    else {
         return nil
     }
 
-    let cookieFile = appSupport
-        .appendingPathComponent("Kaset", isDirectory: true)
-        .appendingPathComponent("cookies.dat")
+    let cookieFile =
+        appSupport
+            .appendingPathComponent("Kaset", isDirectory: true)
+            .appendingPathComponent("cookies.dat")
 
     guard FileManager.default.fileExists(atPath: cookieFile.path) else {
         return nil
@@ -77,8 +79,11 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
     guard let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
         ofClasses: [NSArray.self, NSData.self],
         from: data
-    ) as? [Data] else {
-        print("⚠️ Cookie file exists but failed to unarchive. File may be corrupted or use a different format.")
+    ) as? [Data]
+    else {
+        print(
+            "⚠️ Cookie file exists but failed to unarchive. File may be corrupted or use a different format."
+        )
         print("   Path: \(cookieFile.path)")
         print("   Size: \(data.count) bytes")
         return nil
@@ -88,7 +93,8 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
         guard let stringProperties = try? NSKeyedUnarchiver.unarchivedObject(
             ofClasses: [NSDictionary.self, NSString.self, NSDate.self, NSNumber.self],
             from: cookieData
-        ) as? [String: Any] else {
+        ) as? [String: Any]
+        else {
             return nil
         }
 
@@ -185,7 +191,8 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
 func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [String: String] {
     var headers: [String: String] = [
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
         "Origin": origin,
         "Referer": "\(origin)/",
     ]
@@ -207,10 +214,14 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
 
 // MARK: - API Request
 
-func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws -> (data: [String: Any], statusCode: Int) {
+func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
+    -> (data: [String: Any], statusCode: Int)
+{
     let urlString = "\(baseURL)/\(endpoint)?key=\(apiKey)&prettyPrint=false"
     guard let url = URL(string: urlString) else {
-        throw NSError(domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        throw NSError(
+            domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]
+        )
     }
 
     var request = URLRequest(url: url)
@@ -227,11 +238,17 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
     let (data, response) = try await URLSession.shared.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse else {
-        throw NSError(domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        throw NSError(
+            domain: "APIExplorer", code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Invalid response"]
+        )
     }
 
     guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        throw NSError(domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response"])
+        throw NSError(
+            domain: "APIExplorer", code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response"]
+        )
     }
 
     return (json, httpResponse.statusCode)
@@ -287,7 +304,8 @@ private func extractPlaylistTrackCount(from text: String) -> Int? {
 }
 
 private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
-    guard let shelfRenderer = findFirstRenderer(named: "musicPlaylistShelfRenderer", in: data) else {
+    guard let shelfRenderer = findFirstRenderer(named: "musicPlaylistShelfRenderer", in: data)
+    else {
         return nil
     }
 
@@ -298,14 +316,14 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
         }
     }
     let hasContinuation =
-        ((shelfRenderer["continuations"] as? [[String: Any]])?.isEmpty == false) ||
-        (shelfContents.last?["continuationItemRenderer"] != nil)
+        ((shelfRenderer["continuations"] as? [[String: Any]])?.isEmpty == false)
+            || (shelfContents.last?["continuationItemRenderer"] != nil)
 
     let responsiveHeader = findFirstRenderer(named: "musicResponsiveHeaderRenderer", in: data)
     let detailHeader = findFirstRenderer(named: "musicDetailHeaderRenderer", in: data)
     let title =
-        joinedRunsText(responsiveHeader?["title"] as? [String: Any]) ??
-        joinedRunsText(detailHeader?["title"] as? [String: Any])
+        joinedRunsText(responsiveHeader?["title"] as? [String: Any])
+            ?? joinedRunsText(detailHeader?["title"] as? [String: Any])
     let author: String? = {
         guard let facepile = responsiveHeader?["facepile"] as? [String: Any],
               let avatarStackViewModel = facepile["avatarStackViewModel"] as? [String: Any],
@@ -319,8 +337,12 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
         return content
     }()
     let totalTrackCount =
-        joinedRunsText(responsiveHeader?["secondSubtitle"] as? [String: Any]).flatMap(extractPlaylistTrackCount(from:)) ??
-        joinedRunsText(detailHeader?["secondSubtitle"] as? [String: Any]).flatMap(extractPlaylistTrackCount(from:))
+        joinedRunsText(responsiveHeader?["secondSubtitle"] as? [String: Any]).flatMap(
+            extractPlaylistTrackCount(from:)
+        )
+        ?? joinedRunsText(detailHeader?["secondSubtitle"] as? [String: Any]).flatMap(
+            extractPlaylistTrackCount(from:)
+        )
 
     var output = "\n🎵 Playlist summary:\n"
     if let title {
@@ -469,7 +491,9 @@ func needsAuthentication(_ browseId: String) -> Bool {
     return false
 }
 
-func exploreBrowse(_ browseId: String, params: String? = nil, verbose: Bool = false, outputFile: String? = nil) async {
+func exploreBrowse(
+    _ browseId: String, params: String? = nil, verbose: Bool = false, outputFile: String? = nil
+) async {
     let needsAuth = needsAuthentication(browseId)
     let authIcon = needsAuth ? "🔐" : "🌐"
 
@@ -489,7 +513,9 @@ func exploreBrowse(_ browseId: String, params: String? = nil, verbose: Bool = fa
     }
 
     do {
-        let (data, statusCode) = try await makeRequest(endpoint: "browse", body: body, authenticated: needsAuth)
+        let (data, statusCode) = try await makeRequest(
+            endpoint: "browse", body: body, authenticated: needsAuth
+        )
 
         if statusCode == 401 || statusCode == 403 {
             print("❌ HTTP \(statusCode) - Authentication required")
@@ -503,15 +529,19 @@ func exploreBrowse(_ browseId: String, params: String? = nil, verbose: Bool = fa
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
         if let outputFile {
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) {
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ) {
                 let url = URL(fileURLWithPath: outputFile)
                 try prettyData.write(to: url)
                 print("\n💾 Saved to: \(outputFile)")
@@ -543,7 +573,9 @@ let authRequiredActions = Set([
     "next",
 ])
 
-func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil) async {
+func exploreAction(
+    _ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil
+) async {
     let needsAuth = authRequiredActions.contains(endpoint)
     let authIcon = needsAuth ? "🔐" : "🌐"
 
@@ -562,7 +594,9 @@ func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, 
     }
 
     do {
-        let (data, statusCode) = try await makeRequest(endpoint: endpoint, body: body, authenticated: needsAuth)
+        let (data, statusCode) = try await makeRequest(
+            endpoint: endpoint, body: body, authenticated: needsAuth
+        )
 
         if statusCode == 401 || statusCode == 403 {
             print("❌ HTTP \(statusCode) - Authentication required")
@@ -576,15 +610,19 @@ func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, 
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
         if let outputFile {
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) {
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ) {
                 let url = URL(fileURLWithPath: outputFile)
                 try prettyData.write(to: url)
                 print("\n💾 Saved to: \(outputFile)")
@@ -599,7 +637,9 @@ func exploreAction(_ endpoint: String, bodyJson: String, verbose: Bool = false, 
 /// - Parameters:
 ///   - token: The continuation token
 ///   - endpoint: The endpoint to use ("browse" for home/library, "next" for mix queues)
-func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil) async {
+func exploreContinuation(
+    _ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil
+) async {
     print("🔄 Exploring continuation request")
     print("   Token: \(token.prefix(50))...")
     print("   Endpoint: \(endpoint)")
@@ -615,7 +655,9 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
 
     do {
         // Always authenticate for continuations
-        let (data, statusCode) = try await makeRequest(endpoint: endpoint, body: body, authenticated: true)
+        let (data, statusCode) = try await makeRequest(
+            endpoint: endpoint, body: body, authenticated: true
+        )
 
         if statusCode == 401 || statusCode == 403 {
             print("❌ HTTP \(statusCode) - Authentication required")
@@ -639,8 +681,8 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
                         if key == "playlistPanelContinuation" {
                             var songCount = 0
                             for item in contents {
-                                if item["playlistPanelVideoRenderer"] != nil ||
-                                    item["playlistPanelVideoWrapperRenderer"] != nil
+                                if item["playlistPanelVideoRenderer"] != nil
+                                    || item["playlistPanelVideoWrapperRenderer"] != nil
                                 {
                                     songCount += 1
                                 }
@@ -649,7 +691,9 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
                         }
                     }
                     if let continuations = renderer["continuations"] as? [[String: Any]] {
-                        print("   └─ \(key) has 'continuations' array (\(continuations.count) tokens)")
+                        print(
+                            "   └─ \(key) has 'continuations' array (\(continuations.count) tokens)"
+                        )
                         // Check for nextRadioContinuationData (mix queue specific)
                         if let firstCont = continuations.first,
                            firstCont["nextRadioContinuationData"] != nil
@@ -676,15 +720,19 @@ func exploreContinuation(_ token: String, endpoint: String = "browse", verbose: 
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
         if let outputFile {
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) {
+            if let prettyData = try? JSONSerialization.data(
+                withJSONObject: data, options: .prettyPrinted
+            ) {
                 let url = URL(fileURLWithPath: outputFile)
                 try prettyData.write(to: url)
                 print("\n💾 Saved to: \(outputFile)")
@@ -715,7 +763,9 @@ func checkAuthStatus() {
     print("✅ \(matchingCookies.count) cookies match music.youtube.com domain\n")
 
     // Check for key auth cookies (in youtube.com domain)
-    let authCookieNames = ["SAPISID", "__Secure-3PAPISID", "SID", "HSID", "SSID", "APISID", "__Secure-1PAPISID"]
+    let authCookieNames = [
+        "SAPISID", "__Secure-3PAPISID", "SID", "HSID", "SSID", "APISID", "__Secure-1PAPISID",
+    ]
 
     print("Auth cookies (youtube.com domain):")
     for name in authCookieNames {
@@ -808,7 +858,9 @@ func discoverAccounts(verbose: Bool) async {
 }
 
 /// Fetches account info for a specific authuser index
-private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (name: String, handle: String?)? {
+private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
+    name: String, handle: String?
+)? {
     let url = URL(string: "\(baseURL)/account/account_menu?key=\(apiKey)")!
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -865,7 +917,8 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (name:
               let popup = openPopupAction["popup"] as? [String: Any],
               let multiPageMenuRenderer = popup["multiPageMenuRenderer"] as? [String: Any],
               let header = multiPageMenuRenderer["header"] as? [String: Any],
-              let activeAccountHeaderRenderer = header["activeAccountHeaderRenderer"] as? [String: Any]
+              let activeAccountHeaderRenderer = header["activeAccountHeaderRenderer"]
+              as? [String: Any]
         else {
             return nil
         }
@@ -938,17 +991,21 @@ func discoverBrandAccounts(verbose: Bool) async {
               let multiPageMenuRenderer = menu["multiPageMenuRenderer"] as? [String: Any],
               let sections = multiPageMenuRenderer["sections"] as? [[String: Any]],
               let firstSection = sections.first,
-              let accountSectionListRenderer = firstSection["accountSectionListRenderer"] as? [String: Any],
+              let accountSectionListRenderer = firstSection["accountSectionListRenderer"]
+              as? [String: Any],
               let contents = accountSectionListRenderer["contents"] as? [[String: Any]],
               let firstContent = contents.first,
-              let accountItemSectionRenderer = firstContent["accountItemSectionRenderer"] as? [String: Any],
+              let accountItemSectionRenderer = firstContent["accountItemSectionRenderer"]
+              as? [String: Any],
               let accountItems = accountItemSectionRenderer["contents"] as? [[String: Any]]
         else {
             print("❌ Failed to parse accounts list response")
             if verbose {
                 print("\nResponse structure:")
-                if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-                   let prettyString = String(data: prettyData, encoding: .utf8)
+                if let prettyData = try? JSONSerialization.data(
+                    withJSONObject: data, options: .prettyPrinted
+                ),
+                    let prettyString = String(data: prettyData, encoding: .utf8)
                 {
                     print(prettyString)
                 }
@@ -959,7 +1016,8 @@ func discoverBrandAccounts(verbose: Bool) async {
         // Also get the Google account header for the email
         var googleEmail: String?
         if let header = accountSectionListRenderer["header"] as? [String: Any],
-           let googleAccountHeaderRenderer = header["googleAccountHeaderRenderer"] as? [String: Any],
+           let googleAccountHeaderRenderer = header["googleAccountHeaderRenderer"]
+           as? [String: Any],
            let email = googleAccountHeaderRenderer["email"] as? [String: Any],
            let runs = email["runs"] as? [[String: Any]],
            let firstRun = runs.first,
@@ -1003,8 +1061,10 @@ func discoverBrandAccounts(verbose: Bool) async {
             // Extract brand account ID from pageIdToken
             var brandId: String?
             if let serviceEndpoint = item["serviceEndpoint"] as? [String: Any],
-               let selectActiveIdentityEndpoint = serviceEndpoint["selectActiveIdentityEndpoint"] as? [String: Any],
-               let supportedTokens = selectActiveIdentityEndpoint["supportedTokens"] as? [[String: Any]]
+               let selectActiveIdentityEndpoint = serviceEndpoint["selectActiveIdentityEndpoint"]
+               as? [String: Any],
+               let supportedTokens = selectActiveIdentityEndpoint["supportedTokens"]
+               as? [[String: Any]]
             {
                 for token in supportedTokens {
                     if let pageIdToken = token["pageIdToken"] as? [String: Any],
@@ -1020,7 +1080,9 @@ func discoverBrandAccounts(verbose: Bool) async {
             let isSelected = item["isSelected"] as? Bool ?? false
 
             if let accountName = name {
-                accounts.append((name: accountName, handle: handle, brandId: brandId, isSelected: isSelected))
+                accounts.append(
+                    (name: accountName, handle: handle, brandId: brandId, isSelected: isSelected)
+                )
             }
         }
 
@@ -1056,219 +1118,223 @@ func discoverBrandAccounts(verbose: Bool) async {
 }
 
 func listEndpoints() {
-    print("""
-    ╔══════════════════════════════════════════════════════════════════════════════╗
-    ║                      YouTube Music API Endpoint Reference                     ║
-    ╚══════════════════════════════════════════════════════════════════════════════╝
+    print(
+        """
+        ╔══════════════════════════════════════════════════════════════════════════════╗
+        ║                      YouTube Music API Endpoint Reference                     ║
+        ╚══════════════════════════════════════════════════════════════════════════════╝
 
-    ═══════════════════════════════════════════════════════════════════════════════
-    📚 BROWSE ENDPOINTS (POST /browse with browseId)
-    ═══════════════════════════════════════════════════════════════════════════════
+        ═══════════════════════════════════════════════════════════════════════════════
+        📚 BROWSE ENDPOINTS (POST /browse with browseId)
+        ═══════════════════════════════════════════════════════════════════════════════
 
-    🌐 PUBLIC (No Auth Required)
-    ───────────────────────────────────────────────────────────────────────────────
-    FEmusic_home                  Home feed with personalized recommendations
-    FEmusic_explore               Explore page (new releases, charts shortcuts)
-    FEmusic_charts                Top songs, albums, trending by country/genre
-    FEmusic_moods_and_genres      Browse by mood (Chill, Focus) or genre (Pop, Rock)
-    FEmusic_new_releases          Recently released albums, singles, videos
-    FEmusic_podcasts              Podcast discovery
+        🌐 PUBLIC (No Auth Required)
+        ───────────────────────────────────────────────────────────────────────────────
+        FEmusic_home                  Home feed with personalized recommendations
+        FEmusic_explore               Explore page (new releases, charts shortcuts)
+        FEmusic_charts                Top songs, albums, trending by country/genre
+        FEmusic_moods_and_genres      Browse by mood (Chill, Focus) or genre (Pop, Rock)
+        FEmusic_new_releases          Recently released albums, singles, videos
+        FEmusic_podcasts              Podcast discovery
 
-    🔐 AUTHENTICATED (Requires Sign-in)
-    ───────────────────────────────────────────────────────────────────────────────
-    FEmusic_liked_playlists       User's saved/created playlists
-    FEmusic_liked_videos          Liked songs (returns playlist format)
-    FEmusic_history               Listening history (organized by time)
-    FEmusic_library_landing       Library overview page
-    FEmusic_library_albums        Saved albums (requires params*)
-    FEmusic_library_artists       Rejected with HTTP 400 in current sessions
-    FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
-    FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
-    FEmusic_library_songs         All songs in library (requires params*)
-    FEmusic_recently_played       Recently played content
-    FEmusic_offline               Downloaded content (may not work on desktop)
+        🔐 AUTHENTICATED (Requires Sign-in)
+        ───────────────────────────────────────────────────────────────────────────────
+        FEmusic_liked_playlists       User's saved/created playlists
+        FEmusic_liked_videos          Liked songs (returns playlist format)
+        FEmusic_history               Listening history (organized by time)
+        FEmusic_library_landing       Library overview page
+        FEmusic_library_albums        Saved albums (requires params*)
+        FEmusic_library_artists       Rejected with HTTP 400 in current sessions
+        FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
+        FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
+        FEmusic_library_songs         All songs in library (requires params*)
+        FEmusic_recently_played       Recently played content
+        FEmusic_offline               Downloaded content (may not work on desktop)
 
-    🔐 UPLOADS (User-Uploaded Content)
-    ───────────────────────────────────────────────────────────────────────────────
-    FEmusic_library_privately_owned_landing   Uploads landing page
-    FEmusic_library_privately_owned_tracks    User-uploaded songs
-    FEmusic_library_privately_owned_albums    User-uploaded albums
-    FEmusic_library_privately_owned_artists   Artists from user uploads
+        🔐 UPLOADS (User-Uploaded Content)
+        ───────────────────────────────────────────────────────────────────────────────
+        FEmusic_library_privately_owned_landing   Uploads landing page
+        FEmusic_library_privately_owned_tracks    User-uploaded songs
+        FEmusic_library_privately_owned_albums    User-uploaded albums
+        FEmusic_library_privately_owned_artists   Artists from user uploads
 
-    🌐 DYNAMIC BROWSE IDs (Pattern-based)
-    ───────────────────────────────────────────────────────────────────────────────
-    VL{playlistId}                Playlist detail (e.g., VLPLxyz...)
-    UC{channelId}                 Artist/Channel detail (e.g., UCxyz...)
-    MPLAUC{libraryArtistId}       Library artist detail (from Artists chip, requires auth)
-    MPREb_{albumId}               Album detail
-    MPLYt_{lyricsId}              Lyrics content
-    FEmusic_moods_and_genres_category   Mood/Genre category (with params)
+        🌐 DYNAMIC BROWSE IDs (Pattern-based)
+        ───────────────────────────────────────────────────────────────────────────────
+        VL{playlistId}                Playlist detail (e.g., VLPLxyz...)
+        UC{channelId}                 Artist/Channel detail (e.g., UCxyz...)
+        MPLAUC{libraryArtistId}       Library artist detail (from Artists chip, requires auth)
+        MPREb_{albumId}               Album detail
+        MPLYt_{lyricsId}              Lyrics content
+        FEmusic_moods_and_genres_category   Mood/Genre category (with params)
 
-    ═══════════════════════════════════════════════════════════════════════════════
-    📡 ACTION ENDPOINTS
-    ═══════════════════════════════════════════════════════════════════════════════
+        ═══════════════════════════════════════════════════════════════════════════════
+        📡 ACTION ENDPOINTS
+        ═══════════════════════════════════════════════════════════════════════════════
 
-    🌐 PUBLIC
-    ───────────────────────────────────────────────────────────────────────────────
-    search                        Search for content
-                                  Body: {"query": "search term"}
+        🌐 PUBLIC
+        ───────────────────────────────────────────────────────────────────────────────
+        search                        Search for content
+                                      Body: {"query": "search term"}
 
-    music/get_search_suggestions  Autocomplete suggestions
-                                  Body: {"input": "partial query"}
+        music/get_search_suggestions  Autocomplete suggestions
+                                      Body: {"input": "partial query"}
 
-    player                        Video metadata, streaming formats, thumbnails
-                                  Body: {"videoId": "VIDEO_ID"}
+        player                        Video metadata, streaming formats, thumbnails
+                                      Body: {"videoId": "VIDEO_ID"}
 
-    next                          Track info, lyrics ID, radio queue, feedback tokens
-                                  Body: {"videoId": "VIDEO_ID"}
+        next                          Track info, lyrics ID, radio queue, feedback tokens
+                                      Body: {"videoId": "VIDEO_ID"}
 
-    music/get_queue               Queue data for videos or full playlist tracks
-                                  Body: {"videoIds": ["ID1", "ID2"]}
-                                    or: {"playlistId": "RDCLAK..."}  (returns ALL tracks)
-                                  Note: Response uses playlistPanelVideoWrapperRenderer
-                                        wrapper structure, not direct playlistPanelVideoRenderer
+        music/get_queue               Queue data for videos or full playlist tracks
+                                      Body: {"videoIds": ["ID1", "ID2"]}
+                                        or: {"playlistId": "RDCLAK..."}  (returns ALL tracks)
+                                      Note: Response uses playlistPanelVideoWrapperRenderer
+                                            wrapper structure, not direct playlistPanelVideoRenderer
 
-    guide                         Sidebar navigation structure
-                                  Body: {}
+        guide                         Sidebar navigation structure
+                                      Body: {}
 
-    🔐 RATINGS (Requires Auth)
-    ───────────────────────────────────────────────────────────────────────────────
-    like/like                     Like a song/album/playlist
-                                  Body: {"target": {"videoId": "VIDEO_ID"}}
+        🔐 RATINGS (Requires Auth)
+        ───────────────────────────────────────────────────────────────────────────────
+        like/like                     Like a song/album/playlist
+                                      Body: {"target": {"videoId": "VIDEO_ID"}}
 
-    like/dislike                  Dislike a song
-                                  Body: {"target": {"videoId": "VIDEO_ID"}}
+        like/dislike                  Dislike a song
+                                      Body: {"target": {"videoId": "VIDEO_ID"}}
 
-    like/removelike               Remove like/dislike rating
-                                  Body: {"target": {"videoId": "VIDEO_ID"}}
+        like/removelike               Remove like/dislike rating
+                                      Body: {"target": {"videoId": "VIDEO_ID"}}
 
-    🔐 LIBRARY MANAGEMENT (Requires Auth)
-    ───────────────────────────────────────────────────────────────────────────────
-    feedback                      Add/remove from library via feedback tokens
-                                  Body: {"feedbackTokens": ["TOKEN"]}
+        🔐 LIBRARY MANAGEMENT (Requires Auth)
+        ───────────────────────────────────────────────────────────────────────────────
+        feedback                      Add/remove from library via feedback tokens
+                                      Body: {"feedbackTokens": ["TOKEN"]}
 
-    subscription/subscribe        Subscribe to an artist
-                                  Body: {"channelIds": ["UC..."]}
+        subscription/subscribe        Subscribe to an artist
+                                      Body: {"channelIds": ["UC..."]}
 
-    subscription/unsubscribe      Unsubscribe from an artist
-                                  Body: {"channelIds": ["UC..."]}
+        subscription/unsubscribe      Unsubscribe from an artist
+                                      Body: {"channelIds": ["UC..."]}
 
-    🔐 PLAYLIST MANAGEMENT (Requires Auth)
-    ───────────────────────────────────────────────────────────────────────────────
-    playlist/get_add_to_playlist  Get playlists for "Add to Playlist" menu
-                                  Body: {"videoId": "VIDEO_ID"}
+        🔐 PLAYLIST MANAGEMENT (Requires Auth)
+        ───────────────────────────────────────────────────────────────────────────────
+        playlist/get_add_to_playlist  Get playlists for "Add to Playlist" menu
+                                      Body: {"videoId": "VIDEO_ID"}
 
-    playlist/create               Create a new playlist
-                                  Body: {"title": "Name", "privacyStatus": "PRIVATE"}
+        playlist/create               Create a new playlist
+                                      Body: {"title": "Name", "privacyStatus": "PRIVATE"}
 
-    playlist/delete               Delete a playlist
-                                  Body: {"playlistId": "PLxyz..."}
+        playlist/delete               Delete a playlist
+                                      Body: {"playlistId": "PLxyz..."}
 
-    browse/edit_playlist          Add/remove tracks from playlist
-                                  Body: {"playlistId": "...", "actions": [...]}
+        browse/edit_playlist          Add/remove tracks from playlist
+                                      Body: {"playlistId": "...", "actions": [...]}
 
-    🔐 ACCOUNT (Requires Auth)
-    ───────────────────────────────────────────────────────────────────────────────
-    account/account_menu          Account settings and options
-                                  Body: {}
+        🔐 ACCOUNT (Requires Auth)
+        ───────────────────────────────────────────────────────────────────────────────
+        account/account_menu          Account settings and options
+                                      Body: {}
 
-    notification/get_notification_menu   User notifications
-                                  Body: {}
+        notification/get_notification_menu   User notifications
+                                      Body: {}
 
-    stats/watchtime               Listening statistics
-                                  Body: {}
+        stats/watchtime               Listening statistics
+                                      Body: {}
 
-    ═══════════════════════════════════════════════════════════════════════════════
-    📌 LIBRARY PARAMS (for library_albums, library_artists, library_songs)
-    ═══════════════════════════════════════════════════════════════════════════════
+        ═══════════════════════════════════════════════════════════════════════════════
+        📌 LIBRARY PARAMS (for library_albums, library_artists, library_songs)
+        ═══════════════════════════════════════════════════════════════════════════════
 
-    ggMGKgQIARAA    Recently Added
-    ggMGKgQIAhAA    Recently Played
-    ggMGKgQIAxAA    Alphabetical A-Z
-    ggMGKgQIBBAA    Alphabetical Z-A
-    ggMCCAE         Default Sort
+        ggMGKgQIARAA    Recently Added
+        ggMGKgQIAhAA    Recently Played
+        ggMGKgQIAxAA    Alphabetical A-Z
+        ggMGKgQIBBAA    Alphabetical Z-A
+        ggMCCAE         Default Sort
 
-    Example: ./api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
+        Example: ./api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
 
-    FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
-    It requires sign-in for useful content but does not need sort params.
-    Signed-in responses return MPLAUC... browseIds (MUSIC_PAGE_TYPE_LIBRARY_ARTIST).
-    Browsing an MPLAUC... page directly also requires sign-in.
+        FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
+        It requires sign-in for useful content but does not need sort params.
+        Signed-in responses return MPLAUC... browseIds (MUSIC_PAGE_TYPE_LIBRARY_ARTIST).
+        Browsing an MPLAUC... page directly also requires sign-in.
 
-    ═══════════════════════════════════════════════════════════════════════════════
-    💡 USAGE TIPS
-    ═══════════════════════════════════════════════════════════════════════════════
+        ═══════════════════════════════════════════════════════════════════════════════
+        💡 USAGE TIPS
+        ═══════════════════════════════════════════════════════════════════════════════
 
-    Check auth status:     ./api-explorer.swift auth
-    Explore with verbose:  ./api-explorer.swift browse FEmusic_charts -v
-    Dynamic browse ID:     ./api-explorer.swift browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
-    Action with body:      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+        Check auth status:     ./api-explorer.swift auth
+        Explore with verbose:  ./api-explorer.swift browse FEmusic_charts -v
+        Dynamic browse ID:     ./api-explorer.swift browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+        Action with body:      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
 
-    * Param-based library endpoints above return HTTP 400 without both auth AND params
+        * Param-based library endpoints above return HTTP 400 without both auth AND params
 
-    """)
+        """
+    )
 }
 
 func showHelp() {
-    print("""
-    YouTube Music API Explorer
-    ==========================
+    print(
+        """
+        YouTube Music API Explorer
+        ==========================
 
-    A standalone tool for exploring YouTube Music API endpoints.
-    Supports both public and authenticated endpoints (reads cookies from Kaset app).
+        A standalone tool for exploring YouTube Music API endpoints.
+        Supports both public and authenticated endpoints (reads cookies from Kaset app).
 
-    Usage:
-      ./api-explorer.swift <command> [options]
+        Usage:
+          ./api-explorer.swift <command> [options]
 
-    Commands:
-      browse <browseId> [params]     Explore a browse endpoint
-      action <endpoint> <body>       Explore an action endpoint (body as JSON)
-      continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
-      list                           List all known endpoints
-      auth                           Check authentication status
-      accounts                       Discover available accounts (via authuser)
-      brandaccounts                  List all brand accounts with their IDs
-      help                           Show this help message
+        Commands:
+          browse <browseId> [params]     Explore a browse endpoint
+          action <endpoint> <body>       Explore an action endpoint (body as JSON)
+          continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
+          list                           List all known endpoints
+          auth                           Check authentication status
+          accounts                       Discover available accounts (via authuser)
+          brandaccounts                  List all brand accounts with their IDs
+          help                           Show this help message
 
-    Options:
-      -v, --verbose                  Show full raw JSON response (not truncated)
-      -o, --output <file>            Save raw JSON response to a file
-      --authuser N                   Use Google account at index N (for multi-account)
-      --brand <ID>                   Use brand account ID (21-digit number)
+        Options:
+          -v, --verbose                  Show full raw JSON response (not truncated)
+          -o, --output <file>            Save raw JSON response to a file
+          --authuser N                   Use Google account at index N (for multi-account)
+          --brand <ID>                   Use brand account ID (21-digit number)
 
-    Examples:
-      # Explore public endpoints
-      ./api-explorer.swift browse FEmusic_home
-      ./api-explorer.swift browse FEmusic_charts
-      ./api-explorer.swift browse FEmusic_moods_and_genres -v
+        Examples:
+          # Explore public endpoints
+          ./api-explorer.swift browse FEmusic_home
+          ./api-explorer.swift browse FEmusic_charts
+          ./api-explorer.swift browse FEmusic_moods_and_genres -v
 
-      # Explore authenticated endpoints (requires Kaset sign-in)
-      ./api-explorer.swift browse FEmusic_liked_playlists
-      ./api-explorer.swift browse FEmusic_history
-      ./api-explorer.swift browse FEmusic_library_corpus_track_artists
+          # Explore authenticated endpoints (requires Kaset sign-in)
+          ./api-explorer.swift browse FEmusic_liked_playlists
+          ./api-explorer.swift browse FEmusic_history
+          ./api-explorer.swift browse FEmusic_library_corpus_track_artists
 
-      # Discover brand accounts and use them
-      ./api-explorer.swift brandaccounts                            # List brand accounts with IDs
-      ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>  # Use brand account
+          # Discover brand accounts and use them
+          ./api-explorer.swift brandaccounts                            # List brand accounts with IDs
+          ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>  # Use brand account
 
-      # Action endpoints
-      ./api-explorer.swift action search '{"query":"never gonna give you up"}'
-      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
-      ./api-explorer.swift action next '{"playlistId":"RDEM...","videoId":"abc123"}'
+          # Action endpoints
+          ./api-explorer.swift action search '{"query":"never gonna give you up"}'
+          ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+          ./api-explorer.swift action next '{"playlistId":"RDEM...","videoId":"abc123"}'
 
-      # Continuation (for pagination / infinite mix)
-      ./api-explorer.swift continuation <token>           # browse endpoint (default)
-      ./api-explorer.swift continuation <token> next      # next endpoint (for mix queues)
+          # Continuation (for pagination / infinite mix)
+          ./api-explorer.swift continuation <token>           # browse endpoint (default)
+          ./api-explorer.swift continuation <token> next      # next endpoint (for mix queues)
 
-      # Check auth status
-      ./api-explorer.swift auth
+          # Check auth status
+          ./api-explorer.swift auth
 
-        Authentication:
-            For authenticated endpoints, sign in to the Kaset app first.
-            Debug builds export auth cookies to:
-                ~/Library/Application Support/Kaset/cookies.dat
+            Authentication:
+                For authenticated endpoints, sign in to the Kaset app first.
+                Debug builds export auth cookies to:
+                    ~/Library/Application Support/Kaset/cookies.dat
 
-    """)
+        """
+    )
 }
 
 // MARK: - Main Entry Point
@@ -1357,7 +1423,9 @@ func runMain() async {
         }
         let token = filteredArgs[1]
         let endpoint = filteredArgs.count >= 3 ? filteredArgs[2] : "browse"
-        await exploreContinuation(token, endpoint: endpoint, verbose: verbose, outputFile: outputFile)
+        await exploreContinuation(
+            token, endpoint: endpoint, verbose: verbose, outputFile: outputFile
+        )
 
     case "list":
         listEndpoints()

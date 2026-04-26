@@ -93,6 +93,14 @@ struct LibraryView: View {
                     )
                 )
             }
+            .navigationDestination(for: TopSongsDestination.self) { destination in
+                TopSongsView(
+                    viewModel: TopSongsViewModel(
+                        destination: destination,
+                        client: self.viewModel.client
+                    )
+                )
+            }
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }

@@ -160,7 +160,7 @@ struct HomeSectionTests {
             description: nil,
             thumbnailURL: nil,
             trackCount: nil,
-            author: "Playlist Author"
+            author: Artist.inline(name: "Playlist Author", namespace: "playlist-author")
         )
 
         let item = HomeSectionItem.playlist(playlist)
@@ -308,7 +308,7 @@ struct HomeSectionTests {
 
     @Test("Playlist item extracts playlist")
     func playlistItemExtraction() {
-        let playlist = Playlist(id: "PL1", title: "My Playlist", description: nil, thumbnailURL: nil, trackCount: 10, author: "Me")
+        let playlist = Playlist(id: "PL1", title: "My Playlist", description: nil, thumbnailURL: nil, trackCount: 10, author: Artist.inline(name: "Me", namespace: "playlist-author"))
         let item = HomeSectionItem.playlist(playlist)
 
         #expect(item.playlist != nil)

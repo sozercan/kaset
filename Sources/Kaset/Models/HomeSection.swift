@@ -61,7 +61,7 @@ enum HomeSectionItem: Identifiable {
         case let .album(album):
             album.artistsDisplay
         case let .playlist(playlist):
-            playlist.author
+            playlist.author?.name
         case .artist:
             "Artist"
         }

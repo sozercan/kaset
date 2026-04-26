@@ -37,7 +37,7 @@ extension PlayerService {
 
         self.clearRestoredPlaybackSessionState()
         self.clearForwardSkipNavigationStack()
-        self.queue = queue
+        self.setQueue(queue)
         self.currentIndex = currentIndex
         self.currentTrack = currentSong
         self.pendingPlayVideoId = currentSong.videoId

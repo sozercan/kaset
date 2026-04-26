@@ -85,7 +85,7 @@ struct FavoriteItem: Identifiable, Codable {
         case let .album(album):
             album.artistsDisplay
         case let .playlist(playlist):
-            playlist.author ?? playlist.trackCountDisplay
+            playlist.author?.name ?? playlist.trackCountDisplay
         case .artist:
             "Artist"
         case let .podcastShow(show):
