@@ -151,6 +151,20 @@ struct ArtistParserTests {
         #expect(!songs[0].artists.isEmpty)
     }
 
+    @Test("parseArtistSongs propagates renderer playability")
+    func parseArtistSongsPropagatesRendererPlayability() {
+        let data = Self.makeArtistSongsResponse(
+            songCount: 2,
+            displayPolicies: [nil, "MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT"]
+        )
+
+        let songs = ArtistParser.parseArtistSongs(data)
+
+        #expect(songs.count == 2)
+        #expect(songs[0].isPlayable)
+        #expect(songs[1].isPlayable == false)
+    }
+
     // MARK: - Album Parsing Tests
 
     @Test("parseArtistDetail extracts albums with MPRE prefix")
@@ -223,7 +237,11 @@ struct ArtistParserTests {
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
 
-        #expect(Self.playlists(in: result, titled: "Playlists")?.map(\.id) == ["VLPL-playlist-1", "PL-playlist-2"])
+        let playlists = Self.playlists(in: result, titled: "Playlists")
+        #expect(playlists?.map(\.id) == ["VLPL-playlist-1", "PL-playlist-2"])
+        #expect(playlists?.first?.author?.id == "UC-playlist-author")
+        #expect(playlists?.first?.author?.name == "Shelltoast")
+        #expect(playlists?.first?.author?.profileKind == .profile)
         #expect(Self.firstSection(of: result, matching: "Playlists") != nil)
         #expect(Self.artists(in: result, titled: "Artists") == nil)
         #expect(Self.albums(in: result, titled: "Albums") == nil)
@@ -1054,7 +1072,7 @@ struct ArtistParserTests {
         ]
     }
 
-    private static func makeArtistSongsResponse(songCount: Int) -> [String: Any] {
+    private static func makeArtistSongsResponse(songCount: Int, displayPolicies: [String?]? = nil) -> [String: Any] {
         [
             "contents": [
                 "singleColumnBrowseResultsRenderer": [
@@ -1066,7 +1084,7 @@ struct ArtistParserTests {
                                         "contents": [
                                             [
                                                 "musicShelfRenderer": [
-                                                    "contents": self.makeSongItems(count: songCount),
+                                                    "contents": self.makeSongItems(count: songCount, displayPolicies: displayPolicies),
                                                 ],
                                             ],
                                         ],
@@ -1080,31 +1098,29 @@ struct ArtistParserTests {
         ]
     }
 
-    private static func makeSongItems(count: Int) -> [[String: Any]] {
+    private static func makeSongItems(count: Int, displayPolicies: [String?]? = nil) -> [[String: Any]] {
         (0 ..< count).map { index in
-            [
-                "musicResponsiveListItemRenderer": [
-                    "playlistItemData": [
-                        "videoId": "video-\(index)",
-                    ],
-                    "flexColumns": [
-                        [
-                            "musicResponsiveListItemFlexColumnRenderer": [
-                                "text": [
-                                    "runs": [["text": "Song \(index)"]],
-                                ],
+            var renderer: [String: Any] = [
+                "playlistItemData": [
+                    "videoId": "video-\(index)",
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": [
+                                "runs": [["text": "Song \(index)"]],
                             ],
                         ],
-                        [
-                            "musicResponsiveListItemFlexColumnRenderer": [
-                                "text": [
-                                    "runs": [
-                                        [
-                                            "text": "Artist \(index)",
-                                            "navigationEndpoint": [
-                                                "browseEndpoint": [
-                                                    "browseId": "UC-artist-\(index)",
-                                                ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": [
+                                "runs": [
+                                    [
+                                        "text": "Artist \(index)",
+                                        "navigationEndpoint": [
+                                            "browseEndpoint": [
+                                                "browseId": "UC-artist-\(index)",
                                             ],
                                         ],
                                     ],
@@ -1113,6 +1129,17 @@ struct ArtistParserTests {
                         ],
                     ],
                 ],
+            ]
+
+            if let displayPolicies,
+               index < displayPolicies.count,
+               let displayPolicy = displayPolicies[index]
+            {
+                renderer["musicItemRendererDisplayPolicy"] = displayPolicy
+            }
+
+            return [
+                "musicResponsiveListItemRenderer": renderer,
             ]
         }
     }

@@ -756,6 +756,7 @@ enum ArtistParser {
             let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) } ?? fallbackThumbnailURL
             let duration = ParsingHelpers.extractDurationFromFlexColumns(responsiveRenderer)
             let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
+            let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
 
             let track = Song(
                 id: videoId,
@@ -764,7 +765,8 @@ enum ArtistParser {
                 album: album,
                 duration: duration,
                 thumbnailURL: thumbnailURL,
-                videoId: videoId
+                videoId: videoId,
+                isPlayable: isPlayable
             )
             tracks.append(track)
         }
@@ -874,15 +876,15 @@ enum ArtistParser {
             }
 
             if Self.isPlaylistBrowseId(browseId, browseEndpoint: browseEndpoint) {
-                let author = ParsingHelpers.extractFirstNavigableArtist(from: runs)?.name
-                    ?? runs.compactMap { run -> String? in
+                let author = ParsingHelpers.extractFirstNavigableArtist(from: runs)
+                    ?? runs.compactMap { run -> Artist? in
                         guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
                               !text.isEmpty,
                               text != "•"
                         else {
                             return nil
                         }
-                        return text
+                        return Artist.inline(name: text, namespace: "playlist-author")
                     }.first
 
                 return .playlist(Playlist(
@@ -891,7 +893,7 @@ enum ArtistParser {
                     description: nil,
                     thumbnailURL: thumbnailURL,
                     trackCount: nil,
-                    author: author.map { Artist.inline(name: $0, namespace: "playlist-author") }
+                    author: author
                 ))
             }
 
