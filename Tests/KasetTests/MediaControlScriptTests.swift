@@ -42,9 +42,7 @@ struct MediaControlScriptTests {
         )
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls.contains("seekforward:clear"))
-        #expect(calls.contains("seekbackward:clear"))
-        #expect(calls.contains("nexttrack:set"))
+        #expect(calls == "seekforward:clear,seekbackward:clear,nexttrack:set")
     }
 
     @Test("Bootstrap wrapper passes seekforward/seekbackward through when nextPrev is disabled")
@@ -61,12 +59,11 @@ struct MediaControlScriptTests {
         )
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls.contains("seekforward:set"))
-        #expect(calls.contains("seekbackward:set"))
+        #expect(calls == "seekforward:set,seekbackward:set")
     }
 
-    @Test("Bootstrap wrapper honors runtime toggle of __kasetUseNextPrev")
-    func bootstrapWrapperHonorsRuntimeToggle() throws {
+    @Test("Bootstrap wrapper honors runtime toggle skip → nextPrev")
+    func bootstrapWrapperHonorsRuntimeToggleToNextPrev() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: false), in: context)
@@ -75,8 +72,20 @@ struct MediaControlScriptTests {
         self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        // First call (skip mode): set; second call (nextPrev mode): cleared by wrapper.
         #expect(calls == "seekforward:set,seekforward:clear")
+    }
+
+    @Test("Bootstrap wrapper honors runtime toggle nextPrev → skip")
+    func bootstrapWrapperHonorsRuntimeToggleToSkip() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+        self.evaluate("window.__kasetUseNextPrev = false;", in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls == "seekforward:clear,seekforward:set")
     }
 
     @Test("Bootstrap wrapper installs only once per page even on repeat injection")
@@ -90,8 +99,52 @@ struct MediaControlScriptTests {
         let clearCount = context.evaluateScript("""
             mediaSessionCalls.filter(function(c) { return c === 'seekforward:clear'; }).length
         """)?.toInt32() ?? -1
-        // Single wrapper layer means a single original-call passthrough per registration.
         #expect(clearCount == 1)
+    }
+
+    @Test("Bootstrap wrapper preserves passed-through handler reference for nexttrack")
+    func bootstrapWrapperPreservesHandlerReference() throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(
+            """
+            window.__handlerInvoked = false;
+            navigator.mediaSession.setActionHandler('nexttrack', function() {
+                window.__handlerInvoked = true;
+            });
+            mediaSessionHandlers.nexttrack();
+            """,
+            in: context
+        )
+
+        let invoked = context.evaluateScript("String(window.__handlerInvoked)")?.toString()
+        #expect(invoked == "true")
+    }
+
+    @Test("Bootstrap wrapper coexists with the override script's seek-handler clearing")
+    func bootstrapWrapperCoexistsWithOverrideScript() throws {
+        let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
+        self.evaluate("runNextAnimationFrame();", in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('seekforward', function() {});
+            navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            """,
+            in: context
+        )
+
+        let seekForwardClearCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'seekforward:clear'; }).length
+        """)?.toInt32() ?? 0
+        let seekForwardSetCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'seekforward:set'; }).length
+        """)?.toInt32() ?? -1
+        #expect(seekForwardClearCount > 0)
+        #expect(seekForwardSetCount == 0)
     }
 
     @Test("Override script keeps a single animation-frame loop active")
