@@ -57,8 +57,12 @@ struct MainWindow: View {
     @State private var moodsAndGenresViewModel: MoodsAndGenresViewModel?
     @State private var newReleasesViewModel: NewReleasesViewModel?
     @State private var podcastsViewModel: PodcastsViewModel?
+    @State private var likedMusicViewModel: PlaylistDetailViewModel?
     @State private var libraryViewModel: LibraryViewModel?
     @State private var historyViewModel: HistoryViewModel?
+
+    /// Navigation path for the Liked Music route.
+    @State private var likedMusicNavigationPath = NavigationPath()
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -73,6 +77,12 @@ struct MainWindow: View {
         _moodsAndGenresViewModel = State(initialValue: MoodsAndGenresViewModel(client: client))
         _newReleasesViewModel = State(initialValue: NewReleasesViewModel(client: client))
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
+        _likedMusicViewModel = State(
+            initialValue: PlaylistDetailViewModel(
+                playlist: Self.likedMusicPlaylist,
+                client: client
+            )
+        )
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
         _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
@@ -266,6 +276,9 @@ struct MainWindow: View {
             {
                 self.playerService.currentTrackLikeStatus = event.status
             }
+
+            // Global sync 2: keep Liked Music list in sync regardless of which tab is active.
+            self.likedMusicViewModel?.handleLikeStatusChange(event)
         }
     }
 
@@ -382,13 +395,15 @@ struct MainWindow: View {
             case .podcasts:
                 if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
             case .likedMusic:
-                PlaylistDetailView(
-                    playlist: Self.likedMusicPlaylist,
-                    viewModel: PlaylistDetailViewModel(
-                        playlist: Self.likedMusicPlaylist,
-                        client: self.client
-                    )
-                )
+                if let vm = likedMusicViewModel {
+                    NavigationStack(path: self.$likedMusicNavigationPath) {
+                        PlaylistDetailView(
+                            playlist: Self.likedMusicPlaylist,
+                            viewModel: vm
+                        )
+                        .navigationDestinations(client: self.client)
+                    }
+                }
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
             case .history:
@@ -487,6 +502,7 @@ struct MainWindow: View {
             group.addTask { await self.moodsAndGenresViewModel?.refresh() }
             group.addTask { await self.newReleasesViewModel?.refresh() }
             group.addTask { await self.podcastsViewModel?.refresh() }
+            group.addTask { await self.likedMusicViewModel?.refresh() }
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
