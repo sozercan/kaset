@@ -73,6 +73,7 @@ struct PlayerBar: View {
                     Task { await self.playerService.next() }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
+                .disabled(self.playerService.currentEpisode != nil)
                 .opacity(0)
 
                 // Command + Left Arrow: Previous track
@@ -80,6 +81,7 @@ struct PlayerBar: View {
                     Task { await self.playerService.previous() }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
+                .disabled(self.playerService.currentEpisode != nil)
                 .opacity(0)
 
                 // Command + Up Arrow: Volume up
@@ -320,6 +322,7 @@ struct PlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
+            .disabled(self.playerService.currentEpisode != nil)
             .accessibilityLabel(String(localized: "Previous track"))
 
             // Play/Pause
@@ -350,6 +353,7 @@ struct PlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
+            .disabled(self.playerService.currentEpisode != nil)
             .accessibilityLabel(String(localized: "Next track"))
 
             // Repeat

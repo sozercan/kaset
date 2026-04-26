@@ -15,8 +15,8 @@ extension PlayerService {
     /// don't belong in the song queue: they have no duration, can't be
     /// seeked, and next/previous has no meaning. This clears the queue,
     /// synthesizes a minimal `Song` so `PlayerBar` can render title and
-    /// thumbnail, then assigns `currentEpisode` so the UI can gate live
-    /// behavior.
+    /// thumbnail, then installs `currentEpisode` through the player so the UI
+    /// can gate live behavior before metadata loading suspends.
     func playEpisode(_ episode: ArtistEpisode) async {
         self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
 
@@ -35,8 +35,9 @@ extension PlayerService {
             videoId: episode.videoId
         )
 
-        // `play(song:)` resets `currentEpisode = nil`; reassign it afterwards.
-        await self.play(song: representative)
-        self.currentEpisode = episode
+        // Pass the episode into `play` so episode state is installed before
+        // any async metadata fetch can suspend. This prevents a stale episode
+        // task from marking a later normal track as episode playback.
+        await self.play(song: representative, webLoadStrategy: .standard, episode: episode)
     }
 }
