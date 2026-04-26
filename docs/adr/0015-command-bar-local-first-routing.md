@@ -1,4 +1,4 @@
-# 0014. Command Bar Local-First Routing
+# 0015. Command Bar Local-First Routing
 
 Date: 2026-04-15
 

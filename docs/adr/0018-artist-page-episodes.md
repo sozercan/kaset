@@ -1,4 +1,4 @@
-# ADR 0014: Artist Page — Episodes, Singles, Playlists, Podcasts, Related Artists
+# ADR 0018: Artist Page — Episodes, Singles, Playlists, Podcasts, Related Artists
 
 **Date:** 2026-04-19
 **Status:** Accepted

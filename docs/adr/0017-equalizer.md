@@ -1,4 +1,4 @@
-# ADR-0014: 6-Band Equalizer via Core Audio Process Tap
+# ADR-0017: 6-Band Equalizer via Core Audio Process Tap
 
 ## Status
 
