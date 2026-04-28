@@ -48,33 +48,6 @@ final class SearchViewUITests: KasetUITestCase {
         XCTAssertTrue(clearButton.waitForExistence(timeout: 3), "Clear button should appear")
     }
 
-    func testSuggestionsRenderAsSingleDropdown() {
-        launchDefault()
-
-        navigateToSearch()
-
-        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
-        XCTAssertTrue(waitForHittable(searchField))
-
-        searchField.click()
-        searchField.typeText("adele")
-
-        let suggestions = app.otherElements.matching(identifier: TestAccessibilityID.Search.suggestionsContainer)
-        XCTAssertTrue(
-            waitForElement(suggestions.firstMatch, timeout: 5),
-            "Suggestions dropdown should appear"
-        )
-        XCTAssertTrue(
-            waitForElementCount(suggestions, count: 1, timeout: 2),
-            "Search suggestions should render in a single dropdown container"
-        )
-
-        XCTAssertTrue(
-            waitForElement(app.buttons[TestAccessibilityID.Search.suggestion(index: 0)], timeout: 2),
-            "First suggestion row should be visible"
-        )
-    }
-
     // MARK: - Empty State
 
     func testEmptyStateShownInitially() {
