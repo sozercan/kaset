@@ -119,7 +119,7 @@ private extension PlayerService {
         self.duration = duration
 
         if isPlaying {
-            self.state = .playing
+            self.confirmPlaybackStarted()
         } else if self.state == .playing {
             self.state = .paused
         }

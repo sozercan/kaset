@@ -46,16 +46,13 @@ extension PlayerService {
 
         self.pendingPlayVideoId = videoId
 
-        // If user has already interacted this session, auto-play without popup
-        if self.hasUserInteractedThisSession {
-            self.logger.info("User has interacted before, auto-playing without popup")
-            self.showMiniPlayer = false
-            // Load the video directly - WebView session should allow autoplay
+        // Hidden-first playback: keep the persistent WebView anchored at 1×1 and
+        // let its observer confirm playback once YouTube actually starts. If the
+        // singleton already exists, navigate immediately; otherwise SwiftUI will
+        // create it from `pendingPlayVideoId` and autoload in `PersistentPlayerView`.
+        self.showMiniPlayer = false
+        if SingletonPlayerWebView.shared.webView != nil {
             SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
-        } else {
-            // First time: show the mini player for user interaction
-            self.showMiniPlayer = true
-            self.logger.info("Showing mini player for first-time user interaction")
         }
 
         // Fetch full song metadata in the background to get feedbackTokens
@@ -106,15 +103,13 @@ extension PlayerService {
 
         self.pendingPlayVideoId = song.videoId
 
-        // If user has already interacted this session, auto-play without popup
-        if self.hasUserInteractedThisSession {
-            self.logger.info("User has interacted before, auto-playing without popup")
-            self.showMiniPlayer = false
+        // Hidden-first playback: keep the persistent WebView anchored at 1×1 and
+        // let its observer confirm playback once YouTube actually starts. If the
+        // singleton already exists, navigate immediately; otherwise SwiftUI will
+        // create it from `pendingPlayVideoId` and autoload in `PersistentPlayerView`.
+        self.showMiniPlayer = false
+        if SingletonPlayerWebView.shared.webView != nil {
             SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId, strategy: webLoadStrategy)
-        } else {
-            // First time: show the mini player for user interaction
-            self.showMiniPlayer = true
-            self.logger.info("Showing mini player for first-time user interaction")
         }
 
         // Fetch full song metadata if we don't have feedbackTokens
@@ -123,13 +118,13 @@ extension PlayerService {
         }
     }
 
-    /// Called when the mini player confirms playback has started.
-    /// This is the only place that should open the session autoplay gate.
+    /// Records that the WebView observer has confirmed playback actually started.
+    /// Confirmation is intentionally independent of mini-player visibility.
     func confirmPlaybackStarted() {
         self.showMiniPlayer = false
         self.state = .playing
         self.markUserInteractedThisSession()
-        self.logger.info("Playback confirmed started, user interaction recorded")
+        self.logger.info("Playback confirmed started")
     }
 
     /// Called when the mini player is dismissed.
@@ -225,19 +220,16 @@ extension PlayerService {
 
         let shouldLoadPendingVideo = self.shouldLoadPendingVideoBeforePlayback
         if self.isPendingRestoredLoadDeferred {
-            self.beginRestoredPlaybackLoad(autoResumeAfterSeek: self.hasUserInteractedThisSession)
+            self.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
         } else {
             self.clearRestoredPlaybackSessionState()
         }
 
         if shouldLoadPendingVideo {
-            if self.hasUserInteractedThisSession {
-                self.showMiniPlayer = false
-                self.state = .loading
+            self.showMiniPlayer = false
+            self.state = self.shouldAutoResumeAfterRestoredLoad ? .loading : self.state
+            if SingletonPlayerWebView.shared.webView != nil {
                 SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId)
-            } else {
-                self.showMiniPlayer = true
-                self.logger.info("Showing mini player so the user can resume playback")
             }
             return
         }
