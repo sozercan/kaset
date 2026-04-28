@@ -99,4 +99,23 @@ struct SearchViewModelTests {
         self.viewModel.selectedFilter = .podcasts
         #expect(self.viewModel.selectedFilter == .podcasts)
     }
+
+    @Test("Filter chips remain visible after empty filtered search")
+    func filterChipsRemainVisibleAfterEmptyFilteredSearch() async {
+        self.mockClient.searchResponse = SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.viewModel.query = "Versus Music Official"
+        self.viewModel.selectedFilter = .artists
+
+        self.viewModel.searchImmediately()
+        try? await Task.sleep(for: .milliseconds(25))
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.filteredItems.isEmpty)
+        #expect(self.viewModel.shouldShowFilters)
+    }
 }

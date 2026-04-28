@@ -71,7 +71,7 @@ struct SearchView: View {
             }
 
             // Filter chips
-            if !self.viewModel.results.isEmpty {
+            if self.viewModel.shouldShowFilters {
                 self.filterChips
             }
         }
