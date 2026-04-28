@@ -130,6 +130,15 @@ struct GeneralSettingsView: View {
                 Text("Updates")
             }
 
+            // MARK: - Integrations Section
+
+            Section {
+                Toggle("Enable boring.notch Integration", isOn: self.$settings.boringNotchBridgeEnabled)
+                    .help("Expose a local HTTP and WebSocket API on port 26538 for boring.notch to display and control playback. Disable to save resources when not in use.")
+            } header: {
+                Text("Integrations")
+            }
+
             // MARK: - About Section
 
             Section {
