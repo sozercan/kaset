@@ -45,6 +45,20 @@ final class SearchViewModel {
     /// Search suggestions for autocomplete.
     private(set) var suggestions: [SearchSuggestion] = []
 
+    /// Whether filters should be shown for the current search.
+    var shouldShowFilters: Bool {
+        guard !self.query.isEmpty, self.lastSearchedQuery == self.query else {
+            return false
+        }
+
+        switch self.loadingState {
+        case .loading, .loaded, .loadingMore:
+            return true
+        case .idle, .error:
+            return false
+        }
+    }
+
     /// Whether suggestions should be shown.
     var showSuggestions: Bool {
         !self.query.isEmpty &&
