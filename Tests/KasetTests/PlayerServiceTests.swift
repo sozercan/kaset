@@ -240,6 +240,18 @@ struct PlayerServiceTests {
         #expect(self.playerService.hasUserInteractedThisSession == true)
     }
 
+    @Test("Observed playback confirms session while mini player is hidden")
+    func observedPlaybackConfirmsHiddenSession() {
+        #expect(self.playerService.hasUserInteractedThisSession == false)
+        #expect(self.playerService.showMiniPlayer == false)
+
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 3, duration: 180)
+
+        #expect(self.playerService.hasUserInteractedThisSession == true)
+        #expect(self.playerService.showMiniPlayer == false)
+        #expect(self.playerService.state == .playing)
+    }
+
     // MARK: - Pending Play Video Tests
 
     @Test("pendingPlayVideoId initially nil")
