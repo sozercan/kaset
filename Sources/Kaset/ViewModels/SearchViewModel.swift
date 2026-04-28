@@ -14,11 +14,15 @@ final class SearchViewModel {
         didSet {
             self.searchTask?.cancel()
             self.suggestionsTask?.cancel()
+            if self.query != self.suppressedSuggestionsQuery {
+                self.suppressedSuggestionsQuery = nil
+            }
             if self.query.isEmpty {
                 self.results = .empty
                 self.suggestions = []
                 self.loadingState = .idle
                 self.lastSearchedQuery = nil
+                self.suppressedSuggestionsQuery = nil
                 self.client.clearSearchContinuation()
             } else if self.query != self.lastSearchedQuery {
                 // Clear results when query changes from what was searched
@@ -43,7 +47,11 @@ final class SearchViewModel {
 
     /// Whether suggestions should be shown.
     var showSuggestions: Bool {
-        !self.query.isEmpty && !self.suggestions.isEmpty && self.results.isEmpty
+        !self.query.isEmpty &&
+            self.query != self.suppressedSuggestionsQuery &&
+            !self.suggestions.isEmpty &&
+            self.results.isEmpty &&
+            self.loadingState == .idle
     }
 
     /// Filter for result types.
@@ -122,6 +130,7 @@ final class SearchViewModel {
     /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var suggestionsTask: Task<Void, Never>?
+    @ObservationIgnored private var suppressedSuggestionsQuery: String?
     // swiftformat:enable modifierOrder
 
     init(client: any YTMusicClientProtocol) {
@@ -137,7 +146,7 @@ final class SearchViewModel {
     func fetchSuggestions() {
         self.suggestionsTask?.cancel()
 
-        guard !self.query.isEmpty else {
+        guard !self.query.isEmpty, self.query != self.suppressedSuggestionsQuery else {
             self.suggestions = []
             return
         }
@@ -158,8 +167,8 @@ final class SearchViewModel {
 
         do {
             let fetchedSuggestions = try await client.getSearchSuggestions(query: currentQuery)
-            // Only update if query hasn't changed
-            if self.query == currentQuery {
+            // Only update if query hasn't changed and this query was not explicitly submitted.
+            if self.query == currentQuery, currentQuery != self.suppressedSuggestionsQuery {
                 self.suggestions = fetchedSuggestions
             }
         } catch {
@@ -174,6 +183,7 @@ final class SearchViewModel {
     func selectSuggestion(_ suggestion: SearchSuggestion) {
         self.suggestionsTask?.cancel()
         self.suggestions = []
+        self.suppressedSuggestionsQuery = suggestion.query
         self.query = suggestion.query
         self.search()
     }
@@ -189,6 +199,7 @@ final class SearchViewModel {
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.suggestions = []
+        self.suppressedSuggestionsQuery = self.query
         self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
@@ -212,6 +223,7 @@ final class SearchViewModel {
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.suggestions = []
+        self.suppressedSuggestionsQuery = self.query
         self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
@@ -338,6 +350,7 @@ final class SearchViewModel {
         self.suggestions = []
         self.lastSearchedQuery = nil
         self.lastSearchedFilter = nil
+        self.suppressedSuggestionsQuery = nil
         self.loadingState = .idle
         self.client.clearSearchContinuation()
     }
