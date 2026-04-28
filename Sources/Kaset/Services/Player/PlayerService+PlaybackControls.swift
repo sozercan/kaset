@@ -121,10 +121,22 @@ extension PlayerService {
     /// Records that the WebView observer has confirmed playback actually started.
     /// Confirmation is intentionally independent of mini-player visibility.
     func confirmPlaybackStarted() {
+        let shouldHideMiniPlayer = self.showMiniPlayer
+        let didStartPlayback = self.state != .playing
+        let shouldRecordInteraction = !self.hasUserInteractedThisSession
+
+        guard shouldHideMiniPlayer || didStartPlayback || shouldRecordInteraction else { return }
+
         self.showMiniPlayer = false
         self.state = .playing
-        self.markUserInteractedThisSession()
-        self.logger.info("Playback confirmed started")
+
+        if shouldRecordInteraction {
+            self.markUserInteractedThisSession()
+        }
+
+        if didStartPlayback {
+            self.logger.info("Playback confirmed started")
+        }
     }
 
     /// Called when the mini player is dismissed.
@@ -227,7 +239,7 @@ extension PlayerService {
 
         if shouldLoadPendingVideo {
             self.showMiniPlayer = false
-            self.state = self.shouldAutoResumeAfterRestoredLoad ? .loading : self.state
+            self.state = .loading
             if SingletonPlayerWebView.shared.webView != nil {
                 SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId)
             }

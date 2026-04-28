@@ -182,11 +182,6 @@ struct MainWindow: View {
                 self.showLoginSheet = true
             }
         }
-        .onChange(of: self.playerService.isPlaying) { _, isPlaying in
-            if isPlaying {
-                self.playerService.confirmPlaybackStarted()
-            }
-        }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
             DiagnosticsLogger.player.debug("showVideo onChange triggered: \(showVideo)")
             if showVideo {
