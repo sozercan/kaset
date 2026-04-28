@@ -18,6 +18,16 @@ enum TestAccessibilityID {
         static let container = "homeView"
     }
 
+    enum Search {
+        static let searchField = "searchView.searchField"
+        static let clearButton = "searchView.clearButton"
+        static let suggestionsContainer = "searchView.suggestions"
+
+        static func suggestion(index: Int) -> String {
+            "searchView.suggestion.\(index)"
+        }
+    }
+
     enum MainWindow {
         static let container = "mainWindow"
         static let commandBar = "mainWindow.commandBar"
