@@ -9,6 +9,7 @@ enum SearchSuggestionsParser {
     /// - Returns: An array of search suggestions.
     static func parse(_ data: [String: Any]) -> [SearchSuggestion] {
         var suggestions: [SearchSuggestion] = []
+        var seenQueries = Set<String>()
 
         // Navigate to contents array
         guard let contents = data["contents"] as? [[String: Any]] else {
@@ -22,7 +23,7 @@ enum SearchSuggestionsParser {
                let sectionContents = sectionRenderer["contents"] as? [[String: Any]]
             {
                 for item in sectionContents {
-                    if let suggestion = parseSuggestion(from: item) {
+                    if let suggestion = parseSuggestion(from: item), seenQueries.insert(suggestion.query).inserted {
                         suggestions.append(suggestion)
                     }
                 }

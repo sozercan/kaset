@@ -104,45 +104,17 @@ struct MainWindow: View {
                 DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
-            // Persistent WebView - always present once a video has been requested
-            // Uses a SINGLETON WebView instance that persists for the app lifetime
-            // Compact size (120x68) for first-time interaction, then hidden (1x1)
+            // Persistent WebView - always present once a video has been requested.
+            // Uses a SINGLETON WebView instance that persists for the app lifetime.
+            // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
             if let videoId = playerService.pendingPlayVideoId {
-                ZStack(alignment: .topTrailing) {
-                    PersistentPlayerView(videoId: videoId, isExpanded: self.playerService.showMiniPlayer)
-                        .frame(
-                            width: self.playerService.showMiniPlayer ? 120 : 1,
-                            height: self.playerService.showMiniPlayer ? 68 : 1
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .opacity(self.playerService.showMiniPlayer ? 0.95 : 0)
-
-                    if self.playerService.showMiniPlayer {
-                        Button {
-                            self.playerService.confirmPlaybackStarted()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.white.opacity(0.8))
-                                .shadow(radius: 1)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "Close"))
-                        .padding(3)
-                    }
-                }
-                .shadow(color: self.playerService.showMiniPlayer ? .black.opacity(0.2) : .clear, radius: 6, y: 3)
-                .padding(.trailing, self.playerService.showMiniPlayer ? 12 : 0)
-                .padding(.bottom, self.playerService.showMiniPlayer ? 76 : 0)
-                .allowsHitTesting(self.playerService.showMiniPlayer)
-                // Hiding must not interpolate frame/opacity (no “shrink”); showing can ease in.
-                .transaction { transaction in
-                    if !self.playerService.showMiniPlayer {
+                PersistentPlayerView(videoId: videoId, isExpanded: false)
+                    .frame(width: 1, height: 1)
+                    .opacity(0)
+                    .allowsHitTesting(false)
+                    .transaction { transaction in
                         transaction.animation = nil
-                    } else {
-                        transaction.animation = .easeInOut(duration: 0.2)
                     }
-                }
             }
         }
         .sheet(isPresented: self.$showLoginSheet) {
@@ -208,12 +180,6 @@ struct MainWindow: View {
         .onChange(of: self.authService.needsReauth) { _, needsReauth in
             if needsReauth {
                 self.showLoginSheet = true
-            }
-        }
-        .onChange(of: self.playerService.isPlaying) { _, isPlaying in
-            // Auto-hide the WebView once playback starts
-            if isPlaying, self.playerService.showMiniPlayer {
-                self.playerService.confirmPlaybackStarted()
             }
         }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
