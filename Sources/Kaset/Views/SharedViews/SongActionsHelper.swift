@@ -237,19 +237,12 @@ enum SongActionsHelper {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
             self.invalidateLibraryResponseCaches()
             libraryViewModel?.markNeedsReloadOnActivation()
-            if let libraryViewModel {
-                libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
 
-                // Library browse responses can lag briefly behind a successful removal.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
-                self.invalidateLibraryResponseCaches()
-
-                if libraryViewModel.isInLibrary(playlistId: playlist.id) {
-                    libraryViewModel.removeFromLibrary(playlistId: playlist.id)
-                    self.invalidateLibraryResponseCaches()
-                }
-            }
+            // Library browse responses can lag briefly behind a successful removal.
+            try? await Task.sleep(for: .milliseconds(500))
+            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+            self.invalidateLibraryResponseCaches()
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
@@ -266,19 +259,12 @@ enum SongActionsHelper {
             try await client.deletePlaylist(playlistId: playlist.id)
             self.invalidateLibraryResponseCaches()
             libraryViewModel?.markNeedsReloadOnActivation()
-            if let libraryViewModel {
-                libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
 
-                // Library browse responses can lag briefly behind a successful deletion.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
-                self.invalidateLibraryResponseCaches()
-
-                if libraryViewModel.isInLibrary(playlistId: playlist.id) {
-                    libraryViewModel.removeFromLibrary(playlistId: playlist.id)
-                    self.invalidateLibraryResponseCaches()
-                }
-            }
+            // Library browse responses can lag briefly behind a successful deletion.
+            try? await Task.sleep(for: .milliseconds(500))
+            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+            self.invalidateLibraryResponseCaches()
             DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")

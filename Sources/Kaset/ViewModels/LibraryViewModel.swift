@@ -2,6 +2,80 @@ import Foundation
 import Observation
 import os
 
+// MARK: - LibraryMutationBroadcaster
+
+/// Broadcasts library mutations to every active LibraryViewModel.
+///
+/// Context menus can be presented from views that do not reliably have the same
+/// LibraryViewModel instance as the Library tab. This keeps library mutations
+/// optimistic and app-wide instead of relying only on the local environment.
+@MainActor
+final class LibraryMutationBroadcaster {
+    static let shared = LibraryMutationBroadcaster()
+
+    private final class WeakLibraryViewModelBox {
+        weak var value: LibraryViewModel?
+
+        init(_ value: LibraryViewModel) {
+            self.value = value
+        }
+    }
+
+    private var libraryViewModels: [ObjectIdentifier: WeakLibraryViewModelBox] = [:]
+
+    private init() {}
+
+    func register(_ libraryViewModel: LibraryViewModel) {
+        self.pruneReleasedViewModels()
+        self.libraryViewModels[ObjectIdentifier(libraryViewModel)] = WeakLibraryViewModelBox(libraryViewModel)
+    }
+
+    private var activeLibraryViewModels: [LibraryViewModel] {
+        self.pruneReleasedViewModels()
+        return self.libraryViewModels.values.compactMap(\.value)
+    }
+
+    private func pruneReleasedViewModels() {
+        self.libraryViewModels = self.libraryViewModels.filter { $0.value.value != nil }
+    }
+
+    func playlistCreated(_ playlist: Playlist) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.markNeedsReloadOnActivation()
+            libraryViewModel.addToLibrary(playlist: playlist)
+        }
+    }
+
+    func reconcileCreatedPlaylist(_ playlist: Playlist) async {
+        for libraryViewModel in self.activeLibraryViewModels {
+            await libraryViewModel.refresh()
+            if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                libraryViewModel.addToLibrary(playlist: playlist)
+            }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+    }
+
+    func playlistRemoved(playlistId: String) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.markNeedsReloadOnActivation()
+            libraryViewModel.removeFromLibrary(playlistId: playlistId)
+        }
+    }
+
+    func reconcileRemovedPlaylist(playlistId: String) async {
+        for libraryViewModel in self.activeLibraryViewModels {
+            await libraryViewModel.refresh()
+            if libraryViewModel.isInLibrary(playlistId: playlistId) {
+                libraryViewModel.removeFromLibrary(playlistId: playlistId)
+            }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+    }
+}
+
+// MARK: - LibraryViewModel
+
 /// View model for the Library view.
 @MainActor
 @Observable
@@ -78,6 +152,7 @@ final class LibraryViewModel {
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
+        LibraryMutationBroadcaster.shared.register(self)
     }
 
     private static func normalizedPlaylistId(_ playlistId: String) -> String {

@@ -74,8 +74,6 @@ struct AddToPlaylistContextMenu: View {
     let song: Song
     let client: any YTMusicClientProtocol
 
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
-
     @State private var loadState: PlaylistLoadState = .idle
     @State private var isCreatingPlaylist = false
 
@@ -258,26 +256,25 @@ struct AddToPlaylistContextMenu: View {
                 privacyStatus: .private,
                 videoIds: [self.song.videoId]
             )
+            let playlist = Playlist(
+                id: playlistId,
+                title: title,
+                description: nil,
+                thumbnailURL: self.song.thumbnailURL,
+                trackCount: 1
+            )
+
             SongActionsHelper.invalidateLibraryResponseCaches()
-            if let libraryViewModel {
-                let playlist = Playlist(
-                    id: playlistId,
-                    title: title,
-                    description: nil,
-                    thumbnailURL: self.song.thumbnailURL,
-                    trackCount: 1
-                )
-                libraryViewModel.markNeedsReloadOnActivation()
-                libraryViewModel.addToLibrary(playlist: playlist)
-                // Library browse responses can lag briefly behind a successful playlist creation.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
-                SongActionsHelper.invalidateLibraryResponseCaches()
-                if !libraryViewModel.isInLibrary(playlistId: playlistId) {
-                    libraryViewModel.addToLibrary(playlist: playlist)
-                    SongActionsHelper.invalidateLibraryResponseCaches()
-                }
-            }
+            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
+
+            // Library browse responses can lag briefly behind a successful playlist creation.
+            // Refresh in the background, but keep the optimistic playlist visible if the
+            // cache/backend still returns a stale snapshot.
+            try? await Task.sleep(for: .milliseconds(500))
+            SongActionsHelper.invalidateLibraryResponseCaches()
+            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
+            SongActionsHelper.invalidateLibraryResponseCaches()
+
             await self.loadPlaylists(forceRefresh: true)
         } catch {
             self.loadState = .failed("Unable to Create Playlist")
