@@ -10,6 +10,7 @@ struct Playlist: Identifiable, Codable, Hashable {
     let thumbnailURL: URL?
     let trackCount: Int?
     let author: Artist?
+    let canDelete: Bool
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -18,6 +19,7 @@ struct Playlist: Identifiable, Codable, Hashable {
         case thumbnailURL
         case trackCount
         case author
+        case canDelete
     }
 
     init(
@@ -26,7 +28,8 @@ struct Playlist: Identifiable, Codable, Hashable {
         description: String?,
         thumbnailURL: URL?,
         trackCount: Int?,
-        author: Artist? = nil
+        author: Artist? = nil,
+        canDelete: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -34,6 +37,7 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.thumbnailURL = thumbnailURL
         self.trackCount = trackCount
         self.author = author
+        self.canDelete = canDelete
     }
 
     init(from decoder: any Decoder) throws {
@@ -51,6 +55,8 @@ struct Playlist: Identifiable, Codable, Hashable {
         } else {
             self.author = nil
         }
+
+        self.canDelete = (try? container.decode(Bool.self, forKey: .canDelete)) ?? false
     }
 
     /// Whether this is an album (vs a playlist).
@@ -114,7 +120,43 @@ extension Playlist {
         } else {
             self.author = nil
         }
+
+        self.canDelete = data["canDelete"] as? Bool ?? false
     }
+}
+
+// MARK: - AddToPlaylistMenu
+
+/// Menu data returned by YouTube Music for adding a song to playlists.
+struct AddToPlaylistMenu: Codable, Hashable {
+    let title: String?
+    let options: [AddToPlaylistOption]
+    let canCreatePlaylist: Bool
+}
+
+// MARK: - AddToPlaylistOption
+
+/// A playlist option in the add-to-playlist menu.
+struct AddToPlaylistOption: Identifiable, Codable, Hashable {
+    let playlistId: String
+    let title: String
+    let subtitle: String?
+    let thumbnailURL: URL?
+    let isSelected: Bool
+    let privacyStatus: PlaylistPrivacyStatus?
+
+    var id: String {
+        self.playlistId
+    }
+}
+
+// MARK: - PlaylistPrivacyStatus
+
+/// YouTube playlist privacy values used when creating/editing playlists.
+enum PlaylistPrivacyStatus: String, Codable, Hashable, CaseIterable {
+    case `public` = "PUBLIC"
+    case unlisted = "UNLISTED"
+    case `private` = "PRIVATE"
 }
 
 // MARK: - PlaylistDetail
@@ -127,6 +169,7 @@ struct PlaylistDetail: Identifiable {
     let thumbnailURL: URL?
     let author: Artist?
     let trackCount: Int?
+    let canDelete: Bool
     let tracks: [Song]
     let duration: String?
 
@@ -143,6 +186,7 @@ struct PlaylistDetail: Identifiable {
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
         self.trackCount = playlist.trackCount
+        self.canDelete = playlist.canDelete
         self.tracks = tracks
         self.duration = duration
     }

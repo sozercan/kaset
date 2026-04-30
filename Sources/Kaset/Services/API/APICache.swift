@@ -132,10 +132,17 @@ final class APICache {
     /// Invalidates all caches affected by mutation operations (like, library, feedback).
     /// More efficient than multiple invalidate(matching:) calls as it iterates only once.
     func invalidateMutationCaches() {
-        let mutationPrefixes = ["browse:", "next:", "like:"]
+        let mutationPrefixes = [
+            "browse:",
+            "next:",
+            "like:",
+            "playlist/get_add_to_playlist:",
+        ]
         self.cache = self.cache.filter { entry in
             !mutationPrefixes.contains { entry.key.hasPrefix($0) }
         }
+
+        URLCache.shared.removeAllCachedResponses()
     }
 
     /// Returns current cache statistics for debugging.

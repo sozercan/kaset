@@ -395,6 +395,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
             AddToQueueContextMenu(song: song, playerService: self.playerService)
 
+            Divider()
+
+            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
+
             // Go to Album - show if album has valid browse ID
             if let album = song.album, album.hasNavigableId {
                 Divider()

@@ -296,6 +296,19 @@ struct LibraryView: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if playlist.canDelete {
+                Button(role: .destructive) {
+                    SongActionsHelper.confirmDeletePlaylist(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.viewModel
+                    )
+                } label: {
+                    Label(String(localized: "Delete Playlist…"), systemImage: "trash")
+                }
+            }
+        }
     }
 
     private func podcastCard(_ show: PodcastShow) -> some View {

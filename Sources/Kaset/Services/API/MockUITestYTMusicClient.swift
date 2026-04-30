@@ -339,6 +339,40 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         // No-op for UI tests
     }
 
+    func deletePlaylist(playlistId _: String) async throws {
+        // No-op for UI tests
+    }
+
+    func getAddToPlaylistOptions(videoId _: String) async throws -> AddToPlaylistMenu {
+        AddToPlaylistMenu(
+            title: "Add to playlist",
+            options: self.playlists.map { playlist in
+                AddToPlaylistOption(
+                    playlistId: playlist.id,
+                    title: playlist.title,
+                    subtitle: playlist.author?.name,
+                    thumbnailURL: playlist.thumbnailURL,
+                    isSelected: false,
+                    privacyStatus: nil
+                )
+            },
+            canCreatePlaylist: false
+        )
+    }
+
+    func createPlaylist(
+        title _: String,
+        description _: String?,
+        privacyStatus _: PlaylistPrivacyStatus,
+        videoIds _: [String]
+    ) async throws -> String {
+        "PLMOCKCREATED"
+    }
+
+    func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {
+        // No-op for UI tests
+    }
+
     func unsubscribeFromPlaylist(playlistId _: String) async throws {
         // No-op for UI tests
     }

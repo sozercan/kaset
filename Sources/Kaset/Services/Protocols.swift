@@ -204,6 +204,23 @@ protocol YTMusicClientProtocol: Sendable {
     /// Adds a playlist to the user's library.
     func subscribeToPlaylist(playlistId: String) async throws
 
+    /// Permanently deletes one of the user's own playlists.
+    func deletePlaylist(playlistId: String) async throws
+
+    /// Fetches the user's playlists that can receive the provided song.
+    func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu
+
+    /// Adds a song to an existing playlist.
+    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws
+
+    /// Creates a playlist and optionally seeds it with songs.
+    func createPlaylist(
+        title: String,
+        description: String?,
+        privacyStatus: PlaylistPrivacyStatus,
+        videoIds: [String]
+    ) async throws -> String
+
     /// Removes a playlist from the user's library.
     func unsubscribeFromPlaylist(playlistId: String) async throws
 

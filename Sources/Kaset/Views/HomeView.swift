@@ -152,6 +152,10 @@ struct HomeView: View {
 
             Divider()
 
+            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
+
+            Divider()
+
             if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
                     Label("Go to Artist", systemImage: "person")

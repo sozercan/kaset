@@ -582,9 +582,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         )
 
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
+        let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
         let content = PlaylistParser.LibraryContent(
-            playlists: landingContent.playlists,
+            playlists: playlists,
             artists: artists,
             podcastShows: landingContent.podcastShows,
             artistsSource: artistsSource
@@ -594,6 +595,33 @@ final class YTMusicClient: YTMusicClientProtocol {
             "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
         )
         return content
+    }
+
+    /// Fetches library playlists from the dedicated browse endpoint with graceful fallback to the library landing preview.
+    private func fetchLibraryPlaylists(fallback fallbackPlaylists: [Playlist]) async throws -> [Playlist] {
+        do {
+            let playlistsData = try await self.request(
+                "browse",
+                body: ["browseId": "FEmusic_liked_playlists"],
+                ttl: APICache.TTL.library
+            )
+            let dedicatedPlaylists = PlaylistParser.parseLibraryPlaylists(playlistsData)
+
+            if dedicatedPlaylists.isEmpty {
+                if !fallbackPlaylists.isEmpty {
+                    self.logger.warning("Library playlists endpoint returned no playlists, falling back to landing preview")
+                }
+                return fallbackPlaylists
+            }
+
+            return PlaylistParser.mergedLibraryPlaylists(
+                dedicated: dedicatedPlaylists,
+                fallback: fallbackPlaylists
+            )
+        } catch {
+            self.logger.warning("Library playlists endpoint failed, falling back to landing preview: \(error.localizedDescription)")
+            return fallbackPlaylists
+        }
     }
 
     /// Fetches followed artists with graceful fallback to the library landing preview.
@@ -1228,6 +1256,100 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         // Invalidate library cache so UI updates
         APICache.shared.invalidate(matching: "browse:")
+    }
+
+    /// Permanently deletes one of the user's own playlists.
+    /// - Parameter playlistId: The playlist ID to delete
+    func deletePlaylist(playlistId: String) async throws {
+        self.logger.info("Deleting playlist: \(playlistId)")
+
+        // Remove VL prefix if present for the API call
+        let cleanId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+
+        let body: [String: Any] = [
+            "playlistId": cleanId,
+        ]
+
+        _ = try await self.request("playlist/delete", body: body)
+        self.logger.info("Successfully deleted playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
+    }
+
+    /// Fetches the add-to-playlist menu for a song.
+    /// - Parameter videoId: The video ID of the song to add
+    func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu {
+        self.logger.info("Fetching add-to-playlist options for song \(videoId)")
+
+        let body: [String: Any] = [
+            "videoIds": [videoId],
+        ]
+
+        let data = try await self.request("playlist/get_add_to_playlist", body: body, ttl: APICache.TTL.library)
+        let menu = PlaylistParser.parseAddToPlaylistMenu(data)
+        self.logger.info("Parsed \(menu.options.count) add-to-playlist options")
+        return menu
+    }
+
+    /// Creates a playlist and optionally seeds it with songs.
+    /// - Parameters:
+    ///   - title: Playlist title.
+    ///   - description: Optional playlist description.
+    ///   - privacyStatus: Desired YouTube playlist privacy setting.
+    ///   - videoIds: Initial songs to add to the playlist.
+    /// - Returns: The newly-created playlist ID.
+    func createPlaylist(
+        title: String,
+        description: String?,
+        privacyStatus: PlaylistPrivacyStatus,
+        videoIds: [String]
+    ) async throws -> String {
+        self.logger.info("Creating playlist: \(title, privacy: .public)")
+
+        var body: [String: Any] = [
+            "title": title,
+            "privacyStatus": privacyStatus.rawValue,
+        ]
+
+        if let description, !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["description"] = description
+        }
+
+        if !videoIds.isEmpty {
+            body["videoIds"] = videoIds
+        }
+
+        let data = try await self.request("playlist/create", body: body)
+        guard let playlistId = PlaylistParser.parseCreatedPlaylistId(data) else {
+            throw YTMusicError.parseError(message: "Missing playlist ID in create playlist response")
+        }
+
+        self.logger.info("Successfully created playlist \(playlistId, privacy: .public)")
+        APICache.shared.invalidateMutationCaches()
+        return playlistId
+    }
+
+    /// Adds a song to an existing playlist.
+    /// - Parameters:
+    ///   - videoId: The video ID to add
+    ///   - playlistId: The destination playlist ID
+    ///   - allowDuplicate: Reserved for future duplicate-confirmation UI; YouTube Music handles de-duping server-side.
+    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate _: Bool = false) async throws {
+        self.logger.info("Adding song \(videoId) to playlist \(playlistId)")
+
+        let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let body: [String: Any] = [
+            "playlistId": cleanPlaylistId,
+            "actions": [[
+                "action": "ACTION_ADD_VIDEO",
+                "addedVideoId": videoId,
+            ]],
+        ]
+
+        _ = try await self.request("browse/edit_playlist", body: body)
+        self.logger.info("Successfully added song \(videoId) to playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
     }
 
     /// Removes a playlist from the user's library using the like/removelike endpoint.
