@@ -424,7 +424,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     // MARK: - State Updates
 
-    /// Called when the mini player confirms playback has started.
+    /// Records that the WebView observer has confirmed playback has started.
     func confirmPlaybackStarted()
 
     /// Called when the mini player is dismissed.

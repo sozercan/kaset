@@ -249,7 +249,7 @@ struct ScriptCommandsTests {
 
     // MARK: - PlayVideoCommand Tests
 
-    @Test("PlayVideo keeps the first-session gate closed until playback is confirmed")
+    @Test("PlayVideo stays hidden while keeping the first-session gate closed until playback is confirmed")
     func playVideoKeepsFirstSessionGateClosedUntilPlaybackIsConfirmed() async {
         let playerService = PlayerService()
         let mockClient = MockYTMusicClient()
@@ -265,7 +265,7 @@ struct ScriptCommandsTests {
                 playerService.currentTrack?.videoId == "first-video-id" &&
                 playerService.queue.count == 1 &&
                 playerService.queue.first?.videoId == "first-video-id" &&
-                playerService.showMiniPlayer == true &&
+                playerService.showMiniPlayer == false &&
                 mockClient.getRadioQueueVideoIds == ["first-video-id"]
         }
 
@@ -274,7 +274,7 @@ struct ScriptCommandsTests {
         #expect(playerService.currentTrack?.videoId == "first-video-id")
         #expect(playerService.queue.count == 1)
         #expect(playerService.queue.first?.videoId == "first-video-id")
-        #expect(playerService.showMiniPlayer == true)
+        #expect(playerService.showMiniPlayer == false)
 
         playerService.miniPlayerDismissed()
         #expect(playerService.showMiniPlayer == false)
@@ -288,7 +288,7 @@ struct ScriptCommandsTests {
                 playerService.currentTrack?.videoId == "second-video-id" &&
                 playerService.queue.count == 1 &&
                 playerService.queue.first?.videoId == "second-video-id" &&
-                playerService.showMiniPlayer == true &&
+                playerService.showMiniPlayer == false &&
                 mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id"]
         }
 
@@ -297,7 +297,7 @@ struct ScriptCommandsTests {
         #expect(playerService.currentTrack?.videoId == "second-video-id")
         #expect(playerService.queue.count == 1)
         #expect(playerService.queue.first?.videoId == "second-video-id")
-        #expect(playerService.showMiniPlayer == true)
+        #expect(playerService.showMiniPlayer == false)
 
         playerService.confirmPlaybackStarted()
         #expect(playerService.showMiniPlayer == false)
