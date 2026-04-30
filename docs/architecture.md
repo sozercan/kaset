@@ -126,6 +126,10 @@ Makes authenticated requests to YouTube Music's internal API:
 - `unsubscribeFromArtist(channelId:)` → Unsubscribe from an artist
 - `subscribeToPlaylist(playlistId:)` → Add playlist to library
 - `unsubscribeFromPlaylist(playlistId:)` → Remove playlist from library
+- `deletePlaylist(playlistId:)` → Delete a user-owned playlist
+- `getAddToPlaylistOptions(videoId:)` → Fetch the signed-in user's add-to-playlist menu
+- `addSongToPlaylist(videoId:playlistId:allowDuplicate:)` → Add one song to an existing playlist via `browse/edit_playlist`
+- `createPlaylist(title:description:privacyStatus:videoIds:)` → Create a playlist and optionally seed it with songs
 
 ### API Parsers
 
@@ -138,7 +142,7 @@ Response parsing is extracted into specialized modules:
 | `ParsingHelpers.swift` | Shared utilities (thumbnails, artists, duration) |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination |
+| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination, add-to-playlist menu options, create-playlist IDs, and ownership/delete affordances |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |
 | `RadioQueueParser.swift` | Radio queue from "next" endpoint |
 | `SongMetadataParser.swift` | Full song metadata with feedback tokens |
@@ -749,6 +753,8 @@ In-memory cache with TTL and LRU eviction:
 - Pre-allocated dictionary capacity to reduce rehashing
 - Periodic eviction (every 30 seconds) instead of per-write
 - Stable cache keys using SHA256 hash of sorted JSON body
+- Mutation invalidation clears browse, next, like, and `playlist/get_add_to_playlist` entries so library and add-to-playlist menus refresh after playlist/song changes
+- Mutation invalidation is scoped to the app's `APICache`; it does not flush `URLCache.shared` HTTP responses
 
 ### Image Caching
 

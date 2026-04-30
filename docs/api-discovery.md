@@ -598,10 +598,10 @@ _ = try await request("like/removelike", body: body)
 |----------|------|------|----------|-------|
 | `player` | Player | 🌐 | Medium | Video metadata, streaming URLs |
 | `music/get_queue` | Get Queue | 🌐 | **High** | Queue data for video IDs |
-| `playlist/get_add_to_playlist` | Add to Playlist | 🔐 | Medium | Get playlists for "Add to" menu |
-| `browse/edit_playlist` | Edit Playlist | 🔐 | Medium | Add/remove playlist tracks |
-| `playlist/create` | Create Playlist | 🔐 | Medium | Create new playlist |
-| `playlist/delete` | Delete Playlist | 🔐 | Low | Delete a playlist |
+| `playlist/get_add_to_playlist` | Add to Playlist | 🔐 | Medium | Get playlists for "Add to" menu; cached with library TTL |
+| `browse/edit_playlist` | Edit Playlist | 🔐 | Medium | Add/remove playlist tracks; invalidates library/menu caches |
+| `playlist/create` | Create Playlist | 🔐 | Medium | Create new playlist; supports optional seed `videoIds` |
+| `playlist/delete` | Delete Playlist | 🔐 | Low | Delete a user-owned playlist when delete affordance is present |
 | `guide` | Guide | 🌐 | Low | Sidebar structure |
 | `account/account_menu` | Account Menu | 🔐 | Low | Account settings |
 
@@ -712,32 +712,122 @@ let body = ["playlistId": "RDCLAK5uy_l2pHac-aawJYLcesgTf67gaKU-B9ekk1o"]
 
 #### Playlist Management
 
-All playlist management endpoints require authentication (HTTP 401 without auth):
+All playlist management endpoints require authentication (HTTP 401 without auth). The app exposes these through `YTMusicClientProtocol` so context menus and view models can be tested with mocks.
+
+##### Add-to-Playlist Menu (`playlist/get_add_to_playlist`)
 
 ```swift
-// Get playlists for "Add to Playlist" menu
-let body = ["videoIds": ["dQw4w9WgXcQ"]]
-let response = try await request("playlist/get_add_to_playlist", body: body)
-// Returns HTTP 401 without auth
+let body: [String: Any] = [
+    "videoIds": ["dQw4w9WgXcQ"],
+]
+let response = try await request("playlist/get_add_to_playlist", body: body, ttl: APICache.TTL.library)
+let menu = PlaylistParser.parseAddToPlaylistMenu(response)
+```
 
-// Add to playlist
-let body = [
-    "playlistId": "PLxyz...",
-    "actions": [["addedVideoId": "dQw4w9WgXcQ", "action": "ACTION_ADD_VIDEO"]]
+Parser notes:
+- The useful payload is usually under `addToPlaylistRenderer`; parser falls back to the root dictionary if that wrapper is absent.
+- Playlist options are only read from known option renderer wrappers: `playlistAddToOptionRenderer`, `addToPlaylistItemRenderer`, `musicResponsiveListItemRenderer`, and `musicTwoRowItemRenderer`. Do not treat arbitrary parent containers as options just because they contain a nested `playlistId`.
+- Options are deduplicated by `playlistId` and expose title, subtitle, thumbnail, selected/checked state, and optional privacy status.
+- `canCreatePlaylist` is true only when the renderer contains `createPlaylistEndpoint`; do not infer create support from display text containing "Create".
+- The submenu disables already-selected playlists and only shows "Create Playlist…" when `canCreatePlaylist` is true.
+
+Representative shape:
+
+```json
+{
+  "addToPlaylistRenderer": {
+    "title": { "runs": [{ "text": "Add to playlist" }] },
+    "contents": [
+      {
+        "playlistAddToOptionRenderer": {
+          "title": { "runs": [{ "text": "Road Trip" }] },
+          "subtitle": { "runs": [{ "text": "Private" }] },
+          "selected": true,
+          "serviceEndpoint": {
+            "playlistEditEndpoint": { "playlistId": "PLROADTRIP" }
+          }
+        }
+      }
+    ],
+    "createPlaylistEndpoint": {}
+  }
+}
+```
+
+##### Add Song to Playlist (`browse/edit_playlist`)
+
+```swift
+let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+let body: [String: Any] = [
+    "playlistId": cleanPlaylistId,
+    "actions": [[
+        "action": "ACTION_ADD_VIDEO",
+        "addedVideoId": "dQw4w9WgXcQ",
+    ]],
 ]
 try await request("browse/edit_playlist", body: body)
-// Returns HTTP 401 without auth
-
-// Create playlist
-let body = [
-    "title": "My Playlist",
-    "description": "",
-    "privacyStatus": "PRIVATE",
-    "videoIds": []
-]
-try await request("playlist/create", body: body)
-// Returns HTTP 401 without auth
 ```
+
+Implementation notes:
+- Strip a leading `VL` from playlist browse IDs before sending mutation requests.
+- The `allowDuplicate` client parameter is reserved for future UI; YouTube Music currently handles duplicate behavior server-side.
+- Successful mutations call `APICache.invalidateMutationCaches()`, which clears `browse:`, `next:`, `like:`, and `playlist/get_add_to_playlist:` entries so library views, metadata, and add-to-playlist menus refresh.
+
+##### Create Playlist (`playlist/create`)
+
+```swift
+var body: [String: Any] = [
+    "title": "My Playlist",
+    "privacyStatus": PlaylistPrivacyStatus.private.rawValue, // PRIVATE, UNLISTED, PUBLIC
+]
+body["description"] = "Optional description" // omit when blank
+body["videoIds"] = ["dQw4w9WgXcQ"]        // omit when empty
+
+let response = try await request("playlist/create", body: body)
+let playlistId = PlaylistParser.parseCreatedPlaylistId(response)
+```
+
+Parser notes:
+- Prefer a non-empty top-level `playlistId`.
+- Fall back to known nested response shapes such as toast `notificationTextRenderer.navigationEndpoint.browseEndpoint.playlistId`, action navigation endpoints, or `command.browseEndpoint.playlistId`.
+- If no playlist ID can be found, throw a parse error rather than assuming creation succeeded.
+
+Representative response shapes observed by tests:
+
+```json
+{ "playlistId": "PLCREATED123", "status": "STATUS_SUCCEEDED" }
+```
+
+```json
+{
+  "actions": [
+    {
+      "addToToastAction": {
+        "item": {
+          "notificationTextRenderer": {
+            "responseText": { "runs": [{ "text": "Playlist created" }] },
+            "navigationEndpoint": {
+              "browseEndpoint": { "playlistId": "PLNESTED456" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+##### Delete Playlist (`playlist/delete`)
+
+```swift
+let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+try await request("playlist/delete", body: ["playlistId": cleanPlaylistId])
+```
+
+Implementation notes:
+- Only expose destructive delete UI when parsed playlist data indicates the signed-in user can delete it.
+- `Playlist.canDelete` / `PlaylistDetail.canDelete` is derived from payload affordances such as `deletePlaylistEndpoint`, `musicEditablePlaylistDetailHeaderRenderer`, or `playlist/delete` command text; unknown ownership defaults to false.
+- Delete mutations also invalidate mutation-affected app caches.
 
 ---
 
@@ -998,14 +1088,14 @@ let result = try await RetryPolicy.execute(
 |---------|----------|--------|--------|
 | Library Albums | `FEmusic_library_albums` | Medium | Medium |
 | Library Artists | `FEmusic_library_corpus_track_artists` | Medium | Medium |
-| Add to Playlist | `playlist/get_add_to_playlist` | Medium | Medium |
+| Add to Playlist | `playlist/get_add_to_playlist` + `browse/edit_playlist` | Implemented | Medium |
 
 ### Phase 3: Discovery
 
 | Feature | Endpoint | Effort | Impact |
 |---------|----------|--------|--------|
 | New Releases | `FEmusic_new_releases` | Low | Medium |
-| Create Playlist | `playlist/create` | Medium | Medium |
+| Create Playlist | `playlist/create` | Implemented | Medium |
 
 ---
 
@@ -1269,8 +1359,9 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 | `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |
 | `FEmusic_recently_played` | HTTP 400 | Needs auth |
-| `playlist/get_add_to_playlist` | HTTP 401 | Needs full auth |
-| `playlist/create` | HTTP 401 | Needs full auth |
-| `browse/edit_playlist` | HTTP 401 | Needs full auth |
+| `playlist/get_add_to_playlist` | HTTP 401 | Needs full auth; app caches with `APICache.TTL.library` |
+| `playlist/create` | HTTP 401 | Needs full auth; response playlist ID may be top-level or nested |
+| `browse/edit_playlist` | HTTP 401 | Needs full auth; app uses `ACTION_ADD_VIDEO` for adding tracks |
+| `playlist/delete` | HTTP 401 | Needs full auth and user-owned playlist |
 
 > **Note on Library Artists endpoints**: `FEmusic_library_corpus_track_artists` is the sign-in-backed Artists chip browseId and returns `MPLAUC...` library artist pages. Those `MPLAUC...` pages also require authentication when browsed directly. In current authenticated sessions, the library chip also exposes `FEmusic_library_corpus_artists` with `params=ggMCCAU=`; that endpoint returns followed artists with public `UC...` browseIds and is a better source for navigation. By contrast, `FEmusic_library_artists` currently returns HTTP 400 invalid argument even with full SAPISIDHASH authentication.

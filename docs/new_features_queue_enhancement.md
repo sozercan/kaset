@@ -14,12 +14,8 @@ This document details the proposed enhancements to the Queue (Up Next) feature i
 
 ### Issues and Corrections
 
-1. **API Explorer (mandatory)**  
-   Per AGENTS.md, before implementing **Save as Playlist** or **Add to Playlist**, the following must be explored with `Sources/APIExplorer/main.swift` and documented in `docs/api-discovery.md`:
-   - `playlist/create` — request/response shape, error codes (quota, auth).
-   - `playlist/get_add_to_playlist` — structure of playlists returned for "Add to" menu.
-   - `browse/edit_playlist` — how to add videos to an existing playlist.  
-   Do not implement parsers or client methods from guesswork.
+1. **Playlist API documentation**
+   `playlist/create`, `playlist/get_add_to_playlist`, and `browse/edit_playlist` are now implemented in `YTMusicClient` and documented in `docs/api-discovery.md`, including request shapes, parser assumptions, and cache invalidation behavior. Continue updating that document when YouTube Music response shapes change; do not add new parsers or client methods from guesswork.
 
 2. **`removeFromQueue` signature**  
    Existing API is `removeFromQueue(videoIds: Set<String>)`. Use `Set([song.videoId])` (or `[song.videoId] as Set`), not `[song.videoId]`, when calling from context menus.
@@ -566,6 +562,8 @@ struct QueueContextMenu: View {
 
 #### Add to Playlist Menu
 
+> Current implementation note: the production add-to-playlist submenu is `AddToPlaylistContextMenu` in `Sources/Kaset/Views/SharedViews/SongActionsHelper.swift`. It fetches `getAddToPlaylistOptions(videoId:)`, uses the parsed `canCreatePlaylist` affordance to decide whether to show "Create Playlist…", disables already-selected playlists, supports retry after failed loads, and invalidates `playlist/get_add_to_playlist:` cache entries on forced retry.
+
 ```swift
 struct AddToPlaylistMenu: View {
     let song: Song
@@ -625,6 +623,8 @@ struct AddToPlaylistMenu: View {
 ### 4. Save Queue as Playlist
 
 #### API Integration
+
+> Current implementation note: `YTMusicClient.createPlaylist(title:description:privacyStatus:videoIds:)` returns the new playlist ID, omits blank descriptions and empty `videoIds`, supports `PRIVATE`/`UNLISTED`/`PUBLIC` via `PlaylistPrivacyStatus`, and invalidates mutation-affected caches after success.
 
 ```swift
 extension YTMusicClient {
@@ -816,7 +816,7 @@ extension UserDefaults {
 
 ### Phase 4: Save as Playlist
 
-**Prerequisite:** API Explorer run for `playlist/create`; response and error handling documented in `docs/api-discovery.md`.
+**Prerequisite:** Satisfied for `playlist/create`; request/response parsing and error handling notes are documented in `docs/api-discovery.md`.
 
 **Deliverables:**
 - "Save as Playlist" button in side panel footer
