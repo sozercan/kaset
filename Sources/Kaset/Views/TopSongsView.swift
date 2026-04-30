@@ -38,6 +38,7 @@ struct TopSongsView: View {
         }
         .navigationTitle(self.viewModel.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .topFade()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
                 PlayerBar()
