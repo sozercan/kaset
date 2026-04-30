@@ -527,6 +527,30 @@ struct PlaylistParserTests {
         #expect(menu.options.first?.privacyStatus == .private)
     }
 
+    @Test("Add-to-playlist parser does not infer create ability from text only")
+    func parseAddToPlaylistMenuRequiresCreateEndpoint() {
+        let data: [String: Any] = [
+            "addToPlaylistRenderer": [
+                "title": ["runs": [["text": "Create a playlist-style mix"]]],
+                "contents": [[
+                    "playlistAddToOptionRenderer": [
+                        "title": ["runs": [["text": "Create Energy Mix"]]],
+                        "serviceEndpoint": [
+                            "playlistEditEndpoint": [
+                                "playlistId": "PLCREATEENERGY",
+                            ],
+                        ],
+                    ],
+                ]],
+            ],
+        ]
+
+        let menu = PlaylistParser.parseAddToPlaylistMenu(data)
+
+        #expect(menu.canCreatePlaylist == false)
+        #expect(menu.options.map(\.playlistId) == ["PLCREATEENERGY"])
+    }
+
     @Test("Add-to-playlist parser deduplicates duplicate playlist IDs")
     func parseAddToPlaylistMenuDeduplicatesPlaylistIds() {
         let data: [String: Any] = [

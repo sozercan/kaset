@@ -141,8 +141,6 @@ final class APICache {
         self.cache = self.cache.filter { entry in
             !mutationPrefixes.contains { entry.key.hasPrefix($0) }
         }
-
-        URLCache.shared.removeAllCachedResponses()
     }
 
     /// Returns current cache statistics for debugging.

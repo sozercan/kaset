@@ -1378,7 +1378,6 @@ enum PlaylistParser {
         let renderer = Self.findFirstDictionary(named: "addToPlaylistRenderer", in: data) ?? data
         let title = Self.extractText(from: renderer["title"] as? [String: Any])
         let canCreatePlaylist = Self.containsKey("createPlaylistEndpoint", in: renderer)
-            || Self.containsText("Create", in: renderer)
 
         var seenPlaylistIds = Set<String>()
         let options = Self.collectAddToPlaylistOptions(in: renderer).filter { option in

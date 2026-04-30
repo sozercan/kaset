@@ -882,8 +882,10 @@ struct AddToPlaylistContextMenu: View {
                     }
                 }
 
-                Divider()
-                self.createPlaylistButton
+                if self.canCreatePlaylist {
+                    Divider()
+                    self.createPlaylistButton
+                }
             }
             .onAppear {
                 self.startLoadingPlaylistsIfNeeded()
@@ -901,6 +903,11 @@ struct AddToPlaylistContextMenu: View {
         }
     }
 
+    private var canCreatePlaylist: Bool {
+        guard case let .loaded(menu) = self.loadState else { return false }
+        return menu.canCreatePlaylist
+    }
+
     private var createPlaylistButton: some View {
         Button {
             Task { @MainActor in self.presentCreatePlaylistDialog() }
@@ -916,9 +923,12 @@ struct AddToPlaylistContextMenu: View {
         Task { await self.loadPlaylists(forceRefresh: false) }
     }
 
-    private func loadPlaylists(forceRefresh _: Bool = false) async {
+    private func loadPlaylists(forceRefresh: Bool = false) async {
         guard !Task.isCancelled else { return }
         self.loadState = .loading
+        if forceRefresh {
+            APICache.shared.invalidate(matching: "playlist/get_add_to_playlist:")
+        }
 
         do {
             let menu = try await self.fetchAddToPlaylistOptionsWithTimeout()
