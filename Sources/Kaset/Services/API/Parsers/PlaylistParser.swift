@@ -65,6 +65,20 @@ enum PlaylistParser {
         return LibraryContent(playlists: playlists, artists: artists, podcastShows: podcastShows)
     }
 
+    /// Merges library playlists using the dedicated endpoint as authoritative while retaining landing-only items.
+    static func mergedLibraryPlaylists(dedicated dedicatedPlaylists: [Playlist], fallback fallbackPlaylists: [Playlist]) -> [Playlist] {
+        var mergedPlaylists = dedicatedPlaylists
+        var seenPlaylistIds = Set(dedicatedPlaylists.map { Self.normalizedLibraryPlaylistId($0.id) })
+
+        for playlist in fallbackPlaylists {
+            let normalizedPlaylistId = Self.normalizedLibraryPlaylistId(playlist.id)
+            guard seenPlaylistIds.insert(normalizedPlaylistId).inserted else { continue }
+            mergedPlaylists.append(playlist)
+        }
+
+        return mergedPlaylists
+    }
+
     /// Parses artists from the dedicated library artists browse response.
     static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
         var artists: [Artist] = []
@@ -94,6 +108,14 @@ enum PlaylistParser {
         }
 
         return Self.deduplicatedArtists(normalizedArtists)
+    }
+
+    private static func normalizedLibraryPlaylistId(_ playlistId: String) -> String {
+        if playlistId.hasPrefix("VL") {
+            return String(playlistId.dropFirst(2))
+        }
+
+        return playlistId
     }
 
     private static func deduplicatedArtists(_ artists: [Artist]) -> [Artist] {
@@ -228,7 +250,8 @@ enum PlaylistParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") }
+                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") },
+                canDelete: Self.canDeletePlaylist(from: data)
             )
             playlists.append(playlist)
             Self.logger.info("parseLibraryItem: Added playlist: \(title)")
@@ -287,7 +310,8 @@ enum PlaylistParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") }
+                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") },
+                canDelete: Self.canDeletePlaylist(from: data)
             )
             playlists.append(playlist)
             Self.logger.info("parseLibraryItemFromResponsive: Added playlist: \(title)")
@@ -320,7 +344,8 @@ enum PlaylistParser {
             description: header.description,
             thumbnailURL: header.thumbnailURL,
             trackCount: trackCount,
-            author: header.author
+            author: header.author,
+            canDelete: Self.canDeletePlaylist(from: data)
         )
 
         return PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
@@ -340,7 +365,8 @@ enum PlaylistParser {
             description: header.description,
             thumbnailURL: header.thumbnailURL,
             trackCount: trackCount,
-            author: header.author
+            author: header.author,
+            canDelete: Self.canDeletePlaylist(from: data)
         )
 
         let detail = PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
@@ -425,19 +451,30 @@ enum PlaylistParser {
         var tracks: [Song] = []
         var token: String?
 
+        // Playlist continuations can return more than one shelf. Prefer the actual
+        // playlist shelf and ignore YouTube Music suggestion/recommendation shelves
+        // so suggestions are not appended as playlist tracks.
         for sectionData in sectionContents {
             if let (sectionTracks, sectionToken) = Self.parseShelfFromSection(sectionData, key: "musicPlaylistShelfRenderer") {
                 tracks.append(contentsOf: sectionTracks)
                 token = token ?? sectionToken
             }
-            if let (sectionTracks, sectionToken) = Self.parseShelfFromSection(sectionData, key: "musicShelfRenderer") {
+        }
+
+        if tracks.isEmpty {
+            for sectionData in sectionContents {
+                guard !Self.isSuggestedSection(sectionData),
+                      let (sectionTracks, sectionToken) = Self.parseShelfFromSection(sectionData, key: "musicShelfRenderer")
+                else { continue }
                 tracks.append(contentsOf: sectionTracks)
                 token = token ?? sectionToken
             }
         }
 
-        // Check for continuation at sectionListContinuation level
-        if token == nil {
+        // Check for continuation at sectionListContinuation level only when the
+        // response did not already contain a playlist shelf. Section-level
+        // continuations after playlist shelves commonly page into Suggestions.
+        if token == nil, !Self.containsPlaylistShelf(sectionContents) {
             token = Self.extractTokenFromRenderer(sectionListContinuation)
         }
 
@@ -634,15 +671,25 @@ enum PlaylistParser {
             return nil
         }
 
-        // First check for continuation at sectionListRenderer level
+        // Check section contents first so track-level continuation tokens win over
+        // section-level suggestion continuations.
+        if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
+            if let token = Self.extractTokenFromSectionContents(sectionContents) {
+                return token
+            }
+
+            // Do not follow the section-level continuation once actual playlist
+            // shelves are exhausted; YouTube Music uses that token for Suggestions.
+            if Self.containsPlaylistShelf(sectionContents) {
+                return nil
+            }
+        }
+
+        // Fall back to sectionListRenderer-level tokens only for formats that do
+        // not expose a playlist shelf in the section contents.
         if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
             Self.logger.debug("Found continuation token at sectionListRenderer level")
             return token
-        }
-
-        // Check section contents
-        if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
-            return Self.extractTokenFromSectionContents(sectionContents)
         }
 
         return nil
@@ -680,18 +727,21 @@ enum PlaylistParser {
             return nil
         }
 
-        // First check section contents for track-level continuation (musicPlaylistShelfRenderer)
-        // This must be checked BEFORE the section-level continuation to ensure we paginate
-        // through all playlist tracks, not skip to the suggested/automix section.
         if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
             Self.logger.debug("Found secondaryContents with \(sectionContents.count) sections")
             if let token = Self.extractTokenFromSectionContents(sectionContents) {
                 return token
             }
+
+            // Do not follow the section-level continuation once actual playlist
+            // shelves are exhausted; YouTube Music uses that token for Suggestions.
+            if Self.containsPlaylistShelf(sectionContents) {
+                return nil
+            }
         }
 
-        // Fall back to section-level continuation (sectionListRenderer.continuations)
-        // This token loads the next section (e.g., suggested tracks) after all track pages are exhausted.
+        // Fall back to section-level continuation only for formats that do not
+        // expose a playlist shelf in secondaryContents.
         if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
             Self.logger.debug("Found continuation token at secondaryContents sectionListRenderer level (section-level)")
             return token
@@ -737,16 +787,16 @@ enum PlaylistParser {
     /// musicShelfRenderer (suggested/automix section) to ensure we paginate
     /// through actual playlist tracks before loading suggestions.
     private static func extractTokenFromSectionContents(_ sectionContents: [[String: Any]]) -> String? {
-        // First pass: look for the main playlist section (musicPlaylistShelfRenderer)
+        // First pass: look for the main playlist section (musicPlaylistShelfRenderer).
         for sectionData in sectionContents {
             if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
                 self.logger.debug("Found musicPlaylistShelfRenderer, has continuations: \(playlistShelfRenderer["continuations"] != nil)")
-                // Try legacy continuations format first
+                // Try legacy continuations format first.
                 if let token = extractTokenFromRenderer(playlistShelfRenderer) {
                     self.logger.debug("Found continuation token in musicPlaylistShelfRenderer (legacy format)")
                     return token
                 }
-                // Try 2025 format - token at last item of contents
+                // Try 2025 format - token at last item of contents.
                 if let shelfContents = playlistShelfRenderer["contents"] as? [[String: Any]],
                    let token = Self.extractTokenFromContents(shelfContents)
                 {
@@ -754,16 +804,25 @@ enum PlaylistParser {
                 }
             }
         }
-        // Second pass: fall back to musicShelfRenderer (suggested/automix sections)
+
+        // Second pass: fall back to non-suggestion musicShelfRenderer formats.
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
-                if let token = extractTokenFromRenderer(shelfRenderer) {
-                    self.logger.debug("Found continuation token in musicShelfRenderer (suggested/automix)")
-                    return token
-                }
+            guard !self.isSuggestedSection(sectionData),
+                  let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any]
+            else { continue }
+
+            self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
+            if let token = extractTokenFromRenderer(shelfRenderer) {
+                self.logger.debug("Found continuation token in musicShelfRenderer")
+                return token
+            }
+            if let shelfContents = shelfRenderer["contents"] as? [[String: Any]],
+               let token = Self.extractTokenFromContents(shelfContents)
+            {
+                return token
             }
         }
+
         return nil
     }
 
@@ -1147,31 +1206,62 @@ enum PlaylistParser {
     }
 
     private static func parseTracksFromSections(_ sections: [[String: Any]], fallbackThumbnailURL: URL?) -> [Song] {
+        let playlistShelfTracks = sections.flatMap { sectionData -> [Song] in
+            guard let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
+                  let playlistContents = playlistShelfRenderer["contents"] as? [[String: Any]]
+            else { return [] }
+
+            return playlistContents.compactMap { self.parseTrackItem($0, fallbackThumbnailURL: fallbackThumbnailURL) }
+        }
+
+        // When the browse response has a musicPlaylistShelfRenderer, that shelf is
+        // the authoritative playlist contents. Other musicShelfRenderer sections in
+        // the same response are Suggestions/Recommended tracks and must not be
+        // counted or rendered as playlist tracks.
+        if !playlistShelfTracks.isEmpty {
+            return playlistShelfTracks
+        }
+
         var tracks: [Song] = []
 
         for sectionData in sections {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let track = parseTrackItem(itemData, fallbackThumbnailURL: fallbackThumbnailURL) {
-                        tracks.append(track)
-                    }
-                }
-            }
+            guard !Self.isSuggestedSection(sectionData),
+                  let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+                  let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+            else { continue }
 
-            if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
-               let playlistContents = playlistShelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in playlistContents {
-                    if let track = parseTrackItem(itemData, fallbackThumbnailURL: fallbackThumbnailURL) {
-                        tracks.append(track)
-                    }
+            for itemData in shelfContents {
+                if let track = parseTrackItem(itemData, fallbackThumbnailURL: fallbackThumbnailURL) {
+                    tracks.append(track)
                 }
             }
         }
 
         return tracks
+    }
+
+    private static func containsPlaylistShelf(_ sections: [[String: Any]]) -> Bool {
+        sections.contains { $0["musicPlaylistShelfRenderer"] != nil }
+    }
+
+    private static func isSuggestedSection(_ sectionData: [String: Any]) -> Bool {
+        guard let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] else {
+            return false
+        }
+        return Self.isSuggestedShelfRenderer(shelfRenderer)
+    }
+
+    private static func isSuggestedShelfRenderer(_ shelfRenderer: [String: Any]) -> Bool {
+        let titleCandidates = [
+            Self.extractText(from: shelfRenderer["title"] as? [String: Any]),
+            Self.extractText(from: shelfRenderer["header"] as? [String: Any]),
+            Self.extractFirstText(from: shelfRenderer["strapline"]),
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+
+        return titleCandidates.contains { title in
+            title == "suggestions" || title == "suggested" || title.contains("suggestion")
+        }
     }
 
     private static func parseTrackItem(_ data: [String: Any], fallbackThumbnailURL: URL?) -> Song? {
@@ -1252,7 +1342,8 @@ enum PlaylistParser {
             description: nil,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") }
+            author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") },
+            canDelete: Self.canDeletePlaylist(from: data)
         )
     }
 
@@ -1275,8 +1366,317 @@ enum PlaylistParser {
             description: nil,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") }
+            author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") },
+            canDelete: Self.canDeletePlaylist(from: data)
         )
+    }
+
+    // MARK: - Add to Playlist Parsing
+
+    /// Parses the response from `playlist/get_add_to_playlist`.
+    static func parseAddToPlaylistMenu(_ data: [String: Any]) -> AddToPlaylistMenu {
+        let renderer = Self.findFirstDictionary(named: "addToPlaylistRenderer", in: data) ?? data
+        let title = Self.extractText(from: renderer["title"] as? [String: Any])
+        let canCreatePlaylist = Self.containsKey("createPlaylistEndpoint", in: renderer)
+
+        var seenPlaylistIds = Set<String>()
+        let options = Self.collectAddToPlaylistOptions(in: renderer).filter { option in
+            guard !seenPlaylistIds.contains(option.playlistId) else { return false }
+            seenPlaylistIds.insert(option.playlistId)
+            return true
+        }
+
+        return AddToPlaylistMenu(title: title, options: options, canCreatePlaylist: canCreatePlaylist)
+    }
+
+    private static let addToPlaylistOptionRendererKeys: Set<String> = [
+        "playlistAddToOptionRenderer",
+        "addToPlaylistItemRenderer",
+        "musicResponsiveListItemRenderer",
+        "musicTwoRowItemRenderer",
+    ]
+
+    private static func collectAddToPlaylistOptions(in value: Any) -> [AddToPlaylistOption] {
+        if let dictionary = value as? [String: Any] {
+            var options: [AddToPlaylistOption] = []
+
+            // Only parse dictionaries that are known option renderer wrappers. Do not
+            // interpret arbitrary parent containers as options just because they
+            // contain a nested playlistId somewhere in their command tree.
+            for key in Self.addToPlaylistOptionRendererKeys {
+                if let renderer = dictionary[key] as? [String: Any],
+                   let option = Self.parseAddToPlaylistOption(from: renderer)
+                {
+                    options.append(option)
+                }
+            }
+
+            for child in dictionary.values {
+                options.append(contentsOf: Self.collectAddToPlaylistOptions(in: child))
+            }
+            return options
+        }
+
+        if let array = value as? [Any] {
+            return array.flatMap { Self.collectAddToPlaylistOptions(in: $0) }
+        }
+
+        return []
+    }
+
+    /// Extracts the playlist ID returned by the playlist creation endpoint.
+    ///
+    /// YouTube Music has returned this value in multiple shapes over time: some
+    /// responses include a top-level `playlistId`, while others nest it inside a
+    /// result/command payload. Prefer the explicit top-level value, then fall
+    /// back to the same recursive playlist ID extraction used by add-to-playlist
+    /// option parsing.
+    static func parseCreatedPlaylistId(_ data: [String: Any]) -> String? {
+        if let playlistId = normalizedNonEmptyId(data["playlistId"] as? String) {
+            return playlistId
+        }
+
+        if let playlistId = Self.extractCreatedPlaylistIdFromKnownPaths(data) {
+            return playlistId
+        }
+
+        return Self.extractPlaylistId(from: data)
+    }
+
+    private static func normalizedNonEmptyId(_ id: String?) -> String? {
+        guard let trimmed = id?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func extractCreatedPlaylistIdFromKnownPaths(_ data: [String: Any]) -> String? {
+        if let actions = data["actions"] as? [[String: Any]] {
+            for action in actions {
+                if let playlistId = extractCreatedPlaylistIdFromToastAction(action) {
+                    return playlistId
+                }
+            }
+
+            for action in actions {
+                if let playlistId = extractPlaylistIdFromNavigationEndpoint(action["navigationEndpoint"]) {
+                    return playlistId
+                }
+            }
+        }
+
+        if let command = data["command"] as? [String: Any] {
+            if let playlistId = Self.extractPlaylistIdFromBrowseEndpoint(command["browseEndpoint"]) {
+                return playlistId
+            }
+            if let playlistId = Self.extractPlaylistIdFromBrowseEndpoint(command) {
+                return playlistId
+            }
+        }
+
+        return nil
+    }
+
+    private static func extractCreatedPlaylistIdFromToastAction(_ action: [String: Any]) -> String? {
+        guard let addToToastAction = action["addToToastAction"] as? [String: Any],
+              let item = addToToastAction["item"] as? [String: Any],
+              let notificationTextRenderer = item["notificationTextRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        return Self.extractPlaylistIdFromNavigationEndpoint(notificationTextRenderer["navigationEndpoint"])
+    }
+
+    private static func extractPlaylistIdFromNavigationEndpoint(_ value: Any?) -> String? {
+        guard let navigationEndpoint = value as? [String: Any] else { return nil }
+        return Self.extractPlaylistIdFromBrowseEndpoint(navigationEndpoint["browseEndpoint"])
+    }
+
+    private static func extractPlaylistIdFromBrowseEndpoint(_ value: Any?) -> String? {
+        guard let browseEndpoint = value as? [String: Any] else { return nil }
+        return Self.normalizedNonEmptyId(browseEndpoint["playlistId"] as? String)
+    }
+
+    private static func parseAddToPlaylistOption(from data: [String: Any]) -> AddToPlaylistOption? {
+        guard let playlistId = extractPlaylistId(from: data) else { return nil }
+
+        let title = Self.extractText(from: data["title"] as? [String: Any])
+            ?? Self.extractText(from: data["text"] as? [String: Any])
+            ?? Self.extractText(from: data["label"] as? [String: Any])
+            ?? Self.extractText(from: data["primaryText"] as? [String: Any])
+            ?? Self.extractText(from: data["header"] as? [String: Any])
+            ?? Self.extractFirstText(from: data["flexColumns"])
+            ?? Self.extractFirstText(from: data["runs"])
+            ?? "Unknown Playlist"
+
+        // Skip non-playlist actions that may carry a playlist id elsewhere in their command tree.
+        guard title != "Create new playlist", title != "New playlist" else { return nil }
+
+        let subtitle = Self.extractText(from: data["subtitle"] as? [String: Any])
+            ?? Self.extractText(from: data["secondaryText"] as? [String: Any])
+        let thumbnailURL = ParsingHelpers.extractThumbnails(from: data).last.flatMap { URL(string: $0) }
+
+        return AddToPlaylistOption(
+            playlistId: playlistId,
+            title: title,
+            subtitle: subtitle,
+            thumbnailURL: thumbnailURL,
+            isSelected: Self.extractSelectedState(from: data),
+            privacyStatus: Self.extractPrivacyStatus(from: data)
+        )
+    }
+
+    private static func extractPlaylistId(from value: Any) -> String? {
+        if let dictionary = value as? [String: Any] {
+            if let playlistId = normalizedNonEmptyId(dictionary["playlistId"] as? String) {
+                return playlistId
+            }
+            if let browseId = Self.normalizedNonEmptyId(dictionary["browseId"] as? String),
+               browseId.hasPrefix("VL") || browseId.hasPrefix("PL")
+            {
+                return browseId
+            }
+            for child in dictionary.values {
+                if let playlistId = Self.extractPlaylistId(from: child) {
+                    return playlistId
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                if let playlistId = Self.extractPlaylistId(from: child) {
+                    return playlistId
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func extractSelectedState(from data: [String: Any]) -> Bool {
+        if let selected = data["selected"] as? Bool ?? data["isSelected"] as? Bool ?? data["checked"] as? Bool {
+            return selected
+        }
+        if let checkStatus = data["checkStatus"] as? String {
+            let normalized = checkStatus.uppercased()
+
+            if normalized.contains("UNCHECK")
+                || normalized.contains("UNSELECTED")
+                || normalized.contains("NOT_SELECTED")
+            {
+                return false
+            }
+
+            return normalized.contains("CHECKBOX_STATE_CHECKED")
+                || normalized.contains("CHECKED")
+                || normalized.contains("SELECTED")
+        }
+        if let toggled = data["toggled"] as? Bool {
+            return toggled
+        }
+        return false
+    }
+
+    private static func extractPrivacyStatus(from data: [String: Any]) -> PlaylistPrivacyStatus? {
+        let possibleText = [
+            data["privacy"] as? String,
+            data["privacyStatus"] as? String,
+            Self.extractText(from: data["subtitle"] as? [String: Any]),
+        ].compactMap(\.self).joined(separator: " ").uppercased()
+
+        if possibleText.contains("PRIVATE") { return .private }
+        if possibleText.contains("UNLISTED") { return .unlisted }
+        if possibleText.contains("PUBLIC") { return .public }
+        return nil
+    }
+
+    private static func extractText(from data: [String: Any]?) -> String? {
+        guard let data else { return nil }
+
+        if let text = data["simpleText"] as? String {
+            return text
+        }
+        if let content = data["content"] as? String {
+            return content
+        }
+        if let runs = data["runs"] as? [[String: Any]] {
+            let text = runs.compactMap { $0["text"] as? String }.joined()
+            return text.isEmpty ? nil : text
+        }
+        return nil
+    }
+
+    private static func extractFirstText(from value: Any?) -> String? {
+        if let dictionary = value as? [String: Any] {
+            if let text = extractText(from: dictionary) {
+                return text
+            }
+            for child in dictionary.values {
+                if let text = Self.extractFirstText(from: child) {
+                    return text
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                if let text = Self.extractFirstText(from: child) {
+                    return text
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func findFirstDictionary(named key: String, in value: Any) -> [String: Any]? {
+        if let dictionary = value as? [String: Any] {
+            if let match = dictionary[key] as? [String: Any] {
+                return match
+            }
+            for child in dictionary.values {
+                if let match = Self.findFirstDictionary(named: key, in: child) {
+                    return match
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                if let match = Self.findFirstDictionary(named: key, in: child) {
+                    return match
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Returns true only when the response payload exposes commands that are available
+    /// for playlists the signed-in user can delete. Unknown ownership is treated as false.
+    private static func canDeletePlaylist(from value: Any) -> Bool {
+        self.containsKey("deletePlaylistEndpoint", in: value)
+            || self.containsKey("musicEditablePlaylistDetailHeaderRenderer", in: value)
+            || self.containsText("playlist/delete", in: value)
+    }
+
+    private static func containsKey(_ key: String, in value: Any) -> Bool {
+        if let dictionary = value as? [String: Any] {
+            if dictionary[key] != nil { return true }
+            return dictionary.values.contains { self.containsKey(key, in: $0) }
+        }
+        if let array = value as? [Any] {
+            return array.contains { Self.containsKey(key, in: $0) }
+        }
+        return false
+    }
+
+    private static func containsText(_ text: String, in value: Any) -> Bool {
+        if let string = value as? String {
+            return string.localizedCaseInsensitiveContains(text)
+        }
+        if let dictionary = value as? [String: Any] {
+            return dictionary.values.contains { Self.containsText(text, in: $0) }
+        }
+        if let array = value as? [Any] {
+            return array.contains { Self.containsText(text, in: $0) }
+        }
+        return false
     }
 
     // MARK: - Queue Response Parsing

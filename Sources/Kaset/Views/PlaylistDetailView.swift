@@ -12,6 +12,7 @@ struct PlaylistDetailView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.dismiss) private var dismiss
     /// Tracks whether this playlist has been added to library in this session.
     @State private var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.
@@ -298,6 +299,35 @@ struct PlaylistDetailView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.large)
                 .requiresIntelligence()
+
+                if detail.canDelete {
+                    Button(role: .destructive) {
+                        SongActionsHelper.confirmDeletePlaylist(
+                            Playlist(
+                                id: detail.id,
+                                title: detail.title,
+                                description: detail.description,
+                                thumbnailURL: detail.thumbnailURL,
+                                trackCount: detail.trackCount,
+                                author: detail.author,
+                                canDelete: detail.canDelete
+                            ),
+                            client: self.viewModel.client,
+                            libraryViewModel: self.libraryViewModel
+                        ) {
+                            self.dismiss()
+                        }
+                    } label: {
+                        self.headerActionLabel(
+                            localized: "Delete Playlist",
+                            systemImage: "trash",
+                            showsTitle: showsTitles
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .tint(.red)
+                }
             }
         }
     }
@@ -502,6 +532,10 @@ struct PlaylistDetailView: View {
             Divider()
 
             AddToQueueContextMenu(song: track, playerService: self.playerService)
+
+            Divider()
+
+            AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
 
             Divider()
 

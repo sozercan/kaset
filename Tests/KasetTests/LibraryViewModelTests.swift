@@ -413,6 +413,66 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.playlists.isEmpty)
     }
 
+    @Test("refresh keeps locally added playlist visible until backend catches up")
+    func refreshKeepsAddedPlaylistVisible() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLcreated-playlist", title: "Created Playlist")
+
+        self.viewModel.addToLibrary(playlist: playlist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLcreated-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+        #expect(self.viewModel.playlists.first?.title == "Created Playlist")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLcreated-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+    }
+
+    @Test("refresh keeps locally added playlist visible through oscillating backend responses")
+    func refreshKeepsAddedPlaylistVisibleThroughOscillation() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLcreated-playlist", title: "Created Playlist")
+
+        self.viewModel.addToLibrary(playlist: playlist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "created-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "created-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+    }
+
+    @Test("refresh keeps locally removed playlist suppressed until backend catches up")
+    func refreshKeepsRemovedPlaylistSuppressed() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLold-playlist", title: "Old Playlist")
+        self.mockClient.libraryPlaylists = [playlist]
+
+        await self.viewModel.load()
+        self.viewModel.removeFromLibrary(playlistId: "old-playlist")
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLold-playlist") == false)
+        #expect(self.viewModel.playlists.isEmpty)
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLold-playlist") == false)
+        #expect(self.viewModel.playlists.isEmpty)
+    }
+
     // MARK: - Podcast Library Tests
 
     @Test("addToLibrary inserts podcast at beginning and updates ID set")

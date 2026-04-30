@@ -100,7 +100,8 @@ final class PlaylistDetailViewModel {
                             description: detail.description,
                             thumbnailURL: detail.thumbnailURL,
                             trackCount: allTracks.count,
-                            author: detail.author
+                            author: detail.author,
+                            canDelete: detail.canDelete || self.playlist.canDelete
                         )
                         detail = PlaylistDetail(
                             playlist: updatedPlaylist,
@@ -142,7 +143,8 @@ final class PlaylistDetailViewModel {
                     description: detail.description ?? self.playlist.description,
                     thumbnailURL: resolvedThumbnailURL,
                     trackCount: mergedTrackCount,
-                    author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author)
+                    author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author),
+                    canDelete: detail.canDelete || self.playlist.canDelete
                 )
                 detail = PlaylistDetail(
                     playlist: mergedPlaylist,
@@ -216,7 +218,8 @@ final class PlaylistDetailViewModel {
                 description: currentDetail.description,
                 thumbnailURL: currentDetail.thumbnailURL,
                 trackCount: preservedTrackCount,
-                author: currentDetail.author
+                author: currentDetail.author,
+                canDelete: currentDetail.canDelete
             )
             self.playlistDetail = PlaylistDetail(
                 playlist: updatedPlaylist,
@@ -311,7 +314,8 @@ final class PlaylistDetailViewModel {
             description: detail.description,
             thumbnailURL: detail.thumbnailURL,
             trackCount: trackCount,
-            author: detail.author
+            author: detail.author,
+            canDelete: detail.canDelete
         )
 
         return PlaylistDetail(
