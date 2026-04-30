@@ -203,76 +203,130 @@ struct PlaylistDetailView: View {
         )
 
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 16) {
-                Button {
-                    self.playAll(
-                        detail.tracks, fallbackArtist: detail.author?.name,
-                        fallbackAlbum: fallbackAlbum
-                    )
-                } label: {
-                    Label("Play", systemImage: "play.fill")
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .disabled(playableTracks.isEmpty)
+            ViewThatFits(in: .horizontal) {
+                self.headerActionButtons(
+                    detail,
+                    playableTracks: playableTracks,
+                    fallbackAlbum: fallbackAlbum,
+                    showsTitles: true
+                )
+                .fixedSize(horizontal: true, vertical: false)
 
-                Button {
-                    SongActionsHelper.addSongsToQueueNext(
-                        playableTracks,
-                        playerService: self.playerService,
-                        fallbackArtist: detail.author?.name,
-                        fallbackAlbum: fallbackAlbum
-                    )
-                } label: {
-                    Label("Play Next", systemImage: "text.insert")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(playableTracks.isEmpty)
-
-                Button {
-                    SongActionsHelper.addSongsToQueueLast(
-                        playableTracks,
-                        playerService: self.playerService,
-                        fallbackArtist: detail.author?.name,
-                        fallbackAlbum: fallbackAlbum
-                    )
-                } label: {
-                    Label("Add to Queue", systemImage: "text.append")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(playableTracks.isEmpty)
-
-                let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-                Button {
-                    self.toggleLibrary()
-                } label: {
-                    Label(
-                        currentlyInLibrary
-                            ? String(localized: "Added to Library")
-                            : String(localized: "Add to Library"),
-                        systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle"
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-
-                if !detail.isAlbum {
-                    Button {
-                        self.showRefineSheet = true
-                    } label: {
-                        Label("Refine", systemImage: "sparkles")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .requiresIntelligence()
-                }
+                self.headerActionButtons(
+                    detail,
+                    playableTracks: playableTracks,
+                    fallbackAlbum: fallbackAlbum,
+                    showsTitles: false
+                )
             }
 
             Text(self.metadataText(for: detail))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func headerActionButtons(
+        _ detail: PlaylistDetail,
+        playableTracks: [Song],
+        fallbackAlbum: Album,
+        showsTitles: Bool
+    ) -> some View {
+        HStack(spacing: 16) {
+            Button {
+                self.playAll(
+                    detail.tracks, fallbackArtist: detail.author?.name,
+                    fallbackAlbum: fallbackAlbum
+                )
+            } label: {
+                self.headerActionLabel(localized: "Play", systemImage: "play.fill", showsTitle: showsTitles)
+            }
+            .buttonStyle(.glassProminent)
+            .controlSize(.large)
+            .disabled(playableTracks.isEmpty)
+
+            Button {
+                SongActionsHelper.addSongsToQueueNext(
+                    playableTracks,
+                    playerService: self.playerService,
+                    fallbackArtist: detail.author?.name,
+                    fallbackAlbum: fallbackAlbum
+                )
+            } label: {
+                self.headerActionLabel(localized: "Play Next", systemImage: "text.insert", showsTitle: showsTitles)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(playableTracks.isEmpty)
+
+            Button {
+                SongActionsHelper.addSongsToQueueLast(
+                    playableTracks,
+                    playerService: self.playerService,
+                    fallbackArtist: detail.author?.name,
+                    fallbackAlbum: fallbackAlbum
+                )
+            } label: {
+                self.headerActionLabel(localized: "Add to Queue", systemImage: "text.append", showsTitle: showsTitles)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(playableTracks.isEmpty)
+
+            let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
+            let libraryTitle = currentlyInLibrary
+                ? String(localized: "Added to Library")
+                : String(localized: "Add to Library")
+            Button {
+                self.toggleLibrary()
+            } label: {
+                self.headerActionLabel(
+                    libraryTitle,
+                    systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle",
+                    showsTitle: showsTitles
+                )
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+
+            if !detail.isAlbum {
+                Button {
+                    self.showRefineSheet = true
+                } label: {
+                    self.headerActionLabel(localized: "Refine", systemImage: "sparkles", showsTitle: showsTitles)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .requiresIntelligence()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func headerActionLabel(
+        localized title: LocalizedStringKey,
+        systemImage: String,
+        showsTitle: Bool
+    ) -> some View {
+        if showsTitle {
+            Label(title, systemImage: systemImage)
+        } else {
+            Image(systemName: systemImage)
+                .accessibilityLabel(Text(title))
+        }
+    }
+
+    @ViewBuilder
+    private func headerActionLabel(
+        _ title: String,
+        systemImage: String,
+        showsTitle: Bool
+    ) -> some View {
+        if showsTitle {
+            Label(title, systemImage: systemImage)
+        } else {
+            Image(systemName: systemImage)
+                .accessibilityLabel(title)
         }
     }
 
