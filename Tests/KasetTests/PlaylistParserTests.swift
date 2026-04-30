@@ -1,10 +1,11 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Kaset
 
 /// Tests for the PlaylistParser.
 @Suite(.tags(.parser))
-struct PlaylistParserTests {
+struct PlaylistParserTests { // swiftlint:disable:this type_body_length
     // MARK: - Library Playlists
 
     @Test("Parse empty library playlists response")

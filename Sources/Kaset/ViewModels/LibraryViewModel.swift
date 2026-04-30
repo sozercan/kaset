@@ -139,7 +139,7 @@ final class LibraryViewModel {
         self.libraryStateRevision &+= 1
     }
 
-    private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) {
+    private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) { // swiftlint:disable:this cyclomatic_complexity
         self.podcastShows = content.podcastShows
         self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
 

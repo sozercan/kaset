@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 @testable import Kaset
 
@@ -172,8 +173,21 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var deletePlaylistCalled = false
     private(set) var deletePlaylistIds: [String] = []
     private(set) var getAddToPlaylistOptionsVideoIds: [String] = []
-    private(set) var createPlaylistCalls: [(title: String, description: String?, privacyStatus: PlaylistPrivacyStatus, videoIds: [String])] = []
-    private(set) var addSongToPlaylistCalls: [(videoId: String, playlistId: String, allowDuplicate: Bool)] = []
+    struct CreatePlaylistCall: Equatable {
+        let title: String
+        let description: String?
+        let privacyStatus: PlaylistPrivacyStatus
+        let videoIds: [String]
+    }
+
+    struct AddSongToPlaylistCall: Equatable {
+        let videoId: String
+        let playlistId: String
+        let allowDuplicate: Bool
+    }
+
+    private(set) var createPlaylistCalls: [CreatePlaylistCall] = []
+    private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -668,7 +682,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         privacyStatus: PlaylistPrivacyStatus,
         videoIds: [String]
     ) async throws -> String {
-        self.createPlaylistCalls.append((
+        self.createPlaylistCalls.append(CreatePlaylistCall(
             title: title,
             description: description,
             privacyStatus: privacyStatus,
@@ -679,7 +693,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws {
-        self.addSongToPlaylistCalls.append((videoId: videoId, playlistId: playlistId, allowDuplicate: allowDuplicate))
+        self.addSongToPlaylistCalls.append(AddSongToPlaylistCall(videoId: videoId, playlistId: playlistId, allowDuplicate: allowDuplicate))
         if let error = shouldThrowError { throw error }
 
         let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
