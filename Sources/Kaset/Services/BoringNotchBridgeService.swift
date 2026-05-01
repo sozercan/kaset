@@ -51,7 +51,7 @@ final class BoringNotchBridgeService {
     private let playerService: PlayerService
     private let logger = DiagnosticsLogger.network
     private let token = UUID().uuidString
-    // NWListener and NWConnection require a DispatchQueue for thread safety
+    /// NWListener and NWConnection require a DispatchQueue for thread safety
     private let queue = DispatchQueue(label: "com.kaset.boring-notch-bridge", qos: .userInitiated)
 
     private var listener: NWListener?
@@ -146,7 +146,7 @@ final class BoringNotchBridgeService {
         let remoteEndpoint = connection.endpoint
         let isLoopback: Bool
         switch remoteEndpoint {
-        case .hostPort(let host, _):
+        case let .hostPort(host, _):
             // Check if host represents loopback
             let debugDesc = host.debugDescription
             isLoopback = debugDesc.contains("127.0.0.1") || debugDesc.contains("::1") || debugDesc.contains("localhost")
@@ -288,48 +288,48 @@ final class BoringNotchBridgeService {
     private func handleGETRequest(_ path: String, headers: [String: String], connectionID: ObjectIdentifier) async -> HTTPRequestAction {
         switch path {
         case "/api/v1/song":
-            return .response(data: Self.songResponse(snapshot: self.currentSnapshot()), keepAlive: false)
+            .response(data: Self.songResponse(snapshot: self.currentSnapshot()), keepAlive: false)
         case "/api/v1/like-state":
-            return await self.handleLikeStateRequest()
+            await self.handleLikeStateRequest()
         case "/api/v1/shuffle":
-            return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
+            .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
         case "/api/v1/repeat-mode":
-            return .response(data: Self.jsonResponse(status: 200, body: ["mode": self.repeatModeString()]), keepAlive: false)
+            .response(data: Self.jsonResponse(status: 200, body: ["mode": self.repeatModeString()]), keepAlive: false)
         case Constants.wsPath:
-            return await self.handleWebSocketUpgrade(headers, connectionID: connectionID)
+            await self.handleWebSocketUpgrade(headers, connectionID: connectionID)
         default:
-            return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
+            .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
         }
     }
 
     private func handlePOSTRequest(_ path: String, body: Data, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
         switch path {
         case "/api/v1/play":
-            return await self.handlePlaybackAction { await self.playerService.resume() }
+            await self.handlePlaybackAction { await self.playerService.resume() }
         case "/api/v1/pause":
-            return await self.handlePlaybackAction { await self.playerService.pause() }
+            await self.handlePlaybackAction { await self.playerService.pause() }
         case "/api/v1/toggle-play":
-            return await self.handlePlaybackAction { await self.playerService.playPause() }
+            await self.handlePlaybackAction { await self.playerService.playPause() }
         case "/api/v1/next":
-            return await self.handlePlaybackAction { await self.playerService.next() }
+            await self.handlePlaybackAction { await self.playerService.next() }
         case "/api/v1/previous":
-            return await self.handlePlaybackAction { await self.playerService.previous() }
+            await self.handlePlaybackAction { await self.playerService.previous() }
         case "/api/v1/seek-to":
-            return await self.handleSeekRequest(body)
+            await self.handleSeekRequest(body)
         case "/api/v1/volume":
-            return await self.handleVolumeRequest(body)
+            await self.handleVolumeRequest(body)
         case "/api/v1/shuffle":
-            return await self.handleShuffleToggle()
+            await self.handleShuffleToggle()
         case "/api/v1/switch-repeat":
-            return await self.handleRepeatToggle()
+            await self.handleRepeatToggle()
         case "/api/v1/like":
-            return await self.handleLikeTrack()
+            await self.handleLikeTrack()
         case "/api/v1/dislike":
-            return await self.handleDislikeTrack()
+            await self.handleDislikeTrack()
         case Constants.wsPath:
-            return await self.handleWebSocketUpgradeRequest(body, connectionID: connectionID)
+            await self.handleWebSocketUpgradeRequest(body, connectionID: connectionID)
         default:
-            return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
+            .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
         }
     }
 
@@ -392,7 +392,7 @@ final class BoringNotchBridgeService {
         return .response(data: Self.emptyResponse(), keepAlive: false)
     }
 
-    private func handleWebSocketUpgradeRequest(_ body: Data, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+    private func handleWebSocketUpgradeRequest(_: Data, connectionID _: ObjectIdentifier) async -> HTTPRequestAction {
         .response(data: Self.plainResponse(status: 400, body: "Bad WebSocket request"), keepAlive: false)
     }
 
@@ -802,7 +802,7 @@ private extension BoringNotchBridgeService {
     }
 
     private static func songResponse(snapshot: PlaybackSnapshot) -> Data {
-        let body = snapshotAsPlaybackDictionary(snapshot)
+        let body = self.snapshotAsPlaybackDictionary(snapshot)
         return Self.jsonResponse(status: 200, body: body)
     }
 
