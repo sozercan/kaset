@@ -51,7 +51,8 @@ final class BoringNotchBridgeService {
     private let playerService: PlayerService
     private let logger = DiagnosticsLogger.network
     private let token = UUID().uuidString
-    private let queue = DispatchQueue(label: "com.kaset.boring-notch-bridge", qos: .userInitiated)
+    // NWListener and NWConnection require a DispatchQueue for thread safety
+    nonisolated(unsafe) private let queue = DispatchQueue(label: "com.kaset.boring-notch-bridge", qos: .userInitiated)
 
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: ConnectionState] = [:]
@@ -245,102 +246,140 @@ final class BoringNotchBridgeService {
             return .response(data: Self.jsonResponse(status: 401, body: ["error": "Unauthorized"]), keepAlive: false)
         }
 
-        switch (request.method, request.path) {
-        case ("GET", "/api/v1/song"):
+        return await self.routeAuthorizedRequest(request, connectionID: connectionID)
+    }
+
+    private func routeAuthorizedRequest(_ request: HTTPRequest, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+        let method = request.method
+        let path = request.path
+
+        if method == "GET" { return await self.handleGETRequest(path, headers: request.headers, connectionID: connectionID) }
+        if method == "POST" { return await self.handlePOSTRequest(path, body: request.body, connectionID: connectionID) }
+        return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
+    }
+
+    private func handleGETRequest(_ path: String, headers: [String: String], connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+        switch path {
+        case "/api/v1/song":
             return .response(data: Self.songResponse(snapshot: self.currentSnapshot()), keepAlive: false)
-
-        case ("GET", "/api/v1/like-state"):
-            let state: String? = switch self.playerService.currentTrackLikeStatus {
-            case .like:
-                "LIKE"
-            case .dislike:
-                "DISLIKE"
-            case .indifferent:
-                nil
-            }
-            return .response(data: Self.jsonResponse(status: 200, body: ["state": state ?? NSNull()]), keepAlive: false)
-
-        case ("POST", "/api/v1/play"):
-            await self.playerService.resume()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/pause"):
-            await self.playerService.pause()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/toggle-play"):
-            await self.playerService.playPause()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/next"):
-            await self.playerService.next()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/previous"):
-            await self.playerService.previous()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/seek-to"):
-            if let value = Self.jsonBodyValue(request.body, key: "seconds") {
-                await self.playerService.seek(to: max(0, value))
-                await self.pushImmediateUpdates(positionOnly: true)
-            }
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/volume"):
-            if let value = Self.jsonBodyValue(request.body, key: "volume") {
-                let clamped = max(0, min(100, value))
-                await self.playerService.setVolume(clamped / 100)
-                await self.pushImmediateUpdates()
-            }
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("GET", "/api/v1/shuffle"):
+        case "/api/v1/like-state":
+            return await self.handleLikeStateRequest()
+        case "/api/v1/shuffle":
             return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
-
-        case ("POST", "/api/v1/shuffle"):
-            self.playerService.toggleShuffle()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
-
-        case ("GET", "/api/v1/repeat-mode"):
+        case "/api/v1/repeat-mode":
             return .response(data: Self.jsonResponse(status: 200, body: ["mode": self.repeatModeString()]), keepAlive: false)
-
-        case ("POST", "/api/v1/switch-repeat"):
-            self.playerService.cycleRepeatMode()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/like"):
-            self.playerService.likeCurrentTrack()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("POST", "/api/v1/dislike"):
-            self.playerService.dislikeCurrentTrack()
-            await self.pushImmediateUpdates()
-            return .response(data: Self.emptyResponse(), keepAlive: false)
-
-        case ("GET", Constants.wsPath):
-            guard Self.isWebSocketUpgrade(request.headers),
-                  let secWebSocketKey = request.headers["sec-websocket-key"]
-            else {
-                return .response(data: Self.plainResponse(status: 400, body: "Bad WebSocket request"), keepAlive: false)
-            }
-
-            let response = Self.webSocketHandshakeResponse(secWebSocketKey: secWebSocketKey)
-            self.sendHTTPResponse(id: connectionID, response)
-            self.sendPlayerInfo(to: connectionID, type: "PLAYER_INFO")
-            return .upgradedToWebSocket
-
+        case Constants.wsPath:
+            return await self.handleWebSocketUpgrade(headers, connectionID: connectionID)
         default:
             return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
         }
+    }
+
+    private func handlePOSTRequest(_ path: String, body: Data, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+        switch path {
+        case "/api/v1/play":
+            return await self.handlePlaybackAction { await self.playerService.resume() }
+        case "/api/v1/pause":
+            return await self.handlePlaybackAction { await self.playerService.pause() }
+        case "/api/v1/toggle-play":
+            return await self.handlePlaybackAction { await self.playerService.playPause() }
+        case "/api/v1/next":
+            return await self.handlePlaybackAction { await self.playerService.next() }
+        case "/api/v1/previous":
+            return await self.handlePlaybackAction { await self.playerService.previous() }
+        case "/api/v1/seek-to":
+            return await self.handleSeekRequest(body)
+        case "/api/v1/volume":
+            return await self.handleVolumeRequest(body)
+        case "/api/v1/shuffle":
+            return await self.handleShuffleToggle()
+        case "/api/v1/switch-repeat":
+            return await self.handleRepeatToggle()
+        case "/api/v1/like":
+            return await self.handleLikeTrack()
+        case "/api/v1/dislike":
+            return await self.handleDislikeTrack()
+        case Constants.wsPath:
+            return await self.handleWebSocketUpgradeRequest(body, connectionID: connectionID)
+        default:
+            return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
+        }
+    }
+
+    private func handleLikeStateRequest() async -> HTTPRequestAction {
+        let state: String? = switch self.playerService.currentTrackLikeStatus {
+        case .like:
+            "LIKE"
+        case .dislike:
+            "DISLIKE"
+        case .indifferent:
+            nil
+        }
+        return .response(data: Self.jsonResponse(status: 200, body: ["state": state ?? NSNull()]), keepAlive: false)
+    }
+
+    private func handlePlaybackAction(_ action: @escaping () async -> Void) async -> HTTPRequestAction {
+        await action()
+        await self.pushImmediateUpdates()
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleSeekRequest(_ body: Data) async -> HTTPRequestAction {
+        if let value = Self.jsonBodyValue(body, key: "seconds") {
+            await self.playerService.seek(to: max(0, value))
+            await self.pushImmediateUpdates(positionOnly: true)
+        }
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleVolumeRequest(_ body: Data) async -> HTTPRequestAction {
+        if let value = Self.jsonBodyValue(body, key: "volume") {
+            let clamped = max(0, min(100, value))
+            await self.playerService.setVolume(clamped / 100)
+            await self.pushImmediateUpdates()
+        }
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleShuffleToggle() async -> HTTPRequestAction {
+        self.playerService.toggleShuffle()
+        await self.pushImmediateUpdates()
+        return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
+    }
+
+    private func handleRepeatToggle() async -> HTTPRequestAction {
+        self.playerService.cycleRepeatMode()
+        await self.pushImmediateUpdates()
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleLikeTrack() async -> HTTPRequestAction {
+        self.playerService.likeCurrentTrack()
+        await self.pushImmediateUpdates()
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleDislikeTrack() async -> HTTPRequestAction {
+        self.playerService.dislikeCurrentTrack()
+        await self.pushImmediateUpdates()
+        return .response(data: Self.emptyResponse(), keepAlive: false)
+    }
+
+    private func handleWebSocketUpgradeRequest(_ body: Data, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+        .response(data: Self.plainResponse(status: 400, body: "Bad WebSocket request"), keepAlive: false)
+    }
+
+    private func handleWebSocketUpgrade(_ headers: [String: String], connectionID: ObjectIdentifier) async -> HTTPRequestAction {
+        guard Self.isWebSocketUpgrade(headers),
+              let secWebSocketKey = headers["sec-websocket-key"]
+        else {
+            return .response(data: Self.plainResponse(status: 400, body: "Bad WebSocket request"), keepAlive: false)
+        }
+
+        let response = Self.webSocketHandshakeResponse(secWebSocketKey: secWebSocketKey)
+        self.sendHTTPResponse(id: connectionID, response)
+        self.sendPlayerInfo(to: connectionID, type: "PLAYER_INFO")
+        return .upgradedToWebSocket
     }
 
     private func isAuthorized(_ headers: [String: String]) -> Bool {
@@ -431,7 +470,7 @@ final class BoringNotchBridgeService {
     }
 
     private func broadcastWebSocketJSON(_ body: [String: Any]) {
-        let wsIDs = self.connections.filter { $0.value.isWebSocket }.map(\.key)
+        let wsIDs = self.connections.filter(\.value.isWebSocket).map(\.key)
         for id in wsIDs {
             self.sendWebSocketJSON(to: id, body: body)
         }
@@ -448,7 +487,7 @@ final class BoringNotchBridgeService {
     }
 
     private func pushImmediateUpdates(positionOnly: Bool = false) async {
-        guard self.connections.contains(where: { $0.value.isWebSocket }) else { return }
+        guard self.connections.contains(where: \.value.isWebSocket) else { return }
 
         let snapshot = self.currentSnapshot()
         let previous = self.lastSnapshot
@@ -635,8 +674,8 @@ private extension BoringNotchBridgeService {
         let totalLength = headerEnd + contentLength
         guard buffer.count >= totalLength else { return nil }
 
-        let body = buffer[headerEnd..<totalLength]
-        buffer.removeSubrange(0..<totalLength)
+        let body = buffer[headerEnd ..< totalLength]
+        buffer.removeSubrange(0 ..< totalLength)
 
         return HTTPRequest(
             method: String(requestParts[0]).uppercased(),
@@ -682,7 +721,7 @@ private extension BoringNotchBridgeService {
         } else if payloadLength == 127 {
             guard buffer.count >= index + 8 else { return nil }
             var value: UInt64 = 0
-            for offset in 0..<8 {
+            for offset in 0 ..< 8 {
                 value = (value << 8) | UInt64(buffer[index + offset])
             }
             guard value <= UInt64(Int.max) else { return nil }
@@ -693,20 +732,20 @@ private extension BoringNotchBridgeService {
         var maskKey = Data()
         if masked {
             guard buffer.count >= index + 4 else { return nil }
-            maskKey = buffer[index..<(index + 4)]
+            maskKey = buffer[index ..< (index + 4)]
             index += 4
         }
 
         guard buffer.count >= index + payloadLength else { return nil }
 
-        var payload = Data(buffer[index..<(index + payloadLength)])
+        var payload = Data(buffer[index ..< (index + payloadLength)])
         if masked {
             for i in payload.indices {
                 payload[i] ^= maskKey[maskKey.startIndex + i % 4]
             }
         }
 
-        buffer.removeSubrange(0..<(index + payloadLength))
+        buffer.removeSubrange(0 ..< (index + payloadLength))
         return (opcode, payload)
     }
 

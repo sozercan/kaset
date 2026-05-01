@@ -5,6 +5,7 @@ disabled_rules:
   - trailing_comma
   - line_length
   - opening_brace # Allow SwiftFormat's multi-line condition style
+  - no_dispatch_queue # NWListener and NWConnection require DispatchQueue for thread safety
 
 opt_in_rules:
   - closure_spacing
