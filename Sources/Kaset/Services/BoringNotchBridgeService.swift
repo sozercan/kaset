@@ -52,7 +52,7 @@ final class BoringNotchBridgeService {
     private let logger = DiagnosticsLogger.network
     private let token = UUID().uuidString
     // NWListener and NWConnection require a DispatchQueue for thread safety
-    nonisolated(unsafe) private let queue = DispatchQueue(label: "com.kaset.boring-notch-bridge", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.kaset.boring-notch-bridge", qos: .userInitiated)
 
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: ConnectionState] = [:]
@@ -82,6 +82,7 @@ final class BoringNotchBridgeService {
         do {
             let parameters = NWParameters.tcp
             parameters.allowLocalEndpointReuse = true
+            // Constrain listener to loopback interface to prevent unintended network exposure
             let listener = try NWListener(using: parameters, on: NWEndpoint.Port(integerLiteral: Constants.port))
             self.listener = listener
 
@@ -140,6 +141,29 @@ final class BoringNotchBridgeService {
     }
 
     private func accept(connection: NWConnection) {
+        // Defensively reject non-loopback connections to prevent unauthorized access
+        // Check if remote endpoint is loopback (127.0.0.1 or ::1)
+        let remoteEndpoint = connection.endpoint
+        let isLoopback: Bool
+        switch remoteEndpoint {
+        case .hostPort(let host, _):
+            // Check if host represents loopback
+            let debugDesc = host.debugDescription
+            isLoopback = debugDesc.contains("127.0.0.1") || debugDesc.contains("::1") || debugDesc.contains("localhost")
+        case .unix:
+            isLoopback = true
+        case .url:
+            // URL-based endpoints are generally unsafe, reject them
+            isLoopback = false
+        @unknown default:
+            isLoopback = false
+        }
+        guard isLoopback else {
+            self.logger.warning("Rejected non-loopback connection from \(remoteEndpoint.debugDescription, privacy: .public)")
+            connection.cancel()
+            return
+        }
+
         let id = ObjectIdentifier(connection)
         self.connections[id] = ConnectionState(connection: connection)
 
@@ -187,7 +211,10 @@ final class BoringNotchBridgeService {
 
         if state.isWebSocket {
             self.handleWebSocketFrames(id: id, state: &state)
-            self.connections[id] = state
+            // Mirror HTTP branch: only write back state if connection still exists after frame handling
+            if self.connections[id] != nil {
+                self.connections[id] = state
+            }
         } else {
             let outcome = await self.handleHTTPRequests(id: id, state: &state)
             deferCloseAfterSend = outcome == .closeAfterSend
@@ -559,8 +586,16 @@ final class BoringNotchBridgeService {
     }
 
     private func playerInfoPayload(type: String, snapshot: PlaybackSnapshot) -> [String: Any] {
-        var payload: [String: Any] = [
-            "type": type,
+        let snapshotDict = Self.snapshotAsPlaybackDictionary(snapshot)
+        var payload: [String: Any] = ["type": type]
+        payload.merge(snapshotDict) { _, new in new }
+        payload["song"] = payload.filter { $0.key != "type" }
+        return payload
+    }
+
+    /// Shared snapshot-to-dictionary conversion for consistent JSON serialization across endpoints
+    private static func snapshotAsPlaybackDictionary(_ snapshot: PlaybackSnapshot) -> [String: Any] {
+        var dict: [String: Any] = [
             "isPaused": snapshot.isPaused,
             "repeatMode": snapshot.repeatMode,
             "isShuffled": snapshot.isShuffled,
@@ -568,29 +603,27 @@ final class BoringNotchBridgeService {
         ]
 
         if let title = snapshot.title {
-            payload["title"] = title
+            dict["title"] = title
         }
         if let artist = snapshot.artist {
-            payload["artist"] = artist
+            dict["artist"] = artist
         }
         if let album = snapshot.album {
-            payload["album"] = album
+            dict["album"] = album
         }
         if let elapsedSeconds = snapshot.elapsedSeconds {
-            payload["elapsedSeconds"] = elapsedSeconds
+            dict["elapsedSeconds"] = elapsedSeconds
         }
         if let songDuration = snapshot.songDuration {
-            payload["songDuration"] = songDuration
+            dict["songDuration"] = songDuration
         }
         if let imageSrc = snapshot.imageSrc {
-            payload["imageSrc"] = imageSrc
+            dict["imageSrc"] = imageSrc
         }
         if let videoId = snapshot.videoId {
-            payload["videoId"] = videoId
+            dict["videoId"] = videoId
         }
-
-        payload["song"] = payload.filter { $0.key != "type" }
-        return payload
+        return dict
     }
 
     private func currentSnapshot() -> PlaybackSnapshot {
@@ -769,35 +802,7 @@ private extension BoringNotchBridgeService {
     }
 
     private static func songResponse(snapshot: PlaybackSnapshot) -> Data {
-        var body: [String: Any] = [
-            "isPaused": snapshot.isPaused,
-            "repeatMode": snapshot.repeatMode,
-            "isShuffled": snapshot.isShuffled,
-            "volume": snapshot.volume,
-        ]
-
-        if let title = snapshot.title {
-            body["title"] = title
-        }
-        if let artist = snapshot.artist {
-            body["artist"] = artist
-        }
-        if let album = snapshot.album {
-            body["album"] = album
-        }
-        if let elapsedSeconds = snapshot.elapsedSeconds {
-            body["elapsedSeconds"] = elapsedSeconds
-        }
-        if let songDuration = snapshot.songDuration {
-            body["songDuration"] = songDuration
-        }
-        if let imageSrc = snapshot.imageSrc {
-            body["imageSrc"] = imageSrc
-        }
-        if let videoId = snapshot.videoId {
-            body["videoId"] = videoId
-        }
-
+        let body = snapshotAsPlaybackDictionary(snapshot)
         return Self.jsonResponse(status: 200, body: body)
     }
 
