@@ -224,6 +224,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
+                .disabled(self.playerService.currentEpisode != nil)
 
                 // Previous Track - ⌘←
                 Button("Previous") {
@@ -232,6 +233,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
+                .disabled(self.playerService.currentEpisode != nil)
 
                 Divider()
 

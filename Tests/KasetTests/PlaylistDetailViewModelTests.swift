@@ -13,6 +13,30 @@ struct PlaylistDetailViewModelTests {
         self.mockClient = MockYTMusicClient()
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")
         self.viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
+    }
+
+    private func makeLikedMusicPlaylist(trackCount: Int? = nil) -> Playlist {
+        Playlist(
+            id: LikedMusicPlaylist.id,
+            title: "Liked Music",
+            description: nil,
+            thumbnailURL: URL(string: "https://example.com/liked.jpg"),
+            trackCount: trackCount,
+            author: Artist.inline(name: "You", namespace: "playlist-author")
+        )
+    }
+
+    private func makeLikedMusicViewModel(with tracks: [Song], trackCount: Int? = nil) -> PlaylistDetailViewModel {
+        let playlist = self.makeLikedMusicPlaylist(trackCount: trackCount)
+        let detail = PlaylistDetail(
+            playlist: playlist,
+            tracks: tracks,
+            duration: nil
+        )
+        self.mockClient.playlistDetails[playlist.id] = detail
+        return PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
     }
 
     // MARK: - Initial State Tests
@@ -73,6 +97,23 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
     }
 
+    @Test("Liked Music load marks tracks as liked and seeds like cache")
+    func likedMusicLoadMarksTracksAsLikedAndSeedsCache() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
+            TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: 2)
+
+        await likedMusicViewModel.load()
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
+        #expect(likedMusicViewModel.playlistDetail?.tracks[0].likeStatus == .like)
+        #expect(likedMusicViewModel.playlistDetail?.tracks[1].likeStatus == .like)
+        #expect(SongLikeStatusManager.shared.status(for: "liked-1") == .like)
+        #expect(SongLikeStatusManager.shared.status(for: "liked-2") == .like)
+    }
+
     // MARK: - Load More Tests
 
     @Test("Load more appends tracks")
@@ -99,6 +140,32 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 7)
     }
 
+    @Test("Load more uses the view model's own continuation token after another playlist loads")
+    func loadMoreUsesOwnContinuationTokenAfterAnotherPlaylistLoads() async {
+        let firstPlaylist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "First Playlist")
+        let secondPlaylist = TestFixtures.makePlaylist(id: "VL-other-playlist", title: "Other Playlist")
+        let firstDetail = TestFixtures.makePlaylistDetail(playlist: firstPlaylist, trackCount: 2)
+        let secondDetail = TestFixtures.makePlaylistDetail(playlist: secondPlaylist, trackCount: 2)
+        let secondViewModel = PlaylistDetailViewModel(playlist: secondPlaylist, client: self.mockClient)
+
+        self.mockClient.playlistDetails[firstPlaylist.id] = firstDetail
+        self.mockClient.playlistDetails[secondPlaylist.id] = secondDetail
+        self.mockClient.playlistContinuationTracks[firstPlaylist.id] = [
+            [TestFixtures.makeSong(id: "first-continuation")],
+        ]
+        self.mockClient.playlistContinuationTracks[secondPlaylist.id] = [
+            [TestFixtures.makeSong(id: "other-continuation")],
+        ]
+
+        await self.viewModel.load()
+        await secondViewModel.load()
+        await self.viewModel.loadMore()
+
+        let videoIDs = self.viewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(videoIDs.contains("first-continuation"))
+        #expect(!videoIDs.contains("other-continuation"))
+    }
+
     @Test("Load more preserves reported total track count")
     func loadMorePreservesReportedTotalTrackCount() async {
         let playlist = Playlist(
@@ -107,7 +174,7 @@ struct PlaylistDetailViewModelTests {
             description: "A test playlist",
             thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
             trackCount: 2429,
-            author: "Test User"
+            author: Artist(id: "UC123456", name: "Test User")
         )
         let playlistDetail = PlaylistDetail(
             playlist: playlist,
@@ -126,6 +193,7 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.viewModel.playlistDetail?.tracks.count == 150)
         #expect(self.viewModel.playlistDetail?.trackCount == 2429)
+        #expect(self.viewModel.playlistDetail?.author?.id == "UC123456")
     }
 
     @Test("Load more deduplicates tracks")
@@ -195,6 +263,117 @@ struct PlaylistDetailViewModelTests {
         #expect(self.mockClient.getPlaylistContinuationCalled == false)
     }
 
+    // MARK: - Liked Music Live Sync Tests
+
+    @Test("Liked Music live sync removes song after unlike")
+    func likedMusicLiveSyncRemovesSongAfterUnlike() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
+            TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: 2)
+
+        await likedMusicViewModel.load()
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: "liked-1", status: .indifferent, song: nil)
+        )
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count == 1)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == "liked-2")
+    }
+
+    @Test("Liked Music live sync inserts liked song with complete metadata")
+    func likedMusicLiveSyncInsertsLikedSongWithCompleteMetadata() async {
+        let tracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: 1)
+
+        await likedMusicViewModel.load()
+
+        let liveSong = Song(
+            id: "new-liked-song",
+            title: "Live Synced Song",
+            artists: [Artist(id: "UC-live", name: "Live Artist")],
+            thumbnailURL: URL(string: "https://example.com/live.jpg"),
+            videoId: "new-liked-song"
+        )
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: "new-liked-song", status: .like, song: liveSong)
+        )
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == "new-liked-song")
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.likeStatus == .like)
+    }
+
+    @Test("Liked Music live sync fetches metadata for placeholder song")
+    func likedMusicLiveSyncFetchesMetadataForPlaceholderSong() async {
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        await likedMusicViewModel.load()
+
+        let videoId = "placeholder-song"
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Resolved Song",
+            artists: [Artist(id: "artist-1", name: "Resolved Artist")],
+            thumbnailURL: URL(string: "https://example.com/thumb.jpg"),
+            videoId: videoId
+        )
+
+        let placeholderSong = Song(
+            id: videoId,
+            title: "Loading...",
+            artists: [],
+            videoId: videoId
+        )
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: videoId, status: .like, song: placeholderSong)
+        )
+
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(self.mockClient.getSongCalled == true)
+        #expect(self.mockClient.getSongVideoIds.contains(videoId))
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count == 1)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.title == "Resolved Song")
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.artistsDisplay == "Resolved Artist")
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.likeStatus == .like)
+    }
+
+    @Test("Liked Music live sync cancels pending metadata insert after unlike")
+    func likedMusicLiveSyncCancelsPendingMetadataInsertAfterUnlike() async {
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        await likedMusicViewModel.load()
+
+        let videoId = "cancelled-song"
+        self.mockClient.getSongDelay = .milliseconds(150)
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Should Not Insert",
+            artists: [Artist(id: "artist-3", name: "Cancelled Artist")],
+            thumbnailURL: URL(string: "https://example.com/cancelled.jpg"),
+            videoId: videoId
+        )
+
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(
+                videoId: videoId,
+                status: .like,
+                song: Song(id: videoId, title: "Loading...", artists: [], videoId: videoId)
+            )
+        )
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: videoId, status: .indifferent, song: nil)
+        )
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        #expect(self.mockClient.getSongVideoIds.contains(videoId))
+        #expect(likedMusicViewModel.playlistDetail?.tracks.isEmpty == true)
+    }
+
     // MARK: - Refresh Tests
 
     @Test("Refresh clears detail and reloads")
@@ -244,5 +423,46 @@ struct PlaylistDetailViewModelTests {
 
         // Should use original playlist title "Test Playlist" instead of "Unknown Playlist"
         #expect(self.viewModel.playlistDetail?.title == "Test Playlist")
+    }
+
+    @Test("Load preserves fallback author metadata when cleaning song count suffix")
+    func loadPreservesFallbackAuthorMetadataWhenCleaningSongCountSuffix() async {
+        let mockClient = MockYTMusicClient()
+        let originalPlaylist = Playlist(
+            id: "VL-test-playlist",
+            title: "Test Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 145,
+            author: Artist(
+                id: "UC123456",
+                name: "Test User • 145 songs",
+                thumbnailURL: URL(string: "https://example.com/author.jpg"),
+                subtitle: "123 subscribers",
+                profileKind: .profile
+            )
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: originalPlaylist, client: mockClient)
+        let unknownPlaylist = Playlist(
+            id: "VL-test-playlist",
+            title: "Unknown Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 3,
+            author: nil
+        )
+        let playlistDetail = PlaylistDetail(
+            playlist: unknownPlaylist,
+            tracks: TestFixtures.makeSongs(count: 3),
+            duration: "10 min"
+        )
+        mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+
+        await viewModel.load()
+
+        #expect(viewModel.playlistDetail?.author?.name == "Test User")
+        #expect(viewModel.playlistDetail?.author?.id == "UC123456")
+        #expect(viewModel.playlistDetail?.author?.subtitle == "123 subscribers")
+        #expect(viewModel.playlistDetail?.author?.profileKind == .profile)
     }
 }

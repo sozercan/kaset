@@ -104,15 +104,15 @@ struct QueueView: View {
     private var queueListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(self.playerService.queue.enumerated()), id: \.element.videoId) { index, song in
+                ForEach(Array(self.playerService.queueEntries.enumerated()), id: \.element.id) { index, entry in
                     QueueRowView(
-                        song: song,
+                        song: entry.song,
                         isCurrentTrack: index == self.playerService.currentIndex,
                         index: index,
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
-                            self.playerService.removeFromQueue(videoIds: Set([song.videoId]))
+                            self.playerService.removeFromQueue(entryIDs: Set([entry.id]))
                         },
                         onTap: {
                             Task {

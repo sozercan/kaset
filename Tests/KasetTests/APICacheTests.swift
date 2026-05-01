@@ -138,6 +138,27 @@ struct APICacheTests {
         #expect(self.cache.get(key: "browse:home_section") == nil)
     }
 
+    @Test("Mutation invalidation clears add-to-playlist options")
+    func mutationInvalidationClearsAddToPlaylistOptions() {
+        self.cache.set(key: "browse:library", data: ["type": "library"], ttl: APICache.TTL.library)
+        self.cache.set(key: "next:song_abc123", data: ["title": "song"], ttl: APICache.TTL.songMetadata)
+        self.cache.set(key: "like:status_abc123", data: ["status": "LIKE"], ttl: APICache.TTL.songMetadata)
+        self.cache.set(
+            key: "playlist/get_add_to_playlist:abc123",
+            data: ["playlists": []],
+            ttl: APICache.TTL.library
+        )
+        self.cache.set(key: "search:query", data: ["results": []], ttl: APICache.TTL.search)
+
+        self.cache.invalidateMutationCaches()
+
+        #expect(self.cache.get(key: "browse:library") == nil)
+        #expect(self.cache.get(key: "next:song_abc123") == nil)
+        #expect(self.cache.get(key: "like:status_abc123") == nil)
+        #expect(self.cache.get(key: "playlist/get_add_to_playlist:abc123") == nil)
+        #expect(self.cache.get(key: "search:query") != nil)
+    }
+
     @Test("Cache entry isExpired property")
     func cacheEntryIsExpired() {
         let freshEntry = APICache.CacheEntry(

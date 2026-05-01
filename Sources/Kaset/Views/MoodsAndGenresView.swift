@@ -110,7 +110,7 @@ struct MoodsAndGenresView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.navigationPath.append(playlist)
         case let .artist(artist):

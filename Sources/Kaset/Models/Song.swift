@@ -12,6 +12,7 @@ struct Song: Identifiable, Codable, Hashable {
     let duration: TimeInterval?
     let thumbnailURL: URL?
     let videoId: String
+    let isPlayable: Bool
 
     /// Whether this track has a music video available.
     var hasVideo: Bool?
@@ -29,6 +30,22 @@ struct Song: Identifiable, Codable, Hashable {
     /// Feedback tokens for library add/remove operations.
     var feedbackTokens: FeedbackTokens?
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case artists
+        case album
+        case duration
+        case thumbnailURL
+        case videoId
+        case isPlayable
+        case hasVideo
+        case musicVideoType
+        case likeStatus
+        case isInLibrary
+        case feedbackTokens
+    }
+
     /// Memberwise initializer with default values for mutable properties.
     init(
         id: String,
@@ -38,6 +55,7 @@ struct Song: Identifiable, Codable, Hashable {
         duration: TimeInterval? = nil,
         thumbnailURL: URL? = nil,
         videoId: String,
+        isPlayable: Bool = true,
         hasVideo: Bool? = nil,
         musicVideoType: MusicVideoType? = nil,
         likeStatus: LikeStatus? = nil,
@@ -51,11 +69,46 @@ struct Song: Identifiable, Codable, Hashable {
         self.duration = duration
         self.thumbnailURL = thumbnailURL
         self.videoId = videoId
+        self.isPlayable = isPlayable
         self.hasVideo = hasVideo
         self.musicVideoType = musicVideoType
         self.likeStatus = likeStatus
         self.isInLibrary = isInLibrary
         self.feedbackTokens = feedbackTokens
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.artists = try container.decode([Artist].self, forKey: .artists)
+        self.album = try container.decodeIfPresent(Album.self, forKey: .album)
+        self.duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
+        self.thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+        self.videoId = try container.decode(String.self, forKey: .videoId)
+        self.isPlayable = try container.decodeIfPresent(Bool.self, forKey: .isPlayable) ?? true
+        self.hasVideo = try container.decodeIfPresent(Bool.self, forKey: .hasVideo)
+        self.musicVideoType = try container.decodeIfPresent(MusicVideoType.self, forKey: .musicVideoType)
+        self.likeStatus = try container.decodeIfPresent(LikeStatus.self, forKey: .likeStatus)
+        self.isInLibrary = try container.decodeIfPresent(Bool.self, forKey: .isInLibrary)
+        self.feedbackTokens = try container.decodeIfPresent(FeedbackTokens.self, forKey: .feedbackTokens)
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.artists, forKey: .artists)
+        try container.encodeIfPresent(self.album, forKey: .album)
+        try container.encodeIfPresent(self.duration, forKey: .duration)
+        try container.encodeIfPresent(self.thumbnailURL, forKey: .thumbnailURL)
+        try container.encode(self.videoId, forKey: .videoId)
+        try container.encode(self.isPlayable, forKey: .isPlayable)
+        try container.encodeIfPresent(self.hasVideo, forKey: .hasVideo)
+        try container.encodeIfPresent(self.musicVideoType, forKey: .musicVideoType)
+        try container.encodeIfPresent(self.likeStatus, forKey: .likeStatus)
+        try container.encodeIfPresent(self.isInLibrary, forKey: .isInLibrary)
+        try container.encodeIfPresent(self.feedbackTokens, forKey: .feedbackTokens)
     }
 
     /// Display string for artists (comma-separated).
@@ -118,6 +171,8 @@ extension Song {
         } else {
             self.thumbnailURL = nil
         }
+
+        self.isPlayable = true
     }
 
     /// Parses duration string like "3:45" to TimeInterval.

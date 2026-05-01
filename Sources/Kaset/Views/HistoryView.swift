@@ -215,6 +215,10 @@ struct HistoryView: View {
 
             Divider()
 
+            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
+
+            Divider()
+
             if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
                     Label(String(localized: "Go to Artist"), systemImage: "person")
@@ -228,7 +232,7 @@ struct HistoryView: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
                     Label(String(localized: "Go to Album"), systemImage: "square.stack")

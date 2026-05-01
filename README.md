@@ -16,14 +16,17 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 🧭 **Explore** — Discover new releases, charts, and moods & genres
 - 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
-- 📚 **Library Access** — Browse your playlists, liked songs, and subscribed podcasts
+- 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
+- 🕓 **History** — Revisit recently played tracks
 - 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
+- 🌍 **Localized** — Available in English, French, Korean, Indonesian, Turkish, and Arabic
 - ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
 - 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`
 - 🤖 **[AppleScript Support](docs/applescript.md)** — Automate playback with scripts, Raycast, Alfred, and Shortcuts
+- 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home)
 
 ## Requirements
 

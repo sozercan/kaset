@@ -2,6 +2,80 @@ import Foundation
 import Observation
 import os
 
+// MARK: - LibraryMutationBroadcaster
+
+/// Broadcasts library mutations to every active LibraryViewModel.
+///
+/// Context menus can be presented from views that do not reliably have the same
+/// LibraryViewModel instance as the Library tab. This keeps library mutations
+/// optimistic and app-wide instead of relying only on the local environment.
+@MainActor
+final class LibraryMutationBroadcaster {
+    static let shared = LibraryMutationBroadcaster()
+
+    private final class WeakLibraryViewModelBox {
+        weak var value: LibraryViewModel?
+
+        init(_ value: LibraryViewModel) {
+            self.value = value
+        }
+    }
+
+    private var libraryViewModels: [ObjectIdentifier: WeakLibraryViewModelBox] = [:]
+
+    private init() {}
+
+    func register(_ libraryViewModel: LibraryViewModel) {
+        self.pruneReleasedViewModels()
+        self.libraryViewModels[ObjectIdentifier(libraryViewModel)] = WeakLibraryViewModelBox(libraryViewModel)
+    }
+
+    private var activeLibraryViewModels: [LibraryViewModel] {
+        self.pruneReleasedViewModels()
+        return self.libraryViewModels.values.compactMap(\.value)
+    }
+
+    private func pruneReleasedViewModels() {
+        self.libraryViewModels = self.libraryViewModels.filter { $0.value.value != nil }
+    }
+
+    func playlistCreated(_ playlist: Playlist) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.markNeedsReloadOnActivation()
+            libraryViewModel.addToLibrary(playlist: playlist)
+        }
+    }
+
+    func reconcileCreatedPlaylist(_ playlist: Playlist) async {
+        for libraryViewModel in self.activeLibraryViewModels {
+            await libraryViewModel.refresh()
+            if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                libraryViewModel.addToLibrary(playlist: playlist)
+            }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+    }
+
+    func playlistRemoved(playlistId: String) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.markNeedsReloadOnActivation()
+            libraryViewModel.removeFromLibrary(playlistId: playlistId)
+        }
+    }
+
+    func reconcileRemovedPlaylist(playlistId: String) async {
+        for libraryViewModel in self.activeLibraryViewModels {
+            await libraryViewModel.refresh()
+            if libraryViewModel.isInLibrary(playlistId: playlistId) {
+                libraryViewModel.removeFromLibrary(playlistId: playlistId)
+            }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+    }
+}
+
+// MARK: - LibraryViewModel
+
 /// View model for the Library view.
 @MainActor
 @Observable
@@ -45,6 +119,18 @@ final class LibraryViewModel {
     /// Bumps whenever a library mutation requests a refresh on next Library activation.
     private(set) var activationReloadGeneration: UInt64 = 0
 
+    /// Playlist additions that should stay visible until the server starts returning them consistently.
+    private var pendingAddedPlaylists: [String: Playlist] = [:]
+
+    /// Consecutive backend matches for optimistic playlist additions.
+    private var pendingAddedPlaylistMatchCounts: [String: Int] = [:]
+
+    /// Playlist removals that should stay suppressed until the server stops returning them consistently.
+    private var pendingRemovedPlaylistIds: Set<String> = []
+
+    /// Consecutive backend misses for optimistic playlist removals.
+    private var pendingRemovedPlaylistMissCounts: [String: Int] = [:]
+
     /// Artist additions that should stay visible until the server starts returning them.
     private var pendingAddedArtists: [String: Artist] = [:]
 
@@ -61,10 +147,12 @@ final class LibraryViewModel {
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
+    private static let playlistMutationStableMatchCount = 2
     private static let artistMutationStableMatchCount = 2
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
+        LibraryMutationBroadcaster.shared.register(self)
     }
 
     private static func normalizedPlaylistId(_ playlistId: String) -> String {
@@ -86,8 +174,23 @@ final class LibraryViewModel {
         return Artist(
             id: normalizedArtistId,
             name: artist.name,
-            thumbnailURL: artist.thumbnailURL
+            thumbnailURL: artist.thumbnailURL,
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
         )
+    }
+
+    private static func deduplicatedPlaylists(_ playlists: [Playlist]) -> [Playlist] {
+        var seenPlaylistIds: Set<String> = []
+        var deduplicatedPlaylists: [Playlist] = []
+
+        for playlist in playlists {
+            let normalizedPlaylistId = Self.normalizedPlaylistId(playlist.id)
+            guard seenPlaylistIds.insert(normalizedPlaylistId).inserted else { continue }
+            deduplicatedPlaylists.append(playlist)
+        }
+
+        return deduplicatedPlaylists
     }
 
     private static func deduplicatedArtists(_ artists: [Artist]) -> [Artist] {
@@ -111,11 +214,49 @@ final class LibraryViewModel {
         self.libraryStateRevision &+= 1
     }
 
-    private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) {
-        self.playlists = content.playlists
+    private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) { // swiftlint:disable:this cyclomatic_complexity
         self.podcastShows = content.podcastShows
-        self.libraryPlaylistIds = Set(content.playlists.map(\.id))
         self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
+
+        let rawPlaylistIds = Set(content.playlists.map { Self.normalizedPlaylistId($0.id) })
+        for normalizedPlaylistId in Array(self.pendingAddedPlaylists.keys) {
+            if rawPlaylistIds.contains(normalizedPlaylistId) {
+                self.pendingAddedPlaylistMatchCounts[normalizedPlaylistId, default: 0] += 1
+                if self.pendingAddedPlaylistMatchCounts[normalizedPlaylistId, default: 0] >= Self.playlistMutationStableMatchCount {
+                    self.pendingAddedPlaylists.removeValue(forKey: normalizedPlaylistId)
+                    self.pendingAddedPlaylistMatchCounts.removeValue(forKey: normalizedPlaylistId)
+                }
+            } else {
+                self.pendingAddedPlaylistMatchCounts[normalizedPlaylistId] = 0
+            }
+        }
+
+        for normalizedPlaylistId in Array(self.pendingRemovedPlaylistIds) {
+            if rawPlaylistIds.contains(normalizedPlaylistId) {
+                self.pendingRemovedPlaylistMissCounts[normalizedPlaylistId] = 0
+                continue
+            }
+
+            self.pendingRemovedPlaylistMissCounts[normalizedPlaylistId, default: 0] += 1
+            if self.pendingRemovedPlaylistMissCounts[normalizedPlaylistId, default: 0] >= Self.playlistMutationStableMatchCount {
+                self.pendingRemovedPlaylistIds.remove(normalizedPlaylistId)
+                self.pendingRemovedPlaylistMissCounts.removeValue(forKey: normalizedPlaylistId)
+            }
+        }
+
+        var playlists = content.playlists.filter { playlist in
+            !self.pendingRemovedPlaylistIds.contains(Self.normalizedPlaylistId(playlist.id))
+        }
+        playlists = Self.deduplicatedPlaylists(playlists)
+        var visiblePlaylistIds = Set(playlists.map { Self.normalizedPlaylistId($0.id) })
+
+        for (normalizedPlaylistId, playlist) in self.pendingAddedPlaylists where !visiblePlaylistIds.contains(normalizedPlaylistId) {
+            playlists.insert(playlist, at: 0)
+            visiblePlaylistIds.insert(normalizedPlaylistId)
+        }
+
+        self.playlists = playlists
+        self.libraryPlaylistIds = Set(playlists.map(\.id))
 
         let sourceArtists: [Artist]
         if content.artistsSource == .landingFallback, !self.artists.isEmpty {
@@ -132,7 +273,7 @@ final class LibraryViewModel {
         let rawArtistIds = Set(canonicalArtists.map(\.id))
 
         if content.artistsSource == .dedicated {
-            for normalizedArtistId in self.pendingAddedArtists.keys {
+            for normalizedArtistId in Array(self.pendingAddedArtists.keys) {
                 if rawArtistIds.contains(normalizedArtistId) {
                     self.pendingAddedArtistMatchCounts[normalizedArtistId, default: 0] += 1
                     if self.pendingAddedArtistMatchCounts[normalizedArtistId, default: 0] >= Self.artistMutationStableMatchCount {
@@ -226,6 +367,9 @@ final class LibraryViewModel {
     /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
         self.markLibraryStateChanged()
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        self.pendingRemovedPlaylistIds.remove(normalizedPlaylistId)
+        self.pendingRemovedPlaylistMissCounts.removeValue(forKey: normalizedPlaylistId)
         self.libraryPlaylistIds.insert(playlistId)
     }
 
@@ -235,7 +379,13 @@ final class LibraryViewModel {
         self.markLibraryStateChanged()
         self.libraryPlaylistIds.insert(playlist.id)
         let normalizedPlaylistId = Self.normalizedPlaylistId(playlist.id)
-        if !self.playlists.contains(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }) {
+        self.pendingRemovedPlaylistIds.remove(normalizedPlaylistId)
+        self.pendingRemovedPlaylistMissCounts.removeValue(forKey: normalizedPlaylistId)
+        self.pendingAddedPlaylists[normalizedPlaylistId] = playlist
+        self.pendingAddedPlaylistMatchCounts[normalizedPlaylistId] = 0
+        if let existingIndex = self.playlists.firstIndex(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }) {
+            self.playlists[existingIndex] = playlist
+        } else {
             self.playlists.insert(playlist, at: 0)
         }
     }
@@ -290,6 +440,10 @@ final class LibraryViewModel {
         // Remove both the exact ID and normalized versions
         self.libraryPlaylistIds.remove(playlistId)
         let normalizedId = Self.normalizedPlaylistId(playlistId)
+        self.pendingAddedPlaylists.removeValue(forKey: normalizedId)
+        self.pendingAddedPlaylistMatchCounts.removeValue(forKey: normalizedId)
+        self.pendingRemovedPlaylistIds.insert(normalizedId)
+        self.pendingRemovedPlaylistMissCounts[normalizedId] = 0
         self.libraryPlaylistIds = self.libraryPlaylistIds.filter { storedId in
             let normalizedStoredId = Self.normalizedPlaylistId(storedId)
             return normalizedId != normalizedStoredId

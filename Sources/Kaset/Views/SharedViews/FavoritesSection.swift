@@ -63,7 +63,7 @@ struct FavoritesSection: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.onNavigate?(playlist)
         case let .playlist(playlist):
@@ -174,6 +174,11 @@ struct FavoritesSection: View {
         if case let .song(song) = item.itemType {
             Divider()
             AddToQueueContextMenu(song: song, playerService: self.playerService)
+
+            if let client = self.playerService.ytMusicClient {
+                Divider()
+                AddToPlaylistContextMenu(song: song, client: client)
+            }
         }
 
         Divider()
@@ -196,7 +201,7 @@ struct FavoritesSection: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 Button {
                     self.onNavigate?(playlist)

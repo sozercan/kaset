@@ -9,7 +9,55 @@ struct Playlist: Identifiable, Codable, Hashable {
     let description: String?
     let thumbnailURL: URL?
     let trackCount: Int?
-    let author: String?
+    let author: Artist?
+    let canDelete: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case thumbnailURL
+        case trackCount
+        case author
+        case canDelete
+    }
+
+    init(
+        id: String,
+        title: String,
+        description: String?,
+        thumbnailURL: URL?,
+        trackCount: Int?,
+        author: Artist? = nil,
+        canDelete: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.thumbnailURL = thumbnailURL
+        self.trackCount = trackCount
+        self.author = author
+        self.canDelete = canDelete
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+        self.trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount)
+
+        if let legacyAuthor = try? container.decode(String.self, forKey: .author) {
+            self.author = Artist.inline(name: legacyAuthor, namespace: "playlist-author")
+        } else if let author = try? container.decode(Artist.self, forKey: .author) {
+            self.author = author
+        } else {
+            self.author = nil
+        }
+
+        self.canDelete = (try? container.decode(Bool.self, forKey: .canDelete)) ?? false
+    }
 
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
@@ -60,11 +108,55 @@ extension Playlist {
         if let authors = data["authors"] as? [[String: Any]],
            let firstAuthor = authors.first
         {
-            self.author = firstAuthor["name"] as? String
+            if let artist = Artist(from: firstAuthor) {
+                self.author = artist
+            } else if let name = firstAuthor["name"] as? String {
+                self.author = Artist.inline(name: name, namespace: "playlist-author")
+            } else {
+                self.author = nil
+            }
+        } else if let authorName = data["author"] as? String {
+            self.author = Artist.inline(name: authorName, namespace: "playlist-author")
         } else {
-            self.author = data["author"] as? String
+            self.author = nil
         }
+
+        self.canDelete = data["canDelete"] as? Bool ?? false
     }
+}
+
+// MARK: - AddToPlaylistMenu
+
+/// Menu data returned by YouTube Music for adding a song to playlists.
+struct AddToPlaylistMenu: Codable, Hashable {
+    let title: String?
+    let options: [AddToPlaylistOption]
+    let canCreatePlaylist: Bool
+}
+
+// MARK: - AddToPlaylistOption
+
+/// A playlist option in the add-to-playlist menu.
+struct AddToPlaylistOption: Identifiable, Codable, Hashable {
+    let playlistId: String
+    let title: String
+    let subtitle: String?
+    let thumbnailURL: URL?
+    let isSelected: Bool
+    let privacyStatus: PlaylistPrivacyStatus?
+
+    var id: String {
+        self.playlistId
+    }
+}
+
+// MARK: - PlaylistPrivacyStatus
+
+/// YouTube playlist privacy values used when creating/editing playlists.
+enum PlaylistPrivacyStatus: String, Codable, Hashable, CaseIterable {
+    case `public` = "PUBLIC"
+    case unlisted = "UNLISTED"
+    case `private` = "PRIVATE"
 }
 
 // MARK: - PlaylistDetail
@@ -75,8 +167,9 @@ struct PlaylistDetail: Identifiable {
     let title: String
     let description: String?
     let thumbnailURL: URL?
-    let author: String?
+    let author: Artist?
     let trackCount: Int?
+    let canDelete: Bool
     let tracks: [Song]
     let duration: String?
 
@@ -93,6 +186,7 @@ struct PlaylistDetail: Identifiable {
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
         self.trackCount = playlist.trackCount
+        self.canDelete = playlist.canDelete
         self.tracks = tracks
         self.duration = duration
     }

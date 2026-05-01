@@ -130,7 +130,11 @@ enum ParsingHelpers {
                        let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
                        let artistId = browseEndpoint["browseId"] as? String
                     {
-                        artists.append(Artist(id: artistId, name: text))
+                        artists.append(Artist(
+                            id: artistId,
+                            name: text,
+                            profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
+                        ))
                     } else if !text.isEmpty {
                         // Generate stable ID from artist name when no browse ID available
                         let stableArtistId = Self.stableId(title: "artist", components: text)
@@ -206,6 +210,12 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Returns whether a music item renderer is playable.
+    static func isPlayableMusicItem(from data: [String: Any]) -> Bool {
+        let displayPolicy = data["musicItemRendererDisplayPolicy"] as? String
+        return displayPolicy != "MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT"
+    }
+
     /// Extracts browse ID from navigation endpoint.
     static func extractBrowseId(from data: [String: Any]) -> String? {
         if let endpoint = data["navigationEndpoint"] as? [String: Any],
@@ -232,6 +242,64 @@ enum ParsingHelpers {
     static func isArtistPageType(_ pageType: String?) -> Bool {
         guard let pageType else { return false }
         return Self.artistPageTypes.contains(pageType)
+    }
+
+    /// Creates an artist from a browse endpoint when it points to an artist or user channel page.
+    static func extractArtist(from browseEndpoint: [String: Any]?, name: String, thumbnailURL: URL? = nil) -> Artist? {
+        guard let browseEndpoint,
+              let browseId = browseEndpoint["browseId"] as? String,
+              isArtistPageType(extractPageType(from: browseEndpoint)) || Artist.isNavigableId(browseId)
+        else {
+            return nil
+        }
+
+        let pageType = self.extractPageType(from: browseEndpoint)
+        return Artist(
+            id: browseId,
+            name: name,
+            thumbnailURL: thumbnailURL,
+            profileKind: Artist.profileKind(forPageType: pageType)
+        )
+    }
+
+    /// Extracts the first linked artist-like run from a runs array.
+    static func extractFirstNavigableArtist(from runs: [[String: Any]]) -> Artist? {
+        for run in runs {
+            guard let name = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty,
+                  name != "•",
+                  let endpoint = run["navigationEndpoint"] as? [String: Any],
+                  let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
+                  let artist = extractArtist(from: browseEndpoint, name: name)
+            else {
+                continue
+            }
+
+            return artist
+        }
+
+        return nil
+    }
+
+    /// Extracts a linked artist from a responsive header facepile, if present.
+    static func extractFacepileArtist(from renderer: [String: Any]) -> Artist? {
+        guard let facepile = renderer["facepile"] as? [String: Any],
+              let avatarStackViewModel = facepile["avatarStackViewModel"] as? [String: Any],
+              let text = avatarStackViewModel["text"] as? [String: Any],
+              let content = text["content"] as? String
+        else {
+            return nil
+        }
+
+        let name = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+
+        let browseEndpoint = ((avatarStackViewModel["rendererContext"] as? [String: Any])?["commandContext"] as? [String: Any])
+            .flatMap { $0["onTap"] as? [String: Any] }
+            .flatMap { $0["innertubeCommand"] as? [String: Any] }
+            .flatMap { $0["browseEndpoint"] as? [String: Any] }
+
+        return Self.extractArtist(from: browseEndpoint, name: name)
     }
 
     /// Extracts duration from flex columns or fixed columns.
@@ -431,7 +499,11 @@ enum ParsingHelpers {
                        let browseId = browseEndpoint["browseId"] as? String,
                        Artist.isNavigableId(browseId)
                     {
-                        artists.append(Artist(id: browseId, name: artistName))
+                        artists.append(Artist(
+                            id: browseId,
+                            name: artistName,
+                            profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
+                        ))
                     }
                 }
             }

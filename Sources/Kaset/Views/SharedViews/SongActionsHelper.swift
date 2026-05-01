@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -9,6 +10,26 @@ enum SongActionsHelper {
     static var artistLibraryReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
 
     private static var artistLibraryReconciliationTasks: [String: Task<Void, Never>] = [:]
+
+    private static func cleanedArtistPreservingMetadata(_ artist: Artist) -> Artist? {
+        var cleanName = artist.name
+
+        if cleanName == "Album" {
+            return nil
+        }
+
+        if cleanName.hasPrefix("Album, ") {
+            cleanName = String(cleanName.dropFirst(7))
+        }
+
+        return Artist(
+            id: artist.id,
+            name: cleanName,
+            thumbnailURL: artist.thumbnailURL,
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
+        )
+    }
 
     private static func artistLibraryAliases(for artist: Artist, channelId: String) -> [String] {
         var ids = Set([channelId, artist.id])
@@ -159,6 +180,25 @@ enum SongActionsHelper {
         }
     }
 
+    /// Adds a song to a playlist.
+    static func addSongToPlaylist(
+        _ song: Song,
+        playlist: AddToPlaylistOption,
+        client: any YTMusicClientProtocol
+    ) async {
+        do {
+            try await client.addSongToPlaylist(
+                videoId: song.videoId,
+                playlistId: playlist.playlistId,
+                allowDuplicate: false
+            )
+            self.invalidateLibraryResponseCaches()
+            DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
+        } catch {
+            DiagnosticsLogger.api.error("Failed to add song to playlist: \(error.localizedDescription)")
+        }
+    }
+
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
@@ -171,7 +211,6 @@ enum SongActionsHelper {
             libraryViewModel?.markNeedsReloadOnActivation()
             if let libraryViewModel {
                 libraryViewModel.addToLibrary(playlist: playlist)
-
                 // Library browse responses can lag briefly behind a successful add.
                 try? await Task.sleep(for: .milliseconds(500))
                 await libraryViewModel.refresh()
@@ -198,22 +237,90 @@ enum SongActionsHelper {
             try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
             self.invalidateLibraryResponseCaches()
             libraryViewModel?.markNeedsReloadOnActivation()
-            if let libraryViewModel {
-                libraryViewModel.removeFromLibrary(playlistId: playlist.id)
+            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
 
-                // Library browse responses can lag briefly behind a successful removal.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
-                self.invalidateLibraryResponseCaches()
-
-                if libraryViewModel.isInLibrary(playlistId: playlist.id) {
-                    libraryViewModel.removeFromLibrary(playlistId: playlist.id)
-                    self.invalidateLibraryResponseCaches()
-                }
-            }
+            // Library browse responses can lag briefly behind a successful removal.
+            try? await Task.sleep(for: .milliseconds(500))
+            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+            self.invalidateLibraryResponseCaches()
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
+        }
+    }
+
+    /// Permanently deletes a playlist owned by the user.
+    static func deletePlaylist(
+        _ playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?
+    ) async throws {
+        do {
+            try await client.deletePlaylist(playlistId: playlist.id)
+            self.invalidateLibraryResponseCaches()
+            libraryViewModel?.markNeedsReloadOnActivation()
+            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
+
+            // Library browse responses can lag briefly behind a successful deletion.
+            try? await Task.sleep(for: .milliseconds(500))
+            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+            self.invalidateLibraryResponseCaches()
+            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
+        } catch {
+            DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    /// Shows a confirmation dialog before permanently deleting a playlist owned by the user.
+    static func confirmDeletePlaylist(
+        _ playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?,
+        onSuccess: (() -> Void)? = nil
+    ) {
+        let alert = NSAlert()
+        alert.messageText = "Delete “\(playlist.title)”?"
+        alert.informativeText = "This permanently deletes the playlist from YouTube Music. You can only delete playlists you created."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete Playlist")
+        alert.addButton(withTitle: "Cancel")
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+
+            Task { @MainActor in
+                do {
+                    try await self.deletePlaylist(
+                        playlist,
+                        client: client,
+                        libraryViewModel: libraryViewModel
+                    )
+                    onSuccess?()
+                } catch {
+                    self.presentPlaylistDeletionError(error)
+                }
+            }
+        }
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            handleResponse(alert.runModal())
+        }
+    }
+
+    private static func presentPlaylistDeletionError(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Unable to Delete Playlist"
+        alert.informativeText = "Make sure this is a playlist you created, then try again.\n\n\(error.localizedDescription)"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
         }
     }
 
@@ -336,9 +443,10 @@ enum SongActionsHelper {
         }
     }
 
-    private static func invalidateLibraryResponseCaches() {
+    static func invalidateLibraryResponseCaches() {
         // Library mutations can leave stale data in both the app-level cache and URL loading cache.
         APICache.shared.invalidate(matching: "browse:")
+        APICache.shared.invalidate(matching: "playlist/get_add_to_playlist:")
         URLCache.shared.removeAllCachedResponses()
     }
 
@@ -370,14 +478,7 @@ enum SongActionsHelper {
 
         // Clean artists and use fallback when empty
         let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(id: artist.id, name: cleanName)
-            }
+            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
 
             // Use fallback artist if artists are empty (and clean the fallback too)
             if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
@@ -433,14 +534,7 @@ enum SongActionsHelper {
 
         // Clean artists and use fallback when empty
         let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(id: artist.id, name: cleanName)
-            }
+            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
 
             // Use fallback artist if artists are empty (and clean the fallback too)
             if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
@@ -499,21 +593,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -521,20 +601,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create updated song with album info and proper artists
                     return Song(
@@ -578,21 +645,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -600,20 +653,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create updated song with album info and proper artists
                     return Song(
@@ -657,21 +697,7 @@ enum SongActionsHelper {
                 guard !songs.isEmpty else { return }
 
                 // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap { artist -> Artist? in
-                    var cleanName = artist.name
-
-                    // Skip artists that are literally just "Album" (the keyword, not an artist name)
-                    if cleanName == "Album" {
-                        return nil
-                    }
-
-                    // Also clean "Album, " prefix if present
-                    if cleanName.hasPrefix("Album, ") {
-                        cleanName = String(cleanName.dropFirst(7))
-                    }
-
-                    return Artist(id: artist.id, name: cleanName)
-                }
+                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
 
                 // Populate album and artist info for each song
                 songs = songs.map { song in
@@ -679,20 +705,7 @@ enum SongActionsHelper {
                     let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
 
                     // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap { artist -> Artist? in
-                        var cleanName = artist.name
-
-                        // Skip artists that are literally just "Album"
-                        if cleanName == "Album" {
-                            return nil
-                        }
-
-                        // Clean "Album, " prefix if present
-                        if cleanName.hasPrefix("Album, ") {
-                            cleanName = String(cleanName.dropFirst(7))
-                        }
-                        return Artist(id: artist.id, name: cleanName)
-                    }
+                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
 
                     // Create album object for the song
                     let songAlbum = Album(
@@ -722,70 +735,6 @@ enum SongActionsHelper {
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play album: \(error.localizedDescription)")
             }
-        }
-    }
-}
-
-// MARK: - LikeDislikeContextMenu
-
-/// Reusable context menu items for like/dislike actions.
-@available(macOS 26.0, *)
-struct LikeDislikeContextMenu: View {
-    let song: Song
-    let likeStatusManager: SongLikeStatusManager
-
-    var body: some View {
-        // Show Unlike if already liked, otherwise show Like
-        if self.likeStatusManager.isLiked(self.song) {
-            Button {
-                SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
-            } label: {
-                Label("Unlike", systemImage: "hand.thumbsup.fill")
-            }
-        } else {
-            Button {
-                SongActionsHelper.likeSong(self.song, likeStatusManager: self.likeStatusManager)
-            } label: {
-                Label("Like", systemImage: "hand.thumbsup")
-            }
-
-            // Only show Dislike if not already liked
-            if self.likeStatusManager.isDisliked(self.song) {
-                Button {
-                    SongActionsHelper.undislikeSong(self.song, likeStatusManager: self.likeStatusManager)
-                } label: {
-                    Label("Remove Dislike", systemImage: "hand.thumbsdown.fill")
-                }
-            } else {
-                Button {
-                    SongActionsHelper.dislikeSong(self.song, likeStatusManager: self.likeStatusManager)
-                } label: {
-                    Label("Dislike", systemImage: "hand.thumbsdown")
-                }
-            }
-        }
-    }
-}
-
-// MARK: - AddToQueueContextMenu
-
-/// Reusable context menu items for adding songs to the queue.
-@available(macOS 26.0, *)
-struct AddToQueueContextMenu: View {
-    let song: Song
-    let playerService: PlayerService
-
-    var body: some View {
-        Button {
-            SongActionsHelper.addToQueueNext(self.song, playerService: self.playerService)
-        } label: {
-            Label("Play Next", systemImage: "text.insert")
-        }
-
-        Button {
-            SongActionsHelper.addToQueueLast(self.song, playerService: self.playerService)
-        } label: {
-            Label("Add to Queue", systemImage: "text.append")
         }
     }
 }

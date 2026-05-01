@@ -536,7 +536,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.continuationTokens.removeAll()
         self.searchContinuationToken = nil
         self.likedSongsContinuationToken = nil
-        self.playlistContinuationToken = nil
     }
 
     /// Fetches search suggestions for autocomplete.
@@ -583,9 +582,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         )
 
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
+        let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
         let content = PlaylistParser.LibraryContent(
-            playlists: landingContent.playlists,
+            playlists: playlists,
             artists: artists,
             podcastShows: landingContent.podcastShows,
             artistsSource: artistsSource
@@ -595,6 +595,33 @@ final class YTMusicClient: YTMusicClientProtocol {
             "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
         )
         return content
+    }
+
+    /// Fetches library playlists from the dedicated browse endpoint with graceful fallback to the library landing preview.
+    private func fetchLibraryPlaylists(fallback fallbackPlaylists: [Playlist]) async throws -> [Playlist] {
+        do {
+            let playlistsData = try await self.request(
+                "browse",
+                body: ["browseId": "FEmusic_liked_playlists"],
+                ttl: APICache.TTL.library
+            )
+            let dedicatedPlaylists = PlaylistParser.parseLibraryPlaylists(playlistsData)
+
+            if dedicatedPlaylists.isEmpty {
+                if !fallbackPlaylists.isEmpty {
+                    self.logger.warning("Library playlists endpoint returned no playlists, falling back to landing preview")
+                }
+                return fallbackPlaylists
+            }
+
+            return PlaylistParser.mergedLibraryPlaylists(
+                dedicated: dedicatedPlaylists,
+                fallback: fallbackPlaylists
+            )
+        } catch {
+            self.logger.warning("Library playlists endpoint failed, falling back to landing preview: \(error.localizedDescription)")
+            return fallbackPlaylists
+        }
     }
 
     /// Fetches followed artists with graceful fallback to the library landing preview.
@@ -641,13 +668,13 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Fetching liked songs via VLLM playlist")
 
         let body: [String: Any] = [
-            "browseId": "VLLM",
+            "browseId": LikedMusicPlaylist.browseID,
         ]
 
         let data = try await request("browse", body: body, ttl: APICache.TTL.library)
 
         // Use playlist parser since VLLM returns playlist format
-        let playlistResponse = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: "LM")
+        let playlistResponse = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: LikedMusicPlaylist.id)
 
         // Store continuation token for pagination
         self.likedSongsContinuationToken = playlistResponse.continuationToken
@@ -697,14 +724,6 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     // MARK: - Playlist with Pagination
 
-    /// Continuation token for playlist tracks pagination.
-    private var playlistContinuationToken: String?
-
-    /// Whether more playlist tracks are available to load.
-    var hasMorePlaylistTracks: Bool {
-        self.playlistContinuationToken != nil
-    }
-
     /// Fetches playlist details including tracks with pagination support.
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.logger.info("Fetching playlist: \(id)")
@@ -731,8 +750,6 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let response = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: id)
 
-        // Store continuation token for pagination
-        self.playlistContinuationToken = response.continuationToken
         let hasMore = response.hasMore
 
         self.logger.info("Parsed playlist '\(response.detail.title)' with \(response.detail.tracks.count) tracks, hasMore: \(hasMore)")
@@ -765,27 +782,19 @@ final class YTMusicClient: YTMusicClientProtocol {
         return tracks
     }
 
-    /// Fetches the next batch of playlist tracks via continuation.
-    /// Returns nil if no more tracks are available.
-    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse? {
-        guard let token = playlistContinuationToken else {
-            self.logger.debug("No playlist continuation token available")
-            return nil
-        }
-
+    /// Fetches a batch of playlist tracks using the provided continuation token.
+    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
         self.logger.info("Fetching playlist continuation")
 
         do {
             let continuationData = try await requestContinuation(token)
             let response = PlaylistParser.parsePlaylistContinuation(continuationData)
-            self.playlistContinuationToken = response.continuationToken
             let hasMore = response.hasMore
 
             self.logger.info("Playlist continuation loaded: \(response.tracks.count) tracks, hasMore: \(hasMore)")
             return response
         } catch {
             self.logger.warning("Failed to fetch playlist continuation: \(error.localizedDescription)")
-            self.playlistContinuationToken = nil
             throw error
         }
     }
@@ -833,11 +842,22 @@ final class YTMusicClient: YTMusicClientProtocol {
                     artist: detail.artist,
                     description: detail.description,
                     songs: enrichedSongs,
+                    songsSectionTitle: detail.songsSectionTitle,
+                    orderedSections: detail.orderedSections,
                     albums: detail.albums,
+                    singles: detail.singles,
+                    episodes: detail.episodes,
+                    playlistsByArtist: detail.playlistsByArtist,
+                    relatedArtists: detail.relatedArtists,
+                    podcasts: detail.podcasts,
+                    moreEndpoints: detail.moreEndpoints,
                     thumbnailURL: detail.thumbnailURL,
                     channelId: detail.channelId,
                     isSubscribed: detail.isSubscribed,
                     subscriberCount: detail.subscriberCount,
+                    subscribedButtonText: detail.subscribedButtonText,
+                    unsubscribedButtonText: detail.unsubscribedButtonText,
+                    monthlyAudience: detail.monthlyAudience,
                     hasMoreSongs: detail.hasMoreSongs,
                     songsBrowseId: detail.songsBrowseId,
                     songsParams: detail.songsParams,
@@ -851,7 +871,19 @@ final class YTMusicClient: YTMusicClientProtocol {
             }
         }
 
-        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs and \(detail.albums.count) albums")
+        let albumSections = detail.orderedSections.compactMap {
+            if case let .albums(albums) = $0.content { albums } else { nil }
+        }
+        let playlistSections = detail.orderedSections.compactMap {
+            if case let .playlists(playlists) = $0.content { playlists } else { nil }
+        }
+        let artistSections = detail.orderedSections.compactMap {
+            if case let .artists(artists) = $0.content { artists } else { nil }
+        }
+        let artistCount = artistSections.reduce(0) { $0 + $1.count }
+        let playlistCount = playlistSections.reduce(0) { $0 + $1.count }
+        let albumCount = albumSections.reduce(0) { $0 + $1.count }
+        self.logger.info("Parsed artist '\(detail.artist.name)' with \(detail.songs.count) songs, \(albumCount) albums across \(albumSections.count) album sections, \(playlistCount) playlists across \(playlistSections.count) playlist sections and \(artistCount) related artists across \(artistSections.count) artist sections")
         return detail
     }
 
@@ -913,6 +945,43 @@ final class YTMusicClient: YTMusicClientProtocol {
         let songs = ArtistParser.parseArtistSongs(data)
         self.logger.info("Parsed \(songs.count) artist songs")
         return songs
+    }
+
+    /// Fetches an artist's full discography (`MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`).
+    func getArtistDiscography(browseId: String, params: String?) async throws -> [Album] {
+        self.logger.info("Fetching artist discography: \(browseId)")
+
+        var body: [String: Any] = [
+            "browseId": browseId,
+        ]
+        if let params {
+            body["params"] = params
+        }
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.artist)
+        let albums = ArtistParser.parseArtistDiscography(data)
+        self.logger.info("Parsed \(albums.count) discography albums")
+        return albums
+    }
+
+    /// Fetches a filtered artist-page subset (`MUSIC_PAGE_TYPE_ARTIST`) — the
+    /// full Latest-episodes listing behind a shelf's "See all". The
+    /// authenticated response is a single `gridRenderer` of
+    /// `musicMultiRowListItemRenderer` items (including live streams).
+    func getArtistEpisodesList(browseId: String, params: String?) async throws -> [ArtistEpisode] {
+        self.logger.info("Fetching artist episodes list: \(browseId)")
+
+        var body: [String: Any] = [
+            "browseId": browseId,
+        ]
+        if let params {
+            body["params"] = params
+        }
+
+        let data = try await request("browse", body: body, ttl: APICache.TTL.artist)
+        let episodes = ArtistParser.parseArtistEpisodesGrid(data)
+        self.logger.info("Parsed \(episodes.count) episodes")
+        return episodes
     }
 
     // MARK: - Lyrics
@@ -1187,6 +1256,100 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         // Invalidate library cache so UI updates
         APICache.shared.invalidate(matching: "browse:")
+    }
+
+    /// Permanently deletes one of the user's own playlists.
+    /// - Parameter playlistId: The playlist ID to delete
+    func deletePlaylist(playlistId: String) async throws {
+        self.logger.info("Deleting playlist: \(playlistId)")
+
+        // Remove VL prefix if present for the API call
+        let cleanId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+
+        let body: [String: Any] = [
+            "playlistId": cleanId,
+        ]
+
+        _ = try await self.request("playlist/delete", body: body)
+        self.logger.info("Successfully deleted playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
+    }
+
+    /// Fetches the add-to-playlist menu for a song.
+    /// - Parameter videoId: The video ID of the song to add
+    func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu {
+        self.logger.info("Fetching add-to-playlist options for song \(videoId)")
+
+        let body: [String: Any] = [
+            "videoIds": [videoId],
+        ]
+
+        let data = try await self.request("playlist/get_add_to_playlist", body: body, ttl: APICache.TTL.library)
+        let menu = PlaylistParser.parseAddToPlaylistMenu(data)
+        self.logger.info("Parsed \(menu.options.count) add-to-playlist options")
+        return menu
+    }
+
+    /// Creates a playlist and optionally seeds it with songs.
+    /// - Parameters:
+    ///   - title: Playlist title.
+    ///   - description: Optional playlist description.
+    ///   - privacyStatus: Desired YouTube playlist privacy setting.
+    ///   - videoIds: Initial songs to add to the playlist.
+    /// - Returns: The newly-created playlist ID.
+    func createPlaylist(
+        title: String,
+        description: String?,
+        privacyStatus: PlaylistPrivacyStatus,
+        videoIds: [String]
+    ) async throws -> String {
+        self.logger.info("Creating playlist: \(title, privacy: .public)")
+
+        var body: [String: Any] = [
+            "title": title,
+            "privacyStatus": privacyStatus.rawValue,
+        ]
+
+        if let description, !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["description"] = description
+        }
+
+        if !videoIds.isEmpty {
+            body["videoIds"] = videoIds
+        }
+
+        let data = try await self.request("playlist/create", body: body)
+        guard let playlistId = PlaylistParser.parseCreatedPlaylistId(data) else {
+            throw YTMusicError.parseError(message: "Missing playlist ID in create playlist response")
+        }
+
+        self.logger.info("Successfully created playlist \(playlistId, privacy: .public)")
+        APICache.shared.invalidateMutationCaches()
+        return playlistId
+    }
+
+    /// Adds a song to an existing playlist.
+    /// - Parameters:
+    ///   - videoId: The video ID to add
+    ///   - playlistId: The destination playlist ID
+    ///   - allowDuplicate: Reserved for future duplicate-confirmation UI; YouTube Music handles de-duping server-side.
+    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate _: Bool = false) async throws {
+        self.logger.info("Adding song \(videoId) to playlist \(playlistId)")
+
+        let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let body: [String: Any] = [
+            "playlistId": cleanPlaylistId,
+            "actions": [[
+                "action": "ACTION_ADD_VIDEO",
+                "addedVideoId": videoId,
+            ]],
+        ]
+
+        _ = try await self.request("browse/edit_playlist", body: body)
+        self.logger.info("Successfully added song \(videoId) to playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
     }
 
     /// Removes a playlist from the user's library using the like/removelike endpoint.
