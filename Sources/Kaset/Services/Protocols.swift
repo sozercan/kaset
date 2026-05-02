@@ -49,6 +49,15 @@ protocol YTMusicClientProtocol: Sendable {
     /// Whether more home sections are available to load.
     var hasMoreHomeSections: Bool { get }
 
+    /// Fetches signed-in, account-backed recommendations from the YouTube Music home feed.
+    func getPersonalizedRecommendations() async throws -> HomeResponse
+
+    /// Fetches the next batch of signed-in recommendation sections.
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]?
+
+    /// Whether more signed-in recommendation sections are available to load.
+    var hasMorePersonalizedRecommendationSections: Bool { get }
+
     /// Fetches the explore page content (initial sections only for fast display).
     func getExplore() async throws -> HomeResponse
 

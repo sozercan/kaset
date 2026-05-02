@@ -795,9 +795,8 @@ func checkAuthStatus() {
     print()
 
     // Check if we can compute SAPISIDHASH
-    if let sapisid = getSAPISID(from: cookies) {
+    if getSAPISID(from: cookies) != nil {
         print("✅ Can compute SAPISIDHASH for authenticated requests")
-        print("   SAPISID value: \(sapisid.prefix(8))... (truncated)")
     } else {
         print("❌ Cannot compute SAPISIDHASH - missing SAPISID cookie")
     }

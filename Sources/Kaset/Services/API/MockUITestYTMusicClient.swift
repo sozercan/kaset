@@ -10,6 +10,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
+    var hasMorePersonalizedRecommendationSections: Bool {
+        false
+    }
+
     var hasMoreExploreSections: Bool {
         false
     }
@@ -64,6 +68,15 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getPersonalizedRecommendations() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: self.homeSections)
+    }
+
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
         nil
     }
 

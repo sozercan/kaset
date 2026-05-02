@@ -58,6 +58,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
 
+    /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
+    private var personalizedRecommendationsContinuationToken: String?
+
     init(authService: AuthService, webKitManager: WebKitManager = .shared) {
         self.authService = authService
         self.webKitManager = webKitManager
@@ -148,6 +151,52 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Whether more home sections are available to load.
     var hasMoreHomeSections: Bool {
         self.hasMoreSections(for: .home)
+    }
+
+    /// Fetches signed-in, account-backed recommendations without sharing pagination state with Home.
+    func getPersonalizedRecommendations() async throws -> HomeResponse {
+        self.logger.info("Fetching personalized recommendations")
+
+        let body: [String: Any] = [
+            "browseId": PaginatedContentType.home.rawValue,
+        ]
+
+        let data = try await self.request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+        self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationToken(from: data)
+
+        let hasMore = self.personalizedRecommendationsContinuationToken != nil
+        self.logger.info("Personalized recommendations loaded: \(response.sections.count) sections, hasMore: \(hasMore)")
+        return response
+    }
+
+    /// Fetches the next batch of signed-in recommendation sections.
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
+        guard let token = self.personalizedRecommendationsContinuationToken else {
+            self.logger.debug("No personalized recommendations continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching personalized recommendations continuation")
+
+        do {
+            let continuationData = try await self.requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self.personalizedRecommendationsContinuationToken != nil
+
+            self.logger.info("Personalized recommendations continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch personalized recommendations continuation: \(error.localizedDescription)")
+            self.personalizedRecommendationsContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more signed-in recommendation sections are available to load.
+    var hasMorePersonalizedRecommendationSections: Bool {
+        self.personalizedRecommendationsContinuationToken != nil
     }
 
     /// Fetches the explore page content (initial sections only for fast display).
@@ -534,6 +583,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
         self.continuationTokens.removeAll()
+        self.personalizedRecommendationsContinuationToken = nil
         self.searchContinuationToken = nil
         self.likedSongsContinuationToken = nil
     }
