@@ -16,6 +16,7 @@ struct MainWindow: View {
 
     private enum Layout {
         static let commandBarTopPadding: CGFloat = 72
+        static let windowTopFadeHeight: CGFloat = 120
     }
 
     @Environment(AuthService.self) private var authService
@@ -123,6 +124,11 @@ struct MainWindow: View {
         .sheet(item: self.$whatsNewToPresent) { presentedWhatsNew in
             WhatsNewView(whatsNew: presentedWhatsNew.whatsNew) {
                 self.dismissWhatsNew(presentedWhatsNew)
+            }
+        }
+        .overlay(alignment: .top) {
+            if self.authService.state.isLoggedIn {
+                TopFade(height: Self.Layout.windowTopFadeHeight)
             }
         }
         .overlay {

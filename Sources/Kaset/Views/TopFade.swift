@@ -10,9 +10,10 @@ struct TopFade: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color(nsColor: .windowBackgroundColor).opacity(0.98),
-                Color(nsColor: .windowBackgroundColor).opacity(0.72),
-                Color(nsColor: .windowBackgroundColor).opacity(0),
+                Color.black.opacity(0.42),
+                Color.black.opacity(0.26),
+                Color.black.opacity(0.08),
+                Color.clear,
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -33,17 +34,14 @@ struct TopFadeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
-                TopFade(height: self.height)
-            }
     }
 }
 
 @available(macOS 26.0, *)
 extension View {
-    /// Adds the same top fade treatment used by toolbar-backed pages when the toolbar background is hidden.
+    /// Retained for source compatibility. The top fade is applied once at the main-window level.
     /// - Parameter height: The height of the fade overlay.
-    /// - Returns: A view with a non-interactive top fade overlay.
+    /// - Returns: The view unchanged.
     func topFade(height: CGFloat = 96) -> some View {
         modifier(TopFadeModifier(height: height))
     }
