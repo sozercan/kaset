@@ -242,8 +242,6 @@ ${APP_LOCALIZATIONS_PLIST}
     <string>${APP_NAME}</string>
     <key>CFBundleIconFile</key>
     <string>kaset</string>
-    <key>CFBundleIconName</key>
-    <string>kaset</string>
     <key>NSAccentColorName</key>
     <string>AccentColor</string>
     <key>CFBundleIdentifier</key>
@@ -329,7 +327,7 @@ if [[ "$SIGNING_MODE" == "adhoc" ]]; then
   CODESIGN_ARGS=(--force --sign -)
 elif [[ "$SIGNING_MODE" == "dev" ]]; then
   # Use Apple Development certificate
-  CODESIGN_HASH=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}')
+  CODESIGN_HASH=$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development/ { print $2; exit }' || true)
   if [[ -z "$CODESIGN_HASH" ]]; then
     echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
     CODESIGN_ARGS=(--force --sign -)
