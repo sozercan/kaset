@@ -33,6 +33,7 @@ struct KasetApp: App {
     @State private var notificationService: NotificationService?
     @State private var updaterService = UpdaterService()
     @State private var favoritesManager = FavoritesManager.shared
+    @State private var sidebarPinnedItemsManager = SidebarPinnedItemsManager.shared
     @State private var likeStatusManager = SongLikeStatusManager.shared
     @State private var accountService: AccountService?
     @State private var scrobblingCoordinator: ScrobblingCoordinator
@@ -126,6 +127,7 @@ struct KasetApp: App {
                     .environment(self.webKitManager)
                     .environment(self.playerService)
                     .environment(self.favoritesManager)
+                    .environment(self.sidebarPinnedItemsManager)
                     .environment(self.likeStatusManager)
                     .environment(self.accountService)
                     .environment(self.scrobblingCoordinator)

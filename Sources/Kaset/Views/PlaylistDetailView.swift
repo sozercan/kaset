@@ -10,6 +10,7 @@ struct PlaylistDetailView: View {
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) private var dismiss
@@ -274,6 +275,26 @@ struct PlaylistDetailView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
             .disabled(playableTracks.isEmpty)
+
+            if let sidebarItem = SidebarPinnedItem.from(detail) {
+                let isPinnedToSidebar = self.sidebarPinnedItemsManager?.isPinned(sidebarItem) ?? false
+                Button {
+                    self.sidebarPinnedItemsManager?.toggle(sidebarItem)
+                } label: {
+                    self.headerActionLabel(
+                        isPinnedToSidebar ? String(localized: "In Sidebar") : String(localized: "Add to Sidebar"),
+                        systemImage: isPinnedToSidebar ? "checkmark.circle.fill" : "sidebar.left",
+                        showsTitle: showsTitles
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .help(
+                    isPinnedToSidebar
+                        ? String(localized: "Remove from Sidebar")
+                        : String(localized: "Add to Sidebar")
+                )
+            }
 
             let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
             if !detail.isUploadedSongs {
@@ -836,4 +857,6 @@ private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
         )
     )
     .environment(PlayerService())
+    .environment(FavoritesManager(skipLoad: true))
+    .environment(SidebarPinnedItemsManager(skipLoad: true))
 }
