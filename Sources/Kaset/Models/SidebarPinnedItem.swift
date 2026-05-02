@@ -88,7 +88,7 @@ struct SidebarPinnedItem: Identifiable, Codable, Hashable {
         guard !detail.isUploadedSongs else { return nil }
 
         if detail.isAlbum {
-            return Self.from(Album(
+            return self.from(Album(
                 id: detail.id,
                 title: detail.title,
                 artists: detail.author.map { [$0] },
@@ -98,7 +98,7 @@ struct SidebarPinnedItem: Identifiable, Codable, Hashable {
             ))
         }
 
-        return Self.from(Playlist(
+        return self.from(Playlist(
             id: detail.id,
             title: detail.title,
             description: detail.description,

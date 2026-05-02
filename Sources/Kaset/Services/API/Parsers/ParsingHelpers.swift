@@ -512,10 +512,10 @@ enum ParsingHelpers {
     }
 
     private static func isMetadataText(_ text: String) -> Bool {
-        if contentTypeKeywords.contains(text)
-            || parseDuration(text) != nil
-            || isNaturalLanguageDuration(text)
-            || extractSongCount(from: text) != nil
+        if self.contentTypeKeywords.contains(text)
+            || self.parseDuration(text) != nil
+            || self.isNaturalLanguageDuration(text)
+            || self.extractSongCount(from: text) != nil
         {
             return true
         }

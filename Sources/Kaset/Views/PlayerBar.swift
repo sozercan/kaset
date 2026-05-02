@@ -183,8 +183,8 @@ struct PlayerBar: View {
     private var compactProgressView: some View {
         Rectangle()
             .fill(.clear)
-        .frame(height: 10)
-        .accessibilityHidden(true)
+            .frame(height: 10)
+            .accessibilityHidden(true)
     }
 
     // MARK: - Current Song Context Menu

@@ -43,10 +43,10 @@ extension PlayerService {
         self.mixContinuationToken = nil
 
         // Start with just this song in the queue
-            self.setQueue([song])
-            self.queueOrderBeforeShuffle = nil
-            self.currentIndex = 0
-            await self.play(song: song)
+        self.setQueue([song])
+        self.queueOrderBeforeShuffle = nil
+        self.currentIndex = 0
+        await self.play(song: song)
 
         // Fetch radio queue in background
         await self.fetchAndApplyRadioQueue(for: song.videoId)

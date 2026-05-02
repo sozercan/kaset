@@ -8,16 +8,16 @@ import SwiftUI
 struct PlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
-    @Environment(PlayerService.self) private var playerService
+    @Environment(PlayerService.self) var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
+    @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
-    @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
+    @Environment(\.dismiss) var dismiss
     /// Tracks whether this playlist has been added to library in this session.
-    @State private var isAddedToLibrary: Bool = false
+    @State var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.
-    @State private var showRefineSheet: Bool = false
+    @State var showRefineSheet: Bool = false
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.
@@ -27,7 +27,7 @@ struct PlaylistDetailView: View {
     /// Error message from refine operation.
     @State private var refineError: String?
     /// Computed property to check if playlist is in library.
-    private var isInLibrary: Bool {
+    var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
     }
 
@@ -180,17 +180,6 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func makeFallbackAlbum(from detail: PlaylistDetail) -> Album {
-        Album(
-            id: detail.id,
-            title: detail.title,
-            artists: detail.author.map { [$0] },
-            thumbnailURL: detail.thumbnailURL,
-            year: nil,
-            trackCount: detail.trackCount ?? detail.tracks.count
-        )
-    }
-
     @ViewBuilder
     private func headerAuthorView(_ detail: PlaylistDetail) -> some View {
         let artists = self.headerArtists(for: detail)
@@ -210,188 +199,6 @@ struct PlaylistDetailView: View {
                 }
             }
             .lineLimit(1)
-        }
-    }
-
-    private func headerButtons(_ detail: PlaylistDetail) -> some View {
-        let fallbackAlbum = self.makeFallbackAlbum(from: detail)
-        let playableTracks = self.playableTracks(
-            detail.tracks,
-            fallbackArtist: detail.author?.name,
-            fallbackAlbum: fallbackAlbum
-        )
-
-        return ViewThatFits(in: .horizontal) {
-            self.headerActionButtons(
-                detail,
-                playableTracks: playableTracks,
-                fallbackAlbum: fallbackAlbum,
-                showsTitles: true
-            )
-            .fixedSize(horizontal: true, vertical: false)
-
-            self.headerActionButtons(
-                detail,
-                playableTracks: playableTracks,
-                fallbackAlbum: fallbackAlbum,
-                showsTitles: false
-            )
-        }
-    }
-
-    private func headerActionButtons(
-        _ detail: PlaylistDetail,
-        playableTracks: [Song],
-        fallbackAlbum: Album,
-        showsTitles: Bool
-    ) -> some View {
-        HStack(spacing: 16) {
-            Button {
-                self.playAll(
-                    detail.tracks, fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Play", systemImage: "play.fill", showsTitle: showsTitles)
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            Button {
-                SongActionsHelper.addSongsToQueueNext(
-                    playableTracks,
-                    playerService: self.playerService,
-                    fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Play Next", systemImage: "text.insert", showsTitle: showsTitles)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            Button {
-                SongActionsHelper.addSongsToQueueLast(
-                    playableTracks,
-                    playerService: self.playerService,
-                    fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Add to Queue", systemImage: "text.append", showsTitle: showsTitles)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            if let sidebarItem = SidebarPinnedItem.from(detail) {
-                let isPinnedToSidebar = self.sidebarPinnedItemsManager?.isPinned(sidebarItem) ?? false
-                Button {
-                    self.sidebarPinnedItemsManager?.toggle(sidebarItem)
-                } label: {
-                    self.headerActionLabel(
-                        isPinnedToSidebar ? String(localized: "In Sidebar") : String(localized: "Add to Sidebar"),
-                        systemImage: isPinnedToSidebar ? "checkmark.circle.fill" : "sidebar.left",
-                        showsTitle: showsTitles
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .help(
-                    isPinnedToSidebar
-                        ? String(localized: "Remove from Sidebar")
-                        : String(localized: "Add to Sidebar")
-                )
-            }
-
-            let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-            if !detail.isUploadedSongs {
-                let libraryTitle = currentlyInLibrary
-                    ? String(localized: "Added to Library")
-                    : String(localized: "Add to Library")
-                Button {
-                    self.toggleLibrary()
-                } label: {
-                    self.headerActionLabel(
-                        libraryTitle,
-                        systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle",
-                        showsTitle: showsTitles
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-            }
-
-            if !detail.isAlbum, !detail.isUploadedSongs {
-                Button {
-                    self.showRefineSheet = true
-                } label: {
-                    self.headerActionLabel(localized: "Refine", systemImage: "sparkles", showsTitle: showsTitles)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .requiresIntelligence()
-
-                if detail.canDelete {
-                    Button(role: .destructive) {
-                        SongActionsHelper.confirmDeletePlaylist(
-                            Playlist(
-                                id: detail.id,
-                                title: detail.title,
-                                description: detail.description,
-                                thumbnailURL: detail.thumbnailURL,
-                                trackCount: detail.trackCount,
-                                author: detail.author,
-                                canDelete: detail.canDelete
-                            ),
-                            client: self.viewModel.client,
-                            libraryViewModel: self.libraryViewModel
-                        ) {
-                            self.dismiss()
-                        }
-                    } label: {
-                        self.headerActionLabel(
-                            localized: "Delete Playlist",
-                            systemImage: "trash",
-                            showsTitle: showsTitles
-                        )
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .tint(.red)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func headerActionLabel(
-        localized title: LocalizedStringKey,
-        systemImage: String,
-        showsTitle: Bool
-    ) -> some View {
-        if showsTitle {
-            Label(title, systemImage: systemImage)
-        } else {
-            Image(systemName: systemImage)
-                .accessibilityLabel(Text(title))
-        }
-    }
-
-    @ViewBuilder
-    private func headerActionLabel(
-        _ title: String,
-        systemImage: String,
-        showsTitle: Bool
-    ) -> some View {
-        if showsTitle {
-            Label(title, systemImage: systemImage)
-        } else {
-            Image(systemName: systemImage)
-                .accessibilityLabel(title)
         }
     }
 
@@ -687,7 +494,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playAll(
+    func playAll(
         _ tracks: [Song], fallbackArtist: String? = nil, fallbackAlbum: Album? = nil
     ) {
         let cleanedTracks = self.playableTracks(
@@ -699,7 +506,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playableTracks(
+    func playableTracks(
         _ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil
     ) -> [Song] {
         self.cleanTracks(
@@ -764,7 +571,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func toggleLibrary() {
+    func toggleLibrary() {
         let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
         HapticService.success()
         Task {
@@ -896,7 +703,6 @@ struct PlaylistDetailView: View {
         self.isRefining = false
     }
 }
-
 
 #Preview {
     let playlist = Playlist(

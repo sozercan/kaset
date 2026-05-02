@@ -1221,7 +1221,7 @@ enum PlaylistParser {
             return true
         }
 
-        if Self.isNaturalLanguageDuration(text) {
+        if self.isNaturalLanguageDuration(text) {
             return true
         }
 
