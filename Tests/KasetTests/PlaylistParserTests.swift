@@ -195,6 +195,129 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(detail.tracks.count == 5)
     }
 
+    @Test("Parse album detail uses second subtitle artist instead of generic Album label")
+    func parseAlbumDetailUsesSecondSubtitleArtist() {
+        var data = self.makePlaylistDetailData(
+            title: "Album Title",
+            description: nil,
+            author: nil,
+            trackCount: 1
+        )
+
+        data["header"] = [
+            "musicDetailHeaderRenderer": [
+                "title": ["runs": [["text": "Album Title"]]],
+                "subtitle": ["runs": [["text": "Album"]]],
+                "secondSubtitle": [
+                    "runs": [
+                        [
+                            "text": "Album Artist",
+                            "navigationEndpoint": [
+                                "browseEndpoint": [
+                                    "browseId": "UCALBUMARTIST",
+                                    "browseEndpointContextSupportedConfigs": [
+                                        "browseEndpointContextMusicConfig": [
+                                            "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        ["text": " • "],
+                        ["text": "1 song"],
+                    ],
+                ],
+            ],
+        ]
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE-album")
+
+        #expect(detail.isAlbum)
+        #expect(detail.author?.name == "Album Artist")
+        #expect(detail.author?.id == "UCALBUMARTIST")
+        #expect(detail.trackCount == 1)
+    }
+
+    @Test("Parse responsive album detail uses strapline artist and ignores duration metadata")
+    func parseResponsiveAlbumDetailUsesStraplineArtist() {
+        let data: [String: Any] = [
+            "contents": [
+                "twoColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicResponsiveHeaderRenderer": [
+                                            "title": ["runs": [["text": "2AM"]]],
+                                            "subtitle": ["runs": [["text": "Album"], ["text": " • "], ["text": "2026"]]],
+                                            "secondSubtitle": [
+                                                "runs": [["text": "1 song"], ["text": " • "], ["text": "2 minutes, 42 seconds"]],
+                                            ],
+                                            "straplineTextOne": [
+                                                "runs": [[
+                                                    "text": "Test Artist",
+                                                    "navigationEndpoint": [
+                                                        "browseEndpoint": [
+                                                            "browseId": "UCTESTARTIST",
+                                                            "browseEndpointContextSupportedConfigs": [
+                                                                "browseEndpointContextMusicConfig": [
+                                                                    "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                                                ],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ]],
+                                            ],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                    "secondaryContents": [
+                        "sectionListRenderer": [
+                            "contents": [[
+                                "musicPlaylistShelfRenderer": [
+                                    "contents": [[
+                                        "musicResponsiveListItemRenderer": [
+                                            "playlistItemData": ["videoId": "video0"],
+                                            "flexColumns": [
+                                                [
+                                                    "musicResponsiveListItemFlexColumnRenderer": [
+                                                        "text": ["runs": [["text": "2AM"]]],
+                                                    ],
+                                                ],
+                                                [
+                                                    "musicResponsiveListItemFlexColumnRenderer": [
+                                                        "text": ["runs": [["text": "2 minutes, 42 seconds"]]],
+                                                    ],
+                                                ],
+                                            ],
+                                            "fixedColumns": [[
+                                                "musicResponsiveListItemFixedColumnRenderer": [
+                                                    "text": ["runs": [["text": "2:42"]]],
+                                                ],
+                                            ]],
+                                        ],
+                                    ]],
+                                ],
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE-test-album")
+
+        #expect(detail.isAlbum)
+        #expect(detail.author?.name == "Test Artist")
+        #expect(detail.author?.id == "UCTESTARTIST")
+        #expect(detail.duration == "2 minutes, 42 seconds")
+        #expect(detail.tracks.first?.artists.isEmpty == true)
+    }
+
     @Test("Parse playlist detail delete eligibility")
     func parsePlaylistDetailDeleteEligibility() {
         var deletableData = self.makePlaylistDetailData(

@@ -512,7 +512,11 @@ enum ParsingHelpers {
     }
 
     private static func isMetadataText(_ text: String) -> Bool {
-        if contentTypeKeywords.contains(text) || parseDuration(text) != nil || extractSongCount(from: text) != nil {
+        if contentTypeKeywords.contains(text)
+            || parseDuration(text) != nil
+            || isNaturalLanguageDuration(text)
+            || extractSongCount(from: text) != nil
+        {
             return true
         }
 
@@ -525,6 +529,22 @@ enum ParsingHelpers {
             || lowercased.contains(" plays")
             || lowercased.contains(" subscribers")
             || lowercased.contains("episodes")
+    }
+
+    private static func isNaturalLanguageDuration(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
+
+        guard durationUnits.contains(where: { lowercased.contains($0) }) else {
+            return false
+        }
+
+        return lowercased.allSatisfy { character in
+            character.isNumber
+                || character.isWhitespace
+                || character == ","
+                || durationUnits.joined().contains(character)
+        }
     }
 
     /// Extracts artists from flex columns.

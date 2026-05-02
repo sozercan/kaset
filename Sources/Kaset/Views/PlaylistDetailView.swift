@@ -167,7 +167,12 @@ struct PlaylistDetailView: View {
 
                 self.headerAuthorView(detail)
 
-                Spacer()
+                Text(self.metadataText(for: detail))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+
+                Spacer(minLength: 24)
 
                 self.headerButtons(detail)
             }
@@ -188,12 +193,27 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private func headerAuthorView(_ detail: PlaylistDetail) -> some View {
-        if let author = detail.author, author.hasNavigableId {
-            HoverUnderlineNavigationLink(value: author, title: author.name)
-        } else if let author = detail.author {
-            Text(author.name)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        let artists = self.headerArtists(for: detail)
+
+        if !artists.isEmpty {
+            HStack(spacing: 0) {
+                ForEach(Array(artists.enumerated()), id: \.offset) { index, artist in
+                    if artist.hasNavigableId {
+                        HoverUnderlineNavigationLink(value: artist, title: artist.name)
+                    } else {
+                        Text(artist.name)
+                            .font(.system(.subheadline))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if index < artists.count - 1 {
+                        Text(", ")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .lineLimit(1)
         }
     }
 
@@ -205,27 +225,21 @@ struct PlaylistDetailView: View {
             fallbackAlbum: fallbackAlbum
         )
 
-        return VStack(alignment: .leading, spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                self.headerActionButtons(
-                    detail,
-                    playableTracks: playableTracks,
-                    fallbackAlbum: fallbackAlbum,
-                    showsTitles: true
-                )
-                .fixedSize(horizontal: true, vertical: false)
+        return ViewThatFits(in: .horizontal) {
+            self.headerActionButtons(
+                detail,
+                playableTracks: playableTracks,
+                fallbackAlbum: fallbackAlbum,
+                showsTitles: true
+            )
+            .fixedSize(horizontal: true, vertical: false)
 
-                self.headerActionButtons(
-                    detail,
-                    playableTracks: playableTracks,
-                    fallbackAlbum: fallbackAlbum,
-                    showsTitles: false
-                )
-            }
-
-            Text(self.metadataText(for: detail))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            self.headerActionButtons(
+                detail,
+                playableTracks: playableTracks,
+                fallbackAlbum: fallbackAlbum,
+                showsTitles: false
+            )
         }
     }
 
@@ -243,6 +257,7 @@ struct PlaylistDetailView: View {
                 )
             } label: {
                 self.headerActionLabel(localized: "Play", systemImage: "play.fill", showsTitle: showsTitles)
+                    .foregroundStyle(.white)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
@@ -483,10 +498,12 @@ struct PlaylistDetailView: View {
                         )
                         .lineLimit(1)
 
-                    Text(track.artistsDisplay)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if let artistsDisplay = self.trackArtistsDisplay(for: track, fallbackAuthor: author) {
+                        Text(artistsDisplay)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -512,6 +529,73 @@ struct PlaylistDetailView: View {
                 fallbackAlbum: fallbackAlbum
             )
         }
+    }
+
+    private func headerArtists(for detail: PlaylistDetail) -> [Artist] {
+        if let author = self.cleanedArtist(detail.author) {
+            return [author]
+        }
+
+        return self.uniqueArtists(from: detail.tracks.flatMap(\.artists))
+    }
+
+    private func trackArtistsDisplay(for track: Song, fallbackAuthor: String?) -> String? {
+        let artists = self.uniqueArtists(from: track.artists)
+        if !artists.isEmpty {
+            return artists.map(\.name).joined(separator: ", ")
+        }
+
+        guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
+        return fallbackArtist
+    }
+
+    private func uniqueArtists(from artists: [Artist]) -> [Artist] {
+        var seen = Set<String>()
+        var uniqueArtists: [Artist] = []
+
+        for artist in artists {
+            guard let cleanedArtist = self.cleanedArtist(artist) else { continue }
+            let key = cleanedArtist.hasNavigableId ? cleanedArtist.id : cleanedArtist.name.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            uniqueArtists.append(cleanedArtist)
+        }
+
+        return uniqueArtists
+    }
+
+    private func cleanedArtist(_ artist: Artist?) -> Artist? {
+        guard let artist,
+              let name = self.cleanedArtistName(artist.name)
+        else { return nil }
+
+        return Artist(
+            id: artist.id,
+            name: name,
+            thumbnailURL: artist.thumbnailURL,
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
+        )
+    }
+
+    private func cleanedArtistName(_ name: String?) -> String? {
+        guard var cleanName = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !cleanName.isEmpty
+        else { return nil }
+
+        if cleanName == "Album" {
+            return nil
+        }
+
+        if cleanName.hasPrefix("Album, ") {
+            cleanName = String(cleanName.dropFirst(7))
+        } else if cleanName.contains("Album,") {
+            let parts = cleanName.split(separator: ",", maxSplits: 1)
+            if parts.count > 1 {
+                cleanName = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        return cleanName.isEmpty ? nil : cleanName
     }
 
     // MARK: - Actions
@@ -828,7 +912,8 @@ private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
     var body: some View {
         NavigationLink(value: self.value) {
             Text(self.title)
-                .font(.subheadline)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.secondary)
                 .underline(self.isHovering)
         }
         .buttonStyle(.plain)

@@ -937,17 +937,14 @@ enum PlaylistParser {
         if let subtitleData = renderer["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            if let navigableArtist = ParsingHelpers.extractFirstNavigableArtist(from: runs) {
-                header.author = navigableArtist
-            } else if let name = runs.compactMap({ $0["text"] as? String }).first {
-                header.author = Artist.inline(name: name, namespace: "playlist-author")
-            }
+            header.author = Self.extractHeaderAuthor(from: runs) ?? header.author
             Self.applyMetadata(from: runs, to: &header)
         }
 
         if let secondSubtitleData = renderer["secondSubtitle"] as? [String: Any],
            let runs = secondSubtitleData["runs"] as? [[String: Any]]
         {
+            header.author = header.author ?? Self.extractHeaderAuthor(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
     }
@@ -977,11 +974,7 @@ enum PlaylistParser {
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             if header.author == nil {
-                if let navigableArtist = ParsingHelpers.extractFirstNavigableArtist(from: runs) {
-                    header.author = navigableArtist
-                } else if let name = runs.compactMap({ $0["text"] as? String }).first {
-                    header.author = Artist.inline(name: name, namespace: "playlist-author")
-                }
+                header.author = Self.extractHeaderAuthor(from: runs)
             }
             Self.applyMetadata(from: runs, to: &header)
         }
@@ -1023,11 +1016,7 @@ enum PlaylistParser {
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             if header.author == nil {
-                if let navigableArtist = ParsingHelpers.extractFirstNavigableArtist(from: runs) {
-                    header.author = navigableArtist
-                } else if let name = runs.compactMap({ $0["text"] as? String }).first {
-                    header.author = Artist.inline(name: name, namespace: "playlist-author")
-                }
+                header.author = Self.extractHeaderAuthor(from: runs)
             }
             Self.applyMetadata(from: runs, to: &header)
         }
@@ -1035,6 +1024,7 @@ enum PlaylistParser {
         if let secondSubtitleData = detailHeader["secondSubtitle"] as? [String: Any],
            let runs = secondSubtitleData["runs"] as? [[String: Any]]
         {
+            header.author = header.author ?? Self.extractHeaderAuthor(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
     }
@@ -1126,16 +1116,89 @@ enum PlaylistParser {
             header.author = Artist.inline(name: content, namespace: "playlist-author")
         }
 
+        if header.author == nil,
+           let straplineTextOne = renderer["straplineTextOne"] as? [String: Any],
+           let runs = straplineTextOne["runs"] as? [[String: Any]]
+        {
+            header.author = Self.extractHeaderAuthor(from: runs)
+        }
+
         if let subtitleData = renderer["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
+            header.author = header.author ?? Self.extractHeaderAuthor(from: runs)
             Self.applyMetadata(from: runs, to: &header)
         }
 
         if let secondSubtitleData = renderer["secondSubtitle"] as? [String: Any],
            let runs = secondSubtitleData["runs"] as? [[String: Any]]
         {
+            header.author = header.author ?? Self.extractHeaderAuthor(from: runs)
             Self.applyMetadata(from: runs, to: &header)
+        }
+    }
+
+    private static func extractHeaderAuthor(from runs: [[String: Any]]) -> Artist? {
+        if let navigableArtist = ParsingHelpers.extractFirstNavigableArtist(from: runs),
+           !Self.isHeaderContentKind(navigableArtist.name)
+        {
+            return navigableArtist
+        }
+
+        for run in runs {
+            guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  Self.isHeaderAuthorCandidate(text)
+            else { continue }
+
+            return Artist.inline(name: text, namespace: "playlist-author")
+        }
+
+        return nil
+    }
+
+    private static func isHeaderAuthorCandidate(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        guard !text.isEmpty,
+              text != "•",
+              !Self.isHeaderContentKind(text),
+              ParsingHelpers.extractSongCount(from: text) == nil,
+              ParsingHelpers.parseDuration(text) == nil,
+              !Self.isNaturalLanguageDuration(text),
+              !lowercased.contains(" views"),
+              !lowercased.contains(" plays"),
+              !lowercased.contains(" subscribers"),
+              !lowercased.contains("monthly audience"),
+              !lowercased.contains("episodes"),
+              !(text.count == 4 && Int(text) != nil)
+        else {
+            return false
+        }
+
+        return true
+    }
+
+    private static func isHeaderContentKind(_ text: String) -> Bool {
+        switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "album", "single", "ep", "playlist", "song", "uploads":
+            true
+        default:
+            false
+        }
+    }
+
+    private static func isNaturalLanguageDuration(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
+
+        guard durationUnits.contains(where: { lowercased.contains($0) }) else {
+            return false
+        }
+
+        return lowercased.allSatisfy { character in
+            character.isNumber
+                || character.isWhitespace
+                || character == ","
+                || durationUnits.joined().contains(character)
         }
     }
 
@@ -1155,6 +1218,10 @@ enum PlaylistParser {
 
     private static func isDurationMetadata(_ text: String) -> Bool {
         if ParsingHelpers.parseDuration(text) != nil {
+            return true
+        }
+
+        if Self.isNaturalLanguageDuration(text) {
             return true
         }
 
