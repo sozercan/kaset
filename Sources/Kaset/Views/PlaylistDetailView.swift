@@ -155,7 +155,7 @@ struct PlaylistDetailView: View {
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                Text(detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist"))
+                Text(self.contentKindText(for: detail))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -276,22 +276,24 @@ struct PlaylistDetailView: View {
             .disabled(playableTracks.isEmpty)
 
             let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-            let libraryTitle = currentlyInLibrary
-                ? String(localized: "Added to Library")
-                : String(localized: "Add to Library")
-            Button {
-                self.toggleLibrary()
-            } label: {
-                self.headerActionLabel(
-                    libraryTitle,
-                    systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle",
-                    showsTitle: showsTitles
-                )
+            if !detail.isUploadedSongs {
+                let libraryTitle = currentlyInLibrary
+                    ? String(localized: "Added to Library")
+                    : String(localized: "Add to Library")
+                Button {
+                    self.toggleLibrary()
+                } label: {
+                    self.headerActionLabel(
+                        libraryTitle,
+                        systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle",
+                        showsTitle: showsTitles
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
 
-            if !detail.isAlbum {
+            if !detail.isAlbum, !detail.isUploadedSongs {
                 Button {
                     self.showRefineSheet = true
                 } label: {
@@ -367,6 +369,13 @@ struct PlaylistDetailView: View {
         }
 
         return detail.trackCountDisplay
+    }
+
+    private func contentKindText(for detail: PlaylistDetail) -> String {
+        if detail.isUploadedSongs {
+            return String(localized: "Uploads")
+        }
+        return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
     private func tracksView(

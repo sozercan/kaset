@@ -634,15 +634,18 @@ final class YTMusicClient: YTMusicClientProtocol {
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
         let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
+        let uploadedSongsPlaylist = try await self.fetchUploadedSongsPlaylist()
         let content = PlaylistParser.LibraryContent(
             playlists: playlists,
             artists: artists,
             podcastShows: landingContent.podcastShows,
+            uploadedSongsPlaylist: uploadedSongsPlaylist,
             artistsSource: artistsSource
         )
 
+        let hasUploadedSongs = content.uploadedSongsPlaylist != nil
         self.logger.info(
-            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
+            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, \(content.podcastShows.count) podcasts, uploads: \(hasUploadedSongs)"
         )
         return content
     }
@@ -699,6 +702,21 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         return (fallbackArtists, .landingFallback)
+    }
+
+    /// Fetches the uploaded songs surface as a virtual playlist tile when the account has uploads.
+    private func fetchUploadedSongsPlaylist() async throws -> Playlist? {
+        do {
+            let uploadedTracksData = try await self.request(
+                "browse",
+                body: ["browseId": Playlist.uploadedSongsBrowseID],
+                ttl: APICache.TTL.library
+            )
+            return PlaylistParser.parseUploadedSongsPlaylist(uploadedTracksData)
+        } catch {
+            self.logger.warning("Uploaded songs endpoint failed, hiding uploads tile: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Liked Songs with Pagination
@@ -784,7 +802,13 @@ final class YTMusicClient: YTMusicClientProtocol {
         // - RD... = radio/mix (use as-is)
         // - OLAK... = album (use as-is)
         // - MPRE... = album (use as-is)
-        let browseId: String = if id.hasPrefix("VL") || id.hasPrefix("RD") || id.hasPrefix("OLAK") || id.hasPrefix("MPRE") || id.hasPrefix("UC") {
+        let browseId: String = if id == Playlist.uploadedSongsBrowseID
+            || id.hasPrefix("VL")
+            || id.hasPrefix("RD")
+            || id.hasPrefix("OLAK")
+            || id.hasPrefix("MPRE")
+            || id.hasPrefix("UC")
+        {
             id
         } else if id.hasPrefix("PL") {
             "VL\(id)"

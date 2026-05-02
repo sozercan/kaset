@@ -32,17 +32,20 @@ enum PlaylistParser {
         let playlists: [Playlist]
         let artists: [Artist]
         let podcastShows: [PodcastShow]
+        let uploadedSongsPlaylist: Playlist?
         let artistsSource: LibraryArtistsSource
 
         init(
             playlists: [Playlist],
             artists: [Artist],
             podcastShows: [PodcastShow],
+            uploadedSongsPlaylist: Playlist? = nil,
             artistsSource: LibraryArtistsSource = .dedicated
         ) {
             self.playlists = playlists
             self.artists = artists
             self.podcastShows = podcastShows
+            self.uploadedSongsPlaylist = uploadedSongsPlaylist
             self.artistsSource = artistsSource
         }
     }
@@ -108,6 +111,25 @@ enum PlaylistParser {
         }
 
         return Self.deduplicatedArtists(normalizedArtists)
+    }
+
+    /// Parses the uploaded songs browse endpoint into a virtual playlist tile for Library.
+    static func parseUploadedSongsPlaylist(_ data: [String: Any]) -> Playlist? {
+        let detail = Self.parsePlaylistWithContinuation(data, playlistId: Playlist.uploadedSongsBrowseID).detail
+        guard !detail.tracks.isEmpty || (detail.trackCount ?? 0) > 0 else {
+            return nil
+        }
+
+        let title = detail.title == "Unknown Playlist" ? "Uploaded Songs" : detail.title
+        return Playlist(
+            id: Playlist.uploadedSongsBrowseID,
+            title: title,
+            description: nil,
+            thumbnailURL: detail.thumbnailURL ?? detail.tracks.first?.thumbnailURL,
+            trackCount: max(detail.trackCount ?? 0, detail.tracks.count),
+            author: Artist.inline(name: "Uploads", namespace: "library-upload"),
+            canDelete: false
+        )
     }
 
     private static func normalizedLibraryPlaylistId(_ playlistId: String) -> String {

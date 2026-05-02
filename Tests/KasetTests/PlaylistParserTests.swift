@@ -250,6 +250,26 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(detail.tracks[0].videoId == "video0")
     }
 
+    @Test("Parse uploaded songs as virtual playlist with plain artist metadata")
+    func parseUploadedSongsPlaylist() {
+        let data = self.makeUploadedSongsData()
+
+        let playlist = PlaylistParser.parseUploadedSongsPlaylist(data)
+        let response = PlaylistParser.parsePlaylistWithContinuation(
+            data,
+            playlistId: Playlist.uploadedSongsBrowseID
+        )
+
+        #expect(playlist?.id == Playlist.uploadedSongsBrowseID)
+        #expect(playlist?.title == "Uploaded Songs")
+        #expect(playlist?.trackCount == 2)
+        #expect(response.detail.tracks.count == 2)
+        #expect(response.detail.tracks[0].title == "Uploaded Track 1")
+        #expect(response.detail.tracks[0].artistsDisplay == "Uploaded Artist")
+        #expect(response.detail.tracks[1].artistsDisplay == "Another Uploaded Artist")
+        #expect(response.continuationToken == "uploaded-next-page")
+    }
+
     @Test("Parse playlist detail ignores Suggestions shelf when playlist shelf is present")
     func parsePlaylistDetailIgnoresSuggestionsShelf() {
         let actualTrack: [String: Any] = [
@@ -1109,6 +1129,77 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                         ],
                     ]],
                 ],
+            ],
+        ]
+    }
+
+    private func makeUploadedSongsData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [
+                                                self.uploadedSongRow(
+                                                    videoId: "upload-video-1",
+                                                    title: "Uploaded Track 1",
+                                                    artist: "Uploaded Artist"
+                                                ),
+                                                self.uploadedSongRow(
+                                                    videoId: "upload-video-2",
+                                                    title: "Uploaded Track 2",
+                                                    artist: "Another Uploaded Artist"
+                                                ),
+                                                [
+                                                    "continuationItemRenderer": [
+                                                        "continuationEndpoint": [
+                                                            "continuationCommand": [
+                                                                "token": "uploaded-next-page",
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func uploadedSongRow(videoId: String, title: String, artist: String) -> [String: Any] {
+        [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": videoId],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": title]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [
+                                ["text": artist],
+                                ["text": " • "],
+                                ["text": "Uploaded Album"],
+                            ]],
+                        ],
+                    ],
+                ],
+                "fixedColumns": [[
+                    "musicResponsiveListItemFixedColumnRenderer": [
+                        "text": ["runs": [["text": "3:25"]]],
+                    ],
+                ]],
             ],
         ]
     }
