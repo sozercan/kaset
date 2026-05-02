@@ -254,6 +254,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             let cellView = QueueTableCellView()
             let entry = self.entries[row]
             let song = entry.song
+            let isFavorited = self.favoritesManager.isPinned(song: song)
             cellView.configure(
                 song: song,
                 index: row,
@@ -261,7 +262,11 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 isPlaying: self.isPlaying,
                 actions: QueueCellActions(
                     onPlay: { [weak self] in self?.onSelect(row) },
-                    onRemove: { [weak self] in self?.onRemove(entry.id) }
+                    onRemove: { [weak self] in self?.onRemove(entry.id) },
+                    onToggleFavorite: { [weak self] in
+                        self?.favoritesManager.toggle(song: song)
+                    },
+                    isFavorited: isFavorited
                 )
             )
             return cellView

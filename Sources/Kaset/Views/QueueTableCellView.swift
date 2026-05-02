@@ -7,6 +7,8 @@ import SwiftUI
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
+    let onToggleFavorite: () -> Void
+    let isFavorited: Bool
 }
 
 // MARK: - QueueTableCellView
@@ -25,6 +27,9 @@ class QueueTableCellView: NSView {
     private let titleLabel = NSTextField()
     private let artistLabel = NSTextField()
     private let durationLabel = NSTextField()
+    private let explicitBadge = NSTextField()
+    private let favoriteButton = NSButton()
+    private var onToggleFavoriteAction: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -114,10 +119,15 @@ class QueueTableCellView: NSView {
 
         infoStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) // Truncate before spacer grows
 
+        self.configureExplicitBadge()
+        self.configureFavoriteButton()
+
         stackView.addArrangedSubview(indicatorContainer)
         stackView.addArrangedSubview(self.thumbnailImageView)
         stackView.addArrangedSubview(infoStackView)
+        stackView.addArrangedSubview(self.explicitBadge)
         stackView.addArrangedSubview(spacerView)
+        stackView.addArrangedSubview(self.favoriteButton)
         stackView.addArrangedSubview(self.durationLabel)
 
         addSubview(stackView)
@@ -132,6 +142,41 @@ class QueueTableCellView: NSView {
         addGestureRecognizer(clickGesture)
     }
 
+    /// Explicit "E" badge — placed inline at the trailing edge of the title row.
+    /// Hidden by default; toggled in configure(...) based on song.isExplicit.
+    private func configureExplicitBadge() {
+        self.explicitBadge.isEditable = false
+        self.explicitBadge.isBordered = false
+        self.explicitBadge.alignment = .center
+        self.explicitBadge.stringValue = "E"
+        self.explicitBadge.font = NSFont.systemFont(ofSize: 9, weight: .semibold)
+        self.explicitBadge.textColor = NSColor.windowBackgroundColor
+        self.explicitBadge.backgroundColor = NSColor.secondaryLabelColor
+        self.explicitBadge.drawsBackground = true
+        self.explicitBadge.wantsLayer = true
+        self.explicitBadge.layer?.cornerRadius = 3
+        self.explicitBadge.layer?.masksToBounds = true
+        self.explicitBadge.translatesAutoresizingMaskIntoConstraints = false
+        self.explicitBadge.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        self.explicitBadge.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        self.explicitBadge.setAccessibilityLabel("Explicit")
+        self.explicitBadge.isHidden = true
+    }
+
+    /// Favorite heart button — always visible; opacity reflects state.
+    private func configureFavoriteButton() {
+        self.favoriteButton.bezelStyle = .accessoryBar
+        self.favoriteButton.isBordered = false
+        self.favoriteButton.setButtonType(.momentaryChange)
+        self.favoriteButton.imagePosition = .imageOnly
+        self.favoriteButton.image = NSImage(systemSymbolName: "heart", accessibilityDescription: "Add to Favorites")
+        self.favoriteButton.target = self
+        self.favoriteButton.action = #selector(self.handleFavoriteClick)
+        self.favoriteButton.translatesAutoresizingMaskIntoConstraints = false
+        self.favoriteButton.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        self.favoriteButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
+    }
+
     override func layout() {
         super.layout()
         // Ensure we always fill the row view so reused rows don't keep a stale frame (fixes misaligned rows).
@@ -143,9 +188,23 @@ class QueueTableCellView: NSView {
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, actions: QueueCellActions) {
         self.onPlay = actions.onPlay
         self.onRemove = actions.onRemove
+        self.onToggleFavoriteAction = actions.onToggleFavorite
         self.isCurrentTrack = isCurrentTrack
         self.isPlaying = isPlaying
         self.updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
+
+        let isExplicit = song.isExplicit ?? false
+        self.explicitBadge.isHidden = !isExplicit
+
+        let favoriteName = actions.isFavorited ? "heart.fill" : "heart"
+        let favoriteDescription = actions.isFavorited
+            ? String(localized: "Remove from Favorites")
+            : String(localized: "Add to Favorites")
+        self.favoriteButton.image = NSImage(systemSymbolName: favoriteName, accessibilityDescription: favoriteDescription)
+        self.favoriteButton.contentTintColor = actions.isFavorited ? NSColor.systemRed : NSColor.tertiaryLabelColor
+        self.favoriteButton.alphaValue = actions.isFavorited ? 1.0 : 0.55
+        self.favoriteButton.toolTip = favoriteDescription
+        self.favoriteButton.setAccessibilityLabel(favoriteDescription)
 
         self.titleLabel.stringValue = song.title
         self.titleLabel.font = NSFont.systemFont(ofSize: 13, weight: isCurrentTrack ? .semibold : .regular)
@@ -231,6 +290,10 @@ class QueueTableCellView: NSView {
         self.onPlay?()
     }
 
+    @objc private func handleFavoriteClick() {
+        self.onToggleFavoriteAction?()
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         self.imageLoadTask?.cancel()
@@ -239,6 +302,8 @@ class QueueTableCellView: NSView {
         self.thumbnailImageView.image = nil
         self.waveformView?.removeFromSuperview()
         self.waveformView = nil
+        self.onToggleFavoriteAction = nil
+        self.explicitBadge.isHidden = true
     }
 }
 

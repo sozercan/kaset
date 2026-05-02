@@ -335,64 +335,76 @@ struct SearchView: View {
     }
 
     private func resultRow(_ item: SearchResultItem) -> some View {
-        Button {
-            self.handleItemTap(item)
-        } label: {
-            HStack(spacing: 12) {
-                // Thumbnail
-                CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: self.iconForItem(item))
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(.rect(cornerRadius: item.isArtist ? 24 : 6))
+        HoverObservingRow { isHovered in
+            Button {
+                self.handleItemTap(item)
+            } label: {
+                HStack(spacing: 12) {
+                    // Thumbnail
+                    CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .overlay {
+                                Image(systemName: self.iconForItem(item))
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    .frame(width: 48, height: 48)
+                    .clipShape(.rect(cornerRadius: item.isArtist ? 24 : 6))
 
-                // Info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title)
-                        .font(.system(size: 14))
-                        .lineLimit(1)
-
-                    HStack(spacing: 4) {
-                        Text(item.resultType)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-
-                        if let subtitle = item.subtitle {
-                            Text("•")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.tertiary)
-
-                            Text(subtitle)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                    // Info
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(item.title)
+                                .font(.system(size: 14))
                                 .lineLimit(1)
+                            if case let .song(song) = item, song.isExplicit == true {
+                                ExplicitBadge()
+                            }
+                        }
+
+                        HStack(spacing: 4) {
+                            Text(item.resultType)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+
+                            if let subtitle = item.subtitle {
+                                Text("•")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.tertiary)
+
+                                Text(subtitle)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
-                }
 
-                Spacer()
+                    Spacer()
 
-                // Play indicator for songs
-                if item.videoId != nil {
-                    Image(systemName: "play.circle")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
+                    // Favorite toggle for songs
+                    if case let .song(song) = item {
+                        FavoriteHeartButton(song: song, isRowHovered: isHovered)
+                    }
+
+                    // Play indicator for songs
+                    if item.videoId != nil {
+                        Image(systemName: "play.circle")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .buttonStyle(.interactiveRow(cornerRadius: 6))
         }
-        .buttonStyle(.interactiveRow(cornerRadius: 6))
         .contextMenu {
             self.contextMenuItems(for: item)
         }

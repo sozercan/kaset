@@ -73,50 +73,60 @@ struct TopSongsView: View {
     // MARK: - Song Row
 
     private func songRow(_ song: Song, index: Int) -> some View {
-        Button {
-            self.playSongInQueue(startingAt: index)
-        } label: {
-            HStack(spacing: 12) {
-                // Thumbnail
-                SongThumbnailView(song: song, size: 44, cornerRadius: 4)
+        HoverObservingRow { isHovered in
+            Button {
+                self.playSongInQueue(startingAt: index)
+            } label: {
+                HStack(spacing: 12) {
+                    // Thumbnail
+                    SongThumbnailView(song: song, size: 44, cornerRadius: 4)
 
-                // Title
-                Text(song.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    // Title (with optional explicit badge)
+                    HStack(spacing: 6) {
+                        Text(song.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if song.isExplicit == true {
+                            ExplicitBadge()
+                        }
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Artist column
-                Text(song.artistsDisplay)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: 150, alignment: .leading)
-
-                // Album column (if available)
-                if let album = song.album {
-                    Text(album.title)
+                    // Artist column
+                    Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .frame(width: 180, alignment: .leading)
-                } else {
-                    Spacer()
-                        .frame(width: 180)
-                }
+                        .frame(width: 150, alignment: .leading)
 
-                // Duration
-                Text(song.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 50, alignment: .trailing)
+                    // Album column (if available)
+                    if let album = song.album {
+                        Text(album.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: 180, alignment: .leading)
+                    } else {
+                        Spacer()
+                            .frame(width: 180)
+                    }
+
+                    // Favorite toggle
+                    FavoriteHeartButton(song: song, isRowHovered: isHovered)
+
+                    // Duration
+                    Text(song.durationDisplay)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .contextMenu {
             Button {
                 self.playSongInQueue(startingAt: index)

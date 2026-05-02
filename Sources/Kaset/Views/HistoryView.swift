@@ -156,40 +156,49 @@ struct HistoryView: View {
     // MARK: - Song Row
 
     private func songRow(_ song: Song, allSongs: [Song], index: Int) -> some View {
-        Button {
-            Task {
-                await self.playerService.playQueue(allSongs, startingAt: index)
-            }
-        } label: {
-            HStack(spacing: 12) {
-                SongThumbnailView(song: song)
+        HoverObservingRow { isHovered in
+            Button {
+                Task {
+                    await self.playerService.playQueue(allSongs, startingAt: index)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    SongThumbnailView(song: song)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(song.title)
-                        .font(.system(size: 14))
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(song.title)
+                                .font(.system(size: 14))
+                                .lineLimit(1)
+                            if song.isExplicit == true {
+                                ExplicitBadge()
+                            }
+                        }
 
-                    Text(song.artistsDisplay)
+                        Text(song.artistsDisplay)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Text(song.durationDisplay)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+
+                    FavoriteHeartButton(song: song, isRowHovered: isHovered)
+
+                    Image(systemName: "play.circle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
                 }
-
-                Spacer()
-
-                Text(song.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-
-                Image(systemName: "play.circle")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .contextMenu {
             Button {
                 Task { await self.playerService.play(song: song) }

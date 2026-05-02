@@ -114,7 +114,8 @@ enum RadioQueueParser {
                 album: nil,
                 duration: duration,
                 thumbnailURL: thumbnailURL,
-                videoId: videoId
+                videoId: videoId,
+                isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
             )
             songs.append(song)
         }

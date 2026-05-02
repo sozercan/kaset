@@ -99,6 +99,13 @@ struct HomeSectionItemCard: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
+        .overlay(alignment: .topTrailing) {
+            // Favorite heart in the corner for songs
+            if case let .song(song) = self.item {
+                FavoriteHeartButton(song: song, isRowHovered: self.isHovering)
+                    .padding(6)
+            }
+        }
     }
 
     /// Placeholder view for items without thumbnails.
@@ -164,11 +171,16 @@ struct HomeSectionItemCard: View {
 
     private var titleAndSubtitle: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(self.item.title)
-                .font(.system(size: 13, weight: .medium))
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(width: Self.cardWidth, alignment: .leading)
+            HStack(spacing: 6) {
+                Text(self.item.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if case let .song(song) = self.item, song.isExplicit == true {
+                    ExplicitBadge()
+                }
+            }
+            .frame(width: Self.cardWidth, alignment: .leading)
 
             if let subtitle = item.subtitle {
                 Text(subtitle)
