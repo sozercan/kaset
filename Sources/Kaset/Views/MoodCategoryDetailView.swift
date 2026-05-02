@@ -73,7 +73,7 @@ struct MoodCategoryDetailView: View {
                 .fontWeight(.semibold)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(alignment: .top, spacing: 16) {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { _, item in
                         self.itemView(item)
                     }

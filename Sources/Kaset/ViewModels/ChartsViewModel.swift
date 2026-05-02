@@ -6,6 +6,11 @@ import os
 @MainActor
 @Observable
 final class ChartsViewModel {
+    private enum ContentSource {
+        case personalized
+        case publicCharts
+    }
+
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -26,6 +31,7 @@ final class ChartsViewModel {
 
     /// Number of background continuations loaded.
     private var continuationsLoaded = 0
+    private var contentSource: ContentSource = .personalized
 
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
@@ -46,9 +52,9 @@ final class ChartsViewModel {
         self.logger.info("Loading charts content")
 
         do {
-            let response = try await client.getCharts()
+            let response = try await self.loadPersonalizedOrFallback()
             self.sections = response.sections
-            self.hasMoreSections = self.client.hasMoreChartsSections
+            self.hasMoreSections = self.hasMoreSectionsForCurrentSource
             self.loadingState = .loaded
             self.continuationsLoaded = 0
             let sectionCount = self.sections.count
@@ -87,10 +93,10 @@ final class ChartsViewModel {
             guard self.loadingState == .loaded else { break }
 
             do {
-                if let additionalSections = try await client.getChartsContinuation() {
+                if let additionalSections = try await self.getContinuationForCurrentSource() {
                     self.sections.append(contentsOf: additionalSections)
                     self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreChartsSections
+                    self.hasMoreSections = self.hasMoreSectionsForCurrentSource
                     let continuationNum = self.continuationsLoaded
                     self.logger.info("Background loaded \(additionalSections.count) more sections (continuation \(continuationNum))")
                 } else {
@@ -117,5 +123,42 @@ final class ChartsViewModel {
         self.hasMoreSections = true
         self.continuationsLoaded = 0
         await self.load()
+    }
+
+    // MARK: - Private Helpers
+
+    private var hasMoreSectionsForCurrentSource: Bool {
+        switch self.contentSource {
+        case .personalized:
+            self.client.hasMorePersonalizedRecommendationSections
+        case .publicCharts:
+            self.client.hasMoreChartsSections
+        }
+    }
+
+    private func loadPersonalizedOrFallback() async throws -> HomeResponse {
+        do {
+            let response = try await self.client.getPersonalizedRecommendations()
+            if !response.sections.isEmpty {
+                self.contentSource = .personalized
+                return response
+            }
+
+            self.logger.warning("Personalized recommendations were empty, falling back to public charts")
+        } catch {
+            self.logger.warning("Personalized recommendations failed, falling back to public charts: \(error.localizedDescription)")
+        }
+
+        self.contentSource = .publicCharts
+        return try await self.client.getCharts()
+    }
+
+    private func getContinuationForCurrentSource() async throws -> [HomeSection]? {
+        switch self.contentSource {
+        case .personalized:
+            try await self.client.getPersonalizedRecommendationsContinuation()
+        case .publicCharts:
+            try await self.client.getChartsContinuation()
+        }
     }
 }

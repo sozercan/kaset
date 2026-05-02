@@ -6,6 +6,11 @@ import os
 @MainActor
 @Observable
 final class ExploreViewModel {
+    private enum ContentSource {
+        case personalized
+        case publicExplore
+    }
+
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -26,6 +31,7 @@ final class ExploreViewModel {
 
     /// Number of background continuations loaded.
     private var continuationsLoaded = 0
+    private var contentSource: ContentSource = .personalized
 
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
@@ -46,10 +52,10 @@ final class ExploreViewModel {
         self.logger.info("Loading explore content")
 
         do {
-            let response = try await client.getExplore()
+            let response = try await self.loadPersonalizedOrFallback()
             // Filter out Charts section since it's available in the sidebar
             self.sections = response.sections.filter { !self.isChartsSection($0) }
-            self.hasMoreSections = self.client.hasMoreExploreSections
+            self.hasMoreSections = self.hasMoreSectionsForCurrentSource
             self.loadingState = .loaded
             self.continuationsLoaded = 0
             let sectionCount = self.sections.count
@@ -88,12 +94,12 @@ final class ExploreViewModel {
             guard self.loadingState == .loaded else { break }
 
             do {
-                if let additionalSections = try await client.getExploreContinuation() {
+                if let additionalSections = try await self.getContinuationForCurrentSource() {
                     // Filter out Charts section since it's available in the sidebar
                     let filteredSections = additionalSections.filter { !self.isChartsSection($0) }
                     self.sections.append(contentsOf: filteredSections)
                     self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreExploreSections
+                    self.hasMoreSections = self.hasMoreSectionsForCurrentSource
                     let continuationNum = self.continuationsLoaded
                     self.logger.info("Background loaded \(filteredSections.count) more sections (continuation \(continuationNum))")
                 } else {
@@ -123,6 +129,41 @@ final class ExploreViewModel {
     }
 
     // MARK: - Private Helpers
+
+    private var hasMoreSectionsForCurrentSource: Bool {
+        switch self.contentSource {
+        case .personalized:
+            self.client.hasMorePersonalizedRecommendationSections
+        case .publicExplore:
+            self.client.hasMoreExploreSections
+        }
+    }
+
+    private func loadPersonalizedOrFallback() async throws -> HomeResponse {
+        do {
+            let response = try await self.client.getPersonalizedRecommendations()
+            if !response.sections.isEmpty {
+                self.contentSource = .personalized
+                return response
+            }
+
+            self.logger.warning("Personalized recommendations were empty, falling back to public explore")
+        } catch {
+            self.logger.warning("Personalized recommendations failed, falling back to public explore: \(error.localizedDescription)")
+        }
+
+        self.contentSource = .publicExplore
+        return try await self.client.getExplore()
+    }
+
+    private func getContinuationForCurrentSource() async throws -> [HomeSection]? {
+        switch self.contentSource {
+        case .personalized:
+            try await self.client.getPersonalizedRecommendationsContinuation()
+        case .publicExplore:
+            try await self.client.getExploreContinuation()
+        }
+    }
 
     /// Determines if a section is a Charts section (which should be filtered out).
     private func isChartsSection(_ section: HomeSection) -> Bool {

@@ -20,6 +20,7 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.playlists.isEmpty)
         #expect(self.viewModel.artists.isEmpty)
         #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.uploadedSongsPlaylist == nil)
         #expect(self.viewModel.libraryPlaylistIds.isEmpty)
         #expect(self.viewModel.libraryArtistIds.isEmpty)
         #expect(self.viewModel.libraryPodcastIds.isEmpty)
@@ -38,6 +39,13 @@ struct LibraryViewModelTests {
         self.mockClient.libraryPodcastShows = [
             TestFixtures.makePodcastShow(id: "MPSPPL1", title: "Podcast 1"),
         ]
+        self.mockClient.uploadedSongsPlaylist = Playlist(
+            id: Playlist.uploadedSongsBrowseID,
+            title: "Uploaded Songs",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 7000
+        )
 
         await self.viewModel.load()
 
@@ -50,6 +58,8 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.artists[0].name == "Artist 1")
         #expect(self.viewModel.podcastShows.count == 1)
         #expect(self.viewModel.podcastShows[0].title == "Podcast 1")
+        #expect(self.viewModel.uploadedSongsPlaylist?.id == Playlist.uploadedSongsBrowseID)
+        #expect(self.viewModel.uploadedSongsPlaylist?.trackCount == 7000)
         #expect(self.viewModel.libraryPlaylistIds == Set(["VL1", "VL2"]))
         #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
         #expect(self.viewModel.libraryPodcastIds == Set(["MPSPPL1"]))

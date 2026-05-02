@@ -111,6 +111,35 @@ struct HomeResponseParserTests {
         }
     }
 
+    @Test("Parse carousel section with video preserves video type")
+    func parseCarouselSectionWithVideoPreservesVideoType() throws {
+        let videoData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Test Video"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": [
+                        "videoId": "video123",
+                        "watchEndpointMusicSupportedConfigs": [
+                            "watchEndpointMusicConfig": [
+                                "musicVideoType": "MUSIC_VIDEO_TYPE_OMV",
+                            ],
+                        ],
+                    ],
+                ],
+                "subtitle": ["runs": [["text": "Artist Name"], ["text": " • "], ["text": "10M views"]]],
+            ],
+        ]
+
+        let item = try #require(HomeResponseParser.parseHomeSectionItem(videoData))
+
+        if case let .song(song) = item {
+            #expect(song.videoId == "video123")
+            #expect(song.musicVideoType == .omv)
+        } else {
+            Issue.record("Expected video item to parse as a song")
+        }
+    }
+
     @Test("Parse chart section with empty contents returns nil")
     func parseChartSection() {
         let sectionData: [String: Any] = [
