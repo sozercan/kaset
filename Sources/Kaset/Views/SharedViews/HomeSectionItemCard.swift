@@ -10,8 +10,8 @@ struct HomeSectionItemCard: View {
     let action: () -> Void
 
     /// Card dimensions.
-    private static let cardWidth: CGFloat = 160
-    private static let cardHeight: CGFloat = 160
+    private static let squareThumbnailSize = CGSize(width: 160, height: 160)
+    private static let videoThumbnailSize = CGSize(width: 284, height: 160)
 
     /// Hover state for play overlay.
     @State private var isHovering = false
@@ -82,7 +82,7 @@ struct HomeSectionItemCard: View {
                 self.placeholderView
             }
         }
-        .frame(width: Self.cardWidth, height: Self.cardHeight)
+        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
             // Play overlay on hover (for songs)
@@ -118,7 +118,7 @@ struct HomeSectionItemCard: View {
     /// Returns appropriate icon for the placeholder based on item type.
     private var placeholderIcon: String {
         switch self.item {
-        case .song: "music.note"
+        case .song: self.isVideoSong ? "play.rectangle" : "music.note"
         case .album: "square.stack"
         case .playlist: "music.note.list"
         case .artist: "person.fill"
@@ -168,16 +168,35 @@ struct HomeSectionItemCard: View {
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(width: Self.cardWidth, alignment: .leading)
+                .frame(width: self.cardWidth, alignment: .leading)
 
             if let subtitle = item.subtitle {
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .frame(width: Self.cardWidth, alignment: .leading)
+                    .frame(width: self.cardWidth, alignment: .leading)
             }
         }
+    }
+
+    private var cardWidth: CGFloat {
+        self.thumbnailSize.width
+    }
+
+    private var thumbnailSize: CGSize {
+        self.isVideoSong ? Self.videoThumbnailSize : Self.squareThumbnailSize
+    }
+
+    private var isVideoSong: Bool {
+        guard case let .song(song) = self.item else { return false }
+
+        if let musicVideoType = song.musicVideoType {
+            return musicVideoType != .atv
+        }
+
+        let subtitle = song.artistsDisplay.lowercased()
+        return subtitle.contains("views") || subtitle.contains("video")
     }
 }
 

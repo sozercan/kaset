@@ -71,7 +71,7 @@ struct NewReleasesView: View {
                 .fontWeight(.semibold)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(alignment: .top, spacing: 16) {
                     if section.isChart {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                             HomeSectionItemCard(item: item, rank: index + 1) {

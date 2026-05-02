@@ -81,7 +81,7 @@ struct MoodsAndGenresView: View {
                 .fontWeight(.semibold)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(alignment: .top, spacing: 16) {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
                         HomeSectionItemCard(item: item) {
                             self.playItem(item, in: section, at: index)

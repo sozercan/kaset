@@ -210,6 +210,40 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Extracts the YouTube Music video type from watch endpoint metadata.
+    static func extractMusicVideoType(from data: [String: Any]) -> MusicVideoType? {
+        if let endpoint = data["navigationEndpoint"] as? [String: Any],
+           let watchEndpoint = endpoint["watchEndpoint"] as? [String: Any],
+           let type = self.extractMusicVideoType(fromWatchEndpoint: watchEndpoint)
+        {
+            return type
+        }
+
+        if let overlay = data["overlay"] as? [String: Any],
+           let playButton = overlay["musicItemThumbnailOverlayRenderer"] as? [String: Any],
+           let content = playButton["content"] as? [String: Any],
+           let musicPlayButtonRenderer = content["musicPlayButtonRenderer"] as? [String: Any],
+           let endpoint = musicPlayButtonRenderer["playNavigationEndpoint"] as? [String: Any],
+           let watchEndpoint = endpoint["watchEndpoint"] as? [String: Any],
+           let type = self.extractMusicVideoType(fromWatchEndpoint: watchEndpoint)
+        {
+            return type
+        }
+
+        return nil
+    }
+
+    private static func extractMusicVideoType(fromWatchEndpoint watchEndpoint: [String: Any]) -> MusicVideoType? {
+        guard let configs = watchEndpoint["watchEndpointMusicSupportedConfigs"] as? [String: Any],
+              let musicConfig = configs["watchEndpointMusicConfig"] as? [String: Any],
+              let typeString = musicConfig["musicVideoType"] as? String
+        else {
+            return nil
+        }
+
+        return MusicVideoType(rawValue: typeString)
+    }
+
     /// Returns whether a music item renderer is playable.
     static func isPlayableMusicItem(from data: [String: Any]) -> Bool {
         let displayPolicy = data["musicItemRendererDisplayPolicy"] as? String

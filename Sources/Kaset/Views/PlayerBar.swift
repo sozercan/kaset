@@ -632,29 +632,28 @@ struct PlayerBar: View {
             .accessibilityLabel(String(localized: "Queue"))
             .accessibilityValue(self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"))
 
-            // Video button - only shown when track has video
-            if self.playerService.currentTrackHasVideo {
-                Button {
-                    HapticService.toggle()
-                    DiagnosticsLogger.player.debug(
-                        "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-                    )
-                    withAnimation(AppAnimation.standard) {
-                        player.showVideo.toggle()
-                    }
-                } label: {
-                    Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
-                        .contentTransition(.symbolEffect(.replace))
+            // Video button stays visible so delayed availability detection does not shift the toolbar.
+            Button {
+                HapticService.toggle()
+                DiagnosticsLogger.player.debug(
+                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+                )
+                withAnimation(AppAnimation.standard) {
+                    player.showVideo.toggle()
                 }
-                .buttonStyle(.pressable)
-                .glassEffectID("video", in: self.playerNamespace)
-                .keyboardShortcut("v", modifiers: [.command, .shift])
-                .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
-                .accessibilityLabel(String(localized: "Video"))
-                .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
+            } label: {
+                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
             }
+            .buttonStyle(.pressable)
+            .glassEffectID("video", in: self.playerNamespace)
+            .keyboardShortcut("v", modifiers: [.command, .shift])
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
+            .accessibilityLabel(String(localized: "Video"))
+            .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
+            .disabled(self.playerService.currentTrack == nil)
         }
     }
 

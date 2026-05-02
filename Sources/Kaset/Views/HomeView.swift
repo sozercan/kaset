@@ -91,7 +91,7 @@ struct HomeView: View {
                 .fontWeight(.semibold)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(alignment: .top, spacing: 16) {
                     // Use stable ID from items, avoid enumeration for non-chart sections
                     if section.isChart {
                         ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
