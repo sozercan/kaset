@@ -55,7 +55,7 @@ struct LibraryView: View {
 
     private let libraryItemSize: CGFloat = 160
     private let libraryItemSpacing: CGFloat = 18
-    private let libraryItemTitleHeight: CGFloat = 36
+    private let libraryItemCardHeight: CGFloat = 222
 
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
@@ -309,7 +309,7 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, height: self.libraryItemTitleHeight, alignment: .topLeading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
 
                 // Track count
                 if let count = playlist.trackCount {
@@ -319,7 +319,7 @@ struct LibraryView: View {
                         .frame(width: self.libraryItemSize, alignment: .leading)
                 }
             }
-            .frame(width: self.libraryItemSize, alignment: .topLeading)
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -362,7 +362,7 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, height: self.libraryItemTitleHeight, alignment: .topLeading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
 
                 if let count = playlist.trackCount {
                     Text("\(count) songs", comment: "Uploaded songs count")
@@ -376,7 +376,7 @@ struct LibraryView: View {
                         .frame(width: self.libraryItemSize, alignment: .leading)
                 }
             }
-            .frame(width: self.libraryItemSize, alignment: .topLeading)
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
     }
@@ -408,7 +408,7 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, height: self.libraryItemTitleHeight, alignment: .topLeading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
 
                 // Author
                 if let author = show.author {
@@ -419,7 +419,7 @@ struct LibraryView: View {
                         .frame(width: self.libraryItemSize, alignment: .leading)
                 }
             }
-            .frame(width: self.libraryItemSize, alignment: .topLeading)
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -452,14 +452,14 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .frame(width: self.libraryItemSize, height: self.libraryItemTitleHeight, alignment: .top)
+                    .frame(width: self.libraryItemSize, alignment: .top)
 
                 Text(String(localized: "Artist"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .frame(width: self.libraryItemSize)
             }
-            .frame(width: self.libraryItemSize, alignment: .top)
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .top)
         }
         .buttonStyle(.plain)
         .contextMenu {

@@ -6,6 +6,8 @@ import os
 @MainActor
 @Observable
 final class PlaylistDetailViewModel {
+    private static let fullPlaylistLoadTrackThreshold = 100
+
     private struct LiveSyncTask {
         let id: UUID
         let task: Task<Void, Never>
@@ -163,6 +165,7 @@ final class PlaylistDetailViewModel {
             let loadedTrackCount = detail.tracks.count
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
+            await self.loadRemainingTracksIfNeeded()
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Playlist detail load cancelled")
@@ -175,11 +178,43 @@ final class PlaylistDetailViewModel {
 
     /// Loads more tracks via continuation.
     func loadMore() async {
+        _ = await self.loadMoreBatch()
+    }
+
+    private func loadRemainingTracksIfNeeded() async {
+        guard let currentDetail = self.playlistDetail,
+              self.hasMore,
+              self.shouldLoadFullPlaylist(currentDetail)
+        else { return }
+
+        let initialTrackCount = currentDetail.tracks.count
+        let totalTrackCount = currentDetail.trackCount ?? self.playlist.trackCount ?? initialTrackCount
+        self.logger.info("Loading full playlist: \(initialTrackCount) loaded tracks, total: \(totalTrackCount)")
+
+        while self.hasMore {
+            let didLoadTracks = await self.loadMoreBatch()
+            guard didLoadTracks else { break }
+        }
+    }
+
+    private func shouldLoadFullPlaylist(_ detail: PlaylistDetail) -> Bool {
+        guard !detail.isAlbum else { return false }
+        if self.isLikedMusicPlaylist { return true }
+
+        let reportedTrackCount = max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
+        if reportedTrackCount > Self.fullPlaylistLoadTrackThreshold {
+            return true
+        }
+
+        return detail.tracks.count >= Self.fullPlaylistLoadTrackThreshold
+    }
+
+    private func loadMoreBatch() async -> Bool {
         guard self.loadingState == .loaded,
               self.hasMore,
               let continuationToken,
-              let currentDetail = playlistDetail
-        else { return }
+              let currentDetail = self.playlistDetail
+        else { return false }
 
         self.loadingState = .loadingMore
         self.logger.info("Loading more playlist tracks")
@@ -200,7 +235,7 @@ final class PlaylistDetailViewModel {
                 self.continuationToken = nil
                 self.loadingState = .loaded
                 self.logger.info("No new unique tracks in continuation, stopping pagination")
-                return
+                return false
             }
 
             let normalizedNewTracks: [Song] = if self.isLikedMusicPlaylist {
@@ -238,13 +273,16 @@ final class PlaylistDetailViewModel {
 
             self.loadingState = .loaded
             self.logger.info("Loaded \(normalizedNewTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
+            return true
         } catch is CancellationError {
             self.logger.debug("Playlist continuation cancelled")
             self.loadingState = .loaded
+            return false
         } catch {
             self.logger.error("Failed to load more playlist tracks: \(error.localizedDescription)")
             // Keep loaded state so user can retry
             self.loadingState = .loaded
+            return false
         }
     }
 
