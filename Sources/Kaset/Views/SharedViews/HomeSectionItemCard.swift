@@ -15,6 +15,7 @@ struct HomeSectionItemCard: View {
 
     /// Hover state for play overlay.
     @State private var isHovering = false
+    @State private var failedThumbnailURLs: Set<URL> = []
 
     init(item: HomeSectionItem, rank: Int? = nil, action: @escaping () -> Void) {
         self.item = item
@@ -35,6 +36,9 @@ struct HomeSectionItemCard: View {
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
             }
+        }
+        .onChange(of: self.item.id) { _, _ in
+            self.failedThumbnailURLs = []
         }
     }
 
@@ -70,11 +74,13 @@ struct HomeSectionItemCard: View {
 
     private var thumbnail: some View {
         ZStack {
-            if let url = self.item.thumbnailURL?.highQualityThumbnailURL {
-                CachedAsyncImage(url: url) { image in
+            self.thumbnailBackground
+
+            if let url = self.thumbnailURL {
+                CachedAsyncImage(url: url, targetSize: self.thumbnailSize, onFailure: self.thumbnailFailureHandler) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .aspectRatio(contentMode: self.thumbnailContentMode)
                 } placeholder: {
                     self.placeholderView
                 }
@@ -98,6 +104,70 @@ struct HomeSectionItemCard: View {
                     }
                     .transition(.scale.combined(with: .opacity))
             }
+        }
+    }
+
+    @ViewBuilder
+    private var thumbnailBackground: some View {
+        if self.isVideoSong {
+            Rectangle()
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+        }
+    }
+
+    private var thumbnailURL: URL? {
+        self.thumbnailURLs.first { !self.failedThumbnailURLs.contains($0) }
+    }
+
+    private var thumbnailURLs: [URL] {
+        if self.isVideoSong {
+            return Self.uniqueURLs([
+                self.videoThumbnailURL,
+                self.item.thumbnailURL?.highQualityThumbnailURL,
+                self.videoFallbackThumbnailURL,
+            ])
+        }
+
+        return Self.uniqueURLs([self.item.thumbnailURL?.highQualityThumbnailURL])
+    }
+
+    private var thumbnailFailureHandler: (@MainActor () -> Void)? {
+        guard let thumbnailURL,
+              self.hasFallback(after: thumbnailURL)
+        else {
+            return nil
+        }
+
+        return {
+            self.failedThumbnailURLs.insert(thumbnailURL)
+        }
+    }
+
+    private var videoThumbnailURL: URL? {
+        guard case let .song(song) = self.item else { return nil }
+        return song.wideHighQualityThumbnailURL
+    }
+
+    private var videoFallbackThumbnailURL: URL? {
+        guard case let .song(song) = self.item else { return nil }
+        return song.fallbackThumbnailURL
+    }
+
+    private var thumbnailContentMode: ContentMode {
+        self.isVideoSong ? .fit : .fill
+    }
+
+    private func hasFallback(after url: URL) -> Bool {
+        guard let index = self.thumbnailURLs.firstIndex(of: url) else { return false }
+        let fallbackURLs = self.thumbnailURLs.dropFirst(index + 1)
+        return fallbackURLs.contains { !self.failedThumbnailURLs.contains($0) }
+    }
+
+    private static func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
         }
     }
 
