@@ -389,7 +389,7 @@ struct SearchView: View {
 
                     // Favorite toggle for songs
                     if case let .song(song) = item {
-                        FavoriteHeartButton(song: song, isRowHovered: isHovered)
+                        LikeButton(song: song, isRowHovered: isHovered)
                     }
 
                     // Play indicator for songs

@@ -353,7 +353,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
 
                     // Favorite toggle
-                    FavoriteHeartButton(song: song, isRowHovered: isHovered)
+                    LikeButton(song: song, isRowHovered: isHovered)
 
                     // Duration
                     Text(song.durationDisplay)

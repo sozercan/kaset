@@ -792,7 +792,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                FavoriteHeartButton(song: self.track, isRowHovered: self.isHovered)
+                LikeButton(song: self.track, isRowHovered: self.isHovered)
 
                 Text(self.track.durationDisplay)
                     .font(.system(size: 12))

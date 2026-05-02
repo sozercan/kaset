@@ -187,7 +187,7 @@ struct HistoryView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
 
-                    FavoriteHeartButton(song: song, isRowHovered: isHovered)
+                    LikeButton(song: song, isRowHovered: isHovered)
 
                     Image(systemName: "play.circle")
                         .font(.title2)

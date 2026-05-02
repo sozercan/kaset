@@ -113,7 +113,7 @@ struct TopSongsView: View {
                     }
 
                     // Favorite toggle
-                    FavoriteHeartButton(song: song, isRowHovered: isHovered)
+                    LikeButton(song: song, isRowHovered: isHovered)
 
                     // Duration
                     Text(song.durationDisplay)

@@ -174,7 +174,7 @@ private struct QueueRowView: View {
                 Spacer()
 
                 // Favorite toggle
-                FavoriteHeartButton(song: self.song, isRowHovered: self.isHovering)
+                LikeButton(song: self.song, isRowHovered: self.isHovering)
 
                 // Duration
                 if let duration = song.duration {

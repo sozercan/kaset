@@ -7,8 +7,8 @@ import SwiftUI
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
-    let onToggleFavorite: () -> Void
-    let isFavorited: Bool
+    let onToggleLike: () -> Void
+    let isLiked: Bool
 }
 
 // MARK: - QueueTableCellView
@@ -28,8 +28,8 @@ class QueueTableCellView: NSView {
     private let artistLabel = NSTextField()
     private let durationLabel = NSTextField()
     private let explicitBadge = NSTextField()
-    private let favoriteButton = NSButton()
-    private var onToggleFavoriteAction: (() -> Void)?
+    private let likeButton = NSButton()
+    private var onToggleLikeAction: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -120,14 +120,14 @@ class QueueTableCellView: NSView {
         infoStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) // Truncate before spacer grows
 
         self.configureExplicitBadge()
-        self.configureFavoriteButton()
+        self.configureLikeButton()
 
         stackView.addArrangedSubview(indicatorContainer)
         stackView.addArrangedSubview(self.thumbnailImageView)
         stackView.addArrangedSubview(infoStackView)
         stackView.addArrangedSubview(self.explicitBadge)
         stackView.addArrangedSubview(spacerView)
-        stackView.addArrangedSubview(self.favoriteButton)
+        stackView.addArrangedSubview(self.likeButton)
         stackView.addArrangedSubview(self.durationLabel)
 
         addSubview(stackView)
@@ -163,18 +163,18 @@ class QueueTableCellView: NSView {
         self.explicitBadge.isHidden = true
     }
 
-    /// Favorite heart button — always visible; opacity reflects state.
-    private func configureFavoriteButton() {
-        self.favoriteButton.bezelStyle = .accessoryBar
-        self.favoriteButton.isBordered = false
-        self.favoriteButton.setButtonType(.momentaryChange)
-        self.favoriteButton.imagePosition = .imageOnly
-        self.favoriteButton.image = NSImage(systemSymbolName: "heart", accessibilityDescription: "Add to Favorites")
-        self.favoriteButton.target = self
-        self.favoriteButton.action = #selector(self.handleFavoriteClick)
-        self.favoriteButton.translatesAutoresizingMaskIntoConstraints = false
-        self.favoriteButton.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        self.favoriteButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
+    /// Like (thumbs-up) button — always visible; opacity reflects state.
+    private func configureLikeButton() {
+        self.likeButton.bezelStyle = .accessoryBar
+        self.likeButton.isBordered = false
+        self.likeButton.setButtonType(.momentaryChange)
+        self.likeButton.imagePosition = .imageOnly
+        self.likeButton.image = NSImage(systemSymbolName: "hand.thumbsup", accessibilityDescription: "Like")
+        self.likeButton.target = self
+        self.likeButton.action = #selector(self.handleLikeClick)
+        self.likeButton.translatesAutoresizingMaskIntoConstraints = false
+        self.likeButton.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        self.likeButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
     }
 
     override func layout() {
@@ -188,7 +188,7 @@ class QueueTableCellView: NSView {
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, actions: QueueCellActions) {
         self.onPlay = actions.onPlay
         self.onRemove = actions.onRemove
-        self.onToggleFavoriteAction = actions.onToggleFavorite
+        self.onToggleLikeAction = actions.onToggleLike
         self.isCurrentTrack = isCurrentTrack
         self.isPlaying = isPlaying
         self.updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
@@ -196,15 +196,15 @@ class QueueTableCellView: NSView {
         let isExplicit = song.isExplicit ?? false
         self.explicitBadge.isHidden = !isExplicit
 
-        let favoriteName = actions.isFavorited ? "heart.fill" : "heart"
-        let favoriteDescription = actions.isFavorited
-            ? String(localized: "Remove from Favorites")
-            : String(localized: "Add to Favorites")
-        self.favoriteButton.image = NSImage(systemSymbolName: favoriteName, accessibilityDescription: favoriteDescription)
-        self.favoriteButton.contentTintColor = actions.isFavorited ? NSColor.systemRed : NSColor.tertiaryLabelColor
-        self.favoriteButton.alphaValue = actions.isFavorited ? 1.0 : 0.55
-        self.favoriteButton.toolTip = favoriteDescription
-        self.favoriteButton.setAccessibilityLabel(favoriteDescription)
+        let likeIconName = actions.isLiked ? "hand.thumbsup.fill" : "hand.thumbsup"
+        let likeDescription = actions.isLiked
+            ? String(localized: "Unlike")
+            : String(localized: "Like")
+        self.likeButton.image = NSImage(systemSymbolName: likeIconName, accessibilityDescription: likeDescription)
+        self.likeButton.contentTintColor = actions.isLiked ? NSColor.systemRed : NSColor.tertiaryLabelColor
+        self.likeButton.alphaValue = actions.isLiked ? 1.0 : 0.55
+        self.likeButton.toolTip = likeDescription
+        self.likeButton.setAccessibilityLabel(likeDescription)
 
         self.titleLabel.stringValue = song.title
         self.titleLabel.font = NSFont.systemFont(ofSize: 13, weight: isCurrentTrack ? .semibold : .regular)
@@ -290,8 +290,8 @@ class QueueTableCellView: NSView {
         self.onPlay?()
     }
 
-    @objc private func handleFavoriteClick() {
-        self.onToggleFavoriteAction?()
+    @objc private func handleLikeClick() {
+        self.onToggleLikeAction?()
     }
 
     override func prepareForReuse() {
@@ -302,7 +302,7 @@ class QueueTableCellView: NSView {
         self.thumbnailImageView.image = nil
         self.waveformView?.removeFromSuperview()
         self.waveformView = nil
-        self.onToggleFavoriteAction = nil
+        self.onToggleLikeAction = nil
         self.explicitBadge.isHidden = true
     }
 }
