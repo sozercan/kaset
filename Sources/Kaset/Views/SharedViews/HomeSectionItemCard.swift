@@ -170,7 +170,7 @@ struct HomeSectionItemCard: View {
                 .multilineTextAlignment(.leading)
                 .frame(width: self.cardWidth, alignment: .leading)
 
-            if let subtitle = item.subtitle {
+            if let subtitle = self.item.homeCardSubtitle {
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)

@@ -67,6 +67,70 @@ enum HomeSectionItem: Identifiable {
         }
     }
 
+    var homeCardSubtitle: String? {
+        guard let subtitle else { return nil }
+        return Self.bulletSeparatedSubtitle(subtitle) ?? Self.viewCountSubtitle(subtitle) ?? Self.reorderedMediaSubtitle(subtitle) ?? subtitle
+    }
+
+    private static func bulletSeparatedSubtitle(_ subtitle: String) -> String? {
+        guard subtitle.contains(" • ") else { return nil }
+        return subtitle.replacingOccurrences(of: " • ", with: " - ")
+    }
+
+    private static func viewCountSubtitle(_ subtitle: String) -> String? {
+        let components = Self.subtitleComponents(subtitle)
+        guard components.count > 1,
+              components.last?.lowercased().contains("views") == true
+        else {
+            return nil
+        }
+
+        let name = components.dropLast().joined(separator: ", ")
+        return "\(name) - \(components[components.count - 1])"
+    }
+
+    private static func reorderedMediaSubtitle(_ subtitle: String) -> String? {
+        let components = Self.subtitleComponents(subtitle)
+
+        guard components.count > 1,
+              let mediaType = Self.normalizedLeadingMediaType(components[0])
+        else {
+            return nil
+        }
+
+        return "\(components.dropFirst().joined(separator: ", ")) - \(mediaType)"
+    }
+
+    private static func subtitleComponents(_ subtitle: String) -> [String] {
+        subtitle
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func normalizedLeadingMediaType(_ value: String) -> String? {
+        switch value.lowercased() {
+        case "album":
+            "Album"
+        case "song":
+            "Song"
+        case "single":
+            "Single"
+        case "ep":
+            "EP"
+        case "playlist":
+            "Playlist"
+        case "podcast":
+            "Podcast"
+        case "episode":
+            "Episode"
+        case "video":
+            "Video"
+        default:
+            nil
+        }
+    }
+
     var thumbnailURL: URL? {
         switch self {
         case let .song(song):
