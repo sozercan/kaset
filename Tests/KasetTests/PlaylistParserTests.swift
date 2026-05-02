@@ -316,6 +316,67 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(detail.tracks.map(\.videoId).contains("suggested-video") == false)
     }
 
+    @Test("Parse playlist detail propagates explicit badge to track")
+    func parsePlaylistDetailPropagatesExplicitBadge() {
+        let explicitTrack: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "explicit-video"],
+                "flexColumns": [[
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Explicit Track"]]],
+                    ],
+                ]],
+                "badges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let cleanTrack: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "clean-video"],
+                "flexColumns": [[
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Clean Track"]]],
+                    ],
+                ]],
+            ],
+        ]
+        let data: [String: Any] = [
+            "header": [
+                "musicDetailHeaderRenderer": [
+                    "title": ["runs": [["text": "Mixed Playlist"]]],
+                ],
+            ],
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicPlaylistShelfRenderer": [
+                                            "contents": [explicitTrack, cleanTrack],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "VL-explicit")
+
+        #expect(detail.tracks.count == 2)
+        let explicit = detail.tracks.first { $0.videoId == "explicit-video" }
+        let clean = detail.tracks.first { $0.videoId == "clean-video" }
+        #expect(explicit?.isExplicit == true)
+        #expect(clean?.isExplicit == false)
+    }
+
     @Test("Parse playlist detail marks greyed out tracks as unavailable")
     func parsePlaylistDetailUnavailableTrack() {
         let data = self.makePlaylistDetailData(
