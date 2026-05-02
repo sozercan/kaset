@@ -198,13 +198,9 @@ struct PlaylistDetailView: View {
         if !artists.isEmpty {
             HStack(spacing: 0) {
                 ForEach(Array(artists.enumerated()), id: \.offset) { index, artist in
-                    if artist.hasNavigableId {
-                        HoverUnderlineNavigationLink(value: artist, title: artist.name)
-                    } else {
-                        Text(artist.name)
-                            .font(.system(.subheadline))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(artist.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.secondary)
 
                     if index < artists.count - 1 {
                         Text(", ")
@@ -901,27 +897,6 @@ struct PlaylistDetailView: View {
     }
 }
 
-// MARK: - HoverUnderlineNavigationLink
-
-private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
-    let value: Value
-    let title: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        NavigationLink(value: self.value) {
-            Text(self.title)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .underline(self.isHovering)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            self.isHovering = hovering
-        }
-    }
-}
 
 #Preview {
     let playlist = Playlist(
