@@ -2,26 +2,13 @@ import SwiftUI
 
 // MARK: - TopFade
 
-/// A lightweight top overlay that fades scrolling content beneath hidden toolbar backgrounds.
+/// Retained for source compatibility with detail pages that previously applied a top overlay.
 @available(macOS 26.0, *)
 struct TopFade: View {
     let height: CGFloat
 
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color(nsColor: .windowBackgroundColor).opacity(0.98),
-                Color(nsColor: .windowBackgroundColor).opacity(0.72),
-                Color(nsColor: .windowBackgroundColor).opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: self.height)
-        .frame(maxWidth: .infinity)
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        EmptyView()
     }
 }
 
@@ -33,17 +20,14 @@ struct TopFadeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
-                TopFade(height: self.height)
-            }
     }
 }
 
 @available(macOS 26.0, *)
 extension View {
-    /// Adds the same top fade treatment used by toolbar-backed pages when the toolbar background is hidden.
+    /// No-op compatibility hook for pages that previously applied a top fade.
     /// - Parameter height: The height of the fade overlay.
-    /// - Returns: A view with a non-interactive top fade overlay.
+    /// - Returns: The view unchanged.
     func topFade(height: CGFloat = 96) -> some View {
         modifier(TopFadeModifier(height: height))
     }
