@@ -9,11 +9,13 @@ struct PlayerBar: View {
 
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
+    @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
 
-    @State private var isHovering = false
+    @State private var isHoveringSeekBar = false
 
     /// Local seek value for smooth slider dragging without network calls on every change.
     @State private var seekValue: Double = 0
@@ -53,11 +55,6 @@ struct PlayerBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.isHovering = hovering
-            }
-        }
         .background {
             // Keyboard shortcuts for media controls
             Group {
@@ -121,6 +118,9 @@ struct PlayerBar: View {
         .onAppear {
             // Sync local volume value from saved state on initial load
             self.volumeValue = self.playerService.volume
+            if self.playerService.duration > 0 {
+                self.seekValue = self.playerService.progress / self.playerService.duration
+            }
         }
     }
 
@@ -134,22 +134,123 @@ struct PlayerBar: View {
             } else {
                 // Track info (blurred when hovering and track is playing)
                 self.trackInfoView
-                    .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
-                    .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
+                    .blur(radius: self.showsSeekControls ? 8 : 0)
+                    .opacity(self.showsSeekControls ? 0 : 1)
 
-                // On hover: seek bar for normal tracks, LIVE indicator for live streams.
-                if self.isHovering, self.playerService.currentTrack != nil {
-                    if self.playerService.isCurrentItemLive {
-                        self.liveIndicatorView
-                            .transition(.opacity)
-                    } else {
-                        self.seekBarView
-                            .transition(.opacity)
+                if self.playerService.currentTrack != nil {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        self.seekInteractionLayer
                     }
                 }
             }
         }
-        .frame(maxWidth: 400)
+        .frame(maxWidth: 400, minHeight: 36)
+        .contextMenu {
+            if let track = self.playerService.currentTrack {
+                self.currentSongContextMenu(for: track)
+            }
+        }
+    }
+
+    private var showsSeekControls: Bool {
+        self.isHoveringSeekBar && self.playerService.currentTrack != nil
+    }
+
+    private var seekInteractionLayer: some View {
+        Group {
+            if self.showsSeekControls {
+                if self.playerService.isCurrentItemLive {
+                    self.liveIndicatorView
+                        .transition(.opacity)
+                } else {
+                    self.seekBarView
+                        .transition(.opacity)
+                }
+            } else if !self.playerService.isCurrentItemLive {
+                self.compactProgressView
+            }
+        }
+        .frame(height: self.showsSeekControls ? 28 : 10, alignment: .bottom)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.isHoveringSeekBar = hovering
+            }
+        }
+    }
+
+    private var compactProgressView: some View {
+        Rectangle()
+            .fill(.clear)
+        .frame(height: 10)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: - Current Song Context Menu
+
+    @ViewBuilder
+    private func currentSongContextMenu(for track: Song) -> some View {
+        FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
+
+        Divider()
+
+        LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
+
+        Divider()
+
+        StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
+
+        Divider()
+
+        Button {
+            self.playerService.toggleLibraryStatus()
+        } label: {
+            Label(
+                self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
+                systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
+            )
+        }
+
+        Divider()
+
+        ShareContextMenu.menuItem(for: track)
+
+        Divider()
+
+        AddToQueueContextMenu(song: track, playerService: self.playerService)
+
+        if let client = self.playerService.ytMusicClient {
+            Divider()
+
+            AddToPlaylistContextMenu(song: track, client: client)
+        }
+
+        let artist = track.artists.first(where: { $0.hasNavigableId })
+        let album = track.album
+        if artist != nil || album?.hasNavigableId == true {
+            Divider()
+        }
+
+        if let artist {
+            NavigationLink(value: artist) {
+                Label("Go to Artist", systemImage: "person")
+            }
+        }
+
+        if let album, album.hasNavigableId {
+            let playlist = Playlist(
+                id: album.id,
+                title: album.title,
+                description: nil,
+                thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
+                trackCount: album.trackCount,
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
+            )
+            NavigationLink(value: playlist) {
+                Label("Go to Album", systemImage: "square.stack")
+            }
+        }
     }
 
     // MARK: - Live Indicator View (replaces seek bar for live streams)
@@ -574,6 +675,8 @@ struct PlayerBar: View {
     PlayerBar()
         .environment(PlayerService())
         .environment(WebKitManager.shared)
+        .environment(FavoritesManager.shared)
+        .environment(SongLikeStatusManager.shared)
         .frame(width: 600)
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
