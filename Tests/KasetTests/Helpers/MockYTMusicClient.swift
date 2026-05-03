@@ -57,6 +57,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var uploadedSongsPlaylist: Playlist?
     var libraryContentResponses: [PlaylistParser.LibraryContent] = []
     var libraryContentResponseDelays: [Duration] = []
+    var shouldWaitForLibraryContentResponse = false
     var addToPlaylistMenus: [String: AddToPlaylistMenu] = [:]
     var defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
     var onGetLibraryContent: (@MainActor () -> Void)?
@@ -162,6 +163,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getSearchSuggestionsQueries: [String] = []
     private(set) var getLibraryContentCalled = false
     private(set) var getLibraryContentCallCount = 0
+    private var libraryContentResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var getLibraryPlaylistsCalled = false
     private(set) var getLikedSongsCalled = false
     private(set) var getLikedSongsContinuationCalled = false
@@ -547,6 +549,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getLibraryContentCalled = true
         self.getLibraryContentCallCount += 1
         self.onGetLibraryContent?()
+        if self.shouldWaitForLibraryContentResponse {
+            await withCheckedContinuation { continuation in
+                self.libraryContentResponseContinuations.append(continuation)
+            }
+        }
         if !self.libraryContentResponseDelays.isEmpty {
             let delay = self.libraryContentResponseDelays.removeFirst()
             try? await Task.sleep(for: delay)
@@ -561,6 +568,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
             podcastShows: self.libraryPodcastShows,
             uploadedSongsPlaylist: self.uploadedSongsPlaylist
         )
+    }
+
+    func resumeNextLibraryContentResponse() {
+        guard !self.libraryContentResponseContinuations.isEmpty else { return }
+        self.libraryContentResponseContinuations.removeFirst().resume()
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -930,6 +942,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getLibraryContentCallCount = 0
         self.libraryContentResponses = []
         self.libraryContentResponseDelays = []
+        self.shouldWaitForLibraryContentResponse = false
+        while !self.libraryContentResponseContinuations.isEmpty {
+            self.libraryContentResponseContinuations.removeFirst().resume()
+        }
         self.onGetLibraryContent = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
