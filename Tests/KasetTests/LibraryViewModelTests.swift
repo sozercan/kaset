@@ -11,7 +11,10 @@ struct LibraryViewModelTests {
 
     init() {
         self.mockClient = MockYTMusicClient()
-        self.viewModel = LibraryViewModel(client: self.mockClient)
+        self.viewModel = LibraryViewModel(
+            client: self.mockClient,
+            registerForLibraryMutations: false
+        )
     }
 
     @Test("Initial state is idle with empty library content")
