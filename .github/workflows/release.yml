@@ -71,9 +71,55 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Using version: $VERSION"
 
+      - name: Import Apple Development certificate
+        id: import_cert
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ]; then
+            echo "No MACOS_CERTIFICATE secret set; falling back to ad-hoc signing."
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/kaset-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH" >/dev/null
+
+          # Prepend our keychain to the search list so codesign can find the cert.
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | tr -d '"')
+
+          rm -f "$CERT_PATH"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep "Apple Development" | head -1 | sed -E 's/.*"(.+)".*/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "ERROR: Imported keychain has no Apple Development identity"
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+            exit 1
+          fi
+
+          echo "Using signing identity: $IDENTITY"
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
+
       - name: Build release app
         env:
-          KASET_SIGNING: adhoc
+          KASET_SIGNING: ${{ steps.import_cert.outputs.signing_mode }}
+          APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
           ARCHES: "arm64 x86_64"
         run: |
           # Set version from tag

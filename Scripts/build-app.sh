@@ -328,13 +328,20 @@ echo "🔏 Signing app..."
 if [[ "$SIGNING_MODE" == "adhoc" ]]; then
   CODESIGN_ARGS=(--force --sign -)
 elif [[ "$SIGNING_MODE" == "dev" ]]; then
-  # Use Apple Development certificate
-  CODESIGN_HASH=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}')
-  if [[ -z "$CODESIGN_HASH" ]]; then
+  # Use Apple Development certificate. Allow callers (e.g. CI) to pin the
+  # exact identity via APP_IDENTITY; otherwise pick the first one available.
+  if [[ -n "${APP_IDENTITY:-}" ]]; then
+    CODESIGN_ID="$APP_IDENTITY"
+  else
+    CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}')
+  fi
+  if [[ -z "$CODESIGN_ID" ]]; then
     echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
     CODESIGN_ARGS=(--force --sign -)
   else
-    CODESIGN_ARGS=(--force --sign "$CODESIGN_HASH")
+    # --options runtime + a stable Team ID signature keeps Keychain ACLs
+    # stable across launches (issue #238).
+    CODESIGN_ARGS=(--force --options runtime --sign "$CODESIGN_ID")
   fi
 else
   CODESIGN_ID="${APP_IDENTITY:-Developer ID Application}"
