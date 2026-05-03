@@ -10,7 +10,7 @@ struct NetworkMonitorTests {
     @Test("Shared instance exists")
     func sharedInstanceExists() {
         let monitor = NetworkMonitor.shared
-        #expect(monitor !== nil)
+        #expect(monitor === NetworkMonitor.shared)
     }
 
     @Test("Initial state defaults to connected")

@@ -185,8 +185,6 @@ struct LibraryViewModelTests {
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlists.map(\.id) == ["VL2"])
-
-        signalContinuation.finish()
     }
 
     @Test("Refresh failure keeps existing library content visible")
