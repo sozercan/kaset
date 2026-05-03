@@ -150,7 +150,7 @@ struct LibraryViewModelTests {
     }
 
     @Test("Refresh keeps existing library content visible while background load runs")
-    func refreshKeepsExistingContentVisibleWhileLoading() async {
+    func refreshKeepsExistingContentVisibleWhileLoading() async throws {
         self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1")]
         await self.viewModel.load()
 
@@ -161,23 +161,17 @@ struct LibraryViewModelTests {
                 podcastShows: []
             ),
         ]
-        self.mockClient.shouldWaitForLibraryContentResponse = true
+        self.mockClient.libraryContentResponseDelays = [.milliseconds(200)]
 
-        var refreshTask: Task<Void, Never>!
-        await withCheckedContinuation { continuation in
-            self.mockClient.onGetLibraryContent = {
-                self.mockClient.onGetLibraryContent = nil
-                continuation.resume()
-            }
-            refreshTask = Task {
-                await self.viewModel.refresh()
-            }
+        let refreshTask = Task {
+            await self.viewModel.refresh()
         }
+
+        try await Task.sleep(for: .milliseconds(50))
 
         #expect(self.viewModel.loadingState == .loadingMore)
         #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
 
-        self.mockClient.resumeNextLibraryContentResponse()
         await refreshTask.value
 
         #expect(self.viewModel.loadingState == .loaded)
