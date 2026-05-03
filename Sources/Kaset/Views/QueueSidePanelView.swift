@@ -26,6 +26,7 @@ struct QueueSidePanelView: View {
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
                     likeStatusManager: self.likeStatusManager,
+                    likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { index in
                         Task {
                             await self.playerService.playFromQueue(at: index)
@@ -87,6 +88,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let isPlaying: Bool
     let favoritesManager: FavoritesManager
     let likeStatusManager: SongLikeStatusManager
+    /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
+    let likeStatusEvent: LikeStatusEvent?
     let onSelect: (Int) -> Void
     let onReorder: (Int, Int) -> Void
     let onRemove: (UUID) -> Void
@@ -105,6 +108,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         context.coordinator.isPlaying = self.isPlaying
         context.coordinator.favoritesManager = self.favoritesManager
         context.coordinator.likeStatusManager = self.likeStatusManager
+        context.coordinator.lastLikeEvent = self.likeStatusEvent
 
         if !context.coordinator.isDragging {
             viewController.tableView?.reloadData()
@@ -119,6 +123,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                         isPlaying: self.isPlaying,
                         index: row
                     )
+                    cellView.updateLikeState(isLiked: self.likeStatusManager.isLiked(self.entries[row].song))
                 }
             }
         }
@@ -201,6 +206,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         var isPlaying: Bool
         var favoritesManager: FavoritesManager
         var likeStatusManager: SongLikeStatusManager
+        var lastLikeEvent: LikeStatusEvent?
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
         let onRemove: (UUID) -> Void

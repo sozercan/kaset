@@ -138,7 +138,7 @@ class QueueTableCellView: NSView {
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(self.handleClick(_:)))
         addGestureRecognizer(clickGesture)
     }
 
@@ -196,15 +196,7 @@ class QueueTableCellView: NSView {
         let isExplicit = song.isExplicit ?? false
         self.explicitBadge.isHidden = !isExplicit
 
-        let likeIconName = actions.isLiked ? "hand.thumbsup.fill" : "hand.thumbsup"
-        let likeDescription = actions.isLiked
-            ? String(localized: "Unlike")
-            : String(localized: "Like")
-        self.likeButton.image = NSImage(systemSymbolName: likeIconName, accessibilityDescription: likeDescription)
-        self.likeButton.contentTintColor = actions.isLiked ? NSColor.systemRed : NSColor.tertiaryLabelColor
-        self.likeButton.alphaValue = actions.isLiked ? 1.0 : 0.55
-        self.likeButton.toolTip = likeDescription
-        self.likeButton.setAccessibilityLabel(likeDescription)
+        self.updateLikeState(isLiked: actions.isLiked)
 
         self.titleLabel.stringValue = song.title
         self.titleLabel.font = NSFont.systemFont(ofSize: 13, weight: isCurrentTrack ? .semibold : .regular)
@@ -237,6 +229,18 @@ class QueueTableCellView: NSView {
             guard !Task.isCancelled, self?.currentSongId == songId else { return }
             self?.thumbnailImageView.image = image
         }
+    }
+
+    func updateLikeState(isLiked: Bool) {
+        let likeIconName = isLiked ? "hand.thumbsup.fill" : "hand.thumbsup"
+        let likeDescription = isLiked
+            ? String(localized: "Unlike")
+            : String(localized: "Like")
+        self.likeButton.image = NSImage(systemSymbolName: likeIconName, accessibilityDescription: likeDescription)
+        self.likeButton.contentTintColor = isLiked ? NSColor.systemRed : NSColor.tertiaryLabelColor
+        self.likeButton.alphaValue = isLiked ? 1.0 : 0.55
+        self.likeButton.toolTip = likeDescription
+        self.likeButton.setAccessibilityLabel(likeDescription)
     }
 
     func updateAppearance(isCurrentTrack: Bool, isPlaying: Bool, index: Int) {
@@ -286,7 +290,11 @@ class QueueTableCellView: NSView {
         }
     }
 
-    @objc private func handleClick() {
+    @objc private func handleClick(_ recognizer: NSClickGestureRecognizer) {
+        let clickLocation = recognizer.location(in: self)
+        let likeButtonLocation = self.likeButton.convert(clickLocation, from: self)
+        guard !self.likeButton.bounds.contains(likeButtonLocation) else { return }
+
         self.onPlay?()
     }
 
