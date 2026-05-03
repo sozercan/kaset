@@ -155,10 +155,15 @@ private struct QueueRowView: View {
 
                 // Track info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(self.song.title)
-                        .font(.system(size: 13, weight: self.isCurrentTrack ? .semibold : .regular))
-                        .lineLimit(1)
-                        .foregroundStyle(self.isCurrentTrack ? .red : .primary)
+                    HStack(spacing: 6) {
+                        Text(self.song.title)
+                            .font(.system(size: 13, weight: self.isCurrentTrack ? .semibold : .regular))
+                            .lineLimit(1)
+                            .foregroundStyle(self.isCurrentTrack ? .red : .primary)
+                        if self.song.isExplicit == true {
+                            ExplicitBadge()
+                        }
+                    }
 
                     Text(self.song.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : self.song.artistsDisplay)
                         .font(.system(size: 11))
@@ -167,6 +172,9 @@ private struct QueueRowView: View {
                 }
 
                 Spacer()
+
+                // Favorite toggle
+                LikeButton(song: self.song, isRowHovered: self.isHovering)
 
                 // Duration
                 if let duration = song.duration {

@@ -450,6 +450,61 @@ struct ArtistParserTests {
 
     // MARK: - Test Helpers
 
+    @Test("parseArtistDetail propagates explicit badge to top songs")
+    func parseArtistDetailPropagatesExplicitBadge() {
+        let explicitItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "explicit-video"],
+                "flexColumns": [
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Explicit"]]]]],
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Artist"]]]]],
+                ],
+                "badges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let cleanItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "clean-video"],
+                "flexColumns": [
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Clean"]]]]],
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Artist"]]]]],
+                ],
+            ],
+        ]
+        let data: [String: Any] = [
+            "header": [
+                "musicImmersiveHeaderRenderer": [
+                    "title": ["runs": [["text": "Test Artist"]]],
+                ],
+            ],
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [["musicShelfRenderer": ["contents": [explicitItem, cleanItem]]]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let result = ArtistParser.parseArtistDetail(data, artistId: "UC-test")
+
+        #expect(result.songs.count == 2)
+        let explicit = result.songs.first { $0.videoId == "explicit-video" }
+        let clean = result.songs.first { $0.videoId == "clean-video" }
+        #expect(explicit?.isExplicit == true)
+        #expect(clean?.isExplicit == false)
+    }
+
     private static func makeArtistResponse(
         name: String,
         description: String? = nil,

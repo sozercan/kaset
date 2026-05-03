@@ -755,6 +755,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             let duration = ParsingHelpers.extractDurationFromFlexColumns(responsiveRenderer)
             let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
             let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
+            let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
 
             let track = Song(
                 id: videoId,
@@ -764,7 +765,8 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                 duration: duration,
                 thumbnailURL: thumbnailURL,
                 videoId: videoId,
-                isPlayable: isPlayable
+                isPlayable: isPlayable,
+                isExplicit: isExplicit
             )
             tracks.append(track)
         }
