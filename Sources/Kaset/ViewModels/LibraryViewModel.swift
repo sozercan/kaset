@@ -153,9 +153,12 @@ final class LibraryViewModel {
     private static let playlistMutationStableMatchCount = 2
     private static let artistMutationStableMatchCount = 2
 
-    init(client: any YTMusicClientProtocol) {
+    init(client: any YTMusicClientProtocol, registerForLibraryMutations: Bool = true) {
         self.client = client
-        LibraryMutationBroadcaster.shared.register(self)
+
+        if registerForLibraryMutations {
+            LibraryMutationBroadcaster.shared.register(self)
+        }
     }
 
     private static func normalizedPlaylistId(_ playlistId: String) -> String {
