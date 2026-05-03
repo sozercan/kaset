@@ -11,7 +11,10 @@ struct LibraryViewModelTests {
 
     init() {
         self.mockClient = MockYTMusicClient()
-        self.viewModel = LibraryViewModel(client: self.mockClient)
+        self.viewModel = LibraryViewModel(
+            client: self.mockClient,
+            registerForLibraryMutations: false
+        )
     }
 
     @Test("Initial state is idle with empty library content")
@@ -140,7 +143,7 @@ struct LibraryViewModelTests {
     }
 
     @Test("Refresh keeps existing library content visible while background load runs")
-    func refreshKeepsExistingContentVisibleWhileLoading() async throws {
+    func refreshKeepsExistingContentVisibleWhileLoading() async {
         self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1")]
         await self.viewModel.load()
 
@@ -153,11 +156,22 @@ struct LibraryViewModelTests {
         ]
         self.mockClient.libraryContentResponseDelays = [.milliseconds(200)]
 
+        // Deterministic handshake: yield once from the mock's getLibraryContent
+        // hook when the refresh's call enters. This replaces a wall-clock
+        // Task.sleep(50ms) that could flake under CI runner load — the previous
+        // version could resume after the entire 200ms mock delay had already
+        // completed, so the in-flight assertions raced the final state.
+        // By the time the hook fires, refresh() has synchronously set
+        // loadingState = .loadingMore (before its first await).
+        let (signalStream, signalContinuation) = AsyncStream<Void>.makeStream()
+        self.mockClient.onGetLibraryContent = { signalContinuation.yield() }
+
         let refreshTask = Task {
             await self.viewModel.refresh()
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        var iterator = signalStream.makeAsyncIterator()
+        _ = await iterator.next()
 
         #expect(self.viewModel.loadingState == .loadingMore)
         #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
@@ -166,6 +180,8 @@ struct LibraryViewModelTests {
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlists.map(\.id) == ["VL2"])
+
+        signalContinuation.finish()
     }
 
     @Test("Refresh failure keeps existing library content visible")
