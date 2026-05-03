@@ -39,7 +39,8 @@ mkdir -p "$BUILD_DIR"
 # Build for each architecture
 for ARCH in "${ARCH_LIST[@]}"; do
   echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH"
+  # Only build the app product; APIExplorer compiles separately in CI / `swift test`.
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
 done
 
 # Create app bundle structure
