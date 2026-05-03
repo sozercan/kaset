@@ -149,16 +149,16 @@ class QueueTableCellView: NSView {
         self.explicitBadge.isBordered = false
         self.explicitBadge.alignment = .center
         self.explicitBadge.stringValue = "E"
-        self.explicitBadge.font = NSFont.systemFont(ofSize: 9, weight: .semibold)
+        self.explicitBadge.font = NSFont.systemFont(ofSize: 8, weight: .semibold)
         self.explicitBadge.textColor = NSColor.windowBackgroundColor
         self.explicitBadge.backgroundColor = NSColor.secondaryLabelColor
         self.explicitBadge.drawsBackground = true
         self.explicitBadge.wantsLayer = true
-        self.explicitBadge.layer?.cornerRadius = 3
+        self.explicitBadge.layer?.cornerRadius = 2.5
         self.explicitBadge.layer?.masksToBounds = true
         self.explicitBadge.translatesAutoresizingMaskIntoConstraints = false
-        self.explicitBadge.widthAnchor.constraint(equalToConstant: 14).isActive = true
-        self.explicitBadge.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        self.explicitBadge.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        self.explicitBadge.heightAnchor.constraint(equalToConstant: 12).isActive = true
         self.explicitBadge.setAccessibilityLabel("Explicit")
         self.explicitBadge.isHidden = true
     }

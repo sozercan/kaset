@@ -8,10 +8,10 @@ import SwiftUI
 struct ExplicitBadge: View {
     var body: some View {
         Text("E")
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 8, weight: .semibold))
             .foregroundStyle(.background)
-            .frame(width: 14, height: 14)
-            .background(.secondary, in: .rect(cornerRadius: 3))
+            .frame(width: 12, height: 12)
+            .background(.secondary, in: .rect(cornerRadius: 2.5))
             .accessibilityLabel(Text("Explicit"))
     }
 }
