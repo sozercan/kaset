@@ -22,6 +22,7 @@ final class SettingsManager {
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
+        static let boringNotchBridgeEnabled = "settings.boringNotchBridgeEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -251,6 +252,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the boring.notch HTTP/WebSocket bridge is enabled. Off by default to save resources.
+    var boringNotchBridgeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.boringNotchBridgeEnabled, forKey: Keys.boringNotchBridgeEnabled)
+        }
+    }
+
     // MARK: - Initialization
 
     private init() {
@@ -272,6 +280,7 @@ final class SettingsManager {
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        self.boringNotchBridgeEnabled = UserDefaults.standard.object(forKey: Keys.boringNotchBridgeEnabled) as? Bool ?? false
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)
