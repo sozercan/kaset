@@ -65,7 +65,6 @@ struct PlaylistDetailView: View {
         )
         .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
-        .topFade()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -132,6 +131,7 @@ struct PlaylistDetailView: View {
             }
             .padding(24)
         }
+        .topFade(style: .contentMask)
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
@@ -258,80 +258,28 @@ struct PlaylistDetailView: View {
         _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
         fallbackAlbum: Album? = nil
     ) -> some View {
-        Button {
-            self.playTrackInQueue(
-                tracks: tracks, startingAt: index, fallbackArtist: author,
-                fallbackAlbum: fallbackAlbum
-            )
-        } label: {
-            HStack(spacing: 12) {
-                Group {
-                    if self.playerService.currentTrack?.videoId == track.videoId {
-                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
-                    } else {
-                        Text("\(index + 1)")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 28, alignment: .trailing)
-
-                // Thumbnail - only show for playlists (different album art per track)
-                // Albums share the same artwork, so we hide per-track thumbnails
-                if !isAlbum {
-                    CachedAsyncImage(url: track.thumbnailURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(.quaternary)
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(.rect(cornerRadius: 4))
-                }
-
-                // Title and artist
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title)
-                        .font(.system(size: 14))
-                        .foregroundStyle(
-                            self.playerService.currentTrack?.videoId == track.videoId
-                                ? .red : .primary
-                        )
-                        .lineLimit(1)
-
-                    if let artistsDisplay = self.trackArtistsDisplay(for: track, fallbackAuthor: author) {
-                        Text(artistsDisplay)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text(track.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 45, alignment: .trailing)
+        PlaylistTrackRow(
+            track: track,
+            index: index,
+            isAlbum: isAlbum,
+            subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            onPlay: {
+                self.playTrackInQueue(
+                    tracks: tracks, startingAt: index, fallbackArtist: author,
+                    fallbackAlbum: fallbackAlbum
+                )
+            },
+            menu: {
+                self.trackContextMenu(
+                    track,
+                    index: index,
+                    tracks: tracks,
+                    author: author,
+                    fallbackAlbum: fallbackAlbum
+                )
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-            .opacity(track.isPlayable ? 1 : 0.5)
-        }
-        .buttonStyle(.interactiveRow(cornerRadius: 6))
-        .disabled(!track.isPlayable)
+        )
         .staggeredAppearance(index: min(index, 10))
-        .contextMenu {
-            self.trackContextMenu(
-                track,
-                index: index,
-                tracks: tracks,
-                author: author,
-                fallbackAlbum: fallbackAlbum
-            )
-        }
     }
 
     private func headerArtists(for detail: PlaylistDetail) -> [Artist] {
@@ -701,6 +649,105 @@ struct PlaylistDetailView: View {
 
         self.partialChanges = nil
         self.isRefining = false
+    }
+}
+
+// MARK: - PlaylistTrackRow
+
+@available(macOS 26.0, *)
+private struct PlaylistTrackRow<Menu: View>: View {
+    let track: Song
+    let index: Int
+    let isAlbum: Bool
+    let subtitle: String?
+    let onPlay: () -> Void
+    @ViewBuilder let menu: () -> Menu
+
+    @State private var isHovered: Bool = false
+    @Environment(PlayerService.self) private var playerService
+
+    var body: some View {
+        let isCurrent = self.playerService.currentTrack?.videoId == self.track.videoId
+
+        Button(action: self.onPlay) {
+            HStack(spacing: 12) {
+                Group {
+                    if isCurrent {
+                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
+                    } else {
+                        Text("\(self.index + 1)")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 28, alignment: .trailing)
+
+                if !self.isAlbum {
+                    CachedAsyncImage(url: self.track.thumbnailURL) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(.quaternary)
+                    }
+                    .frame(width: 40, height: 40)
+                    .clipShape(.rect(cornerRadius: 4))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(self.track.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(isCurrent ? .red : .primary)
+                            .lineLimit(1)
+                        if self.track.isExplicit == true {
+                            ExplicitBadge()
+                        }
+                    }
+                    if let subtitle = self.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                LikeButton(song: self.track, isRowHovered: self.isHovered)
+
+                Text(self.track.durationDisplay)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 45, alignment: .trailing)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+            .opacity(self.track.isPlayable ? 1 : 0.5)
+        }
+        .buttonStyle(.interactiveRow(cornerRadius: 6))
+        .disabled(!self.track.isPlayable)
+        .onHover { hovering in self.isHovered = hovering }
+        .contextMenu { self.menu() }
+    }
+}
+
+// MARK: - HoverUnderlineNavigationLink
+
+private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
+    let value: Value
+    let title: String
+
+    @State private var isHovering = false
+
+    var body: some View {
+        NavigationLink(value: self.value) {
+            Text(self.title)
+                .font(.subheadline)
+                .underline(self.isHovering)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            self.isHovering = hovering
+        }
     }
 }
 

@@ -30,6 +30,9 @@ struct Song: Identifiable, Codable, Hashable {
     /// Feedback tokens for library add/remove operations.
     var feedbackTokens: FeedbackTokens?
 
+    /// Whether this song carries an explicit-content badge (nil if unknown).
+    var isExplicit: Bool?
+
     private enum CodingKeys: String, CodingKey {
         case id
         case title
@@ -44,6 +47,7 @@ struct Song: Identifiable, Codable, Hashable {
         case likeStatus
         case isInLibrary
         case feedbackTokens
+        case isExplicit
     }
 
     /// Memberwise initializer with default values for mutable properties.
@@ -60,7 +64,8 @@ struct Song: Identifiable, Codable, Hashable {
         musicVideoType: MusicVideoType? = nil,
         likeStatus: LikeStatus? = nil,
         isInLibrary: Bool? = nil,
-        feedbackTokens: FeedbackTokens? = nil
+        feedbackTokens: FeedbackTokens? = nil,
+        isExplicit: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -75,6 +80,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.likeStatus = likeStatus
         self.isInLibrary = isInLibrary
         self.feedbackTokens = feedbackTokens
+        self.isExplicit = isExplicit
     }
 
     init(from decoder: any Decoder) throws {
@@ -92,6 +98,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.likeStatus = try container.decodeIfPresent(LikeStatus.self, forKey: .likeStatus)
         self.isInLibrary = try container.decodeIfPresent(Bool.self, forKey: .isInLibrary)
         self.feedbackTokens = try container.decodeIfPresent(FeedbackTokens.self, forKey: .feedbackTokens)
+        self.isExplicit = try container.decodeIfPresent(Bool.self, forKey: .isExplicit)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -109,6 +116,7 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.likeStatus, forKey: .likeStatus)
         try container.encodeIfPresent(self.isInLibrary, forKey: .isInLibrary)
         try container.encodeIfPresent(self.feedbackTokens, forKey: .feedbackTokens)
+        try container.encodeIfPresent(self.isExplicit, forKey: .isExplicit)
     }
 
     /// Display string for artists (comma-separated).
@@ -180,6 +188,7 @@ extension Song {
         }
 
         self.isPlayable = true
+        self.isExplicit = ParsingHelpers.extractIsExplicit(from: data)
     }
 
     /// Parses duration string like "3:45" to TimeInterval.

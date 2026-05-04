@@ -41,8 +41,8 @@ struct ChartsViewModelTests {
         #expect(self.viewModel.sections[1].title == "Trending")
     }
 
-    @Test("Load uses personalized recommendations when available")
-    func loadUsesPersonalizedRecommendations() async {
+    @Test("Load uses Charts endpoint even when personalized recommendations are available")
+    func loadUsesChartsEndpointWhenPersonalizedRecommendationsAreAvailable() async {
         self.mockClient.personalizedRecommendationsResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Recommended for you"),
         ])
@@ -52,9 +52,9 @@ struct ChartsViewModelTests {
 
         await self.viewModel.load()
 
-        #expect(self.mockClient.getPersonalizedRecommendationsCalled == true)
-        #expect(self.mockClient.getChartsCalled == false)
-        #expect(self.viewModel.sections.map(\.title) == ["Recommended for you"])
+        #expect(self.mockClient.getPersonalizedRecommendationsCalled == false)
+        #expect(self.mockClient.getChartsCalled == true)
+        #expect(self.viewModel.sections.map(\.title) == ["Public charts"])
     }
 
     @Test("Load error sets error state")

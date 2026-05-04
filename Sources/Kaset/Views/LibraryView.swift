@@ -184,7 +184,8 @@ struct LibraryView: View {
 
         switch self.selectedFilter {
         case .all:
-            items = self.viewModel.playlists.map { .playlist($0) }
+            items = self.uploadItems
+                + self.viewModel.playlists.map { .playlist($0) }
                 + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:

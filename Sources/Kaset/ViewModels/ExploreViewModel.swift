@@ -6,11 +6,6 @@ import os
 @MainActor
 @Observable
 final class ExploreViewModel {
-    private enum ContentSource {
-        case personalized
-        case publicExplore
-    }
-
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
@@ -31,7 +26,6 @@ final class ExploreViewModel {
 
     /// Number of background continuations loaded.
     private var continuationsLoaded = 0
-    private var contentSource: ContentSource = .personalized
 
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
@@ -52,7 +46,7 @@ final class ExploreViewModel {
         self.logger.info("Loading explore content")
 
         do {
-            let response = try await self.loadPersonalizedOrFallback()
+            let response = try await self.client.getExplore()
             // Filter out Charts section since it's available in the sidebar
             self.sections = response.sections.filter { !self.isChartsSection($0) }
             self.hasMoreSections = self.hasMoreSectionsForCurrentSource
@@ -131,38 +125,11 @@ final class ExploreViewModel {
     // MARK: - Private Helpers
 
     private var hasMoreSectionsForCurrentSource: Bool {
-        switch self.contentSource {
-        case .personalized:
-            self.client.hasMorePersonalizedRecommendationSections
-        case .publicExplore:
-            self.client.hasMoreExploreSections
-        }
-    }
-
-    private func loadPersonalizedOrFallback() async throws -> HomeResponse {
-        do {
-            let response = try await self.client.getPersonalizedRecommendations()
-            if !response.sections.isEmpty {
-                self.contentSource = .personalized
-                return response
-            }
-
-            self.logger.warning("Personalized recommendations were empty, falling back to public explore")
-        } catch {
-            self.logger.warning("Personalized recommendations failed, falling back to public explore: \(error.localizedDescription)")
-        }
-
-        self.contentSource = .publicExplore
-        return try await self.client.getExplore()
+        self.client.hasMoreExploreSections
     }
 
     private func getContinuationForCurrentSource() async throws -> [HomeSection]? {
-        switch self.contentSource {
-        case .personalized:
-            try await self.client.getPersonalizedRecommendationsContinuation()
-        case .publicExplore:
-            try await self.client.getExploreContinuation()
-        }
+        try await self.client.getExploreContinuation()
     }
 
     /// Determines if a section is a Charts section (which should be filtered out).

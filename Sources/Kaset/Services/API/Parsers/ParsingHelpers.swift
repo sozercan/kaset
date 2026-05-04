@@ -166,6 +166,27 @@ enum ParsingHelpers {
         return Self.extractSongCount(from: subtitle)
     }
 
+    /// Whether the renderer's badges array marks the item as explicit content.
+    ///
+    /// Looks for `MUSIC_EXPLICIT_BADGE` in either the `badges` array (used by
+    /// `musicResponsiveListItemRenderer`) or `subtitleBadges` (used by
+    /// `musicTwoRowItemRenderer` and header renderers).
+    static func extractIsExplicit(from data: [String: Any]) -> Bool {
+        for key in ["badges", "subtitleBadges"] {
+            guard let badges = data[key] as? [[String: Any]] else { continue }
+            for badge in badges {
+                guard let inline = badge["musicInlineBadgeRenderer"] as? [String: Any],
+                      let icon = inline["icon"] as? [String: Any],
+                      let iconType = icon["iconType"] as? String
+                else { continue }
+                if iconType == "MUSIC_EXPLICIT_BADGE" {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     /// Extracts title from runs data.
     static func extractTitle(from data: [String: Any], key: String = "title") -> String? {
         if let titleData = data[key] as? [String: Any],

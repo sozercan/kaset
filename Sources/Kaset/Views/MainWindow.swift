@@ -16,7 +16,6 @@ struct MainWindow: View {
 
     private enum Layout {
         static let commandBarTopPadding: CGFloat = 72
-        static let windowTopFadeHeight: CGFloat = 120
     }
 
     @Environment(AuthService.self) private var authService
@@ -127,11 +126,6 @@ struct MainWindow: View {
                 self.dismissWhatsNew(presentedWhatsNew)
             }
         }
-        .overlay(alignment: .top) {
-            if self.authService.state.isLoggedIn {
-                TopFade(height: Self.Layout.windowTopFadeHeight)
-            }
-        }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
             if self.isCommandBarPresented {
@@ -179,6 +173,11 @@ struct MainWindow: View {
                     )
                 }
                 self.showWhatsNew.wrappedValue = false
+            }
+        }
+        .onChange(of: self.navigationSelection) { _, newValue in
+            if newValue != nil {
+                self.selectedSidebarPinnedItem = nil
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in

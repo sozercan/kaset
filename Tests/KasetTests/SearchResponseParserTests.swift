@@ -129,6 +129,56 @@ struct SearchResponseParserTests {
         #expect(response.playlists.isEmpty)
     }
 
+    @Test("Parse song result propagates explicit badge")
+    func parseSongPropagatesExplicitBadge() {
+        let explicitItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "explicit-video"],
+                "flexColumns": [
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Explicit Song"]]]]],
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Artist"]]]]],
+                ],
+                "badges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let cleanItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "playlistItemData": ["videoId": "clean-video"],
+                "flexColumns": [
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Clean Song"]]]]],
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "Artist"]]]]],
+                ],
+            ],
+        ]
+        let data: [String: Any] = [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [["musicShelfRenderer": ["contents": [explicitItem, cleanItem]]]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let response = SearchResponseParser.parse(data)
+
+        #expect(response.songs.count == 2)
+        let explicit = response.songs.first { $0.videoId == "explicit-video" }
+        let clean = response.songs.first { $0.videoId == "clean-video" }
+        #expect(explicit?.isExplicit == true)
+        #expect(clean?.isExplicit == false)
+    }
+
     // MARK: - Helpers
 
     private func makeSearchResponseData(songs: Int, albums: Int, artists: Int, playlists: Int) -> [String: Any] {

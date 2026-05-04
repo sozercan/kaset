@@ -5,6 +5,51 @@ import Testing
 /// Tests for SongMetadataParser.
 @Suite(.tags(.parser))
 struct SongMetadataParserTests {
+    // MARK: - Parse Top-Level Tests
+
+    @Test("parse propagates explicit badge to Song")
+    func parsePropagatesExplicitBadge() throws {
+        let panelRenderer: [String: Any] = [
+            "videoId": "explicit-video",
+            "title": ["runs": [["text": "Explicit Track"]]],
+            "badges": [[
+                "musicInlineBadgeRenderer": [
+                    "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                ],
+            ]],
+        ]
+        let data: [String: Any] = [
+            "contents": [
+                "singleColumnMusicWatchNextResultsRenderer": [
+                    "tabbedRenderer": [
+                        "watchNextTabbedResultsRenderer": [
+                            "tabs": [[
+                                "tabRenderer": [
+                                    "content": [
+                                        "musicQueueRenderer": [
+                                            "content": [
+                                                "playlistPanelRenderer": [
+                                                    "contents": [[
+                                                        "playlistPanelVideoRenderer": panelRenderer,
+                                                    ]],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let song = try SongMetadataParser.parse(data, videoId: "explicit-video")
+
+        #expect(song.videoId == "explicit-video")
+        #expect(song.isExplicit == true)
+    }
+
     // MARK: - Parse Title Tests
 
     @Test("parseTitle extracts title from renderer")

@@ -40,8 +40,8 @@ struct ExploreViewModelTests {
         #expect(self.viewModel.sections[1].title == "Moods & genres")
     }
 
-    @Test("Load uses personalized recommendations when available")
-    func loadUsesPersonalizedRecommendations() async {
+    @Test("Load uses Explore endpoint even when personalized recommendations are available")
+    func loadUsesExploreEndpointWhenPersonalizedRecommendationsAreAvailable() async {
         self.mockClient.personalizedRecommendationsResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Recommended for you"),
         ])
@@ -51,9 +51,9 @@ struct ExploreViewModelTests {
 
         await self.viewModel.load()
 
-        #expect(self.mockClient.getPersonalizedRecommendationsCalled == true)
-        #expect(self.mockClient.getExploreCalled == false)
-        #expect(self.viewModel.sections.map(\.title) == ["Recommended for you"])
+        #expect(self.mockClient.getPersonalizedRecommendationsCalled == false)
+        #expect(self.mockClient.getExploreCalled == true)
+        #expect(self.viewModel.sections.map(\.title) == ["Public explore"])
     }
 
     @Test("Load error sets error state")
