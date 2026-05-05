@@ -231,6 +231,40 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Extracts the YouTube Music video type from watch endpoint metadata.
+    static func extractMusicVideoType(from data: [String: Any]) -> MusicVideoType? {
+        if let endpoint = data["navigationEndpoint"] as? [String: Any],
+           let watchEndpoint = endpoint["watchEndpoint"] as? [String: Any],
+           let type = self.extractMusicVideoType(fromWatchEndpoint: watchEndpoint)
+        {
+            return type
+        }
+
+        if let overlay = data["overlay"] as? [String: Any],
+           let playButton = overlay["musicItemThumbnailOverlayRenderer"] as? [String: Any],
+           let content = playButton["content"] as? [String: Any],
+           let musicPlayButtonRenderer = content["musicPlayButtonRenderer"] as? [String: Any],
+           let endpoint = musicPlayButtonRenderer["playNavigationEndpoint"] as? [String: Any],
+           let watchEndpoint = endpoint["watchEndpoint"] as? [String: Any],
+           let type = self.extractMusicVideoType(fromWatchEndpoint: watchEndpoint)
+        {
+            return type
+        }
+
+        return nil
+    }
+
+    private static func extractMusicVideoType(fromWatchEndpoint watchEndpoint: [String: Any]) -> MusicVideoType? {
+        guard let configs = watchEndpoint["watchEndpointMusicSupportedConfigs"] as? [String: Any],
+              let musicConfig = configs["watchEndpointMusicConfig"] as? [String: Any],
+              let typeString = musicConfig["musicVideoType"] as? String
+        else {
+            return nil
+        }
+
+        return MusicVideoType(rawValue: typeString)
+    }
+
     /// Returns whether a music item renderer is playable.
     static func isPlayableMusicItem(from data: [String: Any]) -> Bool {
         let displayPolicy = data["musicItemRendererDisplayPolicy"] as? String
@@ -494,43 +528,105 @@ enum ParsingHelpers {
         "Song", "Video", "Album", "Playlist", "Artist", "Episode", "Podcast",
     ]
 
+    private static func isArtistSeparator(_ text: String) -> Bool {
+        text == " • " || text == " & " || text == ", " || text == "•" || text == "&" || text == ","
+    }
+
+    private static func isMetadataText(_ text: String) -> Bool {
+        if self.contentTypeKeywords.contains(text)
+            || self.parseDuration(text) != nil
+            || self.isNaturalLanguageDuration(text)
+            || self.extractSongCount(from: text) != nil
+        {
+            return true
+        }
+
+        if Int(text) != nil {
+            return true
+        }
+
+        let lowercased = text.lowercased()
+        return lowercased.contains(" views")
+            || lowercased.contains(" plays")
+            || lowercased.contains(" subscribers")
+            || lowercased.contains("episodes")
+    }
+
+    private static func isNaturalLanguageDuration(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
+
+        guard durationUnits.contains(where: { lowercased.contains($0) }) else {
+            return false
+        }
+
+        return lowercased.allSatisfy { character in
+            character.isNumber
+                || character.isWhitespace
+                || character == ","
+                || durationUnits.joined().contains(character)
+        }
+    }
+
     /// Extracts artists from flex columns.
     static func extractArtistsFromFlexColumns(_ data: [String: Any]) -> [Artist] {
         var artists: [Artist] = []
 
-        if let flexColumns = data["flexColumns"] as? [[String: Any]],
-           flexColumns.count > 1,
-           let secondColumn = flexColumns[safe: 1],
-           let renderer = secondColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
-           let text = renderer["text"] as? [String: Any],
-           let runs = text["runs"] as? [[String: Any]]
-        {
-            for run in runs {
-                if let artistName = run["text"] as? String,
-                   artistName != " • ", artistName != " & ", artistName != ", ",
-                   !artistName.isEmpty,
-                   // Skip content type keywords (Song, Video, etc.)
-                   !Self.contentTypeKeywords.contains(artistName)
-                {
-                    // Only include items that have an artist browse endpoint.
-                    // This filters out metadata like view counts and years while
-                    // allowing both channel artists ("UC...") and library artists ("MPLAUC...").
-                    if let endpoint = run["navigationEndpoint"] as? [String: Any],
-                       let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
-                       let browseId = browseEndpoint["browseId"] as? String,
-                       Artist.isNavigableId(browseId)
-                    {
-                        artists.append(Artist(
-                            id: browseId,
-                            name: artistName,
-                            profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
-                        ))
-                    }
-                }
+        guard let flexColumns = data["flexColumns"] as? [[String: Any]],
+              flexColumns.count > 1,
+              let secondColumn = flexColumns[safe: 1],
+              let renderer = secondColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+              let text = renderer["text"] as? [String: Any],
+              let runs = text["runs"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        for run in runs {
+            guard let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !artistName.isEmpty,
+                  !Self.isArtistSeparator(artistName),
+                  !Self.isMetadataText(artistName)
+            else { continue }
+
+            // Only include linked artist endpoints on the first pass. This filters
+            // out metadata while preserving normal channel and library artist rows.
+            if let endpoint = run["navigationEndpoint"] as? [String: Any],
+               let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
+               let browseId = browseEndpoint["browseId"] as? String,
+               Artist.isNavigableId(browseId)
+            {
+                artists.append(Artist(
+                    id: browseId,
+                    name: artistName,
+                    profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
+                ))
             }
         }
 
-        return artists
+        if !artists.isEmpty {
+            return artists
+        }
+
+        // Uploaded songs often expose artist metadata as plain text, without a
+        // browse endpoint. Preserve that text so playlist rows do not show an
+        // empty artist line.
+        guard let artistName = runs.compactMap({ run -> String? in
+            guard run["navigationEndpoint"] == nil,
+                  let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !artistName.isEmpty,
+                  !Self.isArtistSeparator(artistName),
+                  !Self.isMetadataText(artistName)
+            else { return nil }
+            return artistName
+        }).first else {
+            return []
+        }
+
+        return [Artist(
+            id: Self.stableId(title: "upload-artist", components: artistName),
+            name: artistName
+        )]
     }
 
     /// Extracts album from flex columns.

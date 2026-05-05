@@ -9,23 +9,22 @@ struct WebKitManagerTests {
     var webKitManager: WebKitManager
 
     init() {
-        self.webKitManager = WebKitManager.shared
+        self.webKitManager = WebKitManager.makeTestInstance()
     }
 
-    @Test("Shared instance exists")
-    func sharedInstanceExists() {
-        #expect(WebKitManager.shared != nil)
+    @Test("Test instance uses non-persistent data store")
+    func instanceUsesNonPersistentDataStore() {
+        #expect(self.webKitManager.dataStore.isPersistent == false)
     }
 
     @Test("Data store exists")
     func dataStoreExists() {
-        #expect(self.webKitManager.dataStore != nil)
+        #expect(self.webKitManager.dataStore.isPersistent == false)
     }
 
     @Test("Create WebView configuration")
     func createWebViewConfiguration() {
         let configuration = self.webKitManager.createWebViewConfiguration()
-        #expect(configuration != nil)
         #expect(configuration.websiteDataStore === self.webKitManager.dataStore)
     }
 
@@ -41,9 +40,8 @@ struct WebKitManagerTests {
 
     @Test("Get all cookies")
     func getAllCookies() async {
-        let cookies = await webKitManager.getAllCookies()
-        #expect(cookies != nil)
-        // Cookies array may be empty in test environment
+        let cookies = await self.webKitManager.getAllCookies()
+        #expect(cookies.isEmpty)
     }
 
     @Test("Cookie header for domain")
@@ -55,9 +53,8 @@ struct WebKitManagerTests {
 
     @Test("Has auth cookies")
     func hasAuthCookies() async {
-        let hasAuth = await webKitManager.hasAuthCookies()
-        // Just verify the method works and returns a Bool
-        #expect(hasAuth == true || hasAuth == false)
+        let hasAuth = await self.webKitManager.hasAuthCookies()
+        #expect(hasAuth == false)
     }
 
     @Test("Cookie archive write coordinator skips duplicate pending saves and retries after failure")

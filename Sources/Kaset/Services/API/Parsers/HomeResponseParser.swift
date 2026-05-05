@@ -395,6 +395,7 @@ enum HomeResponseParser {
                 duration: nil,
                 thumbnailURL: thumbnailURL,
                 videoId: videoId,
+                musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
                 isExplicit: ParsingHelpers.extractIsExplicit(from: data)
             )
             return .song(song)
@@ -445,6 +446,7 @@ enum HomeResponseParser {
             duration: duration,
             thumbnailURL: thumbnailURL,
             videoId: videoId,
+            musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
             isExplicit: ParsingHelpers.extractIsExplicit(from: data)
         )
         return .song(song)

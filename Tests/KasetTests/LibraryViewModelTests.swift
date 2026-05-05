@@ -23,6 +23,7 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.playlists.isEmpty)
         #expect(self.viewModel.artists.isEmpty)
         #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.uploadedSongsPlaylist == nil)
         #expect(self.viewModel.libraryPlaylistIds.isEmpty)
         #expect(self.viewModel.libraryArtistIds.isEmpty)
         #expect(self.viewModel.libraryPodcastIds.isEmpty)
@@ -41,6 +42,13 @@ struct LibraryViewModelTests {
         self.mockClient.libraryPodcastShows = [
             TestFixtures.makePodcastShow(id: "MPSPPL1", title: "Podcast 1"),
         ]
+        self.mockClient.uploadedSongsPlaylist = Playlist(
+            id: Playlist.uploadedSongsBrowseID,
+            title: "Uploaded Songs",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 7000
+        )
 
         await self.viewModel.load()
 
@@ -53,6 +61,8 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.artists[0].name == "Artist 1")
         #expect(self.viewModel.podcastShows.count == 1)
         #expect(self.viewModel.podcastShows[0].title == "Podcast 1")
+        #expect(self.viewModel.uploadedSongsPlaylist?.id == Playlist.uploadedSongsBrowseID)
+        #expect(self.viewModel.uploadedSongsPlaylist?.trackCount == 7000)
         #expect(self.viewModel.libraryPlaylistIds == Set(["VL1", "VL2"]))
         #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
         #expect(self.viewModel.libraryPodcastIds == Set(["MPSPPL1"]))
@@ -154,34 +164,27 @@ struct LibraryViewModelTests {
                 podcastShows: []
             ),
         ]
-        self.mockClient.libraryContentResponseDelays = [.milliseconds(200)]
+        self.mockClient.shouldWaitForLibraryContentResponse = true
 
-        // Deterministic handshake: yield once from the mock's getLibraryContent
-        // hook when the refresh's call enters. This replaces a wall-clock
-        // Task.sleep(50ms) that could flake under CI runner load — the previous
-        // version could resume after the entire 200ms mock delay had already
-        // completed, so the in-flight assertions raced the final state.
-        // By the time the hook fires, refresh() has synchronously set
-        // loadingState = .loadingMore (before its first await).
-        let (signalStream, signalContinuation) = AsyncStream<Void>.makeStream()
-        self.mockClient.onGetLibraryContent = { signalContinuation.yield() }
-
-        let refreshTask = Task {
-            await self.viewModel.refresh()
+        var refreshTask: Task<Void, Never>!
+        await withCheckedContinuation { continuation in
+            self.mockClient.onGetLibraryContent = {
+                self.mockClient.onGetLibraryContent = nil
+                continuation.resume()
+            }
+            refreshTask = Task {
+                await self.viewModel.refresh()
+            }
         }
-
-        var iterator = signalStream.makeAsyncIterator()
-        _ = await iterator.next()
 
         #expect(self.viewModel.loadingState == .loadingMore)
         #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
 
+        self.mockClient.resumeNextLibraryContentResponse()
         await refreshTask.value
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlists.map(\.id) == ["VL2"])
-
-        signalContinuation.finish()
     }
 
     @Test("Refresh failure keeps existing library content visible")

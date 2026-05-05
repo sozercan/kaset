@@ -78,8 +78,8 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
     }
 
-    @Test("Next with shuffle and repeat one still picks random tracks (shuffle wins over repeat one for Next)")
-    func nextWithShuffleAndRepeatOneUsesShuffle() async {
+    @Test("Next with shuffle and repeat one follows materialized queue")
+    func nextWithShuffleAndRepeatOneFollowsQueue() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
@@ -89,20 +89,17 @@ struct PlayerServiceWebQueueSyncTests {
         await self.playerService.playQueue(songs, startingAt: 1)
         self.playerService.toggleShuffle()
         #expect(self.playerService.shuffleEnabled == true)
+        let queuedVideoIds = self.playerService.queue.map(\.videoId)
+        #expect(queuedVideoIds.first == "v2")
 
         self.playerService.cycleRepeatMode()
         self.playerService.cycleRepeatMode()
         #expect(self.playerService.repeatMode == .one)
 
-        var sawNonStartIndex = false
-        for _ in 0 ..< 18 {
-            await self.playerService.next()
-            if self.playerService.currentIndex != 1 {
-                sawNonStartIndex = true
-                break
-            }
-        }
-        #expect(sawNonStartIndex)
+        await self.playerService.next()
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == queuedVideoIds[1])
     }
 
     @Test("Near-end autoplay while repeat one does not advance queue index")
@@ -255,8 +252,8 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.state != .ended)
     }
 
-    @Test("Next with shuffle picks random song from queue")
-    func nextWithShufflePicksFromQueue() async {
+    @Test("Next with shuffle follows visible queue order")
+    func nextWithShuffleFollowsVisibleQueueOrder() async {
         let songs = [
             Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
             Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
@@ -268,13 +265,12 @@ struct PlayerServiceWebQueueSyncTests {
         await playerService.playQueue(songs, startingAt: 0)
         self.playerService.toggleShuffle()
         #expect(self.playerService.shuffleEnabled == true)
+        let queuedVideoIds = self.playerService.queue.map(\.videoId)
 
-        // Call next multiple times and verify we always pick from the queue
-        let validVideoIds = Set(songs.map(\.videoId))
-        for _ in 0 ..< 10 {
+        for expectedIndex in 1 ..< queuedVideoIds.count {
             await self.playerService.next()
-            // Verify the current track is from our queue
-            #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Shuffle should only pick songs from the queue")
+            #expect(self.playerService.currentIndex == expectedIndex)
+            #expect(self.playerService.currentTrack?.videoId == queuedVideoIds[expectedIndex])
         }
     }
 

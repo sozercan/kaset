@@ -82,7 +82,8 @@ actor ImageCache {
         // Fetch from network
         let task = Task<NSImage?, Never> {
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard Self.isSuccessfulResponse(response) else { return nil }
                 guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
                 let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
                 self.memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
@@ -97,6 +98,11 @@ actor ImageCache {
         let result = await task.value
         self.inFlight.removeValue(forKey: url)
         return result
+    }
+
+    private static func isSuccessfulResponse(_ response: URLResponse) -> Bool {
+        guard let httpResponse = response as? HTTPURLResponse else { return true }
+        return (200 ..< 300).contains(httpResponse.statusCode)
     }
 
     /// Prefetches images with controlled concurrency to avoid network congestion.

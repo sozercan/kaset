@@ -36,6 +36,7 @@ struct MainWindow: View {
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
+    @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -174,6 +175,11 @@ struct MainWindow: View {
                 self.showWhatsNew.wrappedValue = false
             }
         }
+        .onChange(of: self.navigationSelection) { _, newValue in
+            if newValue != nil {
+                self.selectedSidebarPinnedItem = nil
+            }
+        }
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
@@ -246,9 +252,16 @@ struct MainWindow: View {
         ZStack(alignment: .trailing) {
             // Main navigation content
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(selection: self.$navigationSelection)
+                Sidebar(
+                    selection: self.$navigationSelection,
+                    pinnedSelection: self.$selectedSidebarPinnedItem
+                )
             } detail: {
-                self.detailView(for: self.navigationSelection, client: self.client)
+                self.detailView(
+                    for: self.navigationSelection,
+                    pinnedItem: self.selectedSidebarPinnedItem,
+                    client: self.client
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -311,9 +324,15 @@ struct MainWindow: View {
         }
     }
 
-    private func detailView(for item: NavigationItem?, client _: any YTMusicClientProtocol) -> some View {
+    private func detailView(
+        for item: NavigationItem?,
+        pinnedItem: SidebarPinnedItem?,
+        client: any YTMusicClientProtocol
+    ) -> some View {
         Group {
-            if let item {
+            if let pinnedItem {
+                self.viewForSidebarPinnedItem(pinnedItem, client: client)
+            } else if let item {
                 self.viewForNavigationItem(item)
             } else {
                 Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
@@ -369,6 +388,24 @@ struct MainWindow: View {
             case .history:
                 if let vm = historyViewModel { HistoryView(viewModel: vm) }
             }
+        }
+        .environment(self.libraryViewModel)
+    }
+
+    private func viewForSidebarPinnedItem(
+        _ item: SidebarPinnedItem,
+        client: any YTMusicClientProtocol
+    ) -> some View {
+        NavigationStack {
+            PlaylistDetailView(
+                playlist: item.playlistRoute,
+                viewModel: PlaylistDetailViewModel(
+                    playlist: item.playlistRoute,
+                    client: client
+                )
+            )
+            .id(item.contentId)
+            .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
     }

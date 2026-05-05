@@ -10,11 +10,23 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let safeIndex = max(0, min(index, songs.count - 1))
-        self.setQueue(songs)
-        self.currentIndex = safeIndex
+        let entries = songs.map { QueueEntry(id: UUID(), song: $0) }
+        if self.shuffleEnabled, entries.count > 1 {
+            self.materializeShuffleQueue(
+                entries: entries,
+                startingAt: safeIndex,
+                recordUndo: false,
+                storesOriginalOrder: true
+            )
+            self.currentIndex = 0
+        } else {
+            self.queueOrderBeforeShuffle = nil
+            self.setQueue(entries: entries)
+            self.currentIndex = safeIndex
+        }
         // Clear mix continuation since this is not a mix queue
         self.mixContinuationToken = nil
-        if let song = songs[safe: safeIndex] {
+        if let song = self.queue[safe: self.currentIndex] {
             await self.play(song: song)
         }
         self.saveQueueForPersistence()
@@ -32,6 +44,7 @@ extension PlayerService {
 
         // Start with just this song in the queue
         self.setQueue([song])
+        self.queueOrderBeforeShuffle = nil
         self.currentIndex = 0
         await self.play(song: song)
 
@@ -74,6 +87,7 @@ extension PlayerService {
 
             // Set up the queue and play the first song
             self.setQueue(shuffledSongs)
+            self.queueOrderBeforeShuffle = nil
             self.currentIndex = 0
             self.currentTrack = shuffledSongs[0]
 
@@ -180,6 +194,7 @@ extension PlayerService {
             self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
             self.setQueue(newQueue)
+            self.queueOrderBeforeShuffle = nil
             self.currentIndex = 0
             self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
             self.saveQueueForPersistence()
@@ -194,6 +209,7 @@ extension PlayerService {
         self.recordQueueStateForUndo()
         self.mixContinuationToken = nil
         self.setQueue([])
+        self.queueOrderBeforeShuffle = nil
         self.currentIndex = 0
         self.logger.info("Queue cleared entirely")
         self.saveQueueForPersistence()
@@ -208,6 +224,7 @@ extension PlayerService {
 
         guard let currentTrack else {
             self.setQueue([])
+            self.queueOrderBeforeShuffle = nil
             self.currentIndex = 0
             self.saveQueueForPersistence()
             return
@@ -215,6 +232,7 @@ extension PlayerService {
         // Keep only the current track
         let currentEntryID = self.queueEntryIDs[safe: self.currentIndex]
         self.setQueue([currentTrack], entryIDs: currentEntryID.map { [$0] })
+        self.queueOrderBeforeShuffle = nil
         self.currentIndex = 0
         self.logger.info("Queue cleared, keeping current track")
         self.saveQueueForPersistence()
@@ -358,26 +376,94 @@ extension PlayerService {
 
     /// Shuffles the queue, keeping the current track in place at the front.
     func shuffleQueue() {
-        guard self.queue.count > 1 else { return }
-        self.clearForwardSkipNavigationStack()
-        self.recordQueueStateForUndo()
+        self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: false)
+    }
 
-        // Remove current track, shuffle the rest, put current track at front
-        if queue[safe: currentIndex] != nil {
-            var shuffledEntries = self.queueEntries
-            let currentEntry = shuffledEntries.remove(at: self.currentIndex)
-            shuffledEntries.shuffle()
-            shuffledEntries.insert(currentEntry, at: 0)
-            self.setQueue(entries: shuffledEntries)
-            self.currentIndex = 0
-        } else {
-            var shuffledEntries = self.queueEntries
-            shuffledEntries.shuffle()
-            self.setQueue(entries: shuffledEntries)
-            self.currentIndex = 0
+    /// Reorders the queue into the actual shuffled playback order.
+    /// Keeps the current track first so the visible "next up" order matches playback.
+    func materializeShuffleQueueForCurrentTrack(recordUndo: Bool, storesOriginalOrder: Bool) {
+        guard self.queue.count > 1 else { return }
+        self.materializeShuffleQueue(
+            entries: self.queueEntries,
+            startingAt: self.currentIndex,
+            recordUndo: recordUndo,
+            storesOriginalOrder: storesOriginalOrder
+        )
+    }
+
+    /// Reorders the provided entries into a shuffled playback order.
+    func materializeShuffleQueue(
+        entries: [QueueEntry],
+        startingAt index: Int,
+        recordUndo: Bool,
+        storesOriginalOrder: Bool
+    ) {
+        guard entries.count > 1 else {
+            self.setQueue(entries: entries)
+            self.currentIndex = min(max(index, 0), max(0, entries.count - 1))
+            return
+        }
+        self.clearForwardSkipNavigationStack()
+        if recordUndo {
+            self.recordQueueStateForUndo()
+        }
+        if storesOriginalOrder {
+            self.queueOrderBeforeShuffle = entries
         }
 
+        // Remove current track, shuffle the rest, put current track at front
+        var shuffledEntries = entries
+        let safeIndex = min(max(index, 0), shuffledEntries.count - 1)
+        let currentEntry = shuffledEntries.remove(at: safeIndex)
+        shuffledEntries.shuffle()
+        shuffledEntries.insert(currentEntry, at: 0)
+        self.setQueue(entries: shuffledEntries)
+        self.currentIndex = 0
+
         self.logger.info("Queue shuffled")
+        self.saveQueueForPersistence()
+    }
+
+    /// Restores the queue order captured before shuffle was enabled.
+    func restoreQueueOrderBeforeShuffle(recordUndo: Bool) {
+        guard let snapshot = self.queueOrderBeforeShuffle, !snapshot.isEmpty else {
+            self.queueOrderBeforeShuffle = nil
+            return
+        }
+
+        let currentEntries = self.queueEntries
+        let currentEntryID = self.currentQueueEntryID
+        let currentEntriesByID = Dictionary(uniqueKeysWithValues: currentEntries.map { ($0.id, $0) })
+        let currentEntryIDs = Set(currentEntries.map(\.id))
+
+        var restoredEntries: [QueueEntry] = []
+        for entry in snapshot where currentEntryIDs.contains(entry.id) {
+            restoredEntries.append(currentEntriesByID[entry.id] ?? entry)
+        }
+
+        let restoredEntryIDs = Set(restoredEntries.map(\.id))
+        restoredEntries.append(contentsOf: currentEntries.filter { !restoredEntryIDs.contains($0.id) })
+
+        guard !restoredEntries.isEmpty else {
+            self.queueOrderBeforeShuffle = nil
+            return
+        }
+
+        self.clearForwardSkipNavigationStack()
+        if recordUndo {
+            self.recordQueueStateForUndo()
+        }
+
+        self.setQueue(entries: restoredEntries)
+        if let currentEntryID,
+           let restoredIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
+        {
+            self.currentIndex = restoredIndex
+        } else {
+            self.currentIndex = min(self.currentIndex, restoredEntries.count - 1)
+        }
+        self.queueOrderBeforeShuffle = nil
+        self.logger.info("Restored queue order before shuffle")
         self.saveQueueForPersistence()
     }
 

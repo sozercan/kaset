@@ -8,15 +8,16 @@ import SwiftUI
 struct PlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
-    @Environment(PlayerService.self) private var playerService
+    @Environment(PlayerService.self) var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
-    @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
+    @Environment(\.dismiss) var dismiss
     /// Tracks whether this playlist has been added to library in this session.
-    @State private var isAddedToLibrary: Bool = false
+    @State var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.
-    @State private var showRefineSheet: Bool = false
+    @State var showRefineSheet: Bool = false
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.
@@ -26,7 +27,7 @@ struct PlaylistDetailView: View {
     /// Error message from refine operation.
     @State private var refineError: String?
     /// Computed property to check if playlist is in library.
-    private var isInLibrary: Bool {
+    var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
     }
 
@@ -64,7 +65,6 @@ struct PlaylistDetailView: View {
         )
         .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
-        .topFade()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -131,6 +131,7 @@ struct PlaylistDetailView: View {
             }
             .padding(24)
         }
+        .topFade(style: .contentMask)
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
@@ -155,7 +156,7 @@ struct PlaylistDetailView: View {
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                Text(detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist"))
+                Text(self.contentKindText(for: detail))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -166,7 +167,12 @@ struct PlaylistDetailView: View {
 
                 self.headerAuthorView(detail)
 
-                Spacer()
+                Text(self.metadataText(for: detail))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+
+                Spacer(minLength: 24)
 
                 self.headerButtons(detail)
             }
@@ -174,190 +180,25 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func makeFallbackAlbum(from detail: PlaylistDetail) -> Album {
-        Album(
-            id: detail.id,
-            title: detail.title,
-            artists: detail.author.map { [$0] },
-            thumbnailURL: detail.thumbnailURL,
-            year: nil,
-            trackCount: detail.trackCount ?? detail.tracks.count
-        )
-    }
-
     @ViewBuilder
     private func headerAuthorView(_ detail: PlaylistDetail) -> some View {
-        if let author = detail.author, author.hasNavigableId {
-            HoverUnderlineNavigationLink(value: author, title: author.name)
-        } else if let author = detail.author {
-            Text(author.name)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
+        let artists = self.headerArtists(for: detail)
 
-    private func headerButtons(_ detail: PlaylistDetail) -> some View {
-        let fallbackAlbum = self.makeFallbackAlbum(from: detail)
-        let playableTracks = self.playableTracks(
-            detail.tracks,
-            fallbackArtist: detail.author?.name,
-            fallbackAlbum: fallbackAlbum
-        )
+        if !artists.isEmpty {
+            HStack(spacing: 0) {
+                ForEach(Array(artists.enumerated()), id: \.offset) { index, artist in
+                    Text(artist.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.secondary)
 
-        return VStack(alignment: .leading, spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                self.headerActionButtons(
-                    detail,
-                    playableTracks: playableTracks,
-                    fallbackAlbum: fallbackAlbum,
-                    showsTitles: true
-                )
-                .fixedSize(horizontal: true, vertical: false)
-
-                self.headerActionButtons(
-                    detail,
-                    playableTracks: playableTracks,
-                    fallbackAlbum: fallbackAlbum,
-                    showsTitles: false
-                )
-            }
-
-            Text(self.metadataText(for: detail))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func headerActionButtons(
-        _ detail: PlaylistDetail,
-        playableTracks: [Song],
-        fallbackAlbum: Album,
-        showsTitles: Bool
-    ) -> some View {
-        HStack(spacing: 16) {
-            Button {
-                self.playAll(
-                    detail.tracks, fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Play", systemImage: "play.fill", showsTitle: showsTitles)
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            Button {
-                SongActionsHelper.addSongsToQueueNext(
-                    playableTracks,
-                    playerService: self.playerService,
-                    fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Play Next", systemImage: "text.insert", showsTitle: showsTitles)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            Button {
-                SongActionsHelper.addSongsToQueueLast(
-                    playableTracks,
-                    playerService: self.playerService,
-                    fallbackArtist: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                self.headerActionLabel(localized: "Add to Queue", systemImage: "text.append", showsTitle: showsTitles)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(playableTracks.isEmpty)
-
-            let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-            let libraryTitle = currentlyInLibrary
-                ? String(localized: "Added to Library")
-                : String(localized: "Add to Library")
-            Button {
-                self.toggleLibrary()
-            } label: {
-                self.headerActionLabel(
-                    libraryTitle,
-                    systemImage: currentlyInLibrary ? "checkmark.circle.fill" : "plus.circle",
-                    showsTitle: showsTitles
-                )
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-
-            if !detail.isAlbum {
-                Button {
-                    self.showRefineSheet = true
-                } label: {
-                    self.headerActionLabel(localized: "Refine", systemImage: "sparkles", showsTitle: showsTitles)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .requiresIntelligence()
-
-                if detail.canDelete {
-                    Button(role: .destructive) {
-                        SongActionsHelper.confirmDeletePlaylist(
-                            Playlist(
-                                id: detail.id,
-                                title: detail.title,
-                                description: detail.description,
-                                thumbnailURL: detail.thumbnailURL,
-                                trackCount: detail.trackCount,
-                                author: detail.author,
-                                canDelete: detail.canDelete
-                            ),
-                            client: self.viewModel.client,
-                            libraryViewModel: self.libraryViewModel
-                        ) {
-                            self.dismiss()
-                        }
-                    } label: {
-                        self.headerActionLabel(
-                            localized: "Delete Playlist",
-                            systemImage: "trash",
-                            showsTitle: showsTitles
-                        )
+                    if index < artists.count - 1 {
+                        Text(", ")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .tint(.red)
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private func headerActionLabel(
-        localized title: LocalizedStringKey,
-        systemImage: String,
-        showsTitle: Bool
-    ) -> some View {
-        if showsTitle {
-            Label(title, systemImage: systemImage)
-        } else {
-            Image(systemName: systemImage)
-                .accessibilityLabel(Text(title))
-        }
-    }
-
-    @ViewBuilder
-    private func headerActionLabel(
-        _ title: String,
-        systemImage: String,
-        showsTitle: Bool
-    ) -> some View {
-        if showsTitle {
-            Label(title, systemImage: systemImage)
-        } else {
-            Image(systemName: systemImage)
-                .accessibilityLabel(title)
+            .lineLimit(1)
         }
     }
 
@@ -367,6 +208,13 @@ struct PlaylistDetailView: View {
         }
 
         return detail.trackCountDisplay
+    }
+
+    private func contentKindText(for detail: PlaylistDetail) -> String {
+        if detail.isUploadedSongs {
+            return String(localized: "Uploads")
+        }
+        return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
     private func tracksView(
@@ -414,6 +262,7 @@ struct PlaylistDetailView: View {
             track: track,
             index: index,
             isAlbum: isAlbum,
+            subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
             onPlay: {
                 self.playTrackInQueue(
                     tracks: tracks, startingAt: index, fallbackArtist: author,
@@ -431,6 +280,73 @@ struct PlaylistDetailView: View {
             }
         )
         .staggeredAppearance(index: min(index, 10))
+    }
+
+    private func headerArtists(for detail: PlaylistDetail) -> [Artist] {
+        if let author = self.cleanedArtist(detail.author) {
+            return [author]
+        }
+
+        return self.uniqueArtists(from: detail.tracks.flatMap(\.artists))
+    }
+
+    private func trackArtistsDisplay(for track: Song, fallbackAuthor: String?) -> String? {
+        let artists = self.uniqueArtists(from: track.artists)
+        if !artists.isEmpty {
+            return artists.map(\.name).joined(separator: ", ")
+        }
+
+        guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
+        return fallbackArtist
+    }
+
+    private func uniqueArtists(from artists: [Artist]) -> [Artist] {
+        var seen = Set<String>()
+        var uniqueArtists: [Artist] = []
+
+        for artist in artists {
+            guard let cleanedArtist = self.cleanedArtist(artist) else { continue }
+            let key = cleanedArtist.hasNavigableId ? cleanedArtist.id : cleanedArtist.name.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            uniqueArtists.append(cleanedArtist)
+        }
+
+        return uniqueArtists
+    }
+
+    private func cleanedArtist(_ artist: Artist?) -> Artist? {
+        guard let artist,
+              let name = self.cleanedArtistName(artist.name)
+        else { return nil }
+
+        return Artist(
+            id: artist.id,
+            name: name,
+            thumbnailURL: artist.thumbnailURL,
+            subtitle: artist.subtitle,
+            profileKind: artist.profileKind
+        )
+    }
+
+    private func cleanedArtistName(_ name: String?) -> String? {
+        guard var cleanName = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !cleanName.isEmpty
+        else { return nil }
+
+        if cleanName == "Album" {
+            return nil
+        }
+
+        if cleanName.hasPrefix("Album, ") {
+            cleanName = String(cleanName.dropFirst(7))
+        } else if cleanName.contains("Album,") {
+            let parts = cleanName.split(separator: ",", maxSplits: 1)
+            if parts.count > 1 {
+                cleanName = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        return cleanName.isEmpty ? nil : cleanName
     }
 
     // MARK: - Actions
@@ -526,7 +442,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playAll(
+    func playAll(
         _ tracks: [Song], fallbackArtist: String? = nil, fallbackAlbum: Album? = nil
     ) {
         let cleanedTracks = self.playableTracks(
@@ -538,7 +454,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playableTracks(
+    func playableTracks(
         _ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil
     ) -> [Song] {
         self.cleanTracks(
@@ -603,7 +519,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func toggleLibrary() {
+    func toggleLibrary() {
         let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
         HapticService.success()
         Task {
@@ -743,6 +659,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
     let track: Song
     let index: Int
     let isAlbum: Bool
+    let subtitle: String?
     let onPlay: () -> Void
     @ViewBuilder let menu: () -> Menu
 
@@ -785,10 +702,12 @@ private struct PlaylistTrackRow<Menu: View>: View {
                             ExplicitBadge()
                         }
                     }
-                    Text(self.track.artistsDisplay)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if let subtitle = self.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -851,4 +770,6 @@ private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
         )
     )
     .environment(PlayerService())
+    .environment(FavoritesManager(skipLoad: true))
+    .environment(SidebarPinnedItemsManager(skipLoad: true))
 }

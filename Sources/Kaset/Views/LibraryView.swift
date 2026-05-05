@@ -6,6 +6,7 @@ import SwiftUI
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
+    case uploads = "Uploads"
     case artists = "Artists"
     case podcasts = "Podcasts"
 
@@ -17,6 +18,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: "square.grid.2x2"
         case .playlists: "music.note.list"
+        case .uploads: "tray.and.arrow.up.fill"
         case .artists: "person.fill"
         case .podcasts: "mic.fill"
         }
@@ -28,6 +30,8 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
             String(localized: "All")
         case .playlists:
             String(localized: "Playlists")
+        case .uploads:
+            String(localized: "Uploads")
         case .artists:
             String(localized: "Artists")
         case .podcasts:
@@ -48,6 +52,10 @@ struct LibraryView: View {
 
     @State private var navigationPath = NavigationPath()
     @State private var selectedFilter: LibraryFilter = .all
+
+    private let libraryItemSize: CGFloat = 160
+    private let libraryItemSpacing: CGFloat = 18
+    private let libraryItemCardHeight: CGFloat = 222
 
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
@@ -176,11 +184,14 @@ struct LibraryView: View {
 
         switch self.selectedFilter {
         case .all:
-            items = self.viewModel.playlists.map { .playlist($0) }
+            items = self.uploadItems
+                + self.viewModel.playlists.map { .playlist($0) }
                 + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:
             items = self.viewModel.playlists.map { .playlist($0) }
+        case .uploads:
+            items = self.uploadItems
         case .artists:
             items = self.viewModel.artists.map { .artist($0) }
         case .podcasts:
@@ -190,18 +201,27 @@ struct LibraryView: View {
         return items
     }
 
+    private var uploadItems: [LibraryItem] {
+        guard let uploadedSongsPlaylist = self.viewModel.uploadedSongsPlaylist else {
+            return []
+        }
+        return [.uploadedSongs(uploadedSongsPlaylist)]
+    }
+
     private var libraryGrid: some View {
         Group {
             if self.filteredItems.isEmpty {
                 self.emptyStateView
             } else {
                 LazyVGrid(columns: [
-                    GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16),
-                ], spacing: 16) {
+                    GridItem(.adaptive(minimum: self.libraryItemSize, maximum: 200), spacing: self.libraryItemSpacing),
+                ], spacing: 24) {
                     ForEach(self.filteredItems) { item in
                         switch item {
                         case let .playlist(playlist):
                             self.playlistCard(playlist)
+                        case let .uploadedSongs(playlist):
+                            self.uploadedSongsCard(playlist)
                         case let .artist(artist):
                             self.artistCard(artist)
                         case let .podcast(show):
@@ -209,6 +229,7 @@ struct LibraryView: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -238,6 +259,8 @@ struct LibraryView: View {
             String(localized: "Your library is empty")
         case .playlists:
             String(localized: "No playlists yet")
+        case .uploads:
+            String(localized: "No uploaded songs yet")
         case .artists:
             String(localized: "No artists yet")
         case .podcasts:
@@ -251,6 +274,8 @@ struct LibraryView: View {
             String(localized: "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here.")
         case .playlists:
             String(localized: "Create or save playlists on YouTube Music to see them here.")
+        case .uploads:
+            String(localized: "Upload songs to YouTube Music to browse them here.")
         case .artists:
             String(localized: "Follow artists on YouTube Music to see them here.")
         case .podcasts:
@@ -277,7 +302,7 @@ struct LibraryView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
-                .frame(width: 160, height: 160)
+                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
                 // Title
@@ -285,15 +310,17 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: 160, alignment: .leading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
 
                 // Track count
                 if let count = playlist.trackCount {
                     Text("\(count) songs", comment: "Playlist track count")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                        .frame(width: self.libraryItemSize, alignment: .leading)
                 }
             }
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -309,6 +336,50 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    private func uploadedSongsCard(_ playlist: Playlist) -> some View {
+        Button {
+            self.navigationPath.append(playlist)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "tray.and.arrow.up.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
+                .clipShape(.rect(cornerRadius: 8))
+
+                Text(playlist.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
+
+                if let count = playlist.trackCount {
+                    Text("\(count) songs", comment: "Uploaded songs count")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .frame(width: self.libraryItemSize, alignment: .leading)
+                } else {
+                    Text(String(localized: "Uploads"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .frame(width: self.libraryItemSize, alignment: .leading)
+                }
+            }
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
+        }
+        .buttonStyle(.plain)
     }
 
     private func podcastCard(_ show: PodcastShow) -> some View {
@@ -330,7 +401,7 @@ struct LibraryView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
-                .frame(width: 160, height: 160)
+                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
                 // Title
@@ -338,7 +409,7 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: 160, alignment: .leading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
 
                 // Author
                 if let author = show.author {
@@ -346,8 +417,10 @@ struct LibraryView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .frame(width: self.libraryItemSize, alignment: .leading)
                 }
             }
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -373,21 +446,21 @@ struct LibraryView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
-                .frame(width: 128, height: 128)
+                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(Circle())
-                .frame(width: 160)
 
                 Text(artist.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .frame(width: 160)
+                    .frame(width: self.libraryItemSize, alignment: .top)
 
                 Text(String(localized: "Artist"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                    .frame(width: 160)
+                    .frame(width: self.libraryItemSize)
             }
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .top)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -402,6 +475,7 @@ struct LibraryView: View {
 /// Represents a library item that can be a playlist, artist, or podcast show.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
+    case uploadedSongs(Playlist)
     case artist(Artist)
     case podcast(PodcastShow)
 
@@ -409,6 +483,8 @@ enum LibraryItem: Identifiable {
         switch self {
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .uploadedSongs(playlist):
+            "uploads-\(playlist.id)"
         case let .artist(artist):
             "artist-\(artist.id)"
         case let .podcast(show):

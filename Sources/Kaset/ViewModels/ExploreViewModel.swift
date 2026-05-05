@@ -46,10 +46,10 @@ final class ExploreViewModel {
         self.logger.info("Loading explore content")
 
         do {
-            let response = try await client.getExplore()
+            let response = try await self.client.getExplore()
             // Filter out Charts section since it's available in the sidebar
             self.sections = response.sections.filter { !self.isChartsSection($0) }
-            self.hasMoreSections = self.client.hasMoreExploreSections
+            self.hasMoreSections = self.hasMoreSectionsForCurrentSource
             self.loadingState = .loaded
             self.continuationsLoaded = 0
             let sectionCount = self.sections.count
@@ -88,12 +88,12 @@ final class ExploreViewModel {
             guard self.loadingState == .loaded else { break }
 
             do {
-                if let additionalSections = try await client.getExploreContinuation() {
+                if let additionalSections = try await self.getContinuationForCurrentSource() {
                     // Filter out Charts section since it's available in the sidebar
                     let filteredSections = additionalSections.filter { !self.isChartsSection($0) }
                     self.sections.append(contentsOf: filteredSections)
                     self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreExploreSections
+                    self.hasMoreSections = self.hasMoreSectionsForCurrentSource
                     let continuationNum = self.continuationsLoaded
                     self.logger.info("Background loaded \(filteredSections.count) more sections (continuation \(continuationNum))")
                 } else {
@@ -123,6 +123,14 @@ final class ExploreViewModel {
     }
 
     // MARK: - Private Helpers
+
+    private var hasMoreSectionsForCurrentSource: Bool {
+        self.client.hasMoreExploreSections
+    }
+
+    private func getContinuationForCurrentSource() async throws -> [HomeSection]? {
+        try await self.client.getExploreContinuation()
+    }
 
     /// Determines if a section is a Charts section (which should be filtered out).
     private func isChartsSection(_ section: HomeSection) -> Bool {

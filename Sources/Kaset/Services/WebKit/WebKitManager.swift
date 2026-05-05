@@ -10,7 +10,12 @@ import WebKit
 @Observable
 final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Shared singleton instance.
-    static let shared = WebKitManager()
+    static let shared = WebKitManager(dataStore: .default(), restoresCookies: true, loadsExtensions: true)
+
+    /// Creates an isolated manager for unit tests.
+    static func makeTestInstance() -> WebKitManager {
+        WebKitManager(dataStore: .nonPersistent(), restoresCookies: false, loadsExtensions: false)
+    }
 
     /// The persistent website data store used across all WebViews.
     let dataStore: WKWebsiteDataStore
@@ -49,13 +54,8 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     private var extensionContexts: [String: WKWebExtensionContext] = [:]
 
-    override private init() {
-        // Use the default persistent data store
-        // This is more reliable than custom identifiers as it:
-        // 1. Is the standard WebKit approach
-        // 2. Shares cookies with the system's standard location
-        // 3. Doesn't get reset when WebKit detects issues
-        self.dataStore = WKWebsiteDataStore.default()
+    private init(dataStore: WKWebsiteDataStore, restoresCookies: Bool, loadsExtensions: Bool) {
+        self.dataStore = dataStore
 
         super.init()
 
@@ -64,7 +64,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         // Restore auth cookies on startup.
         // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
-        if !UITestConfig.isRunningUnitTests {
+        if restoresCookies, !UITestConfig.isRunningUnitTests {
             self.initialCookieRestoreTask = Task { @MainActor in
                 await self.restoreAuthCookiesFromBackup()
                 self.initialCookieRestoreTask = nil
@@ -79,7 +79,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             }
         #endif
 
-        Task { await self.loadExtensions() }
+        if loadsExtensions {
+            Task { await self.loadExtensions() }
+        }
     }
 
     /// Returns `true` if any web extension is currently loaded.

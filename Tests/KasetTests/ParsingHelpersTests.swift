@@ -234,6 +234,36 @@ struct ParsingHelpersTests {
         #expect(artists[0].name == "Library Artist")
     }
 
+    @Test("Extract artists from flex columns preserves plain uploaded artist text")
+    func extractArtistsFromFlexColumnsWithPlainUploadedArtistText() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Uploaded Song"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": "Upload Artist"],
+                                ["text": " • "],
+                                ["text": "Upload Album"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.count == 1)
+        #expect(artists[0].name == "Upload Artist")
+        #expect(artists.allSatisfy { !$0.hasNavigableId })
+    }
+
     // MARK: - Video ID Extraction
 
     @Test("Extract video ID from playlistItemData")

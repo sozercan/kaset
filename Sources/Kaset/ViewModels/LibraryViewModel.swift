@@ -92,6 +92,9 @@ final class LibraryViewModel {
     /// User's subscribed podcast shows.
     private(set) var podcastShows: [PodcastShow] = []
 
+    /// Virtual playlist entry for user-uploaded songs, when available.
+    private(set) var uploadedSongsPlaylist: Playlist?
+
     /// Set of playlist IDs that are in the user's library (for quick lookup).
     private(set) var libraryPlaylistIds: Set<String> = []
 
@@ -210,6 +213,7 @@ final class LibraryViewModel {
 
     private var hasLibrarySnapshot: Bool {
         !self.playlists.isEmpty || !self.artists.isEmpty || !self.podcastShows.isEmpty
+            || self.uploadedSongsPlaylist != nil
             || !self.libraryPlaylistIds.isEmpty || !self.libraryArtistIds.isEmpty || !self.libraryPodcastIds.isEmpty
     }
 
@@ -218,6 +222,7 @@ final class LibraryViewModel {
     }
 
     private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) { // swiftlint:disable:this cyclomatic_complexity
+        self.uploadedSongsPlaylist = content.uploadedSongsPlaylist
         self.podcastShows = content.podcastShows
         self.libraryPodcastIds = Set(content.podcastShows.map(\.id))
 
@@ -589,6 +594,7 @@ final class LibraryViewModel {
             self.playlists = []
             self.artists = []
             self.podcastShows = []
+            self.uploadedSongsPlaylist = nil
             self.libraryPlaylistIds = []
             self.libraryArtistIds = []
             self.libraryPodcastIds = []

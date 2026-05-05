@@ -10,11 +10,12 @@ struct HomeSectionItemCard: View {
     let action: () -> Void
 
     /// Card dimensions.
-    private static let cardWidth: CGFloat = 160
-    private static let cardHeight: CGFloat = 160
+    private static let squareThumbnailSize = CGSize(width: 160, height: 160)
+    private static let videoThumbnailSize = CGSize(width: 284, height: 160)
 
     /// Hover state for play overlay.
     @State private var isHovering = false
+    @State private var failedThumbnailURLs: Set<URL> = []
 
     init(item: HomeSectionItem, rank: Int? = nil, action: @escaping () -> Void) {
         self.item = item
@@ -35,6 +36,9 @@ struct HomeSectionItemCard: View {
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
             }
+        }
+        .onChange(of: self.item.id) { _, _ in
+            self.failedThumbnailURLs = []
         }
     }
 
@@ -70,11 +74,13 @@ struct HomeSectionItemCard: View {
 
     private var thumbnail: some View {
         ZStack {
-            if let url = self.item.thumbnailURL?.highQualityThumbnailURL {
-                CachedAsyncImage(url: url) { image in
+            self.thumbnailBackground
+
+            if let url = self.thumbnailURL {
+                CachedAsyncImage(url: url, targetSize: self.thumbnailSize, onFailure: self.thumbnailFailureHandler) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .aspectRatio(contentMode: self.thumbnailContentMode)
                 } placeholder: {
                     self.placeholderView
                 }
@@ -82,7 +88,7 @@ struct HomeSectionItemCard: View {
                 self.placeholderView
             }
         }
-        .frame(width: Self.cardWidth, height: Self.cardHeight)
+        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
             // Play overlay on hover (for songs)
@@ -108,6 +114,70 @@ struct HomeSectionItemCard: View {
         }
     }
 
+    @ViewBuilder
+    private var thumbnailBackground: some View {
+        if self.isVideoSong {
+            Rectangle()
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+        }
+    }
+
+    private var thumbnailURL: URL? {
+        self.thumbnailURLs.first { !self.failedThumbnailURLs.contains($0) }
+    }
+
+    private var thumbnailURLs: [URL] {
+        if self.isVideoSong {
+            return Self.uniqueURLs([
+                self.videoThumbnailURL,
+                self.item.thumbnailURL?.highQualityThumbnailURL,
+                self.videoFallbackThumbnailURL,
+            ])
+        }
+
+        return Self.uniqueURLs([self.item.thumbnailURL?.highQualityThumbnailURL])
+    }
+
+    private var thumbnailFailureHandler: (@MainActor () -> Void)? {
+        guard let thumbnailURL,
+              self.hasFallback(after: thumbnailURL)
+        else {
+            return nil
+        }
+
+        return {
+            self.failedThumbnailURLs.insert(thumbnailURL)
+        }
+    }
+
+    private var videoThumbnailURL: URL? {
+        guard case let .song(song) = self.item else { return nil }
+        return song.wideHighQualityThumbnailURL
+    }
+
+    private var videoFallbackThumbnailURL: URL? {
+        guard case let .song(song) = self.item else { return nil }
+        return song.fallbackThumbnailURL
+    }
+
+    private var thumbnailContentMode: ContentMode {
+        self.isVideoSong ? .fit : .fill
+    }
+
+    private func hasFallback(after url: URL) -> Bool {
+        guard let index = self.thumbnailURLs.firstIndex(of: url) else { return false }
+        let fallbackURLs = self.thumbnailURLs.dropFirst(index + 1)
+        return fallbackURLs.contains { !self.failedThumbnailURLs.contains($0) }
+    }
+
+    private static func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
     /// Placeholder view for items without thumbnails.
     /// Uses the API-provided color for mood/genre cards, or a gradient based on the title.
     private var placeholderView: some View {
@@ -125,7 +195,7 @@ struct HomeSectionItemCard: View {
     /// Returns appropriate icon for the placeholder based on item type.
     private var placeholderIcon: String {
         switch self.item {
-        case .song: "music.note"
+        case .song: self.isVideoSong ? "play.rectangle" : "music.note"
         case .album: "square.stack"
         case .playlist: "music.note.list"
         case .artist: "person.fill"
@@ -176,20 +246,40 @@ struct HomeSectionItemCard: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+
                 if case let .song(song) = self.item, song.isExplicit == true {
                     ExplicitBadge()
                 }
             }
-            .frame(width: Self.cardWidth, alignment: .leading)
+            .frame(width: self.cardWidth, alignment: .leading)
 
-            if let subtitle = item.subtitle {
+            if let subtitle = self.item.homeCardSubtitle {
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .frame(width: Self.cardWidth, alignment: .leading)
+                    .frame(width: self.cardWidth, alignment: .leading)
             }
         }
+    }
+
+    private var cardWidth: CGFloat {
+        self.thumbnailSize.width
+    }
+
+    private var thumbnailSize: CGSize {
+        self.isVideoSong ? Self.videoThumbnailSize : Self.squareThumbnailSize
+    }
+
+    private var isVideoSong: Bool {
+        guard case let .song(song) = self.item else { return false }
+
+        if let musicVideoType = song.musicVideoType {
+            return musicVideoType != .atv
+        }
+
+        let subtitle = song.artistsDisplay.lowercased()
+        return subtitle.contains("views") || subtitle.contains("video")
     }
 }
 

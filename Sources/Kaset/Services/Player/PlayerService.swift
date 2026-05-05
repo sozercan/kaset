@@ -195,6 +195,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Queue index before each `next()`; `previous()` pops so Back returns to the track you skipped from (shuffle- and seek-safe).
     private var forwardSkipIndexStack: [Int] = []
 
+    /// Queue order captured when shuffle is enabled, used to restore the visible queue when shuffle is disabled.
+    var queueOrderBeforeShuffle: [QueueEntry]?
+
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
     /// UserDefaults key for persisting volume before mute.

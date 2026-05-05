@@ -243,8 +243,6 @@ ${APP_LOCALIZATIONS_PLIST}
     <string>${APP_NAME}</string>
     <key>CFBundleIconFile</key>
     <string>kaset</string>
-    <key>CFBundleIconName</key>
-    <string>kaset</string>
     <key>NSAccentColorName</key>
     <string>AccentColor</string>
     <key>CFBundleIdentifier</key>
