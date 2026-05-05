@@ -32,9 +32,9 @@ struct TopFade: View {
         switch self.style {
         case .background:
             [
-                Color.black.opacity(0.42),
-                Color.black.opacity(0.26),
-                Color.black.opacity(0.08),
+                Color.black.opacity(0.30),
+                Color.black.opacity(0.18),
+                Color.black.opacity(0.05),
                 Color.clear,
             ]
         case .contentMask:
@@ -57,7 +57,7 @@ private struct TopFadeMask: View {
         GeometryReader { proxy in
             VStack(spacing: 0) {
                 LinearGradient(
-                    colors: [Color.clear, Color.black],
+                    colors: [Color.black.opacity(0.28), Color.black],
                     startPoint: .top,
                     endPoint: .bottom
                 )

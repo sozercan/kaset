@@ -54,7 +54,10 @@ struct PlayerBar: View {
             .glassEffectID("playerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
+        .padding(.bottom, 8)
+        .background(alignment: .bottom) {
+            self.playerAreaFade
+        }
         .background {
             // Keyboard shortcuts for media controls
             Group {
@@ -122,6 +125,22 @@ struct PlayerBar: View {
                 self.seekValue = self.playerService.progress / self.playerService.duration
             }
         }
+    }
+
+    private var playerAreaFade: some View {
+        LinearGradient(
+            colors: [
+                Color(nsColor: .windowBackgroundColor).opacity(0),
+                Color(nsColor: .windowBackgroundColor).opacity(0.22),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 44)
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, -8)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Center Section (track info blurs, seek bar appears on hover)
