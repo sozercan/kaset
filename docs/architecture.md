@@ -1065,11 +1065,10 @@ A floating capsule-shaped player bar at the bottom of the content area:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  ◀◀  ▶  ▶▶  │  🎵 [Thumbnail] Song Title - Artist  │  🔊━━━ │
+│  ◀◀  ▶  ▶▶  │  🎵 [Thumb] Song Title (→ album if navigable) │  🔊━━━ │
+│               │           Artist line (→ artist if navigable) │        │
+│               │  0:00 ━━━━━━━━━━━━━━━━━━━━━━━━━━ -3:45        │        │
 └─────────────────────────────────────────────────────────────┘
-         ↑                      ↑                        ↑
-    Playback              Now Playing              Volume
-    Controls               Info                   Control
 ```
 
 **Implementation**:
@@ -1078,7 +1077,7 @@ GlassEffectContainer(spacing: 0) {
     HStack {
         playbackControls
         Spacer()
-        centerSection  // thumbnail + track info
+        centerSection  // metadata row + always-visible seek (or LIVE)
         Spacer()
         volumeControl
     }
@@ -1089,15 +1088,26 @@ GlassEffectContainer(spacing: 0) {
 **Key Points**:
 - Uses `GlassEffectContainer` to wrap glass elements
 - `.glassEffect(.regular.interactive(), in: .capsule)` for the liquid glass look
+- Center column is a `VStack`: track title and artist (`NavigationLink` when `hasNavigableId`; song title opens the album as a `Playlist` destination), then seek bar or LIVE indicator—no hover-to-reveal progress
 - Only shows functional buttons (no placeholder buttons)
-- Thumbnail and track info in center section
 
 ### PlayerBar Integration
 
-The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`:
+The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`. For views that define a `NavigationStack` (Home, Library, Search, etc.), attach the inset **inside** the stack’s root content (chained after `navigationDestinations`) so `NavigationLink` in the bar targets the same stack and path as the rest of the screen.
 
 ```swift
-// In HomeView, LibraryView, SearchView, PlaylistDetailView
+// Tab roots: inset inside NavigationStack
+NavigationStack(path: $navigationPath) {
+    Group { /* content */ }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .localizedNavigationTitle("Home")
+        .navigationDestinations(client: client)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
+        }
+}
+
+// Pushed views (e.g. PlaylistDetailView): inset on the view still works — already under the stack
 .safeAreaInset(edge: .bottom, spacing: 0) {
     PlayerBar()
 }
@@ -1105,7 +1115,7 @@ The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`:
 
 **Why not in MainWindow?**
 - `NavigationSplitView` detail views have their own navigation stacks
-- Views pushed onto a `NavigationStack` don't inherit parent's `safeAreaInset`
+- Tab roots that placed `safeAreaInset` *outside* the `NavigationStack` broke `NavigationLink` from the bar; keeping the inset inside the stack fixes that
 - Each view must explicitly include the `PlayerBar`
 
 ### Sidebar
