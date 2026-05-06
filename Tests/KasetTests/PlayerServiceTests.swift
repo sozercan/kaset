@@ -124,6 +124,92 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentTrack?.thumbnailURL == nil)
     }
 
+    @Test("Web metadata refresh preserves album and navigable artists for same video")
+    func updateTrackMetadataPreservesNavigableMetadataWhenSameVideo() {
+        let album = Album(
+            id: "MPREb_preservetest",
+            title: "Preserved Album",
+            artists: nil,
+            thumbnailURL: nil,
+            year: nil,
+            trackCount: nil
+        )
+        let channelArtist = Artist(
+            id: "UCpreservetestchannelid0",
+            name: "Tony Iommi",
+            thumbnailURL: nil,
+            subtitle: nil,
+            profileKind: .artist
+        )
+        let richSong = Song(
+            id: "v-rich",
+            title: "Original Title",
+            artists: [channelArtist],
+            album: album,
+            duration: 200,
+            thumbnailURL: URL(string: "https://example.com/a.jpg"),
+            videoId: "v-rich"
+        )
+        self.playerService.currentTrack = richSong
+
+        self.playerService.updateTrackMetadata(
+            title: "Title From WebView",
+            artist: "Tony Iommi",
+            thumbnailUrl: "",
+            videoId: "v-rich"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "v-rich")
+        #expect(self.playerService.currentTrack?.title == "Title From WebView")
+        #expect(self.playerService.currentTrack?.album?.id == album.id)
+        #expect(self.playerService.currentTrack?.artists.first?.id == channelArtist.id)
+        #expect(self.playerService.currentTrack?.artists.first?.hasNavigableId == true)
+    }
+
+    @Test("Web metadata refresh hydrates album and navigable artists from queue on track change")
+    func updateTrackMetadataPullsAlbumFromQueueOnTrackChange() {
+        let album = Album(
+            id: "MPREb_queuetest",
+            title: "Queue Album",
+            artists: nil,
+            thumbnailURL: nil,
+            year: nil,
+            trackCount: nil
+        )
+        let channelArtist = Artist(
+            id: "UCqueuetestchannelid0",
+            name: "Geezer Butler",
+            thumbnailURL: nil,
+            subtitle: nil,
+            profileKind: .artist
+        )
+        let priorSong = Song(id: "v-prior", title: "Prior", artists: [], album: nil, videoId: "v-prior")
+        let queuedSong = Song(
+            id: "v-next",
+            title: "Queued Title",
+            artists: [channelArtist],
+            album: album,
+            duration: 180,
+            thumbnailURL: URL(string: "https://example.com/q.jpg"),
+            videoId: "v-next"
+        )
+        self.playerService.currentTrack = priorSong
+        self.playerService.setQueue([queuedSong])
+
+        // Simulate WebView reporting an autoplay-driven advance to v-next.
+        self.playerService.updateTrackMetadata(
+            title: "Title From WebView",
+            artist: "Geezer Butler",
+            thumbnailUrl: "",
+            videoId: "v-next"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "v-next")
+        #expect(self.playerService.currentTrack?.album?.id == album.id)
+        #expect(self.playerService.currentTrack?.artists.first?.id == channelArtist.id)
+        #expect(self.playerService.currentTrack?.artists.first?.hasNavigableId == true)
+    }
+
     @Test("Confirm playback started")
     func confirmPlaybackStarted() {
         self.playerService.showMiniPlayer = true
