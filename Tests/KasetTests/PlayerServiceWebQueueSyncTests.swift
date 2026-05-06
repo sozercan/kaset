@@ -659,6 +659,39 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 0)
     }
 
+    @Test("Play with radio materializes queue when shuffle is enabled")
+    func playWithRadioMaterializesQueueWhenShuffleEnabled() async {
+        let mockClient = MockYTMusicClient()
+        let radioSongs = [
+            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
+            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
+            Song(id: "radio-3", title: "Radio Song 3", artists: [], videoId: "radio-video-3"),
+        ]
+        mockClient.radioQueueSongs["seed-video"] = radioSongs
+        self.playerService.setYTMusicClient(mockClient)
+
+        let song = Song(
+            id: "seed",
+            title: "Seed Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "seed-video"
+        )
+        let expectedOriginalOrder = ["seed-video", "radio-video-1", "radio-video-2", "radio-video-3"]
+
+        self.playerService.toggleShuffle()
+        await self.playerService.playWithRadio(song: song)
+
+        #expect(self.playerService.shuffleEnabled == true)
+        #expect(self.playerService.queue.count == expectedOriginalOrder.count)
+        #expect(self.playerService.queue.first?.videoId == "seed-video")
+        #expect(Set(self.playerService.queue.map(\.videoId)) == Set(expectedOriginalOrder))
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.queueOrderBeforeShuffle?.map(\.song.videoId) == expectedOriginalOrder)
+    }
+
     @Test("Play with radio keeps seed song at front when not in radio")
     func playWithRadioKeepsSeedSongAtFrontWhenNotInRadio() async {
         let mockClient = MockYTMusicClient()

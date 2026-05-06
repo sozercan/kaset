@@ -193,9 +193,19 @@ extension PlayerService {
 
             self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
-            self.setQueue(newQueue)
-            self.queueOrderBeforeShuffle = nil
-            self.currentIndex = 0
+            let entries = newQueue.map { QueueEntry(id: UUID(), song: $0) }
+            if self.shuffleEnabled {
+                self.materializeShuffleQueue(
+                    entries: entries,
+                    startingAt: 0,
+                    recordUndo: false,
+                    storesOriginalOrder: true
+                )
+            } else {
+                self.setQueue(entries: entries)
+                self.queueOrderBeforeShuffle = nil
+                self.currentIndex = 0
+            }
             self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
             self.saveQueueForPersistence()
         } catch {

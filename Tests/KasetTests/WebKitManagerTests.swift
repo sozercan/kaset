@@ -17,9 +17,10 @@ struct WebKitManagerTests {
         #expect(self.webKitManager.dataStore.isPersistent == false)
     }
 
-    @Test("Data store exists")
-    func dataStoreExists() {
-        #expect(self.webKitManager.dataStore.isPersistent == false)
+    @Test("Test instance starts without loaded extensions")
+    func testInstanceStartsWithoutLoadedExtensions() {
+        #expect(self.webKitManager.isExtensionLoaded == false)
+        #expect(self.webKitManager.loadedExtensionCount == 0)
     }
 
     @Test("Create WebView configuration")

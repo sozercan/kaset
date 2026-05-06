@@ -146,7 +146,7 @@ final class SidebarPinnedItemsManager {
         let itemsSnapshot = self.items
         let targetURL = self.fileURL
 
-        self.saveTask = Task(priority: .utility) {
+        self.saveTask = Task.detached(priority: .utility) {
             try? await Task.sleep(for: .milliseconds(100))
             guard !Task.isCancelled else { return }
 

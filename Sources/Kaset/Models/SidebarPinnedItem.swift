@@ -3,10 +3,10 @@ import Foundation
 // MARK: - SidebarPinnedItem
 
 /// A playlist-like item pinned directly to the app sidebar.
-struct SidebarPinnedItem: Identifiable, Codable, Hashable {
+struct SidebarPinnedItem: Identifiable, Codable, Hashable, Sendable {
     let itemType: ItemType
 
-    enum ItemType: Codable, Hashable {
+    enum ItemType: Codable, Hashable, Sendable {
         case album(Album)
         case playlist(Playlist)
     }

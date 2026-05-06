@@ -234,6 +234,49 @@ struct ParsingHelpersTests {
         #expect(artists[0].name == "Library Artist")
     }
 
+    @Test("Extract artists from flex columns preserves linked numeric artist names")
+    func extractArtistsFromFlexColumnsWithLinkedNumericArtistName() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Song Title"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                [
+                                    "text": "311",
+                                    "navigationEndpoint": [
+                                        "browseEndpoint": [
+                                            "browseId": "UC311ArtistChannel",
+                                            "browseEndpointContextSupportedConfigs": [
+                                                "browseEndpointContextMusicConfig": [
+                                                    "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                                ["text": " • "],
+                                ["text": "2026"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.count == 1)
+        #expect(artists[0].id == "UC311ArtistChannel")
+        #expect(artists[0].name == "311")
+        #expect(artists[0].profileKind == .artist)
+    }
+
     @Test("Extract artists from flex columns preserves plain uploaded artist text")
     func extractArtistsFromFlexColumnsWithPlainUploadedArtistText() {
         let data: [String: Any] = [

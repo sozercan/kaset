@@ -537,11 +537,8 @@ enum ParsingHelpers {
             || self.parseDuration(text) != nil
             || self.isNaturalLanguageDuration(text)
             || self.extractSongCount(from: text) != nil
+            || self.isStandaloneYear(text)
         {
-            return true
-        }
-
-        if Int(text) != nil {
             return true
         }
 
@@ -550,6 +547,18 @@ enum ParsingHelpers {
             || lowercased.contains(" plays")
             || lowercased.contains(" subscribers")
             || lowercased.contains("episodes")
+    }
+
+    private static func isStandaloneYear(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 4,
+              trimmed.allSatisfy(\.isNumber),
+              let year = Int(trimmed)
+        else {
+            return false
+        }
+
+        return (1900...2100).contains(year)
     }
 
     private static func isNaturalLanguageDuration(_ text: String) -> Bool {
@@ -585,12 +594,12 @@ enum ParsingHelpers {
         for run in runs {
             guard let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !artistName.isEmpty,
-                  !Self.isArtistSeparator(artistName),
-                  !Self.isMetadataText(artistName)
+                  !Self.isArtistSeparator(artistName)
             else { continue }
 
             // Only include linked artist endpoints on the first pass. This filters
-            // out metadata while preserving normal channel and library artist rows.
+            // out metadata while preserving normal channel and library artist rows,
+            // including numeric artist names such as "311".
             if let endpoint = run["navigationEndpoint"] as? [String: Any],
                let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
                let browseId = browseEndpoint["browseId"] as? String,

@@ -653,6 +653,7 @@ struct PlayerBar: View {
 
             // Video button stays visible so delayed availability detection does not shift the toolbar.
             Button {
+                guard self.playerService.currentTrackHasVideo else { return }
                 HapticService.toggle()
                 DiagnosticsLogger.player.debug(
                     "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
@@ -672,7 +673,7 @@ struct PlayerBar: View {
             .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
             .accessibilityLabel(String(localized: "Video"))
             .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
-            .disabled(self.playerService.currentTrack == nil)
+            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
         }
     }
 
