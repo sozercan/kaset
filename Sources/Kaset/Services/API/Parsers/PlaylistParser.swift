@@ -1280,6 +1280,7 @@ enum PlaylistParser {
         let duration = ParsingHelpers.extractDurationFromFlexColumns(responsiveRenderer)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
+        let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
 
         return Song(
             id: videoId,
@@ -1289,7 +1290,8 @@ enum PlaylistParser {
             duration: duration,
             thumbnailURL: thumbnailURL,
             videoId: videoId,
-            isPlayable: isPlayable
+            isPlayable: isPlayable,
+            isExplicit: isExplicit
         )
     }
 
@@ -1720,6 +1722,8 @@ enum PlaylistParser {
             .flatMap { $0 as? String }
             .flatMap { URL(string: $0) }
 
+        let isExplicit = ParsingHelpers.extractIsExplicit(from: renderer)
+
         return Song(
             id: videoId,
             title: title,
@@ -1727,7 +1731,8 @@ enum PlaylistParser {
             album: nil,
             duration: durationText.flatMap { ParsingHelpers.parseDuration($0) },
             thumbnailURL: thumbnailURL,
-            videoId: videoId
+            videoId: videoId,
+            isExplicit: isExplicit
         )
     }
 

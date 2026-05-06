@@ -6,6 +6,7 @@ import SwiftUI
 struct QueueSidePanelView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
         // Use regular material: GlassEffectContainer breaks NSTableView drag-and-drop
@@ -24,6 +25,8 @@ struct QueueSidePanelView: View {
                     currentIndex: self.playerService.currentIndex,
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
+                    likeStatusManager: self.likeStatusManager,
+                    likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { index in
                         Task {
                             await self.playerService.playFromQueue(at: index)
@@ -84,6 +87,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let currentIndex: Int
     let isPlaying: Bool
     let favoritesManager: FavoritesManager
+    let likeStatusManager: SongLikeStatusManager
+    /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
+    let likeStatusEvent: LikeStatusEvent?
     let onSelect: (Int) -> Void
     let onReorder: (Int, Int) -> Void
     let onRemove: (UUID) -> Void
@@ -101,6 +107,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         context.coordinator.currentIndex = self.currentIndex
         context.coordinator.isPlaying = self.isPlaying
         context.coordinator.favoritesManager = self.favoritesManager
+        context.coordinator.likeStatusManager = self.likeStatusManager
+        context.coordinator.lastLikeEvent = self.likeStatusEvent
 
         if !context.coordinator.isDragging {
             viewController.tableView?.reloadData()
@@ -115,6 +123,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                         isPlaying: self.isPlaying,
                         index: row
                     )
+                    cellView.updateLikeState(isLiked: self.likeStatusManager.isLiked(self.entries[row].song))
                 }
             }
         }
@@ -126,6 +135,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             currentIndex: self.currentIndex,
             isPlaying: self.isPlaying,
             favoritesManager: self.favoritesManager,
+            likeStatusManager: self.likeStatusManager,
             onSelect: self.onSelect,
             onReorder: self.onReorder,
             onRemove: self.onRemove,
@@ -195,6 +205,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         var currentIndex: Int
         var isPlaying: Bool
         var favoritesManager: FavoritesManager
+        var likeStatusManager: SongLikeStatusManager
+        var lastLikeEvent: LikeStatusEvent?
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
         let onRemove: (UUID) -> Void
@@ -204,12 +216,14 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         private let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
 
         init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
+             likeStatusManager: SongLikeStatusManager,
              onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (UUID) -> Void, onStartRadio: @escaping (Song) -> Void)
         {
             self.entries = entries
             self.currentIndex = currentIndex
             self.isPlaying = isPlaying
             self.favoritesManager = favoritesManager
+            self.likeStatusManager = likeStatusManager
             self.onSelect = onSelect
             self.onReorder = onReorder
             self.onRemove = onRemove
@@ -254,6 +268,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             let cellView = QueueTableCellView()
             let entry = self.entries[row]
             let song = entry.song
+            let isLiked = self.likeStatusManager.isLiked(song)
             cellView.configure(
                 song: song,
                 index: row,
@@ -261,7 +276,16 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 isPlaying: self.isPlaying,
                 actions: QueueCellActions(
                     onPlay: { [weak self] in self?.onSelect(row) },
-                    onRemove: { [weak self] in self?.onRemove(entry.id) }
+                    onRemove: { [weak self] in self?.onRemove(entry.id) },
+                    onToggleLike: { [weak self] in
+                        guard let self else { return }
+                        if self.likeStatusManager.isLiked(song) {
+                            SongActionsHelper.unlikeSong(song, likeStatusManager: self.likeStatusManager)
+                        } else {
+                            SongActionsHelper.likeSong(song, likeStatusManager: self.likeStatusManager)
+                        }
+                    },
+                    isLiked: isLiked
                 )
             )
             return cellView

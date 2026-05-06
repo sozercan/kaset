@@ -23,6 +23,57 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.isChartSection(title) == false)
     }
 
+    // MARK: - Explicit Badge Detection
+
+    @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in badges array")
+    func extractIsExplicitFromBadges() {
+        let data: [String: Any] = [
+            "badges": [
+                [
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                        "accessibilityData": ["accessibilityData": ["label": "Explicit"]],
+                    ],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == true)
+    }
+
+    @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in subtitleBadges array")
+    func extractIsExplicitFromSubtitleBadges() {
+        let data: [String: Any] = [
+            "subtitleBadges": [
+                [
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == true)
+    }
+
+    @Test("extractIsExplicit returns false when no badges are present")
+    func extractIsExplicitWithoutBadges() {
+        let data: [String: Any] = [
+            "title": ["runs": [["text": "Some Song"]]],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
+    }
+
+    @Test("extractIsExplicit returns false for non-explicit badge types")
+    func extractIsExplicitWithLiveBadge() {
+        let data: [String: Any] = [
+            "badges": [
+                [
+                    "liveBadgeRenderer": [:],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
+    }
+
     // MARK: - URL Normalization
 
     @Test("Normalize URL adds https to protocol-relative URL")

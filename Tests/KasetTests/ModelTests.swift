@@ -303,6 +303,26 @@ struct ModelTests {
         #expect(song.artists.first?.name == "Legacy Artist")
         #expect(song.artists.first?.profileKind == .unknown)
         #expect(song.isPlayable)
+        // Legacy payload predates `isExplicit`; missing field decodes as nil.
+        #expect(song.isExplicit == nil)
+    }
+
+    @Test("Song Codable round-trip preserves isExplicit")
+    func songCodableRoundTripPreservesIsExplicit() throws {
+        let original = Song(
+            id: "explicit-1",
+            title: "Explicit Song",
+            artists: [Artist(id: "UC1", name: "Artist")],
+            videoId: "explicit-1",
+            isExplicit: true
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Song.self, from: data)
+
+        #expect(decoded.isExplicit == true)
+        #expect(decoded.title == "Explicit Song")
+        #expect(decoded.videoId == "explicit-1")
     }
 
     @Test("Decodes legacy playlist payload with string author")

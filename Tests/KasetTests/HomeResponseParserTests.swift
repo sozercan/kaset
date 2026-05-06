@@ -71,6 +71,42 @@ struct HomeResponseParserTests {
         }
     }
 
+    @Test("Parse twoRow song renderer propagates explicit subtitle badge")
+    func parseTwoRowSongPropagatesExplicitBadge() throws {
+        let songData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Explicit Song"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": ["videoId": "explicit-video"],
+                ],
+                "subtitleBadges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let sectionData: [String: Any] = [
+            "musicCarouselShelfRenderer": [
+                "header": [
+                    "musicCarouselShelfBasicHeaderRenderer": [
+                        "title": ["runs": [["text": "Songs"]]],
+                    ],
+                ],
+                "contents": [songData],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+        #expect(section.items.count == 1)
+        if case let .song(song) = section.items.first {
+            #expect(song.videoId == "explicit-video")
+            #expect(song.isExplicit == true)
+        } else {
+            Issue.record("Expected song item")
+        }
+    }
+
     @Test("Parse carousel section with playlist")
     func parseCarouselSectionWithPlaylist() throws {
         let playlistData: [String: Any] = [

@@ -38,7 +38,8 @@ enum SongMetadataParser {
             musicVideoType: musicVideoType,
             likeStatus: menuData.likeStatus,
             isInLibrary: menuData.isInLibrary,
-            feedbackTokens: menuData.feedbackTokens
+            feedbackTokens: menuData.feedbackTokens,
+            isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
         )
     }
 
