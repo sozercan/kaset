@@ -541,19 +541,87 @@ extension PlayerService {
             return
         }
 
-        self.currentTrack = Song(
-            id: resolvedVideoId,
+        let priorTrack = self.currentTrack
+        let priorVideoId = priorTrack?.videoId
+        // Reuse rich metadata (album, navigable artists, library state) from the prior
+        // track when the videoId matches, otherwise fall back to a queue entry so
+        // autoplay-driven track changes don't drop the album/artist links until the
+        // async `fetchSongMetadata` finishes.
+        let metadataSource: Song? = if priorVideoId == resolvedVideoId {
+            priorTrack
+        } else {
+            self.queue.first(where: { $0.videoId == resolvedVideoId })
+        }
+
+        self.currentTrack = self.mergedTrackForWebMetadata(
+            resolvedVideoId: resolvedVideoId,
             title: title,
-            artists: [artistObj],
-            album: nil,
-            duration: self.duration > 0 ? self.duration : nil,
+            artistObj: artistObj,
             thumbnailURL: thumbnailURL,
-            videoId: resolvedVideoId
+            metadataSource: metadataSource
         )
 
+        // Only fetch on YouTube-driven track changes; Kaset-initiated playback
+        // already triggers `fetchSongMetadata` from `play(videoId:)`.
+        if priorVideoId != nil, priorVideoId != resolvedVideoId, resolvedVideoId != "unknown" {
+            Task {
+                await self.fetchSongMetadata(videoId: resolvedVideoId)
+            }
+        }
+
         if trackChanged {
+            self.applyTrackStatusAfterMetadataMerge(
+                resolvedVideoId: resolvedVideoId,
+                hasMetadataSource: metadataSource != nil
+            )
+        }
+    }
+
+    private func mergedTrackForWebMetadata(
+        resolvedVideoId: String,
+        title: String,
+        artistObj: Artist,
+        thumbnailURL: URL?,
+        metadataSource: Song?
+    ) -> Song {
+        let mergedArtists: [Artist] = if let source = metadataSource,
+                                         source.artists.contains(where: \.hasNavigableId)
+        {
+            source.artists
+        } else {
+            [artistObj]
+        }
+        let mergedThumbnail = thumbnailURL ?? metadataSource?.thumbnailURL
+        let mergedDuration = self.duration > 0 ? self.duration : metadataSource?.duration
+
+        return Song(
+            id: resolvedVideoId,
+            title: title,
+            artists: mergedArtists,
+            album: metadataSource?.album,
+            duration: mergedDuration,
+            thumbnailURL: mergedThumbnail,
+            videoId: resolvedVideoId,
+            hasVideo: metadataSource?.hasVideo,
+            musicVideoType: metadataSource?.musicVideoType,
+            likeStatus: metadataSource?.likeStatus,
+            isInLibrary: metadataSource?.isInLibrary,
+            feedbackTokens: metadataSource?.feedbackTokens,
+            isExplicit: metadataSource?.isExplicit
+        )
+    }
+
+    private func applyTrackStatusAfterMetadataMerge(resolvedVideoId: String, hasMetadataSource: Bool) {
+        if hasMetadataSource {
+            if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
+                self.currentTrackLikeStatus = cachedStatus
+            }
+            if let track = self.currentTrack {
+                self.currentTrackInLibrary = track.isInLibrary ?? false
+                self.currentTrackFeedbackTokens = track.feedbackTokens
+            }
+        } else {
             self.resetTrackStatus()
-            // Immediately restore like status from SongLikeStatusManager cache
             if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
                 self.currentTrackLikeStatus = cachedStatus
             }
