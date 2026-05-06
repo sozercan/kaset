@@ -104,11 +104,11 @@ struct LibraryView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                PlayerBar()
+            }
         }
         .environment(self.viewModel)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-        }
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
