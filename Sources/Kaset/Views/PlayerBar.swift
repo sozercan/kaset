@@ -8,12 +8,9 @@ struct PlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
 
     @Environment(PlayerService.self) private var playerService
-    @Environment(WebKitManager.self) private var webKitManager
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
-
-    @State private var isHovering = false
 
     /// Local seek value for smooth slider dragging without network calls on every change.
     @State private var seekValue: Double = 0
@@ -32,32 +29,23 @@ struct PlayerBar: View {
     var body: some View {
         GlassEffectContainer(spacing: 0) {
             HStack(spacing: 0) {
-                // Left section: Playback controls
-                self.playbackControls
+                self.trackInfoSection
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer()
+                self.controlsSection
+                    .frame(maxWidth: .infinity)
 
-                // Center section: Track info OR seek bar (on hover)
-                self.centerSection
-
-                Spacer()
-
-                // Right section: Volume control
                 self.volumeControl
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 24)
             .padding(.vertical, 8)
-            .frame(height: 52)
+            .frame(minHeight: 64)
             .glassEffect(.regular.interactive(), in: .capsule)
             .glassEffectID("playerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.isHovering = hovering
-            }
-        }
         .background {
             // Keyboard shortcuts for media controls
             Group {
@@ -124,35 +112,35 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Center Section (track info blurs, seek bar appears on hover)
+    // MARK: - Left Column: track info
 
-    private var centerSection: some View {
-        ZStack {
-            // Error state display with retry option
-            if case let .error(message) = playerService.state {
-                self.errorView(message: message)
+    private var trackInfoSection: some View {
+        Group {
+            if let track = playerService.currentTrack {
+                self.trackLeadingBlock(track: track)
             } else {
-                // Track info (blurred when hovering and track is playing)
-                self.trackInfoView
-                    .blur(radius: self.isHovering && self.playerService.currentTrack != nil ? 8 : 0)
-                    .opacity(self.isHovering && self.playerService.currentTrack != nil ? 0 : 1)
-
-                // On hover: seek bar for normal tracks, LIVE indicator for live streams.
-                if self.isHovering, self.playerService.currentTrack != nil {
-                    if self.playerService.isCurrentItemLive {
-                        self.liveIndicatorView
-                            .transition(.opacity)
-                    } else {
-                        self.seekBarView
-                            .transition(.opacity)
-                    }
-                }
+                self.noTrackPlaceholderView
             }
         }
-        .frame(maxWidth: 400)
     }
 
-    // MARK: - Live Indicator View (replaces seek bar for live streams)
+    // MARK: - Center Column: controls + seek bar
+
+    private var controlsSection: some View {
+        VStack(spacing: 6) {
+            self.playbackControls
+
+            if case let .error(message) = playerService.state {
+                self.errorView(message: message)
+            } else if self.playerService.isCurrentItemLive {
+                self.liveIndicatorView
+            } else {
+                self.seekBarView
+            }
+        }
+    }
+
+    // MARK: - Live Indicator View (shown instead of seek bar for live streams)
 
     private var liveIndicatorView: some View {
         HStack(spacing: 8) {
@@ -165,8 +153,21 @@ struct PlayerBar: View {
                 .foregroundStyle(.red)
                 .tracking(0.5)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "Live stream"))
+    }
+
+    // MARK: - No Track Placeholder
+
+    private var noTrackPlaceholderView: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(.quaternary)
+            .overlay {
+                CassetteIcon(size: 20)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 36, height: 36)
     }
 
     // MARK: - Error View
@@ -200,42 +201,95 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Track Info View
+    // MARK: - Track leading block (artwork + titles)
 
-    private var trackInfoView: some View {
-        HStack(spacing: 10) {
-            // Thumbnail
-            if let track = self.playerService.currentTrack {
-                SongThumbnailView(song: track, size: 36, cornerRadius: 4)
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.quaternary)
-                    .overlay {
-                        CassetteIcon(size: 20)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 36, height: 36)
-            }
-
-            // Track info
-            if let track = playerService.currentTrack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(track.title)
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-
-                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
+    private func trackLeadingBlock(track: Song) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            if let album = track.album, album.hasNavigableId {
+                NavigationLink(value: Self.playlistForAlbum(album, track: track)) {
+                    SongThumbnailView(song: track, size: 40, cornerRadius: 4)
                 }
-                .frame(maxWidth: 200, alignment: .leading)
+                .buttonStyle(.plain)
+                .help(String(localized: "Open album for this song"))
+            } else {
+                SongThumbnailView(song: track, size: 40, cornerRadius: 4)
             }
+
+            VStack(alignment: .leading, spacing: 3) {
+                self.trackTitleLabel(for: track)
+                self.trackArtistLabel(for: track)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    // MARK: - Seek Bar View (replaces track info on hover)
+    @ViewBuilder
+    private func trackTitleLabel(for track: Song) -> some View {
+        if let album = track.album, album.hasNavigableId {
+            NavigationLink(value: Self.playlistForAlbum(album, track: track)) {
+                Text(track.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
+            .accessibilityHint(String(localized: "Open album for this song"))
+            .help(String(localized: "Open album for this song"))
+        } else {
+            Text(track.title)
+                .font(.system(size: 14, weight: .semibold))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 3)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
+        }
+    }
+
+    @ViewBuilder
+    private func trackArtistLabel(for track: Song) -> some View {
+        let display = track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay
+        if let artist = track.artists.first(where: { $0.hasNavigableId }) {
+            NavigationLink(value: artist) {
+                Text(display)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.trackArtist)
+            .accessibilityHint(String(localized: "Open artist page"))
+            .help(String(localized: "Open artist page"))
+        } else {
+            Text(display)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 3)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.trackArtist)
+        }
+    }
+
+    private static func playlistForAlbum(_ album: Album, track: Song) -> Playlist {
+        Playlist(
+            id: album.id,
+            title: album.title,
+            description: nil,
+            thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
+            trackCount: album.trackCount,
+            author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
+        )
+    }
+
+    // MARK: - Seek Bar View
 
     private var seekBarView: some View {
         HStack(spacing: 10) {
@@ -258,6 +312,8 @@ struct PlayerBar: View {
             }
             .controlSize(.small)
             .tint(Self.brandAccent)
+            .disabled(self.playerService.duration <= 0)
+            .frame(maxWidth: .infinity)
 
             // Remaining time - use cached formatted string when not seeking
             Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
@@ -573,7 +629,6 @@ struct PlayerBar: View {
 #Preview {
     PlayerBar()
         .environment(PlayerService())
-        .environment(WebKitManager.shared)
         .frame(width: 600)
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))

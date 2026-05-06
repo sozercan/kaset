@@ -302,7 +302,7 @@ struct MainWindow: View {
                 }
                 .frame(maxHeight: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, 76) // Space for PlayerBar
+                .padding(.bottom, 92) // Space for PlayerBar (metadata + seek row)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
 
                 Spacer()
