@@ -57,6 +57,10 @@ struct GeneralSettingsView: View {
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
 
+                // Mini Player
+                Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
+                    .help("Keep the mini player visible above other windows")
+
                 // Now Playing Controls
                 Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
                     ForEach(SettingsManager.MediaControlStyle.allCases) { style in

@@ -169,6 +169,32 @@ struct KasetApp: App {
                             self.equalizerService.retryStartIfEnabled()
                         }
                     }
+                    .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
+                        if isVisible {
+                            MiniPlayerWindowController.shared.show(
+                                playerService: self.playerService,
+                                client: self.sharedClient,
+                                syncedLyricsService: self.syncedLyricsService,
+                                restoreMainWindow: {
+                                    self.showMainWindow()
+                                }
+                            )
+                            if self.playerService.miniPlayerMode == .switchFromMainWindow {
+                                self.hideMainWindow()
+                            }
+                        } else {
+                            MiniPlayerWindowController.shared.close()
+                            if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
+                                self.showMainWindow()
+                            }
+                        }
+                    }
+                    .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
+                        MiniPlayerWindowController.shared.syncWindowState()
+                    }
+                    .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
+                        MiniPlayerWindowController.shared.syncWindowState()
+                    }
             }
         }
 
@@ -312,6 +338,19 @@ struct KasetApp: App {
 
             // Window menu - show main window
             CommandGroup(after: .windowArrangement) {
+                Button("Switch to Mini Player") {
+                    if self.playerService.isMiniPlayerVisible,
+                       self.playerService.miniPlayerMode == .switchFromMainWindow
+                    {
+                        _ = self.playerService.closeMiniPlayer()
+                    } else {
+                        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+                    }
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+
+                Divider()
+
                 Button("Kaset") {
                     self.showMainWindow()
                 }
@@ -344,6 +383,24 @@ struct KasetApp: App {
             }
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+    }
+
+    /// Hides the main window while keeping playback and auxiliary windows alive.
+    private func hideMainWindow() {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+            window.orderOut(nil)
+            return
+        }
+
+        for window in NSApplication.shared.windows where window.canBecomeMain {
+            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
+                window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
+            {
+                continue
+            }
+            window.orderOut(nil)
             return
         }
     }

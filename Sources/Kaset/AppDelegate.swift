@@ -87,6 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_: Notification) {
         // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
         // This handles the case where video window is visible but main window is hidden.
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return
+        }
         self.showMainWindowIfNeeded()
     }
 
@@ -182,9 +188,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handle reopen (clicking dock icon) when all windows are closed.
     func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return false
+        }
+
         // Show main window when dock icon is clicked
         self.showMainWindowIfNeeded()
         return true
+    }
+
+    private var isSwitchedToMiniPlayer: Bool {
+        guard let playerService else { return false }
+        return playerService.isMiniPlayerVisible && playerService.miniPlayerMode == .switchFromMainWindow
     }
 
     /// Shows the main window if it's not visible.
