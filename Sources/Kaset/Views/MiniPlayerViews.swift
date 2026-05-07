@@ -286,7 +286,7 @@ struct MiniPlayerWindow: View {
                 switch self.detailPane {
                 case .lyrics:
                     LyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
-                        .accessibilityIdentifier(AccessibilityID.MiniPlayer.lyricsButton)
+                        .accessibilityIdentifier(AccessibilityID.MiniPlayer.lyricsView)
                 case .queue:
                     self.queuePane
                 }
@@ -299,13 +299,13 @@ struct MiniPlayerWindow: View {
 
     private var trafficLights: some View {
         HStack(spacing: 7) {
-            self.trafficButton(color: .red, accessibilityLabel: String(localized: "Close")) {
+            self.trafficButton(color: .red, accessibilityLabel: String(localized: "Close"), accessibilityID: AccessibilityID.MiniPlayer.closeButton) {
                 MiniPlayerWindowController.shared.closeFromUserAction()
             }
-            self.trafficButton(color: .yellow, accessibilityLabel: String(localized: "Minimize")) {
+            self.trafficButton(color: .yellow, accessibilityLabel: String(localized: "Minimize"), accessibilityID: AccessibilityID.MiniPlayer.minimizeButton) {
                 NSApp.keyWindow?.miniaturize(nil)
             }
-            self.trafficButton(color: .green, accessibilityLabel: self.expandCollapseLabel) {
+            self.trafficButton(color: .green, accessibilityLabel: self.expandCollapseLabel, accessibilityID: AccessibilityID.MiniPlayer.expandButton) {
                 self.playerService.toggleMiniPlayerPanel()
             }
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.expandButton)
@@ -360,7 +360,7 @@ struct MiniPlayerWindow: View {
             .animation(.easeInOut(duration: 0.14), value: self.isHovering)
     }
 
-    private func trafficButton(color: Color, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+    private func trafficButton(color: Color, accessibilityLabel: String, accessibilityID: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Circle()
                 .fill(color)
@@ -371,6 +371,7 @@ struct MiniPlayerWindow: View {
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(accessibilityLabel)
     }
 
@@ -644,7 +645,7 @@ struct MiniPlayerWindow: View {
                     .foregroundStyle(.white.opacity(0.76))
                     .frame(maxWidth: .infinity, minHeight: 210)
                 } else {
-                    ForEach(Array(self.playerService.queue.enumerated()), id: \.element.videoId) { index, song in
+                    ForEach(Array(self.playerService.queue.enumerated()), id: \.offset) { index, song in
                         HStack(spacing: 7) {
                             SongThumbnailView(song: song, size: 21, cornerRadius: 4)
                             VStack(alignment: .leading, spacing: 2) {

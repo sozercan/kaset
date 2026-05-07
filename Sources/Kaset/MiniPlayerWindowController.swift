@@ -127,12 +127,8 @@ final class MiniPlayerWindowController {
             window.saveFrame(usingName: self.frameAutosaveKey)
         }
 
-        let shouldRestore = self.playerService?.closeMiniPlayer() ?? false
+        _ = self.playerService?.closeMiniPlayer() ?? false
         self.performCleanup()
-
-        if shouldRestore {
-            self.restoreMainWindow?()
-        }
     }
 
     @objc private func windowDidEndLiveResize(_ notification: Notification) {
@@ -145,6 +141,7 @@ final class MiniPlayerWindowController {
 
     private func performCleanup() {
         if let window {
+            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
             NotificationCenter.default.removeObserver(self, name: NSWindow.didEndLiveResizeNotification, object: window)
         }
         self.window = nil

@@ -9,7 +9,7 @@ final class SettingsManager {
 
     // MARK: - Settings Keys
 
-    private enum Keys {
+    enum Keys {
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"

@@ -12,7 +12,7 @@ struct PlayerServiceTests {
         // Reset UserDefaults to ensure clean initial state for tests
         UserDefaults.standard.removeObject(forKey: "playerVolume")
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
-        UserDefaults.standard.removeObject(forKey: "settings.keepMiniPlayerOnTop")
+        UserDefaults.standard.removeObject(forKey: SettingsManager.Keys.keepMiniPlayerOnTop)
         self.playerService = PlayerService()
     }
 
@@ -378,10 +378,10 @@ struct PlayerServiceTests {
         }
 
         settings.keepMiniPlayerOnTop = true
-        #expect(UserDefaults.standard.bool(forKey: "settings.keepMiniPlayerOnTop") == true)
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == true)
 
         settings.keepMiniPlayerOnTop = false
-        #expect(UserDefaults.standard.bool(forKey: "settings.keepMiniPlayerOnTop") == false)
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == false)
     }
 
     // MARK: - Queue/Lyrics Mutual Exclusivity Tests
