@@ -308,6 +308,7 @@ struct MiniPlayerWindow: View {
             self.trafficButton(color: .green, accessibilityLabel: self.expandCollapseLabel) {
                 self.playerService.toggleMiniPlayerPanel()
             }
+            .accessibilityIdentifier(AccessibilityID.MiniPlayer.expandButton)
         }
     }
 
