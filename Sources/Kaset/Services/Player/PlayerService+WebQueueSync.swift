@@ -589,7 +589,9 @@ extension PlayerService {
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
 
-        if self.isPendingRestoredLoadDeferred {
+        let isRestoringFromCloud = self.queue.isEmpty && !self.isKasetInitiatedPlayback && observedVideoId != nil
+
+        if self.isPendingRestoredLoadDeferred || isRestoringFromCloud {
             self.applyDeferredRestoredMetadata(
                 title: title,
                 artist: artist,
