@@ -224,10 +224,11 @@ extension PlayerService {
     /// Resumes playback.
     func resume() async {
         self.logger.debug("Resuming playback")
+        
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
 
         if self.isPendingRestoredLoadDeferred {
             self.clearRestoredPlaybackSessionState()
-            SingletonPlayerWebView.shared.setAutoplayBlocked(false)
 
             self.showMiniPlayer = false
             self.state = .loading
@@ -274,6 +275,7 @@ extension PlayerService {
     func next() async {
         self.logger.debug("Skipping to next track")
         self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
 
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not let them fall through to YouTube Music's ambient next button.
@@ -291,6 +293,7 @@ extension PlayerService {
     func previous() async {
         self.logger.debug("Going to previous track")
         self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
 
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not restart them or fall through to YouTube Music's ambient previous button.
