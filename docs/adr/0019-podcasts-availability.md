@@ -42,14 +42,22 @@ scratch.
 ### State machine
 
 ```
-.unknown ────probe success (≥1 section) OR markAvailable────▶ .available
-   │                                                            │
-   │     probe HTTP 404                                          │ user-initiated
-   │     OR user-initiated load HTTP 404                         │ load returns
-   │     OR user-initiated load returns empty                    │ ≥1 section
-   ▼                                                            ▼
-.unavailable ◀──────────────────────────────────────────────────┘
+.unknown     --available signal----> .available
+.unknown     --unavailable signal--> .unavailable
+.available   --unavailable signal--> .unavailable
+.unavailable --available signal----> .available
 ```
+
+Where:
+
+- **Available signal**: probe success with `≥1` section, or
+  `markAvailable` from a user-initiated non-empty load.
+- **Unavailable signal**: probe HTTP 404, user-initiated load HTTP 404,
+  or user-initiated load returns empty.
+
+Successful signals can therefore promote `.unavailable` back to
+`.available` after an account/region change; unavailable signals can also
+remove the tab from either `.unknown` or `.available`.
 
 A second observable, `didResolveFirstProbe: Bool`, tracks whether the first
 probe of the session has finished. It flips to `true` on any probe
