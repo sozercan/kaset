@@ -16,6 +16,15 @@ final class PodcastsViewModel {
 
     /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
+    /// Service that tracks per-account region availability of the
+    /// podcasts discovery surface. Configured post-init by the owning
+    /// view so existing call sites/previews can construct the viewmodel
+    /// without the service.
+    private(set) var availabilityService: PodcastsAvailabilityService?
+    /// Account id that owns the current load — passed through to
+    /// `availabilityService` so 404 / empty results are recorded against
+    /// the right key. Updated by `configure` on account switches.
+    private(set) var accountId: String?
     private let logger = DiagnosticsLogger.api
     // swiftformat:disable modifierOrder
     /// Task for background loading, cancelled in deinit.
@@ -29,8 +38,25 @@ final class PodcastsViewModel {
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
 
-    init(client: any YTMusicClientProtocol) {
+    init(
+        client: any YTMusicClientProtocol,
+        availabilityService: PodcastsAvailabilityService? = nil,
+        accountId: String? = nil
+    ) {
         self.client = client
+        self.availabilityService = availabilityService
+        self.accountId = accountId
+    }
+
+    /// Wires the viewmodel up to the availability service and the
+    /// currently-active account. Called by `MainWindow` on first display
+    /// and whenever the active account changes. Safe to call repeatedly.
+    func configure(
+        availabilityService: PodcastsAvailabilityService?,
+        accountId: String?
+    ) {
+        self.availabilityService = availabilityService
+        self.accountId = accountId
     }
 
     deinit {
@@ -53,12 +79,32 @@ final class PodcastsViewModel {
             let sectionCount = self.sections.count
             self.logger.info("Podcasts content loaded: \(sectionCount) sections")
 
-            // Start background loading of additional sections
-            self.startBackgroundLoading()
+            // Tell the availability service what we just observed. A
+            // user-initiated load is authoritative, so empty payloads
+            // count as "unavailable" here (unlike the background probe).
+            if self.sections.isEmpty {
+                self.availabilityService?.markUnavailable(for: self.accountId)
+            } else {
+                self.availabilityService?.markAvailable(for: self.accountId)
+                // Only continue progressive loading when there's real
+                // content; an empty payload means there's nothing to
+                // continue and the tab is about to disappear anyway.
+                self.startBackgroundLoading()
+            }
         } catch is CancellationError {
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Podcasts load cancelled")
             self.loadingState = .idle
+        } catch let YTMusicError.apiError(_, code) where code == 404 {
+            // Region without podcasts. Land on `.loaded` with empty
+            // sections — the sidebar row will disappear within a frame
+            // via the availability service, so a generic error toast
+            // would be misleading.
+            self.logger.info("Podcasts endpoint returned 404; marking region unavailable")
+            self.sections = []
+            self.hasMoreSections = false
+            self.loadingState = .loaded
+            self.availabilityService?.markUnavailable(for: self.accountId)
         } catch {
             self.logger.error("Failed to load podcasts: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))

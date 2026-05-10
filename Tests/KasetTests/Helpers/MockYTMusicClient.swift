@@ -65,6 +65,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
+    var getPodcastsDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
@@ -354,6 +355,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getPodcasts() async throws -> [PodcastSection] {
         self._podcastsContinuationIndex = 0
+        if let delay = self.getPodcastsDelay {
+            try await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
         return self.podcastsSections
     }
