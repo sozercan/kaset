@@ -92,7 +92,13 @@ struct MainWindow: View {
                     // Show loading while checking login status to avoid onboarding flash
                     self.initializingView
                 } else if self.authService.state.isLoggedIn {
-                    if self.podcastsAvailability.didResolveFirstProbe {
+                    // Skip the probe gate in UI test mode: existing test
+                    // fixtures (e.g. `navigateToSidebarItem`) check
+                    // sidebar element existence synchronously right after
+                    // launch and don't tolerate the ~300 ms gate delay.
+                    // The probe still fires in the background so the
+                    // `MOCK_PODCASTS_REGION_UNAVAILABLE` path works.
+                    if self.podcastsAvailability.didResolveFirstProbe || UITestConfig.isUITestMode {
                         self.mainContent
                     } else {
                         // Hold the same loading view until the podcasts
