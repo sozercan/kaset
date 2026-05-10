@@ -41,7 +41,24 @@ final class PodcastsAvailabilityService {
     /// (`PodcastsViewModel.load`) demotes the state.
     static let firstProbeGateTimeout: Duration = .seconds(2)
 
+    private var accountScope: AccountScope = .unconfigured
+    private var generation = 0
+
     init() {}
+
+    // MARK: - Account scope
+
+    /// Records the currently-active account without changing the visible
+    /// availability state. This invalidates in-flight probes from the
+    /// previous account so a late completion cannot mutate the new
+    /// account's state.
+    func activateAccount(_ accountId: String?) {
+        let scope = AccountScope.account(Self.normalizedAccountId(accountId))
+        guard self.accountScope != scope else { return }
+
+        self.accountScope = scope
+        self.generation += 1
+    }
 
     // MARK: - Probing
 
@@ -55,6 +72,8 @@ final class PodcastsAvailabilityService {
         using client: any YTMusicClientProtocol,
         timeout: Duration = firstProbeGateTimeout
     ) async {
+        self.activateAccount(accountId)
+
         // Spawn the probe as an unstructured task so the timeout race
         // below can return without waiting on it. `probe(...)` updates
         // `availability` and `didResolveFirstProbe` itself when it
@@ -81,12 +100,13 @@ final class PodcastsAvailabilityService {
 
         // If our caller has been cancelled (e.g. logout flipped
         // `state.isLoggedIn`), tear down the probe and leave the gate
-        // for `reset()` to manage. Otherwise release it.
+        // for `reset()` to manage. Otherwise release it only if this
+        // first-resolution request still belongs to the active account.
         if Task.isCancelled {
             probeTask.cancel()
             return
         }
-        self.didResolveFirstProbe = true
+        self.resolveFirstProbeGateIfActive(for: accountId)
     }
 
     /// Calls `client.getPodcasts()` and updates `availability` based on
@@ -97,11 +117,16 @@ final class PodcastsAvailabilityService {
         for accountId: String?,
         using client: any YTMusicClientProtocol
     ) async -> Availability {
-        let label = Self.normalizedAccountId(accountId)
+        let token = self.beginProbe(for: accountId)
+        let label = token.accountId
         DiagnosticsLogger.api.info("Probing podcasts availability for account=\(label)")
 
         do {
             let sections = try await client.getPodcasts()
+            guard self.shouldApplyProbeResult(token, outcome: "success") else {
+                return self.availability
+            }
+
             if sections.isEmpty {
                 // Empty payload from a probe is not authoritative — leave
                 // the state alone and let the user-initiated path
@@ -114,6 +139,10 @@ final class PodcastsAvailabilityService {
             self.didResolveFirstProbe = true
             return .available
         } catch let YTMusicError.apiError(_, code) where code == 404 {
+            guard self.shouldApplyProbeResult(token, outcome: "HTTP 404") else {
+                return self.availability
+            }
+
             DiagnosticsLogger.api.info("Probe returned HTTP 404; podcasts unavailable for account=\(label)")
             self.availability = .unavailable
             self.didResolveFirstProbe = true
@@ -124,6 +153,10 @@ final class PodcastsAvailabilityService {
             DiagnosticsLogger.api.debug("Probe cancelled for account=\(label)")
             return self.availability
         } catch {
+            guard self.shouldApplyProbeResult(token, outcome: "inconclusive") else {
+                return self.availability
+            }
+
             // Transient (5xx, network, auth). Don't change state — let
             // the lazy 404 path or the next session re-evaluate. Still
             // mark the gate as resolved so the UI doesn't hang behind
@@ -137,16 +170,22 @@ final class PodcastsAvailabilityService {
     // MARK: - Lazy signals (from PodcastsViewModel)
 
     /// Marks podcasts as unavailable based on a user-initiated load
-    /// that hit 404 or returned an empty payload. The caller is on the
-    /// active account, so this is always authoritative.
-    func markUnavailable(for _: String?) {
+    /// that hit 404 or returned an empty payload. The signal is applied
+    /// only when it still belongs to the active account.
+    func markUnavailable(for accountId: String?) {
+        guard self.shouldApplyLazySignal(for: accountId, outcome: "unavailable") else { return }
+
+        self.generation += 1
         self.availability = .unavailable
         self.didResolveFirstProbe = true
     }
 
     /// Marks podcasts as available based on a user-initiated load that
     /// returned a non-empty payload.
-    func markAvailable(for _: String?) {
+    func markAvailable(for accountId: String?) {
+        guard self.shouldApplyLazySignal(for: accountId, outcome: "available") else { return }
+
+        self.generation += 1
         self.availability = .available
         self.didResolveFirstProbe = true
     }
@@ -156,12 +195,77 @@ final class PodcastsAvailabilityService {
     /// Resets state so the next sign-in re-gates the UI and re-probes.
     /// Called on logout.
     func reset() {
+        self.accountScope = .loggedOut
+        self.generation += 1
         self.availability = .unknown
         self.didResolveFirstProbe = false
     }
 
+    private func beginProbe(for accountId: String?) -> ProbeToken {
+        self.activateAccount(accountId)
+        self.generation += 1
+        return ProbeToken(
+            accountId: Self.normalizedAccountId(accountId),
+            generation: self.generation
+        )
+    }
+
+    private func shouldApplyProbeResult(
+        _ token: ProbeToken,
+        outcome: String
+    ) -> Bool {
+        guard self.accountScope == .account(token.accountId),
+              self.generation == token.generation
+        else {
+            DiagnosticsLogger.api.debug("Ignoring stale podcasts availability probe for account=\(token.accountId), outcome=\(outcome)")
+            return false
+        }
+        return true
+    }
+
+    private func shouldApplyLazySignal(for accountId: String?, outcome: String) -> Bool {
+        let normalizedAccountId = Self.normalizedAccountId(accountId)
+        switch self.accountScope {
+        case .unconfigured:
+            self.accountScope = .account(normalizedAccountId)
+            self.generation += 1
+            return true
+        case .loggedOut:
+            DiagnosticsLogger.api.debug("Ignoring podcasts availability signal while logged out for account=\(normalizedAccountId), outcome=\(outcome)")
+            return false
+        case let .account(activeAccountId):
+            guard activeAccountId == normalizedAccountId else {
+                DiagnosticsLogger.api.debug("Ignoring stale podcasts availability signal for account=\(normalizedAccountId), outcome=\(outcome)")
+                return false
+            }
+            return true
+        }
+    }
+
+    private func resolveFirstProbeGateIfActive(for accountId: String?) {
+        let normalizedAccountId = Self.normalizedAccountId(accountId)
+        guard self.accountScope == .account(normalizedAccountId) else {
+            DiagnosticsLogger.api.debug("Ignoring stale first podcasts probe gate for account=\(normalizedAccountId)")
+            return
+        }
+        self.didResolveFirstProbe = true
+    }
+
     private static func normalizedAccountId(_ accountId: String?) -> String {
         accountId ?? "primary"
+    }
+}
+
+private extension PodcastsAvailabilityService {
+    enum AccountScope: Equatable {
+        case unconfigured
+        case loggedOut
+        case account(String)
+    }
+
+    struct ProbeToken: Equatable {
+        let accountId: String
+        let generation: Int
     }
 }
 

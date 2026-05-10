@@ -200,6 +200,25 @@ struct PodcastsViewModelTests {
     }
 
     @Test
+    func configureForNewAccountResetsLoadedEmptyUnavailableState() async {
+        let availability = PodcastsAvailabilityService()
+        self.viewModel.configure(availabilityService: availability, accountId: "account-a")
+        self.mockClient.shouldThrowError = YTMusicError.apiError(message: "HTTP 404", code: 404)
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.isEmpty)
+        #expect(availability.availability == .unavailable)
+
+        self.viewModel.configure(availabilityService: availability, accountId: "account-b")
+
+        #expect(self.viewModel.loadingState == .idle)
+        #expect(self.viewModel.sections.isEmpty)
+        #expect(self.viewModel.hasMoreSections == true)
+    }
+
+    @Test
     func loadEmptyPayloadMarksAvailabilityUnavailable() async {
         let availability = PodcastsAvailabilityService()
         self.viewModel.configure(availabilityService: availability, accountId: "primary")

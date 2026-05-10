@@ -35,6 +35,11 @@ final class PodcastsViewModel {
     /// Number of background continuations loaded.
     private var continuationsLoaded = 0
 
+    /// Incremented whenever foreground load results should no longer be
+    /// allowed to mutate this view model (account switch, refresh, or a
+    /// newer load).
+    private var loadGeneration = 0
+
     /// Maximum continuations to load in background.
     private static let maxContinuations = 4
 
@@ -55,8 +60,14 @@ final class PodcastsViewModel {
         availabilityService: PodcastsAvailabilityService?,
         accountId: String?
     ) {
+        let accountChanged = self.accountId != accountId
+
         self.availabilityService = availabilityService
         self.accountId = accountId
+
+        if accountChanged {
+            self.resetContentForAccountSwitch()
+        }
     }
 
     deinit {
@@ -67,12 +78,21 @@ final class PodcastsViewModel {
     func load() async {
         guard self.loadingState != .loading else { return }
 
+        self.loadGeneration += 1
+        let loadGeneration = self.loadGeneration
+        let loadAccountId = self.accountId
+
         self.loadingState = .loading
         self.logger.info("Loading podcasts content")
 
         do {
-            self.sections = try await self.client.getPodcasts()
+            let sections = try await self.client.getPodcasts()
+            guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else {
+                self.logger.debug("Ignoring stale podcasts load result")
+                return
+            }
 
+            self.sections = sections
             self.hasMoreSections = self.client.hasMorePodcastsSections
             self.loadingState = .loaded
             self.continuationsLoaded = 0
@@ -83,19 +103,26 @@ final class PodcastsViewModel {
             // user-initiated load is authoritative, so empty payloads
             // count as "unavailable" here (unlike the background probe).
             if self.sections.isEmpty {
-                self.availabilityService?.markUnavailable(for: self.accountId)
+                self.availabilityService?.markUnavailable(for: loadAccountId)
             } else {
-                self.availabilityService?.markAvailable(for: self.accountId)
+                self.availabilityService?.markAvailable(for: loadAccountId)
                 // Only continue progressive loading when there's real
                 // content; an empty payload means there's nothing to
                 // continue and the tab is about to disappear anyway.
                 self.startBackgroundLoading()
             }
         } catch is CancellationError {
+            guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else { return }
+
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Podcasts load cancelled")
             self.loadingState = .idle
         } catch let YTMusicError.apiError(_, code) where code == 404 {
+            guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else {
+                self.logger.debug("Ignoring stale podcasts 404")
+                return
+            }
+
             // Region without podcasts. Land on `.loaded` with empty
             // sections — the sidebar row will disappear within a frame
             // via the availability service, so a generic error toast
@@ -104,8 +131,13 @@ final class PodcastsViewModel {
             self.sections = []
             self.hasMoreSections = false
             self.loadingState = .loaded
-            self.availabilityService?.markUnavailable(for: self.accountId)
+            self.availabilityService?.markUnavailable(for: loadAccountId)
         } catch {
+            guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else {
+                self.logger.debug("Ignoring stale podcasts load failure")
+                return
+            }
+
             self.logger.error("Failed to load podcasts: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
@@ -114,6 +146,8 @@ final class PodcastsViewModel {
     /// Loads more sections in the background progressively.
     private func startBackgroundLoading() {
         self.backgroundLoadTask?.cancel()
+        let backgroundGeneration = self.loadGeneration
+        let backgroundAccountId = self.accountId
         self.backgroundLoadTask = Task { [weak self] in
             guard let self else { return }
 
@@ -122,17 +156,25 @@ final class PodcastsViewModel {
 
             guard !Task.isCancelled else { return }
 
-            await self.loadMoreSections()
+            await self.loadMoreSections(generation: backgroundGeneration, accountId: backgroundAccountId)
         }
     }
 
     /// Loads additional sections from continuations progressively.
-    private func loadMoreSections() async {
+    private func loadMoreSections(generation: Int, accountId: String?) async {
         while self.hasMoreSections, self.continuationsLoaded < Self.maxContinuations {
-            guard self.loadingState == .loaded else { break }
+            guard self.loadingState == .loaded,
+                  self.isCurrentLoad(generation: generation, accountId: accountId),
+                  !Task.isCancelled
+            else { break }
 
             do {
-                if let additionalSections = try await client.getPodcastsContinuation() {
+                let additionalSections = try await client.getPodcastsContinuation()
+                guard self.isCurrentLoad(generation: generation, accountId: accountId),
+                      !Task.isCancelled
+                else { break }
+
+                if let additionalSections {
                     self.sections.append(contentsOf: additionalSections)
                     self.continuationsLoaded += 1
                     self.hasMoreSections = self.client.hasMorePodcastsSections
@@ -158,9 +200,24 @@ final class PodcastsViewModel {
     /// Refreshes podcasts content.
     func refresh() async {
         self.backgroundLoadTask?.cancel()
+        self.loadGeneration += 1
         self.sections = []
         self.hasMoreSections = true
         self.continuationsLoaded = 0
+        self.loadingState = .idle
         await self.load()
+    }
+
+    private func resetContentForAccountSwitch() {
+        self.backgroundLoadTask?.cancel()
+        self.loadGeneration += 1
+        self.sections = []
+        self.hasMoreSections = true
+        self.continuationsLoaded = 0
+        self.loadingState = .idle
+    }
+
+    private func isCurrentLoad(generation: Int, accountId: String?) -> Bool {
+        generation == self.loadGeneration && accountId == self.accountId
     }
 }

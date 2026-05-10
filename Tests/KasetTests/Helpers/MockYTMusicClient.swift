@@ -61,6 +61,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var addToPlaylistMenus: [String: AddToPlaylistMenu] = [:]
     var defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
     var onGetLibraryContent: (@MainActor () -> Void)?
+    var onGetPodcasts: (@MainActor () -> Void)?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
@@ -355,6 +356,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getPodcasts() async throws -> [PodcastSection] {
         self._podcastsContinuationIndex = 0
+        self.onGetPodcasts?()
         if let delay = self.getPodcastsDelay {
             try await Task.sleep(for: delay)
         }

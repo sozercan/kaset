@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - PodcastsAvailabilityServiceTests
+
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PodcastsAvailabilityServiceTests {
@@ -86,6 +88,63 @@ struct PodcastsAvailabilityServiceTests {
         // Transient failures must not flip a known-good state.
         #expect(result == .available)
         #expect(service.availability == .available)
+    }
+
+    // MARK: - Account/session invalidation
+
+    @Test
+    func late404ProbeDoesNotOverrideNewerAccountAvailability() async {
+        let service = PodcastsAvailabilityService()
+
+        let staleClient = MockYTMusicClient()
+        staleClient.getPodcastsDelay = .milliseconds(150)
+        staleClient.shouldThrowError = YTMusicError.apiError(message: "HTTP 404", code: 404)
+        let staleProbeStarted = AsyncSignal()
+        staleClient.onGetPodcasts = { staleProbeStarted.signal() }
+
+        let staleProbe = Task { @MainActor in
+            await service.probe(for: "account-a", using: staleClient)
+        }
+        await staleProbeStarted.wait()
+
+        let currentClient = MockYTMusicClient()
+        currentClient.podcastsSections = [
+            PodcastSection(id: UUID().uuidString, title: "Available Shows", items: []),
+        ]
+
+        let currentResult = await service.probe(for: "account-b", using: currentClient)
+        #expect(currentResult == .available)
+        #expect(service.availability == .available)
+        #expect(service.didResolveFirstProbe == true)
+
+        let staleResult = await staleProbe.value
+        #expect(staleResult == .available)
+        #expect(service.availability == .available)
+        #expect(service.didResolveFirstProbe == true)
+    }
+
+    @Test
+    func resetInvalidatesLateProbeCompletion() async {
+        let service = PodcastsAvailabilityService()
+        let client = MockYTMusicClient()
+        client.getPodcastsDelay = .milliseconds(150)
+        client.shouldThrowError = YTMusicError.apiError(message: "HTTP 404", code: 404)
+        let probeStarted = AsyncSignal()
+        client.onGetPodcasts = { probeStarted.signal() }
+
+        let probe = Task { @MainActor in
+            await service.probe(for: "primary", using: client)
+        }
+        await probeStarted.wait()
+
+        service.reset()
+        #expect(service.availability == .unknown)
+        #expect(service.didResolveFirstProbe == false)
+
+        let result = await probe.value
+        #expect(result == .unknown)
+        #expect(service.availability == .unknown)
+        #expect(service.didResolveFirstProbe == false)
     }
 
     // MARK: - First-resolution gate
@@ -179,5 +238,32 @@ struct PodcastsAvailabilityServiceTests {
 
         #expect(service.availability == .unknown)
         #expect(service.didResolveFirstProbe == false)
+    }
+}
+
+// MARK: - AsyncSignal
+
+@MainActor
+private final class AsyncSignal {
+    private var isSignalled = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func signal() {
+        guard !self.isSignalled else { return }
+        self.isSignalled = true
+        self.continuation?.resume()
+        self.continuation = nil
+    }
+
+    func wait() async {
+        if self.isSignalled { return }
+
+        await withCheckedContinuation { continuation in
+            if self.isSignalled {
+                continuation.resume()
+            } else {
+                self.continuation = continuation
+            }
+        }
     }
 }

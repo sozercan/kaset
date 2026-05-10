@@ -215,6 +215,13 @@ struct MainWindow: View {
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
+            self.podcastsViewModel?.configure(
+                availabilityService: self.podcastsAvailability,
+                accountId: newAccountId
+            )
+            if let newAccountId {
+                self.podcastsAvailability.activateAccount(newAccountId)
+            }
 
             Task { @MainActor in
                 APICache.shared.invalidateAll()
@@ -251,12 +258,22 @@ struct MainWindow: View {
                 }
             }
         }
-        .onChange(of: self.podcastsAvailability.availability) { _, newValue in
+        .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
             // If the user is sitting on the Podcasts tab when it flips
             // unavailable, redirect to Home so they don't end up on a
             // sidebar row that no longer exists.
             if newValue == .unavailable, self.navigationSelection == .podcasts {
                 self.navigationSelection = .home
+            }
+
+            // Switching back from an unavailable account keeps the
+            // Podcasts VM reset/idle until the probe confirms the new
+            // account is available. Eagerly refresh then so the tab does
+            // not remain on the prior account's loaded-empty state.
+            if oldValue == .unavailable, newValue == .available {
+                Task { @MainActor in
+                    await self.podcastsViewModel?.refresh()
+                }
             }
         }
         .task {
@@ -265,9 +282,13 @@ struct MainWindow: View {
         .task(id: self.accountService.currentAccount?.id) {
             // Keep PodcastsViewModel in sync with the active account so
             // 404 / empty results are recorded against the right account.
+            let accountId = self.accountService.currentAccount?.id
+            if let accountId {
+                self.podcastsAvailability.activateAccount(accountId)
+            }
             self.podcastsViewModel?.configure(
                 availabilityService: self.podcastsAvailability,
-                accountId: self.accountService.currentAccount?.id
+                accountId: accountId
             )
         }
         .task(id: self.authService.state.isLoggedIn) {
