@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Carousel shelf affordances</title>
+  <desc id="desc">Mockup showing horizontal media cards with edge fades, subtle glass chevron controls, and a hover or focus state that makes the controls more prominent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f3ee"/>
+      <stop offset="1" stop-color="#ece7df"/>
+    </linearGradient>
+    <linearGradient id="leadingFade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f7f3ee" stop-opacity="1"/>
+      <stop offset="1" stop-color="#f7f3ee" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="trailingFade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f7f3ee" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f7f3ee" stop-opacity="1"/>
+    </linearGradient>
+    <filter id="softShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="360" rx="28" fill="url(#bg)"/>
+
+  <text x="64" y="58" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="26" font-weight="700" fill="#1f1f1f">Section title</text>
+  <text x="64" y="88" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" font-size="14" fill="#5e5a55">Native horizontal ScrollView with visible overflow affordances</text>
+
+  <g transform="translate(64 116)">
+    <rect x="0" y="0" width="832" height="172" rx="24" fill="#ffffff" fill-opacity="0.35" stroke="#ffffff" stroke-opacity="0.55"/>
+
+    <g filter="url(#cardShadow)">
+      <g transform="translate(20 22)">
+        <rect width="112" height="112" rx="18" fill="#d86b54"/>
+        <rect y="124" width="88" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="64" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(152 22)">
+        <rect width="112" height="112" rx="18" fill="#876fd1"/>
+        <rect y="124" width="92" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="70" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(284 22)">
+        <rect width="112" height="112" rx="18" fill="#4d9f7a"/>
+        <rect y="124" width="80" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="58" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(416 22)">
+        <rect width="112" height="112" rx="18" fill="#d7a33f"/>
+        <rect y="124" width="94" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="68" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(548 22)">
+        <rect width="112" height="112" rx="18" fill="#3d86c6"/>
+        <rect y="124" width="88" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="66" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(680 22)">
+        <rect width="112" height="112" rx="18" fill="#bd5f9a"/>
+        <rect y="124" width="90" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="60" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+      <g transform="translate(812 22)" opacity="0.35">
+        <rect width="112" height="112" rx="18" fill="#6a9e62"/>
+        <rect y="124" width="86" height="10" rx="5" fill="#302d2a" fill-opacity="0.84"/>
+        <rect y="142" width="62" height="8" rx="4" fill="#302d2a" fill-opacity="0.42"/>
+      </g>
+    </g>
+
+    <rect x="0" y="0" width="72" height="172" rx="24" fill="url(#leadingFade)"/>
+    <rect x="760" y="0" width="72" height="172" rx="24" fill="url(#trailingFade)"/>
+
+    <g transform="translate(14 67)" opacity="0.72" filter="url(#softShadow)">
+      <circle cx="19" cy="19" r="19" fill="#ffffff" fill-opacity="0.58" stroke="#ffffff" stroke-opacity="0.72"/>
+      <path d="M22 11 L14 19 L22 27" fill="none" stroke="#1f1f1f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(780 65)" filter="url(#softShadow)">
+      <circle cx="21" cy="21" r="21" fill="#ffffff" fill-opacity="0.76" stroke="#ffffff" stroke-opacity="0.92"/>
+      <path d="M18 12 L27 21 L18 30" fill="none" stroke="#1f1f1f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" font-size="13" fill="#4e4a45">
+    <text x="74" y="322">Subtle by default</text>
+    <path d="M145 309 C122 288 102 232 96 200" fill="none" stroke="#867b70" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="704" y="322">Hover/focus: full opacity + lift</text>
+    <path d="M748 309 C772 286 812 230 858 199" fill="none" stroke="#867b70" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>

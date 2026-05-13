@@ -90,7 +90,7 @@ struct HomeView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            CarouselShelf(accessibilityLabel: section.title) {
                 LazyHStack(alignment: .top, spacing: 16) {
                     // Use stable ID from items, avoid enumeration for non-chart sections
                     if section.isChart {
@@ -114,7 +114,6 @@ struct HomeView: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
     }
 

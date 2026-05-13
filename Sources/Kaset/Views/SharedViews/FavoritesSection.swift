@@ -21,7 +21,10 @@ struct FavoritesSection: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            CarouselShelf(
+                accessibilityLabel: String(localized: "Favorites"),
+                showsControls: self.draggedItem == nil
+            ) {
                 LazyHStack(spacing: 16) {
                     ForEach(self.favoritesManager.items) { item in
                         FavoriteItemCard(
@@ -29,12 +32,11 @@ struct FavoritesSection: View {
                             onTap: { self.handleTap(item) }
                         )
                         .draggable(item) {
-                            // Drag preview
-                            FavoriteItemCard(item: item, onTap: {})
-                                .opacity(0.8)
+                            self.dragPreview(for: item)
                         }
                         .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
-                            _ = self.handleDrop(droppedItems, on: item)
+                            defer { self.draggedItem = nil }
+                            return self.handleDrop(droppedItems, on: item)
                         }
                         .contextMenu {
                             self.contextMenu(for: item)
@@ -42,10 +44,22 @@ struct FavoritesSection: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Favorites"))
+    }
+
+    private func dragPreview(for item: FavoriteItem) -> some View {
+        FavoriteItemCard(item: item, onTap: {})
+            .opacity(0.8)
+            .onAppear {
+                self.draggedItem = item
+            }
+            .onDisappear {
+                if self.draggedItem == item {
+                    self.draggedItem = nil
+                }
+            }
     }
 
     // MARK: - Actions
