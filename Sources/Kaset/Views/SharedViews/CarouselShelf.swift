@@ -35,19 +35,18 @@ struct CarouselShelf<Content: View>: View {
     }
 
     var body: some View {
-        ZStack {
-            ScrollView(.horizontal, showsIndicators: false) {
-                self.content()
-            }
-            .scrollClipDisabled()
-            .scrollPosition(self.$scrollPosition)
-            .onScrollGeometryChange(for: CarouselShelfScrollMetrics.self) { geometry in
-                CarouselShelfScrollMetrics(geometry: geometry)
-            } action: { _, newMetrics in
-                self.scrollMetrics = newMetrics
-            }
-
-            self.edgeFades
+        ScrollView(.horizontal, showsIndicators: false) {
+            self.content()
+        }
+        .scrollClipDisabled()
+        .scrollPosition(self.$scrollPosition)
+        .onScrollGeometryChange(for: CarouselShelfScrollMetrics.self) { geometry in
+            CarouselShelfScrollMetrics(geometry: geometry)
+        } action: { _, newMetrics in
+            self.scrollMetrics = newMetrics
+        }
+        .mask {
+            self.edgeFadeMask
         }
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
@@ -73,27 +72,17 @@ struct CarouselShelf<Content: View>: View {
         .accessibilityLabel(self.accessibilityLabel)
     }
 
-    @ViewBuilder
-    private var edgeFades: some View {
-        if self.hasLeadingOverflow || self.hasTrailingOverflow {
-            HStack(spacing: 0) {
-                if self.hasLeadingOverflow {
-                    self.edgeFade(for: .leading)
-                        .transition(.opacity)
-                }
+    private var edgeFadeMask: some View {
+        HStack(spacing: 0) {
+            self.edgeFadeMaskSegment(for: .leading)
 
-                Spacer(minLength: 0)
+            Rectangle()
+                .fill(.black)
 
-                if self.hasTrailingOverflow {
-                    self.edgeFade(for: .trailing)
-                        .transition(.opacity)
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .animation(AppAnimation.quick, value: self.hasLeadingOverflow)
-            .animation(AppAnimation.quick, value: self.hasTrailingOverflow)
+            self.edgeFadeMaskSegment(for: .trailing)
         }
+        .animation(AppAnimation.quick, value: self.hasLeadingOverflow)
+        .animation(AppAnimation.quick, value: self.hasTrailingOverflow)
     }
 
     private var hasLeadingOverflow: Bool {
@@ -141,17 +130,15 @@ struct CarouselShelf<Content: View>: View {
         .accessibilityHint(String(localized: "Scrolls this shelf by one page"))
     }
 
-    private func edgeFade(for direction: CarouselShelfDirection) -> some View {
-        Rectangle()
-            .fill(Color(nsColor: .windowBackgroundColor))
-            .frame(width: self.fadeWidth)
-            .mask {
-                LinearGradient(
-                    colors: direction.fadeColors,
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            }
+    private func edgeFadeMaskSegment(for direction: CarouselShelfDirection) -> some View {
+        LinearGradient(
+            colors: direction.maskColors(
+                isFaded: direction == .leading ? self.hasLeadingOverflow : self.hasTrailingOverflow
+            ),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: self.fadeWidth)
     }
 
     private func page(in direction: CarouselShelfDirection) {
@@ -176,6 +163,106 @@ struct CarouselShelf<Content: View>: View {
         case .trailing:
             String(localized: "Scroll \(self.accessibilityLabel) right")
         }
+    }
+}
+
+// MARK: - CarouselShelfSection
+
+/// A reusable section that renders a header and a horizontal ``CarouselShelf`` of items.
+@available(macOS 26.0, *)
+struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header: View, ItemContent: View>: View {
+    let accessibilityLabel: String
+    let items: Items
+    let id: KeyPath<Items.Element, ID>
+    let sectionSpacing: CGFloat
+    let itemAlignment: VerticalAlignment
+    let itemSpacing: CGFloat
+    let fadeWidth: CGFloat
+    let pageFraction: CGFloat
+    let showsControls: Bool
+    let controlVerticalAlignment: VerticalAlignment
+
+    private let header: () -> Header
+    private let itemContent: (Items.Element) -> ItemContent
+
+    init(
+        accessibilityLabel: String,
+        items: Items,
+        id: KeyPath<Items.Element, ID>,
+        sectionSpacing: CGFloat = 12,
+        itemAlignment: VerticalAlignment = .center,
+        itemSpacing: CGFloat = 16,
+        fadeWidth: CGFloat = 56,
+        pageFraction: CGFloat = 0.85,
+        showsControls: Bool = true,
+        controlVerticalAlignment: VerticalAlignment = .center,
+        @ViewBuilder header: @escaping () -> Header,
+        @ViewBuilder itemContent: @escaping (Items.Element) -> ItemContent
+    ) {
+        self.accessibilityLabel = accessibilityLabel
+        self.items = items
+        self.id = id
+        self.sectionSpacing = sectionSpacing
+        self.itemAlignment = itemAlignment
+        self.itemSpacing = itemSpacing
+        self.fadeWidth = fadeWidth
+        self.pageFraction = pageFraction
+        self.showsControls = showsControls
+        self.controlVerticalAlignment = controlVerticalAlignment
+        self.header = header
+        self.itemContent = itemContent
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: self.sectionSpacing) {
+            self.header()
+
+            CarouselShelf(
+                accessibilityLabel: self.accessibilityLabel,
+                fadeWidth: self.fadeWidth,
+                pageFraction: self.pageFraction,
+                showsControls: self.showsControls,
+                controlVerticalAlignment: self.controlVerticalAlignment
+            ) {
+                LazyHStack(alignment: self.itemAlignment, spacing: self.itemSpacing) {
+                    ForEach(self.items, id: self.id) { item in
+                        self.itemContent(item)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@available(macOS 26.0, *)
+extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.Element.ID {
+    init(
+        accessibilityLabel: String,
+        items: Items,
+        sectionSpacing: CGFloat = 12,
+        itemAlignment: VerticalAlignment = .center,
+        itemSpacing: CGFloat = 16,
+        fadeWidth: CGFloat = 56,
+        pageFraction: CGFloat = 0.85,
+        showsControls: Bool = true,
+        controlVerticalAlignment: VerticalAlignment = .center,
+        @ViewBuilder header: @escaping () -> Header,
+        @ViewBuilder itemContent: @escaping (Items.Element) -> ItemContent
+    ) {
+        self.init(
+            accessibilityLabel: accessibilityLabel,
+            items: items,
+            id: \.id,
+            sectionSpacing: sectionSpacing,
+            itemAlignment: itemAlignment,
+            itemSpacing: itemSpacing,
+            fadeWidth: fadeWidth,
+            pageFraction: pageFraction,
+            showsControls: showsControls,
+            controlVerticalAlignment: controlVerticalAlignment,
+            header: header,
+            itemContent: itemContent
+        )
     }
 }
 
@@ -220,12 +307,16 @@ private enum CarouselShelfDirection: Hashable {
         }
     }
 
-    var fadeColors: [Color] {
+    func maskColors(isFaded: Bool) -> [Color] {
+        guard isFaded else {
+            return [.black, .black]
+        }
+
         switch self {
         case .leading:
-            [.black, .clear]
+            return [.clear, .black]
         case .trailing:
-            [.clear, .black]
+            return [.black, .clear]
         }
     }
 }

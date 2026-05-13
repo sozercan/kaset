@@ -16,33 +16,28 @@ struct FavoritesSection: View {
     var onNavigate: ((any Hashable) -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Favorites"),
+            items: self.favoritesManager.items,
+            showsControls: self.draggedItem == nil
+        ) {
             Text("Favorites")
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            CarouselShelf(
-                accessibilityLabel: String(localized: "Favorites"),
-                showsControls: self.draggedItem == nil
-            ) {
-                LazyHStack(spacing: 16) {
-                    ForEach(self.favoritesManager.items) { item in
-                        FavoriteItemCard(
-                            item: item,
-                            onTap: { self.handleTap(item) }
-                        )
-                        .draggable(item) {
-                            self.dragPreview(for: item)
-                        }
-                        .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
-                            defer { self.draggedItem = nil }
-                            return self.handleDrop(droppedItems, on: item)
-                        }
-                        .contextMenu {
-                            self.contextMenu(for: item)
-                        }
-                    }
-                }
+        } itemContent: { item in
+            FavoriteItemCard(
+                item: item,
+                onTap: { self.handleTap(item) }
+            )
+            .draggable(item) {
+                self.dragPreview(for: item)
+            }
+            .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
+                defer { self.draggedItem = nil }
+                return self.handleDrop(droppedItems, on: item)
+            }
+            .contextMenu {
+                self.contextMenu(for: item)
             }
         }
     }
