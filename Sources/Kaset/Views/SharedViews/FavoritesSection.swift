@@ -45,8 +45,6 @@ struct FavoritesSection: View {
                 }
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "Favorites"))
     }
 
     private func dragPreview(for item: FavoriteItem) -> some View {
