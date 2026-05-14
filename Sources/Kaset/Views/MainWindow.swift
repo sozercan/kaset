@@ -119,11 +119,11 @@ struct MainWindow: View {
                 DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
-            // Persistent WebView - always present once a video has been requested.
+            // Persistent WebView - always present once logged in.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if let videoId = playerService.pendingPlayVideoId {
-                PersistentPlayerView(videoId: videoId, isExpanded: false)
+            if self.authService.state.isLoggedIn {
+                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
                     .allowsHitTesting(false)

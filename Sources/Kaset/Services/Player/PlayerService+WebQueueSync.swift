@@ -4,6 +4,71 @@ import Foundation
 
 @MainActor
 extension PlayerService {
+    private func applyDeferredRestoredMetadata(
+        title: String,
+        artist: String,
+        thumbnailUrl: String,
+        videoId observedVideoId: String?
+    ) {
+        guard let observedVideoId = self.normalizedObservedVideoId(observedVideoId) else { return }
+
+        let thumbnailURL = URL(string: thumbnailUrl)
+        let artistObj = Artist(id: "unknown", name: artist)
+        let matchedQueueSong = self.queue.first(where: { $0.videoId == observedVideoId })
+        let seedSong: Song
+
+        let previousVideoId = self.currentTrack?.videoId
+        self.pendingPlayVideoId = observedVideoId
+        self.isKasetInitiatedPlayback = false
+        self.isAwaitingWebRestoredTrack = false
+
+        // Sync the web view's current video ID so Kaset knows the player is already on this track
+        SingletonPlayerWebView.shared.currentVideoId = observedVideoId
+        if observedVideoId == previousVideoId, !self.queue.isEmpty {
+            return
+        }
+        self.mixContinuationToken = nil
+
+        if let matchedQueueSong,
+           self.shouldKeepQueueMetadata(title: title, artist: artist, song: matchedQueueSong)
+        {
+            seedSong = matchedQueueSong
+        } else {
+            seedSong = Song(
+                id: observedVideoId,
+                title: title,
+                artists: [artistObj],
+                album: nil,
+                duration: self.duration > 0 ? self.duration : nil,
+                thumbnailURL: thumbnailURL,
+                videoId: observedVideoId
+            )
+        }
+
+        self.clearForwardSkipNavigationStack()
+        self.setQueue([seedSong])
+        self.currentIndex = 0
+        self.currentTrack = seedSong
+        self.currentTrackHasVideo = seedSong.musicVideoType?.hasVideoContent
+            ?? seedSong.hasVideo
+            ?? false
+        self.saveQueueForPersistence()
+
+        Task {
+            await self.fetchAndApplyRadioQueue(for: observedVideoId)
+        }
+
+        if previousVideoId != observedVideoId {
+            self.resetTrackStatus()
+            if let cachedStatus = SongLikeStatusManager.shared.status(for: observedVideoId) {
+                self.currentTrackLikeStatus = cachedStatus
+            }
+            Task {
+                await self.fetchSongMetadata(videoId: observedVideoId)
+            }
+        }
+    }
+
     /// Distance from `duration` at which a manual seek is treated as the end of the track.
     /// `video.currentTime = duration` does not reliably fire `ended` in WebKit, and a subsequent
     /// play call would restart the same song from 0 instead of advancing.
@@ -58,6 +123,28 @@ extension PlayerService {
 
     private func shouldKeepQueueMetadata(title: String, artist: String, song: Song) -> Bool {
         title.isEmpty || artist.isEmpty || !self.metadataMatchesSong(title: title, artist: artist, song: song)
+    }
+
+    /// Synchronizes Kaset's expected next track with YouTube Music's native "Up Next" queue.
+    /// By injecting the next track ahead of time, we achieve true gapless playback when the current track ends.
+    ///
+    /// **Important:** Only runs when the player is in a stable state (`.playing` or `.paused`).
+    /// During `.loading` (SPA navigation), the player bar DOM is in flux and clicking the 3-dot
+    /// menu would interfere with `resolveCommand`. The injection is safely deferred to
+    /// `confirmPlaybackStarted()` which fires once the song is actually playing.
+    func syncWebQueue() {
+        // Never manipulate the DOM during navigation — the MutationObserver in
+        // injectNextSong conflicts with resolveCommand's DOM mutations.
+        guard self.state == .playing || self.state == .paused else { return }
+
+        guard let nextIndex = self.expectedQueueIndexAfterCurrentTrack(),
+              let nextSong = self.queue[safe: nextIndex] else { return }
+
+        if self.injectedWebQueueVideoId != nextSong.videoId {
+            self.injectedWebQueueVideoId = nextSong.videoId
+            SingletonPlayerWebView.shared.injectNextSong(videoId: nextSong.videoId)
+            self.logger.info("Synced web queue: injected \(nextSong.videoId) to play next natively")
+        }
     }
 
     private var canAdvanceNativeQueueAfterTrackEnd: Bool {
@@ -471,6 +558,30 @@ extension PlayerService {
             await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd()
             return
         }
+
+        // Check if the next expected track was already injected into the web queue.
+        // If so, YouTube Music will auto-advance to it natively — we just need to
+        // update our internal state without triggering another loadVideo navigation.
+        if let expectedIndex = self.expectedQueueIndexAfterCurrentTrack(),
+           let expectedSong = self.queue[safe: expectedIndex],
+           self.injectedWebQueueVideoId == expectedSong.videoId
+        {
+            self.logger.info("Track ended natively. Injected track \(expectedSong.videoId) will auto-play; advancing queue index only.")
+            self.injectedWebQueueVideoId = nil
+            self.pushForwardSkipStackIfLeavingIndex(for: expectedIndex)
+            self.currentIndex = expectedIndex
+            self.currentTrack = expectedSong
+            self.isKasetInitiatedPlayback = true
+            self.resetTrackStatus()
+            if let cachedStatus = SongLikeStatusManager.shared.status(for: expectedSong.videoId) {
+                self.currentTrackLikeStatus = cachedStatus
+            }
+            self.saveQueueForPersistence()
+            // Pre-inject the *next* next track for the following transition
+            self.syncWebQueue()
+            return
+        }
+
         self.logger.info("Track ended in WebView, advancing native queue immediately")
         await self.next()
     }
@@ -478,6 +589,19 @@ extension PlayerService {
     /// Updates track metadata and enforces Kaset's queue when YouTube tries to diverge.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
+
+        let isRestoringFromCloud = self.queue.isEmpty && !self.isKasetInitiatedPlayback && observedVideoId != nil
+
+        if self.isPendingRestoredLoadDeferred || isRestoringFromCloud {
+            self.applyDeferredRestoredMetadata(
+                title: title,
+                artist: artist,
+                thumbnailUrl: thumbnailUrl,
+                videoId: observedVideoId
+            )
+            return
+        }
+
         let thumbnailURL = URL(string: thumbnailUrl)
         let artistObj = Artist(id: "unknown", name: artist)
         let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
@@ -557,6 +681,9 @@ extension PlayerService {
             if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
                 self.currentTrackLikeStatus = cachedStatus
             }
+
+            // Re-sync the web queue since the track changed natively
+            self.syncWebQueue()
         }
     }
 }

@@ -78,6 +78,10 @@ extension SingletonPlayerWebView {
                     // Enforce volume on playing event to catch all track changes
                     // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => {
+                        if (window.__kasetBlockAutoplay) {
+                            try { video.pause(); } catch (_) {}
+                            return;
+                        }
                         window.__kasetAutoplayPending = false;
                         enforceVolumeNow();
                     });
@@ -139,6 +143,10 @@ extension SingletonPlayerWebView {
                     video.addEventListener('loadeddata', () => enforceVolumeNow());
                     function recoverAutoplayIfNeeded() {
                         enforceVolumeNow();
+                        if (window.__kasetBlockAutoplay) {
+                            try { video.pause(); } catch (_) {}
+                            return;
+                        }
                         // Autoplay recovery: YTM sometimes leaves the video paused
                         // after navigation even with the WebKit autoplay allowance.
                         const btn = document.querySelector('.play-pause-button.ytmusic-player-bar');

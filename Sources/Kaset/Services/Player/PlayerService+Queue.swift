@@ -535,6 +535,9 @@ extension PlayerService {
             UserDefaults.standard.set(safeIndex, forKey: Self.savedQueueIndexKey)
             UserDefaults.standard.set(sessionData, forKey: Self.savedPlaybackSessionKey)
             self.logger.info("Saved playback session with \(self.queue.count) songs at index \(safeIndex)")
+
+            // Re-sync the web queue in case the queue order or next song changed
+            self.syncWebQueue()
         } catch {
             self.logger.error("Failed to save playback session: \(error.localizedDescription)")
         }

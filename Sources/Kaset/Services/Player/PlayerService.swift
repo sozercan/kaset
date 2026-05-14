@@ -127,6 +127,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether a restored load should automatically resume after seeking to the saved position.
     var shouldAutoResumeAfterRestoredLoad: Bool = false
 
+    /// Whether startup is waiting for YT Music to report its own server-restored track.
+    var isAwaitingWebRestoredTrack: Bool = false
+
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus = .indifferent
 
@@ -438,6 +441,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Flag to suppress YouTube autoplay after the native queue has finished.
     var shouldSuppressAutoplayAfterQueueEnd: Bool = false
+
+    /// Video ID of the song last injected into YouTube Music's native "Up Next" queue.
+    /// Used to avoid duplicate injections and to detect when YouTube has auto-advanced
+    /// to the injected track (enabling gapless transition without calling `loadVideo`).
+    var injectedWebQueueVideoId: String?
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     var videoWindowOpenedAt: ContinuousClock.Instant?

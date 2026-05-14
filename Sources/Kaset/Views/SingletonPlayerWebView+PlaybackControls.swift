@@ -3,6 +3,29 @@ import WebKit
 // MARK: - SingletonPlayerWebView Playback Controls Extension
 
 extension SingletonPlayerWebView {
+    /// Enables/disables startup autoplay blocking inside the observer script.
+    func setAutoplayBlocked(_ blocked: Bool) {
+        guard let webView else { return }
+        let script = """
+            (function() {
+                window.__kasetBlockAutoplay = \(blocked ? "true" : "false");
+                if (!window.__kasetBlockAutoplay) return 'autoplay-allowed';
+                window.__kasetAutoplayPending = false;
+                let ticks = 0;
+                const timer = setInterval(function() {
+                    const video = document.querySelector('video');
+                    if (video && !video.paused) {
+                        try { video.pause(); } catch (_) {}
+                    }
+                    ticks += 1;
+                    if (ticks >= 20) clearInterval(timer);
+                }, 150);
+                return 'autoplay-blocked';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }
