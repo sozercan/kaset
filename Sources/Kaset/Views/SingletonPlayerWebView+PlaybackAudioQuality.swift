@@ -70,21 +70,6 @@ extension SingletonPlayerWebView {
                     return 'AUDIO_QUALITY_AUTO';
                 }
             }
-
-            function youtubePlaybackQualityValue(quality) {
-                switch (quality) {
-                case 'low':
-                    return 'small';
-                case 'normal':
-                    return 'medium';
-                case 'high':
-                    return 'hd720';
-                case 'auto':
-                default:
-                    return 'auto';
-                }
-            }
-
             function callIfFunction(target, name, args) {
                 try {
                     if (target && typeof target[name] === 'function') {
@@ -98,20 +83,7 @@ extension SingletonPlayerWebView {
             function applyToPlayerApi(playerApi, quality) {
                 var applied = false;
                 var audioQuality = youtubeAudioQualityValue(quality);
-                var playbackQuality = youtubePlaybackQualityValue(quality);
-
                 applied = callIfFunction(playerApi, 'setAudioQuality', [audioQuality]) || applied;
-                applied = callIfFunction(playerApi, 'setPlaybackQuality', [playbackQuality]) || applied;
-
-                if (quality === 'auto') {
-                    applied = callIfFunction(playerApi, 'setPlaybackQualityRange', []) || applied;
-                } else {
-                    applied = callIfFunction(
-                        playerApi,
-                        'setPlaybackQualityRange',
-                        [playbackQuality, playbackQuality]
-                    ) || applied;
-                }
 
                 try {
                     if (playerApi && typeof playerApi.setOption === 'function') {

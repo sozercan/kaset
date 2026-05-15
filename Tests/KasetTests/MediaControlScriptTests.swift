@@ -267,10 +267,14 @@ struct MediaControlScriptTests {
             };
             var audioQualityCalls = [];
             var playbackQualityCalls = [];
+            var playbackQualityRangeCalls = [];
             var optionCalls = [];
             var playerApi = {
                 setAudioQuality: function(value) { audioQualityCalls.push(value); },
                 setPlaybackQuality: function(value) { playbackQualityCalls.push(value); },
+                setPlaybackQualityRange: function() {
+                    playbackQualityRangeCalls.push(Array.prototype.slice.call(arguments));
+                },
                 setOption: function(module, option, value) {
                     optionCalls.push(module + ':' + option + ':' + value);
                 }
@@ -298,11 +302,13 @@ struct MediaControlScriptTests {
         self.evaluate(SingletonPlayerWebView.playbackAudioQualityOverrideScript, in: context)
 
         let audioQuality = context.evaluateScript("audioQualityCalls[0]")?.toString()
-        let playbackQuality = context.evaluateScript("playbackQualityCalls[0]")?.toString()
+        let playbackQualityCallCount = context.evaluateScript("playbackQualityCalls.length")?.toInt32() ?? -1
+        let playbackQualityRangeCallCount = context.evaluateScript("playbackQualityRangeCalls.length")?.toInt32() ?? -1
         let optionCount = context.evaluateScript("optionCalls.length")?.toInt32() ?? -1
 
         #expect(audioQuality == "AUDIO_QUALITY_HIGH")
-        #expect(playbackQuality == "hd720")
+        #expect(playbackQualityCallCount == 0)
+        #expect(playbackQualityRangeCallCount == 0)
         #expect(optionCount > 0)
     }
 
