@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 import WebKit
 
@@ -243,8 +244,8 @@ final class SingletonPlayerWebView {
     }
 
     var displayMode: DisplayMode = .hidden
-    private var mediaControlUsesNextPrev: Bool
-    private var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
+    var mediaControlUsesNextPrev: Bool
+    var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
 
     /// Tracks if lyrics high-frequency polling should be active
     /// Used to restore polling after full-page navigation
@@ -467,6 +468,18 @@ final class SingletonPlayerWebView {
         contentController.addUserScript(script)
     }
 
+    func refreshInstalledUserScripts() {
+        guard let webView else { return }
+
+        let currentVolume = self.coordinator?.playerService.volume ?? 1.0
+        let isRestoringPlaybackSession = self.coordinator?.playerService.isRestoringPlaybackSession ?? false
+        self.installUserScripts(
+            on: webView.configuration.userContentController,
+            isRestoringPlaybackSession: isRestoringPlaybackSession,
+            targetVolume: currentVolume
+        )
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -481,59 +494,60 @@ final class SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
-            let observedVideoId: String? = if let videoId = body["videoId"] as? String, !videoId.isEmpty {
-                videoId
-            } else {
-                nil
-            }
+            let observedVideoId = Self.observedVideoId(from: body)
 
-            if type == "TRACK_ENDED" {
+            switch type {
+            case "TRACK_ENDED":
                 Task { @MainActor in
                     await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
                 }
-                return
-            }
-
-            if type == "REMOTE_NEXT" {
+            case "REMOTE_NEXT":
                 Task { @MainActor in
                     await self.playerService.next()
                 }
-                return
-            }
-
-            if type == "REMOTE_PREVIOUS" {
+            case "REMOTE_PREVIOUS":
                 Task { @MainActor in
                     await self.playerService.previous()
                 }
+            case "AIRPLAY_STATUS":
+                self.handleAirPlayStatusUpdate(body: body)
+            case "LYRICS_TIME":
+                self.handleLyricsTimeUpdate(body: body)
+            case "PLAYBACK_AUDIO_QUALITY_STATS":
+                Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
+            case "STATE_UPDATE":
+                self.handleStateUpdate(body: body, observedVideoId: observedVideoId)
+            default:
                 return
             }
+        }
 
-            // Handle AirPlay status updates
-            if type == "AIRPLAY_STATUS" {
-                let isConnected = body["isConnected"] as? Bool ?? false
-                let wasRequested = body["wasRequested"] as? Bool ?? false
+        private static func observedVideoId(from body: [String: Any]) -> String? {
+            guard let videoId = body["videoId"] as? String, !videoId.isEmpty else { return nil }
+            return videoId
+        }
 
-                Task { @MainActor in
-                    self.playerService.updateAirPlayStatus(
-                        isConnected: isConnected,
-                        wasRequested: wasRequested
-                    )
-                }
-                return
+        private func handleAirPlayStatusUpdate(body: [String: Any]) {
+            let isConnected = body["isConnected"] as? Bool ?? false
+            let wasRequested = body["wasRequested"] as? Bool ?? false
+
+            Task { @MainActor in
+                self.playerService.updateAirPlayStatus(
+                    isConnected: isConnected,
+                    wasRequested: wasRequested
+                )
             }
+        }
 
-            // Handle high frequency lyrics time updates
-            if type == "LYRICS_TIME" {
-                if let time = body["time"] as? Double {
-                    Task { @MainActor in
-                        self.playerService.currentTimeMs = Int(time * 1000)
-                    }
-                }
-                return
+        private func handleLyricsTimeUpdate(body: [String: Any]) {
+            guard let time = body["time"] as? Double else { return }
+
+            Task { @MainActor in
+                self.playerService.currentTimeMs = Int(time * 1000)
             }
+        }
 
-            guard type == "STATE_UPDATE" else { return }
-
+        private func handleStateUpdate(body: [String: Any], observedVideoId: String?) {
             let isPlaying = body["isPlaying"] as? Bool ?? false
             let progress = body["progress"] as? Int ?? 0
             let duration = body["duration"] as? Int ?? 0
@@ -541,18 +555,8 @@ final class SingletonPlayerWebView {
             let artist = body["artist"] as? String ?? ""
             let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
             let trackChanged = body["trackChanged"] as? Bool ?? false
-            let likeStatusString = body["likeStatus"] as? String ?? "INDIFFERENT"
+            let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
             let hasVideo = body["hasVideo"] as? Bool ?? false
-
-            // Parse like status
-            let likeStatus: LikeStatus = switch likeStatusString {
-            case "LIKE":
-                .like
-            case "DISLIKE":
-                .dislike
-            default:
-                .indifferent
-            }
 
             Task { @MainActor in
                 self.playerService.updatePlaybackState(
@@ -595,6 +599,95 @@ final class SingletonPlayerWebView {
                     }
                 }
             }
+        }
+
+        private static func likeStatus(from rawValue: String?) -> LikeStatus {
+            switch rawValue {
+            case "LIKE":
+                .like
+            case "DISLIKE":
+                .dislike
+            default:
+                .indifferent
+            }
+        }
+
+        private static func logAudioQualityStats(body: [String: Any], observedVideoId: String?) {
+            let preferred = Self.sanitizedLogString(body["preferred"])
+            let desired = Self.sanitizedLogString(body["desired"])
+            let applied = (body["applied"] as? Bool) == true ? "true" : "false"
+            let observed = Self.sanitizedLogString(body["observed"])
+            let source = Self.sanitizedLogString(body["source"])
+            let videoId = Self.sanitizedLogString(observedVideoId, fallback: "unknown")
+            let available = Self.compactJSONText(body["available"], fallback: "[]")
+            let stats = Self.compactJSONText(body["stats"], fallback: "{}")
+
+            let message = """
+            preferred=\(preferred) desired=\(desired) applied=\(applied) observed=\(observed) \
+            source=\(source) videoId=\(videoId) available=\(available) stats=\(stats)
+            """
+            DiagnosticsLogger.player.info("Audio quality stats: \(message, privacy: .public)")
+        }
+
+        private static func sanitizedLogString(_ value: Any?, fallback: String = "unknown") -> String {
+            guard let value else { return fallback }
+
+            let string: String = if let stringValue = value as? String {
+                stringValue
+            } else {
+                String(describing: value)
+            }
+
+            guard !string.isEmpty else { return fallback }
+            return String(string.prefix(200))
+        }
+
+        private static func compactJSONText(_ value: Any?, fallback: String) -> String {
+            guard let sanitized = sanitizedJSONValue(value, depth: 0),
+                  JSONSerialization.isValidJSONObject(sanitized),
+                  let data = try? JSONSerialization.data(withJSONObject: sanitized, options: [.sortedKeys]),
+                  let text = String(data: data, encoding: .utf8)
+            else {
+                return fallback
+            }
+
+            return text
+        }
+
+        private static func sanitizedJSONValue(_ value: Any?, depth: Int) -> Any? {
+            guard let value, depth < 3 else { return nil }
+
+            if let value = value as? String {
+                return String(value.prefix(200))
+            }
+
+            if let value = value as? Bool {
+                return value
+            }
+
+            if let value = value as? NSNumber {
+                return value
+            }
+
+            if let value = value as? [String: Any] {
+                var sanitized: [String: Any] = [:]
+                for key in value.keys.sorted().prefix(20) {
+                    guard !key.isEmpty,
+                          let sanitizedValue = Self.sanitizedJSONValue(value[key], depth: depth + 1)
+                    else {
+                        continue
+                    }
+
+                    sanitized[String(key.prefix(80))] = sanitizedValue
+                }
+                return sanitized
+            }
+
+            if let value = value as? [Any] {
+                return value.prefix(20).compactMap { Self.sanitizedJSONValue($0, depth: depth + 1) }
+            }
+
+            return nil
         }
 
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
@@ -679,175 +772,5 @@ final class SingletonPlayerWebView {
                 }
             }
         }
-    }
-}
-
-// MARK: - SingletonPlayerWebView Media Controls
-
-extension SingletonPlayerWebView {
-    /// Updates the current page and the bootstrap state used by future page loads.
-    func setMediaControlStyle(useNextPrev: Bool) {
-        self.mediaControlUsesNextPrev = useNextPrev
-
-        guard let webView = self.webView else { return }
-        let script = Self.mediaControlStyleSyncScript(useNextPrev: useNextPrev)
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    func mediaControlBootstrapScript() -> String {
-        Self.mediaControlStyleBootstrapScript(useNextPrev: self.mediaControlUsesNextPrev)
-    }
-
-    static func mediaControlStyleBootstrapScript(useNextPrev: Bool) -> String {
-        let jsBoolean = useNextPrev ? "true" : "false"
-        return """
-            (function() {
-                try {
-                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
-                } catch (e) {}
-                window.__kasetUseNextPrev = \(jsBoolean);
-                // Wrap setActionHandler at document start so YouTube's seekforward/seekbackward
-                // registrations are blocked before Control Center can reflect them. Without this
-                // the existing RAF override only clears them on the next frame, leaving a window
-                // where the macOS Now Playing widget briefly shows the 15s skip buttons.
-                try {
-                    var ms = navigator.mediaSession;
-                    if (ms && !ms.__kasetSetActionHandlerWrapped) {
-                        var orig = ms.setActionHandler.bind(ms);
-                        ms.setActionHandler = function(type, handler) {
-                            if (window.__kasetUseNextPrev && (type === 'seekforward' || type === 'seekbackward')) {
-                                return orig(type, null);
-                            }
-                            return orig(type, handler);
-                        };
-                        ms.__kasetSetActionHandlerWrapped = true;
-                    }
-                } catch (e) {}
-            })();
-        """
-    }
-
-    static func mediaControlStyleSyncScript(useNextPrev: Bool) -> String {
-        let jsBoolean = useNextPrev ? "true" : "false"
-        let restoreSeekHandlers = if useNextPrev {
-            ""
-        } else {
-            """
-                try {
-                    var ms = navigator.mediaSession;
-                    ms.setActionHandler('nexttrack', null);
-                    ms.setActionHandler('previoustrack', null);
-                    ms.setActionHandler('seekforward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.min(v.duration,
-                            v.currentTime + ((d && d.seekOffset) || 15));
-                    });
-                    ms.setActionHandler('seekbackward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.max(0,
-                            v.currentTime - ((d && d.seekOffset) || 15));
-                    });
-                } catch (e) {}
-            """
-        }
-
-        return """
-            (function() {
-                try {
-                    localStorage.setItem('kasetUseNextPrev', '\(jsBoolean)');
-                } catch (e) {}
-                window.__kasetUseNextPrev = \(jsBoolean);
-                if (typeof window.__kasetRefreshMediaControlStyle === 'function') {
-                    window.__kasetRefreshMediaControlStyle();
-                }
-                \(restoreSeekHandlers)
-            })();
-        """
-    }
-
-    static var mediaControlOverrideScript: String {
-        """
-        (function() {
-            if (typeof window.__kasetUseNextPrev !== 'boolean') {
-                try {
-                    window.__kasetUseNextPrev =
-                        localStorage.getItem('kasetUseNextPrev') === 'true';
-                } catch (e) {
-                    window.__kasetUseNextPrev = false;
-                }
-            }
-
-            var overrideFrameId = null;
-
-            function applyOverride() {
-                if (!window.__kasetUseNextPrev) {
-                    return;
-                }
-                try {
-                    var ms = navigator.mediaSession;
-                    ms.setActionHandler('seekforward', null);
-                    ms.setActionHandler('seekbackward', null);
-                    ms.setActionHandler('nexttrack', function() {
-                        window.webkit.messageHandlers.singletonPlayer
-                            .postMessage({ type: 'REMOTE_NEXT' });
-                    });
-                    ms.setActionHandler('previoustrack', function() {
-                        window.webkit.messageHandlers.singletonPlayer
-                            .postMessage({ type: 'REMOTE_PREVIOUS' });
-                    });
-                } catch (e) {}
-            }
-
-            function scheduleOverrideLoop() {
-                if (overrideFrameId !== null || !window.__kasetUseNextPrev) {
-                    return;
-                }
-
-                overrideFrameId = requestAnimationFrame(function() {
-                    overrideFrameId = null;
-                    if (!window.__kasetUseNextPrev) {
-                        return;
-                    }
-                    applyOverride();
-                    scheduleOverrideLoop();
-                });
-            }
-
-            window.__kasetRefreshMediaControlStyle = function() {
-                applyOverride();
-                scheduleOverrideLoop();
-            };
-
-            window.__kasetRefreshMediaControlStyle();
-
-            // Re-apply on video events where YouTube re-registers handlers.
-            function attachVideoOverride() {
-                var v = document.querySelector('video');
-                if (!v || v.__kasetOverrideAttached) return;
-                v.__kasetOverrideAttached = true;
-                ['playing','loadedmetadata','loadeddata','canplay','seeked']
-                    .forEach(function(e) { v.addEventListener(e, applyOverride); });
-            }
-
-            attachVideoOverride();
-            new MutationObserver(attachVideoOverride)
-                .observe(document.documentElement, {childList:true, subtree:true});
-        })();
-        """
-    }
-
-    // MARK: - Playback Audio Quality
-
-    /// Updates the current page and the bootstrap state used by future page loads.
-    func setPlaybackAudioQuality(_ quality: SettingsManager.PlaybackAudioQuality) {
-        self.playbackAudioQuality = quality
-
-        guard let webView = self.webView else { return }
-        let script = Self.playbackAudioQualitySyncScript(quality: quality)
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    func playbackAudioQualityBootstrapScript() -> String {
-        Self.playbackAudioQualityBootstrapScript(quality: self.playbackAudioQuality)
     }
 }
