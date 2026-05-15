@@ -46,9 +46,9 @@ final class ChartsViewModel {
         self.logger.info("Loading charts content")
 
         do {
-            let response = try await client.getCharts()
+            let response = try await self.client.getCharts()
             self.sections = response.sections
-            self.hasMoreSections = self.client.hasMoreChartsSections
+            self.hasMoreSections = self.hasMoreSectionsForCurrentSource
             self.loadingState = .loaded
             self.continuationsLoaded = 0
             let sectionCount = self.sections.count
@@ -87,10 +87,10 @@ final class ChartsViewModel {
             guard self.loadingState == .loaded else { break }
 
             do {
-                if let additionalSections = try await client.getChartsContinuation() {
+                if let additionalSections = try await self.getContinuationForCurrentSource() {
                     self.sections.append(contentsOf: additionalSections)
                     self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreChartsSections
+                    self.hasMoreSections = self.hasMoreSectionsForCurrentSource
                     let continuationNum = self.continuationsLoaded
                     self.logger.info("Background loaded \(additionalSections.count) more sections (continuation \(continuationNum))")
                 } else {
@@ -117,5 +117,15 @@ final class ChartsViewModel {
         self.hasMoreSections = true
         self.continuationsLoaded = 0
         await self.load()
+    }
+
+    // MARK: - Private Helpers
+
+    private var hasMoreSectionsForCurrentSource: Bool {
+        self.client.hasMoreChartsSections
+    }
+
+    private func getContinuationForCurrentSource() async throws -> [HomeSection]? {
+        try await self.client.getChartsContinuation()
     }
 }

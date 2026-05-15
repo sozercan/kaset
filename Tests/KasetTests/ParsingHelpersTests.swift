@@ -23,6 +23,57 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.isChartSection(title) == false)
     }
 
+    // MARK: - Explicit Badge Detection
+
+    @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in badges array")
+    func extractIsExplicitFromBadges() {
+        let data: [String: Any] = [
+            "badges": [
+                [
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                        "accessibilityData": ["accessibilityData": ["label": "Explicit"]],
+                    ],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == true)
+    }
+
+    @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in subtitleBadges array")
+    func extractIsExplicitFromSubtitleBadges() {
+        let data: [String: Any] = [
+            "subtitleBadges": [
+                [
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == true)
+    }
+
+    @Test("extractIsExplicit returns false when no badges are present")
+    func extractIsExplicitWithoutBadges() {
+        let data: [String: Any] = [
+            "title": ["runs": [["text": "Some Song"]]],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
+    }
+
+    @Test("extractIsExplicit returns false for non-explicit badge types")
+    func extractIsExplicitWithLiveBadge() {
+        let data: [String: Any] = [
+            "badges": [
+                [
+                    "liveBadgeRenderer": [:],
+                ],
+            ],
+        ]
+        #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
+    }
+
     // MARK: - URL Normalization
 
     @Test("Normalize URL adds https to protocol-relative URL")
@@ -181,6 +232,79 @@ struct ParsingHelpersTests {
         #expect(artists.count == 1)
         #expect(artists[0].id == "MPLAUC1234567890")
         #expect(artists[0].name == "Library Artist")
+    }
+
+    @Test("Extract artists from flex columns preserves linked numeric artist names")
+    func extractArtistsFromFlexColumnsWithLinkedNumericArtistName() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Song Title"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                [
+                                    "text": "311",
+                                    "navigationEndpoint": [
+                                        "browseEndpoint": [
+                                            "browseId": "UC311ArtistChannel",
+                                            "browseEndpointContextSupportedConfigs": [
+                                                "browseEndpointContextMusicConfig": [
+                                                    "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                                ["text": " • "],
+                                ["text": "2026"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.count == 1)
+        #expect(artists[0].id == "UC311ArtistChannel")
+        #expect(artists[0].name == "311")
+        #expect(artists[0].profileKind == .artist)
+    }
+
+    @Test("Extract artists from flex columns preserves plain uploaded artist text")
+    func extractArtistsFromFlexColumnsWithPlainUploadedArtistText() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Uploaded Song"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": "Upload Artist"],
+                                ["text": " • "],
+                                ["text": "Upload Album"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.count == 1)
+        #expect(artists[0].name == "Upload Artist")
+        #expect(artists.allSatisfy { !$0.hasNavigableId })
     }
 
     // MARK: - Video ID Extraction

@@ -209,6 +209,44 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentIndex == 2)
     }
 
+    @Test("Play queue with shuffle enabled materializes selected track first")
+    func playQueueWithShuffleEnabledMaterializesSelectedTrackFirst() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
+        ]
+
+        self.playerService.toggleShuffle()
+        await self.playerService.playQueue(songs, startingAt: 2)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.queue.first?.videoId == "v3")
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+        #expect(Set(self.playerService.queue.map(\.videoId)) == Set(songs.map(\.videoId)))
+    }
+
+    @Test("Play queue with shuffle enabled restores original order when disabled")
+    func playQueueWithShuffleEnabledRestoresOriginalOrderWhenDisabled() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
+        ]
+
+        self.playerService.toggleShuffle()
+        await self.playerService.playQueue(songs, startingAt: 2)
+
+        self.playerService.toggleShuffle()
+
+        #expect(self.playerService.shuffleEnabled == false)
+        #expect(self.playerService.queue.map(\.videoId) == songs.map(\.videoId))
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+    }
+
     @Test("Play queue with invalid index clamps to valid range")
     func playQueueWithInvalidIndex() async {
         let songs = [

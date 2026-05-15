@@ -33,7 +33,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         .accentBackground(from: self.viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
         .navigationTitle(self.artist.name)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
-        .topFade()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
                 PlayerBar()
@@ -113,6 +112,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             }
             .padding(24)
         }
+        .topFade(style: .contentMask)
     }
 
     private func headerView(_ detail: ArtistDetail) -> some View {
@@ -257,6 +257,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         .frame(width: 16, height: 16)
                 } else {
                     Text(self.subscribeButtonText(detail))
+                        .foregroundStyle(.white)
                 }
             }
             .buttonStyle(.glassProminent)
@@ -307,56 +308,66 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     /// Song row for top songs section - fetches all songs and plays as queue.
     private func topSongRow(_ song: Song, index: Int) -> some View {
-        Button {
-            // Fetch all songs and play as queue starting from the selected song
-            Task {
-                let allSongs = await self.viewModel.getAllSongs()
-                // Find the index of the selected song in the full list
-                let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
-                await self.playerService.playQueue(allSongs, startingAt: startIndex)
-            }
-        } label: {
-            HStack(spacing: 12) {
-                // Thumbnail
-                SongThumbnailView(song: song, size: 40, cornerRadius: 4)
+        HoverObservingRow { isHovered in
+            Button {
+                // Fetch all songs and play as queue starting from the selected song
+                Task {
+                    let allSongs = await self.viewModel.getAllSongs()
+                    // Find the index of the selected song in the full list
+                    let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
+                    await self.playerService.playQueue(allSongs, startingAt: startIndex)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    // Thumbnail
+                    SongThumbnailView(song: song, size: 40, cornerRadius: 4)
 
-                // Title
-                Text(song.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    // Title (with optional explicit badge)
+                    HStack(spacing: 6) {
+                        Text(song.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if song.isExplicit == true {
+                            ExplicitBadge()
+                        }
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Artist column
-                Text(song.artistsDisplay)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: 150, alignment: .leading)
-
-                // Album column (if available)
-                if let album = song.album {
-                    Text(album.title)
+                    // Artist column
+                    Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(width: 150, alignment: .leading)
-                } else {
-                    Text("")
-                        .frame(width: 150, alignment: .leading)
-                }
 
-                // Duration
-                Text(song.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 50, alignment: .trailing)
+                    // Album column (if available)
+                    if let album = song.album {
+                        Text(album.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: 150, alignment: .leading)
+                    } else {
+                        Text("")
+                            .frame(width: 150, alignment: .leading)
+                    }
+
+                    // Favorite toggle
+                    LikeButton(song: song, isRowHovered: isHovered)
+
+                    // Duration
+                    Text(song.durationDisplay)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .contextMenu {
             Button {
                 Task {
@@ -424,53 +435,44 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         title: String = "Albums",
         shelfKind: ArtistShelfKind = .albums
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: title,
+            items: albums
+        ) {
             self.sectionHeader(title: title, shelfKind: shelfKind)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(albums) { album in
-                        NavigationLink(value: self.playlistFromAlbum(album)) {
-                            self.albumCard(album)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { album in
+            NavigationLink(value: self.playlistFromAlbum(album)) {
+                self.albumCard(album)
             }
+            .buttonStyle(.plain)
         }
     }
 
     private func playlistsSection(_ playlists: [Playlist], title: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: title,
+            items: playlists
+        ) {
             self.sectionHeader(title: title, shelfKind: .playlistsByArtist)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(playlists) { playlist in
-                        NavigationLink(value: playlist) {
-                            self.playlistCard(playlist)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { playlist in
+            NavigationLink(value: playlist) {
+                self.playlistCard(playlist)
             }
+            .buttonStyle(.plain)
         }
     }
 
     private func artistsSection(_ artists: [Artist], title: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: title,
+            items: artists
+        ) {
             self.sectionHeader(title: title, shelfKind: .relatedArtists)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(artists) { artist in
-                        NavigationLink(value: artist) {
-                            self.artistCard(artist)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { artist in
+            NavigationLink(value: artist) {
+                self.artistCard(artist)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -621,23 +623,20 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     // MARK: - Episodes Section (Latest episodes / live radios)
 
     private func episodesSection(_ episodes: [ArtistEpisode]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Latest episodes"),
+            items: episodes
+        ) {
             self.sectionHeader(title: "Latest episodes", shelfKind: .episodes)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(episodes) { episode in
-                        Button {
-                            Task {
-                                await self.playerService.playEpisode(episode)
-                            }
-                        } label: {
-                            self.episodeCard(episode)
-                        }
-                        .buttonStyle(.plain)
-                    }
+        } itemContent: { episode in
+            Button {
+                Task {
+                    await self.playerService.playEpisode(episode)
                 }
+            } label: {
+                self.episodeCard(episode)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -695,79 +694,70 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     // MARK: - Singles & EPs Section
 
     private func singlesSection(_ singles: [Album]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Singles & EPs"),
+            items: singles
+        ) {
             self.sectionHeader(title: "Singles & EPs", shelfKind: .singles)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(singles) { album in
-                        NavigationLink(value: self.playlistFromAlbum(album)) {
-                            self.albumCard(album)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { album in
+            NavigationLink(value: self.playlistFromAlbum(album)) {
+                self.albumCard(album)
             }
+            .buttonStyle(.plain)
         }
     }
 
     // MARK: - Playlists by Artist Section
 
     private func playlistsByArtistSection(_ playlists: [Playlist]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Playlists"),
+            items: playlists
+        ) {
             self.sectionHeader(title: "Playlists", shelfKind: .playlistsByArtist)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(playlists) { playlist in
-                        NavigationLink(value: playlist) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(.quaternary)
-                                        .overlay {
-                                            Image(systemName: "music.note.list")
-                                                .font(.largeTitle)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                }
-                                .frame(width: 140, height: 140)
-                                .clipShape(.rect(cornerRadius: 8))
-
-                                Text(playlist.title)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                    .frame(width: 140, alignment: .leading)
+        } itemContent: { playlist in
+            NavigationLink(value: playlist) {
+                VStack(alignment: .leading, spacing: 8) {
+                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .overlay {
+                                Image(systemName: "music.note.list")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
                             }
-                        }
-                        .buttonStyle(.plain)
                     }
+                    .frame(width: 140, height: 140)
+                    .clipShape(.rect(cornerRadius: 8))
+
+                    Text(playlist.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: 140, alignment: .leading)
                 }
             }
+            .buttonStyle(.plain)
         }
     }
 
     // MARK: - Podcasts Section
 
     private func podcastsSection(_ podcasts: [PodcastShow]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Podcasts"),
+            items: podcasts
+        ) {
             self.sectionHeader(title: "Podcasts", shelfKind: .podcasts)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(podcasts) { show in
-                        NavigationLink(value: show) {
-                            self.podcastCard(show)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { show in
+            NavigationLink(value: show) {
+                self.podcastCard(show)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -800,19 +790,16 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     // MARK: - Related Artists Section
 
     private func relatedArtistsSection(_ artists: [Artist]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Fans might also like"),
+            items: artists
+        ) {
             self.sectionHeader(title: "Fans might also like", shelfKind: .relatedArtists)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(artists) { artist in
-                        NavigationLink(value: artist) {
-                            self.relatedArtistCard(artist)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+        } itemContent: { artist in
+            NavigationLink(value: artist) {
+                self.relatedArtistCard(artist)
             }
+            .buttonStyle(.plain)
         }
     }
 

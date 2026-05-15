@@ -18,6 +18,25 @@ struct AppLocalizationTests {
         return lprojBundle.localizedString(forKey: key, value: nil, table: nil)
     }
 
+    /// Helper to read a localized value directly from the source string catalog.
+    private func sourceCatalogValue(key: String, localeIdentifier: String) throws -> String {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let repositoryRoot = testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let catalogURL = repositoryRoot.appendingPathComponent("Sources/Kaset/Resources/Localizable.xcstrings")
+        let data = try Data(contentsOf: catalogURL)
+        let catalog = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let strings = try #require(catalog["strings"] as? [String: Any])
+        let entry = try #require(strings[key] as? [String: Any])
+        let localizations = try #require(entry["localizations"] as? [String: Any])
+        let localization = try #require(localizations[localeIdentifier] as? [String: Any])
+        let stringUnit = try #require(localization["stringUnit"] as? [String: Any])
+
+        return try #require(stringUnit["value"] as? String)
+    }
+
     @Test("Arabic bundle localizes artist strings")
     func arabicLocalizationWorks() {
         let artist = self.localizedValue(key: "Artist", localeIdentifier: "ar")
@@ -68,6 +87,23 @@ struct AppLocalizationTests {
         #expect(artist == "Artis")
         #expect(title.hasPrefix("Berlangganan"))
         #expect(title.contains("34.6M"))
+    }
+
+    @Test("Indonesian source catalog maps navigation and sidebar strings correctly")
+    func indonesianSourceCatalogMapsAffectedStrings() throws {
+        let expectedValues = [
+            ("Home", "Beranda"),
+            ("Search", "Cari"),
+            ("Explore", "Jelajah"),
+            ("Library", "Pustaka"),
+            ("Hide lyrics explanation", "Sembunyikan penjelasan lirik"),
+            ("Subscribe %@", "Berlangganan %@"),
+        ]
+
+        for (key, expectedValue) in expectedValues {
+            #expect(try self.sourceCatalogValue(key: key, localeIdentifier: "id") == expectedValue)
+            #expect(self.localizedValue(key: key, localeIdentifier: "id") == expectedValue)
+        }
     }
 
     @Test("French bundle localizes artist and subscribe strings")

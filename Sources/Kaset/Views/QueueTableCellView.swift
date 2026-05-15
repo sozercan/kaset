@@ -7,6 +7,8 @@ import SwiftUI
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
+    let onToggleLike: () -> Void
+    let isLiked: Bool
 }
 
 // MARK: - QueueTableCellView
@@ -25,6 +27,9 @@ class QueueTableCellView: NSView {
     private let titleLabel = NSTextField()
     private let artistLabel = NSTextField()
     private let durationLabel = NSTextField()
+    private let explicitBadge = NSTextField()
+    private let likeButton = NSButton()
+    private var onToggleLikeAction: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -114,10 +119,15 @@ class QueueTableCellView: NSView {
 
         infoStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) // Truncate before spacer grows
 
+        self.configureExplicitBadge()
+        self.configureLikeButton()
+
         stackView.addArrangedSubview(indicatorContainer)
         stackView.addArrangedSubview(self.thumbnailImageView)
         stackView.addArrangedSubview(infoStackView)
+        stackView.addArrangedSubview(self.explicitBadge)
         stackView.addArrangedSubview(spacerView)
+        stackView.addArrangedSubview(self.likeButton)
         stackView.addArrangedSubview(self.durationLabel)
 
         addSubview(stackView)
@@ -128,8 +138,43 @@ class QueueTableCellView: NSView {
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(self.handleClick(_:)))
         addGestureRecognizer(clickGesture)
+    }
+
+    /// Explicit "E" badge — placed inline at the trailing edge of the title row.
+    /// Hidden by default; toggled in configure(...) based on song.isExplicit.
+    private func configureExplicitBadge() {
+        self.explicitBadge.isEditable = false
+        self.explicitBadge.isBordered = false
+        self.explicitBadge.alignment = .center
+        self.explicitBadge.stringValue = "E"
+        self.explicitBadge.font = NSFont.systemFont(ofSize: 8, weight: .semibold)
+        self.explicitBadge.textColor = NSColor.windowBackgroundColor
+        self.explicitBadge.backgroundColor = NSColor.secondaryLabelColor
+        self.explicitBadge.drawsBackground = true
+        self.explicitBadge.wantsLayer = true
+        self.explicitBadge.layer?.cornerRadius = 2.5
+        self.explicitBadge.layer?.masksToBounds = true
+        self.explicitBadge.translatesAutoresizingMaskIntoConstraints = false
+        self.explicitBadge.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        self.explicitBadge.heightAnchor.constraint(equalToConstant: 12).isActive = true
+        self.explicitBadge.setAccessibilityLabel("Explicit")
+        self.explicitBadge.isHidden = true
+    }
+
+    /// Like (thumbs-up) button — always visible; opacity reflects state.
+    private func configureLikeButton() {
+        self.likeButton.bezelStyle = .accessoryBar
+        self.likeButton.isBordered = false
+        self.likeButton.setButtonType(.momentaryChange)
+        self.likeButton.imagePosition = .imageOnly
+        self.likeButton.image = NSImage(systemSymbolName: "hand.thumbsup", accessibilityDescription: "Like")
+        self.likeButton.target = self
+        self.likeButton.action = #selector(self.handleLikeClick)
+        self.likeButton.translatesAutoresizingMaskIntoConstraints = false
+        self.likeButton.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        self.likeButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
     }
 
     override func layout() {
@@ -143,9 +188,15 @@ class QueueTableCellView: NSView {
     func configure(song: Song, index: Int, isCurrentTrack: Bool, isPlaying: Bool, actions: QueueCellActions) {
         self.onPlay = actions.onPlay
         self.onRemove = actions.onRemove
+        self.onToggleLikeAction = actions.onToggleLike
         self.isCurrentTrack = isCurrentTrack
         self.isPlaying = isPlaying
         self.updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
+
+        let isExplicit = song.isExplicit ?? false
+        self.explicitBadge.isHidden = !isExplicit
+
+        self.updateLikeState(isLiked: actions.isLiked)
 
         self.titleLabel.stringValue = song.title
         self.titleLabel.font = NSFont.systemFont(ofSize: 13, weight: isCurrentTrack ? .semibold : .regular)
@@ -178,6 +229,18 @@ class QueueTableCellView: NSView {
             guard !Task.isCancelled, self?.currentSongId == songId else { return }
             self?.thumbnailImageView.image = image
         }
+    }
+
+    func updateLikeState(isLiked: Bool) {
+        let likeIconName = isLiked ? "hand.thumbsup.fill" : "hand.thumbsup"
+        let likeDescription = isLiked
+            ? String(localized: "Unlike")
+            : String(localized: "Like")
+        self.likeButton.image = NSImage(systemSymbolName: likeIconName, accessibilityDescription: likeDescription)
+        self.likeButton.contentTintColor = isLiked ? NSColor.systemRed : NSColor.tertiaryLabelColor
+        self.likeButton.alphaValue = isLiked ? 1.0 : 0.55
+        self.likeButton.toolTip = likeDescription
+        self.likeButton.setAccessibilityLabel(likeDescription)
     }
 
     func updateAppearance(isCurrentTrack: Bool, isPlaying: Bool, index: Int) {
@@ -227,8 +290,16 @@ class QueueTableCellView: NSView {
         }
     }
 
-    @objc private func handleClick() {
+    @objc private func handleClick(_ recognizer: NSClickGestureRecognizer) {
+        let clickLocation = recognizer.location(in: self)
+        let likeButtonLocation = self.likeButton.convert(clickLocation, from: self)
+        guard !self.likeButton.bounds.contains(likeButtonLocation) else { return }
+
         self.onPlay?()
+    }
+
+    @objc private func handleLikeClick() {
+        self.onToggleLikeAction?()
     }
 
     override func prepareForReuse() {
@@ -239,6 +310,8 @@ class QueueTableCellView: NSView {
         self.thumbnailImageView.image = nil
         self.waveformView?.removeFromSuperview()
         self.waveformView = nil
+        self.onToggleLikeAction = nil
+        self.explicitBadge.isHidden = true
     }
 }
 

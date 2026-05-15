@@ -4,6 +4,8 @@ import Foundation
 
 /// Represents a playlist from YouTube Music.
 struct Playlist: Identifiable, Codable, Hashable {
+    static let uploadedSongsBrowseID = "FEmusic_library_privately_owned_tracks"
+
     let id: String
     let title: String
     let description: String?
@@ -63,6 +65,11 @@ struct Playlist: Identifiable, Codable, Hashable {
     /// Albums have IDs starting with "OLAK" or "MPRE".
     var isAlbum: Bool {
         self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
+    }
+
+    /// Whether this playlist value represents the user's uploaded songs browse surface.
+    var isUploadedSongs: Bool {
+        self.id == Self.uploadedSongsBrowseID
     }
 
     /// Display string for track count.
@@ -177,6 +184,11 @@ struct PlaylistDetail: Identifiable {
     /// Albums have IDs starting with "OLAK" or "MPRE".
     var isAlbum: Bool {
         self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
+    }
+
+    /// Whether this detail represents the user's uploaded songs browse surface.
+    var isUploadedSongs: Bool {
+        self.id == Playlist.uploadedSongsBrowseID
     }
 
     init(playlist: Playlist, tracks: [Song], duration: String? = nil) {

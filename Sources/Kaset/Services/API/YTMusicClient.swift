@@ -58,6 +58,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
 
+    /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
+    private var personalizedRecommendationsContinuationToken: String?
+
     init(authService: AuthService, webKitManager: WebKitManager = .shared) {
         self.authService = authService
         self.webKitManager = webKitManager
@@ -148,6 +151,52 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Whether more home sections are available to load.
     var hasMoreHomeSections: Bool {
         self.hasMoreSections(for: .home)
+    }
+
+    /// Fetches signed-in, account-backed recommendations without sharing pagination state with Home.
+    func getPersonalizedRecommendations() async throws -> HomeResponse {
+        self.logger.info("Fetching personalized recommendations")
+
+        let body: [String: Any] = [
+            "browseId": PaginatedContentType.home.rawValue,
+        ]
+
+        let data = try await self.request("browse", body: body, ttl: APICache.TTL.home)
+        let response = HomeResponseParser.parse(data)
+        self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationToken(from: data)
+
+        let hasMore = self.personalizedRecommendationsContinuationToken != nil
+        self.logger.info("Personalized recommendations loaded: \(response.sections.count) sections, hasMore: \(hasMore)")
+        return response
+    }
+
+    /// Fetches the next batch of signed-in recommendation sections.
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
+        guard let token = self.personalizedRecommendationsContinuationToken else {
+            self.logger.debug("No personalized recommendations continuation token available")
+            return nil
+        }
+
+        self.logger.info("Fetching personalized recommendations continuation")
+
+        do {
+            let continuationData = try await self.requestContinuation(token)
+            let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
+            let hasMore = self.personalizedRecommendationsContinuationToken != nil
+
+            self.logger.info("Personalized recommendations continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
+            return additionalSections
+        } catch {
+            self.logger.warning("Failed to fetch personalized recommendations continuation: \(error.localizedDescription)")
+            self.personalizedRecommendationsContinuationToken = nil
+            throw error
+        }
+    }
+
+    /// Whether more signed-in recommendation sections are available to load.
+    var hasMorePersonalizedRecommendationSections: Bool {
+        self.personalizedRecommendationsContinuationToken != nil
     }
 
     /// Fetches the explore page content (initial sections only for fast display).
@@ -534,6 +583,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
         self.continuationTokens.removeAll()
+        self.personalizedRecommendationsContinuationToken = nil
         self.searchContinuationToken = nil
         self.likedSongsContinuationToken = nil
     }
@@ -584,15 +634,18 @@ final class YTMusicClient: YTMusicClientProtocol {
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
         let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
+        let uploadedSongsPlaylist = try await self.fetchUploadedSongsPlaylist()
         let content = PlaylistParser.LibraryContent(
             playlists: playlists,
             artists: artists,
             podcastShows: landingContent.podcastShows,
+            uploadedSongsPlaylist: uploadedSongsPlaylist,
             artistsSource: artistsSource
         )
 
+        let hasUploadedSongs = content.uploadedSongsPlaylist != nil
         self.logger.info(
-            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, and \(content.podcastShows.count) podcasts"
+            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, \(content.podcastShows.count) podcasts, uploads: \(hasUploadedSongs)"
         )
         return content
     }
@@ -649,6 +702,21 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         return (fallbackArtists, .landingFallback)
+    }
+
+    /// Fetches the uploaded songs surface as a virtual playlist tile when the account has uploads.
+    private func fetchUploadedSongsPlaylist() async throws -> Playlist? {
+        do {
+            let uploadedTracksData = try await self.request(
+                "browse",
+                body: ["browseId": Playlist.uploadedSongsBrowseID],
+                ttl: APICache.TTL.library
+            )
+            return PlaylistParser.parseUploadedSongsPlaylist(uploadedTracksData)
+        } catch {
+            self.logger.warning("Uploaded songs endpoint failed, hiding uploads tile: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Liked Songs with Pagination
@@ -734,7 +802,13 @@ final class YTMusicClient: YTMusicClientProtocol {
         // - RD... = radio/mix (use as-is)
         // - OLAK... = album (use as-is)
         // - MPRE... = album (use as-is)
-        let browseId: String = if id.hasPrefix("VL") || id.hasPrefix("RD") || id.hasPrefix("OLAK") || id.hasPrefix("MPRE") || id.hasPrefix("UC") {
+        let browseId: String = if id == Playlist.uploadedSongsBrowseID
+            || id.hasPrefix("VL")
+            || id.hasPrefix("RD")
+            || id.hasPrefix("OLAK")
+            || id.hasPrefix("MPRE")
+            || id.hasPrefix("UC")
+        {
             id
         } else if id.hasPrefix("PL") {
             "VL\(id)"

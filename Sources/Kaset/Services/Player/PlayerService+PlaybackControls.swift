@@ -259,18 +259,6 @@ extension PlayerService {
         self.clearRestoredPlaybackSessionState()
 
         if !self.queue.isEmpty {
-            if self.shuffleEnabled {
-                let randomIndex = Int.random(in: 0 ..< self.queue.count)
-                self.pushForwardSkipStackIfLeavingIndex(for: randomIndex)
-                self.currentIndex = randomIndex
-                if let nextSong = self.queue[safe: self.currentIndex] {
-                    await self.play(song: nextSong)
-                }
-                await self.fetchMoreMixSongsIfNeeded()
-                self.saveQueueForPersistence()
-                return
-            }
-
             if self.currentIndex < self.queue.count - 1 {
                 self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
                 self.currentIndex += 1
@@ -413,6 +401,11 @@ extension PlayerService {
     /// Toggles shuffle mode.
     func toggleShuffle() {
         self.shuffleEnabled.toggle()
+        if self.shuffleEnabled {
+            self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: true)
+        } else {
+            self.restoreQueueOrderBeforeShuffle(recordUndo: true)
+        }
         if SettingsManager.shared.rememberPlaybackSettings {
             UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
         }

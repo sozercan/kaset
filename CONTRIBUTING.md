@@ -26,6 +26,10 @@ swift test
 # Package and run the app
 Scripts/compile_and_run.sh
 
+# If you don't have Apple Development certificates configured,
+# use ad-hoc signing instead
+KASET_SIGNING=adhoc ./Scripts/compile_and_run.sh
+
 # Lint & Format
 swiftlint --strict && swiftformat .
 ```
@@ -55,15 +59,15 @@ docs/                   → Detailed documentation
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `Sources/Kaset/AppDelegate.swift` | Window lifecycle, background audio support |
-| `Sources/Kaset/Services/WebKit/WebKitManager.swift` | Cookie store & persistence |
-| `Sources/Kaset/Services/Auth/AuthService.swift` | Login state machine |
-| `Sources/Kaset/Services/Player/PlayerService.swift` | Playback state & control |
-| `Sources/Kaset/Views/MiniPlayerWebView.swift` | Singleton WebView, playback UI |
-| `Sources/Kaset/Views/MainWindow.swift` | Main app window |
-| `Sources/Kaset/Utilities/DiagnosticsLogger.swift` | Logging |
+| File                                                | Purpose                                    |
+| --------------------------------------------------- | ------------------------------------------ |
+| `Sources/Kaset/AppDelegate.swift`                   | Window lifecycle, background audio support |
+| `Sources/Kaset/Services/WebKit/WebKitManager.swift` | Cookie store & persistence                 |
+| `Sources/Kaset/Services/Auth/AuthService.swift`     | Login state machine                        |
+| `Sources/Kaset/Services/Player/PlayerService.swift` | Playback state & control                   |
+| `Sources/Kaset/Views/MiniPlayerWebView.swift`       | Singleton WebView, playback UI             |
+| `Sources/Kaset/Views/MainWindow.swift`              | Main app window                            |
+| `Sources/Kaset/Utilities/DiagnosticsLogger.swift`   | Logging                                    |
 
 ## Architecture
 
@@ -133,21 +137,21 @@ Quit app (⌘Q)     → App terminates → Audio stops
 
 ### Modern SwiftUI APIs
 
-| ❌ Avoid | ✅ Use |
-|----------|--------|
-| `.foregroundColor()` | `.foregroundStyle()` |
-| `.cornerRadius()` | `.clipShape(.rect(cornerRadius:))` |
-| `onChange(of:) { newValue in }` | `onChange(of:) { _, newValue in }` |
-| `Task.sleep(nanoseconds:)` | `Task.sleep(for: .seconds())` |
-| `NavigationView` | `NavigationSplitView` or `NavigationStack` |
-| `onTapGesture()` | `Button` (unless tap location needed) |
-| `tabItem()` | `Tab` API |
-| `AnyView` | Concrete types or `@ViewBuilder` |
-| `print()` | `DiagnosticsLogger` |
-| `DispatchQueue` | Swift concurrency (`async`/`await`) |
-| `String(format: "%.2f", n)` | `Text(n, format: .number.precision(...))` |
-| Force unwraps (`!`) | Optional handling or `guard` |
-| Image-only buttons without labels | Add `.accessibilityLabel()` |
+| ❌ Avoid                          | ✅ Use                                     |
+| --------------------------------- | ------------------------------------------ |
+| `.foregroundColor()`              | `.foregroundStyle()`                       |
+| `.cornerRadius()`                 | `.clipShape(.rect(cornerRadius:))`         |
+| `onChange(of:) { newValue in }`   | `onChange(of:) { _, newValue in }`         |
+| `Task.sleep(nanoseconds:)`        | `Task.sleep(for: .seconds())`              |
+| `NavigationView`                  | `NavigationSplitView` or `NavigationStack` |
+| `onTapGesture()`                  | `Button` (unless tap location needed)      |
+| `tabItem()`                       | `Tab` API                                  |
+| `AnyView`                         | Concrete types or `@ViewBuilder`           |
+| `print()`                         | `DiagnosticsLogger`                        |
+| `DispatchQueue`                   | Swift concurrency (`async`/`await`)        |
+| `String(format: "%.2f", n)`       | `Text(n, format: .number.precision(...))`  |
+| Force unwraps (`!`)               | Optional handling or `guard`               |
+| Image-only buttons without labels | Add `.accessibilityLabel()`                |
 
 ### Swift Concurrency
 
@@ -162,7 +166,7 @@ final class MyServiceTests: XCTestCase {
         // Do NOT call: try await super.setUp()
         // Set up test fixtures here
     }
-    
+
     override func tearDown() async throws {
         // Clean up here
         // Do NOT call: try await super.tearDown()
@@ -207,7 +211,7 @@ We embrace AI-assisted development! Whether you use GitHub Copilot, Claude, Curs
 
 A **prompt request** is a contribution where you share the AI prompt that generates code, rather than (or in addition to) the code itself. This approach:
 
-- **Captures intent** — The prompt often explains *why* better than a code diff
+- **Captures intent** — The prompt often explains _why_ better than a code diff
 - **Enables review before implementation** — Maintainers can validate the approach
 - **Supports iteration** — Prompts can be refined before code is generated
 - **Improves reproducibility** — Anyone can run the prompt to verify results
@@ -221,6 +225,7 @@ Submit code as usual, but include the AI prompt in the PR template's "AI Prompt"
 #### Option 2: Prompt Request (Prompt-Only)
 
 Create an issue using the **Prompt Request** template if you:
+
 - Have a well-crafted prompt but haven't run it yet
 - Want feedback on your approach before implementation
 - Prefer maintainers to run and merge the prompt themselves

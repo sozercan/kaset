@@ -114,6 +114,85 @@ struct PlaylistDetailViewModelTests {
         #expect(SongLikeStatusManager.shared.status(for: "liked-2") == .like)
     }
 
+    @Test("Liked Music load fetches every continuation")
+    func likedMusicLoadFetchesEveryContinuation() async {
+        let initialTracks = [
+            TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
+            TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
+            [
+                TestFixtures.makeSong(id: "liked-3", title: "Liked 3"),
+                TestFixtures.makeSong(id: "liked-4", title: "Liked 4"),
+            ],
+            [
+                TestFixtures.makeSong(id: "liked-5", title: "Liked 5"),
+            ],
+        ]
+
+        await likedMusicViewModel.load()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [
+            "liked-1",
+            "liked-2",
+            "liked-3",
+            "liked-4",
+            "liked-5",
+        ])
+        #expect(likedMusicViewModel.playlistDetail?.tracks.allSatisfy { $0.likeStatus == .like } == true)
+        #expect(likedMusicViewModel.hasMore == false)
+    }
+
+    @Test("Large playlist load fetches every continuation")
+    func largePlaylistLoadFetchesEveryContinuation() async {
+        let playlist = Playlist(
+            id: "VL-test-playlist",
+            title: "Large Playlist",
+            description: nil,
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 125,
+            author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        let initialTracks = TestFixtures.makeSongs(count: 100)
+        let detail = PlaylistDetail(playlist: playlist, tracks: initialTracks, duration: nil)
+        self.mockClient.playlistDetails[playlist.id] = detail
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            (100 ..< 115).map { index in
+                TestFixtures.makeSong(id: "video-\(index)", title: "Song \(index)")
+            },
+            (115 ..< 125).map { index in
+                TestFixtures.makeSong(id: "video-\(index)", title: "Song \(index)")
+            },
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 125)
+        #expect(self.viewModel.playlistDetail?.trackCount == 125)
+        #expect(self.viewModel.hasMore == false)
+    }
+
+    @Test("Small playlist load keeps continuation lazy")
+    func smallPlaylistLoadKeepsContinuationLazy() async {
+        let playlistDetail = TestFixtures.makePlaylistDetail(
+            playlist: TestFixtures.makePlaylist(id: "VL-test-playlist"),
+            trackCount: 10
+        )
+        self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+        self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [
+            [TestFixtures.makeSong(id: "cont-1")],
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.mockClient.getPlaylistContinuationCalled == false)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 10)
+        #expect(self.viewModel.hasMore == true)
+    }
+
     // MARK: - Load More Tests
 
     @Test("Load more appends tracks")

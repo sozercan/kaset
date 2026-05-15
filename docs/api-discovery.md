@@ -160,6 +160,7 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 | `FEmusic_new_releases` | New Releases | 🌐 | Recent albums, singles, videos | `HomeResponseParser` |
 | `FEmusic_library_landing` | Library Landing | 🔐 | All library content (playlists, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
 | `FEmusic_liked_playlists` | Library Playlists | 🔐 | User's saved/created playlists | `PlaylistParser` |
+| `FEmusic_library_privately_owned_tracks` | Uploaded Songs | 🔐 | User-uploaded songs with playlist-style rows and continuation | `PlaylistParser` |
 | `VLLM` | Liked Songs | 🔐 | All songs user has liked (with pagination) | `PlaylistParser` |
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
 | `UC{channelId}` | Artist Detail | 🌐 | Artist page with songs, albums | `ArtistParser` |
@@ -254,12 +255,24 @@ These endpoints are functional but not yet implemented in Kaset.
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
 | `FEmusic_recently_played` | Recently Played | 🔐 | Medium | Requires auth |
 | `FEmusic_library_privately_owned_landing` | Uploads | 🔐 | Low | User-uploaded content |
-| `FEmusic_library_privately_owned_tracks` | Uploaded Tracks | 🔐 | Low | Uploaded songs |
 | `FEmusic_library_privately_owned_albums` | Uploaded Albums | 🔐 | Low | Uploaded albums |
 
 > `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
 >
 > \* `FEmusic_library_albums`, `FEmusic_library_artists`, and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
+
+#### Uploaded Songs (`FEmusic_library_privately_owned_tracks`)
+
+```swift
+let body = ["browseId": "FEmusic_library_privately_owned_tracks"]
+// Requires authentication for user content
+```
+
+**Returns**: Playlist/list-style uploaded song rows with continuation for large upload libraries.
+
+**Parser**: Uses `PlaylistParser.parsePlaylistWithContinuation()` for the detail page and `PlaylistParser.parseUploadedSongsPlaylist()` for the Library tile. Uploaded rows may include artist metadata as plain text without a browse endpoint, so `ParsingHelpers.extractArtistsFromFlexColumns()` preserves plain artist text when no linked artist run is present.
+
+**Unauthenticated behavior verified on May 2, 2026**: HTTP 200 with a sign-in `messageRenderer` and no track rows.
 
 ---
 

@@ -233,6 +233,7 @@ enum SearchResponseParser {
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(data)
 
+        let isExplicit = ParsingHelpers.extractIsExplicit(from: data)
         let song = Song(
             id: videoId,
             title: title,
@@ -240,7 +241,8 @@ enum SearchResponseParser {
             album: album,
             duration: nil,
             thumbnailURL: thumbnailURL,
-            videoId: videoId
+            videoId: videoId,
+            isExplicit: isExplicit
         )
         return .song(song)
     }

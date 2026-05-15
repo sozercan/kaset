@@ -175,6 +175,66 @@ struct HomeSectionTests {
         #expect(item.subtitle == "Artist")
     }
 
+    @Test("Home card subtitle moves media type after name")
+    func homeCardSubtitleMovesMediaTypeAfterName() {
+        let song = Song(
+            id: "1",
+            title: "Song",
+            artists: [
+                Artist.inline(name: "Song", namespace: "content-type"),
+                Artist.inline(name: "Hurricane", namespace: "artist"),
+            ],
+            videoId: "1"
+        )
+
+        let item = HomeSectionItem.song(song)
+        #expect(item.homeCardSubtitle == "Hurricane - Song")
+    }
+
+    @Test("Home card subtitle separates name from view count")
+    func homeCardSubtitleSeparatesNameFromViewCount() {
+        let song = Song(
+            id: "1",
+            title: "Video",
+            artists: [
+                Artist.inline(name: "videos", namespace: "channel"),
+                Artist.inline(name: "5M views", namespace: "metadata"),
+            ],
+            videoId: "1"
+        )
+
+        let item = HomeSectionItem.song(song)
+        #expect(item.homeCardSubtitle == "videos - 5M views")
+    }
+
+    @Test("Home card playlist subtitle uses hyphen separator")
+    func homeCardPlaylistSubtitleUsesHyphenSeparator() {
+        let playlist = Playlist(
+            id: "PL1",
+            title: "Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: nil,
+            author: Artist.inline(name: "Wejdi • 1,783 tracks", namespace: "playlist-author")
+        )
+
+        let item = HomeSectionItem.playlist(playlist)
+        #expect(item.homeCardSubtitle == "Wejdi - 1,783 tracks")
+    }
+
+    @Test("Home card subtitle keeps artist-only subtitle unchanged")
+    func homeCardSubtitleKeepsArtistOnlySubtitleUnchanged() {
+        let song = Song(
+            id: "1",
+            title: "Song",
+            artists: [Artist(id: "a1", name: "Artist One"), Artist(id: "a2", name: "Artist Two")],
+            videoId: "1"
+        )
+
+        let item = HomeSectionItem.song(song)
+        #expect(item.homeCardSubtitle == "Artist One, Artist Two")
+    }
+
     // MARK: - HomeSectionItem ThumbnailURL Tests
 
     @Test("Song item returns song thumbnail")
