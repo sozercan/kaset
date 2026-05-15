@@ -57,6 +57,14 @@ struct GeneralSettingsView: View {
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
 
+                // Playback Audio Quality
+                Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
+                    ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
+                        Text(quality.displayName).tag(quality)
+                    }
+                }
+                .help("Choose the preferred audio quality for YouTube Music playback")
+
                 // Now Playing Controls
                 Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
                     ForEach(SettingsManager.MediaControlStyle.allCases) { style in

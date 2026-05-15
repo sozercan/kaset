@@ -244,6 +244,7 @@ final class SingletonPlayerWebView {
 
     var displayMode: DisplayMode = .hidden
     private var mediaControlUsesNextPrev: Bool
+    private var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
 
     /// Tracks if lyrics high-frequency polling should be active
     /// Used to restore polling after full-page navigation
@@ -251,6 +252,7 @@ final class SingletonPlayerWebView {
 
     private init() {
         self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
+        self.playbackAudioQuality = SettingsManager.shared.playbackAudioQuality
     }
 
     /// Get or create the singleton WebView.
@@ -433,6 +435,13 @@ final class SingletonPlayerWebView {
         )
         contentController.addUserScript(mediaControlBootstrapScript)
 
+        let playbackAudioQualityBootstrapScript = WKUserScript(
+            source: self.playbackAudioQualityBootstrapScript(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(playbackAudioQualityBootstrapScript)
+
         // Inject mediaSession override at document end without allowing duplicate RAF loops.
         let mediaOverrideScript = WKUserScript(
             source: Self.mediaControlOverrideScript,
@@ -440,6 +449,14 @@ final class SingletonPlayerWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(mediaOverrideScript)
+
+        // Apply preferred playback audio quality at document end and after player recreation.
+        let playbackAudioQualityOverrideScript = WKUserScript(
+            source: Self.playbackAudioQualityOverrideScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(playbackAudioQualityOverrideScript)
 
         // Inject observer script (at document end)
         let script = WKUserScript(
@@ -817,5 +834,20 @@ extension SingletonPlayerWebView {
                 .observe(document.documentElement, {childList:true, subtree:true});
         })();
         """
+    }
+
+    // MARK: - Playback Audio Quality
+
+    /// Updates the current page and the bootstrap state used by future page loads.
+    func setPlaybackAudioQuality(_ quality: SettingsManager.PlaybackAudioQuality) {
+        self.playbackAudioQuality = quality
+
+        guard let webView = self.webView else { return }
+        let script = Self.playbackAudioQualitySyncScript(quality: quality)
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    func playbackAudioQualityBootstrapScript() -> String {
+        Self.playbackAudioQualityBootstrapScript(quality: self.playbackAudioQuality)
     }
 }

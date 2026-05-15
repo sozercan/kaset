@@ -208,6 +208,36 @@ struct SettingsManagerTests {
         #expect(manager.mediaControlStyle == .nextPreviousTrack)
     }
 
+    // MARK: - PlaybackAudioQuality Tests
+
+    @Test("PlaybackAudioQuality has correct display names")
+    func playbackAudioQualityDisplayNames() {
+        #expect(SettingsManager.PlaybackAudioQuality.auto.displayName == "Auto")
+        #expect(SettingsManager.PlaybackAudioQuality.low.displayName == "Low")
+        #expect(SettingsManager.PlaybackAudioQuality.normal.displayName == "Normal")
+        #expect(SettingsManager.PlaybackAudioQuality.high.displayName == "High")
+    }
+
+    @Test("PlaybackAudioQuality rawValues roundtrip correctly")
+    func playbackAudioQualityRawValues() {
+        for quality in SettingsManager.PlaybackAudioQuality.allCases {
+            let restored = SettingsManager.PlaybackAudioQuality(rawValue: quality.rawValue)
+            #expect(restored == quality)
+        }
+    }
+
+    @Test("PlaybackAudioQuality identifiers are unique")
+    func playbackAudioQualityIdentifiersUnique() {
+        let ids = SettingsManager.PlaybackAudioQuality.allCases.map(\.id)
+        let uniqueIds = Set(ids)
+        #expect(ids.count == uniqueIds.count)
+    }
+
+    @Test("PlaybackAudioQuality has all expected cases")
+    func playbackAudioQualityAllCasesCovered() {
+        #expect(SettingsManager.PlaybackAudioQuality.allCases.count == 4)
+    }
+
     // MARK: - All Cases Coverage
 
     @Test("All LaunchPage cases are covered")

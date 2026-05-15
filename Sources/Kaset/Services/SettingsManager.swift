@@ -19,6 +19,7 @@ final class SettingsManager {
         static let scrobblePercentThreshold = "settings.scrobblePercentThreshold"
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
+        static let playbackAudioQuality = "settings.playbackAudioQuality"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
@@ -146,6 +147,29 @@ final class SettingsManager {
         }
     }
 
+    // MARK: - Playback Audio Quality
+
+    /// Preferred audio quality for playback through the YouTube Music WebView.
+    enum PlaybackAudioQuality: String, CaseIterable, Identifiable {
+        case auto
+        case low
+        case normal
+        case high
+
+        var id: String {
+            rawValue
+        }
+
+        var displayName: String {
+            switch self {
+            case .auto: "Auto"
+            case .low: "Low"
+            case .normal: "Normal"
+            case .high: "High"
+            }
+        }
+    }
+
     // MARK: - Settings Properties
 
     /// Whether to show system notifications when the track changes.
@@ -185,6 +209,13 @@ final class SettingsManager {
     var mediaControlStyle: MediaControlStyle {
         didSet {
             UserDefaults.standard.set(self.mediaControlStyle.rawValue, forKey: Keys.mediaControlStyle)
+        }
+    }
+
+    /// Preferred audio quality for playback through the YouTube Music WebView.
+    var playbackAudioQuality: PlaybackAudioQuality {
+        didSet {
+            UserDefaults.standard.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
         }
     }
 
@@ -279,6 +310,14 @@ final class SettingsManager {
             self.mediaControlStyle = style
         } else {
             self.mediaControlStyle = .nextPreviousTrack
+        }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.playbackAudioQuality),
+           let quality = PlaybackAudioQuality(rawValue: rawValue)
+        {
+            self.playbackAudioQuality = quality
+        } else {
+            self.playbackAudioQuality = .auto
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),
