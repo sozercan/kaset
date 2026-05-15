@@ -23,6 +23,7 @@ struct MainWindow: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
@@ -91,7 +92,20 @@ struct MainWindow: View {
                     // Show loading while checking login status to avoid onboarding flash
                     self.initializingView
                 } else if self.authService.state.isLoggedIn {
-                    self.mainContent
+                    // Skip the probe gate in UI test mode: existing test
+                    // fixtures (e.g. `navigateToSidebarItem`) check
+                    // sidebar element existence synchronously right after
+                    // launch and don't tolerate the ~300 ms gate delay.
+                    // The probe still fires in the background so the
+                    // `MOCK_PODCASTS_REGION_UNAVAILABLE` path works.
+                    if self.podcastsAvailability.didResolveFirstProbe || UITestConfig.isUITestMode {
+                        self.mainContent
+                    } else {
+                        // Hold the same loading view until the podcasts
+                        // probe resolves so the sidebar paints with the
+                        // correct state on first frame.
+                        self.initializingView
+                    }
                 } else {
                     OnboardingView()
                 }
@@ -201,6 +215,13 @@ struct MainWindow: View {
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
+            self.podcastsViewModel?.configure(
+                availabilityService: self.podcastsAvailability,
+                accountId: newAccountId
+            )
+            if let newAccountId {
+                self.podcastsAvailability.activateAccount(newAccountId)
+            }
 
             Task { @MainActor in
                 APICache.shared.invalidateAll()
@@ -210,11 +231,23 @@ struct MainWindow: View {
 
                 self.historyViewModel?.reset()
 
+                // Brand accounts can have a different region than the
+                // primary; re-probe in the background so the sidebar
+                // reflects the new account. We deliberately do NOT
+                // reset the gate (`didResolveFirstProbe`) here — that
+                // would tear down `mainContent` and show the loading
+                // spinner full-screen during the switch. Sidebar may
+                // briefly show the prior account's tab state until the
+                // probe lands.
                 DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await self.refreshAllContent()
+                    }
+
+                    group.addTask {
+                        await self.podcastsAvailability.probe(for: newAccountId, using: self.client)
                     }
 
                     if let currentVideoId = self.playerService.currentTrack?.videoId {
@@ -225,8 +258,55 @@ struct MainWindow: View {
                 }
             }
         }
+        .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
+            // If the user is sitting on the Podcasts tab when it flips
+            // unavailable, redirect to Home so they don't end up on a
+            // sidebar row that no longer exists.
+            if newValue == .unavailable, self.navigationSelection == .podcasts {
+                self.navigationSelection = .home
+            }
+
+            // Switching back from an unavailable account keeps the
+            // Podcasts VM reset/idle until the probe confirms the new
+            // account is available. Eagerly refresh then so the tab does
+            // not remain on the prior account's loaded-empty state.
+            if oldValue == .unavailable, newValue == .available {
+                Task { @MainActor in
+                    await self.podcastsViewModel?.refresh()
+                }
+            }
+        }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .task(id: self.accountService.currentAccount?.id) {
+            // Keep PodcastsViewModel in sync with the active account so
+            // 404 / empty results are recorded against the right account.
+            let accountId = self.accountService.currentAccount?.id
+            if let accountId {
+                self.podcastsAvailability.activateAccount(accountId)
+            }
+            self.podcastsViewModel?.configure(
+                availabilityService: self.podcastsAvailability,
+                accountId: accountId
+            )
+        }
+        .task(id: self.authService.state.isLoggedIn) {
+            // Run the podcasts availability probe whenever the user
+            // becomes logged in (cold start with cached cookies, or
+            // after an explicit sign-in). The result gates `mainContent`
+            // via `didResolveFirstProbe`, so the sidebar paints with the
+            // correct state on first frame — no flicker.
+            guard self.authService.state.isLoggedIn else { return }
+            // Brief delay so post-login cookies have a chance to settle
+            // into the data store the API client reads from. On cold
+            // start cookies are already there; this 200 ms is a small
+            // safety margin and is invisible behind the spinner.
+            try? await Task.sleep(for: .milliseconds(200))
+            await self.podcastsAvailability.probeForFirstResolution(
+                for: self.accountService.currentAccount?.id,
+                using: self.client
+            )
         }
         .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
             guard let event else { return }
@@ -430,6 +510,9 @@ struct MainWindow: View {
         case .loggedOut:
             // Onboarding view handles login, no need to auto-show sheet
             self.accountService.clearAccounts()
+            // Reset podcasts availability so the next sign-in re-gates
+            // the UI and re-probes the endpoint.
+            self.podcastsAvailability.reset()
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
@@ -450,7 +533,9 @@ struct MainWindow: View {
                     // Brief delay to ensure cookies are fully propagated in WebKit
                     try? await Task.sleep(for: .milliseconds(500))
 
-                    // Parallel initial data fetch for ~40% faster app launch
+                    // Parallel initial data fetch for ~40% faster app launch.
+                    // The podcasts probe is driven separately by the
+                    // `.task(id: state.isLoggedIn)` UI gate below.
                     await withTaskGroup(of: Void.self) { group in
                         group.addTask { await self.homeViewModel?.refresh() }
                         group.addTask { await self.exploreViewModel?.refresh() }
@@ -491,14 +576,22 @@ struct MainWindow: View {
     /// This method is called when the user switches between their primary account
     /// and brand accounts, ensuring all views display content for the new account.
     private func refreshAllContent() async {
-        // Parallel refresh of all content views
+        // Parallel refresh of all content views.
+        // The podcasts refresh is gated on the latest availability
+        // signal so a brand-account switch into a region without
+        // podcasts doesn't fire the spurious 404 the bug is about. The
+        // probe scheduled alongside this group will re-evaluate
+        // availability separately.
+        let podcastsAvailable = self.podcastsAvailability.availability != .unavailable
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
             group.addTask { await self.exploreViewModel?.refresh() }
             group.addTask { await self.chartsViewModel?.refresh() }
             group.addTask { await self.moodsAndGenresViewModel?.refresh() }
             group.addTask { await self.newReleasesViewModel?.refresh() }
-            group.addTask { await self.podcastsViewModel?.refresh() }
+            if podcastsAvailable {
+                group.addTask { await self.podcastsViewModel?.refresh() }
+            }
             group.addTask { await self.likedMusicViewModel?.refresh() }
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }

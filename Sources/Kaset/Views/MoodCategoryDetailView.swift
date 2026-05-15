@@ -67,19 +67,16 @@ struct MoodCategoryDetailView: View {
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: section.items,
+            itemAlignment: .top
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 16) {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { _, item in
-                        self.itemView(item)
-                    }
-                }
-            }
-            .scrollClipDisabled()
+        } itemContent: { item in
+            self.itemView(item)
         }
     }
 

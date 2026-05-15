@@ -71,18 +71,15 @@ struct PodcastsView: View {
     }
 
     private func sectionView(_ section: PodcastSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: section.items
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(section.items) { item in
-                        self.itemCard(item)
-                    }
-                }
-            }
+        } itemContent: { item in
+            self.itemCard(item)
         }
     }
 

@@ -7,6 +7,7 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | Command | Description |
 | ------- | ----------- |
 | `play` | Start or resume playback |
+| `play video` | Play a YouTube video by its video ID
 | `pause` | Pause playback |
 | `playpause` | Toggle play/pause |
 | `next track` | Skip to next track |
@@ -29,6 +30,12 @@ tell application "Kaset"
     set volume 50
     toggle shuffle
 end tell
+```
+
+### Play a video
+
+```applescript
+tell application "Kaset" to play video "dQw4w9WgXcQ"
 ```
 
 ### Get Player State

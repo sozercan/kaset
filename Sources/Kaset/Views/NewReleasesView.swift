@@ -65,29 +65,19 @@ struct NewReleasesView: View {
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: Array(section.items.enumerated()),
+            id: \.element.id,
+            itemAlignment: .top
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 16) {
-                    if section.isChart {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                            HomeSectionItemCard(item: item, rank: index + 1) {
-                                self.playItem(item, in: section, at: index)
-                            }
-                        }
-                    } else {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                            HomeSectionItemCard(item: item) {
-                                self.playItem(item, in: section, at: index)
-                            }
-                        }
-                    }
-                }
+        } itemContent: { index, item in
+            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+                self.playItem(item, in: section, at: index)
             }
-            .scrollClipDisabled()
         }
     }
 

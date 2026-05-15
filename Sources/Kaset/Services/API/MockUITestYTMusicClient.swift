@@ -127,6 +127,9 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getPodcasts() async throws -> [PodcastSection] {
         try? await Task.sleep(for: .milliseconds(100))
+        if UITestConfig.environmentValue(for: UITestConfig.mockPodcastsRegionUnavailableKey) == "true" {
+            throw YTMusicError.apiError(message: "HTTP 404", code: 404)
+        }
         return []
     }
 
