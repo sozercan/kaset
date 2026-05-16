@@ -120,6 +120,78 @@ extension PlayerService {
         )
     }
 
+    private func adoptObservedTrackAsCurrentQueue(
+        title: String,
+        artist: String,
+        resolvedVideoId: String,
+        thumbnailURL: URL?
+    ) {
+        let artistObj = Artist(id: "unknown", name: artist)
+        let adoptedSong = Song(
+            id: resolvedVideoId,
+            title: title,
+            artists: [artistObj],
+            album: nil,
+            duration: self.duration > 0 ? self.duration : nil,
+            thumbnailURL: thumbnailURL,
+            videoId: resolvedVideoId
+        )
+
+        self.setQueue([adoptedSong])
+        self.queueOrderBeforeShuffle = nil
+        self.currentIndex = 0
+        self.pendingPlayVideoId = resolvedVideoId
+        self.currentTrack = adoptedSong
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.resetTrackStatus()
+        if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
+            self.currentTrackLikeStatus = cachedStatus
+        }
+        self.saveQueueForPersistence()
+        self.logger.info("Adopted observed track '\(title)' as current queue item")
+    }
+
+    private func appendObservedTrackAndMakeCurrent(
+        title: String,
+        artist: String,
+        resolvedVideoId: String,
+        thumbnailURL: URL?
+    ) {
+        let artistObj = Artist(id: "unknown", name: artist)
+        let adoptedSong = Song(
+            id: resolvedVideoId,
+            title: title,
+            artists: [artistObj],
+            album: nil,
+            duration: self.duration > 0 ? self.duration : nil,
+            thumbnailURL: thumbnailURL,
+            videoId: resolvedVideoId
+        )
+
+        var updatedEntries = self.queueEntries
+        updatedEntries.append(QueueEntry(id: UUID(), song: adoptedSong))
+        self.setQueue(entries: updatedEntries)
+        self.queueOrderBeforeShuffle = nil
+        self.currentIndex = updatedEntries.count - 1
+        self.pendingPlayVideoId = resolvedVideoId
+        self.currentTrack = adoptedSong
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.resetTrackStatus()
+        if let cachedStatus = SongLikeStatusManager.shared.status(for: resolvedVideoId) {
+            self.currentTrackLikeStatus = cachedStatus
+        }
+        self.saveQueueForPersistence()
+        self.logger.info("Appended observed track '\(title)' and made it current")
+    }
+
+    private var isAtTerminalQueueBoundary: Bool {
+        !self.canAdvanceNativeQueueAfterTrackEnd
+            && !self.queue.isEmpty
+            && self.repeatMode != .one
+    }
+
     private func suppressUnexpectedAutoplayAfterQueueEndIfNeeded(
         trackChanged: Bool,
         observedVideoId: String?,
@@ -130,6 +202,7 @@ extension PlayerService {
         guard trackChanged,
               self.shouldSuppressAutoplayAfterQueueEnd,
               let currentQueueSong = self.queue[safe: self.currentIndex],
+              let observedVideoId = self.normalizedObservedVideoId(observedVideoId),
               !self.observedTrackMatchesSong(
                   observedVideoId: observedVideoId,
                   title: title,
@@ -140,12 +213,15 @@ extension PlayerService {
             return false
         }
 
-        self.markPlaybackEnded()
-        self.logger.info("Suppressing unexpected autoplay after native queue ended")
-        self.keepQueueSongVisible(currentQueueSong, thumbnailUrl: thumbnailUrl)
-        Task {
-            await self.pause()
-        }
+        let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
+        let thumbnailURL = URL(string: thumbnailUrl)
+        self.logger.info("Appending autoplayed track after native queue ended")
+        self.appendObservedTrackAndMakeCurrent(
+            title: title,
+            artist: artist,
+            resolvedVideoId: resolvedVideoId,
+            thumbnailURL: thumbnailURL
+        )
         return true
     }
 
@@ -268,11 +344,15 @@ extension PlayerService {
             return true
         }
 
-        self.markPlaybackEnded()
-        self.logger.info("Unexpected autoplay detected at end of native queue; pausing playback")
-        Task {
-            await self.pause()
-        }
+        let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
+        let thumbnailURL = URL(string: thumbnailUrl)
+        self.logger.info("Near-end autoplay detected at terminal queue boundary; appending observed track")
+        self.appendObservedTrackAndMakeCurrent(
+            title: title,
+            artist: artist,
+            resolvedVideoId: resolvedVideoId,
+            thumbnailURL: thumbnailURL
+        )
         return true
     }
 
@@ -343,6 +423,18 @@ extension PlayerService {
             return false
         }
 
+        if self.isAtTerminalQueueBoundary {
+            let thumbnailURL = URL(string: thumbnailUrl)
+            self.logger.info("Observed track diverged at terminal queue boundary; appending observed track")
+            self.appendObservedTrackAndMakeCurrent(
+                title: title,
+                artist: artist,
+                resolvedVideoId: observedVideoId,
+                thumbnailURL: thumbnailURL
+            )
+            return true
+        }
+
         // Repeat one: never realign `currentIndex` to another queue item when YouTube briefly loads
         // a different in-queue video (autoplay); that would break repeat and jump the queue pointer.
         if self.repeatMode == .one {
@@ -385,6 +477,41 @@ extension PlayerService {
         Task {
             await self.play(song: currentQueueSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
         }
+        return true
+    }
+
+    private func adoptObservedStandaloneTrackIfNeeded(
+        observedVideoId: String?,
+        title: String,
+        artist: String,
+        resolvedVideoId: String,
+        thumbnailURL: URL?,
+        trackChanged: Bool
+    ) -> Bool {
+        guard self.queue.isEmpty,
+              trackChanged,
+              observedVideoId != nil || !title.isEmpty
+        else {
+            return false
+        }
+
+        if let currentTrack,
+           self.observedTrackMatchesSong(
+               observedVideoId: observedVideoId,
+               title: title,
+               artist: artist,
+               song: currentTrack
+           )
+        {
+            return false
+        }
+
+        self.adoptObservedTrackAsCurrentQueue(
+            title: title,
+            artist: artist,
+            resolvedVideoId: resolvedVideoId,
+            thumbnailURL: thumbnailURL
+        )
         return true
     }
 
@@ -530,6 +657,17 @@ extension PlayerService {
             title: title,
             artist: artist,
             thumbnailUrl: thumbnailUrl,
+            trackChanged: trackChanged
+        ) {
+            return
+        }
+
+        if self.adoptObservedStandaloneTrackIfNeeded(
+            observedVideoId: observedVideoId,
+            title: title,
+            artist: artist,
+            resolvedVideoId: resolvedVideoId,
+            thumbnailURL: thumbnailURL,
             trackChanged: trackChanged
         ) {
             return
