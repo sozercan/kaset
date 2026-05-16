@@ -30,7 +30,9 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             resources: [
-                .process("Resources"),
+                .process("Resources/Assets.xcassets"),
+                .process("Resources/Localizable.xcstrings"),
+                .process("Resources/Kaset.sdef"),
                 .copy("Extensions"),
             ],
             swiftSettings: [
