@@ -11,6 +11,7 @@ struct Sidebar: View {
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
+    @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
 
     /// Namespace for glass effect morphing.
     @Namespace private var sidebarNamespace
@@ -54,10 +55,12 @@ struct Sidebar: View {
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.newReleasesItem)
 
-                        NavigationLink(value: SidebarSelection.navigation(.podcasts)) {
-                            Label(NavigationItem.podcasts.displayName, systemImage: NavigationItem.podcasts.icon)
+                        if self.podcastsAvailability.availability != .unavailable {
+                            NavigationLink(value: SidebarSelection.navigation(.podcasts)) {
+                                Label(NavigationItem.podcasts.displayName, systemImage: NavigationItem.podcasts.icon)
+                            }
+                            .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
                         }
-                        .accessibilityIdentifier(AccessibilityID.Sidebar.podcastsItem)
                     }
 
                     // Collection section
@@ -191,4 +194,5 @@ struct Sidebar: View {
     Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
         .frame(width: 220)
         .environment(SidebarPinnedItemsManager(skipLoad: true))
+        .environment(PodcastsAvailabilityService())
 }

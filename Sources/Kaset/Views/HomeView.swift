@@ -71,7 +71,7 @@ struct HomeView: View {
                     .staggeredAppearance(index: 0)
                 }
 
-                // API sections - use stable id without array enumeration
+                // API sections
                 ForEach(self.viewModel.sections) { section in
                     self.sectionView(section)
                         .task {
@@ -85,36 +85,22 @@ struct HomeView: View {
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: Array(section.items.enumerated()),
+            id: \.element.id,
+            itemAlignment: .top
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 16) {
-                    // Use stable ID from items, avoid enumeration for non-chart sections
-                    if section.isChart {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                            HomeSectionItemCard(item: item, rank: index + 1) {
-                                self.playItem(item, in: section, at: index)
-                            }
-                            .contextMenu {
-                                self.contextMenuItems(for: item, in: section, at: index)
-                            }
-                        }
-                    } else {
-                        ForEach(section.items) { item in
-                            HomeSectionItemCard(item: item) {
-                                self.playItem(item, in: section, at: 0)
-                            }
-                            .contextMenu {
-                                self.contextMenuItems(for: item, in: section, at: 0)
-                            }
-                        }
-                    }
-                }
+        } itemContent: { index, item in
+            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+                self.playItem(item, in: section, at: index)
             }
-            .scrollClipDisabled()
+            .contextMenu {
+                self.contextMenuItems(for: item, in: section, at: index)
+            }
         }
     }
 

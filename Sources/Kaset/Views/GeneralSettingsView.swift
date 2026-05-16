@@ -61,6 +61,14 @@ struct GeneralSettingsView: View {
                 Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
                     .help("Keep the mini player visible above other windows")
 
+                // Playback Audio Quality
+                Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
+                    ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
+                        Text(quality.displayName).tag(quality)
+                    }
+                }
+                .help("Choose the preferred audio quality for YouTube Music playback")
+
                 // Now Playing Controls
                 Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
                     ForEach(SettingsManager.MediaControlStyle.allCases) { style in

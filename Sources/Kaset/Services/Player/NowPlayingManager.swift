@@ -30,6 +30,7 @@ final class NowPlayingManager {
         self.playerService = playerService
         self.setupRemoteCommands()
         self.syncMediaControlSetting()
+        self.syncPlaybackAudioQualitySetting()
         self.logger.info("NowPlayingManager configured (remote commands only)")
 
         self.observeSettingsChanges()
@@ -38,9 +39,11 @@ final class NowPlayingManager {
     private func observeSettingsChanges() {
         withObservationTracking {
             _ = self.settings.mediaControlStyle
+            _ = self.settings.playbackAudioQuality
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.syncMediaControlSetting()
+                self?.syncPlaybackAudioQualitySetting()
                 self?.observeSettingsChanges()
             }
         }
@@ -50,6 +53,11 @@ final class NowPlayingManager {
     private func syncMediaControlSetting() {
         let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
         SingletonPlayerWebView.shared.setMediaControlStyle(useNextPrev: useNextPrev)
+    }
+
+    /// Syncs the preferred playback audio quality setting to the singleton WebView and its bootstrap state.
+    private func syncPlaybackAudioQualitySetting() {
+        SingletonPlayerWebView.shared.setPlaybackAudioQuality(self.settings.playbackAudioQuality)
     }
 
     // MARK: - Remote Commands
