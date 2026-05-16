@@ -612,21 +612,58 @@ final class SingletonPlayerWebView {
             }
         }
 
+        private static let allowedAudioQualityStatsKeys: Set<String> = [
+            "afmt",
+            "audioBitrate",
+            "audioCodec",
+            "audioCodecs",
+            "audioFormat",
+            "audioItag",
+            "audioMimeType",
+            "audioQuality",
+            "audio_format",
+            "bitrate",
+            "codec",
+            "codecs",
+            "debug_audioFormat",
+            "debug_audioQuality",
+            "debug_playbackQuality",
+            "itag",
+            "mimeType",
+            "quality",
+        ]
+
+        private static let allowedAudioQualityStatsFragments: Set<String> = [
+            "bitrate",
+            "codec",
+            "format",
+            "itag",
+            "mime",
+            "quality",
+        ]
+
         private static func logAudioQualityStats(body: [String: Any], observedVideoId: String?) {
+            let message = Self.audioQualityStatsLogMessage(body: body, observedVideoId: observedVideoId)
+            DiagnosticsLogger.player.info("Audio quality stats: \(message, privacy: .private)")
+        }
+
+        static func audioQualityStatsLogMessage(body: [String: Any], observedVideoId: String?) -> String {
             let preferred = Self.sanitizedLogString(body["preferred"])
             let desired = Self.sanitizedLogString(body["desired"])
             let applied = (body["applied"] as? Bool) == true ? "true" : "false"
             let observed = Self.sanitizedLogString(body["observed"])
             let source = Self.sanitizedLogString(body["source"])
             let videoId = Self.sanitizedLogString(observedVideoId, fallback: "unknown")
-            let available = Self.compactJSONText(body["available"], fallback: "[]")
-            let stats = Self.compactJSONText(body["stats"], fallback: "{}")
+            let available = Self.compactJSONText(
+                Self.sanitizedPrimitiveArray(body["available"]) ?? [],
+                fallback: "[]"
+            )
+            let stats = Self.compactJSONText(Self.sanitizedStatsForNerds(body["stats"]), fallback: "{}")
 
-            let message = """
+            return """
             preferred=\(preferred) desired=\(desired) applied=\(applied) observed=\(observed) \
             source=\(source) videoId=\(videoId) available=\(available) stats=\(stats)
             """
-            DiagnosticsLogger.player.info("Audio quality stats: \(message, privacy: .public)")
         }
 
         private static func sanitizedLogString(_ value: Any?, fallback: String = "unknown") -> String {
@@ -638,14 +675,18 @@ final class SingletonPlayerWebView {
                 String(describing: value)
             }
 
-            guard !string.isEmpty else { return fallback }
-            return String(string.prefix(200))
+            let flattened = string
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: " ")
+                .replacingOccurrences(of: "\t", with: " ")
+
+            guard !flattened.isEmpty else { return fallback }
+            return String(flattened.prefix(200))
         }
 
-        private static func compactJSONText(_ value: Any?, fallback: String) -> String {
-            guard let sanitized = sanitizedJSONValue(value, depth: 0),
-                  JSONSerialization.isValidJSONObject(sanitized),
-                  let data = try? JSONSerialization.data(withJSONObject: sanitized, options: [.sortedKeys]),
+        private static func compactJSONText(_ value: Any, fallback: String) -> String {
+            guard JSONSerialization.isValidJSONObject(value),
+                  let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
                   let text = String(data: data, encoding: .utf8)
             else {
                 return fallback
@@ -654,37 +695,109 @@ final class SingletonPlayerWebView {
             return text
         }
 
-        private static func sanitizedJSONValue(_ value: Any?, depth: Int) -> Any? {
-            guard let value, depth < 3 else { return nil }
+        private static func sanitizedStatsForNerds(_ value: Any?) -> [String: Any] {
+            guard let value = value as? [String: Any] else { return [:] }
+
+            var sanitized: [String: Any] = [:]
+            for key in value.keys.sorted() where sanitized.count < 12 {
+                guard Self.isAllowedAudioQualityStatsKey(key) else { continue }
+
+                let sanitizedKey = String(key.prefix(80))
+                if let primitive = Self.sanitizedPrimitive(value[key]) {
+                    sanitized[sanitizedKey] = primitive
+                    continue
+                }
+
+                if let primitiveArray = Self.sanitizedPrimitiveArray(value[key]) {
+                    sanitized[sanitizedKey] = primitiveArray
+                }
+            }
+
+            return sanitized
+        }
+
+        private static func isAllowedAudioQualityStatsKey(_ key: String) -> Bool {
+            if self.allowedAudioQualityStatsKeys.contains(key) {
+                return true
+            }
+
+            let lowercasedKey = key.lowercased()
+            return lowercasedKey.contains("audio")
+                && Self.allowedAudioQualityStatsFragments.contains { lowercasedKey.contains($0) }
+        }
+
+        private static func sanitizedPrimitiveArray(_ value: Any?) -> [Any]? {
+            guard let values = value as? [Any] else { return nil }
+
+            let sanitized = values.prefix(12).compactMap { Self.sanitizedPrimitive($0) }
+            return sanitized.isEmpty ? nil : sanitized
+        }
+
+        private static func sanitizedPrimitive(_ value: Any?) -> Any? {
+            guard let value else { return nil }
 
             if let value = value as? String {
-                return String(value.prefix(200))
+                return String(value.prefix(160))
             }
 
             if let value = value as? Bool {
                 return value
             }
 
-            if let value = value as? NSNumber {
+            return Self.sanitizedNumericPrimitive(value)
+        }
+
+        private static func sanitizedNumericPrimitive(_ value: Any) -> Any? {
+            if let value = value as? Int {
                 return value
             }
 
-            if let value = value as? [String: Any] {
-                var sanitized: [String: Any] = [:]
-                for key in value.keys.sorted().prefix(20) {
-                    guard !key.isEmpty,
-                          let sanitizedValue = Self.sanitizedJSONValue(value[key], depth: depth + 1)
-                    else {
-                        continue
-                    }
-
-                    sanitized[String(key.prefix(80))] = sanitizedValue
-                }
-                return sanitized
+            if let value = value as? Int8 {
+                return value
             }
 
-            if let value = value as? [Any] {
-                return value.prefix(20).compactMap { Self.sanitizedJSONValue($0, depth: depth + 1) }
+            if let value = value as? Int16 {
+                return value
+            }
+
+            if let value = value as? Int32 {
+                return value
+            }
+
+            if let value = value as? Int64 {
+                return value
+            }
+
+            if let value = value as? UInt {
+                return value
+            }
+
+            if let value = value as? UInt8 {
+                return value
+            }
+
+            if let value = value as? UInt16 {
+                return value
+            }
+
+            if let value = value as? UInt32 {
+                return value
+            }
+
+            if let value = value as? UInt64 {
+                return value
+            }
+
+            if let value = value as? Double {
+                return value.isFinite ? value : nil
+            }
+
+            if let value = value as? Float {
+                return value.isFinite ? Double(value) : nil
+            }
+
+            if let value = value as? NSNumber {
+                return value.doubleValue.isFinite ? value : nil
             }
 
             return nil
