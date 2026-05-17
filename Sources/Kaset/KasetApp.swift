@@ -40,6 +40,7 @@ struct KasetApp: App {
     @State private var syncedLyricsService: SyncedLyricsService
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
+    @State private var boringNotchBridge: BoringNotchBridgeService?
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
 
     /// Triggers search field focus when set to true.
@@ -104,6 +105,8 @@ struct KasetApp: App {
         scrobblingCoordinator.restoreAuthState()
         scrobblingCoordinator.startMonitoring()
         _scrobblingCoordinator = State(initialValue: scrobblingCoordinator)
+        let boringNotchBridge = BoringNotchBridgeService(playerService: player)
+        _boringNotchBridge = State(initialValue: boringNotchBridge)
 
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
         // This ensures playerService is available for lifecycle events like queue restoration
@@ -146,6 +149,11 @@ struct KasetApp: App {
                         self.appDelegate.playerService = self.playerService
                         // Reference notificationService to keep SwiftUI from deallocating it
                         _ = self.notificationService
+                        // Start boring.notch bridge if enabled
+                        if self.settings.boringNotchBridgeEnabled {
+                            DiagnosticsLogger.network.info("boring.notch integration enabled at launch; starting bridge")
+                            self.boringNotchBridge?.start()
+                        }
                     }
                     .task {
                         DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -169,6 +177,15 @@ struct KasetApp: App {
                         // equalizer a chance to spin up.
                         if isPlaying {
                             self.equalizerService.retryStartIfEnabled()
+                        }
+                    }
+                    .onChange(of: self.settings.boringNotchBridgeEnabled) { _, enabled in
+                        if enabled {
+                            DiagnosticsLogger.network.info("boring.notch integration enabled from settings; starting bridge")
+                            self.boringNotchBridge?.start()
+                        } else {
+                            DiagnosticsLogger.network.info("boring.notch integration disabled from settings; stopping bridge")
+                            self.boringNotchBridge?.stop()
                         }
                     }
             }
