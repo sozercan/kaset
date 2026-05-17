@@ -29,6 +29,10 @@ let package = Package(
             dependencies: [
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
+            exclude: [
+                "Resources/AppIcon.icon",
+                "Resources/kaset.icns",
+            ],
             resources: [
                 .process("Resources/Assets.xcassets"),
                 .process("Resources/Localizable.xcstrings"),

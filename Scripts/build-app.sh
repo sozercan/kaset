@@ -148,12 +148,14 @@ if [[ -f "$SDEF_PATH" ]]; then
   cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
 fi
 
-# ── App icon ─────────────────────────────────────────────────────────────────
+# ── App icon and main asset catalog ──────────────────────────────────────────
 # AppIcon.icon is an Icon Composer package (macOS 26+). actool consumes it
 # directly and produces Assets.car with full dark/light appearance layers.
-# No PNG extraction or intermediate .appiconset is needed.
+# The top-level Assets.car also needs AccentColor because Info.plist references
+# NSAccentColorName from the main bundle.
 
 ICON_SOURCE="$ROOT/Sources/Kaset/Resources/AppIcon.icon"
+APP_ASSET_CATALOG="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
 
 # Copy the .icon bundle into the app for Liquid Glass dark/light switching
 if [[ -d "$ICON_SOURCE" ]]; then
@@ -161,11 +163,11 @@ if [[ -d "$ICON_SOURCE" ]]; then
   cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
 fi
 
-# Compile AppIcon.icon directly into Contents/Resources/Assets.car
-if [[ -d "$ICON_SOURCE" ]] && command -v xcrun &>/dev/null; then
-  echo "🎨 Compiling Icon Composer app icon..."
+# Compile AppIcon.icon and AccentColor into Contents/Resources/Assets.car
+if [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
+  echo "🎨 Compiling main asset catalog..."
   ICON_PARTIAL_PLIST="$BUILD_DIR/AppIconPartialInfo.plist"
-  xcrun actool "$ICON_SOURCE" \
+  xcrun actool "$ICON_SOURCE" "$APP_ASSET_CATALOG" \
     --compile "$APP_BUNDLE/Contents/Resources" \
     --notices --warnings --errors \
     --output-partial-info-plist "$ICON_PARTIAL_PLIST" \
@@ -176,12 +178,12 @@ if [[ -d "$ICON_SOURCE" ]] && command -v xcrun &>/dev/null; then
     --minimum-deployment-target 26.0 \
     --platform macosx
   if [[ ! -f "$APP_BUNDLE/Contents/Resources/Assets.car" ]]; then
-    echo "ERROR: actool did not produce Assets.car from $ICON_SOURCE" >&2
+    echo "ERROR: actool did not produce Assets.car from $ICON_SOURCE and $APP_ASSET_CATALOG" >&2
     exit 1
   fi
-  echo "   ✓ App icon compiled to Contents/Resources/Assets.car"
+  echo "   ✓ App icon and accent color compiled to Contents/Resources/Assets.car"
 else
-  echo "⚠️  Warning: $ICON_SOURCE not found. App will have no icon."
+  echo "⚠️  Warning: $ICON_SOURCE or $APP_ASSET_CATALOG not found. App will have incomplete assets."
 fi
 
 # ── Sparkle.framework ────────────────────────────────────────────────────────
