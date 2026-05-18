@@ -113,7 +113,7 @@ struct MiniPlayerWindow: View {
 
             self.hoverChrome
                 .opacity(self.isHovering ? 1 : 0)
-                .animation(.easeInOut(duration: 0.14), value: self.isHovering)
+                .animation(AppAnimation.quick, value: self.isHovering)
         }
         .contentShape(.rect)
         .onHover { hovering in
@@ -251,7 +251,7 @@ struct MiniPlayerWindow: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
             .opacity(self.isHovering ? 1 : 0)
-            .animation(.easeInOut(duration: 0.14), value: self.isHovering)
+            .animation(AppAnimation.quick, value: self.isHovering)
         }
     }
 
@@ -357,7 +357,7 @@ struct MiniPlayerWindow: View {
     private func hoverOnly(@ViewBuilder content: () -> some View) -> some View {
         content()
             .opacity(self.isHovering ? 1 : 0)
-            .animation(.easeInOut(duration: 0.14), value: self.isHovering)
+            .animation(AppAnimation.quick, value: self.isHovering)
     }
 
     private func trafficButton(color: Color, accessibilityLabel: String, accessibilityID: String, action: @escaping () -> Void) -> some View {
@@ -409,13 +409,23 @@ struct MiniPlayerWindow: View {
 
     private var moreMenu: some View {
         Menu {
-            Button("Favorite") {
+            Button {
                 self.playerService.toggleLibraryStatus()
+            } label: {
+                Label(
+                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
+                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
+                )
             }
             .disabled(self.playerService.currentTrack == nil)
 
-            Button("Suggest Less") {
+            Button {
                 self.playerService.dislikeCurrentTrack()
+            } label: {
+                Label(
+                    self.playerService.currentTrackLikeStatus == .dislike ? "Remove Dislike" : "Dislike",
+                    systemImage: self.playerService.currentTrackLikeStatus == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown"
+                )
             }
             .disabled(self.playerService.currentTrack == nil)
 
