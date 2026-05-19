@@ -9,36 +9,37 @@ struct MusicIslandView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
             // Album Art
             if let url = self.playerService.currentTrack?.thumbnailURL {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image.resizable().aspectRatio(contentMode: .fill)
                     } else if phase.error != nil {
-                        CassetteIcon(size: 28)
+                        CassetteIcon(size: 48)
                     } else {
                         ProgressView().controlSize(.small)
                     }
                 }
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
-                CassetteIcon(size: 36)
+                CassetteIcon(size: 64)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 if let line = self.currentLyricLine {
                     Text(line.text.isEmpty ? "♪" : line.text)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .contentTransition(.numericText())
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: line.text)
                     
                     if let romaji = line.romanizedText {
                         Text(romaji)
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .contentTransition(.numericText())
@@ -46,37 +47,43 @@ struct MusicIslandView: View {
                     }
                 } else {
                     Text(self.playerService.currentTrack?.title ?? "Kaset")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     
                     Text(self.playerService.currentTrack?.artistsDisplay ?? "Not Playing")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
+            .padding(.top, 24) // Anchor text below the notch so it safely grows downwards
+
             Spacer(minLength: 0)
-            
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12) // Smaller top padding so the thumbnail can expand upwards
+        .padding(.bottom, 16)
+        .frame(minWidth: 200, idealWidth: 320, maxWidth: 450)
+        // Absolute black to blend with physical notch
+        .background(
+            UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24, style: .continuous)
+                .fill(.black)
+                .shadow(color: .black.opacity(0.5), radius: 15, x: 0, y: 8)
+        )
+        .overlay(alignment: .topTrailing) {
             if self.isHovered {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.secondary)
                     .transition(.scale.combined(with: .opacity))
+                    .padding(.top, 16)
+                    .padding(.trailing, 16)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(minWidth: 200, idealWidth: 320, maxWidth: 450)
-        // Liquid glass effect for macOS 26+
-        .background(.black.opacity(0.6))
-        .background(Material.ultraThin)
-        .clipShape(Capsule(style: .continuous))
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.5), radius: 15, x: 0, y: 8)
+        // Add outer padding to give room for the shadow in the window bounds
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 self.isHovered = hovering
@@ -84,6 +91,44 @@ struct MusicIslandView: View {
         }
         .onTapGesture {
             self.bringAppToFront()
+        }
+        .task(id: self.playerService.currentTrack?.videoId) {
+            if let videoId = self.playerService.currentTrack?.videoId {
+                await self.fetchLyrics(for: videoId)
+            }
+        }
+        .onChange(of: self.lyricsService.currentLyrics) { _, newLyrics in
+            self.updateLyricsPolling(for: newLyrics)
+        }
+        .onDisappear {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+        .onAppear {
+            self.updateLyricsPolling(for: self.lyricsService.currentLyrics)
+        }
+    }
+
+    private func updateLyricsPolling(for result: LyricResult) {
+        if case .synced = result {
+            SingletonPlayerWebView.shared.startLyricsPoll()
+        } else {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+    }
+
+    private func fetchLyrics(for videoId: String) async {
+        guard let track = self.playerService.currentTrack, track.videoId == videoId else { return }
+        
+        let info = LyricsSearchInfo(
+            title: track.title,
+            artist: track.artistsDisplay,
+            album: track.album?.title,
+            duration: track.duration,
+            videoId: track.videoId
+        )
+        
+        if SettingsManager.shared.syncedLyricsEnabled {
+            await self.lyricsService.fetchLyrics(for: info)
         }
     }
 

@@ -34,7 +34,7 @@ final class MusicIslandWindowController {
         let hostingView = NSHostingView(rootView: AnyView(contentView))
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 60),
+            contentRect: NSRect(x: 0, y: 0, width: 498, height: 116),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -80,13 +80,13 @@ final class MusicIslandWindowController {
 
     private func positionAtTopCenter(window: NSWindow) {
         guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
+        let screenFrame = screen.frame // Use absolute frame to overlap the menu bar
         let windowSize = window.frame.size
         
-        // 12px margin from the top menu bar
+        // 0px margin from the absolute top of the screen to extend the dark spot
         let origin = NSPoint(
             x: screenFrame.midX - (windowSize.width / 2),
-            y: screenFrame.maxY - windowSize.height - 12
+            y: screenFrame.maxY - windowSize.height
         )
 
         window.setFrameOrigin(origin)
