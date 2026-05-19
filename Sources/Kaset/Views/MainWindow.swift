@@ -325,98 +325,99 @@ struct MainWindow: View {
             }
         }
     }
-// MARK: - Main Content
 
-private var mainContent: some View {
-  ZStack(alignment: .trailing) {
+    // MARK: - Main Content
 
-    // Main navigation content
-    NavigationSplitView(columnVisibility: self.$columnVisibility) {
-        Sidebar(
-            selection: self.$navigationSelection,
-            pinnedSelection: self.$selectedSidebarPinnedItem
-        )
-    } detail: {
-        self.detailView(
-            for: self.navigationSelection,
-            pinnedItem: self.selectedSidebarPinnedItem,
-            client: self.client
-        )
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .contentShape(Rectangle())
-    .onTapGesture(count: 2) {
-        if self.playerService.showLyrics || self.playerService.showQueue {
-            self.playerService.showLyrics = false
-            self.playerService.showQueue = false
-        }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                    // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
-
-        if self.columnVisibility != .all {
-            self.columnVisibility = .all
-        }
-    }
-
-    // Right sidebar overlay - either lyrics or queue (mutually exclusive)
-    self.rightSidebarOverlay(client: self.client)
-}
-    .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
-    .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-    .frame(minWidth: 900, minHeight: 600)
-    .toolbar {
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                self.isCommandBarPresented = true
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
+    private var mainContent: some View {
+        ZStack(alignment: .trailing) {
+            // Main navigation content
+            NavigationSplitView(columnVisibility: self.$columnVisibility) {
+                Sidebar(
+                    selection: self.$navigationSelection,
+                    pinnedSelection: self.$selectedSidebarPinnedItem
+                )
+            } detail: {
+                self.detailView(
+                    for: self.navigationSelection,
+                    pinnedItem: self.selectedSidebarPinnedItem,
+                    client: self.client
+                )
             }
-            .keyboardShortcut("k", modifiers: .command)
-            .help(String(localized: "Open Command Bar (⌘K)"))
-            .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                if self.playerService.showLyrics || self.playerService.showQueue {
+                    self.playerService.showLyrics = false
+                    self.playerService.showQueue = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
+
+                if self.columnVisibility != .all {
+                    self.columnVisibility = .all
+                }
+            }
+
+            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
+            self.rightSidebarOverlay(client: self.client)
+        }
+        .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
+        .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
+        .frame(minWidth: 900, minHeight: 600)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    self.isCommandBarPresented = true
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                }
+                .keyboardShortcut("k", modifiers: .command)
+                .help(String(localized: "Open Command Bar (⌘K)"))
+                .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+            }
         }
     }
-}
-    /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
 
-@ViewBuilder
-private func rightSidebarOverlay(client: any YTMusicClientProtocol) -> some View {
-    let showRightSidebar =
-        self.playerService.showLyrics || self.playerService.showQueue
+    // Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
 
-    HStack(spacing: 0) {
-        // Sidebar itself
-        if showRightSidebar {
-            VStack {
-                Spacer()
+    @ViewBuilder
+    private func rightSidebarOverlay(client: any YTMusicClientProtocol) -> some View {
+        let showRightSidebar =
+            self.playerService.showLyrics || self.playerService.showQueue
 
-                Group {
-                    if self.playerService.showLyrics {
-                        LyricsView(client: client)
-                    } else if self.playerService.showQueue {
-                        if self.playerService.queueDisplayMode == .sidepanel {
-                            QueueSidePanelView()
-                        } else {
-                            QueueView()
+        HStack(spacing: 0) {
+            // Sidebar itself
+            if showRightSidebar {
+                VStack {
+                    Spacer()
+
+                    Group {
+                        if self.playerService.showLyrics {
+                            LyricsView(client: client)
+                        } else if self.playerService.showQueue {
+                            if self.playerService.queueDisplayMode == .sidepanel {
+                                QueueSidePanelView()
+                            } else {
+                                QueueView()
+                            }
                         }
                     }
-                }
-                .frame(maxHeight: .infinity)
-                .padding(.top, 12)
-                .padding(.bottom, 76)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .frame(maxHeight: .infinity)
+                    .padding(.top, 12)
+                    .padding(.bottom, 76)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
 
-                Spacer()
+                    Spacer()
+                }
+                .padding(.trailing, 16)
             }
-            .padding(.trailing, 16)
         }
     }
-}
 
-private func detailView(
+    private func detailView(
         for item: NavigationItem?,
         pinnedItem: SidebarPinnedItem?,
         client: any YTMusicClientProtocol
