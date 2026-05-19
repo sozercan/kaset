@@ -24,6 +24,7 @@ struct MainWindow: View {
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @Environment(SyncedLyricsService.self) private var lyricsService
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
@@ -38,6 +39,7 @@ struct MainWindow: View {
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
+    @State private var settings = SettingsManager.shared
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -213,6 +215,12 @@ struct MainWindow: View {
                 VideoWindowController.shared.close()
             }
         }
+        .onChange(of: self.settings.musicIslandEnabled) { _, _ in
+            self.updateMusicIslandState()
+        }
+        .onChange(of: self.playerService.isPlaying) { _, _ in
+            self.updateMusicIslandState()
+        }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
             self.podcastsViewModel?.configure(
@@ -323,6 +331,17 @@ struct MainWindow: View {
             if self.navigationSelection != .likedMusic {
                 self.likedMusicViewModel?.handleLikeStatusChange(event)
             }
+        }
+    }
+
+    private func updateMusicIslandState() {
+        if self.settings.musicIslandEnabled && self.playerService.isPlaying {
+            MusicIslandWindowController.shared.show(
+                playerService: self.playerService,
+                lyricsService: self.lyricsService
+            )
+        } else {
+            MusicIslandWindowController.shared.hide()
         }
     }
 

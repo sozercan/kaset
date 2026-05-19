@@ -23,6 +23,7 @@ final class SettingsManager {
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
+        static let musicIslandEnabled = "settings.musicIslandEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -273,6 +274,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the Music Island feature (floating lyrics) is enabled.
+    var musicIslandEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.musicIslandEnabled, forKey: Keys.musicIslandEnabled)
+        }
+    }
+
     /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
@@ -303,6 +311,7 @@ final class SettingsManager {
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        self.musicIslandEnabled = UserDefaults.standard.object(forKey: Keys.musicIslandEnabled) as? Bool ?? false
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)
