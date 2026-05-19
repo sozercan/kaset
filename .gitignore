@@ -61,3 +61,4 @@ TEMP_*
 build/
 .codex/environments/environment.toml
 Build
+worker/.dev.vars
