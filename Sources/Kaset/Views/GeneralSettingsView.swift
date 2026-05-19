@@ -49,6 +49,10 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
                     .help("Fetch and display real-time synced lyrics when available")
 
+                // Music Island
+                Toggle("Music Island", isOn: self.$settings.musicIslandEnabled)
+                    .help("Show a floating capsule at the top of the screen with currently playing lyrics")
+
                 // Romanization
                 Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
                     .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
