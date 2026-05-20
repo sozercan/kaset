@@ -658,7 +658,6 @@ struct PlayerBar: View {
                 Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(self.playerService.isMiniPlayerVisible ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
             .glassEffectID("miniPlayer", in: self.playerNamespace)
