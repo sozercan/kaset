@@ -12,7 +12,6 @@ final class MiniPlayerWindowController {
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
     private weak var playerService: PlayerService?
-    private var restoreMainWindow: (() -> Void)?
     private var isClosing = false
 
     private let frameAutosaveKey = "KasetMiniPlayerWindow"
@@ -22,11 +21,9 @@ final class MiniPlayerWindowController {
     func show(
         playerService: PlayerService,
         client: any YTMusicClientProtocol,
-        syncedLyricsService: SyncedLyricsService,
-        restoreMainWindow: @escaping () -> Void
+        syncedLyricsService: SyncedLyricsService
     ) {
         self.playerService = playerService
-        self.restoreMainWindow = restoreMainWindow
 
         let contentView = MiniPlayerWindow(client: client)
             .environment(playerService)
@@ -98,20 +95,13 @@ final class MiniPlayerWindowController {
     }
 
     func closeFromUserAction() {
-        let restoreMainWindow = self.restoreMainWindow
-        let shouldRestoreMainWindow = self.playerService?.closeMiniPlayer() ?? false
+        _ = self.playerService?.closeMiniPlayer() ?? false
         self.close()
-
-        if shouldRestoreMainWindow {
-            restoreMainWindow?()
-        }
     }
 
     func returnToMainWindowFromUserAction() {
-        let restoreMainWindow = self.restoreMainWindow
         _ = self.playerService?.closeMiniPlayer(restoringMainWindow: true) ?? false
         self.close()
-        restoreMainWindow?()
     }
 
     func miniaturizeFromUserAction() {
@@ -136,13 +126,8 @@ final class MiniPlayerWindowController {
             window.saveFrame(usingName: self.frameAutosaveKey)
         }
 
-        let restoreMainWindow = self.restoreMainWindow
-        let shouldRestoreMainWindow = self.playerService?.closeMiniPlayer() ?? false
+        _ = self.playerService?.closeMiniPlayer() ?? false
         self.performCleanup()
-
-        if shouldRestoreMainWindow {
-            restoreMainWindow?()
-        }
     }
 
     private func performCleanup() {
@@ -152,7 +137,6 @@ final class MiniPlayerWindowController {
         self.window = nil
         self.hostingView = nil
         self.playerService = nil
-        self.restoreMainWindow = nil
         self.isClosing = false
     }
 

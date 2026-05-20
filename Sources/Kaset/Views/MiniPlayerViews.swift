@@ -386,7 +386,7 @@ struct MiniPlayerWindow: View {
 
             self.airPlayButton
 
-            self.hoverIconButton(systemName: self.volumeIcon, accessibilityID: AccessibilityID.MiniPlayer.volumeSlider, label: String(localized: "Volume"), isActive: self.playerService.isMuted) {
+            self.hoverIconButton(systemName: self.volumeIcon, accessibilityID: AccessibilityID.MiniPlayer.volumeButton, label: String(localized: "Volume"), isActive: self.playerService.isMuted) {
                 Task { await self.playerService.toggleMute() }
             }
         }
@@ -450,7 +450,7 @@ struct MiniPlayerWindow: View {
     }
 
     private func isEnabledWithoutTrack(accessibilityID: String) -> Bool {
-        accessibilityID == AccessibilityID.MiniPlayer.volumeSlider ||
+        accessibilityID == AccessibilityID.MiniPlayer.volumeButton ||
             accessibilityID == AccessibilityID.MiniPlayer.panelToggleButton ||
             accessibilityID == AccessibilityID.MiniPlayer.returnToKasetButton
     }

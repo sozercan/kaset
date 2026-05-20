@@ -3,6 +3,10 @@ import Foundation
 /// Centralized accessibility identifiers for UI testing.
 /// Using an enum namespace prevents typos and enables autocomplete.
 enum AccessibilityID {
+    static func isAuxiliaryPlayerWindowIdentifier(_ identifier: String?) -> Bool {
+        identifier == VideoWindow.container || identifier == MiniPlayer.container
+    }
+
     // MARK: - Sidebar
 
     enum Sidebar {
@@ -60,7 +64,7 @@ enum AccessibilityID {
         static let lyricsView = "miniPlayer.lyricsView"
         static let queueButton = "miniPlayer.queue"
         static let airplayButton = "miniPlayer.airplay"
-        static let volumeSlider = "miniPlayer.volumeSlider"
+        static let volumeButton = "miniPlayer.volumeButton"
         static let seekSlider = "miniPlayer.seekSlider"
         static let trackTitle = "miniPlayer.trackTitle"
         static let trackArtist = "miniPlayer.trackArtist"

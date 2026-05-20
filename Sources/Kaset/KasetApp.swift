@@ -177,10 +177,7 @@ struct KasetApp: App {
                             MiniPlayerWindowController.shared.show(
                                 playerService: self.playerService,
                                 client: self.sharedClient,
-                                syncedLyricsService: self.syncedLyricsService,
-                                restoreMainWindow: {
-                                    self.showMainWindow()
-                                }
+                                syncedLyricsService: self.syncedLyricsService
                             )
                             if self.playerService.miniPlayerMode == .switchFromMainWindow {
                                 self.hideMainWindow()
@@ -412,8 +409,7 @@ struct KasetApp: App {
     }
 
     private static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
-        window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
-            window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
+        AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
     }
 
     /// Hides the main window while keeping playback and auxiliary windows alive.

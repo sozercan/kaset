@@ -239,8 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
-        window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
-            window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
+        AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
     }
 }
 
