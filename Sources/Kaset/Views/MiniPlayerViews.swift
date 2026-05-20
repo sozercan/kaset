@@ -157,12 +157,40 @@ struct MiniPlayerWindow: View {
     }
 
     private var surface: some View {
-        MiniPlayerGlassSurface(
-            cornerRadius: self.cornerRadius,
-            fillOpacity: self.playerService.miniPlayerPanel == .expanded ? 0.76 : 0.46,
-            artworkURL: self.playerService.miniPlayerPanel == .expanded ? nil : self.tintArtworkURL,
-            artworkOpacity: self.playerService.miniPlayerPanel == .lyrics ? 0.16 : 0.22
-        )
+        RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
+            .fill(.black.opacity(self.playerService.miniPlayerPanel == .expanded ? 0.76 : 0.50))
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: self.cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.20), lineWidth: 1)
+            }
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.12),
+                        .clear,
+                        .black.opacity(0.18),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(.rect(cornerRadius: self.cornerRadius))
+                .allowsHitTesting(false)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.34),
+                                .white.opacity(0.06),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.8
+                    )
+            }
     }
 
     @ViewBuilder
@@ -366,30 +394,15 @@ struct MiniPlayerWindow: View {
         .foregroundStyle(.white.opacity(0.94))
         .padding(.horizontal, 10)
         .frame(height: 30)
-        .background {
-            Capsule()
-                .fill(.black.opacity(0.22))
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.18),
-                            .white.opacity(0.04),
-                            .black.opacity(0.16),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        }
+        .background(.black.opacity(0.18), in: .capsule)
         .glassEffect(.regular.interactive(), in: .capsule)
         .overlay {
             Capsule()
                 .stroke(
                     LinearGradient(
                         colors: [
-                            .white.opacity(0.58),
-                            .white.opacity(0.14),
+                            .white.opacity(0.42),
+                            .white.opacity(0.10),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -397,14 +410,7 @@ struct MiniPlayerWindow: View {
                     lineWidth: 1
                 )
         }
-        .overlay(alignment: .top) {
-            Capsule()
-                .fill(.white.opacity(0.24))
-                .frame(height: 1)
-                .padding(.horizontal, 13)
-                .offset(y: 1)
-        }
-        .shadow(color: .black.opacity(0.42), radius: 18, y: 7)
+        .shadow(color: .black.opacity(0.36), radius: 16, y: 6)
     }
 
     private func hoverOnly(@ViewBuilder content: () -> some View) -> some View {
@@ -632,7 +638,16 @@ struct MiniPlayerWindow: View {
 
     private var seekSection: some View {
         VStack(spacing: 8) {
-            self.progressSlider
+            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
+                self.isSeeking = editing
+                if !editing {
+                    self.performSeek()
+                }
+            }
+            .controlSize(.small)
+            .tint(PackageResourceLookup.brandAccent)
+            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive)
+            .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
 
             HStack {
                 Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
@@ -643,20 +658,6 @@ struct MiniPlayerWindow: View {
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.76))
             .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
-        }
-    }
-
-    private var progressSlider: some View {
-        MiniPlayerProgressSlider(
-            value: self.$seekValue,
-            isActive: self.isHovering || self.isSeeking,
-            isDisabled: self.playerService.duration <= 0 || self.playerService.isCurrentItemLive,
-            accessibilityID: AccessibilityID.MiniPlayer.seekSlider
-        ) { editing in
-            self.isSeeking = editing
-            if !editing {
-                self.performSeek()
-            }
         }
     }
 
@@ -789,11 +790,6 @@ struct MiniPlayerWindow: View {
 
     private var remainingTimeText: String {
         "-\(self.formatTime(max(0, self.playerService.duration - self.playerService.progress)))"
-    }
-
-    private var tintArtworkURL: URL? {
-        guard let track = self.playerService.currentTrack else { return nil }
-        return track.thumbnailURL?.highQualityThumbnailURL ?? track.fallbackThumbnailURL
     }
 
     private var repeatIcon: String {
