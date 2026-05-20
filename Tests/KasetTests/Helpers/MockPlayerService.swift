@@ -139,7 +139,14 @@ final class MockPlayerService: PlayerServiceProtocol {
     }
 
     func toggleMiniPlayerPanel() {
-        self.miniPlayerPanel = self.miniPlayerPanel == .compact ? .expanded : .compact
+        self.miniPlayerPanel = switch self.miniPlayerPanel {
+        case .compact:
+            .expanded
+        case .expanded:
+            .compact
+        case .lyrics:
+            .expanded
+        }
     }
 
     func stop() async {

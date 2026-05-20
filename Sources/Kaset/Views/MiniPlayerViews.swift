@@ -141,12 +141,6 @@ struct MiniPlayerWindow: View {
                 self.volumeValue = newValue
             }
         }
-        .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
-            MiniPlayerWindowController.shared.syncWindowState()
-        }
-        .onChange(of: SettingsManager.shared.keepMiniPlayerOnTop) { _, _ in
-            MiniPlayerWindowController.shared.syncWindowState()
-        }
         .onAppear {
             self.volumeValue = self.playerService.volume
             self.syncSeekValue()
@@ -340,7 +334,6 @@ struct MiniPlayerWindow: View {
             self.trafficButton(color: .green, accessibilityLabel: self.expandCollapseLabel, accessibilityID: AccessibilityID.MiniPlayer.expandButton) {
                 self.playerService.toggleMiniPlayerPanel()
             }
-            .accessibilityIdentifier(AccessibilityID.MiniPlayer.expandButton)
         }
     }
 

@@ -424,9 +424,7 @@ struct KasetApp: App {
         }
 
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
-                window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
-            {
+            if Self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             window.orderOut(nil)
