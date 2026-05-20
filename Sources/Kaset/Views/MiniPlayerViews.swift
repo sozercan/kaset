@@ -88,6 +88,13 @@ struct MiniPlayerToast: View {
 
 @available(macOS 26.0, *)
 struct MiniPlayerWindow: View {
+    private enum Layout {
+        static let chromeTopInset: CGFloat = 12
+        static let trafficLightSize: CGFloat = 13
+        static let contentChromeGap: CGFloat = 20
+        static let headerTopInset = Self.chromeTopInset + Self.trafficLightSize + Self.contentChromeGap
+    }
+
     private enum DetailPane {
         case lyrics
         case queue
@@ -112,8 +119,6 @@ struct MiniPlayerWindow: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             self.hoverChrome
-                .opacity(self.isHovering ? 1 : 0)
-                .animation(AppAnimation.quick, value: self.isHovering)
         }
         .contentShape(.rect)
         .onHover { hovering in
@@ -159,11 +164,38 @@ struct MiniPlayerWindow: View {
 
     private var surface: some View {
         RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
-            .fill(.black.opacity(self.playerService.miniPlayerPanel == .expanded ? 0.84 : 0.62))
+            .fill(.black.opacity(self.playerService.miniPlayerPanel == .expanded ? 0.76 : 0.50))
             .glassEffect(.regular.interactive(), in: .rect(cornerRadius: self.cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.16), lineWidth: 1)
+                    .stroke(.white.opacity(0.20), lineWidth: 1)
+            }
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.12),
+                        .clear,
+                        .black.opacity(0.18),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(.rect(cornerRadius: self.cornerRadius))
+                .allowsHitTesting(false)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.34),
+                                .white.opacity(0.06),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.8
+                    )
             }
     }
 
@@ -184,8 +216,12 @@ struct MiniPlayerWindow: View {
             self.trafficLights
             Spacer()
             self.hoverCommandPill
+                .opacity(self.showsCommandPill ? 1 : 0)
+                .blur(radius: self.showsCommandPill ? 0 : 5)
+                .scaleEffect(self.showsCommandPill ? 1 : 0.96, anchor: .topTrailing)
+                .animation(AppAnimation.snappy, value: self.showsCommandPill)
         }
-        .padding(.top, 12)
+        .padding(.top, Self.Layout.chromeTopInset)
         .padding(.horizontal, 16)
     }
 
@@ -204,17 +240,14 @@ struct MiniPlayerWindow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 self.hoverOnly {
-                    HStack(spacing: 5) {
-                        self.favoriteButton
-                        self.moreMenu
-                    }
+                    self.trackActionButtons
                 }
             }
 
             self.seekSection
             self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
         }
-        .padding(.top, 26)
+        .padding(.top, Self.Layout.headerTopInset)
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
@@ -222,6 +255,7 @@ struct MiniPlayerWindow: View {
     private var squareArtworkBody: some View {
         ZStack(alignment: .bottom) {
             self.fullFrameArtwork
+            self.squareArtworkTopBackdrop
 
             self.hoverOnly {
                 self.squareArtworkControlBackdrop
@@ -238,10 +272,7 @@ struct MiniPlayerWindow: View {
                     }
                     Spacer()
                     self.hoverOnly {
-                        HStack(spacing: 5) {
-                            self.favoriteButton
-                            self.moreMenu
-                        }
+                        self.trackActionButtons
                     }
                 }
 
@@ -250,6 +281,7 @@ struct MiniPlayerWindow: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
+            .shadow(color: .black.opacity(0.82), radius: 3, y: 1)
             .opacity(self.isHovering ? 1 : 0)
             .animation(AppAnimation.quick, value: self.isHovering)
         }
@@ -271,14 +303,14 @@ struct MiniPlayerWindow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     self.hoverOnly {
-                        self.moreMenu
+                        self.trackActionButtons
                     }
                 }
 
                 self.seekSection
                 self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
             }
-            .padding(.top, 26)
+            .padding(.top, Self.Layout.headerTopInset)
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
 
@@ -303,7 +335,7 @@ struct MiniPlayerWindow: View {
                 MiniPlayerWindowController.shared.closeFromUserAction()
             }
             self.trafficButton(color: .yellow, accessibilityLabel: String(localized: "Minimize"), accessibilityID: AccessibilityID.MiniPlayer.minimizeButton) {
-                NSApp.keyWindow?.miniaturize(nil)
+                MiniPlayerWindowController.shared.miniaturizeFromUserAction()
             }
             self.trafficButton(color: .green, accessibilityLabel: self.expandCollapseLabel, accessibilityID: AccessibilityID.MiniPlayer.expandButton) {
                 self.playerService.toggleMiniPlayerPanel()
@@ -314,6 +346,23 @@ struct MiniPlayerWindow: View {
 
     private var hoverCommandPill: some View {
         HStack(spacing: 11) {
+            self.hoverIconButton(
+                systemName: "macwindow",
+                accessibilityID: AccessibilityID.MiniPlayer.returnToKasetButton,
+                label: String(localized: "Return to Kaset")
+            ) {
+                MiniPlayerWindowController.shared.returnToMainWindowFromUserAction()
+            }
+
+            self.hoverIconButton(
+                systemName: self.panelToggleIcon,
+                accessibilityID: AccessibilityID.MiniPlayer.panelToggleButton,
+                label: self.panelToggleLabel,
+                isActive: self.playerService.miniPlayerPanel == .expanded
+            ) {
+                self.playerService.toggleMiniPlayerPanel()
+            }
+
             self.hoverIconButton(
                 systemName: "quote.bubble",
                 accessibilityID: AccessibilityID.MiniPlayer.lyricsButton,
@@ -334,37 +383,56 @@ struct MiniPlayerWindow: View {
                 label: String(localized: "Queue"),
                 isActive: self.playerService.miniPlayerPanel == .lyrics && self.detailPane == .queue
             ) {
-                self.detailPane = .queue
-                self.playerService.miniPlayerPanel = .lyrics
+                if self.playerService.miniPlayerPanel == .lyrics, self.detailPane == .queue {
+                    self.playerService.miniPlayerPanel = .compact
+                } else {
+                    self.detailPane = .queue
+                    self.playerService.miniPlayerPanel = .lyrics
+                }
             }
 
-            self.hoverIconButton(systemName: "airplayaudio", accessibilityID: AccessibilityID.MiniPlayer.airplayButton, label: String(localized: "AirPlay"), isActive: self.playerService.isAirPlayConnected) {
-                self.playerService.showAirPlayPicker()
-            }
+            self.airPlayButton
 
             self.hoverIconButton(systemName: self.volumeIcon, accessibilityID: AccessibilityID.MiniPlayer.volumeSlider, label: String(localized: "Volume"), isActive: self.playerService.isMuted) {
                 Task { await self.playerService.toggleMute() }
             }
         }
         .font(.system(size: 14, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.92))
+        .foregroundStyle(.white.opacity(0.94))
         .padding(.horizontal, 10)
         .frame(height: 30)
-        .background(.white.opacity(0.20), in: .capsule)
-        .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+        .background(.black.opacity(0.18), in: .capsule)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .overlay {
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.42),
+                            .white.opacity(0.10),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.36), radius: 16, y: 6)
     }
 
     private func hoverOnly(@ViewBuilder content: () -> some View) -> some View {
         content()
             .opacity(self.isHovering ? 1 : 0)
-            .animation(AppAnimation.quick, value: self.isHovering)
+            .blur(radius: self.isHovering ? 0 : 4)
+            .scaleEffect(self.isHovering ? 1 : 0.97)
+            .animation(AppAnimation.snappy, value: self.isHovering)
     }
 
     private func trafficButton(color: Color, accessibilityLabel: String, accessibilityID: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Circle()
                 .fill(color)
-                .frame(width: 13, height: 13)
+                .frame(width: Self.Layout.trafficLightSize, height: Self.Layout.trafficLightSize)
                 .overlay {
                     Circle()
                         .stroke(.black.opacity(0.20), lineWidth: 0.8)
@@ -377,34 +445,65 @@ struct MiniPlayerWindow: View {
 
     private func hoverIconButton(systemName: String, accessibilityID: String, label: String, isActive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 22, height: 22)
-                .background(isActive ? PackageResourceLookup.brandAccent.opacity(0.18) : .clear, in: .circle)
-                .overlay {
-                    Circle()
-                        .stroke(isActive ? PackageResourceLookup.brandAccent : .clear, lineWidth: 1.5)
-                }
+            MiniPlayerGlassIconLabel(systemName: systemName, isActive: isActive, size: 22)
         }
         .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)
-        .disabled(self.playerService.currentTrack == nil && accessibilityID != AccessibilityID.MiniPlayer.volumeSlider)
+        .help(label)
+        .disabled(self.playerService.currentTrack == nil && !self.isEnabledWithoutTrack(accessibilityID: accessibilityID))
     }
 
-    private var favoriteButton: some View {
-        Button {
-            self.playerService.toggleLibraryStatus()
+    private func isEnabledWithoutTrack(accessibilityID: String) -> Bool {
+        accessibilityID == AccessibilityID.MiniPlayer.volumeSlider ||
+            accessibilityID == AccessibilityID.MiniPlayer.panelToggleButton ||
+            accessibilityID == AccessibilityID.MiniPlayer.returnToKasetButton
+    }
+
+    private var airPlayButton: some View {
+        ZStack {
+            MiniPlayerAirPlayRoutePickerView()
+                .frame(width: 22, height: 22)
+
+            MiniPlayerGlassIconLabel(systemName: "airplayaudio", isActive: self.playerService.isAirPlayConnected, size: 22)
+                .allowsHitTesting(false)
+        }
+        .glassEffect(.regular.interactive(), in: .circle)
+        .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
+        .accessibilityIdentifier(AccessibilityID.MiniPlayer.airplayButton)
+        .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
+        .disabled(self.playerService.currentTrack == nil)
+        .simultaneousGesture(TapGesture().onEnded {
+            self.playerService.markAirPlayRequested()
+        })
+    }
+
+    private var trackActionButtons: some View {
+        HStack(spacing: 5) {
+            self.likeButton
+            self.moreMenu
+        }
+    }
+
+    private var likeButton: some View {
+        let isLiked = self.playerService.currentTrackLikeStatus == .like
+        let label = isLiked ? String(localized: "Remove Like") : String(localized: "Like")
+
+        return Button {
+            self.playerService.likeCurrentTrack()
         } label: {
-            Image(systemName: self.playerService.currentTrackInLibrary ? "star.fill" : "star")
-                .font(.system(size: 11, weight: .semibold))
-                .frame(width: 23, height: 23)
-                .foregroundStyle(self.playerService.currentTrackInLibrary ? .yellow : .white.opacity(0.9))
-                .background(.white.opacity(0.18), in: .circle)
+            MiniPlayerGlassIconLabel(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup", isActive: isLiked, size: 23, fontSize: 12)
         }
         .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .disabled(self.playerService.currentTrack == nil)
-        .accessibilityLabel(self.playerService.currentTrackInLibrary ? String(localized: "Remove from Library") : String(localized: "Add to Library"))
+        .accessibilityIdentifier(AccessibilityID.MiniPlayer.likeButton)
+        .accessibilityLabel(label)
+        .accessibilityValue(isLiked ? String(localized: "Liked") : String(localized: "Not liked"))
+        .help(label)
     }
 
     private var moreMenu: some View {
@@ -428,37 +527,13 @@ struct MiniPlayerWindow: View {
                 )
             }
             .disabled(self.playerService.currentTrack == nil)
-
-            Divider()
-
-            Button("Show Playing Next") {
-                self.detailPane = .queue
-                self.playerService.miniPlayerPanel = .lyrics
-            }
-
-            Button(self.playerService.miniPlayerPanel == .lyrics && self.detailPane == .lyrics ? "Hide Lyrics" : "Show Lyrics") {
-                if self.playerService.miniPlayerPanel == .lyrics, self.detailPane == .lyrics {
-                    self.playerService.miniPlayerPanel = .compact
-                } else {
-                    self.detailPane = .lyrics
-                    self.playerService.miniPlayerPanel = .lyrics
-                }
-            }
-
-            Divider()
-
-            Button("Close Mini Player") {
-                MiniPlayerWindowController.shared.closeFromUserAction()
-            }
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .bold))
-                .frame(width: 23, height: 23)
-                .foregroundStyle(.white.opacity(0.92))
-                .background(.white.opacity(0.18), in: .circle)
+            MiniPlayerGlassIconLabel(systemName: "ellipsis", isActive: false, size: 23, fontSize: 12)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityLabel(String(localized: "More"))
     }
 
@@ -499,31 +574,49 @@ struct MiniPlayerWindow: View {
         .clipped()
     }
 
+    private var squareArtworkTopBackdrop: some View {
+        VStack {
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.58),
+                    .black.opacity(0.34),
+                    .clear,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 104)
+
+            Spacer()
+        }
+        .allowsHitTesting(false)
+    }
+
     private var squareArtworkControlBackdrop: some View {
         VStack {
             Spacer()
             ZStack {
                 Rectangle()
                     .fill(.ultraThinMaterial)
-                    .blur(radius: 18)
-                    .opacity(0.58)
+                    .blur(radius: 22)
+                    .opacity(0.66)
 
                 LinearGradient(
                     colors: [
                         .clear,
-                        .black.opacity(0.24),
-                        .black.opacity(0.70),
+                        .black.opacity(0.40),
+                        .black.opacity(0.86),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             }
-            .frame(height: 132)
+            .frame(height: 170)
             .mask {
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0),
-                        .init(color: .black.opacity(0.55), location: 0.34),
+                        .init(color: .black.opacity(0.65), location: 0.26),
                         .init(color: .black, location: 1),
                     ],
                     startPoint: .top,
@@ -531,19 +624,22 @@ struct MiniPlayerWindow: View {
                 )
             }
         }
+        .allowsHitTesting(false)
     }
 
     private var titleText: some View {
         Text(self.playerService.currentTrack?.title ?? String(localized: "Not Playing"))
             .lineLimit(1)
             .foregroundStyle(.white.opacity(0.96))
+            .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.trackTitle)
     }
 
     private var artistText: some View {
         Text(self.playerService.currentTrack?.artistsDisplay.isEmpty == false ? self.playerService.currentTrack?.artistsDisplay ?? "" : String(localized: "Kaset"))
             .lineLimit(1)
-            .foregroundStyle(.white.opacity(0.72))
+            .foregroundStyle(.white.opacity(0.78))
+            .shadow(color: .black.opacity(0.58), radius: 2, y: 1)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.trackArtist)
     }
 
@@ -567,7 +663,8 @@ struct MiniPlayerWindow: View {
             }
             .font(.system(size: 9, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(.white.opacity(0.66))
+            .foregroundStyle(.white.opacity(0.76))
+            .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
         }
     }
 
@@ -635,8 +732,9 @@ struct MiniPlayerWindow: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: size, weight: .bold))
-                .foregroundStyle(active ? PackageResourceLookup.brandAccent : .white.opacity(0.86))
+                .foregroundStyle(active ? PackageResourceLookup.brandAccent : .white.opacity(0.90))
                 .frame(width: max(21, size + 7), height: max(21, size + 7))
+                .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityID)
@@ -681,8 +779,20 @@ struct MiniPlayerWindow: View {
         .background(.white.opacity(0.07), in: .rect(cornerRadius: 12))
     }
 
+    private var showsCommandPill: Bool {
+        self.isHovering || self.playerService.miniPlayerPanel == .expanded
+    }
+
+    private var panelToggleIcon: String {
+        self.playerService.miniPlayerPanel == .expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right"
+    }
+
+    private var panelToggleLabel: String {
+        self.playerService.miniPlayerPanel == .expanded ? String(localized: "Show Regular Mini Player") : String(localized: "Show Large Artwork")
+    }
+
     private var expandCollapseLabel: String {
-        self.playerService.miniPlayerPanel == .compact ? String(localized: "Show Large Artwork") : String(localized: "Collapse Mini Player")
+        self.panelToggleLabel
     }
 
     private var remainingTimeText: String {

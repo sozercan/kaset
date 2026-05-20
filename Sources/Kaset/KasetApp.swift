@@ -25,6 +25,7 @@ extension EnvironmentValues {
 struct KasetApp: App {
     /// App delegate for lifecycle management (background playback).
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     @State private var authService = AuthService()
     @State private var webKitManager = WebKitManager.shared
@@ -371,22 +372,48 @@ struct KasetApp: App {
 
     /// Shows the main window.
     private func showMainWindow() {
+        guard !self.focusExistingMainWindow() else { return }
+
+        self.openWindow(id: "main")
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            _ = self.focusExistingMainWindow()
+        }
+    }
+
+    @discardableResult
+    private func focusExistingMainWindow() -> Bool {
         // Find and show the main window
         for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
-            return
+            return true
         }
 
-        // Fallback: find any main-capable window that's not the video window
+        for window in NSApplication.shared.windows where window.title == "Kaset" && !Self.isAuxiliaryPlayerWindow(window) {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return true
+        }
+
+        // Fallback: find any main-capable window that's not an auxiliary player window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            if Self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
-            return
+            return true
         }
+
+        return false
+    }
+
+    private static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+        window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
+            window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
     }
 
     /// Hides the main window while keeping playback and auxiliary windows alive.

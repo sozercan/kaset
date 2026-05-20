@@ -358,6 +358,20 @@ struct PlayerServiceTests {
         #expect(self.playerService.isMiniPlayerVisible == false)
     }
 
+    @Test("Closing auxiliary mini player can request main window restore")
+    func closingAuxiliaryMiniPlayerCanRequestMainWindowRestore() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        let shouldRestore = self.playerService.closeMiniPlayer(restoringMainWindow: true)
+
+        #expect(shouldRestore == true)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == true)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == false)
+    }
+
     @Test("Mini player panel toggles between compact and expanded")
     func miniPlayerPanelTogglesBetweenCompactAndExpanded() {
         #expect(self.playerService.miniPlayerPanel == .compact)
@@ -367,6 +381,15 @@ struct PlayerServiceTests {
 
         self.playerService.toggleMiniPlayerPanel()
         #expect(self.playerService.miniPlayerPanel == .compact)
+    }
+
+    @Test("Mini player panel toggle returns lyrics panel to expanded artwork")
+    func miniPlayerPanelToggleReturnsLyricsToExpandedArtwork() {
+        self.playerService.miniPlayerPanel = .lyrics
+
+        self.playerService.toggleMiniPlayerPanel()
+
+        #expect(self.playerService.miniPlayerPanel == .expanded)
     }
 
     @Test("Keep mini player on top setting persists")

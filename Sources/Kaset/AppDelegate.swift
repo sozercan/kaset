@@ -99,8 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupWindowDelegate() {
         DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            // Skip if this is the video window (has specific identifier)
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            // Skip auxiliary player windows; only the regular app window should be hidden-on-close.
+            if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             window.delegate = self
@@ -225,9 +225,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Last resort: find any main-capable window that's not the video window
+        // Last resort: find any main-capable window that's not an auxiliary player window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             self.mainWindow = window
@@ -236,6 +236,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return
         }
+    }
+
+    private func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+        window.identifier?.rawValue == AccessibilityID.VideoWindow.container ||
+            window.identifier?.rawValue == AccessibilityID.MiniPlayer.container
     }
 }
 

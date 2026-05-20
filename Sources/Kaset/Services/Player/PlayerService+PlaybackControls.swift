@@ -46,7 +46,12 @@ extension PlayerService {
     /// Closes the native mini player and returns whether the main window should be restored.
     @discardableResult
     func closeMiniPlayer() -> Bool {
-        let shouldRestore = self.shouldRestoreMainWindowWhenMiniPlayerCloses
+        self.closeMiniPlayer(restoringMainWindow: self.shouldRestoreMainWindowWhenMiniPlayerCloses)
+    }
+
+    /// Closes the native mini player with explicit control over main window restoration.
+    @discardableResult
+    func closeMiniPlayer(restoringMainWindow shouldRestore: Bool) -> Bool {
         self.isMiniPlayerVisible = false
         self.miniPlayerMode = .auxiliary
         self.shouldRestoreMainWindowWhenMiniPlayerCloses = false
@@ -64,7 +69,14 @@ extension PlayerService {
 
     /// Switches between compact and expanded mini player layouts.
     func toggleMiniPlayerPanel() {
-        self.miniPlayerPanel = self.miniPlayerPanel == .compact ? .expanded : .compact
+        self.miniPlayerPanel = switch self.miniPlayerPanel {
+        case .compact:
+            .expanded
+        case .expanded:
+            .compact
+        case .lyrics:
+            .expanded
+        }
     }
 
     /// Plays a track by video ID.

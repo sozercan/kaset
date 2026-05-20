@@ -655,7 +655,7 @@ struct PlayerBar: View {
                 HapticService.toggle()
                 _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
             } label: {
-                Image(systemName: self.playerService.isMiniPlayerVisible ? "rectangle.inset.filled.and.person.filled" : "rectangle.inset.bottomright.filled")
+                Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(self.playerService.isMiniPlayerVisible ? .red : .primary.opacity(0.85))
                     .contentTransition(.symbolEffect(.replace))

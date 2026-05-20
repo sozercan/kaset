@@ -14,7 +14,6 @@ final class MiniPlayerWindowController {
     private weak var playerService: PlayerService?
     private var restoreMainWindow: (() -> Void)?
     private var isClosing = false
-    private var isApplyingProgrammaticSize = false
 
     private let frameAutosaveKey = "KasetMiniPlayerWindow"
 
@@ -39,6 +38,7 @@ final class MiniPlayerWindowController {
         if let existingWindow = self.window {
             self.isClosing = false
             self.hostingView?.rootView = AnyView(contentView)
+            existingWindow.delegate = nil
             Self.hideStandardWindowButtons(existingWindow)
             self.applyWindowLevel(existingWindow)
             self.applySize(for: playerService.miniPlayerPanel, window: existingWindow)
@@ -51,7 +51,7 @@ final class MiniPlayerWindowController {
 
         let window = NSWindow(
             contentRect: Self.contentRect(for: playerService.miniPlayerPanel),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -60,6 +60,7 @@ final class MiniPlayerWindowController {
         window.title = "Mini Player"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.delegate = nil
         window.isMovableByWindowBackground = true
         window.backgroundColor = .clear
         window.isOpaque = false
@@ -80,13 +81,6 @@ final class MiniPlayerWindowController {
             name: NSWindow.willCloseNotification,
             object: window
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(self.windowDidEndLiveResize),
-            name: NSWindow.didEndLiveResizeNotification,
-            object: window
-        )
-
         window.orderFront(nil)
         self.window = window
         self.isClosing = false
@@ -98,15 +92,30 @@ final class MiniPlayerWindowController {
 
         self.isClosing = true
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
-        NotificationCenter.default.removeObserver(self, name: NSWindow.didEndLiveResizeNotification, object: window)
         window.saveFrame(usingName: self.frameAutosaveKey)
         self.performCleanup()
         window.close()
     }
 
     func closeFromUserAction() {
-        _ = self.playerService?.closeMiniPlayer() ?? false
+        let restoreMainWindow = self.restoreMainWindow
+        let shouldRestoreMainWindow = self.playerService?.closeMiniPlayer() ?? false
         self.close()
+
+        if shouldRestoreMainWindow {
+            restoreMainWindow?()
+        }
+    }
+
+    func returnToMainWindowFromUserAction() {
+        let restoreMainWindow = self.restoreMainWindow
+        _ = self.playerService?.closeMiniPlayer(restoringMainWindow: true) ?? false
+        self.close()
+        restoreMainWindow?()
+    }
+
+    func miniaturizeFromUserAction() {
+        self.window?.miniaturize(nil)
     }
 
     func syncWindowState() {
@@ -127,25 +136,23 @@ final class MiniPlayerWindowController {
             window.saveFrame(usingName: self.frameAutosaveKey)
         }
 
-        _ = self.playerService?.closeMiniPlayer() ?? false
+        let restoreMainWindow = self.restoreMainWindow
+        let shouldRestoreMainWindow = self.playerService?.closeMiniPlayer() ?? false
         self.performCleanup()
-    }
 
-    @objc private func windowDidEndLiveResize(_ notification: Notification) {
-        guard !self.isApplyingProgrammaticSize else { return }
-        guard let window = notification.object as? NSWindow else { return }
-        let panel = Self.nearestPanel(for: window.frame.size)
-        self.playerService?.miniPlayerPanel = panel
-        self.applySize(for: panel, window: window, animated: true)
+        if shouldRestoreMainWindow {
+            restoreMainWindow?()
+        }
     }
 
     private func performCleanup() {
         if let window {
             NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
-            NotificationCenter.default.removeObserver(self, name: NSWindow.didEndLiveResizeNotification, object: window)
         }
         self.window = nil
         self.hostingView = nil
+        self.playerService = nil
+        self.restoreMainWindow = nil
         self.isClosing = false
     }
 
@@ -159,11 +166,13 @@ final class MiniPlayerWindowController {
         var nextFrame = currentFrame
         nextFrame.origin.y += currentFrame.height - size.height
         nextFrame.size = size
-        window.minSize = Self.contentRect(for: .compact).size
-        window.maxSize = Self.contentRect(for: .lyrics).size
-        self.isApplyingProgrammaticSize = true
+        let compactSize = Self.contentRect(for: .compact).size
+        let lyricsSize = Self.contentRect(for: .lyrics).size
+        window.minSize = compactSize
+        window.maxSize = lyricsSize
+        window.contentMinSize = compactSize
+        window.contentMaxSize = lyricsSize
         window.setFrame(nextFrame, display: true, animate: animated)
-        self.isApplyingProgrammaticSize = false
     }
 
     private func positionAtDefaultLocation(window: NSWindow) {
@@ -182,24 +191,12 @@ final class MiniPlayerWindowController {
     private static func contentRect(for panel: PlayerService.MiniPlayerPanel) -> NSRect {
         switch panel {
         case .compact:
-            NSRect(x: 0, y: 0, width: 320, height: 146)
+            NSRect(x: 0, y: 0, width: 320, height: 184)
         case .expanded:
             NSRect(x: 0, y: 0, width: 320, height: 320)
         case .lyrics:
             NSRect(x: 0, y: 0, width: 320, height: 500)
         }
-    }
-
-    private static func nearestPanel(for size: CGSize) -> PlayerService.MiniPlayerPanel {
-        if size.height <= 260 || size.height < size.width * 0.82 {
-            return .compact
-        }
-
-        if size.height >= 410 {
-            return .lyrics
-        }
-
-        return .expanded
     }
 
     private static func hideStandardWindowButtons(_ window: NSWindow) {
