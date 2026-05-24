@@ -36,6 +36,7 @@ struct AppLocalizationTests {
 
         return try #require(stringUnit["value"] as? String)
     }
+
     @Test("Arabic bundle localizes artist strings")
     func arabicLocalizationWorks() {
         let artist = self.localizedValue(key: "Artist", localeIdentifier: "ar")
