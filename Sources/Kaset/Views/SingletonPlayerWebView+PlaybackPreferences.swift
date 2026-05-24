@@ -32,8 +32,32 @@ extension SingletonPlayerWebView {
                     if (ms && !ms.__kasetSetActionHandlerWrapped) {
                         var orig = ms.setActionHandler.bind(ms);
                         ms.setActionHandler = function(type, handler) {
-                            if (window.__kasetUseNextPrev && (type === 'seekforward' || type === 'seekbackward')) {
-                                return orig(type, null);
+                            if (window.__kasetUseNextPrev) {
+                                if (type === 'seekforward' || type === 'seekbackward') {
+                                    return orig(type, null);
+                                }
+                                if (type === 'nexttrack') {
+                                    return orig(type, function() {
+                                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.singletonPlayer) {
+                                            window.webkit.messageHandlers.singletonPlayer
+                                                .postMessage({ type: 'REMOTE_NEXT' });
+                                        }
+                                        if (typeof handler === 'function') {
+                                            try { handler(); } catch (e) {}
+                                        }
+                                    });
+                                }
+                                if (type === 'previoustrack') {
+                                    return orig(type, function() {
+                                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.singletonPlayer) {
+                                            window.webkit.messageHandlers.singletonPlayer
+                                                .postMessage({ type: 'REMOTE_PREVIOUS' });
+                                        }
+                                        if (typeof handler === 'function') {
+                                            try { handler(); } catch (e) {}
+                                        }
+                                    });
+                                }
                             }
                             return orig(type, handler);
                         };

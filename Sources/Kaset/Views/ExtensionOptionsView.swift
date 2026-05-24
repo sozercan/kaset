@@ -8,6 +8,9 @@ struct ExtensionOptionsView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = (self.page.configuration.copy() as? WKWebViewConfiguration) ?? self.page.configuration
+        #if compiler(>=5.9)
+            config.webExtensionController = self.page.configuration.webExtensionController
+        #endif
 
         // Inject script to pipe console to native
         let consoleProxyScript = WKUserScript(

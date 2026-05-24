@@ -150,14 +150,15 @@ final class ExtensionsManager {
     /// Adds an extension from a folder containing manifest.json.
     /// Analyzes the manifest structure before attempting to copy.
     func addExtension(at url: URL) throws {
-        // 1. Analyze the manifest first
+        // 1. Start accessing the security-scoped resource first to bypass the sandbox block
+        let accessingSource = url.startAccessingSecurityScopedResource()
+        defer { if accessingSource { url.stopAccessingSecurityScopedResource() } }
+
+        // 2. Analyze the manifest
         let manifestURL = url.appendingPathComponent("manifest.json")
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {
             throw NSError(domain: "ExtensionsManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "manifest.json not found in the selected folder."])
         }
-
-        let accessingSource = url.startAccessingSecurityScopedResource()
-        defer { if accessingSource { url.stopAccessingSecurityScopedResource() } }
 
         guard let data = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
