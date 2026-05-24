@@ -53,4 +53,7 @@ enum DiagnosticsLogger {
 
     /// Logger for the equalizer subsystem (process tap, HAL I/O, DSP).
     static let equalizer = Logger(subsystem: "com.sertacozercan.Kaset", category: "Equalizer")
+
+    /// Logger for Discord Rich Presence integration.
+    static let discord = Logger(subsystem: "com.sertacozercan.Kaset", category: "Discord")
 }

@@ -41,6 +41,10 @@ struct GeneralSettingsView: View {
                 // Now Playing Notifications
                 Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
 
+                // Discord Rich Presence
+                Toggle("Share listening status on Discord", isOn: self.$settings.enableDiscordRPC)
+                    .help("Show your current listening activity on your Discord profile")
+
                 // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")

@@ -41,6 +41,7 @@ struct KasetApp: App {
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
+    @State private var discordRPCService = DiscordRPCService()
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -169,6 +170,29 @@ struct KasetApp: App {
                         // equalizer a chance to spin up.
                         if isPlaying {
                             self.equalizerService.retryStartIfEnabled()
+                        }
+                        self.discordRPCService.updateActivity(
+                            song: self.playerService.currentTrack,
+                            isPlaying: isPlaying,
+                            currentTimeMs: self.playerService.currentTimeMs
+                        )
+                    }
+                    .onChange(of: self.playerService.currentTrack) { _, currentTrack in
+                        self.discordRPCService.updateActivity(
+                            song: currentTrack,
+                            isPlaying: self.playerService.isPlaying,
+                            currentTimeMs: self.playerService.currentTimeMs
+                        )
+                    }
+                    .onChange(of: self.settings.enableDiscordRPC) { _, enableDiscordRPC in
+                        if enableDiscordRPC {
+                            self.discordRPCService.updateActivity(
+                                song: self.playerService.currentTrack,
+                                isPlaying: self.playerService.isPlaying,
+                                currentTimeMs: self.playerService.currentTimeMs
+                            )
+                        } else {
+                            self.discordRPCService.clearActivity()
                         }
                     }
             }

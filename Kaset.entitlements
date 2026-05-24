@@ -15,5 +15,13 @@
 	<!-- Required for Core Audio process tap (Equalizer feature). -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- Required for POSIX Unix domain socket connection to local Discord client. -->
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/private/tmp/</string>
+		<string>/tmp/</string>
+		<string>/var/folders/</string>
+		<string>/private/var/folders/</string>
+	</array>
 </dict>
 </plist>

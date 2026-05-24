@@ -23,6 +23,7 @@ final class SettingsManager {
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
+        static let enableDiscordRPC = "settings.enableDiscordRPC"
     }
 
     // MARK: - Launch Page Options
@@ -179,6 +180,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether to share listening status on Discord.
+    var enableDiscordRPC: Bool {
+        didSet {
+            UserDefaults.standard.set(self.enableDiscordRPC, forKey: Keys.enableDiscordRPC)
+        }
+    }
+
     /// The default page to show when the app launches.
     var defaultLaunchPage: LaunchPage {
         didSet {
@@ -287,6 +295,7 @@ final class SettingsManager {
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
+        self.enableDiscordRPC = UserDefaults.standard.object(forKey: Keys.enableDiscordRPC) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
         self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
 
