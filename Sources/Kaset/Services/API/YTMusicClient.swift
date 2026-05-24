@@ -658,13 +658,35 @@ final class YTMusicClient: YTMusicClientProtocol {
                 body: ["browseId": "FEmusic_liked_playlists"],
                 ttl: APICache.TTL.library
             )
-            let dedicatedPlaylists = PlaylistParser.parseLibraryPlaylists(playlistsData)
+            var dedicatedPlaylists = PlaylistParser.parseLibraryPlaylists(playlistsData)
 
             if dedicatedPlaylists.isEmpty {
                 if !fallbackPlaylists.isEmpty {
                     self.logger.warning("Library playlists endpoint returned no playlists, falling back to landing preview")
                 }
                 return fallbackPlaylists
+            }
+
+            // Pagination support
+            var continuationToken = PlaylistParser.extractLibraryContinuationToken(from: playlistsData)
+            var pageCount = 0
+            let maxPages = 50 // Avoid infinite loops
+
+            while let token = continuationToken, pageCount < maxPages {
+                pageCount += 1
+                self.logger.info("Fetching library playlists page \(pageCount)...")
+                do {
+                    let continuationData = try await self.requestContinuation(token, ttl: APICache.TTL.library)
+                    let nextPagePlaylists = PlaylistParser.parseLibraryPlaylistsContinuation(continuationData)
+                    if nextPagePlaylists.isEmpty {
+                        break
+                    }
+                    dedicatedPlaylists.append(contentsOf: nextPagePlaylists)
+                    continuationToken = PlaylistParser.extractLibraryContinuationTokenFromContinuation(from: continuationData)
+                } catch {
+                    self.logger.warning("Failed to fetch library playlists page \(pageCount): \(error.localizedDescription)")
+                    break
+                }
             }
 
             return PlaylistParser.mergedLibraryPlaylists(

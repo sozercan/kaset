@@ -45,6 +45,10 @@ struct GeneralSettingsView: View {
                 Toggle("Share listening status on Discord", isOn: self.$settings.enableDiscordRPC)
                     .help("Show your current listening activity on your Discord profile")
 
+                // Offline Mode
+                Toggle("Offline Mode", isOn: self.$settings.offlineModeEnabled)
+                    .help("Serve cached results and disable network API calls")
+
                 // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")

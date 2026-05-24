@@ -456,6 +456,10 @@ struct SearchView: View {
 
         Divider()
 
+        DownloadContextMenu(song: song)
+
+        Divider()
+
         ShareContextMenu.menuItem(for: song)
 
         Divider()

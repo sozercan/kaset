@@ -11,9 +11,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set by KasetApp after initialization.
     weak var playerService: PlayerService?
 
+    /// Callback when global command bar shortcut (Cmd+K) is pressed.
+    var onGlobalCommandBarShortcut: (() -> Void)?
+
     /// Reference to the main window for reliable reopen behavior.
     /// Using strong reference to prevent deallocation when window is hidden.
     private var mainWindow: NSWindow?
+
+    /// Status bar item for menu bar integration.
+    private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_: Notification) {
         DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
@@ -38,6 +44,106 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Restore saved queue if available
         self.playerService?.restoreQueueFromPersistence()
+
+        // Set up menu bar status item
+        self.setupStatusItem()
+
+        // Set up global hotkey
+        self.setupGlobalHotkey()
+    }
+
+    /// Sets up the status item in the macOS menu bar.
+    private func setupStatusItem() {
+        // Skip in unit tests
+        guard !UITestConfig.isRunningUnitTests else { return }
+
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Kaset")
+            button.setAccessibilityLabel(String(localized: "Kaset"))
+            button.toolTip = String(localized: "Kaset")
+        }
+
+        let menu = NSMenu()
+
+        let showItem = NSMenuItem(
+            title: "Show Kaset",
+            action: #selector(self.statusBarShowApp),
+            keyEquivalent: ""
+        )
+        showItem.target = self
+        menu.addItem(showItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let playPauseItem = NSMenuItem(
+            title: "Play/Pause",
+            action: #selector(self.statusBarPlayPause),
+            keyEquivalent: ""
+        )
+        playPauseItem.target = self
+        menu.addItem(playPauseItem)
+
+        let nextItem = NSMenuItem(
+            title: "Next Track",
+            action: #selector(self.statusBarNext),
+            keyEquivalent: ""
+        )
+        nextItem.target = self
+        menu.addItem(nextItem)
+
+        let previousItem = NSMenuItem(
+            title: "Previous Track",
+            action: #selector(self.statusBarPrevious),
+            keyEquivalent: ""
+        )
+        previousItem.target = self
+        menu.addItem(previousItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit Kaset",
+            action: #selector(self.statusBarQuitApp),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        statusItem.menu = menu
+        self.statusItem = statusItem
+    }
+
+    /// Sets up the global hotkey registration.
+    private func setupGlobalHotkey() {
+        // Skip in unit tests
+        guard !UITestConfig.isRunningUnitTests else { return }
+
+        GlobalHotkeyManager.shared.registerGlobalShortcut { [weak self] in
+            guard let self else { return }
+            self.onGlobalCommandBarShortcut?()
+        }
+    }
+
+    @objc private func statusBarShowApp() {
+        self.showMainWindowIfNeeded()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func statusBarPlayPause() {
+        self.dockMenuPlayPause()
+    }
+
+    @objc private func statusBarNext() {
+        self.dockMenuNext()
+    }
+
+    @objc private func statusBarPrevious() {
+        self.dockMenuPrevious()
+    }
+
+    @objc private func statusBarQuitApp() {
+        NSApplication.shared.terminate(nil)
     }
 
     func applicationWillTerminate(_: Notification) {

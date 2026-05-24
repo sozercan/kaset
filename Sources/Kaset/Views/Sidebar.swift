@@ -79,6 +79,11 @@ struct Sidebar: View {
                             Label(NavigationItem.history.displayName, systemImage: NavigationItem.history.icon)
                         }
                         .accessibilityIdentifier(AccessibilityID.Sidebar.historyItem)
+
+                        NavigationLink(value: SidebarSelection.navigation(.downloads)) {
+                            Label(NavigationItem.downloads.displayName, systemImage: NavigationItem.downloads.icon)
+                        }
+                        .accessibilityIdentifier("sidebar_downloads")
                     }
 
                     if self.sidebarPinnedItemsManager.isVisible {

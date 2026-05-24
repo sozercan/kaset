@@ -467,6 +467,8 @@ struct MainWindow: View {
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
             case .history:
                 if let vm = historyViewModel { HistoryView(viewModel: vm) }
+            case .downloads:
+                DownloadsView()
             }
         }
         .environment(self.libraryViewModel)
@@ -612,6 +614,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case likedMusic = "Liked Music"
     case library = "Library"
     case history = "History"
+    case downloads = "Downloads"
 
     var id: String {
         rawValue
@@ -639,6 +642,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             String(localized: "Library")
         case .history:
             String(localized: "History")
+        case .downloads:
+            String(localized: "Downloads")
         }
     }
 
@@ -664,6 +669,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "square.stack.fill"
         case .history:
             "clock.arrow.circlepath"
+        case .downloads:
+            "arrow.down.circle"
         }
     }
 }

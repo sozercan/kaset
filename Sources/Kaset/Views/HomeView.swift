@@ -134,6 +134,10 @@ struct HomeView: View {
 
             Divider()
 
+            DownloadContextMenu(song: song)
+
+            Divider()
+
             AddToQueueContextMenu(song: song, playerService: self.playerService)
 
             Divider()

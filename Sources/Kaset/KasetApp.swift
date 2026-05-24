@@ -147,6 +147,11 @@ struct KasetApp: App {
                         self.appDelegate.playerService = self.playerService
                         // Reference notificationService to keep SwiftUI from deallocating it
                         _ = self.notificationService
+
+                        self.appDelegate.onGlobalCommandBarShortcut = {
+                            self.showCommandBar = true
+                            self.showMainWindow()
+                        }
                     }
                     .task {
                         DiagnosticsLogger.app.info("KasetApp: Root task started")

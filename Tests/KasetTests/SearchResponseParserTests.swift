@@ -73,6 +73,75 @@ struct SearchResponseParserTests {
         #expect(response.songs.first?.videoId == "video0")
     }
 
+    @Test("Parse song result with overlay video ID")
+    func parseSongResultWithOverlayVideoId() {
+        let item: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "flexColumns": [
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "About You"]]]]],
+                    ["musicResponsiveListItemFlexColumnRenderer": ["text": ["runs": [["text": "The 1975"]]]]],
+                ],
+                "overlay": [
+                    "musicItemThumbnailOverlayRenderer": [
+                        "content": [
+                            "musicPlayButtonRenderer": [
+                                "playNavigationEndpoint": [
+                                    "watchEndpoint": ["videoId": "overlay-video"],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+        let data = self.makeSearchResponseData(items: [item])
+
+        let response = SearchResponseParser.parse(data)
+
+        #expect(response.songs.count == 1)
+        #expect(response.songs.first?.title == "About You")
+        #expect(response.songs.first?.videoId == "overlay-video")
+    }
+
+    @Test("Parse top result song with watch endpoint")
+    func parseTopResultSongWithWatchEndpoint() {
+        let data: [String: Any] = [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicCardShelfRenderer": [
+                                            "title": [
+                                                "runs": [[
+                                                    "text": "About You",
+                                                    "navigationEndpoint": [
+                                                        "watchEndpoint": ["videoId": "top-result-video"],
+                                                    ],
+                                                ]],
+                                            ],
+                                            "subtitle": [
+                                                "runs": [["text": "The 1975"]],
+                                            ],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let response = SearchResponseParser.parse(data)
+
+        #expect(response.songs.count == 1)
+        #expect(response.songs.first?.title == "About You")
+        #expect(response.songs.first?.videoId == "top-result-video")
+    }
+
     @Test("Parse library artist result using library artist page type")
     func parseLibraryArtistResult() {
         let data: [String: Any] = [
@@ -205,6 +274,24 @@ struct SearchResponseParserTests {
                             "content": [
                                 "sectionListRenderer": [
                                     "contents": contents,
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeSearchResponseData(items: [[String: Any]]) -> [String: Any] {
+        [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [["musicShelfRenderer": ["contents": items]]],
                                 ],
                             ],
                         ],

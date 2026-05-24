@@ -379,6 +379,21 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 menu.addItem(NSMenuItem.separator())
             }
 
+            let isDownloaded = MainActor.assumeIsolated { OfflineService.shared.isDownloaded(videoId: song.videoId) }
+            let downloadItem = NSMenuItem(
+                title: isDownloaded ? "Remove Download" : "Download",
+                action: #selector(Coordinator.contextMenuDownload(_:)),
+                keyEquivalent: ""
+            )
+            downloadItem.target = self
+            downloadItem.representedObject = song
+            downloadItem.image = NSImage(
+                systemSymbolName: isDownloaded ? "trash" : "arrow.down.circle",
+                accessibilityDescription: nil
+            )
+            menu.addItem(downloadItem)
+            menu.addItem(NSMenuItem.separator())
+
             if row != self.currentIndex {
                 let removeItem = NSMenuItem(title: "Remove from Queue", action: #selector(Coordinator.contextMenuRemove(_:)), keyEquivalent: "")
                 removeItem.target = self
@@ -405,6 +420,17 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard let song = sender.representedObject as? Song, let url = song.shareURL else { return }
             MainActor.assumeIsolated {
                 ShareContextMenu.showSharePicker(for: url)
+            }
+        }
+
+        @objc private func contextMenuDownload(_ sender: NSMenuItem) {
+            guard let song = sender.representedObject as? Song else { return }
+            MainActor.assumeIsolated {
+                if OfflineService.shared.isDownloaded(videoId: song.videoId) {
+                    OfflineService.shared.removeSong(videoId: song.videoId)
+                } else {
+                    OfflineService.shared.downloadSong(song)
+                }
             }
         }
 

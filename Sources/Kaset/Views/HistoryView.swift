@@ -212,6 +212,10 @@ struct HistoryView: View {
 
             Divider()
 
+            DownloadContextMenu(song: song)
+
+            Divider()
+
             StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
             Divider()

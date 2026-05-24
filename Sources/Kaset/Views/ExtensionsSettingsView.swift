@@ -11,65 +11,50 @@ struct ExtensionsSettingsView: View {
     @State private var showRestartAlert = false
     @State private var pendingChangeDescription = ""
     @State private var configuringExtensionPage: WebKitManager.ExtensionPage?
+    @State private var presentingPopupPage: WebKitManager.ExtensionPopupPage?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Glass Section
-                GlassEffectContainer(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Installed Extensions")
-                            .font(.headline)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 16)
-                            .padding(.bottom, 8)
-
-                        if self.manager.extensions.isEmpty {
-                            HStack(spacing: 10) {
-                                Image(systemName: "puzzlepiece.extension")
-                                    .font(.title2)
-                                    .foregroundStyle(.quaternary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("No Extensions Added")
-                                        .font(.body)
-                                        .foregroundStyle(.secondary)
-                                    Text("Add a WebKit-compatible extension to get started.")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                        } else {
-                            ForEach(self.manager.extensions) { ext in
-                                self.extensionRow(ext)
-                                if ext.id != self.manager.extensions.last?.id {
-                                    Divider()
-                                        .padding(.leading, 16)
-                                        .opacity(0.3)
-                                }
-                            }
+        Form {
+            // Installed extensions section
+            Section {
+                if self.manager.extensions.isEmpty {
+                    HStack(spacing: 10) {
+                        Image(systemName: "puzzlepiece.extension")
+                            .font(.title2)
+                            .foregroundStyle(.quaternary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("No Extensions Added")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                            Text("Add a WebKit-compatible extension to get started.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
                         }
-
-                        Button {
-                            Task { @MainActor in
-                                self.presentOpenPanel()
-                            }
-                        } label: {
-                            Label("Add Extension…", systemImage: "plus.circle")
-                                .foregroundStyle(.blue)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
                     }
-                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                    .padding(.vertical, 4)
+                } else {
+                    ForEach(self.manager.extensions) { ext in
+                        self.extensionRow(ext)
+                    }
                 }
 
-                // Footer section
+                Button {
+                    Task { @MainActor in
+                        self.presentOpenPanel()
+                    }
+                } label: {
+                    Label("Add Extension…", systemImage: "plus.circle")
+                }
+            } header: {
+                Text("Installed Extensions")
+            }
+
+            // Info section
+            Section {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Extensions are loaded at launch via the native WebKit extension API. Changes take effect after restarting Kaset.")
                         .foregroundStyle(.secondary)
+                        .font(.caption)
 
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
@@ -78,10 +63,9 @@ struct ExtensionsSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 8)
             }
-            .padding(20)
         }
+        .formStyle(.grouped)
         .frame(minWidth: 460, minHeight: 400)
         .navigationTitle("Extensions")
         .alert("Restart Required", isPresented: self.$showRestartAlert) {
@@ -101,6 +85,20 @@ struct ExtensionsSettingsView: View {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") {
                                 self.configuringExtensionPage = nil
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(item: self.$presentingPopupPage) { popupPage in
+            NavigationStack {
+                ExtensionPopupView(page: popupPage)
+                    .frame(minWidth: 380, minHeight: 420)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                popupPage.action.closePopup()
+                                self.presentingPopupPage = nil
                             }
                         }
                     }
@@ -137,9 +135,20 @@ struct ExtensionsSettingsView: View {
             ))
             .labelsHidden()
 
+            if ext.isEnabled, let popupPage = WebKitManager.shared.extensionPopupPage(forExtensionId: ext.id) {
+                Button("Open") {
+                    self.presentingPopupPage = popupPage
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Open extension popup")
+            }
+
             if ext.isEnabled, let extensionPage = WebKitManager.shared.extensionPage(forExtensionId: ext.id) {
-                Button("Options…") {
+                Button {
                     self.configuringExtensionPage = extensionPage
+                } label: {
+                    Image(systemName: "gearshape")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
@@ -157,8 +166,7 @@ struct ExtensionsSettingsView: View {
             .buttonStyle(.plain)
             .help("Remove extension")
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Helpers

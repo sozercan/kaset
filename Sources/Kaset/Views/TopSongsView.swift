@@ -140,6 +140,10 @@ struct TopSongsView: View {
 
             Divider()
 
+            DownloadContextMenu(song: song)
+
+            Divider()
+
             LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
 
             Divider()

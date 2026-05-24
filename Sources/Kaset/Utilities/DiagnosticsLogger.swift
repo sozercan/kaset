@@ -1,6 +1,8 @@
 import Foundation
 import os
 
+/// Small wrapper that forwards logs to `os.Logger` and also echoes to stderr
+/// so developers running the app from a terminal can see messages live.
 /// Centralized logging for the Kaset app.
 enum DiagnosticsLogger {
     /// Logger for authentication-related events.

@@ -289,6 +289,118 @@ private func findFirstRenderer(named key: String, in value: Any) -> [String: Any
     return nil
 }
 
+private func findAllRenderers(named key: String, in value: Any) -> [[String: Any]] {
+    var renderers: [[String: Any]] = []
+    if let dictionary = value as? [String: Any] {
+        if let renderer = dictionary[key] as? [String: Any] {
+            renderers.append(renderer)
+        }
+
+        for nestedValue in dictionary.values {
+            renderers.append(contentsOf: findAllRenderers(named: key, in: nestedValue))
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            renderers.append(contentsOf: findAllRenderers(named: key, in: item))
+        }
+    }
+
+    return renderers
+}
+
+private func endpointVideoId(_ endpoint: [String: Any]?) -> String? {
+    (endpoint?["watchEndpoint"] as? [String: Any])?["videoId"] as? String
+}
+
+private func rendererVideoId(_ renderer: [String: Any]) -> String? {
+    if let playlistItemData = renderer["playlistItemData"] as? [String: Any],
+       let videoId = playlistItemData["videoId"] as? String
+    {
+        return videoId
+    }
+
+    if let videoId = endpointVideoId(renderer["navigationEndpoint"] as? [String: Any]) {
+        return videoId
+    }
+
+    if let overlay = renderer["overlay"] as? [String: Any],
+       let thumbnailOverlay = overlay["musicItemThumbnailOverlayRenderer"] as? [String: Any],
+       let content = thumbnailOverlay["content"] as? [String: Any],
+       let playButton = content["musicPlayButtonRenderer"] as? [String: Any],
+       let videoId = endpointVideoId(playButton["playNavigationEndpoint"] as? [String: Any])
+    {
+        return videoId
+    }
+
+    if let flexColumns = renderer["flexColumns"] as? [[String: Any]] {
+        for column in flexColumns {
+            guard let flex = column["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+                  let text = flex["text"] as? [String: Any],
+                  let runs = text["runs"] as? [[String: Any]]
+            else {
+                continue
+            }
+
+            for run in runs {
+                if let videoId = endpointVideoId(run["navigationEndpoint"] as? [String: Any]) {
+                    return videoId
+                }
+            }
+        }
+    }
+
+    return nil
+}
+
+private func rendererTitle(_ renderer: [String: Any]) -> String {
+    if let flexColumns = renderer["flexColumns"] as? [[String: Any]],
+       let firstColumn = flexColumns.first,
+       let flex = firstColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+       let title = joinedRunsText(flex["text"] as? [String: Any])
+    {
+        return title
+    }
+
+    return joinedRunsText(renderer["title"] as? [String: Any]) ?? "Unknown"
+}
+
+private func searchSummary(_ data: [String: Any]) -> String? {
+    let rows = findAllRenderers(named: "musicResponsiveListItemRenderer", in: data)
+    let cards = findAllRenderers(named: "musicCardShelfRenderer", in: data)
+    guard !rows.isEmpty || !cards.isEmpty else { return nil }
+
+    let playableRows = rows.compactMap { renderer -> (String, String)? in
+        guard let videoId = rendererVideoId(renderer) else { return nil }
+        return (rendererTitle(renderer), videoId)
+    }
+    let playableCards = cards.compactMap { renderer -> (String, String)? in
+        guard let titleRuns = (renderer["title"] as? [String: Any])?["runs"] as? [[String: Any]],
+              let firstRun = titleRuns.first,
+              let title = firstRun["text"] as? String,
+              let videoId = endpointVideoId(firstRun["navigationEndpoint"] as? [String: Any])
+        else {
+            return nil
+        }
+        return (title, videoId)
+    }
+
+    var output = "\n🔎 Search summary:\n"
+    output += "  • Responsive rows: \(rows.count)\n"
+    output += "  • Playable rows with videoId: \(playableRows.count)\n"
+    output += "  • Top-result cards: \(cards.count)\n"
+    output += "  • Playable cards with videoId: \(playableCards.count)\n"
+
+    let playable = Array((playableCards + playableRows).prefix(8))
+    if !playable.isEmpty {
+        output += "  • First playable results:\n"
+        for (title, videoId) in playable {
+            output += "    - \(title) [\(videoId)]\n"
+        }
+    }
+
+    return output
+}
+
 private func extractPlaylistTrackCount(from text: String) -> Int? {
     guard let regex = try? NSRegularExpression(
         pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
@@ -442,6 +554,10 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
 
     if let playlistSummary = playlistBrowseSummary(data) {
         output += playlistSummary
+    }
+
+    if let summary = searchSummary(data) {
+        output += summary
     }
 
     return output

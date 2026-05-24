@@ -13,8 +13,16 @@ final class NetworkMonitor {
     /// Shared singleton instance.
     static let shared = NetworkMonitor()
 
-    /// Whether the network is currently available.
-    private(set) var isConnected: Bool = true
+    /// Whether the network is currently available and not cut off by offline mode.
+    var isConnected: Bool {
+        if SettingsManager.shared.offlineModeEnabled {
+            return false
+        }
+        return self.realIsConnected
+    }
+
+    /// Internal actual physical connection status.
+    private(set) var realIsConnected: Bool = true
 
     /// Whether the connection is expensive (cellular/hotspot).
     private(set) var isExpensive: Bool = false
@@ -24,6 +32,14 @@ final class NetworkMonitor {
 
     /// The current network interface type.
     private(set) var interfaceType: InterfaceType = .unknown
+
+    /// Whether offline mode was automatically enabled by a system network drop.
+    private var isOfflineModeSystemInitiated: Bool = false
+
+    /// Clears the system-initiated offline mode flag when the user manually goes online.
+    func clearSystemInitiatedOffline() {
+        self.isOfflineModeSystemInitiated = false
+    }
 
     /// Human-readable description of the current connection status.
     var statusDescription: String {
@@ -89,18 +105,33 @@ final class NetworkMonitor {
 
     /// Updates state based on the new network path.
     private func updatePath(_ path: NWPath) {
-        let wasConnected = self.isConnected
-        self.isConnected = path.status == .satisfied
+        let isPhysicallyConnected = path.status == .satisfied
+        let wasConnected = self.realIsConnected
+        self.realIsConnected = isPhysicallyConnected
         self.isExpensive = path.isExpensive
         self.isConstrained = path.isConstrained
         self.interfaceType = Self.mapInterfaceType(path)
 
-        // Log connectivity changes
-        if wasConnected != self.isConnected {
-            if self.isConnected {
+        // Log and handle connectivity changes
+        if wasConnected != isPhysicallyConnected {
+            if isPhysicallyConnected {
                 self.logger.info("Network connected: \(self.statusDescription)")
+
+                // If offline mode was system-initiated, turn it off automatically now that we have internet back
+                if self.isOfflineModeSystemInitiated {
+                    self.logger.info("System connected back to internet; automatically disabling offline mode")
+                    SettingsManager.shared.offlineModeEnabled = false
+                    self.isOfflineModeSystemInitiated = false
+                }
             } else {
                 self.logger.warning("Network disconnected")
+
+                // If the app is not already in offline mode, enable it automatically
+                if !SettingsManager.shared.offlineModeEnabled {
+                    self.logger.info("System disconnected from internet; automatically enabling offline mode")
+                    self.isOfflineModeSystemInitiated = true
+                    SettingsManager.shared.offlineModeEnabled = true
+                }
             }
         }
     }

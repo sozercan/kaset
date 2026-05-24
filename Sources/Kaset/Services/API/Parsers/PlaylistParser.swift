@@ -82,6 +82,213 @@ enum PlaylistParser {
         return mergedPlaylists
     }
 
+    // MARK: - Library Playlists Pagination
+
+    /// Extracts the continuation token from the initial library playlists browse response.
+    /// The library playlists endpoint uses a `sectionListRenderer` with `continuations` or
+    /// grid/shelf-level continuation tokens.
+    static func extractLibraryContinuationToken(from data: [String: Any]) -> String? {
+        guard let contents = data["contents"] as? [String: Any],
+              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
+              let firstTab = tabs.first,
+              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+              let tabContent = tabRenderer["content"] as? [String: Any],
+              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        // Try sectionListRenderer-level continuations (legacy format)
+        if let token = Self.extractTokenFromRenderer(sectionListRenderer) {
+            Self.logger.debug("Found library playlists continuation token (sectionListRenderer legacy)")
+            return token
+        }
+
+        // Try grid/shelf renderers inside sections
+        if let sectionContents = sectionListRenderer["contents"] as? [[String: Any]] {
+            for sectionData in sectionContents {
+                if let gridRenderer = sectionData["gridRenderer"] as? [String: Any] {
+                    if let token = Self.extractTokenFromRenderer(gridRenderer) {
+                        Self.logger.debug("Found library playlists continuation token (gridRenderer legacy)")
+                        return token
+                    }
+                    if let gridItems = gridRenderer["items"] as? [[String: Any]],
+                       let token = Self.extractTokenFromContents(gridItems)
+                    {
+                        Self.logger.debug("Found library playlists continuation token (gridRenderer 2025)")
+                        return token
+                    }
+                }
+                if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
+                    if let token = Self.extractTokenFromRenderer(shelfRenderer) {
+                        Self.logger.debug("Found library playlists continuation token (musicShelfRenderer legacy)")
+                        return token
+                    }
+                    if let shelfContents = shelfRenderer["contents"] as? [[String: Any]],
+                       let token = Self.extractTokenFromContents(shelfContents)
+                    {
+                        Self.logger.debug("Found library playlists continuation token (musicShelfRenderer 2025)")
+                        return token
+                    }
+                }
+            }
+
+            // Try continuationItemRenderer at sectionContents level (2025 format)
+            if let token = Self.extractTokenFromContents(sectionContents) {
+                Self.logger.debug("Found library playlists continuation token (sectionContents 2025)")
+                return token
+            }
+        }
+
+        return nil
+    }
+
+    /// Extracts continuation token from a library playlists continuation response.
+    static func extractLibraryContinuationTokenFromContinuation(from data: [String: Any]) -> String? {
+        // Try continuationContents format (legacy)
+        if let continuationContents = data["continuationContents"] as? [String: Any] {
+            // gridContinuation
+            if let gridContinuation = continuationContents["gridContinuation"] as? [String: Any] {
+                if let token = extractTokenFromRenderer(gridContinuation) {
+                    self.logger.debug("Found library playlists continuation token from gridContinuation (legacy)")
+                    return token
+                }
+                if let items = gridContinuation["items"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(items)
+                {
+                    Self.logger.debug("Found library playlists continuation token from gridContinuation (2025)")
+                    return token
+                }
+            }
+            // sectionListContinuation
+            if let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any] {
+                if let token = Self.extractTokenFromRenderer(sectionListContinuation) {
+                    Self.logger.debug("Found library playlists continuation token from sectionListContinuation (legacy)")
+                    return token
+                }
+                if let contents = sectionListContinuation["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(contents)
+                {
+                    Self.logger.debug("Found library playlists continuation token from sectionListContinuation (2025)")
+                    return token
+                }
+            }
+            // musicShelfContinuation
+            if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any] {
+                if let token = Self.extractTokenFromRenderer(shelfContinuation) {
+                    Self.logger.debug("Found library playlists continuation token from musicShelfContinuation (legacy)")
+                    return token
+                }
+                if let contents = shelfContinuation["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(contents)
+                {
+                    Self.logger.debug("Found library playlists continuation token from musicShelfContinuation (2025)")
+                    return token
+                }
+            }
+        }
+
+        // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction
+        if let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
+           let firstAction = onResponseReceivedActions.first,
+           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
+           let continuationItems = appendAction["continuationItems"] as? [[String: Any]],
+           let token = Self.extractTokenFromContents(continuationItems)
+        {
+            Self.logger.debug("Found library playlists continuation token from 2025 format response")
+            return token
+        }
+
+        return nil
+    }
+
+    /// Parses playlists from a library playlists continuation response.
+    static func parseLibraryPlaylistsContinuation(_ data: [String: Any]) -> [Playlist] {
+        var playlists: [Playlist] = []
+        var ignoredArtists: [Artist] = []
+        var ignoredPodcastShows: [PodcastShow] = []
+
+        // Try continuationContents format (legacy)
+        if let continuationContents = data["continuationContents"] as? [String: Any] {
+            // gridContinuation
+            if let gridContinuation = continuationContents["gridContinuation"] as? [String: Any],
+               let items = gridContinuation["items"] as? [[String: Any]]
+            {
+                for itemData in items {
+                    if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any] {
+                        Self.parseLibraryItem(
+                            twoRowRenderer,
+                            playlists: &playlists,
+                            artists: &ignoredArtists,
+                            podcastShows: &ignoredPodcastShows
+                        )
+                    }
+                }
+            }
+            // sectionListContinuation
+            if playlists.isEmpty,
+               let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
+               let contents = sectionListContinuation["contents"] as? [[String: Any]]
+            {
+                for sectionData in contents {
+                    Self.appendLibraryItems(
+                        from: sectionData,
+                        playlists: &playlists,
+                        artists: &ignoredArtists,
+                        podcastShows: &ignoredPodcastShows
+                    )
+                }
+            }
+            // musicShelfContinuation
+            if playlists.isEmpty,
+               let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any],
+               let contents = shelfContinuation["contents"] as? [[String: Any]]
+            {
+                for shelfItem in contents {
+                    if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
+                        Self.parseLibraryItemFromResponsive(
+                            responsiveRenderer,
+                            playlists: &playlists,
+                            artists: &ignoredArtists,
+                            podcastShows: &ignoredPodcastShows
+                        )
+                    }
+                }
+            }
+        }
+
+        // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction
+        if playlists.isEmpty,
+           let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
+           let firstAction = onResponseReceivedActions.first,
+           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
+           let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
+        {
+            for itemData in continuationItems {
+                if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any] {
+                    Self.parseLibraryItem(
+                        twoRowRenderer,
+                        playlists: &playlists,
+                        artists: &ignoredArtists,
+                        podcastShows: &ignoredPodcastShows
+                    )
+                }
+                if let responsiveRenderer = itemData["musicResponsiveListItemRenderer"] as? [String: Any] {
+                    Self.parseLibraryItemFromResponsive(
+                        responsiveRenderer,
+                        playlists: &playlists,
+                        artists: &ignoredArtists,
+                        podcastShows: &ignoredPodcastShows
+                    )
+                }
+            }
+        }
+
+        Self.logger.info("Parsed \\(playlists.count) playlists from library continuation")
+        return playlists
+    }
+
     /// Parses artists from the dedicated library artists browse response.
     static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
         var artists: [Artist] = []

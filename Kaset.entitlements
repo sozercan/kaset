@@ -23,5 +23,10 @@
 		<string>/var/folders/</string>
 		<string>/private/var/folders/</string>
 	</array>
+	<key>com.apple.security.temporary-exception.sbpl</key>
+	<array>
+		<string>(allow network-outbound (subpath "/private/var/folders"))</string>
+		<string>(allow network-outbound (subpath "/var/folders"))</string>
+	</array>
 </dict>
 </plist>

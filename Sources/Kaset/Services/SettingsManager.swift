@@ -24,6 +24,7 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let enableDiscordRPC = "settings.enableDiscordRPC"
+        static let offlineModeEnabled = "settings.offlineModeEnabled"
     }
 
     // MARK: - Launch Page Options
@@ -187,6 +188,16 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the app should run in offline mode (serve cached results / disable network API calls).
+    var offlineModeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.offlineModeEnabled, forKey: Keys.offlineModeEnabled)
+            if !self.offlineModeEnabled {
+                NetworkMonitor.shared.clearSystemInitiatedOffline()
+            }
+        }
+    }
+
     /// The default page to show when the app launches.
     var defaultLaunchPage: LaunchPage {
         didSet {
@@ -344,6 +355,9 @@ final class SettingsManager {
         } else {
             self.contentLanguage = .system
         }
+
+        // Offline mode
+        self.offlineModeEnabled = UserDefaults.standard.object(forKey: Keys.offlineModeEnabled) as? Bool ?? false
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)
 

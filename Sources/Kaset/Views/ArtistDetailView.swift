@@ -385,6 +385,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
             Divider()
 
+            DownloadContextMenu(song: song)
+
+            Divider()
+
             LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
 
             Divider()

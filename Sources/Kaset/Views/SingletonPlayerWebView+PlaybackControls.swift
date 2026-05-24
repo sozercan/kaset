@@ -46,12 +46,33 @@ extension SingletonPlayerWebView {
 
         let script = """
             (function() {
-                const video = document.querySelector('video');
-                if (video && !video.paused) { video.pause(); return 'paused'; }
-                return 'already-paused';
+                var results = [];
+                // Pause via YouTube Music's internal player API first
+                var player = document.querySelector('ytmusic-player');
+                if (player && player.playerApi && typeof player.playerApi.pauseVideo === 'function') {
+                    player.playerApi.pauseVideo();
+                    results.push('playerApi.pauseVideo');
+                }
+                // Also try movie_player API
+                var moviePlayer = document.getElementById('movie_player');
+                if (moviePlayer && typeof moviePlayer.pauseVideo === 'function') {
+                    moviePlayer.pauseVideo();
+                    results.push('moviePlayer.pauseVideo');
+                }
+                // Finally pause the HTML5 video element as a fallback
+                var video = document.querySelector('video');
+                if (video && !video.paused) {
+                    video.pause();
+                    results.push('video.pause');
+                }
+                return results.length > 0 ? results.join(', ') : 'already-paused';
             })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)
+
+        // Release WebKit's media-playback sleep assertions so macOS can idle-sleep.
+        // Available on macOS 12+.
+        webView.pauseAllMediaPlayback()
     }
 
     /// Skip to next track.

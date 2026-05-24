@@ -197,6 +197,10 @@ private struct QueueRowView: View {
 
             Divider()
 
+            DownloadContextMenu(song: self.song)
+
+            Divider()
+
             StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
 
             Divider()

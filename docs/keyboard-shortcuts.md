@@ -24,4 +24,15 @@ Mute is still available from the Playback menu and AppleScript, but Kaset intent
 | `⌘2`     | Go to Explore    |
 | `⌘3`     | Go to Library    |
 | `⌘F`     | Go to Search     |
-| `⌘K`     | Open Command Bar |
+| `⌘K`     | Open Command Bar (Works globally from any app!) |
+
+## Global Shortcuts & Integration
+
+* **Global Command Bar (`⌘K`)**: Pressing `⌘K` from any application will bring Kaset to the front and open the Command Bar immediately, allowing you to search or run AI commands quickly.
+* **Menu Bar Icon**: A status icon is added to the macOS menu bar, providing quick access to:
+  * Show Kaset (brings the app window to the front)
+  * Play / Pause
+  * Next Track
+  * Previous Track
+  * Quit Kaset
+

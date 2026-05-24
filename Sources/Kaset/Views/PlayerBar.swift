@@ -233,6 +233,10 @@ struct PlayerBar: View {
 
         Divider()
 
+        DownloadContextMenu(song: track)
+
+        Divider()
+
         ShareContextMenu.menuItem(for: track)
 
         Divider()

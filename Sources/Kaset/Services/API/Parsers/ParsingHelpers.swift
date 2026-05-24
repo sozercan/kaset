@@ -228,6 +228,27 @@ enum ParsingHelpers {
             return videoId
         }
 
+        // Try linked title/subtitle runs inside responsive list flex columns.
+        if let flexColumns = data["flexColumns"] as? [[String: Any]] {
+            for column in flexColumns {
+                guard let renderer = column["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+                      let text = renderer["text"] as? [String: Any],
+                      let runs = text["runs"] as? [[String: Any]]
+                else {
+                    continue
+                }
+
+                for run in runs {
+                    if let endpoint = run["navigationEndpoint"] as? [String: Any],
+                       let watchEndpoint = endpoint["watchEndpoint"] as? [String: Any],
+                       let videoId = watchEndpoint["videoId"] as? String
+                    {
+                        return videoId
+                    }
+                }
+            }
+        }
+
         return nil
     }
 

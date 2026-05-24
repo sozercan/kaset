@@ -11,25 +11,30 @@ enum SearchResponseParser {
         var artists: [Artist] = []
         var playlists: [Playlist] = []
 
-        // Navigate to contents
-        guard let contents = data["contents"] as? [String: Any],
-              let tabbedSearchResults = contents["tabbedSearchResultsRenderer"] as? [String: Any],
-              let tabs = tabbedSearchResults["tabs"] as? [[String: Any]],
-              let firstTab = tabs.first,
-              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-              let tabContent = tabRenderer["content"] as? [String: Any],
-              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
+        // Navigate to contents supporting both tabbed and non-tabbed layouts
+        guard let sectionListRenderer = getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             Self.logger.debug("SearchResponseParser: Failed to parse response structure. Top keys: \(data.keys.sorted())")
             return SearchResponse.empty
         }
 
-        for sectionData in sectionContents {
+        let flattenedSections = self.flattenSections(sectionContents)
+
+        for sectionData in flattenedSections {
             // Parse musicCardShelfRenderer (Top Result section)
             if let cardShelfRenderer = sectionData["musicCardShelfRenderer"] as? [String: Any] {
                 if let item = parseCardShelfRenderer(cardShelfRenderer) {
                     Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
+                }
+
+                // Parse nested contents inside the card shelf (e.g. top result songs)
+                if let cardContents = cardShelfRenderer["contents"] as? [[String: Any]] {
+                    for itemData in cardContents {
+                        if let item = parseSearchResultItem(itemData) {
+                            Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
+                        }
+                    }
                 }
             }
 
@@ -46,6 +51,21 @@ enum SearchResponseParser {
         }
 
         return SearchResponse(songs: songs, albums: albums, artists: artists, playlists: playlists)
+    }
+
+    /// Flattens nested itemSectionRenderer shelves into direct sections
+    private static func flattenSections(_ sections: [[String: Any]]) -> [[String: Any]] {
+        var flattened: [[String: Any]] = []
+        for section in sections {
+            if let itemSection = section["itemSectionRenderer"] as? [String: Any],
+               let contents = itemSection["contents"] as? [[String: Any]]
+            {
+                flattened.append(contentsOf: contents)
+            } else {
+                flattened.append(section)
+            }
+        }
+        return flattened
     }
 
     /// Helper to append a search result item to the appropriate array.
@@ -113,9 +133,7 @@ enum SearchResponseParser {
               let runs = titleData["runs"] as? [[String: Any]],
               let firstRun = runs.first,
               let title = firstRun["text"] as? String,
-              let navigationEndpoint = firstRun["navigationEndpoint"] as? [String: Any],
-              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String
+              let navigationEndpoint = firstRun["navigationEndpoint"] as? [String: Any]
         else {
             return nil
         }
@@ -130,6 +148,18 @@ enum SearchResponseParser {
            let subtitleRuns = subtitleData["runs"] as? [[String: Any]]
         {
             subtitle = subtitleRuns.compactMap { $0["text"] as? String }.joined()
+        }
+
+        if let watchEndpoint = navigationEndpoint["watchEndpoint"] as? [String: Any],
+           let videoId = watchEndpoint["videoId"] as? String
+        {
+            return self.parseSongFromCardShelfRenderer(data, title: title, videoId: videoId, subtitle: subtitle)
+        }
+
+        guard let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+              let browseId = browseEndpoint["browseId"] as? String
+        else {
+            return nil
         }
 
         let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
@@ -147,14 +177,8 @@ enum SearchResponseParser {
             return nil
         }
 
-        // Try to get videoId for songs
-        if let playlistItemData = responsiveRenderer["playlistItemData"] as? [String: Any],
-           let videoId = playlistItemData["videoId"] as? String
-        {
-            return self.parseSongFromResponsiveRenderer(responsiveRenderer, videoId: videoId)
-        }
-
-        // Check navigation endpoint for other types
+        // Check navigation endpoint for non-song browse types (Album, Artist, Playlist) first.
+        // This avoids misclassifying Album/Artist/Playlist rows as Songs when they contain a thumbnail play overlay videoId.
         if let navigationEndpoint = responsiveRenderer["navigationEndpoint"] as? [String: Any],
            let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
@@ -174,7 +198,37 @@ enum SearchResponseParser {
             )
         }
 
+        // Try to get videoId for songs. Search responses are not consistent:
+        // rows can expose the ID via playlistItemData, row navigation, or the
+        // thumbnail overlay play endpoint.
+        if let videoId = ParsingHelpers.extractVideoId(from: responsiveRenderer) {
+            return self.parseSongFromResponsiveRenderer(responsiveRenderer, videoId: videoId)
+        }
+
         return nil
+    }
+
+    private static func parseSongFromCardShelfRenderer(
+        _ data: [String: Any],
+        title: String,
+        videoId: String,
+        subtitle: String?
+    ) -> SearchResultItem {
+        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
+        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let artists = subtitle.map { [Artist.inline(name: $0, namespace: "search-card-artist")] } ?? []
+        let isExplicit = ParsingHelpers.extractIsExplicit(from: data)
+        let song = Song(
+            id: videoId,
+            title: title,
+            artists: artists,
+            album: nil,
+            duration: nil,
+            thumbnailURL: thumbnailURL,
+            videoId: videoId,
+            isExplicit: isExplicit
+        )
+        return .song(song)
     }
 
     // MARK: - Helpers

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 import Security
@@ -52,7 +53,135 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     private let logger = DiagnosticsLogger.webKit
 
+    private static let extensionCompatShimSource = """
+    (function() {
+        // 1. Shim chrome/browser object mapping
+        try {
+            if (typeof window.chrome === 'undefined' && typeof window.browser === 'object') {
+                window.chrome = window.browser;
+            }
+        } catch(e) {}
+        try {
+            if (typeof window.vAPI === 'undefined') {
+                window.vAPI = window.vAPI || {};
+            }
+        } catch(e) {}
+
+        // 2. Shim missing browser/chrome messaging APIs to prevent crashes
+        function createMockPort(name) {
+            return {
+                name: name || "",
+                onDisconnect: {
+                    addListener: function() {},
+                    removeListener: function() {},
+                    hasListener: function() {}
+                },
+                onMessage: {
+                    addListener: function() {},
+                    removeListener: function() {},
+                    hasListener: function() {}
+                },
+                postMessage: function(msg) {
+                    console.warn("mockPort.postMessage called with: " + JSON.stringify(msg));
+                },
+                disconnect: function() {}
+            };
+        }
+
+        function wrapConnect(runtimeObj) {
+            if (!runtimeObj || typeof runtimeObj.connect !== 'function') return;
+            var originalConnect = runtimeObj.connect;
+            runtimeObj.connect = function() {
+                try {
+                    return originalConnect.apply(runtimeObj, arguments);
+                } catch (e) {
+                    console.warn("Caught exception in runtime.connect() - returning mock Port to prevent crash: " + (e.message || e));
+                    var portName = (arguments[0] && arguments[0].name) || "";
+                    return createMockPort(portName);
+                }
+            };
+        }
+
+        try {
+            if (typeof window.browser === 'object' && window.browser.runtime) {
+                wrapConnect(window.browser.runtime);
+                if (typeof window.browser.runtime.onConnect === 'undefined') {
+                    window.browser.runtime.onConnect = {
+                        addListener: function() {},
+                        removeListener: function() {},
+                        hasListener: function() {}
+                    };
+                }
+            }
+        } catch(e) {}
+
+        try {
+            if (typeof window.chrome === 'object' && window.chrome.runtime) {
+                wrapConnect(window.chrome.runtime);
+                if (typeof window.chrome.runtime.onConnect === 'undefined') {
+                    window.chrome.runtime.onConnect = {
+                        addListener: function() {},
+                        removeListener: function() {},
+                        hasListener: function() {}
+                    };
+                }
+            }
+        } catch(e) {}
+
+        // 3. Pipe console logs/warnings/errors to native stderr via extensionDebug
+        try {
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.extensionDebug) {
+                var oldLog = console.log;
+                var oldError = console.error;
+                var oldWarn = console.warn;
+
+                console.log = function() {
+                    var msg = Array.from(arguments).map(function(x) {
+                        try {
+                            return typeof x === 'object' ? JSON.stringify(x) : String(x);
+                        } catch(e) {
+                            return String(x);
+                        }
+                    }).join(" ");
+                    window.webkit.messageHandlers.extensionDebug.postMessage("LOG: " + msg);
+                    if (oldLog) oldLog.apply(console, arguments);
+                };
+
+                console.error = function() {
+                    var msg = Array.from(arguments).map(function(x) {
+                        try {
+                            return typeof x === 'object' ? JSON.stringify(x) : String(x);
+                        } catch(e) {
+                            return String(x);
+                        }
+                    }).join(" ");
+                    window.webkit.messageHandlers.extensionDebug.postMessage("ERROR: " + msg);
+                    if (oldError) oldError.apply(console, arguments);
+                };
+
+                console.warn = function() {
+                    var msg = Array.from(arguments).map(function(x) {
+                        try {
+                            return typeof x === 'object' ? JSON.stringify(x) : String(x);
+                        } catch(e) {
+                            return String(x);
+                        }
+                    }).join(" ");
+                    window.webkit.messageHandlers.extensionDebug.postMessage("WARN: " + msg);
+                    if (oldWarn) oldWarn.apply(console, arguments);
+                };
+
+                window.onerror = function(msg, url, line, col, error) {
+                    window.webkit.messageHandlers.extensionDebug.postMessage("UNCAUGHT ERROR: " + msg + " at " + url + ":" + line + ":" + col);
+                    return false;
+                };
+            }
+        } catch(e) {}
+    })();
+    """
+
     private var extensionContexts: [String: WKWebExtensionContext] = [:]
+    fileprivate let extensionWindow = KasetWebExtensionWindow()
 
     private init(dataStore: WKWebsiteDataStore, restoresCookies: Bool, loadsExtensions: Bool) {
         self.dataStore = dataStore
@@ -196,6 +325,20 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         do {
             let webExtension = try await WKWebExtension(resourceBaseURL: url)
             let context = WKWebExtensionContext(for: webExtension)
+            context.isInspectable = true
+            context.inspectionName = webExtension.displayName ?? url.lastPathComponent
+
+            // Inject a small compatibility shim to improve Chrome-style extension support.
+            // This exposes a minimal `chrome` object and `vAPI` placeholder when the
+            // extension expects Chrome APIs instead of the standard `browser` namespace.
+            if let config = context.webViewConfiguration {
+                config.userContentController.removeScriptMessageHandler(forName: "extensionDebug")
+                config.userContentController.add(self, name: "extensionDebug")
+
+                let compatSource = Self.extensionCompatShimSource
+                let shim = WKUserScript(source: compatSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+                config.userContentController.addUserScript(shim)
+            }
 
             self.extensionContexts[id] = context
 
@@ -208,10 +351,23 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             }
 
             try self.webExtensionController.load(context)
-            try? await context.loadBackgroundContent()
+            do {
+                try await context.loadBackgroundContent()
+            } catch {
+                self.logger.error("Extension background content failed to load for \(webExtension.displayName ?? url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+            self.logExtensionErrors(for: context, extensionName: webExtension.displayName ?? url.lastPathComponent)
             self.logger.info("Loaded extension \(webExtension.displayName ?? url.lastPathComponent) (\(webExtension.version ?? "?")). Options: \(context.optionsPageURL?.absoluteString ?? "none")")
         } catch {
             self.logger.error("Failed to load extension at \(url.path): \(error.localizedDescription)")
+        }
+    }
+
+    @available(macOS 15.4, *)
+    private func logExtensionErrors(for context: WKWebExtensionContext, extensionName: String) {
+        guard !context.errors.isEmpty else { return }
+        for error in context.errors {
+            self.logger.error("Extension \(extensionName, privacy: .public) error: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -242,6 +398,12 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let configuration: WKWebViewConfiguration
     }
 
+    /// Metadata required to present an extension browser-action popup.
+    struct ExtensionPopupPage: Identifiable {
+        let id: String
+        let action: WKWebExtension.Action
+    }
+
     /// Resolves the options or popup page for a loaded extension.
     func extensionPage(forExtensionId id: String) -> ExtensionPage? {
         #if compiler(>=5.9)
@@ -261,6 +423,23 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 }
 
                 return ExtensionPage(id: id, url: fallbackURL, configuration: configuration)
+            }
+        #endif
+        return nil
+    }
+
+    /// Resolves the browser-action popup for a loaded extension, if it has one.
+    func extensionPopupPage(forExtensionId id: String) -> ExtensionPopupPage? {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                guard let context = self.extensionContexts[id],
+                      let action = context.action(for: self.extensionWindow.activeTab(for: context)),
+                      action.presentsPopup
+                else {
+                    return nil
+                }
+
+                return ExtensionPopupPage(id: id, action: action)
             }
         #endif
         return nil
@@ -521,6 +700,14 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
 #if compiler(>=5.9)
     @available(macOS 14.0, *)
     extension WebKitManager: WKWebExtensionControllerDelegate {
+        func webExtensionController(_: WKWebExtensionController, openWindowsFor _: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
+            [self.extensionWindow]
+        }
+
+        func webExtensionController(_: WKWebExtensionController, focusedWindowFor _: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
+            self.extensionWindow
+        }
+
         func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor permissions: Set<WKWebExtension.Permission>, in _: WKWebExtensionContext) async -> Bool {
             self.logger.info("Showing permission prompt for: \(permissions.map(\.rawValue).joined(separator: ", "))")
             return true
@@ -530,5 +717,165 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             self.logger.info("Showing match-pattern prompt for: \(matchPatterns.map(\.string).joined(separator: ", "))")
             return true
         }
+
+        @available(macOS 15.4, *)
+        func webExtensionController(_: WKWebExtensionController, presentActionPopup action: WKWebExtension.Action, for _: WKWebExtensionContext) async throws {
+            guard action.presentsPopup else { return }
+            _ = action.popupWebView
+        }
     }
 #endif
+
+// MARK: - Web Extension Window/Tab Bridge
+
+#if compiler(>=5.9)
+    @available(macOS 15.4, *)
+    private final class KasetWebExtensionWindow: NSObject, WKWebExtensionWindow {
+        private let tab = KasetWebExtensionTab()
+
+        func tabs(for _: WKWebExtensionContext) -> [any WKWebExtensionTab] {
+            [self.tab]
+        }
+
+        func activeTab(for _: WKWebExtensionContext) -> (any WKWebExtensionTab)? {
+            self.tab
+        }
+
+        func windowType(for _: WKWebExtensionContext) -> WKWebExtension.WindowType {
+            .normal
+        }
+
+        func windowState(for _: WKWebExtensionContext) -> WKWebExtension.WindowState {
+            guard let window = SingletonPlayerWebView.shared.webView?.window else {
+                return .normal
+            }
+            if window.isMiniaturized {
+                return .minimized
+            }
+            if window.styleMask.contains(.fullScreen) {
+                return .fullscreen
+            }
+            return .normal
+        }
+
+        func isPrivate(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func screenFrame(for _: WKWebExtensionContext) -> CGRect {
+            NSScreen.main?.frame ?? .null
+        }
+
+        func frame(for _: WKWebExtensionContext) -> CGRect {
+            SingletonPlayerWebView.shared.webView?.window?.frame ?? NSApp.keyWindow?.frame ?? .null
+        }
+
+        func focus(for _: WKWebExtensionContext) async throws {
+            NSApp.activate()
+            SingletonPlayerWebView.shared.webView?.window?.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @available(macOS 15.4, *)
+    private final class KasetWebExtensionTab: NSObject, WKWebExtensionTab {
+        func window(for _: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
+            WebKitManager.shared.extensionWindow
+        }
+
+        func indexInWindow(for _: WKWebExtensionContext) -> Int {
+            0
+        }
+
+        func webView(for _: WKWebExtensionContext) -> WKWebView? {
+            SingletonPlayerWebView.shared.webView
+        }
+
+        func title(for _: WKWebExtensionContext) -> String? {
+            SingletonPlayerWebView.shared.webView?.title ?? "YouTube Music"
+        }
+
+        func isPinned(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func isReaderModeAvailable(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func isReaderModeActive(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func isPlayingAudio(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func isMuted(for _: WKWebExtensionContext) -> Bool {
+            false
+        }
+
+        func size(for _: WKWebExtensionContext) -> CGSize {
+            SingletonPlayerWebView.shared.webView?.bounds.size ?? .zero
+        }
+
+        func url(for _: WKWebExtensionContext) -> URL? {
+            SingletonPlayerWebView.shared.webView?.url
+        }
+
+        func pendingURL(for _: WKWebExtensionContext) -> URL? {
+            nil
+        }
+
+        func isLoadingComplete(for _: WKWebExtensionContext) -> Bool {
+            !(SingletonPlayerWebView.shared.webView?.isLoading ?? false)
+        }
+
+        func loadURL(_ url: URL, for _: WKWebExtensionContext) async throws {
+            SingletonPlayerWebView.shared.webView?.load(URLRequest(url: url))
+        }
+
+        func reload(fromOrigin: Bool, for _: WKWebExtensionContext) async throws {
+            if fromOrigin {
+                SingletonPlayerWebView.shared.webView?.reloadFromOrigin()
+            } else {
+                SingletonPlayerWebView.shared.webView?.reload()
+            }
+        }
+
+        func goBack(for _: WKWebExtensionContext) async throws {
+            SingletonPlayerWebView.shared.webView?.goBack()
+        }
+
+        func goForward(for _: WKWebExtensionContext) async throws {
+            SingletonPlayerWebView.shared.webView?.goForward()
+        }
+
+        func activate(for _: WKWebExtensionContext) async throws {
+            SingletonPlayerWebView.shared.webView?.window?.makeKeyAndOrderFront(nil)
+        }
+
+        func isSelected(for _: WKWebExtensionContext) -> Bool {
+            true
+        }
+
+        func shouldGrantPermissionsOnUserGesture(for _: WKWebExtensionContext) -> Bool {
+            true
+        }
+
+        func shouldBypassPermissions(for _: WKWebExtensionContext) -> Bool {
+            true
+        }
+    }
+#endif
+
+// MARK: WKScriptMessageHandler
+
+extension WebKitManager: WKScriptMessageHandler {
+    func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "extensionDebug" {
+            let body = String(describing: message.body)
+            self.logger.info("Extension Console: \(body, privacy: .public)")
+            fputs("[Kaset][Extensions] \(body)\n", stderr)
+        }
+    }
+}

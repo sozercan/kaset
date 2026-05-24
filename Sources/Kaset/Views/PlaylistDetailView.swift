@@ -377,6 +377,10 @@ struct PlaylistDetailView: View {
 
             Divider()
 
+            DownloadContextMenu(song: track)
+
+            Divider()
+
             LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
 
             Divider()
