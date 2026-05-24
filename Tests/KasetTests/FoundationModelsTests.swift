@@ -55,6 +55,45 @@ struct PlaylistChangesTests {
 
         #expect(changes.reasoning.contains("Removed"))
     }
+
+    @Test("PlaylistChanges normalizes empty reordering to nil")
+    func normalizesEmptyReordering() {
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: [],
+            reasoning: "No changes needed"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: ["video1", "video2"])
+        #expect(normalized.reorderedIds == nil)
+    }
+
+    @Test("PlaylistChanges normalizes unchanged ordering to nil")
+    func normalizesUnchangedOrdering() {
+        let originalOrder = ["video1", "video2", "video3"]
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: originalOrder,
+            reasoning: "Order already works well"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: originalOrder)
+        #expect(normalized.reorderedIds == nil)
+    }
+
+    @Test("PlaylistChanges preserves meaningful reordering")
+    func preservesMeaningfulReordering() {
+        let originalOrder = ["video1", "video2", "video3"]
+        let newOrder = ["video3", "video1", "video2"]
+        let changes = PlaylistChanges(
+            removals: [],
+            reorderedIds: newOrder,
+            reasoning: "Sorted by energy level"
+        )
+
+        let normalized = changes.normalized(forOriginalTrackIds: originalOrder)
+        #expect(normalized.reorderedIds == newOrder)
+    }
 }
 
 // MARK: - LyricsSummaryTests
@@ -109,5 +148,66 @@ struct LyricsSummaryTests {
 
         #expect(summary.themes.count >= 2)
         #expect(summary.themes.count <= 5)
+    }
+}
+
+// MARK: - FoundationModelsBudgetTests
+
+@Suite(.tags(.model))
+struct FoundationModelsBudgetTests {
+    @Test("prompt budget total includes schema tokens")
+    func promptBudgetTotalIncludesSchemaTokens() {
+        let budget = FoundationModelsPromptBudget(
+            contextSize: 4096,
+            instructionsTokens: 100,
+            promptTokens: 200,
+            toolsTokens: 300,
+            schemaTokens: 400
+        )
+
+        #expect(budget.totalTokens == 1000)
+        #expect(budget.remainingTokens == 3096)
+    }
+
+    @Test("bestFittingPrefixCount allows zero-line fallback")
+    func bestFittingPrefixCountAllowsZeroLineFallback() async {
+        let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 4) { count in
+            count == 0
+        }
+
+        #expect(bestFit == 0)
+    }
+
+    @Test("bestFittingPrefixCount returns the largest fitting prefix")
+    func bestFittingPrefixCountReturnsLargestFit() async {
+        let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 6) { count in
+            count <= 3
+        }
+
+        #expect(bestFit == 3)
+    }
+
+    @Test("bestFittingTruncatedContent trims short content below the old 128-char floor")
+    func bestFittingTruncatedContentHandlesShortInputs() async {
+        let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
+            "small input",
+            truncationMarker: "..."
+        ) { candidate in
+            candidate.count <= 3
+        }
+
+        #expect(bestFit == "sma")
+    }
+
+    @Test("bestFittingTruncatedContent allows an empty fallback")
+    func bestFittingTruncatedContentAllowsEmptyFallback() async {
+        let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
+            "small input",
+            truncationMarker: "..."
+        ) { candidate in
+            candidate.isEmpty
+        }
+
+        #expect(bestFit?.isEmpty == true)
     }
 }

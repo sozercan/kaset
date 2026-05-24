@@ -180,4 +180,85 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.isEmpty)
     }
+
+    // MARK: - Region availability integration
+
+    @Test
+    func loadHTTP404MarksAvailabilityUnavailableAndLandsLoaded() async {
+        let availability = PodcastsAvailabilityService()
+        self.viewModel.configure(availabilityService: availability, accountId: "primary")
+        self.mockClient.shouldThrowError = YTMusicError.apiError(message: "HTTP 404", code: 404)
+
+        await self.viewModel.load()
+
+        // Lands on .loaded with empty sections rather than .error so the
+        // user doesn't see a generic "Server Error 404" toast while the
+        // sidebar row is being torn down by the availability service.
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.isEmpty)
+        #expect(availability.availability == .unavailable)
+    }
+
+    @Test
+    func configureForNewAccountResetsLoadedEmptyUnavailableState() async {
+        let availability = PodcastsAvailabilityService()
+        self.viewModel.configure(availabilityService: availability, accountId: "account-a")
+        self.mockClient.shouldThrowError = YTMusicError.apiError(message: "HTTP 404", code: 404)
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.isEmpty)
+        #expect(availability.availability == .unavailable)
+
+        self.viewModel.configure(availabilityService: availability, accountId: "account-b")
+
+        #expect(self.viewModel.loadingState == .idle)
+        #expect(self.viewModel.sections.isEmpty)
+        #expect(self.viewModel.hasMoreSections == true)
+    }
+
+    @Test
+    func loadEmptyPayloadMarksAvailabilityUnavailable() async {
+        let availability = PodcastsAvailabilityService()
+        self.viewModel.configure(availabilityService: availability, accountId: "primary")
+        self.mockClient.podcastsSections = []
+
+        await self.viewModel.load()
+
+        // User-initiated empty payload is treated as authoritative — the
+        // sidebar row should disappear.
+        #expect(availability.availability == .unavailable)
+    }
+
+    @Test
+    func loadNonEmptyPayloadMarksAvailabilityAvailable() async {
+        let availability = PodcastsAvailabilityService()
+        self.viewModel.configure(availabilityService: availability, accountId: "primary")
+        self.mockClient.podcastsSections = [
+            PodcastSection(id: UUID().uuidString, title: "Top Shows", items: []),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(availability.availability == .available)
+    }
+
+    @Test
+    func loadNetworkErrorDoesNotMutateAvailability() async {
+        let availability = PodcastsAvailabilityService()
+        availability.markAvailable(for: "primary")
+        self.viewModel.configure(availabilityService: availability, accountId: "primary")
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+
+        await self.viewModel.load()
+
+        // Transient errors must not flip a known-good state.
+        #expect(availability.availability == .available)
+        if case .error = self.viewModel.loadingState {
+            // Expected — generic error UI for transient failures.
+        } else {
+            Issue.record("Expected error state but got \(self.viewModel.loadingState)")
+        }
+    }
 }

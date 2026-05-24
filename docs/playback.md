@@ -19,6 +19,8 @@ Our solution: A **singleton WebView** that loads YouTube Music watch pages and p
 | Component | File | Purpose |
 |-----------|------|---------|
 | `SingletonPlayerWebView` | `MiniPlayerWebView.swift` | Manages the one-and-only WebView |
+| `SingletonPlayerWebView+PlaybackPreferences` | `SingletonPlayerWebView+PlaybackPreferences.swift` | Installs and refreshes playback preference user scripts |
+| `SingletonPlayerWebView+PlaybackAudioQuality` | `SingletonPlayerWebView+PlaybackAudioQuality.swift` | Applies preferred YouTube audio quality and reports diagnostics |
 | `PersistentPlayerView` | `MiniPlayerWebView.swift` | SwiftUI wrapper for the WebView |
 | `PlayerService` | `PlayerService.swift` | Playback state and control |
 | `PlayerService+WebQueueSync` | `PlayerService+WebQueueSync.swift` | Keeps native queue state authoritative when WebView events drift |
@@ -96,6 +98,7 @@ The observer script continuously reports:
 - The observed `videoId`
 - Whether the observer thinks the track changed
 - Like status and lightweight video availability
+- Sanitized audio-quality diagnostics via `PLAYBACK_AUDIO_QUALITY_STATS`
 
 Swift updates `PlayerService` from every `STATE_UPDATE`, then uses
 `PlayerService+WebQueueSync` to decide whether the reported track matches
@@ -143,6 +146,158 @@ func loadVideo(videoId: String) {
 When the WebView reports a new `videoId`, Kaset treats that as authoritative
 even if the DOM title/artist are still stale. This avoids a race where YouTube
 switches tracks before the player bar text catches up.
+
+## Playback Preferences and Audio Quality
+
+Kaset injects a small set of playback preference scripts into the singleton
+player WebView from `SingletonPlayerWebView+PlaybackPreferences.swift` and
+`SingletonPlayerWebView+PlaybackAudioQuality.swift`.
+
+### Script responsibilities
+
+| Script | Injection timing | Purpose |
+|--------|------------------|---------|
+| Media control bootstrap | document start | Wraps `navigator.mediaSession.setActionHandler` so the macOS media keys can use either seek-forward/back or next/previous behavior. |
+| Playback audio-quality bootstrap | document start | Stores the preferred `SettingsManager.PlaybackAudioQuality` value on `window.__kasetPlaybackAudioQuality` before YouTube's player finishes booting. |
+| Playback audio-quality override | document end | Finds candidate YouTube player APIs, asks them to use the preferred audio quality, and reports sanitized diagnostics back to Swift. |
+| Playback audio-quality sync | runtime preference changes | Updates `window.__kasetPlaybackAudioQuality` and immediately reapplies the preference if the override script is already installed. |
+
+When either the media-control mode or playback audio-quality setting changes,
+`refreshInstalledUserScripts()` rebuilds the WebView user scripts and also sends
+runtime sync JavaScript to the already-loaded page. This matters because WebKit
+user scripts only affect future document loads; the explicit sync path keeps the
+currently playing song aligned with the new setting.
+
+### Applying the preferred audio quality
+
+The override script probes several YouTube Music player surfaces, currently
+including:
+
+- `document.querySelector('ytmusic-player')`
+- `ytmusic-player.playerApi`
+- `document.getElementById('movie_player')`
+- `window.yt.player`
+
+For each candidate it tries best-effort YouTube player APIs:
+
+```javascript
+playerApi.setAudioQuality(desiredQuality)
+playerApi.setOption('audio', 'quality', desiredQuality)
+playerApi.setOption('audio', 'audioQuality', desiredQuality)
+playerApi.setOption('player', 'audioQuality', desiredQuality)
+playerApi.setOption('player', 'audio_quality', desiredQuality)
+playerApi.setOption('playback', 'audioQuality', desiredQuality)
+playerApi.setOption('playback', 'audio_quality', desiredQuality)
+```
+
+The YouTube-facing values are:
+
+| Kaset setting | YouTube value |
+|---------------|---------------|
+| `.low` | `small` |
+| `.medium` | `medium` |
+| `.high` | `highres` |
+
+YouTube may still choose the final stream based on account entitlement,
+availability, network conditions, or player policy. Treat this path as a
+preference request plus instrumentation, not as a guarantee that YouTube will
+serve a specific stream.
+
+### How to get playback quality info
+
+The audio-quality override script posts a dedicated WebKit bridge message when
+it has a new diagnostic snapshot:
+
+```javascript
+window.webkit.messageHandlers.singletonPlayer.postMessage({
+    type: 'PLAYBACK_AUDIO_QUALITY_STATS',
+    preferred: 'AUDIO_QUALITY_HIGH',
+    desired: 'highres',
+    applied: true,
+    observed: 'AUDIO_QUALITY_HIGH',
+    source: 'statsForNerds.codecs.itag',
+    observedItag: '141',
+    videoId: 's5oSscNIyIs',
+    available: [],
+    stats: { codecs: '0 / mp4a.40.2 (141)' }
+});
+```
+
+Swift handles this in `MiniPlayerWebView.swift` and logs it through
+`DiagnosticsLogger.player` as `Audio quality stats: ...`.
+
+To inspect the latest quality diagnostics while a song is playing, run:
+
+```bash
+/usr/bin/log show --process Kaset --last 10m --style compact --info --debug \
+  | grep 'Audio quality stats'
+```
+
+For a narrower query against Kaset's unified logging subsystem:
+
+```bash
+/usr/bin/log show --process Kaset --last 10m --style compact --info --debug \
+  --predicate 'subsystem == "com.sertacozercan.Kaset"' \
+  | grep 'Audio quality stats'
+```
+
+Example log line:
+
+```text
+Audio quality stats: preferred=AUDIO_QUALITY_HIGH desired=highres applied=true observed=AUDIO_QUALITY_HIGH source=statsForNerds.codecs.itag videoId=s5oSscNIyIs available=[] stats={"codecs":"0 / mp4a.40.2 (141)"}
+```
+
+The most useful fields are:
+
+| Field | Meaning |
+|-------|---------|
+| `preferred` | Kaset's selected playback audio-quality setting. |
+| `desired` | The string Kaset sent to YouTube player APIs. |
+| `applied` | Whether at least one known setter call appeared to succeed. This does not prove YouTube selected that stream. |
+| `observed` | Best available observed quality from player APIs or Stats for Nerds inference. |
+| `source` | Where `observed` came from, for example `movie_player.getAudioQuality` or `statsForNerds.codecs.itag`. |
+| `observedItag` | Inferred audio itag when one was found. This is included in the bridge payload; the compact Swift log focuses on sanitized summary fields. |
+| `videoId` | The current YouTube video id, if available. |
+| `available` | Sanitized result from available-audio-quality player APIs, when exposed. |
+| `stats` | Allowlisted, sanitized Stats for Nerds fields. |
+
+### Stats for Nerds and itag inference
+
+YouTube Music does not expose a stable public API for the selected audio stream.
+The diagnostic path therefore combines several best-effort sources:
+
+1. Direct player getters such as `getAudioQuality()`,
+   `getPlaybackAudioQuality()`, and `getPreferredAudioQuality()`.
+2. Available-quality getters such as `getAvailableAudioQualityLevels()`.
+3. Allowlisted Stats for Nerds fields from `getStatsForNerds()`.
+4. Itag inference from primitive values found in those allowlisted fields.
+
+Current audio itag mapping:
+
+| Itag | Inferred quality |
+|------|------------------|
+| `139`, `249`, `250` | `AUDIO_QUALITY_LOW` |
+| `140`, `251` | `AUDIO_QUALITY_MEDIUM` |
+| `141` | `AUDIO_QUALITY_HIGH` |
+
+Only primitive values and primitive arrays are inspected. The bridge payload is
+throttled and sanitized before logging so that noisy or sensitive player objects
+are not emitted to unified logging.
+
+### Troubleshooting quality diagnostics
+
+- No `Audio quality stats` line: confirm the app was built with the latest
+  `SingletonPlayerWebView+PlaybackAudioQuality.swift`, start a fresh song, and
+  query at least the last 10 minutes of logs.
+- `applied=false`: none of the probed player APIs exposed a usable setter at
+  that moment. The observer will retry on video lifecycle and DOM mutation
+  events.
+- `observed=unknown`: YouTube did not expose a known getter or allowlisted Stats
+  for Nerds value yet. Wait for playback to start or seek/change tracks to cause
+  another snapshot.
+- `preferred` and `observed` differ: YouTube may have ignored the preference,
+  the stream may not be available for that account/video, or the observed value
+  may have been captured before the player settled.
 
 ## Background Audio
 

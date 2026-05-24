@@ -14,6 +14,7 @@ Sources/
       ├── Models/       → Data types (Song, Playlist, Album, Artist, etc.)
       ├── Services/     → Business logic
       │   ├── API/      → YTMusicClient, Parsers/
+      │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
       │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
@@ -125,6 +126,10 @@ Makes authenticated requests to YouTube Music's internal API:
 - `unsubscribeFromArtist(channelId:)` → Unsubscribe from an artist
 - `subscribeToPlaylist(playlistId:)` → Add playlist to library
 - `unsubscribeFromPlaylist(playlistId:)` → Remove playlist from library
+- `deletePlaylist(playlistId:)` → Delete a user-owned playlist
+- `getAddToPlaylistOptions(videoId:)` → Fetch the signed-in user's add-to-playlist menu
+- `addSongToPlaylist(videoId:playlistId:allowDuplicate:)` → Add one song to an existing playlist via `browse/edit_playlist`
+- `createPlaylist(title:description:privacyStatus:videoIds:)` → Create a playlist and optionally seed it with songs
 
 ### API Parsers
 
@@ -137,7 +142,7 @@ Response parsing is extracted into specialized modules:
 | `ParsingHelpers.swift` | Shared utilities (thumbnails, artists, duration) |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination |
+| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination, add-to-playlist menu options, create-playlist IDs, and ownership/delete affordances |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |
 | `RadioQueueParser.swift` | Radio queue from "next" endpoint |
 | `SongMetadataParser.swift` | Full song metadata with feedback tokens |
@@ -291,6 +296,24 @@ Manages user preferences persisted via `UserDefaults`:
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 
 **LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
+
+### EqualizerService
+
+**File**: `Sources/Kaset/Services/Audio/EqualizerService.swift`
+
+Owns the equalizer feature's user-facing state and lifecycle. The actual DSP runs in ``EqualizerAudioEngine`` via an `AudioDeviceIOProc` registered on an aggregate device that wraps a Core Audio process tap on WebKit's GPU subprocess. See [ADR-0017](adr/0017-equalizer.md) for the full architecture rationale.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `settings` | `EQSettings` | Active band gains, preamp, preset, enabled flag — persisted as JSON in UserDefaults |
+| `status` | `Status` | Computed engine status (`off` / `active` / `standby` / `permissionNeeded` / `error`) surfaced to the settings UI |
+| `lastFailure` | `StartFailure?` | Last raw engine failure; the UI reads it via `status` rather than directly |
+
+**Persistence**: Every mutation triggers a JSON round-trip under the `settings.equalizer` UserDefaults key. The full settings shape (isEnabled, preampDB, bandGainsDB, preset) restores on next launch.
+
+**Engine seam**: `EqualizerAudioEngineProtocol` lets tests inject a no-op stub so `EqualizerServiceTests` can verify state transitions without touching Core Audio.
+
+> ⚠️ **Naming note**: `Sources/Kaset/Views/SharedViews/EqualizerView.swift` is unrelated — it's a small now-playing animation indicator (three bouncing bars). The settings UI is `EqualizerSettingsView`.
 
 ### SyncedLyricsService
 
@@ -730,6 +753,8 @@ In-memory cache with TTL and LRU eviction:
 - Pre-allocated dictionary capacity to reduce rehashing
 - Periodic eviction (every 30 seconds) instead of per-write
 - Stable cache keys using SHA256 hash of sorted JSON body
+- Mutation invalidation clears browse, next, like, and `playlist/get_add_to_playlist` entries so library and add-to-playlist menus refresh after playlist/song changes
+- Mutation invalidation is scoped to the app's `APICache`; it does not flush `URLCache.shared` HTTP responses
 
 ### Image Caching
 

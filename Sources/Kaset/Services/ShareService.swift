@@ -51,7 +51,7 @@ extension Playlist: Shareable {
     }
 
     var shareSubtitle: String? {
-        self.author
+        self.author?.name
     }
 
     var shareURL: URL? {

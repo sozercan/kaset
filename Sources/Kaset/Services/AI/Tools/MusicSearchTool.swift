@@ -75,7 +75,7 @@ struct MusicSearchTool: Tool {
         if includeAll || arguments.filter == "playlists" {
             let playlists = response.playlists.prefix(3)
             for playlist in playlists {
-                let author = playlist.author ?? "Unknown"
+                let author = playlist.author?.name ?? "Unknown"
                 results.append("PLAYLIST: \"\(playlist.title)\" by \(author) [playlistId: \(playlist.id)]")
             }
         }

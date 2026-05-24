@@ -18,4 +18,22 @@ struct PlaylistChanges {
     /// Brief explanation of why these changes were suggested.
     @Guide(description: "A brief, friendly explanation of the suggested changes (1-2 sentences).")
     let reasoning: String
+
+    /// Normalizes no-op reorder output so UI code can treat it as "no reordering".
+    func normalized(forOriginalTrackIds originalTrackIds: [String]) -> Self {
+        let normalizedReorderedIds: [String]? = if let reorderedIds = self.reorderedIds,
+                                                   !reorderedIds.isEmpty,
+                                                   reorderedIds != originalTrackIds
+        {
+            reorderedIds
+        } else {
+            nil
+        }
+
+        return Self(
+            removals: self.removals,
+            reorderedIds: normalizedReorderedIds,
+            reasoning: self.reasoning
+        )
+    }
 }

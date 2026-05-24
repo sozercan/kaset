@@ -8,13 +8,14 @@ import Testing
 /// Integration tests that call the actual Apple Intelligence LLM.
 ///
 /// These tests validate that natural language prompts are correctly parsed
-/// into `MusicIntent` structs. They require macOS 26+ with Apple Intelligence.
+/// into the production command-bar stage-1 parse schema. They require macOS 26+
+/// with Apple Intelligence.
 ///
 /// ## Flakiness Mitigation
 ///
 /// LLM outputs are inherently non-deterministic. These tests mitigate flakiness by:
 /// 1. **Retry logic**: Each test retries up to 3 times before failing
-/// 2. **Relaxed matching**: Checks multiple fields (e.g., mood OR query) for expected content
+/// 2. **Relaxed matching**: Checks multiple fields (e.g., mood OR subject) for expected content
 /// 3. **Case-insensitive**: All string comparisons are lowercased
 /// 4. **Fresh sessions**: Each attempt uses a new `LanguageModelSession` to avoid context drift
 ///
@@ -43,32 +44,17 @@ struct MusicIntentIntegrationTests {
     /// Maximum number of retry attempts for flaky LLM calls.
     private static let maxRetries = 3
 
-    /// System prompt for intent parsing - provides clear field definitions for consistent parsing.
-    private static let systemPrompt = """
-    Parse music commands into MusicIntent. Be precise about field placement:
-
-    Actions: play, queue, shuffle, like, dislike, skip, previous, pause, resume, search
-
-    Fields (use exact field for each concept):
-    - query: The raw search text or song/artist name
-    - artist: Specific artist/band name (e.g., "Beatles", "Taylor Swift")
-    - genre: Music genre (rock, jazz, hip-hop, classical, electronic, pop, country)
-    - mood: Emotional quality (upbeat, chill, sad, happy, energetic, relaxing, melancholic)
-    - era: Time period (1980s, 1990s, 2000s, classic)
-    - version: Recording type (acoustic, live, remix, instrumental, cover)
-    - activity: What user is doing (workout, study, sleep, party, driving, cooking, focus, running, yoga)
-
-    IMPORTANT: "for studying", "for workout", "for sleep" → put in activity field, not mood.
-    """
-
     // MARK: - Test Helpers
 
-    /// Parses a natural language prompt into a MusicIntent using the LLM.
+    /// Parses a natural language prompt into a `CommandBarParseResult` using the shipped prompt.
     /// Creates a fresh session per call to avoid context window overflow.
-    private func parseIntent(from prompt: String) async throws -> MusicIntent {
-        // Create a fresh session each time to avoid context accumulation
-        let session = LanguageModelSession(instructions: Self.systemPrompt)
-        let response = try await session.respond(to: prompt, generating: MusicIntent.self)
+    private func parseIntent(from prompt: String) async throws -> CommandBarParseResult {
+        let session = LanguageModelSession(
+            instructions: FoundationModelsPromptLibrary.commandBarInstructions(
+                version: .current
+            )
+        )
+        let response = try await session.respond(to: prompt, generating: CommandBarParseResult.self)
         return response.content
     }
 
@@ -106,15 +92,15 @@ struct MusicIntentIntegrationTests {
     // MARK: - Basic Actions (Parameterized)
 
     @Test("Parses playback control commands", arguments: [
-        (prompt: "Play music", expectedAction: MusicAction.play),
-        (prompt: "Skip this song", expectedAction: MusicAction.skip),
-        (prompt: "Skip to next track", expectedAction: MusicAction.skip),
-        (prompt: "Pause the music", expectedAction: MusicAction.pause),
-        (prompt: "Resume the paused music", expectedAction: MusicAction.resume),
-        (prompt: "Like this song", expectedAction: MusicAction.like),
-        (prompt: "Add jazz to queue", expectedAction: MusicAction.queue),
+        (prompt: "Play music", expectedAction: CommandBarAction.play),
+        (prompt: "Skip this song", expectedAction: CommandBarAction.skip),
+        (prompt: "Skip to next track", expectedAction: CommandBarAction.skip),
+        (prompt: "Pause the music", expectedAction: CommandBarAction.pause),
+        (prompt: "Resume the paused music", expectedAction: CommandBarAction.resume),
+        (prompt: "Like this song", expectedAction: CommandBarAction.like),
+        (prompt: "Add jazz to queue", expectedAction: CommandBarAction.queue),
     ])
-    func parsePlaybackCommand(prompt: String, expectedAction: MusicAction) async throws {
+    func parsePlaybackCommand(prompt: String, expectedAction: CommandBarAction) async throws {
         try await self.withRetry {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
@@ -133,9 +119,9 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            let combined = "\(intent.mood) \(intent.query)".lowercased()
+            let combined = "\(intent.mood) \(intent.subject)".lowercased()
             #expect(
-                combined.contains(expected), "Expected '\(expected)' in mood or query, got: \(combined)"
+                combined.contains(expected), "Expected '\(expected)' in mood or subject, got: \(combined)"
             )
         }
     }
@@ -149,9 +135,9 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            let combined = "\(intent.genre) \(intent.query)".lowercased()
+            let combined = "\(intent.genre) \(intent.subject)".lowercased()
             #expect(
-                combined.contains(expected), "Expected '\(expected)' in genre or query, got: \(combined)"
+                combined.contains(expected), "Expected '\(expected)' in genre or subject, got: \(combined)"
             )
         }
     }
@@ -165,9 +151,9 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            let combined = "\(intent.era) \(intent.query)".lowercased()
+            let combined = "\(intent.era) \(intent.subject)".lowercased()
             #expect(
-                combined.contains(expected), "Expected '\(expected)' in era or query, got: \(combined)"
+                combined.contains(expected), "Expected '\(expected)' in era or subject, got: \(combined)"
             )
         }
     }
@@ -181,9 +167,9 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            let combined = "\(intent.artist) \(intent.query)".lowercased()
+            let combined = "\(intent.artist) \(intent.subject)".lowercased()
             #expect(
-                combined.contains(expected), "Expected '\(expected)' in artist or query, got: \(combined)"
+                combined.contains(expected), "Expected '\(expected)' in artist or subject, got: \(combined)"
             )
         }
     }
@@ -197,12 +183,12 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            // LLM may place activity keywords in activity, mood, genre, or query fields
-            let combined = "\(intent.activity) \(intent.mood) \(intent.genre) \(intent.query)"
+            // LLM may place activity keywords in activity, mood, genre, or subject fields
+            let combined = "\(intent.activity) \(intent.mood) \(intent.genre) \(intent.subject)"
                 .lowercased()
             #expect(
                 combined.contains(expected),
-                "Expected '\(expected)' in activity, mood, genre, or query, got: \(combined)"
+                "Expected '\(expected)' in activity, mood, genre, or subject, got: \(combined)"
             )
         }
     }
@@ -226,9 +212,9 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: "Play acoustic covers")
         } validate: { intent in
             #expect(intent.action == .play)
-            let combined = "\(intent.version) \(intent.query)".lowercased()
+            let combined = "\(intent.version) \(intent.subject)".lowercased()
             #expect(
-                combined.contains("acoustic"), "Expected 'acoustic' in version or query, got: \(combined)"
+                combined.contains("acoustic"), "Expected 'acoustic' in version or subject, got: \(combined)"
             )
         }
     }
@@ -245,10 +231,10 @@ struct MusicIntentIntegrationTests {
         } validate: { intent in
             #expect(intent.action == .shuffle || intent.action == .play)
             if !expected.isEmpty {
-                let combined = "\(intent.shuffleScope) \(intent.query)".lowercased()
+                let combined = "\(intent.shuffleScope) \(intent.subject)".lowercased()
                 #expect(
                     combined.contains(expected),
-                    "Expected '\(expected)' in shuffleScope or query, got: \(combined)"
+                    "Expected '\(expected)' in shuffleScope or subject, got: \(combined)"
                 )
             }
         }
@@ -271,7 +257,7 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: "Search for Billie Eilish")
         } validate: { intent in
             #expect(intent.action == .search || intent.action == .play)
-            let combined = "\(intent.artist) \(intent.query)".lowercased()
+            let combined = "\(intent.artist) \(intent.subject)".lowercased()
             #expect(combined.contains("billie") || combined.contains("eilish"))
         }
     }
@@ -295,8 +281,8 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: "Play energetic songs by Daft Punk")
         } validate: { intent in
             #expect(intent.action == .play)
-            let artistQuery = "\(intent.artist) \(intent.query)".lowercased()
-            let moodQuery = "\(intent.mood) \(intent.query)".lowercased()
+            let artistQuery = "\(intent.artist) \(intent.subject)".lowercased()
+            let moodQuery = "\(intent.mood) \(intent.subject)".lowercased()
             #expect(artistQuery.contains("daft") || artistQuery.contains("punk"))
             #expect(moodQuery.contains("energetic") || moodQuery.contains("upbeat"))
         }
@@ -308,9 +294,27 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: "Play upbeat disco from the 70s")
         } validate: { intent in
             #expect(intent.action == .play)
-            let allFields = "\(intent.mood) \(intent.genre) \(intent.era) \(intent.query)".lowercased()
+            let allFields = "\(intent.mood) \(intent.genre) \(intent.era) \(intent.subject)".lowercased()
             #expect(allFields.contains("disco") || allFields.contains("funk"))
             #expect(allFields.contains("70") || allFields.contains("1970"))
+        }
+    }
+
+    @Test("Parses queue inspection into the explicit read-only action")
+    func parseQueueInspectionCommand() async throws {
+        try await self.withRetry {
+            try await self.parseIntent(from: "What's in my queue?")
+        } validate: { intent in
+            #expect(intent.action == .inspectQueue)
+        }
+    }
+
+    @Test("Parses clear queue into the dedicated destructive action")
+    func parseClearQueueCommand() async throws {
+        try await self.withRetry {
+            try await self.parseIntent(from: "Clear queue")
+        } validate: { intent in
+            #expect(intent.action == .clearQueue)
         }
     }
 

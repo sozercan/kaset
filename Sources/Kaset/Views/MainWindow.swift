@@ -23,6 +23,8 @@ struct MainWindow: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
 
@@ -35,6 +37,7 @@ struct MainWindow: View {
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
+    @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -45,9 +48,12 @@ struct MainWindow: View {
     @State private var moodsAndGenresViewModel: MoodsAndGenresViewModel?
     @State private var newReleasesViewModel: NewReleasesViewModel?
     @State private var podcastsViewModel: PodcastsViewModel?
-    @State private var likedMusicViewModel: LikedMusicViewModel?
+    @State private var likedMusicViewModel: PlaylistDetailViewModel?
     @State private var libraryViewModel: LibraryViewModel?
     @State private var historyViewModel: HistoryViewModel?
+
+    /// Navigation path for the Liked Music route.
+    @State private var likedMusicNavigationPath = NavigationPath()
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -62,7 +68,12 @@ struct MainWindow: View {
         _moodsAndGenresViewModel = State(initialValue: MoodsAndGenresViewModel(client: client))
         _newReleasesViewModel = State(initialValue: NewReleasesViewModel(client: client))
         _podcastsViewModel = State(initialValue: PodcastsViewModel(client: client))
-        _likedMusicViewModel = State(initialValue: LikedMusicViewModel(client: client))
+        _likedMusicViewModel = State(
+            initialValue: PlaylistDetailViewModel(
+                playlist: LikedMusicPlaylist.playlist,
+                client: client
+            )
+        )
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
         _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
@@ -81,7 +92,20 @@ struct MainWindow: View {
                     // Show loading while checking login status to avoid onboarding flash
                     self.initializingView
                 } else if self.authService.state.isLoggedIn {
-                    self.mainContent
+                    // Skip the probe gate in UI test mode: existing test
+                    // fixtures (e.g. `navigateToSidebarItem`) check
+                    // sidebar element existence synchronously right after
+                    // launch and don't tolerate the ~300 ms gate delay.
+                    // The probe still fires in the background so the
+                    // `MOCK_PODCASTS_REGION_UNAVAILABLE` path works.
+                    if self.podcastsAvailability.didResolveFirstProbe || UITestConfig.isUITestMode {
+                        self.mainContent
+                    } else {
+                        // Hold the same loading view until the podcasts
+                        // probe resolves so the sidebar paints with the
+                        // correct state on first frame.
+                        self.initializingView
+                    }
                 } else {
                     OnboardingView()
                 }
@@ -95,45 +119,17 @@ struct MainWindow: View {
                 DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
-            // Persistent WebView - always present once a video has been requested
-            // Uses a SINGLETON WebView instance that persists for the app lifetime
-            // Compact size (120x68) for first-time interaction, then hidden (1x1)
+            // Persistent WebView - always present once a video has been requested.
+            // Uses a SINGLETON WebView instance that persists for the app lifetime.
+            // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
             if let videoId = playerService.pendingPlayVideoId {
-                ZStack(alignment: .topTrailing) {
-                    PersistentPlayerView(videoId: videoId, isExpanded: self.playerService.showMiniPlayer)
-                        .frame(
-                            width: self.playerService.showMiniPlayer ? 120 : 1,
-                            height: self.playerService.showMiniPlayer ? 68 : 1
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .opacity(self.playerService.showMiniPlayer ? 0.95 : 0)
-
-                    if self.playerService.showMiniPlayer {
-                        Button {
-                            self.playerService.confirmPlaybackStarted()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.white.opacity(0.8))
-                                .shadow(radius: 1)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "Close"))
-                        .padding(3)
-                    }
-                }
-                .shadow(color: self.playerService.showMiniPlayer ? .black.opacity(0.2) : .clear, radius: 6, y: 3)
-                .padding(.trailing, self.playerService.showMiniPlayer ? 12 : 0)
-                .padding(.bottom, self.playerService.showMiniPlayer ? 76 : 0)
-                .allowsHitTesting(self.playerService.showMiniPlayer)
-                // Hiding must not interpolate frame/opacity (no “shrink”); showing can ease in.
-                .transaction { transaction in
-                    if !self.playerService.showMiniPlayer {
+                PersistentPlayerView(videoId: videoId, isExpanded: false)
+                    .frame(width: 1, height: 1)
+                    .opacity(0)
+                    .allowsHitTesting(false)
+                    .transaction { transaction in
                         transaction.animation = nil
-                    } else {
-                        transaction.animation = .easeInOut(duration: 0.2)
                     }
-                }
             }
         }
         .sheet(isPresented: self.$showLoginSheet) {
@@ -159,7 +155,7 @@ struct MainWindow: View {
                         }
 
                     VStack(spacing: 0) {
-                        CommandBarView(client: self.client, isPresented: self.$isCommandBarPresented)
+                        self.commandBar
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
 
                         Spacer(minLength: 0)
@@ -193,18 +189,17 @@ struct MainWindow: View {
                 self.showWhatsNew.wrappedValue = false
             }
         }
+        .onChange(of: self.navigationSelection) { _, newValue in
+            if newValue != nil {
+                self.selectedSidebarPinnedItem = nil
+            }
+        }
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
         .onChange(of: self.authService.needsReauth) { _, needsReauth in
             if needsReauth {
                 self.showLoginSheet = true
-            }
-        }
-        .onChange(of: self.playerService.isPlaying) { _, isPlaying in
-            // Auto-hide the WebView once playback starts
-            if isPlaying, self.playerService.showMiniPlayer {
-                self.playerService.confirmPlaybackStarted()
             }
         }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
@@ -220,6 +215,13 @@ struct MainWindow: View {
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
+            self.podcastsViewModel?.configure(
+                availabilityService: self.podcastsAvailability,
+                accountId: newAccountId
+            )
+            if let newAccountId {
+                self.podcastsAvailability.activateAccount(newAccountId)
+            }
 
             Task { @MainActor in
                 APICache.shared.invalidateAll()
@@ -229,11 +231,23 @@ struct MainWindow: View {
 
                 self.historyViewModel?.reset()
 
+                // Brand accounts can have a different region than the
+                // primary; re-probe in the background so the sidebar
+                // reflects the new account. We deliberately do NOT
+                // reset the gate (`didResolveFirstProbe`) here — that
+                // would tear down `mainContent` and show the loading
+                // spinner full-screen during the switch. Sidebar may
+                // briefly show the prior account's tab state until the
+                // probe lands.
                 DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await self.refreshAllContent()
+                    }
+
+                    group.addTask {
+                        await self.podcastsAvailability.probe(for: newAccountId, using: self.client)
                     }
 
                     if let currentVideoId = self.playerService.currentTrack?.videoId {
@@ -244,8 +258,55 @@ struct MainWindow: View {
                 }
             }
         }
+        .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
+            // If the user is sitting on the Podcasts tab when it flips
+            // unavailable, redirect to Home so they don't end up on a
+            // sidebar row that no longer exists.
+            if newValue == .unavailable, self.navigationSelection == .podcasts {
+                self.navigationSelection = .home
+            }
+
+            // Switching back from an unavailable account keeps the
+            // Podcasts VM reset/idle until the probe confirms the new
+            // account is available. Eagerly refresh then so the tab does
+            // not remain on the prior account's loaded-empty state.
+            if oldValue == .unavailable, newValue == .available {
+                Task { @MainActor in
+                    await self.podcastsViewModel?.refresh()
+                }
+            }
+        }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+        }
+        .task(id: self.accountService.currentAccount?.id) {
+            // Keep PodcastsViewModel in sync with the active account so
+            // 404 / empty results are recorded against the right account.
+            let accountId = self.accountService.currentAccount?.id
+            if let accountId {
+                self.podcastsAvailability.activateAccount(accountId)
+            }
+            self.podcastsViewModel?.configure(
+                availabilityService: self.podcastsAvailability,
+                accountId: accountId
+            )
+        }
+        .task(id: self.authService.state.isLoggedIn) {
+            // Run the podcasts availability probe whenever the user
+            // becomes logged in (cold start with cached cookies, or
+            // after an explicit sign-in). The result gates `mainContent`
+            // via `didResolveFirstProbe`, so the sidebar paints with the
+            // correct state on first frame — no flicker.
+            guard self.authService.state.isLoggedIn else { return }
+            // Brief delay so post-login cookies have a chance to settle
+            // into the data store the API client reads from. On cold
+            // start cookies are already there; this 200 ms is a small
+            // safety margin and is invisible behind the spinner.
+            try? await Task.sleep(for: .milliseconds(200))
+            await self.podcastsAvailability.probeForFirstResolution(
+                for: self.accountService.currentAccount?.id,
+                using: self.client
+            )
         }
         .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
             guard let event else { return }
@@ -257,8 +318,11 @@ struct MainWindow: View {
                 self.playerService.currentTrackLikeStatus = event.status
             }
 
-            // Global sync 2: keep Liked Music list in sync regardless of which tab is active
-            self.likedMusicViewModel?.handleLikeStatusChange(event)
+            // Global sync 2: keep Liked Music list in sync when the active
+            // Liked Music detail view is not already forwarding this event.
+            if self.navigationSelection != .likedMusic {
+                self.likedMusicViewModel?.handleLikeStatusChange(event)
+            }
         }
     }
 
@@ -268,9 +332,16 @@ struct MainWindow: View {
         ZStack(alignment: .trailing) {
             // Main navigation content
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(selection: self.$navigationSelection)
+                Sidebar(
+                    selection: self.$navigationSelection,
+                    pinnedSelection: self.$selectedSidebarPinnedItem
+                )
             } detail: {
-                self.detailView(for: self.navigationSelection, client: self.client)
+                self.detailView(
+                    for: self.navigationSelection,
+                    pinnedItem: self.selectedSidebarPinnedItem,
+                    client: self.client
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -296,9 +367,8 @@ struct MainWindow: View {
                         .foregroundStyle(.primary)
                 }
                 .keyboardShortcut("k", modifiers: .command)
-                .help(String(localized: "Ask AI (⌘K)"))
+                .help(String(localized: "Open Command Bar (⌘K)"))
                 .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
-                .requiresIntelligence()
             }
         }
     }
@@ -334,9 +404,15 @@ struct MainWindow: View {
         }
     }
 
-    private func detailView(for item: NavigationItem?, client _: any YTMusicClientProtocol) -> some View {
+    private func detailView(
+        for item: NavigationItem?,
+        pinnedItem: SidebarPinnedItem?,
+        client: any YTMusicClientProtocol
+    ) -> some View {
         Group {
-            if let item {
+            if let pinnedItem {
+                self.viewForSidebarPinnedItem(pinnedItem, client: client)
+            } else if let item {
                 self.viewForNavigationItem(item)
             } else {
                 Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
@@ -344,6 +420,17 @@ struct MainWindow: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var commandBar: some View {
+        CommandBarView(
+            client: self.client,
+            playerService: self.playerService,
+            isPresented: self.$isCommandBarPresented,
+            navigationSelection: self.$navigationSelection,
+            searchFocusTrigger: self.searchFocusTrigger,
+            searchViewModel: self.searchViewModel
+        )
     }
 
     /// Returns the view for a specific navigation item.
@@ -355,7 +442,9 @@ struct MainWindow: View {
             case .explore:
                 if let vm = exploreViewModel { ExploreView(viewModel: vm) }
             case .search:
-                if let vm = searchViewModel { SearchView(viewModel: vm) }
+                if let vm = searchViewModel {
+                    SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
+                }
             case .charts:
                 if let vm = chartsViewModel { ChartsView(viewModel: vm) }
             case .moodsAndGenres:
@@ -365,12 +454,38 @@ struct MainWindow: View {
             case .podcasts:
                 if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
             case .likedMusic:
-                if let vm = likedMusicViewModel { LikedMusicView(viewModel: vm) }
+                if let vm = likedMusicViewModel {
+                    NavigationStack(path: self.$likedMusicNavigationPath) {
+                        PlaylistDetailView(
+                            playlist: LikedMusicPlaylist.playlist,
+                            viewModel: vm
+                        )
+                        .navigationDestinations(client: self.client)
+                    }
+                }
             case .library:
                 if let vm = libraryViewModel { LibraryView(viewModel: vm) }
             case .history:
                 if let vm = historyViewModel { HistoryView(viewModel: vm) }
             }
+        }
+        .environment(self.libraryViewModel)
+    }
+
+    private func viewForSidebarPinnedItem(
+        _ item: SidebarPinnedItem,
+        client: any YTMusicClientProtocol
+    ) -> some View {
+        NavigationStack {
+            PlaylistDetailView(
+                playlist: item.playlistRoute,
+                viewModel: PlaylistDetailViewModel(
+                    playlist: item.playlistRoute,
+                    client: client
+                )
+            )
+            .id(item.contentId)
+            .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
     }
@@ -395,6 +510,9 @@ struct MainWindow: View {
         case .loggedOut:
             // Onboarding view handles login, no need to auto-show sheet
             self.accountService.clearAccounts()
+            // Reset podcasts availability so the next sign-in re-gates
+            // the UI and re-probes the endpoint.
+            self.podcastsAvailability.reset()
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
@@ -415,7 +533,9 @@ struct MainWindow: View {
                     // Brief delay to ensure cookies are fully propagated in WebKit
                     try? await Task.sleep(for: .milliseconds(500))
 
-                    // Parallel initial data fetch for ~40% faster app launch
+                    // Parallel initial data fetch for ~40% faster app launch.
+                    // The podcasts probe is driven separately by the
+                    // `.task(id: state.isLoggedIn)` UI gate below.
                     await withTaskGroup(of: Void.self) { group in
                         group.addTask { await self.homeViewModel?.refresh() }
                         group.addTask { await self.exploreViewModel?.refresh() }
@@ -456,14 +576,22 @@ struct MainWindow: View {
     /// This method is called when the user switches between their primary account
     /// and brand accounts, ensuring all views display content for the new account.
     private func refreshAllContent() async {
-        // Parallel refresh of all content views
+        // Parallel refresh of all content views.
+        // The podcasts refresh is gated on the latest availability
+        // signal so a brand-account switch into a region without
+        // podcasts doesn't fire the spurious 404 the bug is about. The
+        // probe scheduled alongside this group will re-evaluate
+        // availability separately.
+        let podcastsAvailable = self.podcastsAvailability.availability != .unavailable
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
             group.addTask { await self.exploreViewModel?.refresh() }
             group.addTask { await self.chartsViewModel?.refresh() }
             group.addTask { await self.moodsAndGenresViewModel?.refresh() }
             group.addTask { await self.newReleasesViewModel?.refresh() }
-            group.addTask { await self.podcastsViewModel?.refresh() }
+            if podcastsAvailable {
+                group.addTask { await self.podcastsViewModel?.refresh() }
+            }
             group.addTask { await self.likedMusicViewModel?.refresh() }
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }

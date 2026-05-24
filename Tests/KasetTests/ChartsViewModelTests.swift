@@ -41,6 +41,22 @@ struct ChartsViewModelTests {
         #expect(self.viewModel.sections[1].title == "Trending")
     }
 
+    @Test("Load uses Charts endpoint even when personalized recommendations are available")
+    func loadUsesChartsEndpointWhenPersonalizedRecommendationsAreAvailable() async {
+        self.mockClient.personalizedRecommendationsResponse = HomeResponse(sections: [
+            TestFixtures.makeHomeSection(title: "Recommended for you"),
+        ])
+        self.mockClient.chartsResponse = HomeResponse(sections: [
+            TestFixtures.makeHomeSection(title: "Public charts", isChart: true),
+        ])
+
+        await self.viewModel.load()
+
+        #expect(self.mockClient.getPersonalizedRecommendationsCalled == false)
+        #expect(self.mockClient.getChartsCalled == true)
+        #expect(self.viewModel.sections.map(\.title) == ["Public charts"])
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))

@@ -2,14 +2,15 @@ import SwiftUI
 
 // MARK: - PersistentPlayerView
 
-/// A SwiftUI view that displays the singleton WebView.
-/// The WebView is created once and reused for all playback.
+/// A SwiftUI anchor for the singleton WebView.
+/// The WebView is created once, kept attached while audio playback is pending,
+/// and normally rendered as a hidden 1×1 view.
 struct PersistentPlayerView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
 
     let videoId: String
-    let isExpanded: Bool
+    let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
 
     private let logger = DiagnosticsLogger.player
 
@@ -35,7 +36,7 @@ struct PersistentPlayerView: NSViewRepresentable {
         if self.playerService.shouldAutoloadPendingVideo,
            SingletonPlayerWebView.shared.currentVideoId != self.videoId
         {
-            self.logger.info("Initial load for videoId: \(self.videoId)")
+            self.logger.info("Initial hidden load for videoId: \(self.videoId)")
             SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
         }
 
@@ -59,7 +60,9 @@ struct PersistentPlayerView: NSViewRepresentable {
 
         webView.frame = container.bounds
 
-        if self.playerService.shouldAutoloadPendingVideo {
+        if self.playerService.shouldAutoloadPendingVideo,
+           SingletonPlayerWebView.shared.currentVideoId != self.videoId
+        {
             SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
         }
     }

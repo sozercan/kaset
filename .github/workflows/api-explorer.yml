@@ -1,0 +1,96 @@
+name: API Explorer
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Sources/APIExplorer/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/api-explorer.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Sources/APIExplorer/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/api-explorer.yml"
+  workflow_dispatch:
+
+jobs:
+  build_and_smoke_test:
+    name: Build and smoke-test API Explorer
+    timeout-minutes: 15
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+            .build
+          key: ${{ runner.os }}-spm-api-explorer-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-api-explorer-
+
+      - name: Build api-explorer
+        run: swift build -c release --product api-explorer
+
+      - name: Smoke-test - list endpoints (offline)
+        run: |
+          set -euo pipefail
+          OUT=$(swift run -c release -q api-explorer list)
+          echo "$OUT"
+          # Sanity: list output should mention at least one well-known browseId.
+          echo "$OUT" | grep -q "FEmusic_home" \
+            || { echo "ERROR: 'list' output missing FEmusic_home"; exit 1; }
+
+      - name: Smoke-test - auth status (offline, expect 'not authenticated')
+        run: |
+          set -euo pipefail
+          # CI has no Kaset cookie backup, so this should report no auth and exit 0.
+          OUT=$(swift run -c release -q api-explorer auth)
+          echo "$OUT"
+
+      - name: Smoke-test - browse FEmusic_home (unauthenticated)
+        run: |
+          set -euo pipefail
+          # Hits real YouTube Music API. Network flakiness is possible; retry once.
+          run_browse() {
+            swift run -c release -q api-explorer browse FEmusic_home
+          }
+          OUT=$(run_browse) || { sleep 5; OUT=$(run_browse); }
+          echo "$OUT"
+
+          # Validate basic response shape so we catch silent API drift.
+          echo "$OUT" | grep -q "HTTP 200" \
+            || { echo "ERROR: expected 'HTTP 200' from FEmusic_home"; exit 1; }
+          echo "$OUT" | grep -q "singleColumnBrowseResultsRenderer" \
+            || { echo "ERROR: expected 'singleColumnBrowseResultsRenderer' in response"; exit 1; }
+          echo "$OUT" | grep -q "Tab 0:" \
+            || { echo "ERROR: expected at least one tab in FEmusic_home response"; exit 1; }
+
+      - name: Smoke-test - browse FEmusic_charts (unauthenticated)
+        run: |
+          set -euo pipefail
+          run_browse() {
+            swift run -c release -q api-explorer browse FEmusic_charts
+          }
+          OUT=$(run_browse) || { sleep 5; OUT=$(run_browse); }
+          echo "$OUT"
+          echo "$OUT" | grep -q "HTTP 200" \
+            || { echo "ERROR: expected 'HTTP 200' from FEmusic_charts"; exit 1; }

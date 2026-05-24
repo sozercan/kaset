@@ -394,7 +394,9 @@ enum HomeResponseParser {
                 album: nil,
                 duration: nil,
                 thumbnailURL: thumbnailURL,
-                videoId: videoId
+                videoId: videoId,
+                musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
+                isExplicit: ParsingHelpers.extractIsExplicit(from: data)
             )
             return .song(song)
         }
@@ -443,7 +445,9 @@ enum HomeResponseParser {
             album: album,
             duration: duration,
             thumbnailURL: thumbnailURL,
-            videoId: videoId
+            videoId: videoId,
+            musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
+            isExplicit: ParsingHelpers.extractIsExplicit(from: data)
         )
         return .song(song)
     }
@@ -480,7 +484,7 @@ enum HomeResponseParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitleFromFlexColumns(data)
+                author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") }
             )
             return .playlist(playlist)
 
@@ -488,7 +492,8 @@ enum HomeResponseParser {
             let artist = Artist(
                 id: browseId,
                 name: title,
-                thumbnailURL: thumbnailURL
+                thumbnailURL: thumbnailURL,
+                profileKind: Artist.profileKind(forPageType: pageType)
             )
             return .artist(artist)
         }
@@ -577,7 +582,7 @@ enum HomeResponseParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitle(from: data)
+                author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") }
             )
             return .playlist(playlist)
 
@@ -585,7 +590,8 @@ enum HomeResponseParser {
             let artist = Artist(
                 id: browseId,
                 name: title,
-                thumbnailURL: thumbnailURL
+                thumbnailURL: thumbnailURL,
+                profileKind: Artist.profileKind(forPageType: pageType)
             )
             return .artist(artist)
         }

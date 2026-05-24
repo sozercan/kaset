@@ -5,15 +5,15 @@ import XCTest
 final class VideoUITests: KasetUITestCase {
     // MARK: - Video Button Visibility
 
-    func testVideoButtonHiddenWhenNoVideo() {
+    func testVideoButtonVisibleWhenNoVideo() {
         // Launch with player but no video support
         launchWithMockPlayer(isPlaying: true, hasVideo: false)
 
         navigateToHome()
 
-        // Video button should NOT be visible when track has no video
+        // Video button should stay visible even when availability detection reports no video.
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
-        XCTAssertFalse(videoButton.exists, "Video button should be hidden when track has no video")
+        XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should stay visible when track has no video")
     }
 
     func testVideoButtonVisibleWhenTrackHasVideo() {

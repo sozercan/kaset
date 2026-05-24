@@ -48,7 +48,10 @@ struct ArtistDetailViewModelTests {
         let artistDetail = TestFixtures.makeArtistDetail(
             artist: TestFixtures.makeArtist(id: "UC-test-artist"),
             songCount: 10,
-            albumCount: 3
+            albumCount: 3,
+            playlistCount: 2,
+            featuredOnPlaylistCount: 1,
+            similarArtistCount: 2
         )
         self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
@@ -59,7 +62,7 @@ struct ArtistDetailViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.artistDetail != nil)
         #expect(self.viewModel.artistDetail?.songs.count == 10)
-        #expect(self.viewModel.artistDetail?.albums.count == 3)
+        #expect(self.viewModel.artistDetail?.orderedSections.map(\.title) == ["Albums", "Featured on", "Playlists", "Similar artists"])
     }
 
     @Test("Load error sets error state")
@@ -94,25 +97,58 @@ struct ArtistDetailViewModelTests {
 
     @Test("Load uses original artist info for unknown name")
     func loadUsesOriginalArtistInfoForUnknownName() async {
+        let originalArtist = TestFixtures.makeArtist(
+            id: "UC-test-artist",
+            name: "Test Artist",
+            profileKind: .profile
+        )
+        let viewModel = ArtistDetailViewModel(
+            artist: originalArtist,
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
         // Create an artist detail with "Unknown Artist" name
         let unknownArtist = Artist(
             id: "UC-test-artist",
             name: "Unknown Artist",
-            thumbnailURL: nil
+            thumbnailURL: nil,
+            profileKind: .unknown
         )
         let artistDetail = ArtistDetail(
             artist: unknownArtist,
             description: nil,
             songs: TestFixtures.makeSongs(count: 3),
-            albums: [],
-            thumbnailURL: nil
+            orderedSections: [
+                ArtistDetailSection(
+                    title: "Singles & EPs",
+                    content: .albums([TestFixtures.makeAlbum(id: "MPRE-single", title: "Single")])
+                ),
+                ArtistDetailSection(
+                    title: "Featured on",
+                    content: .playlists([TestFixtures.makePlaylist(id: "VL-featured", title: "Featured Playlist")])
+                ),
+                ArtistDetailSection(
+                    title: "Playlists on repeat",
+                    content: .playlists([TestFixtures.makePlaylist(id: "VL-preserved", title: "Preserved Playlist")])
+                ),
+                ArtistDetailSection(
+                    title: "Artists on repeat",
+                    content: .artists([TestFixtures.makeArtist(id: "UC-similar", name: "Similar Artist")])
+                ),
+            ],
+            thumbnailURL: nil,
+            monthlyAudience: "2.59M"
         )
         self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
-        await self.viewModel.load()
+        await viewModel.load()
 
         // Should use original artist name "Test Artist" instead of "Unknown Artist"
-        #expect(self.viewModel.artistDetail?.name == "Test Artist")
+        #expect(viewModel.artistDetail?.name == "Test Artist")
+        #expect(viewModel.artistDetail?.profileKind == .profile)
+        #expect(viewModel.artistDetail?.monthlyAudience == "2.59M")
+        #expect(viewModel.artistDetail?.orderedSections.map(\.title) == ["Singles & EPs", "Featured on", "Playlists on repeat", "Artists on repeat"])
     }
 
     // MARK: - Refresh Tests
@@ -216,7 +252,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "UC-test-artist"),
             description: nil,
             songs: [],
-            albums: [],
             thumbnailURL: nil,
             channelId: nil // No channel ID
         )
@@ -235,7 +270,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
             description: nil,
             songs: [],
-            albums: [],
             thumbnailURL: nil,
             channelId: "UC-channel-123",
             isSubscribed: false
@@ -262,7 +296,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
             description: nil,
             songs: [],
-            albums: [],
             thumbnailURL: nil,
             channelId: "UC-channel-123",
             isSubscribed: false
@@ -288,7 +321,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist"),
             description: nil,
             songs: [],
-            albums: [],
             thumbnailURL: nil,
             channelId: "UC-channel-123",
             isSubscribed: true
@@ -319,7 +351,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "UC-test-artist"),
             description: nil,
             songs: [],
-            albums: [],
             thumbnailURL: nil,
             channelId: "UC-channel-123",
             isSubscribed: false
@@ -358,7 +389,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "UC-test-artist"),
             description: nil,
             songs: TestFixtures.makeSongs(count: 5),
-            albums: [],
             thumbnailURL: nil,
             hasMoreSongs: true,
             songsBrowseId: "artist-songs-browse-id"
@@ -380,7 +410,6 @@ struct ArtistDetailViewModelTests {
             artist: TestFixtures.makeArtist(id: "UC-test-artist"),
             description: nil,
             songs: TestFixtures.makeSongs(count: 5),
-            albums: [],
             thumbnailURL: nil,
             hasMoreSongs: true,
             songsBrowseId: "artist-songs-browse-id"

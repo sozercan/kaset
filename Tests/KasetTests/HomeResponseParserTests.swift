@@ -71,6 +71,42 @@ struct HomeResponseParserTests {
         }
     }
 
+    @Test("Parse twoRow song renderer propagates explicit subtitle badge")
+    func parseTwoRowSongPropagatesExplicitBadge() throws {
+        let songData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Explicit Song"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": ["videoId": "explicit-video"],
+                ],
+                "subtitleBadges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let sectionData: [String: Any] = [
+            "musicCarouselShelfRenderer": [
+                "header": [
+                    "musicCarouselShelfBasicHeaderRenderer": [
+                        "title": ["runs": [["text": "Songs"]]],
+                    ],
+                ],
+                "contents": [songData],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+        #expect(section.items.count == 1)
+        if case let .song(song) = section.items.first {
+            #expect(song.videoId == "explicit-video")
+            #expect(song.isExplicit == true)
+        } else {
+            Issue.record("Expected song item")
+        }
+    }
+
     @Test("Parse carousel section with playlist")
     func parseCarouselSectionWithPlaylist() throws {
         let playlistData: [String: Any] = [
@@ -108,6 +144,35 @@ struct HomeResponseParserTests {
             #expect(playlist.id == "VL12345")
         } else {
             Issue.record("Expected playlist item")
+        }
+    }
+
+    @Test("Parse carousel section with video preserves video type")
+    func parseCarouselSectionWithVideoPreservesVideoType() throws {
+        let videoData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Test Video"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": [
+                        "videoId": "video123",
+                        "watchEndpointMusicSupportedConfigs": [
+                            "watchEndpointMusicConfig": [
+                                "musicVideoType": "MUSIC_VIDEO_TYPE_OMV",
+                            ],
+                        ],
+                    ],
+                ],
+                "subtitle": ["runs": [["text": "Artist Name"], ["text": " • "], ["text": "10M views"]]],
+            ],
+        ]
+
+        let item = try #require(HomeResponseParser.parseHomeSectionItem(videoData))
+
+        if case let .song(song) = item {
+            #expect(song.videoId == "video123")
+            #expect(song.musicVideoType == .omv)
+        } else {
+            Issue.record("Expected video item to parse as a song")
         }
     }
 

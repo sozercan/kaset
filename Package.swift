@@ -29,8 +29,14 @@ let package = Package(
             dependencies: [
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
+            exclude: [
+                "Resources/AppIcon.icon",
+                "Resources/kaset.icns",
+            ],
             resources: [
-                .process("Resources"),
+                .process("Resources/Assets.xcassets"),
+                .process("Resources/Localizable.xcstrings"),
+                .process("Resources/Kaset.sdef"),
                 .copy("Extensions"),
             ],
             swiftSettings: [

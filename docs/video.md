@@ -46,7 +46,7 @@ enum DisplayMode {
 The video window remembers its position across sessions:
 - Position is saved to `UserDefaults` when window closes
 - Window repositions to nearest corner (top-left, top-right, bottom-left, bottom-right)
-- Default corner: bottom-right
+- Default corner: top-right
 
 ## Video Extraction
 

@@ -19,6 +19,7 @@ final class SettingsManager {
         static let scrobblePercentThreshold = "settings.scrobblePercentThreshold"
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
+        static let playbackAudioQuality = "settings.playbackAudioQuality"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
@@ -110,6 +111,13 @@ final class SettingsManager {
             }
         }
 
+        /// The language code for YouTube Music API requests (`hl` parameter).
+        /// Returns the explicit language code or derives one from the system locale,
+        /// falling back to `"en"`.
+        var apiLanguageCode: String {
+            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
+        }
+
         /// The locale matching this language selection.
         var locale: Locale {
             if let code = self.languageCode {
@@ -135,6 +143,29 @@ final class SettingsManager {
             switch self {
             case .skipForwardBackward: "Skip Forward/Backward"
             case .nextPreviousTrack: "Next/Previous Track"
+            }
+        }
+    }
+
+    // MARK: - Playback Audio Quality
+
+    /// Preferred audio quality for playback through the YouTube Music WebView.
+    enum PlaybackAudioQuality: String, CaseIterable, Identifiable {
+        case auto
+        case low
+        case normal
+        case high
+
+        var id: String {
+            rawValue
+        }
+
+        var displayName: String {
+            switch self {
+            case .auto: "Auto"
+            case .low: "Low"
+            case .normal: "Normal"
+            case .high: "High"
             }
         }
     }
@@ -178,6 +209,13 @@ final class SettingsManager {
     var mediaControlStyle: MediaControlStyle {
         didSet {
             UserDefaults.standard.set(self.mediaControlStyle.rawValue, forKey: Keys.mediaControlStyle)
+        }
+    }
+
+    /// Preferred audio quality for playback through the YouTube Music WebView.
+    var playbackAudioQuality: PlaybackAudioQuality {
+        didSet {
+            UserDefaults.standard.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
         }
     }
 
@@ -235,11 +273,12 @@ final class SettingsManager {
         }
     }
 
-    /// The language used for the app interface.
+    /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
             UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
             AppLocalization.setLanguage(self.contentLanguage.languageCode)
+            APICache.shared.invalidateAll()
         }
     }
 
@@ -271,6 +310,14 @@ final class SettingsManager {
             self.mediaControlStyle = style
         } else {
             self.mediaControlStyle = .nextPreviousTrack
+        }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.playbackAudioQuality),
+           let quality = PlaybackAudioQuality(rawValue: rawValue)
+        {
+            self.playbackAudioQuality = quality
+        } else {
+            self.playbackAudioQuality = .auto
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),

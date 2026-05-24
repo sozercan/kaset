@@ -37,7 +37,7 @@ extension PlayerService {
 
         self.clearRestoredPlaybackSessionState()
         self.clearForwardSkipNavigationStack()
-        self.queue = queue
+        self.setQueue(queue)
         self.currentIndex = currentIndex
         self.currentTrack = currentSong
         self.pendingPlayVideoId = currentSong.videoId
@@ -119,7 +119,7 @@ private extension PlayerService {
         self.duration = duration
 
         if isPlaying {
-            self.state = .playing
+            self.confirmPlaybackStarted()
         } else if self.state == .playing {
             self.state = .paused
         }

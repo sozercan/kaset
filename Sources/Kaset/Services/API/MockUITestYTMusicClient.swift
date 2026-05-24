@@ -10,6 +10,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
+    var hasMorePersonalizedRecommendationSections: Bool {
+        false
+    }
+
     var hasMoreExploreSections: Bool {
         false
     }
@@ -35,10 +39,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     var hasMoreLikedSongs: Bool {
-        false
-    }
-
-    var hasMorePlaylistTracks: Bool {
         false
     }
 
@@ -68,6 +68,15 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
+        nil
+    }
+
+    func getPersonalizedRecommendations() async throws -> HomeResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return HomeResponse(sections: self.homeSections)
+    }
+
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
         nil
     }
 
@@ -118,6 +127,9 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getPodcasts() async throws -> [PodcastSection] {
         try? await Task.sleep(for: .milliseconds(100))
+        if UITestConfig.environmentValue(for: UITestConfig.mockPodcastsRegionUnavailableKey) == "true" {
+            throw YTMusicError.apiError(message: "HTTP 404", code: 404)
+        }
         return []
     }
 
@@ -280,7 +292,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             description: "A test playlist",
             thumbnailURL: nil,
             trackCount: 10,
-            author: "Test User"
+            author: Artist.inline(name: "Test User", namespace: "playlist-author")
         )
         let detail = PlaylistDetail(
             playlist: playlist,
@@ -290,8 +302,8 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return PlaylistTracksResponse(detail: detail, continuationToken: nil)
     }
 
-    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse? {
-        nil
+    func getPlaylistContinuation(token _: String) async throws -> PlaylistContinuationResponse {
+        PlaylistContinuationResponse(tracks: [], continuationToken: nil)
     }
 
     func getPlaylistAllTracks(playlistId _: String) async throws -> [Song] {
@@ -306,7 +318,12 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             artist: artist,
             description: "A mock artist for UI testing",
             songs: Self.defaultSongs(count: 5),
-            albums: Self.defaultAlbums(count: 3),
+            orderedSections: [
+                ArtistDetailSection(
+                    title: "Albums",
+                    content: .albums(Self.defaultAlbums(count: 3))
+                ),
+            ],
             thumbnailURL: nil
         )
     }
@@ -314,6 +331,16 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     func getArtistSongs(browseId _: String, params _: String?) async throws -> [Song] {
         try? await Task.sleep(for: .milliseconds(100))
         return Self.defaultSongs(count: 20)
+    }
+
+    func getArtistDiscography(browseId _: String, params _: String?) async throws -> [Album] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return Self.defaultAlbums(count: 20)
+    }
+
+    func getArtistEpisodesList(browseId _: String, params _: String?) async throws -> [ArtistEpisode] {
+        try? await Task.sleep(for: .milliseconds(100))
+        return []
     }
 
     func rateSong(videoId _: String, rating _: LikeStatus) async throws {
@@ -325,6 +352,40 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func subscribeToPlaylist(playlistId _: String) async throws {
+        // No-op for UI tests
+    }
+
+    func deletePlaylist(playlistId _: String) async throws {
+        // No-op for UI tests
+    }
+
+    func getAddToPlaylistOptions(videoId _: String) async throws -> AddToPlaylistMenu {
+        AddToPlaylistMenu(
+            title: "Add to playlist",
+            options: self.playlists.map { playlist in
+                AddToPlaylistOption(
+                    playlistId: playlist.id,
+                    title: playlist.title,
+                    subtitle: playlist.author?.name,
+                    thumbnailURL: playlist.thumbnailURL,
+                    isSelected: false,
+                    privacyStatus: nil
+                )
+            },
+            canCreatePlaylist: false
+        )
+    }
+
+    func createPlaylist(
+        title _: String,
+        description _: String?,
+        privacyStatus _: PlaylistPrivacyStatus,
+        videoIds _: [String]
+    ) async throws -> String {
+        "PLMOCKCREATED"
+    }
+
+    func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {
         // No-op for UI tests
     }
 
@@ -545,7 +606,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 description: nil,
                 thumbnailURL: nil,
                 trackCount: dict["trackCount"] as? Int,
-                author: dict["author"] as? String
+                author: (dict["author"] as? String).map { Artist.inline(name: $0, namespace: "playlist-author") }
             )
         }
     }
@@ -624,7 +685,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 description: "A great playlist",
                 thumbnailURL: nil,
                 trackCount: 10 + index * 5,
-                author: "Test User"
+                author: Artist.inline(name: "Test User", namespace: "playlist-author")
             )
         }
     }

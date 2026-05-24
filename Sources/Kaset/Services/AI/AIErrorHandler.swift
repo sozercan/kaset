@@ -12,6 +12,9 @@ enum AIError: LocalizedError {
     /// The request was too complex or exceeded token limits.
     case contextWindowExceeded
 
+    /// The model returned content that could not be decoded into the expected schema.
+    case decodingFailure
+
     /// Content was blocked by safety guardrails.
     case contentBlocked
 
@@ -27,6 +30,9 @@ enum AIError: LocalizedError {
     /// Session is already processing another request.
     case sessionBusy
 
+    /// The request exceeded the configured local timeout.
+    case timedOut
+
     /// An unknown error occurred.
     case unknown(underlying: Error)
 
@@ -34,6 +40,8 @@ enum AIError: LocalizedError {
         switch self {
         case .contextWindowExceeded:
             "That request was too complex"
+        case .decodingFailure:
+            "I couldn't understand that request"
         case .contentBlocked:
             "I can't help with that request"
         case .cancelled:
@@ -44,6 +52,8 @@ enum AIError: LocalizedError {
             "AI is still loading, please try again"
         case .sessionBusy:
             "Please wait for the current request to finish"
+        case .timedOut:
+            "That took too long"
         case let .unknown(error):
             "Something went wrong: \(error.localizedDescription)"
         }
@@ -53,6 +63,8 @@ enum AIError: LocalizedError {
         switch self {
         case .contextWindowExceeded:
             "Try a shorter request or select fewer items."
+        case .decodingFailure:
+            "Try a simpler or more specific command."
         case .contentBlocked:
             "Try rephrasing your request."
         case .cancelled:
@@ -63,6 +75,8 @@ enum AIError: LocalizedError {
             "The model is downloading. Try again in a moment."
         case .sessionBusy:
             nil
+        case .timedOut:
+            "Try again or use a simpler command."
         case .unknown:
             "Try again or restart the app."
         }
@@ -87,7 +101,7 @@ enum AIError: LocalizedError {
 ///
 /// ```swift
 /// do {
-///     let response = try await session.respond(to: prompt, generating: MusicIntent.self)
+///     let response = try await session.respond(to: prompt, generating: CommandBarParseResult.self)
 /// } catch {
 ///     let aiError = AIErrorHandler.handle(error)
 ///     if aiError.shouldDisplay {
@@ -104,6 +118,10 @@ enum AIErrorHandler {
     /// - Parameter error: The error caught from a Foundation Models operation.
     /// - Returns: An AIError with user-friendly messaging.
     static func handle(_ error: Error) -> AIError {
+        if let aiError = error as? AIError {
+            return aiError
+        }
+
         // Handle specific LanguageModelSession errors
         if let generationError = error as? LanguageModelSession.GenerationError {
             return self.handleGenerationError(generationError)
@@ -145,7 +163,7 @@ enum AIErrorHandler {
 
         case .decodingFailure:
             self.logger.warning("Failed to decode model response")
-            return .unknown(underlying: error)
+            return .decodingFailure
 
         case .rateLimited:
             self.logger.warning("Rate limited by model")

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 @testable import Kaset
 
@@ -11,6 +12,19 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return playlistId
     }
 
+    private static func playlistContinuationToken(playlistId: String, index: Int) -> String {
+        "mock-playlist-continuation|\(playlistId)|\(index)"
+    }
+
+    private static func parsePlaylistContinuationToken(_ token: String) -> (playlistId: String, index: Int)? {
+        let components = token.split(separator: "|", omittingEmptySubsequences: false)
+        guard components.count == 3,
+              components[0] == "mock-playlist-continuation",
+              let index = Int(components[2])
+        else { return nil }
+        return (String(components[1]), index)
+    }
+
     private static func normalizedArtistId(_ artistId: String) -> String {
         Artist.publicChannelId(for: artistId) ?? artistId
     }
@@ -19,6 +33,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     var homeResponse: HomeResponse = .init(sections: [])
     var homeContinuationSections: [[HomeSection]] = []
+    var personalizedRecommendationsResponse: HomeResponse = .init(sections: [])
+    var personalizedRecommendationsContinuationSections: [[HomeSection]] = []
     var exploreResponse: HomeResponse = .init(sections: [])
     var exploreContinuationSections: [[HomeSection]] = []
     var chartsResponse: HomeResponse = .init(sections: [])
@@ -38,13 +54,19 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var libraryPlaylists: [Playlist] = []
     var libraryArtists: [Artist] = []
     var libraryPodcastShows: [PodcastShow] = []
+    var uploadedSongsPlaylist: Playlist?
     var libraryContentResponses: [PlaylistParser.LibraryContent] = []
     var libraryContentResponseDelays: [Duration] = []
+    var shouldWaitForLibraryContentResponse = false
+    var addToPlaylistMenus: [String: AddToPlaylistMenu] = [:]
+    var defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
     var onGetLibraryContent: (@MainActor () -> Void)?
+    var onGetPodcasts: (@MainActor () -> Void)?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
+    var getPodcastsDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
@@ -69,6 +91,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     // MARK: - Continuation State
 
     private var _homeContinuationIndex = 0
+    private var _personalizedRecommendationsContinuationIndex = 0
     private var _exploreContinuationIndex = 0
     private var _chartsContinuationIndex = 0
     private var _moodsAndGenresContinuationIndex = 0
@@ -76,11 +99,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private var _historyContinuationIndex = 0
     private var _podcastsContinuationIndex = 0
     private var _likedSongsContinuationIndex = 0
-    private var _playlistContinuationIndex = 0
-    private var _currentPlaylistId: String?
 
     var hasMoreHomeSections: Bool {
         self._homeContinuationIndex < self.homeContinuationSections.count
+    }
+
+    var hasMorePersonalizedRecommendationSections: Bool {
+        self._personalizedRecommendationsContinuationIndex < self.personalizedRecommendationsContinuationSections.count
     }
 
     var hasMoreExploreSections: Bool {
@@ -111,13 +136,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._likedSongsContinuationIndex < self.likedSongsContinuationSongs.count
     }
 
-    var hasMorePlaylistTracks: Bool {
-        guard let playlistId = _currentPlaylistId,
-              let continuations = playlistContinuationTracks[playlistId]
-        else { return false }
-        return self._playlistContinuationIndex < continuations.count
-    }
-
     private var _searchContinuationIndex = 0
 
     var hasMoreSearchResults: Bool {
@@ -130,17 +148,24 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getHomeCallCount = 0
     private(set) var getHomeContinuationCalled = false
     private(set) var getHomeContinuationCallCount = 0
+    private(set) var getPersonalizedRecommendationsCalled = false
+    private(set) var getPersonalizedRecommendationsCallCount = 0
+    private(set) var getPersonalizedRecommendationsContinuationCalled = false
+    private(set) var getPersonalizedRecommendationsContinuationCallCount = 0
     private(set) var getExploreCalled = false
     private(set) var getExploreCallCount = 0
     private(set) var getHistoryCallCount = 0
     private(set) var getExploreContinuationCalled = false
     private(set) var getExploreContinuationCallCount = 0
+    private(set) var getChartsCalled = false
+    private(set) var getChartsCallCount = 0
     private(set) var searchCalled = false
     private(set) var searchQueries: [String] = []
     private(set) var getSearchSuggestionsCalled = false
     private(set) var getSearchSuggestionsQueries: [String] = []
     private(set) var getLibraryContentCalled = false
     private(set) var getLibraryContentCallCount = 0
+    private var libraryContentResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var getLibraryPlaylistsCalled = false
     private(set) var getLikedSongsCalled = false
     private(set) var getLikedSongsContinuationCalled = false
@@ -149,6 +174,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getPlaylistIds: [String] = []
     private(set) var getPlaylistContinuationCalled = false
     private(set) var getPlaylistContinuationCallCount = 0
+    private(set) var getPlaylistContinuationTokens: [String] = []
     private(set) var getArtistCalled = false
     private(set) var getArtistIds: [String] = []
     private(set) var getArtistSongsCalled = false
@@ -162,6 +188,24 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var editSongLibraryStatusTokens: [[String]] = []
     private(set) var subscribeToPlaylistCalled = false
     private(set) var subscribeToPlaylistIds: [String] = []
+    private(set) var deletePlaylistCalled = false
+    private(set) var deletePlaylistIds: [String] = []
+    private(set) var getAddToPlaylistOptionsVideoIds: [String] = []
+    struct CreatePlaylistCall: Equatable {
+        let title: String
+        let description: String?
+        let privacyStatus: PlaylistPrivacyStatus
+        let videoIds: [String]
+    }
+
+    struct AddSongToPlaylistCall: Equatable {
+        let videoId: String
+        let playlistId: String
+        let allowDuplicate: Bool
+    }
+
+    private(set) var createPlaylistCalls: [CreatePlaylistCall] = []
+    private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -200,6 +244,26 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return sections
     }
 
+    func getPersonalizedRecommendations() async throws -> HomeResponse {
+        self.getPersonalizedRecommendationsCalled = true
+        self.getPersonalizedRecommendationsCallCount += 1
+        self._personalizedRecommendationsContinuationIndex = 0
+        if let error = shouldThrowError { throw error }
+        return self.personalizedRecommendationsResponse
+    }
+
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
+        self.getPersonalizedRecommendationsContinuationCalled = true
+        self.getPersonalizedRecommendationsContinuationCallCount += 1
+        if let error = shouldThrowError { throw error }
+        guard self._personalizedRecommendationsContinuationIndex < self.personalizedRecommendationsContinuationSections.count else {
+            return nil
+        }
+        let sections = self.personalizedRecommendationsContinuationSections[self._personalizedRecommendationsContinuationIndex]
+        self._personalizedRecommendationsContinuationIndex += 1
+        return sections
+    }
+
     func getExplore() async throws -> HomeResponse {
         self.getExploreCalled = true
         self.getExploreCallCount += 1
@@ -221,6 +285,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getCharts() async throws -> HomeResponse {
+        self.getChartsCalled = true
+        self.getChartsCallCount += 1
         self._chartsContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         return self.chartsResponse
@@ -290,6 +356,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getPodcasts() async throws -> [PodcastSection] {
         self._podcastsContinuationIndex = 0
+        self.onGetPodcasts?()
+        if let delay = self.getPodcastsDelay {
+            try await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
         return self.podcastsSections
     }
@@ -465,9 +535,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._historyContinuationIndex = 0
         self._podcastsContinuationIndex = 0
         self._likedSongsContinuationIndex = 0
-        self._playlistContinuationIndex = 0
         self._searchContinuationIndex = 0
-        self._currentPlaylistId = nil
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
@@ -487,6 +555,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getLibraryContentCalled = true
         self.getLibraryContentCallCount += 1
         self.onGetLibraryContent?()
+        if self.shouldWaitForLibraryContentResponse {
+            await withCheckedContinuation { continuation in
+                self.libraryContentResponseContinuations.append(continuation)
+            }
+        }
         if !self.libraryContentResponseDelays.isEmpty {
             let delay = self.libraryContentResponseDelays.removeFirst()
             try? await Task.sleep(for: delay)
@@ -498,8 +571,14 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return PlaylistParser.LibraryContent(
             playlists: self.libraryPlaylists,
             artists: self.libraryArtists,
-            podcastShows: self.libraryPodcastShows
+            podcastShows: self.libraryPodcastShows,
+            uploadedSongsPlaylist: self.uploadedSongsPlaylist
         )
+    }
+
+    func resumeNextLibraryContentResponse() {
+        guard !self.libraryContentResponseContinuations.isEmpty else { return }
+        self.libraryContentResponseContinuations.removeFirst().resume()
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -526,30 +605,35 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.getPlaylistCalled = true
         self.getPlaylistIds.append(id)
-        self._currentPlaylistId = id
-        self._playlistContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         guard let detail = playlistDetails[id] else {
             throw YTMusicError.parseError(message: "Playlist not found: \(id)")
         }
         let hasContinuation = self.playlistContinuationTracks[id]?.isEmpty == false
-        return PlaylistTracksResponse(detail: detail, continuationToken: hasContinuation ? "mock-token" : nil)
+        return PlaylistTracksResponse(
+            detail: detail,
+            continuationToken: hasContinuation ? Self.playlistContinuationToken(playlistId: id, index: 0) : nil
+        )
     }
 
-    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse? {
+    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
         self.getPlaylistContinuationCalled = true
         self.getPlaylistContinuationCallCount += 1
+        self.getPlaylistContinuationTokens.append(token)
         if let error = shouldThrowError { throw error }
-        guard let playlistId = _currentPlaylistId,
+        guard let (playlistId, index) = Self.parsePlaylistContinuationToken(token),
               let continuations = playlistContinuationTracks[playlistId],
-              self._playlistContinuationIndex < continuations.count
+              index < continuations.count
         else {
-            return nil
+            return PlaylistContinuationResponse(tracks: [], continuationToken: nil)
         }
-        let tracks = continuations[self._playlistContinuationIndex]
-        self._playlistContinuationIndex += 1
-        let hasMore = self._playlistContinuationIndex < continuations.count
-        return PlaylistContinuationResponse(tracks: tracks, continuationToken: hasMore ? "mock-token-\(self._playlistContinuationIndex)" : nil)
+        let tracks = continuations[index]
+        let nextIndex = index + 1
+        let hasMore = nextIndex < continuations.count
+        return PlaylistContinuationResponse(
+            tracks: tracks,
+            continuationToken: hasMore ? Self.playlistContinuationToken(playlistId: playlistId, index: nextIndex) : nil
+        )
     }
 
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song] {
@@ -587,6 +671,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.artistSongs[browseId] ?? []
     }
 
+    func getArtistDiscography(browseId _: String, params _: String?) async throws -> [Album] {
+        if let error = shouldThrowError { throw error }
+        return []
+    }
+
+    func getArtistEpisodesList(browseId _: String, params _: String?) async throws -> [ArtistEpisode] {
+        if let error = shouldThrowError { throw error }
+        return []
+    }
+
     func rateSong(videoId: String, rating: LikeStatus) async throws {
         self.rateSongCalled = true
         self.rateSongVideoIds.append(videoId)
@@ -613,6 +707,71 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
            !self.libraryPlaylists.contains(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId })
         {
             self.libraryPlaylists.insert(TestFixtures.makePlaylist(id: playlistId), at: 0)
+        }
+    }
+
+    func deletePlaylist(playlistId: String) async throws {
+        self.deletePlaylistCalled = true
+        self.deletePlaylistIds.append(playlistId)
+        if let error = shouldThrowError { throw error }
+
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        if self.shouldAutoUpdatePlaylistLibraryOnMutation {
+            self.libraryPlaylists.removeAll { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }
+        }
+        self.playlistDetails = self.playlistDetails.filter { entry in
+            Self.normalizedPlaylistId(entry.key) != normalizedPlaylistId
+                && Self.normalizedPlaylistId(entry.value.id) != normalizedPlaylistId
+        }
+    }
+
+    func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu {
+        self.getAddToPlaylistOptionsVideoIds.append(videoId)
+        if let error = shouldThrowError { throw error }
+        return self.addToPlaylistMenus[videoId] ?? self.defaultAddToPlaylistMenu
+    }
+
+    func createPlaylist(
+        title: String,
+        description: String?,
+        privacyStatus: PlaylistPrivacyStatus,
+        videoIds: [String]
+    ) async throws -> String {
+        self.createPlaylistCalls.append(CreatePlaylistCall(
+            title: title,
+            description: description,
+            privacyStatus: privacyStatus,
+            videoIds: videoIds
+        ))
+        if let error = shouldThrowError { throw error }
+        return "PLCREATED"
+    }
+
+    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws {
+        self.addSongToPlaylistCalls.append(AddSongToPlaylistCall(videoId: videoId, playlistId: playlistId, allowDuplicate: allowDuplicate))
+        if let error = shouldThrowError { throw error }
+
+        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        guard self.shouldAutoUpdatePlaylistLibraryOnMutation,
+              let song = self.songResponses[videoId]
+        else { return }
+
+        for (key, detail) in self.playlistDetails where Self.normalizedPlaylistId(key) == normalizedPlaylistId || Self.normalizedPlaylistId(detail.id) == normalizedPlaylistId {
+            if !detail.tracks.contains(where: { $0.videoId == videoId }) {
+                let playlist = Playlist(
+                    id: detail.id,
+                    title: detail.title,
+                    description: detail.description,
+                    thumbnailURL: detail.thumbnailURL,
+                    trackCount: detail.trackCount.map { $0 + 1 },
+                    author: detail.author
+                )
+                self.playlistDetails[key] = PlaylistDetail(
+                    playlist: playlist,
+                    tracks: detail.tracks + [song],
+                    duration: detail.duration
+                )
+            }
         }
     }
 
@@ -763,19 +922,24 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getHomeContinuationCalled = false
         self.getHomeContinuationCallCount = 0
         self._homeContinuationIndex = 0
+        self.getPersonalizedRecommendationsCalled = false
+        self.getPersonalizedRecommendationsCallCount = 0
+        self.getPersonalizedRecommendationsContinuationCalled = false
+        self.getPersonalizedRecommendationsContinuationCallCount = 0
+        self._personalizedRecommendationsContinuationIndex = 0
         self.getExploreCalled = false
         self.getExploreCallCount = 0
         self.getExploreContinuationCalled = false
         self.getExploreContinuationCallCount = 0
         self._exploreContinuationIndex = 0
+        self.getChartsCalled = false
+        self.getChartsCallCount = 0
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0
         self._historyContinuationIndex = 0
         self._podcastsContinuationIndex = 0
         self._likedSongsContinuationIndex = 0
-        self._playlistContinuationIndex = 0
-        self._currentPlaylistId = nil
         self.searchCalled = false
         self.searchQueries = []
         self.getSearchSuggestionsCalled = false
@@ -784,6 +948,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getLibraryContentCallCount = 0
         self.libraryContentResponses = []
         self.libraryContentResponseDelays = []
+        self.shouldWaitForLibraryContentResponse = false
+        while !self.libraryContentResponseContinuations.isEmpty {
+            self.libraryContentResponseContinuations.removeFirst().resume()
+        }
         self.onGetLibraryContent = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
@@ -793,6 +961,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistIds = []
         self.getPlaylistContinuationCalled = false
         self.getPlaylistContinuationCallCount = 0
+        self.getPlaylistContinuationTokens = []
         self.getArtistCalled = false
         self.getArtistIds = []
         self.getArtistSongsCalled = false
@@ -806,6 +975,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.editSongLibraryStatusTokens = []
         self.subscribeToPlaylistCalled = false
         self.subscribeToPlaylistIds = []
+        self.deletePlaylistCalled = false
+        self.deletePlaylistIds = []
+        self.getAddToPlaylistOptionsVideoIds = []
+        self.createPlaylistCalls = []
+        self.addSongToPlaylistCalls = []
+        self.addToPlaylistMenus = [:]
+        self.defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
         self.unsubscribeFromPlaylistCalled = false
         self.unsubscribeFromPlaylistIds = []
         self.subscribeToArtistCalled = false

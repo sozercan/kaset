@@ -46,6 +46,11 @@ enum UITestConfig {
     /// When true, force logged-out state in UI tests.
     static let mockLoggedOutKey = "MOCK_LOGGED_OUT"
 
+    /// When true, the mock client returns HTTP 404 from `getPodcasts()`
+    /// to simulate a region where YouTube Music does not offer the
+    /// Podcasts discovery surface. Used to UI-test sidebar visibility.
+    static let mockPodcastsRegionUnavailableKey = "MOCK_PODCASTS_REGION_UNAVAILABLE"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.

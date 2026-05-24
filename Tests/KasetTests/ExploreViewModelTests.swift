@@ -40,6 +40,22 @@ struct ExploreViewModelTests {
         #expect(self.viewModel.sections[1].title == "Moods & genres")
     }
 
+    @Test("Load uses Explore endpoint even when personalized recommendations are available")
+    func loadUsesExploreEndpointWhenPersonalizedRecommendationsAreAvailable() async {
+        self.mockClient.personalizedRecommendationsResponse = HomeResponse(sections: [
+            TestFixtures.makeHomeSection(title: "Recommended for you"),
+        ])
+        self.mockClient.exploreResponse = HomeResponse(sections: [
+            TestFixtures.makeHomeSection(title: "Public explore"),
+        ])
+
+        await self.viewModel.load()
+
+        #expect(self.mockClient.getPersonalizedRecommendationsCalled == false)
+        #expect(self.mockClient.getExploreCalled == true)
+        #expect(self.viewModel.sections.map(\.title) == ["Public explore"])
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))

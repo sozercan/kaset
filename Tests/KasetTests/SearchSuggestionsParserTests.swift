@@ -47,6 +47,79 @@ struct SearchSuggestionsParserTests {
         #expect(suggestions[2].query == "taylor swift shake it off")
     }
 
+    @Test("Parse duplicate suggestions keeps first occurrence")
+    func parseDuplicateSuggestionsKeepsFirstOccurrence() {
+        let data = self.makeSuggestionsResponse(queries: [
+            "taylor swift",
+            "taylor swift songs",
+            "taylor swift",
+            "taylor swift playlist",
+        ])
+        let suggestions = SearchSuggestionsParser.parse(data)
+
+        #expect(suggestions.map(\.query) == [
+            "taylor swift",
+            "taylor swift songs",
+            "taylor swift playlist",
+        ])
+    }
+
+    @Test("Parse duplicate suggestions across sections keeps first occurrence")
+    func parseDuplicateSuggestionsAcrossSectionsKeepsFirstOccurrence() {
+        let data: [String: Any] = [
+            "contents": [
+                [
+                    "searchSuggestionsSectionRenderer": [
+                        "contents": [
+                            self.makeSearchSuggestionItem(query: "taylor swift"),
+                            self.makeSearchSuggestionItem(query: "taylor swift songs"),
+                        ],
+                    ],
+                ],
+                [
+                    "searchSuggestionsSectionRenderer": [
+                        "contents": [
+                            self.makeSearchSuggestionItem(query: "taylor swift"),
+                            self.makeSearchSuggestionItem(query: "taylor swift playlist"),
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let suggestions = SearchSuggestionsParser.parse(data)
+
+        #expect(suggestions.map(\.query) == [
+            "taylor swift",
+            "taylor swift songs",
+            "taylor swift playlist",
+        ])
+    }
+
+    @Test("Parse duplicate history and search suggestions keeps first occurrence")
+    func parseDuplicateHistoryAndSearchSuggestionsKeepsFirstOccurrence() {
+        let data: [String: Any] = [
+            "contents": [
+                [
+                    "searchSuggestionsSectionRenderer": [
+                        "contents": [
+                            self.makeHistorySuggestionItem(query: "recent search"),
+                            self.makeSearchSuggestionItem(query: "recent search"),
+                            self.makeSearchSuggestionItem(query: "new search"),
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let suggestions = SearchSuggestionsParser.parse(data)
+
+        #expect(suggestions.map(\.query) == [
+            "recent search",
+            "new search",
+        ])
+    }
+
     @Test("Parse suggestion with multiple runs joins text")
     func parseSuggestionWithMultipleRuns() {
         let data: [String: Any] = [
@@ -209,15 +282,7 @@ struct SearchSuggestionsParserTests {
 
     private func makeSuggestionsResponse(queries: [String]) -> [String: Any] {
         let suggestionItems = queries.map { query in
-            [
-                "searchSuggestionRenderer": [
-                    "suggestion": [
-                        "runs": [
-                            ["text": query],
-                        ],
-                    ],
-                ],
-            ]
+            self.makeSearchSuggestionItem(query: query)
         }
 
         return [
@@ -225,6 +290,30 @@ struct SearchSuggestionsParserTests {
                 [
                     "searchSuggestionsSectionRenderer": [
                         "contents": suggestionItems,
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeSearchSuggestionItem(query: String) -> [String: Any] {
+        [
+            "searchSuggestionRenderer": [
+                "suggestion": [
+                    "runs": [
+                        ["text": query],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeHistorySuggestionItem(query: String) -> [String: Any] {
+        [
+            "historySuggestionRenderer": [
+                "suggestion": [
+                    "runs": [
+                        ["text": query],
                     ],
                 ],
             ],

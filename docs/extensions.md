@@ -38,4 +38,4 @@ Click the **trash** icon next to any extension, then restart Kaset.
 
 ## Architecture
 
-See [ADR 0013](adr/0013-extensions.md) for the full architectural decision record.
+See [ADR 0014](adr/0014-extensions.md) for the full architectural decision record.

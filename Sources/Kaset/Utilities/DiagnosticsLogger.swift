@@ -50,4 +50,7 @@ enum DiagnosticsLogger {
 
     /// Logger for listening history-related events.
     static let history = Logger(subsystem: "com.sertacozercan.Kaset", category: "History")
+
+    /// Logger for the equalizer subsystem (process tap, HAL I/O, DSP).
+    static let equalizer = Logger(subsystem: "com.sertacozercan.Kaset", category: "Equalizer")
 }

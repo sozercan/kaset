@@ -126,8 +126,8 @@ enum SearchResultItem: Identifiable {
             return nil
         case let .playlist(playlist):
             // Strip "Playlist • " prefix since resultType already shows "Playlist"
-            guard let author = playlist.author else { return nil }
-            let stripped = author
+            guard let authorName = playlist.author?.name else { return nil }
+            let stripped = authorName
                 .replacingOccurrences(of: "Playlist • ", with: "")
                 .trimmingCharacters(in: .whitespaces)
             return stripped.isEmpty ? nil : stripped

@@ -15,6 +15,7 @@ struct SongLikeStatusManagerTests {
         self.mockClient = MockYTMusicClient()
         self.manager.clearCache()
         self.manager.setActiveAccountID(nil)
+        self.manager.setClient(nil)
     }
 
     // MARK: - Status Query Tests
@@ -27,23 +28,25 @@ struct SongLikeStatusManagerTests {
 
     @Test("status for videoId returns cached value")
     func statusForVideoIdReturnsCached() {
-        self.manager.setStatus(.like, for: "test-video")
+        let videoID = "status-cached-video"
+        self.manager.setStatus(.like, for: videoID)
 
-        let status = self.manager.status(for: "test-video")
+        let status = self.manager.status(for: videoID)
 
         #expect(status == .like)
     }
 
     @Test("status for song uses cache over song property")
     func statusForSongUsesCacheOverProperty() {
+        let videoID = "status-cache-over-property-video"
         let song = Song(
-            id: "test-video",
+            id: videoID,
             title: "Test",
             artists: [],
-            videoId: "test-video",
+            videoId: videoID,
             likeStatus: .dislike
         )
-        self.manager.setStatus(.like, for: "test-video")
+        self.manager.setStatus(.like, for: videoID)
 
         let status = self.manager.status(for: song)
 
@@ -52,11 +55,12 @@ struct SongLikeStatusManagerTests {
 
     @Test("status for song falls back to song property")
     func statusForSongFallsBackToProperty() {
+        let videoID = "status-fallback-to-property-video"
         let song = Song(
-            id: "test-video",
+            id: videoID,
             title: "Test",
             artists: [],
-            videoId: "test-video",
+            videoId: videoID,
             likeStatus: .dislike
         )
         // No cache set
