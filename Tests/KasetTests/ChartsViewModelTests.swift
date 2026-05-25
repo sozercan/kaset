@@ -96,8 +96,11 @@ struct ChartsViewModelTests {
 
         await self.viewModel.load()
 
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
+        // Poll for background continuation to complete (CI runners are slower)
+        for _ in 0 ..< 20 {
+            if self.viewModel.sections.count >= 2 { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         #expect(self.viewModel.sections.count == 2)
         #expect(self.viewModel.sections[1].title == "More Charts")
@@ -112,8 +115,11 @@ struct ChartsViewModelTests {
 
         await self.viewModel.load()
 
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
+        // Poll for background loading to complete (CI runners are slower)
+        for _ in 0 ..< 20 {
+            if !self.viewModel.hasMoreSections { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         #expect(self.viewModel.hasMoreSections == false)
     }
@@ -148,7 +154,12 @@ struct ChartsViewModelTests {
         ]
 
         await self.viewModel.load()
-        try? await Task.sleep(for: .milliseconds(500))
+
+        // Poll for background loading to complete (CI runners are slower)
+        for _ in 0 ..< 20 {
+            if !self.viewModel.hasMoreSections { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         // After load, hasMoreSections should be false (continuations exhausted)
         #expect(self.viewModel.hasMoreSections == false)
