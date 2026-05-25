@@ -464,25 +464,9 @@ final class DiscordRPCService {
                     let queue = DispatchQueue(label: "discord.socketwatch.")
                     let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: queue)
                     source.setEventHandler { [weak self] in
-                        Task { @MainActor in
-                            guard let self else { return }
-                            self.logger.info("Detected filesystem change in \(path) — attempting immediate Discord connect")
-                            if let payload = self.currentPayload {
-                                // Try to connect and send current payload immediately
-                                let connected = await self.actor.connectAndHandshake()
-                                self.isConnected = connected
-                                if connected {
-                                    let success = await self.actor.sendActivityUpdate(payload: payload)
-                                    if success {
-                                        self.logger.info("Sent Discord payload after socket appeared")
-                                        self.retryTask?.cancel()
-                                        self.retryTask = nil
-                                    }
-                                }
-                            } else {
-                                // No payload yet — just attempt handshake to register client
-                                _ = await self.actor.connectAndHandshake()
-                            }
+                        guard let self else { return }
+                        Task { @MainActor [weak self] in
+                            await self?.handleSocketChange(path: path)
                         }
                     }
                     source.setCancelHandler {
@@ -498,6 +482,28 @@ final class DiscordRPCService {
                     self.logger.debug("Unable to open directory for Discord socket watcher: \(path)")
                 }
             }
+        }
+    }
+
+    /// Handles a filesystem change detected by a socket watcher.
+    /// Extracted from inline closure to avoid Swift 6 sending data race diagnostics.
+    private func handleSocketChange(path: String) async {
+        self.logger.info("Detected filesystem change in \(path) — attempting immediate Discord connect")
+        if let payload = self.currentPayload {
+            // Try to connect and send current payload immediately
+            let connected = await self.actor.connectAndHandshake()
+            self.isConnected = connected
+            if connected {
+                let success = await self.actor.sendActivityUpdate(payload: payload)
+                if success {
+                    self.logger.info("Sent Discord payload after socket appeared")
+                    self.retryTask?.cancel()
+                    self.retryTask = nil
+                }
+            }
+        } else {
+            // No payload yet — just attempt handshake to register client
+            _ = await self.actor.connectAndHandshake()
         }
     }
 
