@@ -704,7 +704,7 @@ enum PlaylistParser {
         // response did not already contain a playlist shelf. Section-level
         // continuations after playlist shelves commonly page into Suggestions.
         if token == nil, !Self.containsPlaylistShelf(sectionContents) {
-            token = Self.extractTokenFromRenderer(sectionListContinuation)
+            token = Self.extractTokenFromRenderer(sectionListContinuation) ?? Self.extractTokenFromContents(sectionContents)
         }
 
         return tracks.isEmpty ? nil : PlaylistContinuationResponse(tracks: tracks, continuationToken: token)
@@ -727,17 +727,34 @@ enum PlaylistParser {
 
     /// Parses 2025 format continuation response.
     private static func parse2025ContinuationFormat(_ data: [String: Any]) -> PlaylistContinuationResponse {
-        guard let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
-              let firstAction = onResponseReceivedActions.first,
-              let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
-              let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
-        else {
+        guard let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]] else {
             return PlaylistContinuationResponse(tracks: [], continuationToken: nil)
         }
 
-        Self.logger.debug("Using 2025 format continuation response with \(continuationItems.count) items")
-        let tracks = Self.parseTracksFromContents(continuationItems)
-        let token = Self.extractTokenFromContents(continuationItems)
+        var tracks: [Song] = []
+        var token: String?
+
+        for action in onResponseReceivedActions {
+            if let appendAction = action["appendContinuationItemsAction"] as? [String: Any],
+               let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
+            {
+                Self.logger.debug("Using 2025 format append continuation response with \(continuationItems.count) items")
+                let parsedTracks = Self.parseTracksFromContents(continuationItems)
+                tracks.append(contentsOf: parsedTracks)
+                if let extractedToken = Self.extractTokenFromContents(continuationItems) {
+                    token = extractedToken
+                }
+            } else if let reloadAction = action["reloadContinuationItemsCommand"] as? [String: Any],
+                      let continuationItems = reloadAction["continuationItems"] as? [[String: Any]]
+            {
+                Self.logger.debug("Using 2025 format reload continuation response with \(continuationItems.count) items")
+                let parsedTracks = Self.parseTracksFromContents(continuationItems)
+                tracks.append(contentsOf: parsedTracks)
+                if let extractedToken = Self.extractTokenFromContents(continuationItems) {
+                    token = extractedToken
+                }
+            }
+        }
 
         return PlaylistContinuationResponse(tracks: tracks, continuationToken: token)
     }
@@ -811,22 +828,42 @@ enum PlaylistParser {
             return nil
         }
 
-        // Look for continuation in musicShelfRenderer
+        // Look for continuation in musicShelfRenderer or musicPlaylistShelfRenderer
         for sectionData in sectionContents {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
                 // Try legacy continuations format
                 if let token = Self.extractTokenFromRenderer(shelfRenderer) {
-                    Self.logger.debug("Found liked songs continuation token (legacy format)")
+                    Self.logger.debug("Found liked songs continuation token (musicShelfRenderer legacy)")
                     return token
                 }
                 // Try 2025 format - continuationItemRenderer at end of contents
                 if let shelfContents = shelfRenderer["contents"] as? [[String: Any]],
                    let token = Self.extractTokenFromContents(shelfContents)
                 {
-                    Self.logger.debug("Found liked songs continuation token (2025 format)")
+                    Self.logger.debug("Found liked songs continuation token (musicShelfRenderer 2025)")
                     return token
                 }
             }
+            if let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any] {
+                // Try legacy continuations format
+                if let token = Self.extractTokenFromRenderer(playlistShelfRenderer) {
+                    Self.logger.debug("Found liked songs continuation token (musicPlaylistShelfRenderer legacy)")
+                    return token
+                }
+                // Try 2025 format - continuationItemRenderer at end of contents
+                if let shelfContents = playlistShelfRenderer["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(shelfContents)
+                {
+                    Self.logger.debug("Found liked songs continuation token (musicPlaylistShelfRenderer 2025)")
+                    return token
+                }
+            }
+        }
+
+        // Try continuationItemRenderer at sectionContents level (2025 format)
+        if let token = Self.extractTokenFromContents(sectionContents) {
+            Self.logger.debug("Found liked songs continuation token (sectionContents 2025)")
+            return token
         }
 
         return nil
@@ -835,32 +872,55 @@ enum PlaylistParser {
     /// Extracts continuation token from a continuation response (liked songs).
     /// Checks both legacy continuations format and 2025 continuationItemRenderer format.
     private static func extractContinuationTokenFromContinuation(_ data: [String: Any]) -> String? {
-        if let continuationContents = data["continuationContents"] as? [String: Any],
-           let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any]
-        {
-            // Try legacy continuations format
-            if let token = extractTokenFromRenderer(shelfContinuation) {
-                self.logger.debug("Found liked songs continuation token from continuation (legacy format)")
-                return token
+        if let continuationContents = data["continuationContents"] as? [String: Any] {
+            if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any] {
+                // Try legacy continuations format
+                if let token = extractTokenFromRenderer(shelfContinuation) {
+                    self.logger.debug("Found liked songs continuation token from continuation (musicShelfContinuation legacy)")
+                    return token
+                }
+                // Try 2025 format - continuationItemRenderer at end of contents
+                if let contents = shelfContinuation["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(contents)
+                {
+                    Self.logger.debug("Found liked songs continuation token from continuation (musicShelfContinuation 2025)")
+                    return token
+                }
             }
-            // Try 2025 format - continuationItemRenderer at end of contents
-            if let contents = shelfContinuation["contents"] as? [[String: Any]],
-               let token = Self.extractTokenFromContents(contents)
-            {
-                Self.logger.debug("Found liked songs continuation token from continuation (2025 format)")
-                return token
+            if let playlistShelfContinuation = continuationContents["musicPlaylistShelfContinuation"] as? [String: Any] {
+                // Try legacy continuations format
+                if let token = Self.extractTokenFromRenderer(playlistShelfContinuation) {
+                    Self.logger.debug("Found liked songs continuation token from continuation (musicPlaylistShelfContinuation legacy)")
+                    return token
+                }
+                // Try 2025 format - continuationItemRenderer at end of contents
+                if let contents = playlistShelfContinuation["contents"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(contents)
+                {
+                    Self.logger.debug("Found liked songs continuation token from continuation (musicPlaylistShelfContinuation 2025)")
+                    return token
+                }
             }
         }
 
         // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction
-        if let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
-           let firstAction = onResponseReceivedActions.first,
-           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
-           let continuationItems = appendAction["continuationItems"] as? [[String: Any]],
-           let token = Self.extractTokenFromContents(continuationItems)
-        {
-            Self.logger.debug("Found liked songs continuation token from 2025 format response")
-            return token
+        if let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]] {
+            for action in onResponseReceivedActions {
+                if let appendAction = action["appendContinuationItemsAction"] as? [String: Any],
+                   let continuationItems = appendAction["continuationItems"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(continuationItems)
+                {
+                    Self.logger.debug("Found liked songs continuation token from 2025 format append action")
+                    return token
+                }
+                if let reloadAction = action["reloadContinuationItemsCommand"] as? [String: Any],
+                   let continuationItems = reloadAction["continuationItems"] as? [[String: Any]],
+                   let token = Self.extractTokenFromContents(continuationItems)
+                {
+                    Self.logger.debug("Found liked songs continuation token from 2025 format reload action")
+                    return token
+                }
+            }
         }
 
         return nil
@@ -1040,9 +1100,9 @@ enum PlaylistParser {
                   let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any]
             else { continue }
 
-            self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
-            if let token = extractTokenFromRenderer(shelfRenderer) {
-                self.logger.debug("Found continuation token in musicShelfRenderer")
+            Self.logger.debug("Found musicShelfRenderer, has continuations: \(shelfRenderer["continuations"] != nil)")
+            if let token = Self.extractTokenFromRenderer(shelfRenderer) {
+                Self.logger.debug("Found continuation token in musicShelfRenderer")
                 return token
             }
             if let shelfContents = shelfRenderer["contents"] as? [[String: Any]],
@@ -1050,6 +1110,12 @@ enum PlaylistParser {
             {
                 return token
             }
+        }
+
+        // Third pass: look for continuationItemRenderer directly in sectionContents (2025 format)
+        if let token = extractTokenFromContents(sectionContents) {
+            self.logger.debug("Found continuation token directly in sectionContents (2025 format)")
+            return token
         }
 
         return nil

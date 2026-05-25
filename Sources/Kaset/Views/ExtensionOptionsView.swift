@@ -103,10 +103,8 @@ struct ExtensionOptionsView: NSViewRepresentable {
             let msg = "Options page: Provisional navigation started."
             DiagnosticsLogger.extensions.info("\(msg, privacy: .public)")
             echoExtensionLog("INFO", msg)
-            DispatchQueue.main.async {
-                if let container = webView.superview as? ExtensionWebViewContainer {
-                    container.hideError()
-                }
+            if let container = webView.superview as? ExtensionWebViewContainer {
+                container.hideError()
             }
         }
 
@@ -121,13 +119,10 @@ struct ExtensionOptionsView: NSViewRepresentable {
             let msg = "Options page navigation failed (Code \(nsError.code)): \(error.localizedDescription)"
             DiagnosticsLogger.extensions.error("\(msg, privacy: .public)")
             echoExtensionLog("ERROR", msg)
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if let container = webView.superview as? ExtensionWebViewContainer {
-                    container.showError(message: "Failed to load options page: \(nsError.localizedDescription)") {
-                        if let url = self.pageURL {
-                            webView.load(URLRequest(url: url))
-                        }
+            if let container = webView.superview as? ExtensionWebViewContainer {
+                container.showError(message: "Failed to load options page: \(nsError.localizedDescription)") { [weak self] in
+                    if let url = self?.pageURL {
+                        webView.load(URLRequest(url: url))
                     }
                 }
             }
@@ -138,11 +133,9 @@ struct ExtensionOptionsView: NSViewRepresentable {
             let msg = "Options page load failed (Code \(nsError.code)): \(error.localizedDescription)"
             DiagnosticsLogger.extensions.error("\(msg, privacy: .public)")
             echoExtensionLog("ERROR", msg)
-            DispatchQueue.main.async {
-                if let container = webView.superview as? ExtensionWebViewContainer {
-                    container.showError(message: "Failed to load options page: \(nsError.localizedDescription)") {
-                        webView.reload()
-                    }
+            if let container = webView.superview as? ExtensionWebViewContainer {
+                container.showError(message: "Failed to load options page: \(nsError.localizedDescription)") {
+                    webView.reload()
                 }
             }
         }
@@ -151,10 +144,8 @@ struct ExtensionOptionsView: NSViewRepresentable {
             let msg = "Options page loaded successfully."
             DiagnosticsLogger.extensions.info("\(msg, privacy: .public)")
             echoExtensionLog("INFO", msg)
-            DispatchQueue.main.async {
-                if let container = webView.superview as? ExtensionWebViewContainer {
-                    container.hideError()
-                }
+            if let container = webView.superview as? ExtensionWebViewContainer {
+                container.hideError()
             }
         }
 
@@ -279,60 +270,56 @@ private final class ExtensionWebViewContainer: NSView {
     }
 
     func showError(message: String, retryAction: @escaping () -> Void) {
-        DispatchQueue.main.async {
-            // Remove existing overlay
-            self.hideError()
+        // Remove existing overlay
+        self.hideError()
 
-            let overlay = NSView(frame: .zero)
-            overlay.wantsLayer = true
-            overlay.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
-            overlay.translatesAutoresizingMaskIntoConstraints = false
+        let overlay = NSView(frame: .zero)
+        overlay.wantsLayer = true
+        overlay.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        overlay.translatesAutoresizingMaskIntoConstraints = false
 
-            let label = NSTextField(labelWithString: message)
-            label.textColor = .white
-            label.alignment = .center
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.lineBreakMode = .byWordWrapping
-            label.maximumNumberOfLines = 3
+        let label = NSTextField(labelWithString: message)
+        label.textColor = .white
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 3
 
-            let button = NSButton(title: "Retry", target: nil, action: nil)
-            button.bezelStyle = .rounded
-            button.translatesAutoresizingMaskIntoConstraints = false
+        let button = NSButton(title: "Retry", target: nil, action: nil)
+        button.bezelStyle = .rounded
+        button.translatesAutoresizingMaskIntoConstraints = false
 
-            overlay.addSubview(label)
-            overlay.addSubview(button)
-            self.addSubview(overlay)
+        overlay.addSubview(label)
+        overlay.addSubview(button)
+        self.addSubview(overlay)
 
-            NSLayoutConstraint.activate([
-                overlay.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-                overlay.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-                overlay.topAnchor.constraint(equalTo: self.topAnchor),
-                overlay.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+        NSLayoutConstraint.activate([
+            overlay.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: self.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: self.bottomAnchor),
 
-                label.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-                label.centerYAnchor.constraint(equalTo: overlay.centerYAnchor, constant: -10),
-                label.widthAnchor.constraint(lessThanOrEqualTo: overlay.widthAnchor, multiplier: 0.8),
+            label.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: overlay.centerYAnchor, constant: -10),
+            label.widthAnchor.constraint(lessThanOrEqualTo: overlay.widthAnchor, multiplier: 0.8),
 
-                button.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 12),
-                button.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-            ])
+            button.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 12),
+            button.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+        ])
 
-            button.action = #selector(self.retryButtonPressed(_:))
-            button.target = self
+        button.action = #selector(self.retryButtonPressed(_:))
+        button.target = self
 
-            // Store retry action via associated object
-            objc_setAssociatedObject(button, &AssociatedKeys.retryActionKey, retryAction, .OBJC_ASSOCIATION_COPY_NONATOMIC)
+        // Store retry action via associated object
+        objc_setAssociatedObject(button, &AssociatedKeys.retryActionKey, retryAction, .OBJC_ASSOCIATION_COPY_NONATOMIC)
 
-            self.overlayView = overlay
-        }
+        self.overlayView = overlay
     }
 
     func hideError() {
-        DispatchQueue.main.async {
-            if let overlay = self.overlayView {
-                overlay.removeFromSuperview()
-                self.overlayView = nil
-            }
+        if let overlay = self.overlayView {
+            overlay.removeFromSuperview()
+            self.overlayView = nil
         }
     }
 

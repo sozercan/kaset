@@ -34,7 +34,17 @@ final class NetworkMonitor {
     private(set) var interfaceType: InterfaceType = .unknown
 
     /// Whether offline mode was automatically enabled by a system network drop.
-    private var isOfflineModeSystemInitiated: Bool = false
+    private var isOfflineModeSystemInitiated: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: "system.isOfflineModeSystemInitiated")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "system.isOfflineModeSystemInitiated")
+        }
+    }
+
+    /// Whether we have received the first network path update.
+    private var isFirstUpdate: Bool = true
 
     /// Clears the system-initiated offline mode flag when the user manually goes online.
     func clearSystemInitiatedOffline() {
@@ -111,6 +121,25 @@ final class NetworkMonitor {
         self.isExpensive = path.isExpensive
         self.isConstrained = path.isConstrained
         self.interfaceType = Self.mapInterfaceType(path)
+
+        let isInitialUpdate = self.isFirstUpdate
+        self.isFirstUpdate = false
+
+        // On the very first path update of the app session, we always perform the
+        // auto-restoration check if the internet is fully connected.
+        if isInitialUpdate {
+            if isPhysicallyConnected {
+                self.logger.info("Initial network status: connected")
+                if self.isOfflineModeSystemInitiated {
+                    self.logger.info("Auto-restoring online mode on launch (previously system-initiated offline)")
+                    SettingsManager.shared.offlineModeEnabled = false
+                    self.isOfflineModeSystemInitiated = false
+                }
+            } else {
+                self.logger.warning("Initial network status: disconnected")
+            }
+            return
+        }
 
         // Log and handle connectivity changes
         if wasConnected != isPhysicallyConnected {
