@@ -339,8 +339,8 @@ final class DiscordRPCService {
     private var retryTask: Task<Void, Never>?
     private var currentIsPlaying = false
     private let logger = DiagnosticsLogger.discord
-    @ObservationIgnored private nonisolated(unsafe) var socketWatchers: [Int32] = []
-    @ObservationIgnored private nonisolated(unsafe) var socketSources: [DispatchSourceFileSystemObject] = []
+    @ObservationIgnored nonisolated(unsafe) private var socketWatchers: [Int32] = []
+    @ObservationIgnored nonisolated(unsafe) private var socketSources: [DispatchSourceFileSystemObject] = []
 
     init(clientID: String = "463151177836658699") {
         self.actor = DiscordSocketActor(clientID: clientID)
