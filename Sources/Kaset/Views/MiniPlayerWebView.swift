@@ -339,7 +339,8 @@ final class SingletonPlayerWebView {
         switch strategy {
         case .standard:
             if videoId == previousVideoId {
-                self.logger.debug("Video \(videoId) already loaded, skipping")
+                self.logger.debug("Video \(videoId) already loaded, resuming playback")
+                self.play()
                 return
             }
         case .preferInPlaceWhenSameVideoId:
