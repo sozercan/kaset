@@ -30,18 +30,36 @@ struct SyncedLyricsDisplayView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
-            .onChange(of: self.currentTimeMs) { _, newTimeMs in
-                if let currentIdx = lyrics.currentLineIndex(at: newTimeMs) {
-                    let newId = self.lyrics.lines[currentIdx].id
-                    if newId != self.currentLineId {
-                        self.currentLineId = newId
-                        withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
-                            // Target center for natural scrolling
-                            proxy.scrollTo(newId, anchor: .center)
-                        }
-                    }
-                }
+            .onAppear {
+                self.scrollToCurrentLine(proxy: proxy, timeMs: self.currentTimeMs, animated: false)
             }
+            .onChange(of: self.lyrics) { _, _ in
+                self.currentLineId = nil
+                self.scrollToCurrentLine(proxy: proxy, timeMs: self.currentTimeMs, animated: false)
+            }
+            .onChange(of: self.currentTimeMs) { _, newTimeMs in
+                self.scrollToCurrentLine(proxy: proxy, timeMs: newTimeMs, animated: true)
+            }
+        }
+    }
+
+    private func scrollToCurrentLine(proxy: ScrollViewProxy, timeMs: Int, animated: Bool) {
+        guard let currentIdx = lyrics.currentLineIndex(at: timeMs) else { return }
+
+        let newId = self.lyrics.lines[currentIdx].id
+        guard newId != self.currentLineId else { return }
+
+        self.currentLineId = newId
+        let scroll = {
+            proxy.scrollTo(newId, anchor: .center)
+        }
+
+        if animated {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                scroll()
+            }
+        } else {
+            scroll()
         }
     }
 
