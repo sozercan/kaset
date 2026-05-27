@@ -161,6 +161,9 @@ struct SearchViewModelTests {
             artistCount: 1,
             playlistCount: 1
         )
+        self.mockClient.searchContinuationResponses = [
+            TestFixtures.makeSearchResponse(songCount: 1),
+        ]
         self.viewModel.query = "lofi"
         self.viewModel.selectedFilter = .all
 
@@ -169,6 +172,8 @@ struct SearchViewModelTests {
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.filteredItems.count == 5)
+        #expect(self.viewModel.results.continuationToken == nil)
+        #expect(self.viewModel.hasMoreResults == false)
         #expect(self.mockClient.searchQueries.count == 7)
     }
 }
