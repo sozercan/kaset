@@ -80,7 +80,8 @@ final class SearchViewModel {
 
     /// Whether more results are available to load.
     var hasMoreResults: Bool {
-        // For "All" filter, we don't support pagination (mixed results)
+        // The "All" fallback merges independent filtered endpoints, so there is
+        // no single continuation route that can load the next mixed page safely.
         guard self.selectedFilter != .all else { return false }
         return self.client.hasMoreSearchResults
     }
@@ -278,11 +279,8 @@ final class SearchViewModel {
         self.logger.info("Searching for: \(currentQuery) with filter: \(currentFilter.rawValue)")
 
         do {
-            let searchResults: SearchResponse
-
-                // Use filtered search for specific filters to get more results
-                = switch currentFilter
-            {
+            // Use filtered search for specific filters to get more results.
+            let searchResults: SearchResponse = switch currentFilter {
             case .all:
                 try await self.searchAllResults(query: currentQuery)
             case .songs:
@@ -366,23 +364,60 @@ final class SearchViewModel {
         var firstError: Error?
         var fallbackResponses: [SearchResponse] = []
 
-        for search in [
-            self.client.searchSongsWithPagination,
-            self.client.searchAlbums,
-            self.client.searchArtists,
-            self.client.searchFeaturedPlaylists,
-            self.client.searchCommunityPlaylists,
-            self.client.searchPodcasts,
-        ] {
-            guard !Task.isCancelled else { break }
-
-            do {
-                fallbackResponses.append(try await search(query))
-            } catch {
-                if firstError == nil {
-                    firstError = error
+        await withTaskGroup(of: Result<SearchResponse, Error>.self) { group in
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchSongsWithPagination(query: query))
+                } catch {
+                    return .failure(error)
                 }
-                self.logger.warning("Filtered fallback search failed: \(error.localizedDescription)")
+            }
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchAlbums(query: query))
+                } catch {
+                    return .failure(error)
+                }
+            }
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchArtists(query: query))
+                } catch {
+                    return .failure(error)
+                }
+            }
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchFeaturedPlaylists(query: query))
+                } catch {
+                    return .failure(error)
+                }
+            }
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchCommunityPlaylists(query: query))
+                } catch {
+                    return .failure(error)
+                }
+            }
+            group.addTask { [client = self.client] in
+                do {
+                    return try await .success(client.searchPodcasts(query: query))
+                } catch {
+                    return .failure(error)
+                }
+            }
+
+            for await result in group {
+                switch result {
+                case let .success(response):
+                    fallbackResponses.append(response)
+                case let .failure(error):
+                    if firstError == nil {
+                        firstError = error
+                    }
+                    self.logger.warning("Filtered fallback search failed: \(error.localizedDescription)")
+                }
             }
         }
 
@@ -421,6 +456,8 @@ final class SearchViewModel {
             artists: artists,
             playlists: playlists,
             podcastShows: podcastShows,
+            // Mixed fallback results deliberately do not expose a continuation:
+            // each source category has its own token and continuation endpoint.
             continuationToken: nil
         )
     }
