@@ -377,7 +377,7 @@ final class SearchViewModel {
             guard !Task.isCancelled else { break }
 
             do {
-                fallbackResponses.append(try await search(query))
+                try await fallbackResponses.append(search(query))
             } catch {
                 if firstError == nil {
                     firstError = error
