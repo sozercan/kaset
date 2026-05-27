@@ -115,17 +115,26 @@ struct NowPlayingLyricsView: View {
             .padding(.horizontal, metrics.horizontalPadding)
             .padding(.top, metrics.topPadding)
 
-            HStack(alignment: .top, spacing: metrics.columnSpacing) {
-                self.artworkAndControls(track: track, artworkSize: metrics.artworkSize)
-                    .frame(width: metrics.artworkColumnWidth)
+            HStack(spacing: metrics.columnSpacing) {
+                VStack(spacing: 0) {
+                    Spacer()
+                    self.artworkAndControls(track: track, artworkSize: metrics.artworkSize)
+                        .frame(width: metrics.artworkColumnWidth)
+                    Spacer()
+                }
+                .frame(maxHeight: .infinity)
 
-                self.lyricsPane(availableSize: availableSize)
-                    .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity, alignment: .top)
+                VStack(spacing: 0) {
+                    self.lyricsPane(availableSize: availableSize)
+                        .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity, alignment: .top)
+                }
+                .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, metrics.horizontalPadding + 28)
             .padding(.bottom, metrics.bottomPadding)
         }
+        .frame(width: availableSize.width, height: availableSize.height)
     }
 
     private func artworkAndControls(track: Song, artworkSize: CGFloat) -> some View {
