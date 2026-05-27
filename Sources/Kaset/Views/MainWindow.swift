@@ -171,6 +171,12 @@ struct MainWindow: View {
             AccountErrorToast()
                 .padding(.top, 60)
         }
+        .overlay {
+            if self.playerService.showNowPlayingLyrics {
+                NowPlayingLyricsView(client: self.client)
+                    .zIndex(20)
+            }
+        }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
                 self.isCommandBarPresented = true

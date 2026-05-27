@@ -165,6 +165,19 @@ struct PlayerBar: View {
             }
         }
         .frame(maxWidth: 400, minHeight: 36)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard self.playerService.currentTrack != nil,
+                  !self.showsSeekControls
+            else {
+                return
+            }
+
+            HapticService.navigation()
+            withAnimation(AppAnimation.standard) {
+                self.playerService.showNowPlayingLyrics = true
+            }
+        }
         .contextMenu {
             if let track = self.playerService.currentTrack {
                 self.currentSongContextMenu(for: track)
