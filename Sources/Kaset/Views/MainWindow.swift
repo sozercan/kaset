@@ -24,6 +24,7 @@ struct MainWindow: View {
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @Environment(SyncedLyricsService.self) private var syncedLyricsService
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
@@ -314,6 +315,9 @@ struct MainWindow: View {
                 using: self.client
             )
         }
+        .task(id: self.lyricsPrefetchKey) {
+            await self.prefetchAdjacentLyrics()
+        }
         .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
             guard let event else { return }
 
@@ -330,6 +334,51 @@ struct MainWindow: View {
                 self.likedMusicViewModel?.handleLikeStatusChange(event)
             }
         }
+    }
+
+    private var lyricsPrefetchKey: String {
+        let queueKey = self.playerService.queueEntryIDs.map(\.uuidString).joined(separator: ",")
+        let currentVideoId = self.playerService.currentTrack?.videoId ?? ""
+        return "\(currentVideoId)|\(self.playerService.currentIndex)|\(queueKey)"
+    }
+
+    @MainActor
+    private func prefetchAdjacentLyrics() async {
+        let songs = self.lyricsPrefetchSongs()
+        let infos = songs.map(Self.lyricsSearchInfo)
+        let retainedVideoIds = Set(songs.map(\.videoId))
+
+        await self.syncedLyricsService.prefetchLyrics(for: infos, retainingVideoIds: retainedVideoIds)
+    }
+
+    private func lyricsPrefetchSongs() -> [Song] {
+        let queue = self.playerService.queue
+        guard !queue.isEmpty else {
+            return self.playerService.currentTrack.map { [$0] } ?? []
+        }
+
+        let start = max(0, self.playerService.currentIndex - 1)
+        let end = min(queue.count - 1, self.playerService.currentIndex + 1)
+        var songs = Array(queue[start ... end])
+        if let currentTrack = self.playerService.currentTrack,
+           !songs.contains(where: { $0.videoId == currentTrack.videoId })
+        {
+            songs.append(currentTrack)
+        }
+        var seenVideoIds: Set<String> = []
+        return songs.filter { song in
+            seenVideoIds.insert(song.videoId).inserted
+        }
+    }
+
+    private static func lyricsSearchInfo(for song: Song) -> LyricsSearchInfo {
+        LyricsSearchInfo(
+            title: song.title,
+            artist: song.artistsDisplay,
+            album: song.album?.title,
+            duration: song.duration,
+            videoId: song.videoId
+        )
     }
 
     // MARK: - Main Content

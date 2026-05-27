@@ -96,6 +96,16 @@ final class SyncedLyricsService {
         self.applyResolvedLyrics(resolved, requestID: requestID)
     }
 
+    func prefetchLyrics(for infos: [LyricsSearchInfo], retainingVideoIds retainedVideoIds: Set<String>) async {
+        self.pruneCache(retainingVideoIds: retainedVideoIds)
+
+        for info in infos where self.cache[info.videoId] == nil {
+            await self.warmCache(for: info)
+        }
+
+        self.pruneCache(retainingVideoIds: retainedVideoIds)
+    }
+
     func fetchLyrics(for info: LyricsSearchInfo, providerName: String) async {
         self.fetchGeneration += 1
         let requestID = self.fetchGeneration
@@ -142,6 +152,26 @@ final class SyncedLyricsService {
             self.activeProvider = nil
             self.cache[videoId] = .unavailable
         }
+    }
+
+    private func pruneCache(retainingVideoIds retainedVideoIds: Set<String>) {
+        self.cache = self.cache.filter { retainedVideoIds.contains($0.key) }
+        self.providerCache = self.providerCache.filter { retainedVideoIds.contains($0.key) }
+    }
+
+    private func warmCache(for info: LyricsSearchInfo) async {
+        let indexedProviders = self.providers.enumerated().map { (index: $0.offset, provider: $0.element) }
+        let syncedCapableProviders = indexedProviders.filter { Self.isSyncedCapableProvider($0.provider) }
+        let plainFallbackProviders = indexedProviders.filter { !Self.isSyncedCapableProvider($0.provider) }
+
+        var allResults = await self.fetchProviderResults(for: info, from: syncedCapableProviders)
+        if !allResults.contains(where: { self.resultRank($0.result) == 2 }),
+           !plainFallbackProviders.isEmpty
+        {
+            allResults += await self.fetchProviderResults(for: info, from: plainFallbackProviders)
+        }
+
+        _ = self.resolveLyrics(best: self.bestResult(in: allResults), cached: nil, videoId: info.videoId)
     }
 
     private func observeRomanizationSetting() {
