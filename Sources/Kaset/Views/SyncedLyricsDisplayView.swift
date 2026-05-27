@@ -6,6 +6,7 @@ struct SyncedLyricsDisplayView: View {
     let lyrics: SyncedLyrics
     let currentTimeMs: Int
     var autoScrolls = true
+    var verticalContentInset: CGFloat = 150
     let onSeek: (Int) -> Void
 
     @State private var currentLineId: UUID?
@@ -14,7 +15,7 @@ struct SyncedLyricsDisplayView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .center, spacing: 20) {
-                    Spacer().frame(height: 150) // Top padding
+                    Spacer().frame(height: self.verticalContentInset)
 
                     ForEach(self.lyrics.lines) { line in
                         let status = self.currentStatus(for: line)
@@ -26,7 +27,7 @@ struct SyncedLyricsDisplayView: View {
                         .id(line.id)
                     }
 
-                    Spacer().frame(height: 150) // Bottom padding
+                    Spacer().frame(height: self.verticalContentInset)
                 }
                 .padding(.horizontal, 24)
             }

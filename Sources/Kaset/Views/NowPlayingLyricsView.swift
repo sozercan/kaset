@@ -315,6 +315,7 @@ struct NowPlayingLyricsView: View {
                     lyrics: synced,
                     currentTimeMs: self.playerService.currentTimeMs,
                     autoScrolls: false,
+                    verticalContentInset: 48,
                     onSeek: { timeMs in
                         Task { await self.playerService.seek(to: Double(timeMs) / 1000) }
                     }
@@ -326,7 +327,7 @@ struct NowPlayingLyricsView: View {
                         .lineSpacing(16)
                         .foregroundStyle(.white.opacity(0.82))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 80)
+                        .padding(.vertical, 32)
                 }
                 .scrollIndicators(.hidden)
             case .unavailable:
