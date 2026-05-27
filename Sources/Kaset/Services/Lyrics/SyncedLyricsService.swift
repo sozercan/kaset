@@ -176,6 +176,8 @@ final class SyncedLyricsService {
         let candidateRank = self.resultRank(candidate.result)
         let currentRank = self.resultRank(currentBest.result)
         if candidateRank != currentRank {
+            // Per-track synced lyrics always win over plain lyrics, regardless
+            // of the configured default provider.
             return candidateRank > currentRank
         }
 
