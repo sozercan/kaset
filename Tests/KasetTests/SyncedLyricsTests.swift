@@ -141,6 +141,53 @@ struct SyncedLyricsServiceTests {
         #expect(service.activeProvider == "LyricsGenius")
     }
 
+    @Test("prefetchLyrics warms cache without updating displayed lyrics")
+    func prefetchLyricsWarmsCacheWithoutUpdatingDisplayedLyrics() async {
+        let provider = MockLyricsProvider(name: "LRCLib") { info in
+            .synced(Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced \(info.videoId)"))
+        }
+        let service = SyncedLyricsService(providers: [provider])
+        let firstInfo = Self.makeSearchInfo(videoId: "video-prefetch-first")
+        let secondInfo = Self.makeSearchInfo(videoId: "video-prefetch-second")
+
+        await service.prefetchLyrics(
+            for: [firstInfo, secondInfo],
+            retainingVideoIds: [firstInfo.videoId, secondInfo.videoId]
+        )
+
+        #expect(service.currentLyrics == .unavailable)
+        #expect(await provider.callCount() == 2)
+
+        await service.fetchLyrics(for: firstInfo)
+
+        #expect(await provider.callCount() == 2)
+        #expect(service.activeProvider == "LRCLib")
+    }
+
+    @Test("prefetchLyrics prunes lyrics outside retained video ids")
+    func prefetchLyricsPrunesOutsideRetainedVideoIds() async {
+        let provider = MockLyricsProvider(name: "LRCLib") { info in
+            .synced(Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced \(info.videoId)"))
+        }
+        let service = SyncedLyricsService(providers: [provider])
+        let firstInfo = Self.makeSearchInfo(videoId: "video-prune-first")
+        let secondInfo = Self.makeSearchInfo(videoId: "video-prune-second")
+        let thirdInfo = Self.makeSearchInfo(videoId: "video-prune-third")
+
+        await service.prefetchLyrics(
+            for: [firstInfo, secondInfo, thirdInfo],
+            retainingVideoIds: [firstInfo.videoId, secondInfo.videoId, thirdInfo.videoId]
+        )
+        await service.prefetchLyrics(
+            for: [secondInfo],
+            retainingVideoIds: [secondInfo.videoId]
+        )
+
+        await service.fetchLyrics(for: firstInfo)
+
+        #expect(await provider.callCount() == 4)
+    }
+
     @Test("fetchLyrics caches results and derives activeProvider from cached source")
     func fetchLyricsCachesResults() async {
         let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")
