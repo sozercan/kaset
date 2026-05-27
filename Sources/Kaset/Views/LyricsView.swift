@@ -126,17 +126,34 @@ struct LyricsView: View {
     private var contentView: some View {
         if self.playerService.currentTrack == nil {
             self.noTrackPlayingView
-        } else if self.syncedLyricsService.isLoading || self.isLoadingFallback {
+        } else if self.shouldShowFullLoadingView {
             self.loadingView
         } else {
-            switch self.syncedLyricsService.currentLyrics {
-            case let .synced(synced):
-                self.syncedLyricsContentView(synced)
-            case let .plain(plain):
-                self.plainLyricsContentView(plain)
-            case .unavailable:
-                self.noLyricsView
-            }
+            self.lyricsResultView
+                .overlay(alignment: .topTrailing) {
+                    if self.syncedLyricsService.isLoading || self.isLoadingFallback {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(10)
+                    }
+                }
+        }
+    }
+
+    private var shouldShowFullLoadingView: Bool {
+        guard self.syncedLyricsService.isLoading || self.isLoadingFallback else { return false }
+        return !self.syncedLyricsService.currentLyrics.isAvailable
+    }
+
+    @ViewBuilder
+    private var lyricsResultView: some View {
+        switch self.syncedLyricsService.currentLyrics {
+        case let .synced(synced):
+            self.syncedLyricsContentView(synced)
+        case let .plain(plain):
+            self.plainLyricsContentView(plain)
+        case .unavailable:
+            self.noLyricsView
         }
     }
 
