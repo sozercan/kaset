@@ -18,6 +18,9 @@ struct Sidebar: View {
     /// Namespace for glass effect morphing.
     @Namespace private var sidebarNamespace
 
+    @State private var playingTopPlaylistId: String?
+    @State private var topPlaylistPlaybackTask: Task<Void, Never>?
+
     var body: some View {
         VStack(spacing: 0) {
             GlassEffectContainer(spacing: 0) {
@@ -119,6 +122,11 @@ struct Sidebar: View {
             else { return }
 
             await libraryViewModel.load()
+        }
+        .onDisappear {
+            self.topPlaylistPlaybackTask?.cancel()
+            self.topPlaylistPlaybackTask = nil
+            self.playingTopPlaylistId = nil
         }
     }
 
@@ -230,11 +238,18 @@ struct Sidebar: View {
             Button {
                 self.playPlaylist(playlist)
             } label: {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                if self.playingTopPlaylistId == playlist.id {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.55)
+                } else {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                }
             }
             .buttonStyle(.borderless)
             .controlSize(.small)
+            .disabled(self.playingTopPlaylistId != nil)
             .help(String(localized: "Play"))
             .accessibilityLabel(
                 Text(
@@ -256,9 +271,23 @@ struct Sidebar: View {
     private func playPlaylist(_ playlist: Playlist) {
         guard let libraryViewModel = self.libraryViewModel else { return }
 
-        Task {
+        self.topPlaylistPlaybackTask?.cancel()
+        self.playingTopPlaylistId = playlist.id
+
+        self.topPlaylistPlaybackTask = Task {
+            defer {
+                Task { @MainActor in
+                    if self.playingTopPlaylistId == playlist.id {
+                        self.playingTopPlaylistId = nil
+                    }
+                    self.topPlaylistPlaybackTask = nil
+                }
+            }
+
             do {
                 let response = try await libraryViewModel.client.getPlaylist(id: playlist.id)
+                guard !Task.isCancelled else { return }
+
                 let tracks = response.detail.tracks.filter(\.isPlayable)
                 guard !tracks.isEmpty else { return }
 

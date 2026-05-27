@@ -346,7 +346,6 @@ struct MainWindow: View {
                 // Right sidebar overlay - either lyrics or queue (mutually exclusive)
                 self.rightSidebarOverlay(client: self.client)
             }
-            .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
