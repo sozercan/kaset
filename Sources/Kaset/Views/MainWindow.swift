@@ -334,6 +334,7 @@ struct MainWindow: View {
                 selection: self.$navigationSelection,
                 pinnedSelection: self.$selectedSidebarPinnedItem
             )
+            .environment(self.libraryViewModel)
         } detail: {
             ZStack(alignment: .trailing) {
                 self.detailView(

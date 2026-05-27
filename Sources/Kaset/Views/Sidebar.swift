@@ -10,6 +10,8 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    @Environment(PlayerService.self) private var playerService
+    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
 
@@ -63,6 +65,14 @@ struct Sidebar: View {
                         }
                     }
 
+                    if !self.topPlaylists.isEmpty {
+                        Section(String(localized: "Top Playlists")) {
+                            ForEach(self.topPlaylists) { playlist in
+                                self.topPlaylistRow(playlist)
+                            }
+                        }
+                    }
+
                     // Collection section
                     Section(String(localized: "Collection")) {
                         NavigationLink(value: SidebarSelection.navigation(.library)) {
@@ -103,6 +113,17 @@ struct Sidebar: View {
             SidebarProfileView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
+        .task {
+            guard let libraryViewModel = self.libraryViewModel,
+                  libraryViewModel.loadingState == .idle
+            else { return }
+
+            await libraryViewModel.load()
+        }
+    }
+
+    private var topPlaylists: [Playlist] {
+        Array((self.libraryViewModel?.playlists ?? []).prefix(10))
     }
 
     private var currentSidebarSelection: SidebarSelection? {
@@ -184,6 +205,66 @@ struct Sidebar: View {
                 self.sidebarPinnedItemsManager.remove(contentId: item.contentId)
             } label: {
                 Label("Remove from Sidebar", systemImage: "sidebar.left")
+            }
+        }
+    }
+
+    private func topPlaylistRow(_ playlist: Playlist) -> some View {
+        let item = SidebarPinnedItem.from(playlist)
+
+        return HStack(spacing: 6) {
+            Button {
+                self.selectPlaylist(item)
+            } label: {
+                Label {
+                    Text(playlist.title)
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: "music.note.list")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                self.playPlaylist(playlist)
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .help(String(localized: "Play"))
+            .accessibilityLabel(
+                Text(
+                    "Play \(playlist.title)",
+                    comment: "Accessibility label for playing a playlist from the sidebar"
+                )
+            )
+        }
+    }
+
+    private func selectPlaylist(_ item: SidebarPinnedItem) {
+        guard self.currentSidebarSelection != .pinned(item) else { return }
+
+        self.selection = nil
+        self.pinnedSelection = item
+        HapticService.navigation()
+    }
+
+    private func playPlaylist(_ playlist: Playlist) {
+        guard let libraryViewModel = self.libraryViewModel else { return }
+
+        Task {
+            do {
+                let response = try await libraryViewModel.client.getPlaylist(id: playlist.id)
+                let tracks = response.detail.tracks.filter(\.isPlayable)
+                guard !tracks.isEmpty else { return }
+
+                await self.playerService.playQueue(tracks, startingAt: 0)
+            } catch {
+                DiagnosticsLogger.ui.error("Failed to play sidebar playlist: \(error.localizedDescription)")
             }
         }
     }
