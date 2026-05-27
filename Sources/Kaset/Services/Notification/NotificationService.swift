@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import UserNotifications
 
@@ -91,6 +92,9 @@ final class NotificationService {
         content.title = track.title
         content.body = track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay
         content.sound = nil // Silent notification
+        if let attachment = await self.artworkAttachment(for: track) {
+            content.attachments = [attachment]
+        }
 
         let request = UNNotificationRequest(
             identifier: "track-change-\(track.id)",
@@ -104,6 +108,60 @@ final class NotificationService {
         } catch {
             self.logger.error("Failed to post notification: \(error.localizedDescription)")
         }
+    }
+
+    private func artworkAttachment(for track: Song) async -> UNNotificationAttachment? {
+        for url in Self.artworkURLs(for: track) {
+            guard let image = await ImageCache.shared.image(for: url, targetSize: .init(width: 512, height: 512)),
+                  let pngData = Self.pngData(from: image)
+            else {
+                continue
+            }
+
+            do {
+                let attachmentURL = try Self.writeArtworkAttachment(pngData, trackId: track.id)
+                return try UNNotificationAttachment(identifier: "artwork-\(track.id)", url: attachmentURL)
+            } catch {
+                self.logger.debug("Failed to prepare notification artwork: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        return nil
+    }
+
+    static func artworkURLs(for track: Song) -> [URL] {
+        var urls: [URL] = []
+        if let primary = track.thumbnailURL?.highQualityThumbnailURL {
+            urls.append(primary)
+        }
+        if let fallback = track.fallbackThumbnailURL,
+           !urls.contains(fallback)
+        {
+            urls.append(fallback)
+        }
+        return urls
+    }
+
+    private static func pngData(from image: NSImage) -> Data? {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData)
+        else {
+            return nil
+        }
+
+        return bitmap.representation(using: .png, properties: [:])
+    }
+
+    private static func writeArtworkAttachment(_ data: Data, trackId: String) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KasetNotificationArtwork", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let filename = trackId
+            .replacingOccurrences(of: "[^A-Za-z0-9_-]", with: "-", options: .regularExpression)
+        let url = directory.appendingPathComponent("\(filename).png")
+        try data.write(to: url, options: .atomic)
+        return url
     }
 
     /// Whether the observation loop is actively running.

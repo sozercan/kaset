@@ -128,6 +128,18 @@ struct NotificationServiceTests {
         #expect(self.notificationService.lastNotifiedTrackId == nil)
     }
 
+    @Test("notification artwork prefers song thumbnail and keeps YouTube fallback")
+    func notificationArtworkURLsPreferSongThumbnail() throws {
+        let track = TestFixtures.makeSong(id: "song-artwork")
+
+        let urls = NotificationService.artworkURLs(for: track)
+        let firstURL = try #require(urls.first)
+
+        #expect(urls.count == 2)
+        #expect(firstURL.absoluteString.contains("example.com/thumb.jpg"))
+        #expect(urls.last?.absoluteString == "https://i.ytimg.com/vi/song-artwork/hqdefault.jpg")
+    }
+
     // MARK: - Service Retention
 
     @Test("service remains active after multiple polling cycles")
