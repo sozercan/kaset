@@ -15,6 +15,8 @@ final class SyncedLyricsService {
         let result: LyricResult
     }
 
+    private typealias IndexedProvider = (index: Int, provider: LyricsProvider)
+
     /// Current lyrics result.
     var currentLyrics: LyricResult = .unavailable
 
@@ -75,43 +77,22 @@ final class SyncedLyricsService {
 
         self.isLoading = true
 
-        // Don't clear currentLyrics immediately to prevent flicker, but reset state when done
-        var allResults: [ProviderResult] = []
+        let indexedProviders = self.providers.enumerated().map { (index: $0.offset, provider: $0.element) }
+        let syncedCapableProviders = indexedProviders.filter { Self.isSyncedCapableProvider($0.provider) }
+        let plainFallbackProviders = indexedProviders.filter { !Self.isSyncedCapableProvider($0.provider) }
 
-        // Fetch concurrently
-        await withTaskGroup(of: ProviderResult?.self) { group in
-            for (providerIndex, provider) in self.providers.enumerated() {
-                group.addTask {
-                    let result = await provider.search(info: info)
-                    return ProviderResult(
-                        provider: provider.name,
-                        providerIndex: providerIndex,
-                        result: result
-                    )
-                }
-            }
-
-            for await res in group {
-                if let res {
-                    allResults.append(res)
-                    self.providerCache[info.videoId, default: [:]][res.provider] = res.result
-                }
-            }
+        var allResults = await self.fetchProviderResults(for: info, from: syncedCapableProviders)
+        if allResults.contains(where: { self.resultRank($0.result) == 2 }) {
+            let resolved = self.resolveLyrics(best: self.bestResult(in: allResults), cached: cached, videoId: info.videoId)
+            self.applyResolvedLyrics(resolved, requestID: requestID)
+            return
         }
 
-        var best: ProviderResult?
-        for candidate in allResults {
-            guard let currentBest = best else {
-                best = candidate
-                continue
-            }
-
-            if self.isBetter(candidate, than: currentBest) {
-                best = candidate
-            }
+        if !plainFallbackProviders.isEmpty {
+            allResults += await self.fetchProviderResults(for: info, from: plainFallbackProviders)
         }
 
-        let resolved = self.resolveLyrics(best: best, cached: cached, videoId: info.videoId)
+        let resolved = self.resolveLyrics(best: self.bestResult(in: allResults), cached: cached, videoId: info.videoId)
         self.applyResolvedLyrics(resolved, requestID: requestID)
     }
 
@@ -208,6 +189,52 @@ final class SyncedLyricsService {
         }
     }
 
+    private func fetchProviderResults(
+        for info: LyricsSearchInfo,
+        from indexedProviders: [IndexedProvider]
+    ) async -> [ProviderResult] {
+        guard !indexedProviders.isEmpty else { return [] }
+
+        var allResults: [ProviderResult] = []
+        await withTaskGroup(of: ProviderResult?.self) { group in
+            for indexedProvider in indexedProviders {
+                group.addTask {
+                    let result = await indexedProvider.provider.search(info: info)
+                    return ProviderResult(
+                        provider: indexedProvider.provider.name,
+                        providerIndex: indexedProvider.index,
+                        result: result
+                    )
+                }
+            }
+
+            for await res in group {
+                if let res {
+                    allResults.append(res)
+                    self.providerCache[info.videoId, default: [:]][res.provider] = res.result
+                }
+            }
+        }
+
+        return allResults
+    }
+
+    private func bestResult(in results: [ProviderResult]) -> ProviderResult? {
+        var best: ProviderResult?
+        for candidate in results {
+            guard let currentBest = best else {
+                best = candidate
+                continue
+            }
+
+            if self.isBetter(candidate, than: currentBest) {
+                best = candidate
+            }
+        }
+
+        return best
+    }
+
     private func isBetter(_ candidate: ProviderResult, than currentBest: ProviderResult) -> Bool {
         let candidateRank = self.resultRank(candidate.result)
         let currentRank = self.resultRank(currentBest.result)
@@ -291,5 +318,9 @@ final class SyncedLyricsService {
         case .unavailable:
             nil
         }
+    }
+
+    private static func isSyncedCapableProvider(_ provider: LyricsProvider) -> Bool {
+        provider.name == "YTMusic" || provider.name == "LRCLib"
     }
 }

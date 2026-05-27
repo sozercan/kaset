@@ -49,14 +49,18 @@ final class LRCLibProvider: LyricsProvider {
 
             guard !validParams.isEmpty else { return .unavailable }
 
-            // Find closest duration
-            var bestMatch = validParams.first!
+            // Prefer synced matches first; plain lyrics are only useful when no
+            // synced candidate exists for this track.
+            let candidates = validParams.filter { $0.syncedLyrics != nil }
+            let matchingParams = candidates.isEmpty ? validParams : candidates
+
+            var bestMatch = matchingParams.first!
             if let targetDuration = info.duration {
-                bestMatch = validParams.min(by: { a, b in
+                bestMatch = matchingParams.min(by: { a, b in
                     let diffA = abs((a.duration ?? 0) - targetDuration)
                     let diffB = abs((b.duration ?? 0) - targetDuration)
                     return diffA < diffB
-                }) ?? validParams.first!
+                }) ?? matchingParams.first!
             }
 
             if let synced = bestMatch.syncedLyrics, let parsed = LRCParser.parse(synced) {

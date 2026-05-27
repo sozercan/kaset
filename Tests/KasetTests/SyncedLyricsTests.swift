@@ -124,6 +124,23 @@ struct SyncedLyricsServiceTests {
         #expect(service.activeProvider == "LRCLib")
     }
 
+    @Test("fetchLyrics does not query plain-only providers after finding synced lyrics")
+    func fetchLyricsSkipsPlainOnlyProvidersAfterSyncedMatch() async {
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let musixMatchPlain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let musixMatchProvider = MockLyricsProvider(name: "MusixMatch", result: .plain(musixMatchPlain))
+        let service = SyncedLyricsService(providers: [
+            musixMatchProvider,
+            MockLyricsProvider(name: "LRCLib", result: .synced(synced)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-skip-plain-after-sync"))
+
+        #expect(service.currentLyrics == .synced(synced))
+        #expect(service.activeProvider == "LRCLib")
+        #expect(await musixMatchProvider.callCount() == 0)
+    }
+
     @Test("fetchLyrics can load a specific provider result for source cycling")
     func fetchLyricsLoadsSpecificProviderResult() async {
         let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
