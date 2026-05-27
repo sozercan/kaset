@@ -115,14 +115,14 @@ struct NowPlayingLyricsView: View {
             .padding(.horizontal, metrics.horizontalPadding)
             .padding(.top, metrics.topPadding)
 
-            HStack(alignment: .center, spacing: metrics.columnSpacing) {
+            HStack(alignment: .top, spacing: metrics.columnSpacing) {
                 self.artworkAndControls(track: track, artworkSize: metrics.artworkSize)
                     .frame(width: metrics.artworkColumnWidth)
 
                 self.lyricsPane(availableSize: availableSize)
-                    .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity)
+                    .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity, alignment: .top)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, metrics.horizontalPadding + 28)
             .padding(.bottom, metrics.bottomPadding)
         }
