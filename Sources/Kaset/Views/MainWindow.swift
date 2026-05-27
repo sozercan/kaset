@@ -329,30 +329,30 @@ struct MainWindow: View {
     // MARK: - Main Content
 
     private var mainContent: some View {
-        ZStack(alignment: .trailing) {
-            // Main navigation content
-            NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(
-                    selection: self.$navigationSelection,
-                    pinnedSelection: self.$selectedSidebarPinnedItem
-                )
-            } detail: {
+        NavigationSplitView(columnVisibility: self.$columnVisibility) {
+            Sidebar(
+                selection: self.$navigationSelection,
+                pinnedSelection: self.$selectedSidebarPinnedItem
+            )
+        } detail: {
+            ZStack(alignment: .trailing) {
                 self.detailView(
                     for: self.navigationSelection,
                     pinnedItem: self.selectedSidebarPinnedItem,
                     client: self.client
                 )
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
-                if self.columnVisibility != .all {
-                    self.columnVisibility = .all
-                }
-            }
 
-            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
-            self.rightSidebarOverlay(client: self.client)
+                // Right sidebar overlay - either lyrics or queue (mutually exclusive)
+                self.rightSidebarOverlay(client: self.client)
+            }
+            .clipped()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
+            if self.columnVisibility != .all {
+                self.columnVisibility = .all
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
