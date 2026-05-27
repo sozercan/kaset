@@ -284,7 +284,7 @@ final class SearchViewModel {
                 = switch currentFilter
             {
             case .all:
-                try await self.client.search(query: currentQuery)
+                try await self.searchAllResults(query: currentQuery)
             case .songs:
                 try await self.client.searchSongsWithPagination(query: currentQuery)
             case .albums:
@@ -353,6 +353,76 @@ final class SearchViewModel {
             self.logger.error("Failed to load more: \(error.localizedDescription)")
             self.loadingState = .loaded // Revert to loaded state to allow retry
         }
+    }
+
+    private func searchAllResults(query: String) async throws -> SearchResponse {
+        let generalResults = try await self.client.search(query: query)
+        guard generalResults.isEmpty else {
+            return generalResults
+        }
+
+        self.logger.info("General search returned no results; loading filtered fallback results")
+
+        var firstError: Error?
+        var fallbackResponses: [SearchResponse] = []
+
+        for search in [
+            self.client.searchSongsWithPagination,
+            self.client.searchAlbums,
+            self.client.searchArtists,
+            self.client.searchFeaturedPlaylists,
+            self.client.searchCommunityPlaylists,
+            self.client.searchPodcasts,
+        ] {
+            guard !Task.isCancelled else { break }
+
+            do {
+                fallbackResponses.append(try await search(query))
+            } catch {
+                if firstError == nil {
+                    firstError = error
+                }
+                self.logger.warning("Filtered fallback search failed: \(error.localizedDescription)")
+            }
+        }
+
+        let fallbackResults = Self.mergedSearchResults(fallbackResponses)
+        if fallbackResults.isEmpty, let firstError {
+            throw firstError
+        }
+
+        return fallbackResults
+    }
+
+    private static func mergedSearchResults(_ responses: [SearchResponse]) -> SearchResponse {
+        var seenSongIds: Set<String> = []
+        var seenAlbumIds: Set<String> = []
+        var seenArtistIds: Set<String> = []
+        var seenPlaylistIds: Set<String> = []
+        var seenPodcastShowIds: Set<String> = []
+
+        var songs: [Song] = []
+        var albums: [Album] = []
+        var artists: [Artist] = []
+        var playlists: [Playlist] = []
+        var podcastShows: [PodcastShow] = []
+
+        for response in responses {
+            songs.append(contentsOf: response.songs.filter { seenSongIds.insert($0.id).inserted })
+            albums.append(contentsOf: response.albums.filter { seenAlbumIds.insert($0.id).inserted })
+            artists.append(contentsOf: response.artists.filter { seenArtistIds.insert($0.id).inserted })
+            playlists.append(contentsOf: response.playlists.filter { seenPlaylistIds.insert($0.id).inserted })
+            podcastShows.append(contentsOf: response.podcastShows.filter { seenPodcastShowIds.insert($0.id).inserted })
+        }
+
+        return SearchResponse(
+            songs: songs,
+            albums: albums,
+            artists: artists,
+            playlists: playlists,
+            podcastShows: podcastShows,
+            continuationToken: nil
+        )
     }
 
     /// Clears search results.

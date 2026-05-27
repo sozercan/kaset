@@ -49,6 +49,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var podcastsSections: [PodcastSection] = []
     var podcastsContinuationSections: [[PodcastSection]] = []
     var searchResponse: SearchResponse = .empty
+    var generalSearchResponse: SearchResponse?
     var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
@@ -394,7 +395,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
-        return self.searchResponse
+        return self.generalSearchResponse ?? self.searchResponse
     }
 
     func searchSongs(query: String) async throws -> [Song] {

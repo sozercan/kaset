@@ -151,4 +151,24 @@ struct SearchViewModelTests {
         #expect(self.viewModel.filteredItems.isEmpty)
         #expect(self.viewModel.shouldShowFilters)
     }
+
+    @Test("All search falls back to filtered results when general search is empty")
+    func allSearchFallsBackToFilteredResultsWhenGeneralSearchIsEmpty() async {
+        self.mockClient.generalSearchResponse = .empty
+        self.mockClient.searchResponse = TestFixtures.makeSearchResponse(
+            songCount: 2,
+            albumCount: 1,
+            artistCount: 1,
+            playlistCount: 1
+        )
+        self.viewModel.query = "lofi"
+        self.viewModel.selectedFilter = .all
+
+        self.viewModel.searchImmediately()
+        try? await Task.sleep(for: .milliseconds(25))
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.filteredItems.count == 5)
+        #expect(self.mockClient.searchQueries.count == 7)
+    }
 }
