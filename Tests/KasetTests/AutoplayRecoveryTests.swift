@@ -121,6 +121,8 @@ struct AutoplayRecoveryJSTests {
     func observerScriptRetriesWhilePending() {
         #expect(SingletonPlayerWebView.observerScript.contains("scheduleAutoplayRecoveryBurst"))
         #expect(SingletonPlayerWebView.observerScript.contains("!window.__kasetAutoplayPending || !video.paused"))
+        #expect(SingletonPlayerWebView.observerScript.contains("AUTOPLAY_RECOVERY_INTERVAL_MS"))
+        #expect(SingletonPlayerWebView.observerScript.contains("MAX_AUTOPLAY_RECOVERY_ATTEMPTS"))
     }
 }
 

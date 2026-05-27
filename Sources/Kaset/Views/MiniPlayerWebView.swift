@@ -237,6 +237,8 @@ final class SingletonPlayerWebView {
     enum VideoLoadStrategy: Equatable {
         /// Skip navigation when `videoId` matches `currentVideoId`.
         case standard
+        /// Same `videoId` as tracked: resume playback for an explicit user play intent.
+        case resumeWhenSameVideoId
         /// Same `videoId` as tracked: `seek(0)` + play only (fast). Different id: full watch URL load.
         case preferInPlaceWhenSameVideoId
         /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
@@ -339,7 +341,12 @@ final class SingletonPlayerWebView {
         switch strategy {
         case .standard:
             if videoId == previousVideoId {
-                self.logger.debug("Video \(videoId) already loaded, resuming playback")
+                self.logger.debug("Video \(videoId) already loaded, skipping duplicate load")
+                return
+            }
+        case .resumeWhenSameVideoId:
+            if videoId == previousVideoId {
+                self.logger.debug("Video \(videoId) already loaded, resuming from explicit play intent")
                 self.play()
                 return
             }

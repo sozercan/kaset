@@ -30,6 +30,10 @@ extension SingletonPlayerWebView {
             let lastUpdateTime = 0;
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
+            // Retry autoplay for ~6s after a fresh navigation; slow player
+            // bootstraps can miss the first canplay recovery attempt.
+            const AUTOPLAY_RECOVERY_INTERVAL_MS = 250;
+            const MAX_AUTOPLAY_RECOVERY_ATTEMPTS = 24;
 
             // Volume enforcement: track target volume set by Swift
             // Don't set a default - only enforce when explicitly set by Swift
@@ -157,12 +161,12 @@ extension SingletonPlayerWebView {
                             }
 
                             recoverAutoplayIfNeeded();
-                            if (++recoveryCount >= 24) {
+                            if (++recoveryCount >= MAX_AUTOPLAY_RECOVERY_ATTEMPTS) {
                                 window.__kasetAutoplayPending = false;
                                 clearInterval(video.__kasetAutoplayRecoveryInterval);
                                 video.__kasetAutoplayRecoveryInterval = null;
                             }
-                        }, 250);
+                        }, AUTOPLAY_RECOVERY_INTERVAL_MS);
                     }
 
                     video.addEventListener('canplay', recoverAutoplayIfNeeded);

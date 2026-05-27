@@ -52,7 +52,7 @@ extension PlayerService {
         // create it from `pendingPlayVideoId` and autoload in `PersistentPlayerView`.
         self.showMiniPlayer = false
         if SingletonPlayerWebView.shared.webView != nil {
-            SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
+            SingletonPlayerWebView.shared.loadVideo(videoId: videoId, strategy: .resumeWhenSameVideoId)
         }
 
         // Fetch full song metadata in the background to get feedbackTokens
@@ -61,7 +61,7 @@ extension PlayerService {
 
     /// Plays a song.
     func play(song: Song) async {
-        await self.play(song: song, webLoadStrategy: .standard)
+        await self.play(song: song, webLoadStrategy: .resumeWhenSameVideoId)
     }
 
     /// Plays a song.
