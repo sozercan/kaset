@@ -20,37 +20,39 @@ struct NowPlayingLyricsView: View {
     @State private var isAdjustingVolume = false
 
     var body: some View {
-        ZStack {
-            self.backgroundView
+        GeometryReader { geometry in
+            ZStack {
+                self.backgroundView
 
-            if let track = self.playerService.currentTrack {
-                self.contentView(track: track)
+                if let track = self.playerService.currentTrack {
+                    self.contentView(track: track, availableSize: geometry.size)
+                }
             }
-        }
-        .ignoresSafeArea()
-        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
-            if let newVideoId {
-                Task { await self.loadLyrics(for: newVideoId) }
+            .ignoresSafeArea()
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+                if let newVideoId {
+                    Task { await self.loadLyrics(for: newVideoId) }
+                }
             }
-        }
-        .onChange(of: self.playerService.progress) { _, newValue in
-            if !self.isSeeking, self.playerService.duration > 0 {
-                self.seekValue = newValue / self.playerService.duration
+            .onChange(of: self.playerService.progress) { _, newValue in
+                if !self.isSeeking, self.playerService.duration > 0 {
+                    self.seekValue = newValue / self.playerService.duration
+                }
             }
-        }
-        .onChange(of: self.playerService.volume) { _, newValue in
-            if !self.isAdjustingVolume {
-                self.volumeValue = newValue
+            .onChange(of: self.playerService.volume) { _, newValue in
+                if !self.isAdjustingVolume {
+                    self.volumeValue = newValue
+                }
             }
-        }
-        .task {
-            self.volumeValue = self.playerService.volume
-            if self.playerService.duration > 0 {
-                self.seekValue = self.playerService.progress / self.playerService.duration
-            }
-            if let videoId = self.playerService.currentTrack?.videoId {
-                await self.loadLyrics(for: videoId)
+            .task {
+                self.volumeValue = self.playerService.volume
+                if self.playerService.duration > 0 {
+                    self.seekValue = self.playerService.progress / self.playerService.duration
+                }
+                if let videoId = self.playerService.currentTrack?.videoId {
+                    await self.loadLyrics(for: videoId)
+                }
             }
         }
     }
@@ -90,8 +92,10 @@ struct NowPlayingLyricsView: View {
         }
     }
 
-    private func contentView(track: Song) -> some View {
-        VStack(spacing: 0) {
+    private func contentView(track: Song, availableSize: CGSize) -> some View {
+        let metrics = self.layoutMetrics(for: availableSize)
+
+        return VStack(spacing: 0) {
             HStack {
                 Spacer()
 
@@ -108,23 +112,23 @@ struct NowPlayingLyricsView: View {
                 .accessibilityLabel(String(localized: "Close now playing"))
                 .keyboardShortcut(.escape, modifiers: [])
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.top, metrics.topPadding)
 
-            HStack(alignment: .center, spacing: 72) {
-                self.artworkAndControls(track: track)
-                    .frame(width: 380)
+            HStack(alignment: .center, spacing: metrics.columnSpacing) {
+                self.artworkAndControls(track: track, artworkSize: metrics.artworkSize)
+                    .frame(width: metrics.artworkColumnWidth)
 
-                self.lyricsPane
-                    .frame(maxWidth: 540, maxHeight: .infinity)
+                self.lyricsPane(availableSize: availableSize)
+                    .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 76)
-            .padding(.bottom, 52)
+            .padding(.horizontal, metrics.horizontalPadding + 28)
+            .padding(.bottom, metrics.bottomPadding)
         }
     }
 
-    private func artworkAndControls(track: Song) -> some View {
+    private func artworkAndControls(track: Song, artworkSize: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             CachedAsyncImage(url: track.thumbnailURL, targetSize: .init(width: 760, height: 760)) { image in
                 image
@@ -138,7 +142,7 @@ struct NowPlayingLyricsView: View {
                             .foregroundStyle(.white.opacity(0.55))
                     }
             }
-            .frame(width: 360, height: 360)
+            .frame(width: artworkSize, height: artworkSize)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .shadow(color: .black.opacity(0.24), radius: 20, y: 10)
 
@@ -303,7 +307,7 @@ struct NowPlayingLyricsView: View {
     }
 
     @ViewBuilder
-    private var lyricsPane: some View {
+    private func lyricsPane(availableSize: CGSize) -> some View {
         if self.syncedLyricsService.isLoading || self.isLoadingFallback {
             ProgressView()
                 .controlSize(.regular)
@@ -315,19 +319,25 @@ struct NowPlayingLyricsView: View {
                     lyrics: synced,
                     currentTimeMs: self.playerService.currentTimeMs,
                     autoScrolls: false,
-                    verticalContentInset: 48,
+                    verticalContentInset: self.lyricsEdgeInset(for: availableSize.height),
                     onSeek: { timeMs in
                         Task { await self.playerService.seek(to: Double(timeMs) / 1000) }
                     }
                 )
             case let .plain(lyrics):
                 ScrollView {
-                    Text(lyrics.text)
-                        .font(.system(size: 24, weight: .bold))
-                        .lineSpacing(16)
-                        .foregroundStyle(.white.opacity(0.82))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 32)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Spacer(minLength: self.lyricsEdgeInset(for: availableSize.height))
+
+                        Text(lyrics.text)
+                            .font(.system(size: 24, weight: .bold))
+                            .lineSpacing(16)
+                            .foregroundStyle(.white.opacity(0.82))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Spacer(minLength: self.lyricsEdgeInset(for: availableSize.height))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .scrollIndicators(.hidden)
             case .unavailable:
@@ -411,6 +421,22 @@ struct NowPlayingLyricsView: View {
         }
     }
 
+    private func layoutMetrics(for size: CGSize) -> LayoutMetrics {
+        LayoutMetrics(
+            topPadding: max(16, min(size.height * 0.03, 28)),
+            horizontalPadding: max(28, min(size.width * 0.06, 76)),
+            bottomPadding: max(18, min(size.height * 0.04, 40)),
+            columnSpacing: max(36, min(size.height * 0.08, 64)),
+            artworkSize: max(240, min(size.height * 0.38, 360)),
+            artworkColumnWidth: max(300, min(size.height * 0.40, 400)),
+            lyricsPaneWidth: max(360, min(size.width * 0.40, 560))
+        )
+    }
+
+    private func lyricsEdgeInset(for height: CGFloat) -> CGFloat {
+        max(8, min(height * 0.028, 28))
+    }
+
     private func subtitle(for track: Song) -> String {
         if let album = track.album?.title, !album.isEmpty {
             "\(track.artistsDisplay) - \(album)"
@@ -451,5 +477,15 @@ struct NowPlayingLyricsView: View {
         } else {
             return String(format: "%d:%02d", minutes, seconds)
         }
+    }
+
+    private struct LayoutMetrics {
+        let topPadding: CGFloat
+        let horizontalPadding: CGFloat
+        let bottomPadding: CGFloat
+        let columnSpacing: CGFloat
+        let artworkSize: CGFloat
+        let artworkColumnWidth: CGFloat
+        let lyricsPaneWidth: CGFloat
     }
 }
