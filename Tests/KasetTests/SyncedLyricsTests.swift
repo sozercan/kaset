@@ -104,6 +104,26 @@ struct SyncedLyricsServiceTests {
         #expect(service.isLoading == false)
     }
 
+    @Test("fetchLyrics prefers synced lyrics over the configured default plain provider")
+    func fetchLyricsPrefersSyncedOverConfiguredPlainProvider() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .lyricsGenius
+
+        let plain = Lyrics(text: "LyricsGenius lyrics", source: "LyricsGenius Source")
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "LyricsGenius", result: .plain(plain)),
+            MockLyricsProvider(name: "LRCLib", result: .synced(synced)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-sync-over-default"))
+
+        #expect(service.currentLyrics == .synced(synced))
+        #expect(service.activeProvider == "LRCLib")
+    }
+
     @Test("fetchLyrics caches results and derives activeProvider from cached source")
     func fetchLyricsCachesResults() async {
         let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")
