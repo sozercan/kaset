@@ -5,6 +5,7 @@ import SwiftUI
 struct SyncedLyricsDisplayView: View {
     let lyrics: SyncedLyrics
     let currentTimeMs: Int
+    var autoScrolls = true
     let onSeek: (Int) -> Void
 
     @State private var currentLineId: UUID?
@@ -38,6 +39,7 @@ struct SyncedLyricsDisplayView: View {
                 self.scrollToCurrentLine(proxy: proxy, timeMs: self.currentTimeMs, animated: false)
             }
             .onChange(of: self.currentTimeMs) { _, newTimeMs in
+                guard self.autoScrolls else { return }
                 self.scrollToCurrentLine(proxy: proxy, timeMs: newTimeMs, animated: true)
             }
         }

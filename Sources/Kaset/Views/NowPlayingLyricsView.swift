@@ -62,9 +62,9 @@ struct NowPlayingLyricsView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .blur(radius: 42)
-                        .scaleEffect(1.12)
-                        .opacity(0.62)
+                        .blur(radius: 64)
+                        .scaleEffect(1.18)
+                        .opacity(0.72)
                 } placeholder: {
                     Color(nsColor: .windowBackgroundColor)
                 }
@@ -84,6 +84,10 @@ struct NowPlayingLyricsView: View {
                 .opacity(0.16)
                 .blendMode(.softLight)
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            self.close()
+        }
     }
 
     private func contentView(track: Song) -> some View {
@@ -92,9 +96,7 @@ struct NowPlayingLyricsView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(AppAnimation.standard) {
-                        self.playerService.showNowPlayingLyrics = false
-                    }
+                    self.close()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 15, weight: .semibold))
@@ -312,6 +314,7 @@ struct NowPlayingLyricsView: View {
                 SyncedLyricsDisplayView(
                     lyrics: synced,
                     currentTimeMs: self.playerService.currentTimeMs,
+                    autoScrolls: false,
                     onSeek: { timeMs in
                         Task { await self.playerService.seek(to: Double(timeMs) / 1000) }
                     }
@@ -398,6 +401,12 @@ struct NowPlayingLyricsView: View {
         Task {
             await self.playerService.seek(to: seekTime)
             self.isSeeking = false
+        }
+    }
+
+    private func close() {
+        withAnimation(AppAnimation.standard) {
+            self.playerService.showNowPlayingLyrics = false
         }
     }
 
