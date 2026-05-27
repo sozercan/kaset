@@ -53,6 +53,14 @@ struct GeneralSettingsView: View {
                 Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
                     .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
 
+                // Default Lyrics Provider
+                Picker("Default Lyrics Provider", selection: self.$settings.defaultLyricsProvider) {
+                    ForEach(SettingsManager.LyricsProviderPreference.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+                .help("Choose which lyrics provider Kaset tries first")
+
                 // Remember Playback Settings
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")

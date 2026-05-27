@@ -179,6 +179,13 @@ final class SyncedLyricsService {
             return candidateRank > currentRank
         }
 
+        let preferredProvider = SettingsManager.shared.defaultLyricsProvider.rawValue
+        let candidateIsPreferred = candidate.provider == preferredProvider
+        let currentIsPreferred = currentBest.provider == preferredProvider
+        if candidateIsPreferred != currentIsPreferred {
+            return candidateIsPreferred
+        }
+
         if case .plain = candidate.result,
            case .plain = currentBest.result
         {

@@ -22,6 +22,7 @@ final class SettingsManager {
         static let playbackAudioQuality = "settings.playbackAudioQuality"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
+        static let defaultLyricsProvider = "settings.defaultLyricsProvider"
         static let contentLanguage = "settings.contentLanguage"
     }
 
@@ -170,6 +171,24 @@ final class SettingsManager {
         }
     }
 
+    // MARK: - Lyrics Provider
+
+    /// Preferred lyrics provider to try first.
+    enum LyricsProviderPreference: String, CaseIterable, Identifiable {
+        case ytMusic = "YTMusic"
+        case lrcLib = "LRCLib"
+        case musixMatch = "MusixMatch"
+        case lyricsGenius = "LyricsGenius"
+
+        var id: String {
+            self.rawValue
+        }
+
+        var displayName: String {
+            self.rawValue
+        }
+    }
+
     // MARK: - Settings Properties
 
     /// Whether to show system notifications when the track changes.
@@ -216,6 +235,13 @@ final class SettingsManager {
     var playbackAudioQuality: PlaybackAudioQuality {
         didSet {
             UserDefaults.standard.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
+        }
+    }
+
+    /// Preferred lyrics provider to try first.
+    var defaultLyricsProvider: LyricsProviderPreference {
+        didSet {
+            UserDefaults.standard.set(self.defaultLyricsProvider.rawValue, forKey: Keys.defaultLyricsProvider)
         }
     }
 
@@ -303,6 +329,13 @@ final class SettingsManager {
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLyricsProvider),
+           let provider = LyricsProviderPreference(rawValue: rawValue)
+        {
+            self.defaultLyricsProvider = provider
+        } else {
+            self.defaultLyricsProvider = .ytMusic
+        }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)

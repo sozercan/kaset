@@ -65,6 +65,26 @@ struct SyncedLyricsServiceTests {
         #expect(service.isLoading == false)
     }
 
+    @Test("fetchLyrics tries the configured default plain provider first")
+    func fetchLyricsPrefersConfiguredPlainProvider() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .musixMatch
+
+        let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
+        let musixMatchPlain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "YTMusic", result: .plain(ytMusicPlain)),
+            MockLyricsProvider(name: "MusixMatch", result: .plain(musixMatchPlain)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-preferred-provider"))
+
+        #expect(service.currentLyrics == .plain(musixMatchPlain))
+        #expect(service.activeProvider == "MusixMatch")
+    }
+
     @Test("fetchLyrics prefers synced lyrics over earlier YTMusic plain lyrics")
     func fetchLyricsPrefersDelayedSyncedLyrics() async {
         let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
@@ -263,6 +283,30 @@ struct SyncedLyricsServiceTests {
         #expect(updatedLyrics.lines[0].id == synced.lines[0].id)
         #expect(updatedLyrics.lines[0].romanizedText != nil)
         #expect(await provider.callCount() == 1)
+    }
+
+    @Test("lyrics provider preferences include every settings menu option")
+    func lyricsProviderPreferencesIncludeEveryMenuOption() {
+        #expect(SettingsManager.LyricsProviderPreference.allCases.map(\.displayName) == [
+            "YTMusic",
+            "LRCLib",
+            "MusixMatch",
+            "LyricsGenius",
+        ])
+    }
+
+    @Test("MusixMatch extractor reads common lyrics HTML blocks")
+    func musixMatchExtractorReadsLyricsBlocks() throws {
+        let html = """
+        <html><body>
+        <span class="lyrics__content__ok">First line<br>Second &amp; line</span>
+        <span class="lyrics__content__ok">Third line</span>
+        </body></html>
+        """
+
+        let lyrics = try #require(MusixMatchProvider.extractLyrics(from: html))
+
+        #expect(lyrics == "First line\nSecond & line\nThird line")
     }
 
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
