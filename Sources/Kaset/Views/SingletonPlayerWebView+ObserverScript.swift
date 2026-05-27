@@ -9,7 +9,6 @@ extension SingletonPlayerWebView {
         function __kasetAttemptAutoplayRecovery(video, playBtn) {
             if (!window.__kasetAutoplayPending) return 'noop';
             if (!video.paused) { window.__kasetAutoplayPending = false; return 'noop'; }
-            window.__kasetAutoplayPending = false;
             if (playBtn) { playBtn.click(); return 'clicked'; }
             try { video.play(); return 'played'; } catch (e) { return 'error'; }
         }
@@ -145,7 +144,29 @@ extension SingletonPlayerWebView {
                         __kasetAttemptAutoplayRecovery(video, btn);
                     }
 
+                    function scheduleAutoplayRecoveryBurst() {
+                        if (video.__kasetAutoplayRecoveryInterval) return;
+
+                        let recoveryCount = 0;
+                        video.__kasetAutoplayRecoveryInterval = setInterval(() => {
+                            if (!window.__kasetAutoplayPending || !video.paused) {
+                                window.__kasetAutoplayPending = false;
+                                clearInterval(video.__kasetAutoplayRecoveryInterval);
+                                video.__kasetAutoplayRecoveryInterval = null;
+                                return;
+                            }
+
+                            recoverAutoplayIfNeeded();
+                            if (++recoveryCount >= 24) {
+                                window.__kasetAutoplayPending = false;
+                                clearInterval(video.__kasetAutoplayRecoveryInterval);
+                                video.__kasetAutoplayRecoveryInterval = null;
+                            }
+                        }, 250);
+                    }
+
                     video.addEventListener('canplay', recoverAutoplayIfNeeded);
+                    video.addEventListener('canplay', scheduleAutoplayRecoveryBurst);
 
                     // Apply target volume immediately when video element is first detected
                     enforceVolumeNow();
@@ -154,6 +175,7 @@ extension SingletonPlayerWebView {
                     // there may not be another `canplay` event to drive recovery.
                     if (video.readyState >= 3) {
                         recoverAutoplayIfNeeded();
+                        scheduleAutoplayRecoveryBurst();
                     }
 
                     // Startup enforcement burst: YouTube may reset volume up to ~2s after
