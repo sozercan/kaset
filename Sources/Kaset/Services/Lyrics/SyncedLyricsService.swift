@@ -27,11 +27,18 @@ final class SyncedLyricsService {
     /// All registered providers, ordered by priority.
     private let providers: [LyricsProvider]
 
+    var providerNames: [String] {
+        self.providers.map(\.name)
+    }
+
     /// Romanization service for transliterating non-Latin lyrics.
     private let romanizationService = RomanizationService()
 
     /// In-memory cache keyed by videoId.
     private var cache: [String: LyricResult] = [:]
+
+    /// Provider-specific cache keyed by videoId, then provider name.
+    private var providerCache: [String: [String: LyricResult]] = [:]
 
     /// Base synced lyrics before romanization is applied for display.
     private var currentBaseSyncedLyrics: SyncedLyrics?
@@ -87,6 +94,7 @@ final class SyncedLyricsService {
             for await res in group {
                 if let res {
                     allResults.append(res)
+                    self.providerCache[info.videoId, default: [:]][res.provider] = res.result
                 }
             }
         }
@@ -105,6 +113,34 @@ final class SyncedLyricsService {
 
         let resolved = self.resolveLyrics(best: best, cached: cached, videoId: info.videoId)
         self.applyResolvedLyrics(resolved, requestID: requestID)
+    }
+
+    func fetchLyrics(for info: LyricsSearchInfo, providerName: String) async {
+        self.fetchGeneration += 1
+        let requestID = self.fetchGeneration
+
+        self.isLoading = true
+        let result: LyricResult
+        if let cached = self.providerCache[info.videoId]?[providerName] {
+            result = cached
+        } else if let provider = self.providers.first(where: { $0.name == providerName }) {
+            result = await provider.search(info: info)
+            self.providerCache[info.videoId, default: [:]][providerName] = result
+        } else {
+            result = .unavailable
+        }
+
+        if case .synced = result {
+            self.cache[info.videoId] = result
+        }
+
+        self.applyResolvedLyrics(
+            .init(
+                result: result,
+                activeProvider: providerName
+            ),
+            requestID: requestID
+        )
     }
 
     /// Fallback logic

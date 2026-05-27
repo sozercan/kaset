@@ -124,6 +124,23 @@ struct SyncedLyricsServiceTests {
         #expect(service.activeProvider == "LRCLib")
     }
 
+    @Test("fetchLyrics can load a specific provider result for source cycling")
+    func fetchLyricsLoadsSpecificProviderResult() async {
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let plain = Lyrics(text: "LyricsGenius lyrics", source: "LyricsGenius Source")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "LRCLib", result: .synced(synced)),
+            MockLyricsProvider(name: "LyricsGenius", result: .plain(plain)),
+        ])
+        let info = Self.makeSearchInfo(videoId: "video-provider-cycle")
+
+        await service.fetchLyrics(for: info)
+        await service.fetchLyrics(for: info, providerName: "LyricsGenius")
+
+        #expect(service.currentLyrics == .plain(plain))
+        #expect(service.activeProvider == "LyricsGenius")
+    }
+
     @Test("fetchLyrics caches results and derives activeProvider from cached source")
     func fetchLyricsCachesResults() async {
         let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")

@@ -11,6 +11,7 @@ struct LyricsView: View {
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
+    @State private var selectedProviderName: String?
 
     // AI explanation state
     @State private var lyricsSummary: LyricsSummary?
@@ -48,6 +49,7 @@ struct LyricsView: View {
                 self.partialSummary = nil
                 self.showExplanation = false
                 self.explanationError = nil
+                self.selectedProviderName = nil
                 Task {
                     await self.loadLyrics(for: videoId)
                 }
@@ -153,7 +155,10 @@ struct LyricsView: View {
         case let .plain(plain):
             self.plainLyricsContentView(plain)
         case .unavailable:
-            self.noLyricsView
+            VStack(spacing: 0) {
+                self.noLyricsView
+                self.sourceAttributionControls(source: self.currentSourceText)
+            }
         }
     }
 
@@ -196,6 +201,8 @@ struct LyricsView: View {
                 }
             )
             .background(Color.clear)
+
+            self.sourceAttributionControls(source: synced.source)
         }
     }
 
@@ -226,18 +233,58 @@ struct LyricsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 20)
 
-                // Source attribution
-                if let source = lyrics.source {
-                    Divider()
-                        .padding(.horizontal, 16)
-
-                    Text(source)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                }
+                self.sourceAttributionControls(source: lyrics.source ?? self.currentSourceText)
             }
+        }
+    }
+
+    private var currentSourceText: String? {
+        self.syncedLyricsService.activeProvider.map { "Source: \($0)" }
+    }
+
+    private var canCycleProviders: Bool {
+        self.syncedLyricsService.providerNames.count > 1 &&
+            !self.syncedLyricsService.isLoading &&
+            !self.isLoadingFallback &&
+            self.playerService.currentTrack != nil
+    }
+
+    private func sourceAttributionControls(source: String?) -> some View {
+        VStack(spacing: 0) {
+            Divider()
+                .padding(.horizontal, 16)
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await self.cycleLyricsProvider(step: -1) }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .disabled(!self.canCycleProviders)
+                .help(String(localized: "Previous lyrics provider"))
+                .accessibilityLabel(String(localized: "Previous lyrics provider"))
+
+                Text(source ?? String(localized: "Source: None"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+
+                Button {
+                    Task { await self.cycleLyricsProvider(step: 1) }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .disabled(!self.canCycleProviders)
+                .help(String(localized: "Next lyrics provider"))
+                .accessibilityLabel(String(localized: "Next lyrics provider"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
     }
 
@@ -406,21 +453,11 @@ struct LyricsView: View {
         self.lastLoadedVideoId = videoId
         self.isLoadingFallback = false
 
-        guard let track = playerService.currentTrack else { return }
-
-        // Don't search if it's not the current track anymore
-        guard track.videoId == videoId else { return }
-
-        let info = LyricsSearchInfo(
-            title: track.title,
-            artist: track.artistsDisplay,
-            album: track.album?.title,
-            duration: track.duration,
-            videoId: track.videoId
-        )
+        guard let info = self.lyricsSearchInfo(for: videoId) else { return }
 
         if SettingsManager.shared.syncedLyricsEnabled {
             await self.syncedLyricsService.fetchLyrics(for: info)
+            self.selectedProviderName = self.syncedLyricsService.activeProvider
         } else {
             self.syncedLyricsService.currentLyrics = .unavailable
             self.syncedLyricsService.activeProvider = nil
@@ -444,11 +481,48 @@ struct LyricsView: View {
                    self.playerService.currentTrack?.videoId == videoId
                 {
                     self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+                    self.selectedProviderName = self.syncedLyricsService.activeProvider
                 }
             } catch {
                 DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
             }
         }
+    }
+
+    @MainActor
+    private func cycleLyricsProvider(step: Int) async {
+        let providers = self.syncedLyricsService.providerNames
+        guard providers.count > 1,
+              let videoId = self.playerService.currentTrack?.videoId,
+              let info = self.lyricsSearchInfo(for: videoId)
+        else {
+            return
+        }
+
+        let currentProvider = self.selectedProviderName ?? self.syncedLyricsService.activeProvider ?? providers.first
+        let currentIndex = currentProvider.flatMap { providers.firstIndex(of: $0) } ?? 0
+        let nextIndex = (currentIndex + step + providers.count) % providers.count
+        let nextProvider = providers[nextIndex]
+
+        self.selectedProviderName = nextProvider
+        await self.syncedLyricsService.fetchLyrics(for: info, providerName: nextProvider)
+    }
+
+    @MainActor
+    private func lyricsSearchInfo(for videoId: String) -> LyricsSearchInfo? {
+        guard let track = self.playerService.currentTrack,
+              track.videoId == videoId
+        else {
+            return nil
+        }
+
+        return LyricsSearchInfo(
+            title: track.title,
+            artist: track.artistsDisplay,
+            album: track.album?.title,
+            duration: track.duration,
+            videoId: track.videoId
+        )
     }
 
     private func explainLyrics() async {
