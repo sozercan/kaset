@@ -77,27 +77,44 @@ struct SyncedLineView: View {
     let status: SyncedLyrics.LineStatus
     let onTap: () -> Void
 
+    private enum Metrics {
+        static let lyricActiveFontSize: CGFloat = 26
+        static let lyricInactiveFontSize: CGFloat = 20
+        static let romanizedActiveFontSize: CGFloat = 18
+        static let romanizedInactiveFontSize: CGFloat = 14
+
+        static let lyricInactiveScale = Self.lyricInactiveFontSize / Self.lyricActiveFontSize
+        static let romanizedInactiveScale = Self.romanizedInactiveFontSize / Self.romanizedActiveFontSize
+    }
+
     /// Smooth transition
     private let animation = Animation.spring(response: 0.4, dampingFraction: 0.8)
 
     var body: some View {
         VStack(spacing: 4) {
             // Original text
-            Text(self.line.text.isEmpty ? "♪" : self.line.text)
-                .font(.system(size: self.status == .current ? 26 : 20, weight: self.status == .current ? .bold : .medium, design: .default))
-                .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
+            self.prewrappedText(
+                self.line.text.isEmpty ? "♪" : self.line.text,
+                activeFontSize: Metrics.lyricActiveFontSize,
+                inactiveScale: Metrics.lyricInactiveScale,
+                fontWeight: .bold
+            )
+            .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
 
             // Romanized text (only if present and differs from original)
             if let romaji = self.line.romanizedText {
-                Text(romaji)
-                    .font(.system(size: self.status == .current ? 18 : 14, weight: .regular, design: .default))
-                    .italic()
-                    .foregroundStyle(self.status == .current ? .secondary : .tertiary)
-                    .opacity(self.status == .current ? 0.8 : 0.5)
+                self.prewrappedText(
+                    romaji,
+                    activeFontSize: Metrics.romanizedActiveFontSize,
+                    inactiveScale: Metrics.romanizedInactiveScale,
+                    fontWeight: .regular,
+                    isItalic: true
+                )
+                .foregroundStyle(self.status == .current ? .secondary : .tertiary)
+                .opacity(self.status == .current ? 0.8 : 0.5)
             }
         }
         .opacity(self.status == .current ? 1.0 : (self.status == .previous ? 0.6 : 0.4))
-        .scaleEffect(self.status == .current ? 1.05 : 1.0)
         .blur(radius: self.status == .current ? 0 : 0.5)
         .animation(self.animation, value: self.status)
         .multilineTextAlignment(.center)
@@ -108,5 +125,44 @@ struct SyncedLineView: View {
             self.onTap()
         }
         .padding(.vertical, 4)
+    }
+
+    private func prewrappedText(
+        _ text: String,
+        activeFontSize: CGFloat,
+        inactiveScale: CGFloat,
+        fontWeight: Font.Weight,
+        isItalic: Bool = false
+    ) -> some View {
+        ZStack {
+            self.lyricText(
+                text,
+                fontSize: activeFontSize,
+                fontWeight: fontWeight,
+                isItalic: isItalic
+            )
+            .hidden()
+            .accessibilityHidden(true)
+
+            self.lyricText(
+                text,
+                fontSize: activeFontSize,
+                fontWeight: fontWeight,
+                isItalic: isItalic
+            )
+            .scaleEffect(self.status == .current ? 1 : inactiveScale, anchor: .center)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func lyricText(
+        _ text: String,
+        fontSize: CGFloat,
+        fontWeight: Font.Weight,
+        isItalic: Bool
+    ) -> some View {
+        Text(text)
+            .font(.system(size: fontSize, weight: fontWeight, design: .default))
+            .italic(isItalic)
     }
 }
