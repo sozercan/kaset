@@ -16,6 +16,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     @State private var image: NSImage?
     @State private var isLoaded = false
+    @State private var loadingURL: URL?
 
     /// Whether to animate the image appearance.
     private var shouldAnimate: Bool {
@@ -32,20 +33,25 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 self.placeholder()
             }
         }
-        .onChange(of: self.url) { _, _ in
-            // Reset state when URL changes for proper UX
-            self.image = nil
-            self.isLoaded = false
+        .onChange(of: self.url) { _, newURL in
+            if newURL == nil {
+                self.loadingURL = nil
+                self.image = nil
+                self.isLoaded = false
+            }
         }
         .task(id: self.url) {
             guard let url else { return }
+            self.loadingURL = url
             let loadedImage = await ImageCache.shared.image(for: url, targetSize: self.targetSize)
             guard !Task.isCancelled else { return }
+            guard self.loadingURL == url else { return }
 
             guard let loadedImage else {
-                self.image = nil
-                self.isLoaded = false
-                self.onFailure?()
+                if self.image == nil {
+                    self.isLoaded = false
+                    self.onFailure?()
+                }
                 return
             }
 

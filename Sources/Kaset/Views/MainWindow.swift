@@ -110,6 +110,7 @@ struct MainWindow: View {
                     OnboardingView()
                 }
             }
+            .allowsHitTesting(!self.playerService.showNowPlayingLyrics)
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
