@@ -20,6 +20,7 @@ struct NowPlayingLyricsView: View {
     @State private var isAdjustingVolume = false
     @State private var lockedArtworkVideoId: String?
     @State private var lockedArtworkURL: URL?
+    @State private var artworkLoadTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { geometry in
@@ -40,15 +41,13 @@ struct NowPlayingLyricsView: View {
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
-                self.lockArtworkForCurrentTrack()
+                self.updateArtwork(for: self.playerService.currentTrack)
                 if let newVideoId {
                     Task { await self.loadLyrics(for: newVideoId) }
                 }
             }
             .onChange(of: self.playerService.currentTrack?.thumbnailURL) { _, _ in
-                if self.lockedArtworkURL == nil {
-                    self.lockArtworkForCurrentTrack()
-                }
+                self.updateArtwork(for: self.playerService.currentTrack)
             }
             .onChange(of: self.playerService.progress) { _, newValue in
                 if !self.isSeeking, self.playerService.duration > 0 {
@@ -61,7 +60,7 @@ struct NowPlayingLyricsView: View {
                 }
             }
             .task {
-                self.lockArtworkForCurrentTrack()
+                self.updateArtwork(for: self.playerService.currentTrack)
                 self.volumeValue = self.playerService.volume
                 if self.playerService.duration > 0 {
                     self.seekValue = self.playerService.progress / self.playerService.duration
@@ -69,6 +68,16 @@ struct NowPlayingLyricsView: View {
                 if let videoId = self.playerService.currentTrack?.videoId {
                     await self.loadLyrics(for: videoId)
                 }
+                self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+            }
+            .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
+                self.updateLyricsPolling(for: newLyrics)
+            }
+            .onAppear {
+                self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+            }
+            .onDisappear {
+                SingletonPlayerWebView.shared.stopLyricsPoll()
             }
         }
         .ignoresSafeArea()
@@ -77,8 +86,9 @@ struct NowPlayingLyricsView: View {
     private func backgroundView(artworkURL: URL?) -> some View {
         ZStack {
             if let artworkURL {
-                CachedAsyncImage(url: artworkURL, targetSize: .init(width: 900, height: 900)) { image in
+                CachedAsyncImage(url: artworkURL, targetSize: .init(width: 1600, height: 1600)) { image in
                     image
+                        .interpolation(.high)
                         .resizable()
                         .scaledToFill()
                         .blur(radius: 64)
@@ -106,6 +116,14 @@ struct NowPlayingLyricsView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             self.close()
+        }
+    }
+
+    private func updateLyricsPolling(for result: LyricResult) {
+        if case .synced = result {
+            SingletonPlayerWebView.shared.startLyricsPoll()
+        } else {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
         }
     }
 
@@ -167,8 +185,9 @@ struct NowPlayingLyricsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Group {
                 if let artworkURL {
-                    CachedAsyncImage(url: artworkURL, targetSize: .init(width: 760, height: 760)) { image in
+                    CachedAsyncImage(url: artworkURL, targetSize: .init(width: 1200, height: 1200)) { image in
                         image
+                            .interpolation(.high)
                             .resizable()
                             .scaledToFill()
                     } placeholder: {
@@ -363,7 +382,7 @@ struct NowPlayingLyricsView: View {
                 SyncedLyricsDisplayView(
                     lyrics: synced,
                     currentTimeMs: self.playerService.currentTimeMs,
-                    autoScrolls: false,
+                    scrollAnchor: .center,
                     verticalContentInset: self.lyricsEdgeInset(for: availableSize.height),
                     onSeek: { timeMs in
                         Task { await self.playerService.seek(to: Double(timeMs) / 1000) }
@@ -448,6 +467,40 @@ struct NowPlayingLyricsView: View {
             self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
         } catch {
             DiagnosticsLogger.api.error("Failed to load full now-playing lyrics fallback: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateArtwork(for track: Song?) {
+        self.artworkLoadTask?.cancel()
+
+        guard let track else {
+            self.lockedArtworkVideoId = nil
+            self.lockedArtworkURL = nil
+            return
+        }
+
+        if self.lockedArtworkVideoId != track.videoId {
+            self.lockedArtworkVideoId = track.videoId
+        }
+
+        guard let artworkURL = track.thumbnailURL?.highQualityThumbnailURL ?? track.thumbnailURL else { return }
+
+        if self.lockedArtworkURL == nil {
+            self.lockedArtworkURL = artworkURL
+            return
+        }
+
+        guard self.lockedArtworkURL != artworkURL else { return }
+
+        let videoId = track.videoId
+        self.artworkLoadTask = Task { [artworkURL] in
+            _ = await ImageCache.shared.image(for: artworkURL, targetSize: .init(width: 1600, height: 1600))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard self.playerService.currentTrack?.videoId == videoId else { return }
+                self.lockedArtworkURL = artworkURL
+            }
         }
     }
 
@@ -538,21 +591,7 @@ struct NowPlayingLyricsView: View {
         if self.lockedArtworkVideoId == track.videoId, let lockedArtworkURL {
             return lockedArtworkURL
         }
-        return track.thumbnailURL
+        return track.thumbnailURL?.highQualityThumbnailURL ?? track.thumbnailURL
     }
 
-    private func lockArtworkForCurrentTrack() {
-        guard let track = self.playerService.currentTrack else {
-            self.lockedArtworkVideoId = nil
-            self.lockedArtworkURL = nil
-            return
-        }
-
-        if self.lockedArtworkVideoId != track.videoId {
-            self.lockedArtworkVideoId = track.videoId
-            self.lockedArtworkURL = track.thumbnailURL
-        } else if self.lockedArtworkURL == nil {
-            self.lockedArtworkURL = track.thumbnailURL
-        }
-    }
 }
