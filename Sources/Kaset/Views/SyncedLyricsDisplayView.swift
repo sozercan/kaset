@@ -103,7 +103,7 @@ struct SyncedLineView: View {
                 inactiveScale: Metrics.lyricInactiveScale,
                 fontWeight: .bold
             )
-            .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
+            .foregroundStyle(self.primaryTextColor)
 
             // Romanized text (only if present and differs from original)
             if let romaji = self.line.romanizedText {
@@ -114,12 +114,12 @@ struct SyncedLineView: View {
                     fontWeight: .regular,
                     isItalic: true
                 )
-                .foregroundStyle(self.status == .current ? .secondary : .tertiary)
-                .opacity(self.status == .current ? 0.8 : 0.5)
+                .foregroundStyle(self.secondaryTextColor)
+                .opacity(self.secondaryTextOpacity)
             }
         }
-        .opacity(self.status == .current ? 1.0 : (self.status == .previous ? 0.6 : 0.4))
-        .blur(radius: self.status == .current ? 0 : 0.5)
+        .opacity(self.containerOpacity)
+        .blur(radius: self.status == .current ? 0 : (self.status == .previous ? 1.0 : 0.15))
         .animation(self.animation, value: self.status)
         .multilineTextAlignment(.center)
         .lineLimit(nil)
@@ -129,6 +129,50 @@ struct SyncedLineView: View {
             self.onTap()
         }
         .padding(.vertical, 4)
+    }
+
+    private var primaryTextColor: Color {
+        switch self.status {
+        case .current:
+            .primary
+        case .upcoming:
+            .secondary
+        case .previous:
+            Color.white.opacity(0.42)
+        }
+    }
+
+    private var secondaryTextColor: Color {
+        switch self.status {
+        case .current:
+            .secondary
+        case .upcoming:
+            .secondary
+        case .previous:
+            Color.white.opacity(0.28)
+        }
+    }
+
+    private var containerOpacity: Double {
+        switch self.status {
+        case .current:
+            1.0
+        case .upcoming:
+            0.85
+        case .previous:
+            0.34
+        }
+    }
+
+    private var secondaryTextOpacity: Double {
+        switch self.status {
+        case .current:
+            0.8
+        case .upcoming:
+            0.66
+        case .previous:
+            0.42
+        }
     }
 
     private func prewrappedText(
