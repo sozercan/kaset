@@ -71,6 +71,63 @@ struct LyricsParserTests {
         #expect(result.lines[0].duration == 567)
     }
 
+    @Test("extractTimedLyrics finds alternate timed lyrics payload keys")
+    func extractTimedLyricsFindsAlternatePayloadKeys() throws {
+        let data: [String: Any] = [
+            "contents": [
+                "singleColumnMusicWatchNextResultsRenderer": [
+                    "tabbedRenderer": [
+                        "watchNextTabbedResultsRenderer": [
+                            "tabs": [
+                                [
+                                    "tabRenderer": [
+                                        "title": "Lyrics",
+                                        "content": [
+                                            "musicQueueRenderer": [
+                                                "content": [
+                                                    "timedLyricsData": [
+                                                        [
+                                                            "text": "Alternate synced line",
+                                                            "startTimeMs": 1500,
+                                                            "durationMs": 250,
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let result = try #require(LyricsParser.extractTimedLyrics(from: data))
+
+        #expect(result.source == "YTMusic")
+        #expect(result.lines.count == 1)
+        #expect(result.lines[0].text == "Alternate synced line")
+        #expect(result.lines[0].timeInMs == 1500)
+        #expect(result.lines[0].duration == 250)
+    }
+
+    @Test("extractTimedLyrics reads the pear proxy fixture for zzfYBupjwIc")
+    func extractTimedLyricsReadsPearProxyFixture() throws {
+        let data = try Self.loadJSONFixture(named: "lyrics_proxy_zzfYBupjwIc")
+
+        let result = try #require(LyricsParser.extractTimedLyrics(from: data))
+
+        #expect(result.source == "YTMusic")
+        #expect(result.lines.count == 3)
+        #expect(result.lines[0].text == "♪")
+        #expect(result.lines[1].text == "나의 옛날 동네")
+        #expect(result.lines[2].text == "옛날 동네 반지하 빌라엔")
+        #expect(result.lines[1].timeInMs == 11490)
+        #expect(result.lines[2].duration == 3980)
+    }
+
     // MARK: - Parse Lyrics Tests
 
     @Test("parse returns unavailable for empty data")
@@ -105,7 +162,7 @@ struct LyricsParserTests {
         let result = LyricsParser.parse(from: data)
 
         #expect(result.text == "Hello, it's me\nI was wondering")
-        #expect(result.source == nil)
+        #expect(result.source == "YTMusic")
     }
 
     @Test("parse extracts lyrics with source")
@@ -118,7 +175,7 @@ struct LyricsParserTests {
         let result = LyricsParser.parse(from: data)
 
         #expect(result.text == "Never gonna give you up")
-        #expect(result.source == "Lyrics by LyricFind")
+        #expect(result.source == "YTMusic")
     }
 
     @Test("parse handles multi-run lyrics")
@@ -247,5 +304,12 @@ struct LyricsParserTests {
                 ],
             ],
         ]
+    }
+
+    private static func loadJSONFixture(named name: String) throws -> [String: Any] {
+        let url = try #require(Bundle.module.url(forResource: name, withExtension: "json"))
+        let data = try Data(contentsOf: url)
+        let json = try JSONSerialization.jsonObject(with: data)
+        return try #require(json as? [String: Any])
     }
 }

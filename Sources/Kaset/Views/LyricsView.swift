@@ -240,7 +240,8 @@ struct LyricsView: View {
     }
 
     private var canCycleProviders: Bool {
-        self.syncedLyricsService.providerNames.count > 1 &&
+        self.settings.defaultLyricsProvider.isAutomatic &&
+            self.syncedLyricsService.providerNames.count > 1 &&
             !self.syncedLyricsService.isLoading &&
             !self.isLoadingFallback &&
             self.playerService.currentTrack != nil
@@ -498,6 +499,10 @@ struct LyricsView: View {
 
     @MainActor
     private func cycleLyricsProvider(step: Int) async {
+        guard self.settings.defaultLyricsProvider.isAutomatic else {
+            return
+        }
+
         let providers = self.syncedLyricsService.providerNames
         guard providers.count > 1,
               let videoId = self.playerService.currentTrack?.videoId,

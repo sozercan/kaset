@@ -92,7 +92,6 @@ struct KasetApp: App {
             YTMusicSyncedProvider(client: client),
             LRCLibProvider(),
             MusixMatchProvider(),
-            LyricsGeniusProvider(),
         ]))
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)

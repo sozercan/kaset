@@ -38,56 +38,138 @@ enum LyricsParser {
     /// - Parameter data: The data containing timed lyrics.
     /// - Returns: Parsed SyncedLyrics, or nil if unavailable.
     static func extractTimedLyrics(from data: [String: Any]) -> SyncedLyrics? {
-        guard let timedLyricsModel = self.findTimedLyricsModel(in: data),
-              let lyricsData = timedLyricsModel["lyricsData"] as? [[String: Any]]
-        else {
-            return nil
-        }
-
-        var lines: [SyncedLyricLine] = []
-        for lineData in lyricsData {
-            if let lyricLine = lineData["lyricLine"] as? String,
-               let startTimeStr = lineData["startTimeMs"] as? String,
-               let startTimeMs = Int(startTimeStr)
-            {
-                let durationMs = (lineData["durationMs"] as? String).flatMap(Int.init) ?? 0
-                lines.append(SyncedLyricLine(
-                    timeInMs: startTimeMs,
-                    duration: durationMs,
-                    text: lyricLine,
-                    words: nil
-                ))
-            }
-        }
-
-        if lines.isEmpty {
+        guard let lines = self.findTimedLyricsLines(in: data), !lines.isEmpty else {
             return nil
         }
 
         return SyncedLyrics(lines: lines, source: "YTMusic")
     }
 
-    /// Recursively searches nested dictionaries/arrays for a timedLyricsModel payload.
-    private static func findTimedLyricsModel(in node: Any) -> [String: Any]? {
+    /// Recursively searches nested dictionaries/arrays for timed lyrics payloads.
+    private static func findTimedLyricsLines(in node: Any) -> [SyncedLyricLine]? {
         if let dictionary = node as? [String: Any] {
-            if let timedLyricsModel = dictionary["timedLyricsModel"] as? [String: Any] {
-                return timedLyricsModel
+            if let lines = self.parseTimedLyricsLines(from: dictionary) {
+                return lines
             }
 
             for value in dictionary.values {
-                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
-                    return timedLyricsModel
+                if let lines = self.findTimedLyricsLines(in: value) {
+                    return lines
                 }
             }
         } else if let array = node as? [Any] {
+            if let lines = self.parseTimedLyricsLines(from: array) {
+                return lines
+            }
+
             for value in array {
-                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
-                    return timedLyricsModel
+                if let lines = self.findTimedLyricsLines(in: value) {
+                    return lines
                 }
             }
         }
 
         return nil
+    }
+
+    /// Parses a collection that looks like timed lyric entries.
+    private static func parseTimedLyricsLines(from node: Any) -> [SyncedLyricLine]? {
+        let entries: [[String: Any]]
+        if let dictionary = node as? [String: Any] {
+            if let nested = dictionary["timedLyricsModel"] as? [String: Any] {
+                return self.parseTimedLyricsLines(from: nested)
+            }
+
+            if let nested = dictionary["timedLyricsData"] {
+                return self.parseTimedLyricsLines(from: nested)
+            }
+
+            if let nested = dictionary["lyricsData"] {
+                return self.parseTimedLyricsLines(from: nested)
+            }
+
+            return nil
+        } else if let array = node as? [Any] {
+            entries = array.compactMap { $0 as? [String: Any] }
+        } else {
+            return nil
+        }
+
+        var lines: [SyncedLyricLine] = []
+        for entry in entries {
+            guard let line = self.parseTimedLyricLine(from: entry) else {
+                continue
+            }
+            lines.append(line)
+        }
+
+        return lines.isEmpty ? nil : lines
+    }
+
+    private static func parseTimedLyricLine(from entry: [String: Any]) -> SyncedLyricLine? {
+        guard let lyricLine = self.timedLyricsText(from: entry),
+              let startTimeMs = self.startTimeMilliseconds(from: entry)
+        else {
+            return nil
+        }
+
+        let durationMs = self.durationMilliseconds(from: entry) ?? 0
+        return SyncedLyricLine(
+            timeInMs: startTimeMs,
+            duration: durationMs,
+            text: lyricLine,
+            words: nil
+        )
+    }
+
+    private static func timedLyricsText(from entry: [String: Any]) -> String? {
+        for key in ["lyricLine", "text", "line", "lyrics"] {
+            if let value = entry[key] as? String, !value.isEmpty {
+                return value
+            }
+        }
+
+        return nil
+    }
+
+    private static func startTimeMilliseconds(from entry: [String: Any]) -> Int? {
+        if let direct = self.intValue(for: entry["startTimeMs"]) {
+            return direct
+        }
+
+        if let cueRange = entry["cueRange"] as? [String: Any] {
+            return self.intValue(for: cueRange["startTimeMilliseconds"])
+        }
+
+        return nil
+    }
+
+    private static func durationMilliseconds(from entry: [String: Any]) -> Int? {
+        if let direct = self.intValue(for: entry["durationMs"]) {
+            return direct
+        }
+
+        if let cueRange = entry["cueRange"] as? [String: Any],
+           let start = self.intValue(for: cueRange["startTimeMilliseconds"]),
+           let end = self.intValue(for: cueRange["endTimeMilliseconds"])
+        {
+            return max(0, end - start)
+        }
+
+        return nil
+    }
+
+    private static func intValue(for value: Any?) -> Int? {
+        switch value {
+        case let value as Int:
+            return value
+        case let value as String:
+            return Int(value)
+        case let value as NSNumber:
+            return value.intValue
+        default:
+            return nil
+        }
     }
 
     /// Parses lyrics from the browse endpoint response.
@@ -121,18 +203,10 @@ enum LyricsParser {
             lyricsText = runs.compactMap { $0["text"] as? String }.joined()
         }
 
-        // Extract the footer (source attribution)
-        var source: String?
-        if let footer = shelf["footer"] as? [String: Any],
-           let runs = footer["runs"] as? [[String: Any]]
-        {
-            source = runs.compactMap { $0["text"] as? String }.joined()
-        }
-
         if lyricsText.isEmpty {
             return .unavailable
         }
 
-        return Lyrics(text: lyricsText, source: source)
+        return Lyrics(text: lyricsText, source: "YTMusic")
     }
 }

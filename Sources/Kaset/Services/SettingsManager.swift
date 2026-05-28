@@ -179,7 +179,6 @@ final class SettingsManager {
         case ytMusic = "YTMusic"
         case lrcLib = "LRCLib"
         case musixMatch = "MusixMatch"
-        case lyricsGenius = "LyricsGenius"
 
         var id: String {
             self.rawValue
@@ -193,8 +192,6 @@ final class SettingsManager {
                 "LRCLib"
             case .musixMatch:
                 "MusixMatch"
-            case .lyricsGenius:
-                "LyricsGenius"
             case .auto:
                 "Auto"
             }
