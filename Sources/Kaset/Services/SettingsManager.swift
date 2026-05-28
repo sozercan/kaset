@@ -9,7 +9,7 @@ final class SettingsManager {
 
     // MARK: - Settings Keys
 
-    private enum Keys {
+    enum Keys {
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
@@ -23,6 +23,7 @@ final class SettingsManager {
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
+        static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
     }
 
     // MARK: - Launch Page Options
@@ -273,6 +274,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the mini player floats above other windows.
+    var keepMiniPlayerOnTop: Bool {
+        didSet {
+            UserDefaults.standard.set(self.keepMiniPlayerOnTop, forKey: Keys.keepMiniPlayerOnTop)
+        }
+    }
+
     /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
@@ -303,6 +311,7 @@ final class SettingsManager {
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)

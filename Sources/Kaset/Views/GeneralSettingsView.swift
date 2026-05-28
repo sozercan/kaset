@@ -57,6 +57,10 @@ struct GeneralSettingsView: View {
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
 
+                // Mini Player
+                Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
+                    .help("Keep the mini player visible above other windows")
+
                 // Playback Audio Quality
                 Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
                     ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in

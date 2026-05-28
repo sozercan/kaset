@@ -25,6 +25,7 @@ extension EnvironmentValues {
 struct KasetApp: App {
     /// App delegate for lifecycle management (background playback).
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     @State private var authService = AuthService()
     @State private var webKitManager = WebKitManager.shared
@@ -171,6 +172,29 @@ struct KasetApp: App {
                             self.equalizerService.retryStartIfEnabled()
                         }
                     }
+                    .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
+                        if isVisible {
+                            MiniPlayerWindowController.shared.show(
+                                playerService: self.playerService,
+                                client: self.sharedClient,
+                                syncedLyricsService: self.syncedLyricsService
+                            )
+                            if self.playerService.miniPlayerMode == .switchFromMainWindow {
+                                self.hideMainWindow()
+                            }
+                        } else {
+                            MiniPlayerWindowController.shared.close()
+                            if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
+                                self.showMainWindow()
+                            }
+                        }
+                    }
+                    .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
+                        MiniPlayerWindowController.shared.syncWindowState()
+                    }
+                    .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
+                        MiniPlayerWindowController.shared.syncWindowState()
+                    }
             }
         }
 
@@ -314,6 +338,19 @@ struct KasetApp: App {
 
             // Window menu - show main window
             CommandGroup(after: .windowArrangement) {
+                Button("Switch to Mini Player") {
+                    if self.playerService.isMiniPlayerVisible,
+                       self.playerService.miniPlayerMode == .switchFromMainWindow
+                    {
+                        _ = self.playerService.closeMiniPlayer()
+                    } else {
+                        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+                    }
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+
+                Divider()
+
                 Button("Kaset") {
                     self.showMainWindow()
                 }
@@ -332,20 +369,61 @@ struct KasetApp: App {
 
     /// Shows the main window.
     private func showMainWindow() {
+        guard !self.focusExistingMainWindow() else { return }
+
+        self.openWindow(id: "main")
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            _ = self.focusExistingMainWindow()
+        }
+    }
+
+    @discardableResult
+    private func focusExistingMainWindow() -> Bool {
         // Find and show the main window
         for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
-            return
+            return true
         }
 
-        // Fallback: find any main-capable window that's not the video window
+        for window in NSApplication.shared.windows where window.title == "Kaset" && !Self.isAuxiliaryPlayerWindow(window) {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return true
+        }
+
+        // Fallback: find any main-capable window that's not an auxiliary player window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            if Self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
+            return true
+        }
+
+        return false
+    }
+
+    private static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+        AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
+    }
+
+    /// Hides the main window while keeping playback and auxiliary windows alive.
+    private func hideMainWindow() {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+            window.orderOut(nil)
+            return
+        }
+
+        for window in NSApplication.shared.windows where window.canBecomeMain {
+            if Self.isAuxiliaryPlayerWindow(window) {
+                continue
+            }
+            window.orderOut(nil)
             return
         }
     }

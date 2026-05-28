@@ -8,6 +8,8 @@ struct LyricsView: View {
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
 
     let client: any YTMusicClientProtocol
+    var showsHeader = true
+    var preferredWidth: CGFloat? = 280
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -27,16 +29,17 @@ struct LyricsView: View {
     var body: some View {
         GlassEffectContainer(spacing: 0) {
             VStack(spacing: 0) {
-                // Header
-                self.headerView
+                if self.showsHeader {
+                    self.headerView
 
-                Divider()
-                    .opacity(0.3)
+                    Divider()
+                        .opacity(0.3)
+                }
 
                 // Content
                 self.contentView
             }
-            .frame(width: 280)
+            .frame(width: self.preferredWidth)
             .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
             .glassEffectID("lyricsPanel", in: self.lyricsNamespace)
         }

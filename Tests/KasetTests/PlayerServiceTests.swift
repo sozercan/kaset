@@ -12,6 +12,7 @@ struct PlayerServiceTests {
         // Reset UserDefaults to ensure clean initial state for tests
         UserDefaults.standard.removeObject(forKey: "playerVolume")
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
+        UserDefaults.standard.removeObject(forKey: SettingsManager.Keys.keepMiniPlayerOnTop)
         self.playerService = PlayerService()
     }
 
@@ -302,6 +303,108 @@ struct PlayerServiceTests {
     @Test("Mini player initially hidden")
     func miniPlayerInitiallyHidden() {
         #expect(self.playerService.showMiniPlayer == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.miniPlayerPanel == .compact)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Open auxiliary mini player keeps main window visible")
+    func openAuxiliaryMiniPlayerKeepsMainWindowVisible() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        #expect(self.playerService.isMiniPlayerVisible == true)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Switch to mini player records main window restore intent")
+    func switchToMiniPlayerRecordsRestoreIntent() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+
+        #expect(self.playerService.isMiniPlayerVisible == true)
+        #expect(self.playerService.miniPlayerMode == .switchFromMainWindow)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == true)
+    }
+
+    @Test("Closing switched mini player consumes restore intent")
+    func closingSwitchedMiniPlayerConsumesRestoreIntent() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+
+        let shouldRestore = self.playerService.closeMiniPlayer()
+
+        #expect(shouldRestore == true)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Closing switched mini player creates one-shot restore request")
+    func closingSwitchedMiniPlayerCreatesOneShotRestoreRequest() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+        _ = self.playerService.closeMiniPlayer()
+
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == true)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == false)
+    }
+
+    @Test("Closing auxiliary mini player does not request main window restore")
+    func closingAuxiliaryMiniPlayerDoesNotRequestMainWindowRestore() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        let shouldRestore = self.playerService.closeMiniPlayer()
+
+        #expect(shouldRestore == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+    }
+
+    @Test("Closing auxiliary mini player can request main window restore")
+    func closingAuxiliaryMiniPlayerCanRequestMainWindowRestore() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        let shouldRestore = self.playerService.closeMiniPlayer(restoringMainWindow: true)
+
+        #expect(shouldRestore == true)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == true)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == false)
+    }
+
+    @Test("Mini player panel toggles between compact and expanded")
+    func miniPlayerPanelTogglesBetweenCompactAndExpanded() {
+        #expect(self.playerService.miniPlayerPanel == .compact)
+
+        self.playerService.toggleMiniPlayerPanel()
+        #expect(self.playerService.miniPlayerPanel == .expanded)
+
+        self.playerService.toggleMiniPlayerPanel()
+        #expect(self.playerService.miniPlayerPanel == .compact)
+    }
+
+    @Test("Mini player panel toggle returns lyrics panel to expanded artwork")
+    func miniPlayerPanelToggleReturnsLyricsToExpandedArtwork() {
+        self.playerService.miniPlayerPanel = .lyrics
+
+        self.playerService.toggleMiniPlayerPanel()
+
+        #expect(self.playerService.miniPlayerPanel == .expanded)
+    }
+
+    @Test("Keep mini player on top setting persists")
+    func keepMiniPlayerOnTopSettingPersists() {
+        let settings = SettingsManager.shared
+        let originalValue = settings.keepMiniPlayerOnTop
+        defer {
+            settings.keepMiniPlayerOnTop = originalValue
+        }
+
+        settings.keepMiniPlayerOnTop = true
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == true)
+
+        settings.keepMiniPlayerOnTop = false
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == false)
     }
 
     // MARK: - Queue/Lyrics Mutual Exclusivity Tests
