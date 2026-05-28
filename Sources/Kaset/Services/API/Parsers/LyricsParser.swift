@@ -162,13 +162,13 @@ enum LyricsParser {
     private static func intValue(for value: Any?) -> Int? {
         switch value {
         case let value as Int:
-            return value
+            value
         case let value as String:
-            return Int(value)
+            Int(value)
         case let value as NSNumber:
-            return value.intValue
+            value.intValue
         default:
-            return nil
+            nil
         }
     }
 

@@ -1170,7 +1170,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let (data, response) = try await self.proxySession.data(for: request)
-        if let httpResponse = response as? HTTPURLResponse, !(200..<300).contains(httpResponse.statusCode) {
+        if let httpResponse = response as? HTTPURLResponse, !(200 ..< 300).contains(httpResponse.statusCode) {
             throw YTMusicError.apiError(message: "Lyrics proxy HTTP \(httpResponse.statusCode)", code: httpResponse.statusCode)
         }
 
