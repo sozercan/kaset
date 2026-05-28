@@ -18,6 +18,11 @@ final class MusixMatchProvider: LyricsProvider {
             }
 
             let html = try await self.loadText(url: lyricsURL)
+
+            if let synced = Self.extractSyncedLyrics(from: html) {
+                return .synced(synced)
+            }
+
             guard let lyrics = Self.extractLyrics(from: html), !lyrics.isEmpty else {
                 return .unavailable
             }
@@ -45,7 +50,37 @@ final class MusixMatchProvider: LyricsProvider {
         return URL(string: "https://www.musixmatch.com\(path)")
     }
 
+    static func extractSyncedLyrics(from html: String) -> SyncedLyrics? {
+        guard let trackInfoData = Self.trackInfoData(from: html) else {
+            return nil
+        }
+
+        let subtitleEntries = Self.subtitleEntries(from: trackInfoData)
+        for entry in subtitleEntries {
+            guard let body = Self.subtitleBody(in: entry),
+                  let parsed = LRCParser.parse(body)
+            else {
+                continue
+            }
+
+            return SyncedLyrics(lines: parsed.lines, source: "MusixMatch")
+        }
+
+        return nil
+    }
+
     static func extractLyrics(from html: String) -> String? {
+        if let trackInfoData = trackInfoData(from: html),
+           let lyricsBody = plainLyricsBody(from: trackInfoData)
+        {
+            let lyrics = HTMLLyricsExtractor.normalizeWhitespace(
+                HTMLLyricsExtractor.decodeHTMLEntities(lyricsBody)
+            )
+            if !lyrics.isEmpty {
+                return lyrics
+            }
+        }
+
         let blockPatterns = [
             #"<span[^>]+class=["'][^"']*lyrics__content__ok[^"']*["'][^>]*>(.*?)</span>"#,
             #"<p[^>]+class=["'][^"']*mxm-lyrics__content[^"']*["'][^>]*>(.*?)</p>"#,
@@ -100,5 +135,78 @@ final class MusixMatchProvider: LyricsProvider {
         }
 
         return text
+    }
+}
+
+private extension MusixMatchProvider {
+    static func nextDataObject(from html: String) -> [String: Any]? {
+        guard let data = HTMLLyricsExtractor.firstMatch(
+            in: html,
+            pattern: #"<script id="__NEXT_DATA__" type="application/json">(.*?)</script>"#
+        ) else {
+            return nil
+        }
+
+        guard let jsonData = data.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: jsonData),
+              let nextData = object as? [String: Any]
+        else {
+            return nil
+        }
+
+        return nextData
+    }
+
+    static func trackInfoData(from html: String) -> [String: Any]? {
+        guard let nextData = nextDataObject(from: html),
+              let props = nextData["props"] as? [String: Any],
+              let pageProps = props["pageProps"] as? [String: Any],
+              let data = pageProps["data"] as? [String: Any],
+              let trackInfo = data["trackInfo"] as? [String: Any],
+              let trackInfoData = trackInfo["data"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        return trackInfoData
+    }
+
+    static func subtitleEntries(from trackInfoData: [String: Any]) -> [[String: Any]] {
+        if let entries = trackInfoData["subtitle"] as? [[String: Any]] {
+            return entries
+        }
+
+        if let entries = trackInfoData["subtitle"] as? [Any] {
+            return entries.compactMap { $0 as? [String: Any] }
+        }
+
+        return []
+    }
+
+    static func subtitleBody(in entry: [String: Any]) -> String? {
+        if let body = entry["subtitle_body"] as? String, !body.isEmpty {
+            return body
+        }
+
+        if let body = entry["body"] as? String, !body.isEmpty {
+            return body
+        }
+
+        if let body = entry["subtitleBody"] as? String, !body.isEmpty {
+            return body
+        }
+
+        return nil
+    }
+
+    static func plainLyricsBody(from trackInfoData: [String: Any]) -> String? {
+        guard let lyrics = trackInfoData["lyrics"] as? [String: Any],
+              let body = lyrics["body"] as? String,
+              !body.isEmpty
+        else {
+            return nil
+        }
+
+        return body
     }
 }

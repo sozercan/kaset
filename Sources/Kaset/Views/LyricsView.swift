@@ -6,6 +6,7 @@ import SwiftUI
 struct LyricsView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
+    @State private var settings = SettingsManager.shared
 
     let client: any YTMusicClientProtocol
 
@@ -44,16 +45,12 @@ struct LyricsView: View {
         .glassEffectTransition(.materialize)
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
-                // Reset explanation when track changes
-                self.lyricsSummary = nil
-                self.partialSummary = nil
-                self.showExplanation = false
-                self.explanationError = nil
-                self.selectedProviderName = nil
-                Task {
-                    await self.loadLyrics(for: videoId)
-                }
+                Task { await self.reloadLyrics(for: videoId) }
             }
+        }
+        .onChange(of: self.settings.defaultLyricsProvider) { _, _ in
+            guard let videoId = self.playerService.currentTrack?.videoId else { return }
+            Task { await self.reloadLyrics(for: videoId) }
         }
         .task {
             if let videoId = playerService.currentTrack?.videoId {
@@ -447,6 +444,16 @@ struct LyricsView: View {
     }
 
     // MARK: - Data Loading
+
+    @MainActor
+    private func reloadLyrics(for videoId: String) async {
+        self.lyricsSummary = nil
+        self.partialSummary = nil
+        self.showExplanation = false
+        self.explanationError = nil
+        self.selectedProviderName = nil
+        await self.loadLyrics(for: videoId)
+    }
 
     @MainActor
     private func loadLyrics(for videoId: String) async {

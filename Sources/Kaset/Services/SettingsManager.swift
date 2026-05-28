@@ -175,6 +175,7 @@ final class SettingsManager {
 
     /// Preferred lyrics provider to try first.
     enum LyricsProviderPreference: String, CaseIterable, Identifiable {
+        case auto = "Auto"
         case ytMusic = "YTMusic"
         case lrcLib = "LRCLib"
         case musixMatch = "MusixMatch"
@@ -185,7 +186,22 @@ final class SettingsManager {
         }
 
         var displayName: String {
-            self.rawValue
+            switch self {
+            case .ytMusic:
+                "YouTube Music"
+            case .lrcLib:
+                "LRCLib"
+            case .musixMatch:
+                "MusixMatch"
+            case .lyricsGenius:
+                "LyricsGenius"
+            case .auto:
+                "Auto"
+            }
+        }
+
+        var isAutomatic: Bool {
+            self == .auto
         }
     }
 
@@ -334,7 +350,7 @@ final class SettingsManager {
         {
             self.defaultLyricsProvider = provider
         } else {
-            self.defaultLyricsProvider = .ytMusic
+            self.defaultLyricsProvider = .auto
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),

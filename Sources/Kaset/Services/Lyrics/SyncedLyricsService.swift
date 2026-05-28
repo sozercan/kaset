@@ -15,6 +15,8 @@ final class SyncedLyricsService {
         let result: LyricResult
     }
 
+    private typealias IndexedProvider = (index: Int, provider: LyricsProvider)
+
     /// Current lyrics result.
     var currentLyrics: LyricResult = .unavailable
 
@@ -28,7 +30,11 @@ final class SyncedLyricsService {
     private let providers: [LyricsProvider]
 
     var providerNames: [String] {
-        self.providers.map(\.name)
+        var seen = Set<String>()
+        return self.providers.compactMap { provider in
+            guard seen.insert(provider.name).inserted else { return nil }
+            return provider.name
+        }
     }
 
     /// Romanization service for transliterating non-Latin lyrics.
@@ -52,6 +58,11 @@ final class SyncedLyricsService {
     }
 
     func fetchLyrics(for info: LyricsSearchInfo) async {
+        if let providerName = self.preferredProviderName() {
+            await self.fetchLyrics(for: info, providerName: providerName)
+            return
+        }
+
         self.fetchGeneration += 1
         let requestID = self.fetchGeneration
         let cached = self.cache[info.videoId]
@@ -179,6 +190,17 @@ final class SyncedLyricsService {
     }
 
     private func warmCache(for info: LyricsSearchInfo) async {
+        if let providerName = self.preferredProviderName() {
+            let indexedProviders = self.providers.enumerated().compactMap { index, provider -> IndexedProvider? in
+                guard provider.name == providerName else { return nil }
+                return (index: index, provider: provider)
+            }
+
+            let results = await self.fetchProviderResults(for: info, from: indexedProviders)
+            _ = self.resolveLyrics(best: self.bestResult(in: results), cached: nil, videoId: info.videoId)
+            return
+        }
+
         let indexedProviders = self.providers.enumerated().map { (index: $0.offset, provider: $0.element) }
         let syncedCapableProviders = indexedProviders.filter { Self.isSyncedCapableProvider($0.provider) }
         let plainFallbackProviders = indexedProviders.filter { !Self.isSyncedCapableProvider($0.provider) }
@@ -219,6 +241,12 @@ final class SyncedLyricsService {
         }
 
         return results
+    }
+
+    private func preferredProviderName() -> String? {
+        let preference = SettingsManager.shared.defaultLyricsProvider
+        guard !preference.isAutomatic else { return nil }
+        return preference.rawValue
     }
 
     private func bestResult(in results: [ProviderResult]) -> ProviderResult? {
@@ -283,7 +311,7 @@ final class SyncedLyricsService {
     }
 
     private static func isSyncedCapableProvider(_ provider: LyricsProvider) -> Bool {
-        provider is LRCLibProvider || provider is YTMusicSyncedProvider
+        provider is LRCLibProvider || provider is YTMusicSyncedProvider || provider is MusixMatchProvider
     }
 
     private func isBetter(_ candidate: ProviderResult, than currentBest: ProviderResult) -> Bool {

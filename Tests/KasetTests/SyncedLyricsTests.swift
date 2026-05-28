@@ -85,6 +85,30 @@ struct SyncedLyricsServiceTests {
         #expect(service.activeProvider == "MusixMatch")
     }
 
+    @Test("fetchLyrics uses only the configured provider when selection is manual")
+    func fetchLyricsUsesOnlyConfiguredProviderWhenManual() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .musixMatch
+
+        let preferredPlain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let competingSynced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let competingProvider = MockLyricsProvider(name: "LRCLib", result: .synced(competingSynced))
+        let preferredProvider = MockLyricsProvider(name: "MusixMatch", result: .plain(preferredPlain))
+        let service = SyncedLyricsService(providers: [
+            competingProvider,
+            preferredProvider,
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-manual-provider"))
+
+        #expect(service.currentLyrics == .plain(preferredPlain))
+        #expect(service.activeProvider == "MusixMatch")
+        #expect(await competingProvider.callCount() == 0)
+        #expect(await preferredProvider.callCount() == 1)
+    }
+
     @Test("fetchLyrics prefers synced lyrics over earlier YTMusic plain lyrics")
     func fetchLyricsPrefersDelayedSyncedLyrics() async {
         let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
@@ -372,11 +396,46 @@ struct SyncedLyricsServiceTests {
     @Test("lyrics provider preferences include every settings menu option")
     func lyricsProviderPreferencesIncludeEveryMenuOption() {
         #expect(SettingsManager.LyricsProviderPreference.allCases.map(\.displayName) == [
-            "YTMusic",
+            "Auto",
+            "YouTube Music",
             "LRCLib",
             "MusixMatch",
             "LyricsGenius",
         ])
+    }
+
+    @Test("MusixMatch extractor reads synced subtitles from Next.js payload")
+    func musixMatchExtractorReadsSyncedSubtitles() throws {
+        let html = """
+        <html><body>
+        <script id="__NEXT_DATA__" type="application/json">{
+          "props": {
+            "pageProps": {
+              "data": {
+                "trackInfo": {
+                  "data": {
+                    "subtitle": [
+                      {
+                        "subtitle_body": "[00:00.00] First line\\n[00:02.00] Second line"
+                      }
+                    ],
+                    "lyrics": {
+                      "body": "Plain lyrics"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }</script>
+        </body></html>
+        """
+
+        let synced = try #require(MusixMatchProvider.extractSyncedLyrics(from: html))
+        #expect(synced.source == "MusixMatch")
+        #expect(synced.lines.count == 2)
+        #expect(synced.lines[0].text == "First line")
+        #expect(synced.lines[1].text == "Second line")
     }
 
     @Test("MusixMatch extractor reads common lyrics HTML blocks")
@@ -391,6 +450,22 @@ struct SyncedLyricsServiceTests {
         let lyrics = try #require(MusixMatchProvider.extractLyrics(from: html))
 
         #expect(lyrics == "First line\nSecond & line\nThird line")
+    }
+
+    @Test("provider names preserve order and skip duplicates")
+    func providerNamesSkipDuplicates() {
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "MusixMatch", result: .unavailable),
+            MockLyricsProvider(name: "LRCLib", result: .unavailable),
+            MockLyricsProvider(name: "MusixMatch", result: .unavailable),
+            MockLyricsProvider(name: "LyricsGenius", result: .unavailable),
+        ])
+
+        #expect(service.providerNames == [
+            "MusixMatch",
+            "LRCLib",
+            "LyricsGenius",
+        ])
     }
 
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
