@@ -17,6 +17,7 @@ final class NowPlayingManager {
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
     private let settings = SettingsManager.shared
+    private static let defaultSkipInterval: TimeInterval = 15
 
     private init() {}
 
@@ -71,6 +72,8 @@ final class NowPlayingManager {
         commandCenter.togglePlayPauseCommand.removeTarget(nil)
         commandCenter.nextTrackCommand.removeTarget(nil)
         commandCenter.previousTrackCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
         commandCenter.changePlaybackPositionCommand.removeTarget(nil)
 
         // Play command
@@ -118,6 +121,28 @@ final class NowPlayingManager {
             return .success
         }
 
+        // Skip forward command (Control Center skip buttons or media keys)
+        commandCenter.skipForwardCommand.isEnabled = true
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                await self.handleSkipCommand(event: event, direction: .forward, player: player)
+            }
+            return .success
+        }
+
+        // Skip backward command (Control Center skip buttons or media keys)
+        commandCenter.skipBackwardCommand.isEnabled = true
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                await self.handleSkipCommand(event: event, direction: .backward, player: player)
+            }
+            return .success
+        }
+
         // Change playback position command
         commandCenter.changePlaybackPositionCommand.isEnabled = true
         commandCenter.changePlaybackPositionCommand.addTarget { event in
@@ -132,5 +157,35 @@ final class NowPlayingManager {
         }
 
         self.logger.info("Remote commands configured")
+    }
+
+    private enum SkipDirection {
+        case forward
+        case backward
+    }
+
+    private func handleSkipCommand(
+        event: MPRemoteCommandEvent,
+        direction: SkipDirection,
+        player: PlayerService
+    ) async {
+        if self.settings.mediaControlStyle == .nextPreviousTrack {
+            switch direction {
+            case .forward:
+                await player.next()
+            case .backward:
+                await player.previous()
+            }
+            return
+        }
+
+        let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
+        let target = switch direction {
+        case .forward:
+            player.progress + interval
+        case .backward:
+            player.progress - interval
+        }
+        await player.seek(to: target)
     }
 }
