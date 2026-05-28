@@ -198,6 +198,7 @@ struct PlayerBar: View {
         ZStack {
             if self.playerService.isCurrentItemLive {
                 self.liveIndicatorView
+                    .opacity(self.showsSeekControls ? 1 : 0)
                     .transition(.opacity)
             } else {
                 self.seekBarView
