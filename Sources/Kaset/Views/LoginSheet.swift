@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Login sheet presented when authentication is required.
-@available(macOS 26.0, *)
 struct LoginSheet: View {
     @Environment(AuthService.self) private var authService
     @Environment(WebKitManager.self) private var webKitManager

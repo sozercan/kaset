@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - OnboardingView
 
 /// Onboarding view shown to users before they sign in.
-@available(macOS 26.0, *)
 struct OnboardingView: View {
     @Environment(AuthService.self) private var authService
     @State private var showLoginSheet = false
@@ -68,7 +67,7 @@ struct OnboardingView: View {
                         .font(.headline)
                         .frame(maxWidth: 280)
                 }
-                .buttonStyle(.glassProminent)
+                .compatGlassProminentButton()
                 .controlSize(.large)
 
                 Text("Sign in to access your YouTube Music library")
@@ -89,7 +88,6 @@ struct OnboardingView: View {
 // MARK: - FeatureRow
 
 /// A row displaying a feature with icon, title, and description.
-@available(macOS 26.0, *)
 private struct FeatureRow: View {
     let icon: String
     let title: LocalizedStringKey
@@ -114,7 +112,6 @@ private struct FeatureRow: View {
     }
 }
 
-@available(macOS 26.0, *)
 #Preview {
     OnboardingView()
         .environment(AuthService())

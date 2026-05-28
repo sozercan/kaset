@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Sidebar navigation for the main window, styled like Apple Music.
-@available(macOS 26.0, *)
 struct Sidebar: View {
     private enum SidebarSelection: Hashable {
         case navigation(NavigationItem)
@@ -18,7 +17,7 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            GlassEffectContainer(spacing: 0) {
+            CompatGlassContainer(spacing: 0) {
                 List(selection: self.sidebarSelection) {
                     // Main navigation
                     Section {
@@ -189,7 +188,6 @@ struct Sidebar: View {
     }
 }
 
-@available(macOS 26.0, *)
 #Preview {
     Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
         .frame(width: 220)

@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Explore view displaying new releases, charts, and moods & genres.
-@available(macOS 26.0, *)
 struct ExploreView: View {
     @State var viewModel: ExploreViewModel
     @Environment(PlayerService.self) private var playerService

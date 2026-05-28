@@ -4,6 +4,7 @@ import Testing
 
 // MARK: - PlaylistChangesTests
 
+@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct PlaylistChangesTests {
     @Test("PlaylistChanges with empty removals")
@@ -98,6 +99,7 @@ struct PlaylistChangesTests {
 
 // MARK: - LyricsSummaryTests
 
+@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct LyricsSummaryTests {
     @Test("LyricsSummary with minimal themes")
@@ -153,6 +155,7 @@ struct LyricsSummaryTests {
 
 // MARK: - FoundationModelsBudgetTests
 
+@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct FoundationModelsBudgetTests {
     @Test("prompt budget total includes schema tokens")

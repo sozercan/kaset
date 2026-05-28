@@ -62,7 +62,7 @@ struct CommandBarView: View {
     var body: some View {
         @Bindable var viewModel = self.viewModel
 
-        GlassEffectContainer(spacing: 0) {
+        CompatGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
                 // Input field
                 HStack(spacing: 12) {
@@ -113,10 +113,10 @@ struct CommandBarView: View {
                 }
             }
             .frame(width: 500)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-            .glassEffectID("commandBar", in: self.commandBarNamespace)
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+            .compatGlassID("commandBar", in: self.commandBarNamespace)
         }
-        .glassEffectTransition(.materialize)
+        .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.MainWindow.commandBar)
         .onAppear {
             viewModel.handleAppear()
@@ -269,6 +269,7 @@ private struct SuggestionChip: View {
     }
 }
 
+@available(macOS 26.0, *)
 #Preview {
     @Previewable @State var isPresented = true
     @Previewable @State var navigationSelection: NavigationItem?

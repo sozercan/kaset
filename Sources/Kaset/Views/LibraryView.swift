@@ -43,7 +43,6 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 // MARK: - LibraryView
 
 /// Library view displaying user's playlists and podcast shows.
-@available(macOS 26.0, *)
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -83,13 +82,23 @@ struct LibraryView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Library")
             .navigationDestination(for: Playlist.self) { playlist in
-                PlaylistDetailView(
-                    playlist: playlist,
-                    viewModel: PlaylistDetailViewModel(
+                if #available(macOS 26.0, *) {
+                    PlaylistDetailView(
                         playlist: playlist,
-                        client: self.viewModel.client
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: playlist,
+                            client: self.viewModel.client
+                        )
                     )
-                )
+                } else {
+                    SimplePlaylistDetailView(
+                        playlist: playlist,
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: playlist,
+                            client: self.viewModel.client
+                        )
+                    )
+                }
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(

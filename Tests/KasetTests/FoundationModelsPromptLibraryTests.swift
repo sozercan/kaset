@@ -1,6 +1,8 @@
 import Testing
 @testable import Kaset
 
+@available(macOS 26.0, *)
+
 @Suite(.tags(.model))
 struct FoundationModelsPromptLibraryTests {
     @Test("26.4 command prompt is shorter than legacy prompt")

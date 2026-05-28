@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Charts view displaying top songs, albums, and trending charts.
-@available(macOS 26.0, *)
 struct ChartsView: View {
     @State var viewModel: ChartsViewModel
     @Environment(PlayerService.self) private var playerService

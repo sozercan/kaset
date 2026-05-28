@@ -4,7 +4,6 @@ import SwiftUI
 
 /// Settings view for scrobbling services.
 /// Iterates all registered services from the coordinator, rendering a reusable row for each.
-@available(macOS 26.0, *)
 struct ScrobblingSettingsView: View {
     @Environment(ScrobblingCoordinator.self) private var coordinator
 
@@ -23,7 +22,6 @@ struct ScrobblingSettingsView: View {
 // MARK: - ScrobbleServiceRow
 
 /// A reusable settings row for any scrobbling service backend.
-@available(macOS 26.0, *)
 struct ScrobbleServiceRow: View {
     let service: any ScrobbleServiceProtocol
     @State private var settings = SettingsManager.shared

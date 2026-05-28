@@ -4,7 +4,6 @@ import WebKit
 // MARK: - VideoPlayerWindow
 
 /// Floating window for video playback.
-@available(macOS 26.0, *)
 struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
 
@@ -20,7 +19,6 @@ struct VideoPlayerWindow: View {
 // MARK: - VideoWebViewContainer
 
 /// NSViewRepresentable container for the video WebView.
-@available(macOS 26.0, *)
 struct VideoWebViewContainer: NSViewRepresentable {
     func makeNSView(context _: Context) -> VideoContainerView {
         DiagnosticsLogger.player.info("VideoWebViewContainer.makeNSView called")
@@ -40,7 +38,6 @@ struct VideoWebViewContainer: NSViewRepresentable {
 // MARK: - VideoContainerView
 
 /// Custom NSView that observes frame changes and re-injects CSS.
-@available(macOS 26.0, *)
 final class VideoContainerView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -79,7 +76,6 @@ final class VideoContainerView: NSView {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview {
     VideoPlayerWindow()
         .environment(PlayerService())

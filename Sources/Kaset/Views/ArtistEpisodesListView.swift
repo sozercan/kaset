@@ -3,7 +3,6 @@ import SwiftUI
 /// View displaying the full list of episodes (or other filtered subset) behind
 /// a `MUSIC_PAGE_TYPE_ARTIST` "See all" affordance — Latest episodes, Live
 /// performances, etc.
-@available(macOS 26.0, *)
 struct ArtistEpisodesListView: View {
     @State var viewModel: ArtistEpisodesListViewModel
     @Environment(PlayerService.self) private var playerService

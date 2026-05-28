@@ -2,7 +2,6 @@ import SwiftUI
 import WebKit
 
 /// A view that displays the options page of a WebKit extension.
-@available(macOS 26.0, *)
 struct ExtensionOptionsView: NSViewRepresentable {
     let page: WebKitManager.ExtensionPage
 

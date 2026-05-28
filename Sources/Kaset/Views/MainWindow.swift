@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - MainWindow
 
 /// Main application window with sidebar navigation and player bar.
-@available(macOS 26.0, *)
 struct MainWindow: View {
     private struct PresentedWhatsNew: Identifiable {
         let whatsNew: WhatsNew
@@ -384,7 +383,11 @@ struct MainWindow: View {
 
                 Group {
                     if self.playerService.showLyrics {
-                        LyricsView(client: client)
+                        if #available(macOS 26.0, *) {
+                            LyricsView(client: client)
+                        } else {
+                            SimpleLyricsView(client: client)
+                        }
                     } else if self.playerService.showQueue {
                         if self.playerService.queueDisplayMode == .sidepanel {
                             QueueSidePanelView()
@@ -422,15 +425,18 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    @ViewBuilder
     private var commandBar: some View {
-        CommandBarView(
-            client: self.client,
-            playerService: self.playerService,
-            isPresented: self.$isCommandBarPresented,
-            navigationSelection: self.$navigationSelection,
-            searchFocusTrigger: self.searchFocusTrigger,
-            searchViewModel: self.searchViewModel
-        )
+        if #available(macOS 26.0, *) {
+            CommandBarView(
+                client: self.client,
+                playerService: self.playerService,
+                isPresented: self.$isCommandBarPresented,
+                navigationSelection: self.$navigationSelection,
+                searchFocusTrigger: self.searchFocusTrigger,
+                searchViewModel: self.searchViewModel
+            )
+        }
     }
 
     /// Returns the view for a specific navigation item.
@@ -456,10 +462,19 @@ struct MainWindow: View {
             case .likedMusic:
                 if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
-                        PlaylistDetailView(
-                            playlist: LikedMusicPlaylist.playlist,
-                            viewModel: vm
-                        )
+                        Group {
+                            if #available(macOS 26.0, *) {
+                                PlaylistDetailView(
+                                    playlist: LikedMusicPlaylist.playlist,
+                                    viewModel: vm
+                                )
+                            } else {
+                                SimplePlaylistDetailView(
+                                    playlist: LikedMusicPlaylist.playlist,
+                                    viewModel: vm
+                                )
+                            }
+                        }
                         .navigationDestinations(client: self.client)
                     }
                 }
@@ -477,13 +492,25 @@ struct MainWindow: View {
         client: any YTMusicClientProtocol
     ) -> some View {
         NavigationStack {
-            PlaylistDetailView(
-                playlist: item.playlistRoute,
-                viewModel: PlaylistDetailViewModel(
-                    playlist: item.playlistRoute,
-                    client: client
-                )
-            )
+            Group {
+                if #available(macOS 26.0, *) {
+                    PlaylistDetailView(
+                        playlist: item.playlistRoute,
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: item.playlistRoute,
+                            client: client
+                        )
+                    )
+                } else {
+                    SimplePlaylistDetailView(
+                        playlist: item.playlistRoute,
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: item.playlistRoute,
+                            client: client
+                        )
+                    )
+                }
+            }
             .id(item.contentId)
             .navigationDestinations(client: client)
         }
@@ -668,7 +695,6 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
-@available(macOS 26.0, *)
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
     let authService = AuthService()

@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - SearchView
 
 /// Search view for finding music.
-@available(macOS 26.0, *)
 struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
@@ -146,7 +145,7 @@ struct SearchView: View {
             }
         }
         .padding(10)
-        .glassEffect(.regular, in: .capsule)
+        .compatGlass(in: .capsule)
     }
 
     private var suggestionsDropdown: some View {
@@ -159,7 +158,7 @@ struct SearchView: View {
                 }
             }
         }
-        .glassEffect(.regular, in: .rect(cornerRadius: 8))
+        .compatGlass(in: .rect(cornerRadius: 8))
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .accessibilityIdentifier(AccessibilityID.Search.suggestionsContainer)
     }

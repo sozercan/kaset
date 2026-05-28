@@ -27,7 +27,7 @@ struct LyricsView: View {
     @Namespace private var lyricsNamespace
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
+        CompatGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
                 if self.showsHeader {
                     self.headerView
@@ -40,10 +40,10 @@ struct LyricsView: View {
                 self.contentView
             }
             .frame(width: self.preferredWidth)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-            .glassEffectID("lyricsPanel", in: self.lyricsNamespace)
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+            .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
         }
-        .glassEffectTransition(.materialize)
+        .compatGlassTransition(.materialize)
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
                 // Reset explanation when track changes
@@ -528,6 +528,7 @@ struct LyricsView: View {
     }
 }
 
+@available(macOS 26.0, *)
 #Preview {
     let authService = AuthService()
     let client = YTMusicClient(authService: authService, webKitManager: .shared)

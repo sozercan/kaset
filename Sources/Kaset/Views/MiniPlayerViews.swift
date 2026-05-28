@@ -73,20 +73,18 @@ struct PersistentPlayerView: NSViewRepresentable {
 
 /// A small toast-style view that appears when mini player is shown.
 /// Uses Liquid Glass materialize transition for smooth appearance.
-@available(macOS 26.0, *)
 struct MiniPlayerToast: View {
     let videoId: String
 
     var body: some View {
         PersistentPlayerView(videoId: self.videoId, isExpanded: true)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-            .glassEffectTransition(.materialize)
+            .compatGlassTransition(.materialize)
     }
 }
 
 // MARK: - MiniPlayerWindow
 
-@available(macOS 26.0, *)
 struct MiniPlayerWindow: View {
     private enum Layout {
         static let chromeTopInset: CGFloat = 12
@@ -159,7 +157,7 @@ struct MiniPlayerWindow: View {
     private var surface: some View {
         RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
             .fill(.black.opacity(self.playerService.miniPlayerPanel == .expanded ? 0.76 : 0.50))
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: self.cornerRadius))
+            .compatGlass(interactive: true, in: .rect(cornerRadius: self.cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.20), lineWidth: 1)
@@ -311,8 +309,14 @@ struct MiniPlayerWindow: View {
             Group {
                 switch self.detailPane {
                 case .lyrics:
-                    LyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
-                        .accessibilityIdentifier(AccessibilityID.MiniPlayer.lyricsView)
+                    Group {
+                        if #available(macOS 26.0, *) {
+                            LyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
+                        } else {
+                            SimpleLyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
+                        }
+                    }
+                    .accessibilityIdentifier(AccessibilityID.MiniPlayer.lyricsView)
                 case .queue:
                     self.queuePane
                 }
@@ -395,7 +399,7 @@ struct MiniPlayerWindow: View {
         .padding(.horizontal, 10)
         .frame(height: 30)
         .background(.black.opacity(0.18), in: .capsule)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .compatGlass(interactive: true, in: .capsule)
         .overlay {
             Capsule()
                 .stroke(
@@ -441,7 +445,7 @@ struct MiniPlayerWindow: View {
             MiniPlayerGlassIconLabel(systemName: systemName, isActive: isActive, size: 22)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)
@@ -463,7 +467,7 @@ struct MiniPlayerWindow: View {
             MiniPlayerGlassIconLabel(systemName: "airplayaudio", isActive: self.playerService.isAirPlayConnected, size: 22)
                 .allowsHitTesting(false)
         }
-        .glassEffect(.regular.interactive(), in: .circle)
+        .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityIdentifier(AccessibilityID.MiniPlayer.airplayButton)
         .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
@@ -490,7 +494,7 @@ struct MiniPlayerWindow: View {
             MiniPlayerGlassIconLabel(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup", isActive: isLiked, size: 23, fontSize: 12)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .disabled(self.playerService.currentTrack == nil)
         .accessibilityIdentifier(AccessibilityID.MiniPlayer.likeButton)
@@ -525,7 +529,7 @@ struct MiniPlayerWindow: View {
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityLabel(String(localized: "More"))
     }

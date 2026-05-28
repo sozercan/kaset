@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Moods & Genres view for browsing music by mood or genre.
-@available(macOS 26.0, *)
 struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
     @Environment(PlayerService.self) private var playerService

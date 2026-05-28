@@ -8,7 +8,6 @@ import SwiftUI
 /// A single account row component displaying account info.
 ///
 /// Shows the account avatar, name, handle, type badge, and selection state.
-@available(macOS 26.0, *)
 struct AccountRowView: View {
     let account: UserAccount
     let isSelected: Bool
@@ -154,7 +153,6 @@ struct AccountRowView: View {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("Primary Account - Selected") {
     let account = UserAccount(
         id: "primary",
@@ -174,7 +172,6 @@ struct AccountRowView: View {
     .padding()
 }
 
-@available(macOS 26.0, *)
 #Preview("Brand Account - Not Selected") {
     let account = UserAccount(
         id: "brand123",
@@ -194,7 +191,6 @@ struct AccountRowView: View {
     .padding()
 }
 
-@available(macOS 26.0, *)
 #Preview("Account Without Handle") {
     let account = UserAccount(
         id: "nohandle",

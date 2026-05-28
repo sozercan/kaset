@@ -5,7 +5,6 @@ import SwiftUI
 
 /// Sheet view that showcases new features for the current app version.
 /// Displays either structured feature rows (static fallback) or markdown release notes (from GitHub).
-@available(macOS 26.0, *)
 struct WhatsNewView: View {
     private enum Layout {
         static let sheetWidth: CGFloat = 640
@@ -57,7 +56,7 @@ struct WhatsNewView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .glassEffect(.regular, in: .capsule)
+                .compatGlass(in: .capsule)
         }
         .frame(maxWidth: .infinity)
     }
@@ -152,7 +151,7 @@ struct WhatsNewView: View {
                     .font(.headline)
                     .frame(minWidth: 160)
             }
-            .buttonStyle(.glassProminent)
+            .compatGlassProminentButton()
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
         }
@@ -171,7 +170,6 @@ struct WhatsNewView: View {
 // MARK: - MarkdownContentView
 
 /// Renders GitHub-flavored markdown into native SwiftUI views.
-@available(macOS 26.0, *)
 private struct MarkdownContentView: View {
     let markdown: String
 
@@ -375,7 +373,6 @@ private struct MarkdownContentView: View {
 // MARK: - WhatsNewFeatureRow
 
 /// A row displaying a single feature with icon, title, and subtitle.
-@available(macOS 26.0, *)
 private struct WhatsNewFeatureRow: View {
     @Environment(\.colorScheme) private var colorScheme
 

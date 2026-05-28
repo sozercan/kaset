@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - HomeSectionItemCard
 
 /// Reusable card view for home section items (songs, playlists, albums, artists).
-@available(macOS 26.0, *)
 struct HomeSectionItemCard: View {
     let item: HomeSectionItem
     let rank: Int?

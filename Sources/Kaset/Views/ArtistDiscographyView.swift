@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// View displaying an artist's full discography behind an Albums-shelf "See all".
-@available(macOS 26.0, *)
 struct ArtistDiscographyView: View {
     @State var viewModel: ArtistDiscographyViewModel
 

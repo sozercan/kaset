@@ -11,7 +11,6 @@ import SwiftUI
 ///
 /// Displays all available accounts (primary and brand accounts) and allows
 /// the user to switch between them.
-@available(macOS 26.0, *)
 struct AccountSwitcherPopover: View {
     @Environment(AccountService.self) private var accountService
     @Environment(\.dismiss) private var dismiss
@@ -20,7 +19,7 @@ struct AccountSwitcherPopover: View {
     @Namespace private var popoverNamespace
 
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
+        CompatGlassContainer(spacing: 8) {
             VStack(spacing: 8) {
                 // Header
                 self.headerView
@@ -30,8 +29,8 @@ struct AccountSwitcherPopover: View {
             }
             .padding(10)
             .frame(minWidth: 280)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
-            .glassEffectID("accountSwitcherPopover", in: self.popoverNamespace)
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 14))
+            .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
         }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.container)
     }
@@ -111,7 +110,6 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("Account Switcher") {
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)

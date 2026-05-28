@@ -3,7 +3,6 @@ import SwiftUI
 
 // MARK: - QueueCellActions
 
-@available(macOS 26.0, *)
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
@@ -13,7 +12,6 @@ struct QueueCellActions {
 
 // MARK: - QueueTableCellView
 
-@available(macOS 26.0, *)
 class QueueTableCellView: NSView {
     private var onPlay: (() -> Void)?
     private var onRemove: (() -> Void)?
@@ -317,7 +315,6 @@ class QueueTableCellView: NSView {
 
 // MARK: - WaveformView
 
-@available(macOS 26.0, *)
 class WaveformView: NSView {
     var isAnimating: Bool = false {
         didSet {

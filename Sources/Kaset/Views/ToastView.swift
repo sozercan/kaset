@@ -25,7 +25,6 @@ import SwiftUI
 ///     }
 /// }
 /// ```
-@available(macOS 26.0, *)
 struct ToastView: View {
     // MARK: - Properties
 
@@ -41,7 +40,7 @@ struct ToastView: View {
     // MARK: - Body
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
+        CompatGlassContainer(spacing: 0) {
             HStack(spacing: 10) {
                 // Icon
                 Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
@@ -72,10 +71,10 @@ struct ToastView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(minWidth: 250, maxWidth: 400)
-            .glassEffect(.regular, in: .rect(cornerRadius: 10))
+            .compatGlass(in: .rect(cornerRadius: 10))
             .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         }
-        .glassEffectTransition(.materialize)
+        .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Toast.container)
     }
 }
@@ -85,7 +84,6 @@ struct ToastView: View {
 /// A toast that observes AccountService errors and auto-dismisses.
 ///
 /// Add this to MainWindow as an overlay to show account switching errors.
-@available(macOS 26.0, *)
 struct AccountErrorToast: View {
     @Environment(AccountService.self) private var accountService
 
@@ -162,7 +160,6 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("Error Toast") {
     ToastView(message: "Failed to switch account. Please try again.", isError: true) {
         DiagnosticsLogger.ui.debug("Toast dismissed")
@@ -170,7 +167,6 @@ extension AccessibilityID {
     .padding()
 }
 
-@available(macOS 26.0, *)
 #Preview("Info Toast") {
     ToastView(message: "Account switched successfully", isError: false)
         .padding()

@@ -3,7 +3,6 @@ import SwiftUI
 
 // MARK: - MiniPlayerGlassIconLabel
 
-@available(macOS 26.0, *)
 struct MiniPlayerGlassIconLabel: View {
     let systemName: String
     let isActive: Bool
@@ -27,7 +26,6 @@ struct MiniPlayerGlassIconLabel: View {
 
 // MARK: - MiniPlayerAirPlayRoutePickerView
 
-@available(macOS 26.0, *)
 struct MiniPlayerAirPlayRoutePickerView: NSViewRepresentable {
     func makeNSView(context _: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView(frame: .zero)
