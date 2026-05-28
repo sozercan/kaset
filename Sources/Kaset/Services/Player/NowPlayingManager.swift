@@ -126,10 +126,7 @@ final class NowPlayingManager {
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
         commandCenter.skipForwardCommand.addTarget { [weak self] event in
             guard let self else { return .commandFailed }
-            Task { @MainActor in
-                await self.handleSkipCommand(event: event, direction: .forward, player: player)
-            }
-            return .success
+            return self.handleSkipCommand(event: event, direction: .forward, player: player)
         }
 
         // Skip backward command (Control Center skip buttons or media keys)
@@ -137,10 +134,7 @@ final class NowPlayingManager {
         commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
         commandCenter.skipBackwardCommand.addTarget { [weak self] event in
             guard let self else { return .commandFailed }
-            Task { @MainActor in
-                await self.handleSkipCommand(event: event, direction: .backward, player: player)
-            }
-            return .success
+            return self.handleSkipCommand(event: event, direction: .backward, player: player)
         }
 
         // Change playback position command
@@ -168,15 +162,21 @@ final class NowPlayingManager {
         event: MPRemoteCommandEvent,
         direction: SkipDirection,
         player: PlayerService
-    ) async {
+    ) -> MPRemoteCommandHandlerStatus {
+        guard player.currentTrack != nil || player.pendingPlayVideoId != nil || !player.queue.isEmpty else {
+            return .noActionableNowPlayingItem
+        }
+
         if self.settings.mediaControlStyle == .nextPreviousTrack {
-            switch direction {
-            case .forward:
-                await player.next()
-            case .backward:
-                await player.previous()
+            Task { @MainActor in
+                switch direction {
+                case .forward:
+                    await player.next()
+                case .backward:
+                    await player.previous()
+                }
             }
-            return
+            return .success
         }
 
         let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
@@ -186,6 +186,9 @@ final class NowPlayingManager {
         case .backward:
             player.progress - interval
         }
-        await player.seek(to: target)
+        Task { @MainActor in
+            await player.seek(to: target)
+        }
+        return .success
     }
 }
