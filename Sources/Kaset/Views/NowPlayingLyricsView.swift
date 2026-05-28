@@ -18,21 +18,36 @@ struct NowPlayingLyricsView: View {
     @State private var isSeeking = false
     @State private var volumeValue: Double = 1
     @State private var isAdjustingVolume = false
+    @State private var lockedArtworkVideoId: String?
+    @State private var lockedArtworkURL: URL?
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                self.backgroundView
-
+            ZStack(alignment: .topLeading) {
                 if let track = self.playerService.currentTrack {
-                    self.contentView(track: track, availableSize: geometry.size)
+                    let artworkURL = self.displayArtworkURL(for: track)
+
+                    self.backgroundView(artworkURL: artworkURL)
+                        .ignoresSafeArea()
+
+                    self.contentView(track: track, artworkURL: artworkURL, availableSize: geometry.size)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    self.backgroundView(artworkURL: nil)
+                        .ignoresSafeArea()
                 }
             }
-            .ignoresSafeArea()
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+                self.lockArtworkForCurrentTrack()
                 if let newVideoId {
                     Task { await self.loadLyrics(for: newVideoId) }
+                }
+            }
+            .onChange(of: self.playerService.currentTrack?.thumbnailURL) { _, _ in
+                if self.lockedArtworkURL == nil {
+                    self.lockArtworkForCurrentTrack()
                 }
             }
             .onChange(of: self.playerService.progress) { _, newValue in
@@ -46,6 +61,7 @@ struct NowPlayingLyricsView: View {
                 }
             }
             .task {
+                self.lockArtworkForCurrentTrack()
                 self.volumeValue = self.playerService.volume
                 if self.playerService.duration > 0 {
                     self.seekValue = self.playerService.progress / self.playerService.duration
@@ -55,12 +71,13 @@ struct NowPlayingLyricsView: View {
                 }
             }
         }
+        .ignoresSafeArea()
     }
 
-    private var backgroundView: some View {
+    private func backgroundView(artworkURL: URL?) -> some View {
         ZStack {
-            if let track = self.playerService.currentTrack {
-                CachedAsyncImage(url: track.thumbnailURL, targetSize: .init(width: 900, height: 900)) { image in
+            if let artworkURL {
+                CachedAsyncImage(url: artworkURL, targetSize: .init(width: 900, height: 900)) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -92,64 +109,74 @@ struct NowPlayingLyricsView: View {
         }
     }
 
-    private func contentView(track: Song, availableSize: CGSize) -> some View {
+    private func contentView(track: Song, artworkURL: URL?, availableSize: CGSize) -> some View {
         let metrics = self.layoutMetrics(for: availableSize)
 
-        return VStack(spacing: 0) {
-            HStack {
-                Spacer()
-
-                Button {
-                    self.close()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white.opacity(0.84))
-                .help(String(localized: "Close now playing"))
-                .accessibilityLabel(String(localized: "Close now playing"))
-                .keyboardShortcut(.escape, modifiers: [])
-            }
-            .padding(.horizontal, metrics.horizontalPadding)
-            .padding(.top, metrics.topPadding)
-
-            HStack(spacing: metrics.columnSpacing) {
-                VStack(spacing: 0) {
-                    Spacer()
-                    self.artworkAndControls(track: track, artworkSize: metrics.artworkSize)
+        return ZStack(alignment: .topTrailing) {
+            HStack(alignment: .top, spacing: metrics.columnSpacing) {
+                VStack(alignment: .leading, spacing: 0) {
+                    self.artworkAndControls(track: track, artworkURL: artworkURL, artworkSize: metrics.artworkSize)
                         .frame(width: metrics.artworkColumnWidth)
-                    Spacer()
                 }
+                .frame(width: metrics.artworkColumnWidth)
                 .frame(maxHeight: .infinity)
 
-                VStack(spacing: 0) {
-                    self.lyricsPane(availableSize: availableSize)
-                        .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity, alignment: .top)
-                }
-                .frame(maxWidth: metrics.lyricsPaneWidth, maxHeight: .infinity)
+                self.lyricsPane(availableSize: availableSize)
+                    .padding(.horizontal, 14)
+                    .frame(
+                        maxWidth: metrics.lyricsPaneWidth,
+                        maxHeight: max(0, availableSize.height - 112),
+                        alignment: .top
+                    )
+                    .mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .black, location: 0.06),
+                                .init(color: .black, location: 0.94),
+                                .init(color: .clear, location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .padding(.vertical, 56)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, metrics.horizontalPadding + 28)
-            .padding(.bottom, metrics.bottomPadding)
+
+            Button {
+                self.close()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.84))
+            .help(String(localized: "Close now playing"))
+            .accessibilityLabel(String(localized: "Close now playing"))
+            .keyboardShortcut(.escape, modifiers: [])
+            .padding(.top, max(12, metrics.topPadding))
+            .padding(.trailing, metrics.horizontalPadding)
         }
-        .frame(width: availableSize.width, height: availableSize.height)
+        .frame(width: availableSize.width, height: availableSize.height, alignment: .top)
     }
 
-    private func artworkAndControls(track: Song, artworkSize: CGFloat) -> some View {
+    private func artworkAndControls(track: Song, artworkURL: URL?, artworkSize: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            CachedAsyncImage(url: track.thumbnailURL, targetSize: .init(width: 760, height: 760)) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.white.opacity(0.12))
-                    .overlay {
-                        CassetteIcon(size: 80)
-                            .foregroundStyle(.white.opacity(0.55))
+            Group {
+                if let artworkURL {
+                    CachedAsyncImage(url: artworkURL, targetSize: .init(width: 760, height: 760)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        self.artworkPlaceholder
                     }
+                } else {
+                    self.artworkPlaceholder
+                }
             }
             .frame(width: artworkSize, height: artworkSize)
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -179,6 +206,15 @@ struct NowPlayingLyricsView: View {
 
             self.volumeControl
         }
+    }
+
+    private var artworkPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(.white.opacity(0.12))
+            .overlay {
+                CassetteIcon(size: 80)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
     }
 
     private func secondaryTrackActions(track: Song) -> some View {
@@ -432,9 +468,9 @@ struct NowPlayingLyricsView: View {
 
     private func layoutMetrics(for size: CGSize) -> LayoutMetrics {
         LayoutMetrics(
-            topPadding: max(16, min(size.height * 0.03, 28)),
+            topPadding: 0,
             horizontalPadding: max(28, min(size.width * 0.06, 76)),
-            bottomPadding: max(18, min(size.height * 0.04, 40)),
+            bottomPadding: 0,
             columnSpacing: max(36, min(size.height * 0.08, 64)),
             artworkSize: max(240, min(size.height * 0.38, 360)),
             artworkColumnWidth: max(300, min(size.height * 0.40, 400)),
@@ -443,7 +479,7 @@ struct NowPlayingLyricsView: View {
     }
 
     private func lyricsEdgeInset(for height: CGFloat) -> CGFloat {
-        max(8, min(height * 0.028, 28))
+        max(0, min(height * 0.012, 12))
     }
 
     private func subtitle(for track: Song) -> String {
@@ -496,5 +532,27 @@ struct NowPlayingLyricsView: View {
         let artworkSize: CGFloat
         let artworkColumnWidth: CGFloat
         let lyricsPaneWidth: CGFloat
+    }
+    
+    private func displayArtworkURL(for track: Song) -> URL? {
+        if self.lockedArtworkVideoId == track.videoId, let lockedArtworkURL {
+            return lockedArtworkURL
+        }
+        return track.thumbnailURL
+    }
+
+    private func lockArtworkForCurrentTrack() {
+        guard let track = self.playerService.currentTrack else {
+            self.lockedArtworkVideoId = nil
+            self.lockedArtworkURL = nil
+            return
+        }
+
+        if self.lockedArtworkVideoId != track.videoId {
+            self.lockedArtworkVideoId = track.videoId
+            self.lockedArtworkURL = track.thumbnailURL
+        } else if self.lockedArtworkURL == nil {
+            self.lockedArtworkURL = track.thumbnailURL
+        }
     }
 }

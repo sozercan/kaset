@@ -6,7 +6,7 @@ struct SyncedLyricsDisplayView: View {
     let lyrics: SyncedLyrics
     let currentTimeMs: Int
     var autoScrolls = true
-    var verticalContentInset: CGFloat = 150
+    var verticalContentInset: CGFloat = 0
     let onSeek: (Int) -> Void
 
     @State private var currentLineId: UUID?
@@ -54,7 +54,7 @@ struct SyncedLyricsDisplayView: View {
 
         self.currentLineId = newId
         let scroll = {
-            proxy.scrollTo(newId, anchor: .center)
+            proxy.scrollTo(newId, anchor: .top)
         }
 
         if animated {

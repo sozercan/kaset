@@ -174,8 +174,16 @@ struct MainWindow: View {
         }
         .overlay {
             if self.playerService.showNowPlayingLyrics {
-                NowPlayingLyricsView(client: self.client)
-                    .zIndex(20)
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(.clear)
+                        .ignoresSafeArea()
+
+                    NowPlayingLyricsView(client: self.client)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .ignoresSafeArea()
             }
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
