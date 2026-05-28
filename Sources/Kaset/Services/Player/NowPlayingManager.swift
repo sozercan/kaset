@@ -18,6 +18,8 @@ final class NowPlayingManager {
     private var isConfigured = false
     private let settings = SettingsManager.shared
     private static let defaultSkipInterval: TimeInterval = 15
+    private var lastSkipTarget: TimeInterval?
+    private var lastSkipVideoId: String?
 
     private init() {}
 
@@ -180,12 +182,38 @@ final class NowPlayingManager {
         }
 
         let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
-        let target = switch direction {
-        case .forward:
-            player.progress + interval
-        case .backward:
-            player.progress - interval
+        let currentVideoId = player.currentTrack?.videoId ?? player.pendingPlayVideoId
+        if self.lastSkipVideoId != currentVideoId {
+            self.lastSkipTarget = nil
+            self.lastSkipVideoId = currentVideoId
         }
+
+        let baseProgress = if let lastSkipTarget = self.lastSkipTarget {
+            switch direction {
+            case .forward:
+                max(player.progress, lastSkipTarget)
+            case .backward:
+                min(player.progress, lastSkipTarget)
+            }
+        } else {
+            player.progress
+        }
+
+        let rawTarget = switch direction {
+        case .forward:
+            baseProgress + interval
+        case .backward:
+            baseProgress - interval
+        }
+        let target = if player.duration > 0 {
+            min(max(0, rawTarget), player.duration)
+        } else {
+            max(0, rawTarget)
+        }
+
+        self.lastSkipTarget = target
+        self.lastSkipVideoId = currentVideoId
+        player.progress = target
         Task { @MainActor in
             await player.seek(to: target)
         }
