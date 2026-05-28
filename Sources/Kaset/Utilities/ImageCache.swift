@@ -213,11 +213,10 @@ actor ImageCache {
     // MARK: - Disk Cache Helpers
 
     private func cacheKey(for url: URL, targetSize: CGSize? = nil) -> String {
-        let targetComponent: String
-        if let targetSize {
-            targetComponent = "\(Int(targetSize.width.rounded()))x\(Int(targetSize.height.rounded()))"
+        let targetComponent = if let targetSize {
+            "\(Int(targetSize.width.rounded()))x\(Int(targetSize.height.rounded()))"
         } else {
-            targetComponent = "original"
+            "original"
         }
 
         let data = Data("\(url.absoluteString)|\(targetComponent)".utf8)

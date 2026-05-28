@@ -586,12 +586,11 @@ struct NowPlayingLyricsView: View {
         let artworkColumnWidth: CGFloat
         let lyricsPaneWidth: CGFloat
     }
-    
+
     private func displayArtworkURL(for track: Song) -> URL? {
         if self.lockedArtworkVideoId == track.videoId, let lockedArtworkURL {
             return lockedArtworkURL
         }
         return track.thumbnailURL?.highQualityThumbnailURL ?? track.thumbnailURL
     }
-
 }
