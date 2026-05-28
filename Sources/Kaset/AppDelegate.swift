@@ -87,14 +87,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_: Notification) {
         // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
         // This handles the case where video window is visible but main window is hidden.
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return
+        }
         self.showMainWindowIfNeeded()
     }
 
     private func setupWindowDelegate() {
         DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            // Skip if this is the video window (has specific identifier)
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            // Skip auxiliary player windows; only the regular app window should be hidden-on-close.
+            if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             window.delegate = self
@@ -182,9 +188,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handle reopen (clicking dock icon) when all windows are closed.
     func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return false
+        }
+
         // Show main window when dock icon is clicked
         self.showMainWindowIfNeeded()
         return true
+    }
+
+    private var isSwitchedToMiniPlayer: Bool {
+        guard let playerService else { return false }
+        return playerService.isMiniPlayerVisible && playerService.miniPlayerMode == .switchFromMainWindow
     }
 
     /// Shows the main window if it's not visible.
@@ -207,9 +225,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Last resort: find any main-capable window that's not the video window
+        // Last resort: find any main-capable window that's not an auxiliary player window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
             self.mainWindow = window
@@ -218,6 +236,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return
         }
+    }
+
+    private func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+        AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
     }
 }
 
