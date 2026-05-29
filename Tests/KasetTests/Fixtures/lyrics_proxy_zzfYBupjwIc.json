@@ -1,0 +1,41 @@
+{
+  "contents": {
+    "elementRenderer": {
+      "newElement": {
+        "type": {
+          "componentType": {
+            "model": {
+              "timedLyricsModel": {
+                "lyricsData": {
+                  "timedLyricsData": [
+                    {
+                      "lyricLine": "♪",
+                      "cueRange": {
+                        "startTimeMilliseconds": "0",
+                        "endTimeMilliseconds": "11490"
+                      }
+                    },
+                    {
+                      "lyricLine": "나의 옛날 동네",
+                      "cueRange": {
+                        "startTimeMilliseconds": "11490",
+                        "endTimeMilliseconds": "15160"
+                      }
+                    },
+                    {
+                      "lyricLine": "옛날 동네 반지하 빌라엔",
+                      "cueRange": {
+                        "startTimeMilliseconds": "15160",
+                        "endTimeMilliseconds": "19140"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

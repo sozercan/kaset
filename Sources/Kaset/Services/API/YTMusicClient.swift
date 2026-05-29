@@ -39,6 +39,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     private let authService: AuthService
     private let webKitManager: WebKitManager
     private let session: URLSession
+    private let proxySession: URLSession
     private let logger = DiagnosticsLogger.api
 
     /// Provider for the current brand account ID.
@@ -54,6 +55,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Client version for WEB_REMIX.
     private static let clientVersion = "1.20231204.01.00"
+
+    /// Pear-style lyrics proxy configuration.
+    private static let lyricsProxyBaseURL = "https://ytmbrowseproxy.zvz.be"
+    private static let lyricsProxyClientName = "26"
+    private static let lyricsProxyClientVersion = "7.01.05"
 
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
@@ -79,6 +85,18 @@ final class YTMusicClient: YTMusicClientProtocol {
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
         self.session = URLSession(configuration: configuration)
+
+        let proxyConfiguration = URLSessionConfiguration.ephemeral
+        proxyConfiguration.httpAdditionalHeaders = [
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        ]
+        proxyConfiguration.httpShouldSetCookies = false
+        proxyConfiguration.httpCookieStorage = nil
+        proxyConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        proxyConfiguration.timeoutIntervalForRequest = 15
+        proxyConfiguration.timeoutIntervalForResource = 30
+        self.proxySession = URLSession(configuration: proxyConfiguration)
     }
 
     // MARK: - Generic Pagination Methods
@@ -1093,7 +1111,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Fetches timed (synced) lyrics for a song from YouTube Music.
-    /// Checks the "next" endpoint for timedLyricsModel data, then falls back to browse endpoint for plain lyrics.
+    /// Uses the lyrics tab from `next`, then fetches the lyrics payload through the pear-style proxy browse endpoint.
     func getTimedLyrics(videoId: String) async throws -> LyricResult {
         self.logger.info("Fetching timed lyrics for: \(videoId)")
 
@@ -1106,27 +1124,62 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let nextData = try await request("next", body: nextBody)
 
-        // Try to extract timed lyrics first
         if let synced = LyricsParser.extractTimedLyrics(from: nextData) {
             self.logger.info("Found timed lyrics for \(videoId): \(synced.lines.count) lines")
             return .synced(synced)
         }
 
-        // Fall back to plain lyrics via browse endpoint
         if let lyricsBrowseId = LyricsParser.extractLyricsBrowseId(from: nextData) {
-            let browseBody: [String: Any] = [
-                "browseId": lyricsBrowseId,
-            ]
-            let browseData = try await request("browse", body: browseBody, ttl: APICache.TTL.lyrics)
+            let browseData = try await self.requestLyricsProxy(browseId: lyricsBrowseId)
+            if let synced = LyricsParser.extractTimedLyrics(from: browseData) {
+                self.logger.info("Found timed lyrics in proxy browse payload for \(videoId): \(synced.lines.count) lines")
+                return .synced(synced)
+            }
             let lyrics = LyricsParser.parse(from: browseData)
             if lyrics.isAvailable {
-                self.logger.info("Fell back to plain lyrics for \(videoId)")
+                self.logger.info("Fell back to plain lyrics for \(videoId) via proxy browse payload")
                 return .plain(lyrics)
             }
         }
 
         self.logger.info("No timed lyrics available for: \(videoId)")
         return .unavailable
+    }
+
+    /// Fetches a lyrics browse payload from the pear-style proxy.
+    private func requestLyricsProxy(browseId: String) async throws -> [String: Any] {
+        let urlString = "\(Self.lyricsProxyBaseURL)/browse?prettyPrint=false"
+        guard let url = URL(string: urlString) else {
+            throw YTMusicError.unknown(message: "Invalid lyrics proxy URL: \(urlString)")
+        }
+
+        let body: [String: Any] = [
+            "browseId": browseId,
+            "context": [
+                "client": [
+                    "clientName": Self.lyricsProxyClientName,
+                    "clientVersion": Self.lyricsProxyClientVersion,
+                ],
+            ],
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await self.proxySession.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse, !(200 ..< 300).contains(httpResponse.statusCode) {
+            throw YTMusicError.apiError(message: "Lyrics proxy HTTP \(httpResponse.statusCode)", code: httpResponse.statusCode)
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data)
+        guard let dictionary = json as? [String: Any] else {
+            throw YTMusicError.parseError(message: "Invalid lyrics proxy response")
+        }
+
+        return dictionary
     }
 
     // MARK: - Radio Queue

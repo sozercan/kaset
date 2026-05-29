@@ -35,6 +35,9 @@ struct SyncedLyricsTests {
 struct SyncedLyricsServiceTests {
     @Test("fetchLyrics prefers synced results over plain results")
     func fetchLyricsPrefersSyncedResults() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let plain = Lyrics(text: "Plain lyrics", source: "Plain Source")
         let synced = Self.makeSyncedLyrics(source: "Synced Source", lineText: "Synced line")
         let service = SyncedLyricsService(providers: [
@@ -51,6 +54,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fetchLyrics prefers YTMusic plain lyrics over other plain lyrics")
     func fetchLyricsPrefersYTMusicPlainLyrics() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let otherPlain = Lyrics(text: "Other lyrics", source: "Other Source")
         let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
         let service = SyncedLyricsService(providers: [
@@ -65,8 +71,55 @@ struct SyncedLyricsServiceTests {
         #expect(service.isLoading == false)
     }
 
+    @Test("fetchLyrics tries the configured default plain provider first")
+    func fetchLyricsPrefersConfiguredPlainProvider() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .musixMatch
+
+        let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
+        let musixMatchPlain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "YTMusic", result: .plain(ytMusicPlain)),
+            MockLyricsProvider(name: "MusixMatch", result: .plain(musixMatchPlain)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-preferred-provider"))
+
+        #expect(service.currentLyrics == .plain(musixMatchPlain))
+        #expect(service.activeProvider == "MusixMatch")
+    }
+
+    @Test("fetchLyrics uses only the configured provider when selection is manual")
+    func fetchLyricsUsesOnlyConfiguredProviderWhenManual() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .musixMatch
+
+        let preferredPlain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let competingSynced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let competingProvider = MockLyricsProvider(name: "LRCLib", result: .synced(competingSynced))
+        let preferredProvider = MockLyricsProvider(name: "MusixMatch", result: .plain(preferredPlain))
+        let service = SyncedLyricsService(providers: [
+            competingProvider,
+            preferredProvider,
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-manual-provider"))
+
+        #expect(service.currentLyrics == .plain(preferredPlain))
+        #expect(service.activeProvider == "MusixMatch")
+        #expect(await competingProvider.callCount() == 0)
+        #expect(await preferredProvider.callCount() == 1)
+    }
+
     @Test("fetchLyrics prefers synced lyrics over earlier YTMusic plain lyrics")
     func fetchLyricsPrefersDelayedSyncedLyrics() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let ytMusicPlain = Lyrics(text: "YTMusic lyrics", source: "YTMusic Source")
         let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
         let service = SyncedLyricsService(providers: [
@@ -84,8 +137,101 @@ struct SyncedLyricsServiceTests {
         #expect(service.isLoading == false)
     }
 
+    @Test("fetchLyrics prefers synced lyrics over the configured default plain provider")
+    func fetchLyricsPrefersSyncedOverConfiguredPlainProvider() async {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        SettingsManager.shared.defaultLyricsProvider = .auto
+
+        let plain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "MusixMatch", result: .plain(plain)),
+            MockLyricsProvider(name: "LRCLib", result: .synced(synced)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-sync-over-default"))
+
+        #expect(service.currentLyrics == .synced(synced))
+        #expect(service.activeProvider == "LRCLib")
+    }
+
+    @Test("fetchLyrics can load a specific provider result for source cycling")
+    func fetchLyricsLoadsSpecificProviderResult() async {
+        let synced = Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced line")
+        let plain = Lyrics(text: "MusixMatch lyrics", source: "MusixMatch Source")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "LRCLib", result: .synced(synced)),
+            MockLyricsProvider(name: "MusixMatch", result: .plain(plain)),
+        ])
+        let info = Self.makeSearchInfo(videoId: "video-provider-cycle")
+
+        await service.fetchLyrics(for: info)
+        await service.fetchLyrics(for: info, providerName: "MusixMatch")
+
+        #expect(service.currentLyrics == .plain(plain))
+        #expect(service.activeProvider == "MusixMatch")
+    }
+
+    @Test("prefetchLyrics warms cache without updating displayed lyrics")
+    func prefetchLyricsWarmsCacheWithoutUpdatingDisplayedLyrics() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        let provider = MockLyricsProvider(name: "LRCLib") { info in
+            .synced(Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced \(info.videoId)"))
+        }
+        let service = SyncedLyricsService(providers: [provider])
+        let firstInfo = Self.makeSearchInfo(videoId: "video-prefetch-first")
+        let secondInfo = Self.makeSearchInfo(videoId: "video-prefetch-second")
+
+        await service.prefetchLyrics(
+            for: [firstInfo, secondInfo],
+            retainingVideoIds: [firstInfo.videoId, secondInfo.videoId]
+        )
+
+        #expect(service.currentLyrics == .unavailable)
+        #expect(await provider.callCount() == 2)
+
+        await service.fetchLyrics(for: firstInfo)
+
+        #expect(await provider.callCount() == 2)
+        #expect(service.activeProvider == "LRCLib")
+    }
+
+    @Test("prefetchLyrics prunes lyrics outside retained video ids")
+    func prefetchLyricsPrunesOutsideRetainedVideoIds() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
+        let provider = MockLyricsProvider(name: "LRCLib") { info in
+            .synced(Self.makeSyncedLyrics(source: "LRCLib", lineText: "Synced \(info.videoId)"))
+        }
+        let service = SyncedLyricsService(providers: [provider])
+        let firstInfo = Self.makeSearchInfo(videoId: "video-prune-first")
+        let secondInfo = Self.makeSearchInfo(videoId: "video-prune-second")
+        let thirdInfo = Self.makeSearchInfo(videoId: "video-prune-third")
+
+        await service.prefetchLyrics(
+            for: [firstInfo, secondInfo, thirdInfo],
+            retainingVideoIds: [firstInfo.videoId, secondInfo.videoId, thirdInfo.videoId]
+        )
+        await service.prefetchLyrics(
+            for: [secondInfo],
+            retainingVideoIds: [secondInfo.videoId]
+        )
+
+        await service.fetchLyrics(for: firstInfo)
+
+        #expect(await provider.callCount() == 4)
+    }
+
     @Test("fetchLyrics caches results and derives activeProvider from cached source")
     func fetchLyricsCachesResults() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")
         let provider = MockLyricsProvider(name: "MockProvider", result: .synced(synced))
         let service = SyncedLyricsService(providers: [provider])
@@ -106,6 +252,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fetchLyrics retries after a cached unavailable result")
     func fetchLyricsRetriesAfterCachedUnavailableResult() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let provider = MockLyricsProvider(name: "UnavailableProvider", result: .unavailable)
         let service = SyncedLyricsService(providers: [provider])
         let info = Self.makeSearchInfo(videoId: "video-unavailable")
@@ -126,6 +275,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fetchLyrics updates loading state while a search is in flight")
     func fetchLyricsUpdatesLoadingState() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let gate = SearchGate()
         let synced = Self.makeSyncedLyrics(source: "Delayed Source", lineText: "Delayed line")
         let provider = MockLyricsProvider(name: "SlowProvider", result: .synced(synced), gate: gate)
@@ -151,6 +303,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fetchLyrics can upgrade cached plain lyrics to synced results")
     func fetchLyricsUpgradesCachedPlainLyricsToSyncedResults() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let plain = Lyrics(text: "Fallback lyrics", source: "Lyrics by LyricFind")
         let synced = Self.makeSyncedLyrics(source: "Synced Source", lineText: "Synced line")
         let provider = MockLyricsProvider(
@@ -174,6 +329,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fetchLyrics keeps cached plain lyrics when no synced result is found")
     func fetchLyricsKeepsCachedPlainLyricsWhenProvidersStillFail() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let plain = Lyrics(text: "Fallback lyrics", source: "Lyrics by LyricFind")
         let provider = MockLyricsProvider(name: "UnavailableProvider", result: .unavailable)
         let service = SyncedLyricsService(providers: [provider])
@@ -190,6 +348,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("stale in-flight fetches do not overwrite a newer result")
     func staleFetchesDoNotOverwriteNewerResults() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let staleGate = SearchGate()
         let staleLyrics = Self.makeSyncedLyrics(source: "Stale Source", lineText: "Stale line")
         let freshLyrics = Self.makeSyncedLyrics(source: "Fresh Source", lineText: "Fresh line")
@@ -224,6 +385,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("fallbackToPlainLyrics does not overwrite synced lyrics")
     func fallbackToPlainLyricsDoesNotOverwriteSyncedLyrics() async {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let synced = Self.makeSyncedLyrics(source: "Primary Synced Source", lineText: "Primary line")
         let service = SyncedLyricsService(providers: [
             MockLyricsProvider(name: "SyncedProvider", result: .synced(synced)),
@@ -241,6 +405,9 @@ struct SyncedLyricsServiceTests {
 
     @Test("toggling romanization updates current lyrics without refetching")
     func togglingRomanizationRefreshesCurrentLyrics() async throws {
+        let originalProvider = Self.useAutomaticLyricsProvider()
+        defer { SettingsManager.shared.defaultLyricsProvider = originalProvider }
+
         let originalRomanizationEnabled = SettingsManager.shared.romanizationEnabled
         defer { SettingsManager.shared.romanizationEnabled = originalRomanizationEnabled }
 
@@ -265,6 +432,78 @@ struct SyncedLyricsServiceTests {
         #expect(await provider.callCount() == 1)
     }
 
+    @Test("lyrics provider preferences include every settings menu option")
+    func lyricsProviderPreferencesIncludeEveryMenuOption() {
+        #expect(SettingsManager.LyricsProviderPreference.allCases.map(\.displayName) == [
+            "Auto",
+            "YouTube Music",
+            "LRCLib",
+            "MusixMatch",
+        ])
+    }
+
+    @Test("MusixMatch extractor reads synced subtitles from Next.js payload")
+    func musixMatchExtractorReadsSyncedSubtitles() throws {
+        let html = """
+        <html><body>
+        <script id="__NEXT_DATA__" type="application/json">{
+          "props": {
+            "pageProps": {
+              "data": {
+                "trackInfo": {
+                  "data": {
+                    "subtitle": [
+                      {
+                        "subtitle_body": "[00:00.00] First line\\n[00:02.00] Second line"
+                      }
+                    ],
+                    "lyrics": {
+                      "body": "Plain lyrics"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }</script>
+        </body></html>
+        """
+
+        let synced = try #require(MusixMatchProvider.extractSyncedLyrics(from: html))
+        #expect(synced.source == "MusixMatch")
+        #expect(synced.lines.count == 2)
+        #expect(synced.lines[0].text == "First line")
+        #expect(synced.lines[1].text == "Second line")
+    }
+
+    @Test("MusixMatch extractor reads common lyrics HTML blocks")
+    func musixMatchExtractorReadsLyricsBlocks() throws {
+        let html = """
+        <html><body>
+        <span class="lyrics__content__ok">First line<br>Second &amp; line</span>
+        <span class="lyrics__content__ok">Third line</span>
+        </body></html>
+        """
+
+        let lyrics = try #require(MusixMatchProvider.extractLyrics(from: html))
+
+        #expect(lyrics == "First line\nSecond & line\nThird line")
+    }
+
+    @Test("provider names preserve order and skip duplicates")
+    func providerNamesSkipDuplicates() {
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "MusixMatch", result: .unavailable),
+            MockLyricsProvider(name: "LRCLib", result: .unavailable),
+            MockLyricsProvider(name: "MusixMatch", result: .unavailable),
+        ])
+
+        #expect(service.providerNames == [
+            "MusixMatch",
+            "LRCLib",
+        ])
+    }
+
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
         LyricsSearchInfo(
             title: "Test Song",
@@ -287,6 +526,12 @@ struct SyncedLyricsServiceTests {
     private static func syncedLyrics(from result: LyricResult) -> SyncedLyrics? {
         guard case let .synced(lyrics) = result else { return nil }
         return lyrics
+    }
+
+    private static func useAutomaticLyricsProvider() -> SettingsManager.LyricsProviderPreference {
+        let originalProvider = SettingsManager.shared.defaultLyricsProvider
+        SettingsManager.shared.defaultLyricsProvider = .auto
+        return originalProvider
     }
 }
 
