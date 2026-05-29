@@ -91,7 +91,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, macos-15]
+        # UI tests only run on macos-26: building the .app bundle requires
+        # actool (Asset Catalog compiler) from Xcode 26, which crashes on
+        # macos-15 hosts because Xcode 26's actool loads AVFCore symbols
+        # that don't exist in Sequoia's CoreMedia/MediaToolbox frameworks
+        # (IBPlatformToolFailureException: AssetCatalogAgent-AssetRuntime).
+        # The macos-15 unit job above still exercises the fallback views via
+        # LegacyFallbackViewsTests, so the Sequoia path is covered at the
+        # unit level.
+        os: [macos-26]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
