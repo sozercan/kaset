@@ -350,6 +350,18 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Whether the mini player should be shown.
     var showMiniPlayer: Bool { get set }
 
+    /// Whether the native mini player window is visible.
+    var isMiniPlayerVisible: Bool { get set }
+
+    /// How the native mini player was opened.
+    var miniPlayerMode: PlayerService.MiniPlayerMode { get set }
+
+    /// Active native mini player layout.
+    var miniPlayerPanel: PlayerService.MiniPlayerPanel { get set }
+
+    /// Whether closing the mini player should restore the main window.
+    var shouldRestoreMainWindowWhenMiniPlayerCloses: Bool { get set }
+
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus { get }
 
@@ -393,6 +405,23 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Cycles through repeat modes.
     func cycleRepeatMode()
+
+    /// Opens the native mini player.
+    func openMiniPlayer(mode: PlayerService.MiniPlayerMode)
+
+    /// Toggles the native mini player.
+    @discardableResult
+    func toggleMiniPlayer(mode: PlayerService.MiniPlayerMode) -> Bool
+
+    /// Closes the native mini player.
+    @discardableResult
+    func closeMiniPlayer() -> Bool
+
+    /// Consumes a pending request to restore the main app window.
+    func consumeMiniPlayerMainWindowRestoreRequest() -> Bool
+
+    /// Toggles compact/expanded native mini player layout.
+    func toggleMiniPlayerPanel()
 
     /// Stops playback and clears state.
     func stop() async

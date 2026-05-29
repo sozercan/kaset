@@ -651,6 +651,19 @@ struct PlayerBar: View {
             .accessibilityLabel(String(localized: "Queue"))
             .accessibilityValue(self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"))
 
+            Button {
+                HapticService.toggle()
+                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
+            } label: {
+                Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.isMiniPlayerVisible ? .red : .primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .glassEffectID("miniPlayer", in: self.playerNamespace)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.miniPlayerButton)
+            .accessibilityLabel(self.playerService.isMiniPlayerVisible ? String(localized: "Return to Kaset") : String(localized: "Switch to Mini Player"))
+
             // Video button stays visible so delayed availability detection does not shift the toolbar.
             Button {
                 guard self.playerService.currentTrackHasVideo else { return }

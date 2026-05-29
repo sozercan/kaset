@@ -359,6 +359,21 @@ find "$APP_BUNDLE" -name '._*' -delete 2>/dev/null || true
 
 # ── Code signing ──────────────────────────────────────────────────────────────
 
+if [[ "$SIGNING_MODE" == "unsigned" || "$SIGNING_MODE" == "none" ]]; then
+  echo "🔓 Skipping code signing."
+  echo ""
+  echo "✅ Build complete!"
+  echo "📍 App location: $APP_BUNDLE"
+  echo "   Version: ${MARKETING_VERSION} (${BUILD_NUMBER})"
+  echo "   Commit:  ${GIT_COMMIT}"
+  echo "   Arches:  ${ARCH_LIST[*]}"
+  echo "   Signing: unsigned"
+  echo ""
+  echo "To run: open $APP_BUNDLE"
+  echo "To install: cp -r $APP_BUNDLE /Applications/"
+  exit 0
+fi
+
 echo "🔏 Signing app..."
 if [[ "$SIGNING_MODE" == "adhoc" ]]; then
   CODESIGN_ARGS=(--force --sign -)

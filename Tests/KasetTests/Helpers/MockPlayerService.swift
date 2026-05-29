@@ -13,6 +13,11 @@ final class MockPlayerService: PlayerServiceProtocol {
     var queue: [Song] = []
     var currentIndex = 0
     var showMiniPlayer = false
+    var isMiniPlayerVisible = false
+    var miniPlayerMode: PlayerService.MiniPlayerMode = .auxiliary
+    var miniPlayerPanel: PlayerService.MiniPlayerPanel = .compact
+    var shouldRestoreMainWindowWhenMiniPlayerCloses = false
+    var miniPlayerMainWindowRestoreRequest = false
     var currentTrackLikeStatus: LikeStatus = .indifferent
     var currentTrackInLibrary = false
 
@@ -98,6 +103,49 @@ final class MockPlayerService: PlayerServiceProtocol {
             .one
         case .one:
             .off
+        }
+    }
+
+    func openMiniPlayer(mode: PlayerService.MiniPlayerMode) {
+        self.miniPlayerMode = mode
+        self.isMiniPlayerVisible = true
+        self.shouldRestoreMainWindowWhenMiniPlayerCloses = mode == .switchFromMainWindow
+        self.miniPlayerMainWindowRestoreRequest = false
+    }
+
+    @discardableResult
+    func toggleMiniPlayer(mode: PlayerService.MiniPlayerMode) -> Bool {
+        if self.isMiniPlayerVisible, self.miniPlayerMode == mode {
+            return self.closeMiniPlayer()
+        }
+        self.openMiniPlayer(mode: mode)
+        return false
+    }
+
+    @discardableResult
+    func closeMiniPlayer() -> Bool {
+        let shouldRestore = self.shouldRestoreMainWindowWhenMiniPlayerCloses
+        self.isMiniPlayerVisible = false
+        self.miniPlayerMode = .auxiliary
+        self.shouldRestoreMainWindowWhenMiniPlayerCloses = false
+        self.miniPlayerMainWindowRestoreRequest = shouldRestore
+        return shouldRestore
+    }
+
+    func consumeMiniPlayerMainWindowRestoreRequest() -> Bool {
+        let shouldRestore = self.miniPlayerMainWindowRestoreRequest
+        self.miniPlayerMainWindowRestoreRequest = false
+        return shouldRestore
+    }
+
+    func toggleMiniPlayerPanel() {
+        self.miniPlayerPanel = switch self.miniPlayerPanel {
+        case .compact:
+            .expanded
+        case .expanded:
+            .compact
+        case .lyrics:
+            .expanded
         }
     }
 

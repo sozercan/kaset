@@ -40,6 +40,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         case one
     }
 
+    /// How the mini player was opened.
+    enum MiniPlayerMode: Equatable {
+        /// Mini player floats alongside the main app window.
+        case auxiliary
+        /// Mini player replaces the main app window until it closes.
+        case switchFromMainWindow
+    }
+
+    /// Visible mini player content size.
+    enum MiniPlayerPanel: Equatable {
+        case compact
+        case expanded
+        case lyrics
+    }
+
     // MARK: - Observable State
 
     /// Current playback state.
@@ -107,6 +122,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
+
+    /// Whether the native mini player window is visible.
+    var isMiniPlayerVisible: Bool = false
+
+    /// How the native mini player was opened.
+    var miniPlayerMode: MiniPlayerMode = .auxiliary
+
+    /// Which mini player layout is active.
+    var miniPlayerPanel: MiniPlayerPanel = .compact
+
+    /// Whether closing the mini player should restore the main window.
+    var shouldRestoreMainWindowWhenMiniPlayerCloses: Bool = false
+
+    /// A consumed-on-read restore request created when a switched mini player closes.
+    var miniPlayerMainWindowRestoreRequest: Bool = false
 
     /// The video ID that needs to be played in the mini player.
     var pendingPlayVideoId: String?

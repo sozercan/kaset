@@ -3,6 +3,10 @@ import Foundation
 /// Centralized accessibility identifiers for UI testing.
 /// Using an enum namespace prevents typos and enables autocomplete.
 enum AccessibilityID {
+    static func isAuxiliaryPlayerWindowIdentifier(_ identifier: String?) -> Bool {
+        identifier == VideoWindow.container || identifier == MiniPlayer.container
+    }
+
     // MARK: - Sidebar
 
     enum Sidebar {
@@ -32,12 +36,38 @@ enum AccessibilityID {
         static let dislikeButton = "playerBar.dislike"
         static let lyricsButton = "playerBar.lyrics"
         static let queueButton = "playerBar.queue"
+        static let miniPlayerButton = "playerBar.miniPlayer"
         static let videoButton = "playerBar.video"
         static let airplayButton = "playerBar.airplayButton"
         static let volumeSlider = "playerBar.volumeSlider"
         static let trackTitle = "playerBar.trackTitle"
         static let trackArtist = "playerBar.trackArtist"
         static let thumbnail = "playerBar.thumbnail"
+    }
+
+    // MARK: - Mini Player
+
+    enum MiniPlayer {
+        static let container = "miniPlayer"
+        static let playPauseButton = "miniPlayer.playPause"
+        static let previousButton = "miniPlayer.previous"
+        static let nextButton = "miniPlayer.next"
+        static let likeButton = "miniPlayer.like"
+        static let shuffleButton = "miniPlayer.shuffle"
+        static let repeatButton = "miniPlayer.repeat"
+        static let closeButton = "miniPlayer.close"
+        static let minimizeButton = "miniPlayer.minimize"
+        static let expandButton = "miniPlayer.expand"
+        static let panelToggleButton = "miniPlayer.panelToggle"
+        static let returnToKasetButton = "miniPlayer.returnToKaset"
+        static let lyricsButton = "miniPlayer.lyrics"
+        static let lyricsView = "miniPlayer.lyricsView"
+        static let queueButton = "miniPlayer.queue"
+        static let airplayButton = "miniPlayer.airplay"
+        static let volumeButton = "miniPlayer.volumeButton"
+        static let seekSlider = "miniPlayer.seekSlider"
+        static let trackTitle = "miniPlayer.trackTitle"
+        static let trackArtist = "miniPlayer.trackArtist"
     }
 
     // MARK: - Queue View
