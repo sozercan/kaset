@@ -10,7 +10,10 @@ on:
     paths:
       - "**.swift"
       - "Package.swift"
+      - "Info.plist"
+      - "Kaset.entitlements"
       - "Sources/**"
+      - "Scripts/**"
       - "Tests/**"
       - ".github/workflows/tests.yml"
   pull_request:
@@ -18,7 +21,10 @@ on:
     paths:
       - "**.swift"
       - "Package.swift"
+      - "Info.plist"
+      - "Kaset.entitlements"
       - "Sources/**"
+      - "Scripts/**"
       - "Tests/**"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
@@ -85,6 +91,9 @@ jobs:
         env:
           KASET_SIGNING: adhoc
         run: Scripts/build-app.sh debug
+
+      - name: Verify packaged app
+        run: Scripts/verify-release-app.sh .build/app/Kaset.app
 
       - name: Install app for UI tests
         run: |

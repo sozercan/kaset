@@ -3,7 +3,7 @@
 # generate-appcast.sh - Generates/updates appcast.xml from signed releases
 #
 # Usage:
-#   ./Tools/generate-appcast.sh [releases-directory]
+#   ./Scripts/generate-appcast.sh [releases-directory]
 #
 # This script uses Sparkle's generate_appcast tool to automatically create
 # or update the appcast.xml file based on signed release archives.

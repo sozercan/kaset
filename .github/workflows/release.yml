@@ -71,25 +71,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Using version: $VERSION"
 
-      - name: Import Apple Development certificate
+      - name: Import Developer ID Application certificate
         id: import_cert
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
         run: |
-          # All three secrets must be present; otherwise fall back to ad-hoc.
-          # Failing partway through import would leave the workflow in a worse
-          # state than ad-hoc, so validate up front.
+          # Official releases must be signed for outside-the-Mac-App-Store distribution.
+          # Do not silently fall back to ad-hoc or Apple Development signing here: that
+          # creates artifacts that Sparkle/Gatekeeper cannot reliably install.
           if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
-            if [ -n "$MACOS_CERTIFICATE" ]; then
-              echo "WARN: MACOS_CERTIFICATE is set but MACOS_CERTIFICATE_PWD or MACOS_KEYCHAIN_PWD is missing; falling back to ad-hoc signing."
-            else
-              echo "No MACOS_CERTIFICATE secret set; falling back to ad-hoc signing."
-            fi
-            echo "identity=" >> "$GITHUB_OUTPUT"
-            echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "ERROR: MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, and MACOS_KEYCHAIN_PWD are required for release signing." >&2
+            echo "MACOS_CERTIFICATE must contain a Developer ID Application certificate exported as base64 .p12." >&2
+            exit 1
           fi
 
           KEYCHAIN_PATH="$RUNNER_TEMP/kaset-signing.keychain-db"
@@ -114,16 +109,16 @@ jobs:
           rm -f "$CERT_PATH"
 
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
-            | grep "Apple Development" | head -1 | sed -E 's/.*"(.+)".*/\1/')
+            | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.+)".*/\1/' || true)
           if [ -z "$IDENTITY" ]; then
-            echo "ERROR: Imported keychain has no Apple Development identity"
+            echo "ERROR: Imported keychain has no Developer ID Application identity" >&2
             security find-identity -v -p codesigning "$KEYCHAIN_PATH"
             exit 1
           fi
 
           echo "Using signing identity: $IDENTITY"
           echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
-          echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
+          echo "signing_mode=developer-id" >> "$GITHUB_OUTPUT"
 
       - name: Build release app
         env:
@@ -135,6 +130,9 @@ jobs:
           echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
+
+      - name: Verify release app
+        run: Scripts/verify-release-app.sh --require-developer-id .build/app/Kaset.app
 
       - name: Cache Homebrew
         id: cache-homebrew
@@ -215,6 +213,33 @@ jobs:
 
       - name: Rename DMG
         run: mv kaset.dmg "${{ steps.artifact.outputs.filename }}"
+
+      - name: Sign and notarize DMG
+        env:
+          APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          FILE="${{ steps.artifact.outputs.filename }}"
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "ERROR: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required for notarization." >&2
+            exit 1
+          fi
+
+          codesign --force --timestamp --sign "$APP_IDENTITY" "$FILE"
+          codesign --verify --verbose=2 "$FILE"
+
+          xcrun notarytool submit "$FILE" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$FILE"
+          xcrun stapler validate "$FILE"
+          spctl --assess --type open --verbose=4 "$FILE"
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
