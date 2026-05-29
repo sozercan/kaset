@@ -11,6 +11,7 @@ struct PlayerBar: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(OfflineStorageManager.self) private var offlineStorageManager
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
@@ -330,7 +331,12 @@ struct PlayerBar: View {
         HStack(spacing: 10) {
             // Thumbnail
             if let track = self.playerService.currentTrack {
-                SongThumbnailView(song: track, size: 36, cornerRadius: 4)
+                SongThumbnailView(
+                    song: track,
+                    localThumbnailURL: self.offlineStorageManager.localThumbnailURL(for: track.videoId),
+                    size: 36,
+                    cornerRadius: 4
+                )
             } else {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(.quaternary)
@@ -710,6 +716,7 @@ struct PlayerBar: View {
 #Preview {
     PlayerBar()
         .environment(PlayerService())
+        .environment(OfflineStorageManager(skipLoad: true, skipPersistence: true))
         .environment(WebKitManager.shared)
         .environment(FavoritesManager.shared)
         .environment(SongLikeStatusManager.shared)

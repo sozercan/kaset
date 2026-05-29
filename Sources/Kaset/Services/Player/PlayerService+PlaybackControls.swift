@@ -84,10 +84,19 @@ extension PlayerService {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
+        self.stopOfflinePlayback()
         self.currentEpisode = nil
         self.state = .loading
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
+
+        if let offlineRecord = OfflineStorageManager.shared.songRecord(for: videoId),
+           let localMediaURL = OfflineStorageManager.shared.mediaURL(for: videoId)
+        {
+            self.currentTrack = offlineRecord.song
+            await self.startOfflinePlayback(song: offlineRecord.song, fileURL: localMediaURL)
+            return
+        }
 
         // Create a minimal Song object for now
         self.currentTrack = Song(
@@ -139,9 +148,6 @@ extension PlayerService {
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
 
-        // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
-        self.isKasetInitiatedPlayback = true
-
         // Use existing feedbackTokens if the song already has them
         if let tokens = song.feedbackTokens {
             self.currentTrackFeedbackTokens = tokens
@@ -156,6 +162,18 @@ extension PlayerService {
         if let cachedStatus = SongLikeStatusManager.shared.status(for: song.videoId) {
             self.currentTrackLikeStatus = cachedStatus
         }
+
+        if OfflineStorageManager.shared.songRecord(for: song.videoId) != nil,
+           let localMediaURL = OfflineStorageManager.shared.mediaURL(for: song.videoId)
+        {
+            SingletonPlayerWebView.shared.pause()
+            await self.startOfflinePlayback(song: song, fileURL: localMediaURL)
+            return
+        }
+        self.stopOfflinePlayback()
+
+        // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
+        self.isKasetInitiatedPlayback = true
 
         self.pendingPlayVideoId = song.videoId
 
@@ -243,6 +261,15 @@ extension PlayerService {
     func playPause() async {
         self.logger.debug("Toggle play/pause")
 
+        if self.isOfflinePlaybackActive {
+            if self.isPlaying {
+                await self.pause()
+            } else {
+                await self.resume()
+            }
+            return
+        }
+
         if self.isPendingRestoredLoadDeferred || self.pendingPlayVideoId != nil && self.shouldLoadPendingVideoBeforePlayback {
             await self.resume()
             return
@@ -263,6 +290,11 @@ extension PlayerService {
     func pause() async {
         self.logger.debug("Pausing playback")
 
+        if self.isOfflinePlaybackActive {
+            self.pauseOfflinePlayback()
+            return
+        }
+
         if self.isPendingRestoredLoadDeferred {
             self.state = .paused
             return
@@ -279,6 +311,11 @@ extension PlayerService {
     /// Resumes playback.
     func resume() async {
         self.logger.debug("Resuming playback")
+
+        if self.isOfflinePlaybackActive {
+            self.resumeOfflinePlayback()
+            return
+        }
 
         guard let pendingPlayVideoId = self.pendingPlayVideoId else {
             self.clearRestoredPlaybackSessionState()
@@ -345,6 +382,13 @@ extension PlayerService {
             return
         }
 
+        if self.isOfflinePlaybackActive {
+            if let currentTrack = self.currentTrack {
+                await self.handleTrackEnded(observedVideoId: currentTrack.videoId)
+            }
+            return
+        }
+
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not let them fall through to YouTube Music's ambient next button.
         guard self.currentEpisode == nil else {
@@ -389,6 +433,15 @@ extension PlayerService {
             return
         }
 
+        if self.isOfflinePlaybackActive {
+            if self.progress > 3 {
+                self.seekOfflinePlayback(to: 0)
+            } else if let currentTrack = self.currentTrack {
+                await self.play(song: currentTrack)
+            }
+            return
+        }
+
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not restart them or fall through to YouTube Music's ambient previous button.
         guard self.currentEpisode == nil else {
@@ -407,6 +460,16 @@ extension PlayerService {
     func seek(to time: TimeInterval) async {
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
         self.logger.debug("Seeking to \(clampedTime)")
+
+        if self.isOfflinePlaybackActive {
+            if self.duration > 0, clampedTime >= self.duration - Self.seekToEndThreshold {
+                self.seekOfflinePlayback(to: self.duration)
+                await self.handleTrackEnded(observedVideoId: self.currentTrack?.videoId)
+                return
+            }
+            self.seekOfflinePlayback(to: clampedTime)
+            return
+        }
 
         if self.isPendingRestoredLoadDeferred {
             self.progress = clampedTime
@@ -433,6 +496,11 @@ extension PlayerService {
         let clampedValue = max(0, min(1, value))
         self.volume = clampedValue
         UserDefaults.standard.set(clampedValue, forKey: Self.volumeKey)
+
+        if self.isOfflinePlaybackActive {
+            self.setOfflinePlaybackVolume(clampedValue)
+            return
+        }
 
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.setVolume(clampedValue)
@@ -479,6 +547,7 @@ extension PlayerService {
     func stop() async {
         self.logger.debug("Stopping playback")
         self.clearRestoredPlaybackSessionState()
+        self.stopOfflinePlayback()
         await self.evaluatePlayerCommand("pauseVideo()")
         self.state = .idle
         self.songNearingEnd = false

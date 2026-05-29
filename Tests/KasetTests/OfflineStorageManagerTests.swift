@@ -15,7 +15,8 @@ struct OfflineStorageManagerTests {
             skipPersistence: false
         )
         let client = MockYTMusicClient()
-        let song = TestFixtures.makeSong(id: "offline-song", title: "Offline Song")
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "offline-song", title: "Offline Song", thumbnailURL: thumbnailURL)
         let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
         client.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
 
@@ -26,7 +27,74 @@ struct OfflineStorageManagerTests {
         #expect(manager.totalSongCount == 1)
         #expect(manager.songRecord(for: song.videoId) != nil)
         #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/offline-song.mp3").path))
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/offline-song-thumb.jpg").path))
+        #expect(manager.songRecord(for: song.videoId)?.thumbnailFileName == "offline-song-thumb.jpg")
         #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("index.json").path))
+    }
+
+    @Test("Saving a song stores synced lyrics when available")
+    func saveSongStoresSyncedLyrics() async throws {
+        let rootURL = try Self.makeTemporaryRoot()
+        let manager = OfflineStorageManager(
+            rootURL: rootURL,
+            skipLoad: true,
+            skipPersistence: false
+        )
+        let client = MockYTMusicClient()
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "lyrics-song", title: "Lyrics Song", thumbnailURL: thumbnailURL)
+        let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
+        client.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
+        client.timedLyricsResponses[song.videoId] = .synced(
+            SyncedLyrics(
+                lines: [
+                    SyncedLyricLine(timeInMs: 1000, duration: 2500, text: "First line", words: nil),
+                    SyncedLyricLine(timeInMs: 3500, duration: 2000, text: "Second line", words: nil),
+                ],
+                source: "YTMusic"
+            )
+        )
+
+        await manager.saveSong(song, using: client)
+        try await Task.sleep(for: .milliseconds(350))
+
+        let record = try #require(manager.songRecord(for: song.videoId))
+        let storedLyrics = try #require(record.lyrics)
+        guard case let .synced(lyrics) = storedLyrics.lyricResult() else {
+            Issue.record("Expected synced lyrics to be stored")
+            return
+        }
+
+        #expect(client.getTimedLyricsCalled == true)
+        #expect(lyrics.source == "YTMusic")
+        #expect(lyrics.lines.map(\.text) == ["First line", "Second line"])
+        #expect(lyrics.lines.first?.timeInMs == 1000)
+    }
+
+    @Test("Tapping the save button again cancels an in-flight song save")
+    func toggleSongSaveCancelsInFlightTask() async throws {
+        let rootURL = try Self.makeTemporaryRoot()
+        let manager = OfflineStorageManager(
+            rootURL: rootURL,
+            skipLoad: true,
+            skipPersistence: false
+        )
+        let client = MockYTMusicClient()
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "cancel-song", title: "Cancel Song", thumbnailURL: thumbnailURL)
+        let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
+        client.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
+        client.getPlayerDelay = .seconds(5)
+
+        manager.toggleSongOfflineStorage(song, using: client)
+        #expect(manager.isSavingSong(videoId: song.videoId))
+
+        manager.toggleSongOfflineStorage(song, using: client)
+        try await Task.sleep(for: .milliseconds(250))
+
+        #expect(!manager.isSavingSong(videoId: song.videoId))
+        #expect(manager.songRecord(for: song.videoId) == nil)
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/cancel-song.mp3").path) == false)
     }
 
     @Test("Saving a playlist reuses existing songs and only adds mapping data")
@@ -39,7 +107,8 @@ struct OfflineStorageManagerTests {
         )
         let seedClient = MockYTMusicClient()
         let playlistClient = MockYTMusicClient()
-        let song = TestFixtures.makeSong(id: "playlist-song", title: "Playlist Song")
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "playlist-song", title: "Playlist Song", thumbnailURL: thumbnailURL)
         let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
         seedClient.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
         playlistClient.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
@@ -56,11 +125,72 @@ struct OfflineStorageManagerTests {
         #expect(manager.totalSongCount == 1)
         #expect(manager.totalPlaylistCount == 1)
         #expect(manager.playlistRecord(for: playlist.id)?.songVideoIds == [song.videoId])
+        #expect(manager.songRecord(for: song.videoId)?.thumbnailFileName == "playlist-song-thumb.jpg")
 
         let playlistMappingURL = rootURL
             .appendingPathComponent("playlists", isDirectory: true)
             .appendingPathComponent("playlist-offline.json")
         #expect(FileManager.default.fileExists(atPath: playlistMappingURL.path))
+    }
+
+    @Test("Removing a shared offline song keeps the mp3 until the last reference is gone")
+    func removeSongKeepsSharedFileUntilLastReference() async throws {
+        let rootURL = try Self.makeTemporaryRoot()
+        let manager = OfflineStorageManager(
+            rootURL: rootURL,
+            skipLoad: true,
+            skipPersistence: false
+        )
+        let client = MockYTMusicClient()
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "shared-song", title: "Shared Song", thumbnailURL: thumbnailURL)
+        let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
+        client.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
+        let playlist = TestFixtures.makePlaylist(id: "shared-playlist", title: "Shared Playlist")
+
+        await manager.saveSong(song, using: client)
+        try await Task.sleep(for: .milliseconds(350))
+
+        await manager.savePlaylist(playlist, tracks: [song], using: client)
+        try await Task.sleep(for: .milliseconds(350))
+
+        #expect(manager.songRecord(for: song.videoId)?.sourcePlaylistIds.contains(song.videoId) == true)
+        #expect(manager.songRecord(for: song.videoId)?.sourcePlaylistIds.contains(playlist.id) == true)
+
+        manager.removeSong(videoId: song.videoId)
+        #expect(manager.songRecord(for: song.videoId)?.sourcePlaylistIds == [playlist.id])
+        #expect(manager.mediaURL(for: song.videoId) != nil)
+
+        manager.removePlaylist(playlistId: playlist.id)
+        #expect(manager.songRecord(for: song.videoId) == nil)
+        #expect(manager.mediaURL(for: song.videoId) == nil)
+        #expect(!FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/shared-song.mp3").path))
+    }
+
+    @Test("Removing an individually saved song deletes its mp3 when no other references remain")
+    func removeIndividuallySavedSongDeletesFile() async throws {
+        let rootURL = try Self.makeTemporaryRoot()
+        let manager = OfflineStorageManager(
+            rootURL: rootURL,
+            skipLoad: true,
+            skipPersistence: false
+        )
+        let client = MockYTMusicClient()
+        let thumbnailURL = try Self.makeThumbnailFixture(rootURL: rootURL, fileName: "thumb.jpg")
+        let song = TestFixtures.makeSong(id: "solo-song", title: "Solo Song", thumbnailURL: thumbnailURL)
+        let sourceURL = try Self.makeAudioFixture(rootURL: rootURL, fileName: "source.mp3")
+        client.playerResponses[song.videoId] = Self.playerResponse(audioURL: sourceURL)
+
+        await manager.saveSong(song, using: client)
+        try await Task.sleep(for: .milliseconds(350))
+
+        #expect(manager.songRecord(for: song.videoId)?.sourcePlaylistIds == [song.videoId])
+
+        manager.removeSong(videoId: song.videoId)
+        #expect(manager.songRecord(for: song.videoId) == nil)
+        #expect(manager.mediaURL(for: song.videoId) == nil)
+        #expect(!FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/solo-song.mp3").path))
+        #expect(!FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("media/solo-song-thumb.jpg").path))
     }
 
     @Test("Unplayable tracks are skipped with a clear error")
@@ -147,6 +277,12 @@ struct OfflineStorageManagerTests {
     private static func makeAudioFixture(rootURL: URL, fileName: String) throws -> URL {
         let url = rootURL.appendingPathComponent(fileName)
         try Data("ID3".utf8).write(to: url)
+        return url
+    }
+
+    private static func makeThumbnailFixture(rootURL: URL, fileName: String) throws -> URL {
+        let url = rootURL.appendingPathComponent(fileName)
+        try Data("thumbnail".utf8).write(to: url)
         return url
     }
 

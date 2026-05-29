@@ -78,14 +78,13 @@ struct OfflineStorageContextMenu: View {
 
     var body: some View {
         let isSavedOffline = self.offlineStorageManager.songRecord(for: self.song.videoId) != nil
+        let isSaving = self.offlineStorageManager.isSavingSong(videoId: self.song.videoId)
         Button {
-            Task {
-                await self.offlineStorageManager.saveSong(self.song, using: self.client)
-            }
+            self.offlineStorageManager.toggleSongOfflineStorage(self.song, using: self.client)
         } label: {
             Label(
-                isSavedOffline ? "Refresh Offline" : "Save Offline",
-                systemImage: isSavedOffline ? "checkmark.circle.fill" : "externaldrive.badge.plus"
+                isSaving ? "Saving..." : (isSavedOffline ? "Remove Offline" : "Save Offline"),
+                systemImage: isSaving ? "xmark.circle" : (isSavedOffline ? "trash" : "externaldrive.badge.plus")
             )
         }
     }

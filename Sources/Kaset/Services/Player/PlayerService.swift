@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Observation
 import os
@@ -207,6 +208,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
+    var offlinePlaybackPlayer: AVAudioPlayer?
+    var offlinePlaybackProgressTask: Task<Void, Never>?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?

@@ -33,6 +33,7 @@ struct SongThumbnailSource: Equatable {
 @available(macOS 26.0, *)
 struct SongThumbnailView: View {
     let song: Song
+    var localThumbnailURL: URL?
     var size: CGFloat = 48
     var cornerRadius: CGFloat = 6
 
@@ -40,7 +41,7 @@ struct SongThumbnailView: View {
 
     /// The API-provided thumbnail URL.
     private var primaryURL: URL? {
-        self.song.thumbnailURL?.highQualityThumbnailURL
+        self.localThumbnailURL ?? self.song.thumbnailURL?.highQualityThumbnailURL
     }
 
     /// YouTube's public video thumbnail as fallback.

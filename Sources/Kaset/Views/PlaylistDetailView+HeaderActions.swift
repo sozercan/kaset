@@ -156,26 +156,27 @@ extension PlaylistDetailView {
     @ViewBuilder
     private func offlineStorageButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
         let isSavedOffline = self.offlineStorageManager.playlistRecord(for: detail.id) != nil
-        let title = isSavedOffline ? String(localized: "Refresh Offline") : String(localized: "Save Offline")
+        let isSaving = self.offlineStorageManager.isSavingPlaylist(playlistId: detail.id)
+        let title = isSaving
+            ? String(localized: "Saving...")
+            : (isSavedOffline ? String(localized: "Remove Offline") : String(localized: "Save Offline"))
         Button {
-            Task {
-                await self.offlineStorageManager.savePlaylist(
-                    Playlist(
-                        id: detail.id,
-                        title: detail.title,
-                        description: detail.description,
-                        thumbnailURL: detail.thumbnailURL,
-                        trackCount: detail.trackCount,
-                        author: detail.author,
-                        canDelete: detail.canDelete
-                    ),
-                    using: self.viewModel.client
-                )
-            }
+            self.offlineStorageManager.togglePlaylistOfflineStorage(
+                Playlist(
+                    id: detail.id,
+                    title: detail.title,
+                    description: detail.description,
+                    thumbnailURL: detail.thumbnailURL,
+                    trackCount: detail.trackCount,
+                    author: detail.author,
+                    canDelete: detail.canDelete
+                ),
+                using: self.viewModel.client
+            )
         } label: {
             self.headerActionLabel(
                 title,
-                systemImage: isSavedOffline ? "checkmark.circle.fill" : "externaldrive.badge.plus",
+                systemImage: isSaving ? "xmark.circle" : (isSavedOffline ? "trash" : "externaldrive.badge.plus"),
                 showsTitle: showsTitles
             )
         }

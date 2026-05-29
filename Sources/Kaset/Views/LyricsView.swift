@@ -6,6 +6,7 @@ import SwiftUI
 struct LyricsView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
+    @Environment(OfflineStorageManager.self) private var offlineStorageManager
 
     let client: any YTMusicClientProtocol
     var showsHeader = true
@@ -405,6 +406,25 @@ struct LyricsView: View {
             videoId: track.videoId
         )
 
+        if let offlineLyrics = self.offlineStorageManager.lyricsResult(for: videoId) {
+            if SettingsManager.shared.syncedLyricsEnabled {
+                self.syncedLyricsService.applyOfflineLyrics(offlineLyrics, videoId: videoId)
+                return
+            }
+
+            if case let .synced(synced) = offlineLyrics {
+                let plainText = synced.lines.map(\.text).joined(separator: "\n")
+                self.syncedLyricsService.applyOfflineLyrics(
+                    .plain(Lyrics(text: plainText, source: synced.source)),
+                    videoId: videoId
+                )
+                return
+            }
+
+            self.syncedLyricsService.applyOfflineLyrics(offlineLyrics, videoId: videoId)
+            return
+        }
+
         if SettingsManager.shared.syncedLyricsEnabled {
             await self.syncedLyricsService.fetchLyrics(for: info)
         } else {
@@ -533,5 +553,7 @@ struct LyricsView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     LyricsView(client: client)
         .environment(PlayerService())
+        .environment(SyncedLyricsService())
+        .environment(OfflineStorageManager(skipLoad: true, skipPersistence: true))
         .frame(height: 600)
 }

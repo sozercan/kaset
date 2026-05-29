@@ -66,6 +66,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
+    var getPlayerDelay: Duration?
     var getPodcastsDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
@@ -79,6 +80,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var artistSongsResponse: [Song] = []
     var moodCategoryResponse: HomeResponse = .init(sections: [])
     var lyricsResponses: [String: Lyrics] = [:]
+    var timedLyricsResponses: [String: LyricResult] = [:]
     var playerResponses: [String: [String: Any]] = [:]
     var radioQueueSongs: [String: [Song]] = [:]
     var songResponses: [String: Song] = [:]
@@ -215,6 +217,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var unsubscribeFromArtistIds: [String] = []
     private(set) var getLyricsCalled = false
     private(set) var getLyricsVideoIds: [String] = []
+    private(set) var getTimedLyricsCalled = false
+    private(set) var getTimedLyricsVideoIds: [String] = []
     private(set) var getPlayerCalled = false
     private(set) var getPlayerVideoIds: [String] = []
     private(set) var getRadioQueueCalled = false
@@ -867,14 +871,19 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.lyricsResponses[videoId] ?? .unavailable
     }
 
-    func getTimedLyrics(videoId _: String) async throws -> LyricResult {
+    func getTimedLyrics(videoId: String) async throws -> LyricResult {
+        self.getTimedLyricsCalled = true
+        self.getTimedLyricsVideoIds.append(videoId)
         if let error = shouldThrowError { throw error }
-        return .unavailable
+        return self.timedLyricsResponses[videoId] ?? .unavailable
     }
 
     func getPlayer(videoId: String) async throws -> [String: Any] {
         self.getPlayerCalled = true
         self.getPlayerVideoIds.append(videoId)
+        if let delay = self.getPlayerDelay {
+            try await Task.sleep(for: delay)
+        }
         if let error = shouldThrowError { throw error }
         return self.playerResponses[videoId] ?? [
             "playabilityStatus": [
@@ -1008,6 +1017,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.unsubscribeFromArtistDelay = nil
         self.rateSongDelay = nil
         self.getSongDelay = nil
+        self.getPlayerDelay = nil
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []
         self.getRadioQueueCalled = false

@@ -10,7 +10,8 @@ enum TestFixtures {
         title: String = "Test Song",
         artistName: String = "Test Artist",
         artistId: String = "UC123",
-        duration: TimeInterval? = 180
+        duration: TimeInterval? = 180,
+        thumbnailURL: URL? = URL(string: "https://example.com/thumb.jpg")
     ) -> Song {
         Song(
             id: id,
@@ -18,7 +19,7 @@ enum TestFixtures {
             artists: [Artist(id: artistId, name: artistName)],
             album: nil,
             duration: duration,
-            thumbnailURL: URL(string: "https://example.com/thumb.jpg"),
+            thumbnailURL: thumbnailURL,
             videoId: id
         )
     }

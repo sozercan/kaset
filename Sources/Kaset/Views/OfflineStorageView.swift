@@ -19,6 +19,7 @@ struct OfflineStorageView: View {
     }
 
     @Environment(OfflineStorageManager.self) private var offlineStorageManager
+    @Environment(PlayerService.self) private var playerService
 
     let client: any YTMusicClientProtocol
 
@@ -48,6 +49,9 @@ struct OfflineStorageView: View {
         }
         .navigationTitle(String(localized: "Offline Storage"))
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PlayerBar()
+        }
         .task {
             if self.offlineStorageManager.libraryPlaylists.isEmpty {
                 await self.offlineStorageManager.refreshLibraryPlaylists(using: self.client)
@@ -163,22 +167,40 @@ struct OfflineStorageView: View {
         .accessibilityIdentifier(AccessibilityID.OfflineStorage.songsTab)
     }
 
+    @ViewBuilder
     private func playlistRow(_ record: OfflineStorageManager.OfflinePlaylistRecord) -> some View {
+        let songs = self.offlineStorageManager.playlistSongs(for: record.id).map(\.song).filter(\.isPlayable)
         HStack(alignment: .center, spacing: 14) {
-            CachedAsyncImage(url: record.playlist.thumbnailURL?.highQualityThumbnailURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "music.note.list")
-                            .foregroundStyle(.secondary)
-                    }
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: record.playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "music.note.list")
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 54, height: 54)
+                .clipShape(.rect(cornerRadius: 6))
+
+                Button {
+                    Task { await self.playerService.playQueue(songs, startingAt: 0) }
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 24, height: 24)
+                        .background(.regularMaterial, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .disabled(songs.isEmpty)
+                .offset(x: 4, y: 4)
+                .accessibilityLabel(Text("Play"))
             }
-            .frame(width: 54, height: 54)
-            .clipShape(.rect(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(record.playlist.title)
@@ -194,26 +216,41 @@ struct OfflineStorageView: View {
             }
 
             Spacer()
+
+            Button(role: .destructive) {
+                self.offlineStorageManager.removePlaylist(playlistId: record.id)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Delete Offline"))
         }
         .padding(.horizontal, 4)
     }
 
     private func songRow(_ songRecord: OfflineStorageManager.OfflineSongRecord, sourcePlaylistTitles: String) -> some View {
         HStack(alignment: .center, spacing: 14) {
-            CachedAsyncImage(url: songRecord.song.thumbnailURL?.highQualityThumbnailURL ?? songRecord.song.fallbackThumbnailURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .foregroundStyle(.secondary)
-                    }
+            ZStack(alignment: .bottomTrailing) {
+                SongThumbnailView(
+                    song: songRecord.song,
+                    localThumbnailURL: self.offlineStorageManager.localThumbnailURL(for: songRecord.videoId),
+                    size: 44,
+                    cornerRadius: 6
+                )
+
+                Button {
+                    Task { await self.playerService.play(song: songRecord.song) }
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 22, height: 22)
+                        .background(.regularMaterial, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .offset(x: 3, y: 3)
+                .accessibilityLabel(Text("Play"))
             }
-            .frame(width: 44, height: 44)
-            .clipShape(.rect(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(songRecord.song.title)
@@ -227,6 +264,14 @@ struct OfflineStorageView: View {
             }
 
             Spacer()
+
+            Button(role: .destructive) {
+                self.offlineStorageManager.removeSong(videoId: songRecord.videoId)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Delete Offline"))
         }
         .padding(.horizontal, 4)
     }
@@ -263,5 +308,6 @@ struct OfflineStorageView: View {
 #Preview {
     OfflineStorageView(client: MockUITestYTMusicClient())
         .environment(OfflineStorageManager(skipLoad: true, skipPersistence: true))
+        .environment(PlayerService())
         .frame(width: 900, height: 700)
 }

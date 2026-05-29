@@ -5,7 +5,8 @@ extension OfflineStorageManager {
     func mergedSongRecord(
         _ record: OfflineSongRecord,
         sourcePlaylistIDs: [String],
-        sourcePlaylistTitles: [String]
+        sourcePlaylistTitles: [String],
+        lyrics: OfflineLyricsRecord? = nil
     ) -> OfflineSongRecord {
         let playlistIDs = Array(Set(record.sourcePlaylistIds + sourcePlaylistIDs)).sorted()
         let playlistTitles = Array(Set(record.sourcePlaylistTitles + sourcePlaylistTitles)).sorted()
@@ -17,8 +18,10 @@ extension OfflineStorageManager {
             fileExtension: record.fileExtension,
             mimeType: record.mimeType,
             byteCount: record.byteCount,
+            thumbnailFileName: record.thumbnailFileName,
             sourcePlaylistIds: playlistIDs,
-            sourcePlaylistTitles: playlistTitles
+            sourcePlaylistTitles: playlistTitles,
+            lyrics: Self.preferredLyrics(new: lyrics, existing: record.lyrics)
         )
     }
 
@@ -37,6 +40,39 @@ extension OfflineStorageManager {
 
     func songRecord(for videoId: String) -> OfflineSongRecord? {
         self.manifest.songs.first { $0.id == videoId }
+    }
+
+    func lyricsResult(for videoId: String) -> LyricResult? {
+        self.songRecord(for: videoId)?.lyrics?.lyricResult()
+    }
+
+    func removingSource(
+        from record: OfflineSongRecord,
+        sourcePlaylistId: String,
+        sourcePlaylistTitle: String?
+    ) -> OfflineSongRecord? {
+        let remainingSourcePlaylistIds = record.sourcePlaylistIds.filter { $0 != sourcePlaylistId }
+        let remainingSourcePlaylistTitles = if let sourcePlaylistTitle {
+            record.sourcePlaylistTitles.filter { $0 != sourcePlaylistTitle }
+        } else {
+            record.sourcePlaylistTitles
+        }
+
+        guard !remainingSourcePlaylistIds.isEmpty else { return nil }
+
+        return OfflineSongRecord(
+            id: record.id,
+            song: record.song,
+            savedAt: record.savedAt,
+            fileName: record.fileName,
+            fileExtension: record.fileExtension,
+            mimeType: record.mimeType,
+            byteCount: record.byteCount,
+            thumbnailFileName: record.thumbnailFileName,
+            sourcePlaylistIds: remainingSourcePlaylistIds,
+            sourcePlaylistTitles: remainingSourcePlaylistTitles,
+            lyrics: record.lyrics
+        )
     }
 
     func mergeOfflineResults(
@@ -74,12 +110,20 @@ extension OfflineStorageManager {
                 fileExtension: existing.fileExtension,
                 mimeType: existing.mimeType,
                 byteCount: existing.byteCount,
+                thumbnailFileName: record.thumbnailFileName ?? existing.thumbnailFileName,
                 sourcePlaylistIds: Array(Set(existing.sourcePlaylistIds + record.sourcePlaylistIds)).sorted(),
-                sourcePlaylistTitles: Array(Set(existing.sourcePlaylistTitles + record.sourcePlaylistTitles)).sorted()
+                sourcePlaylistTitles: Array(Set(existing.sourcePlaylistTitles + record.sourcePlaylistTitles)).sorted(),
+                lyrics: Self.preferredLyrics(new: record.lyrics, existing: existing.lyrics)
             )
         } else {
             self.manifest.songs.append(record)
         }
+    }
+
+    static func preferredLyrics(new: OfflineLyricsRecord?, existing: OfflineLyricsRecord?) -> OfflineLyricsRecord? {
+        guard let new else { return existing }
+        guard let existing else { return new }
+        return new.rank >= existing.rank ? new : existing
     }
 
     func load() {
@@ -150,16 +194,43 @@ extension OfflineStorageManager {
         )
     }
 
+    func mediaURL(for videoId: String) -> URL? {
+        let mediaDirectory = self.rootURL.appendingPathComponent(Self.Constants.mediaFolderName, isDirectory: true)
+        guard let enumerator = self.fileManager.enumerator(
+            at: mediaDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        let preferredExtensions = ["mp3", "m4a", "caf", "wav", "webm", "bin"]
+        var candidates: [URL] = []
+        let prefix = Self.sanitizedFileName(videoId)
+        while let fileURL = enumerator.nextObject() as? URL {
+            guard fileURL.lastPathComponent.hasPrefix(prefix) else { continue }
+            guard preferredExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+            candidates.append(fileURL)
+        }
+
+        return candidates.min {
+            let lhsIndex = preferredExtensions.firstIndex(of: $0.pathExtension.lowercased()) ?? .max
+            let rhsIndex = preferredExtensions.firstIndex(of: $1.pathExtension.lowercased()) ?? .max
+            return lhsIndex < rhsIndex
+        }
+    }
+
     func deleteSongFiles(videoId: String) {
         let mediaDirectory = self.rootURL.appendingPathComponent(Self.Constants.mediaFolderName, isDirectory: true)
         let songsDirectory = self.rootURL.appendingPathComponent(Self.Constants.songsFolderName, isDirectory: true)
+        let filePrefix = Self.sanitizedFileName(videoId)
 
         if let enumerator = self.fileManager.enumerator(
             at: mediaDirectory,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         ) {
-            for case let fileURL as URL in enumerator where fileURL.lastPathComponent.hasPrefix(videoId) {
+            for case let fileURL as URL in enumerator where fileURL.lastPathComponent.hasPrefix(filePrefix) {
                 try? self.fileManager.removeItem(at: fileURL)
             }
         }
@@ -385,12 +456,94 @@ extension OfflineStorageManager {
             finalURL = sourceURL
         }
 
+        let thumbnailFileName = await Self.persistThumbnail(
+            song: song,
+            rootURL: rootURL,
+            fileManager: fileManager
+        )
+
         return DownloadedAudio(
             fileName: finalURL.lastPathComponent,
             fileExtension: finalURL.pathExtension,
             mimeType: mimeType.isEmpty ? Self.mimeType(for: finalURL.pathExtension) : mimeType,
-            byteCount: byteCount
+            byteCount: byteCount,
+            thumbnailFileName: thumbnailFileName
         )
+    }
+
+    static func persistThumbnail(
+        song: Song,
+        rootURL: URL,
+        fileManager: FileManager
+    ) async -> String? {
+        guard let thumbnailSourceURL = song.thumbnailURL?.highQualityThumbnailURL ?? song.fallbackThumbnailURL else {
+            return nil
+        }
+
+        do {
+            let (tempURL, mimeType) = try await Self.downloadThumbnailData(from: thumbnailSourceURL)
+            let thumbnailExtension = Self.preferredThumbnailExtension(
+                mimeType: mimeType,
+                url: thumbnailSourceURL,
+                fallbackExtension: tempURL.pathExtension
+            )
+
+            let mediaDirectory = rootURL.appendingPathComponent(Self.Constants.mediaFolderName, isDirectory: true)
+            try fileManager.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
+
+            let thumbnailFileName = "\(Self.sanitizedFileName(song.videoId))-thumb.\(thumbnailExtension)"
+            let thumbnailURL = mediaDirectory.appendingPathComponent(thumbnailFileName)
+            if fileManager.fileExists(atPath: thumbnailURL.path) {
+                try? fileManager.removeItem(at: thumbnailURL)
+            }
+
+            if tempURL.isFileURL {
+                try fileManager.copyItem(at: tempURL, to: thumbnailURL)
+            } else {
+                try Data(contentsOf: tempURL).write(to: thumbnailURL, options: .atomic)
+            }
+
+            return thumbnailFileName
+        } catch {
+            DiagnosticsLogger.ui.warning(
+                "Failed to save thumbnail for \(song.title, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private static func downloadThumbnailData(from url: URL) async throws -> (URL, String?) {
+        if url.isFileURL {
+            return (url, self.mimeType(for: url.pathExtension))
+        }
+
+        let downloaded = try await URLSession.shared.download(from: url)
+        let tempURL = downloaded.0
+        guard let httpResponse = downloaded.1 as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
+            throw YTMusicError.apiError(message: "Failed to download thumbnail", code: nil)
+        }
+        return (tempURL, httpResponse.value(forHTTPHeaderField: "Content-Type"))
+    }
+
+    private static func preferredThumbnailExtension(
+        mimeType: String?,
+        url: URL,
+        fallbackExtension: String
+    ) -> String {
+        if let mimeType {
+            if mimeType.contains("image/webp") {
+                return "webp"
+            }
+            if mimeType.contains("image/png") {
+                return "png"
+            }
+            if mimeType.contains("image/jpeg") || mimeType.contains("image/jpg") {
+                return "jpg"
+            }
+        }
+
+        let pathExtension = url.pathExtension.isEmpty ? fallbackExtension : url.pathExtension
+        return pathExtension.isEmpty ? "jpg" : pathExtension.lowercased()
     }
 
     private static func convertToMP3(sourceURL: URL, song: Song, rootURL: URL) async throws -> URL {

@@ -127,6 +127,24 @@ final class SyncedLyricsService {
         }
     }
 
+    func applyOfflineLyrics(_ result: LyricResult, videoId: String) {
+        guard result.isAvailable else {
+            self.currentBaseSyncedLyrics = nil
+            self.currentLyrics = .unavailable
+            self.activeProvider = nil
+            self.cache[videoId] = .unavailable
+            self.isLoading = false
+            return
+        }
+
+        self.fetchGeneration += 1
+        self.cache[videoId] = result
+        self.applyResolvedLyrics(
+            .init(result: result, activeProvider: Self.cachedProviderName(for: result)),
+            requestID: self.fetchGeneration
+        )
+    }
+
     private func observeRomanizationSetting() {
         withObservationTracking {
             _ = SettingsManager.shared.romanizationEnabled
