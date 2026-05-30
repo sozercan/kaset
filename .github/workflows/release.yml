@@ -285,7 +285,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          REQUIRE_DEVELOPER_ID: ${{ inputs.require_developer_id || 'false' }}
         run: |
           FILE="${{ steps.artifact.outputs.filename }}"
 
@@ -296,18 +295,14 @@ jobs:
             exit 0
           fi
 
-          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
-            if [ "$REQUIRE_DEVELOPER_ID" = "true" ]; then
-              echo "ERROR: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required for notarization." >&2
-              exit 1
-            fi
-            echo "WARN: Notarization secrets are missing; skipping DMG notarization." >&2
-            echo "WARN: The app is Developer ID signed but the DMG will not be notarized/stapled." >&2
-            exit 0
-          fi
-
           codesign --force --timestamp --sign "$APP_IDENTITY" "$FILE"
           codesign --verify --verbose=2 "$FILE"
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "ERROR: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required for notarized Developer ID releases." >&2
+            echo "A Developer ID certificate was imported, so publishing an unnotarized DMG would be a release misconfiguration." >&2
+            exit 1
+          fi
 
           xcrun notarytool submit "$FILE" \
             --apple-id "$APPLE_ID" \
