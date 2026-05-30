@@ -49,8 +49,15 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
-    /// API key used in requests (extracted from YouTube Music web client).
-    private static let apiKey = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
+    /// Environment override for the YouTube Music web client API key.
+    /// Do not commit a concrete key; resolve it from the live web client at runtime instead.
+    private static let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
+
+    /// YouTube Music web client page used to resolve the current Innertube API key.
+    private static let webClientURL = URL(string: "https://music.youtube.com")!
+
+    /// Cached runtime-resolved API key. Never log this value.
+    private static var resolvedAPIKey: String?
 
     /// Client version for WEB_REMIX.
     private static let clientVersion = "1.20231204.01.00"
@@ -1665,9 +1672,14 @@ final class YTMusicClient: YTMusicClientProtocol {
     private func performRequest(_ endpoint: String, fullBody: [String: Any]) async throws -> [String:
         Any]
     {
-        let urlString = "\(Self.baseURL)/\(endpoint)?key=\(Self.apiKey)&prettyPrint=false"
-        guard let url = URL(string: urlString) else {
-            throw YTMusicError.unknown(message: "Invalid URL: \(urlString)")
+        let apiKey = try await self.resolveAPIKey()
+        var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
+        components?.queryItems = [
+            URLQueryItem(name: "key", value: apiKey),
+            URLQueryItem(name: "prettyPrint", value: "false"),
+        ]
+        guard let url = components?.url else {
+            throw YTMusicError.unknown(message: "Invalid API URL for endpoint: \(endpoint)")
         }
 
         var request = URLRequest(url: url)
@@ -1719,6 +1731,65 @@ final class YTMusicClient: YTMusicClientProtocol {
         case let .networkError(error):
             throw YTMusicError.networkError(underlying: error)
         }
+    }
+
+    /// Resolves the current YouTube Music web client API key without storing a concrete key in source.
+    private func resolveAPIKey() async throws -> String {
+        if let resolvedAPIKey = Self.resolvedAPIKey {
+            return resolvedAPIKey
+        }
+
+        if let override = ProcessInfo.processInfo.environment[Self.apiKeyEnvironmentVariable],
+           !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
+            let trimmed = override.trimmingCharacters(in: .whitespacesAndNewlines)
+            Self.resolvedAPIKey = trimmed
+            return trimmed
+        }
+
+        do {
+            var request = URLRequest(url: Self.webClientURL)
+            request.setValue(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+                forHTTPHeaderField: "User-Agent"
+            )
+            let (data, response) = try await self.session.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200 ... 399).contains(httpResponse.statusCode)
+            {
+                throw YTMusicError.apiError(
+                    message: "Could not load YouTube Music web client configuration",
+                    code: httpResponse.statusCode
+                )
+            }
+
+            guard let html = String(data: data, encoding: .utf8),
+                  let apiKey = Self.extractInnertubeAPIKey(from: html)
+            else {
+                throw YTMusicError.parseError(message: "Could not resolve YouTube Music API configuration")
+            }
+
+            Self.resolvedAPIKey = apiKey
+            return apiKey
+        } catch let error as YTMusicError {
+            throw error
+        } catch {
+            throw YTMusicError.networkError(underlying: error)
+        }
+    }
+
+    private static func extractInnertubeAPIKey(from html: String) -> String? {
+        let pattern = #""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(
+                  in: html,
+                  range: NSRange(html.startIndex ..< html.endIndex, in: html)
+              ),
+              let range = Range(match.range(at: 1), in: html)
+        else {
+            return nil
+        }
+        return String(html[range])
     }
 
     // MARK: - Nonisolated Network Helper

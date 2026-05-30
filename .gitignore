@@ -56,6 +56,8 @@ Thumbs.db
 .env
 .env.local
 *.pem
+*.p12
+*.key
 
 TEMP_*
 build/
