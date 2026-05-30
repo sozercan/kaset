@@ -23,6 +23,62 @@ extension PlayerService {
         self.logger.info("Queue display mode: \(self.queueDisplayMode.displayName)")
     }
 
+    /// Opens the native mini player.
+    func openMiniPlayer(mode: MiniPlayerMode = .auxiliary) {
+        self.miniPlayerMode = mode
+        self.isMiniPlayerVisible = true
+        self.shouldRestoreMainWindowWhenMiniPlayerCloses = mode == .switchFromMainWindow
+        self.miniPlayerMainWindowRestoreRequest = false
+        self.logger.debug("Mini player opened in mode: \(String(describing: mode))")
+    }
+
+    /// Toggles the native mini player for the requested mode.
+    @discardableResult
+    func toggleMiniPlayer(mode: MiniPlayerMode = .auxiliary) -> Bool {
+        if self.isMiniPlayerVisible, self.miniPlayerMode == mode {
+            return self.closeMiniPlayer()
+        }
+
+        self.openMiniPlayer(mode: mode)
+        return false
+    }
+
+    /// Closes the native mini player and returns whether the main window should be restored.
+    @discardableResult
+    func closeMiniPlayer() -> Bool {
+        self.closeMiniPlayer(restoringMainWindow: self.shouldRestoreMainWindowWhenMiniPlayerCloses)
+    }
+
+    /// Closes the native mini player with explicit control over main window restoration.
+    @discardableResult
+    func closeMiniPlayer(restoringMainWindow shouldRestore: Bool) -> Bool {
+        self.isMiniPlayerVisible = false
+        self.miniPlayerMode = .auxiliary
+        self.shouldRestoreMainWindowWhenMiniPlayerCloses = false
+        self.miniPlayerMainWindowRestoreRequest = shouldRestore
+        self.logger.debug("Mini player closed, should restore main window: \(shouldRestore)")
+        return shouldRestore
+    }
+
+    /// Consumes a pending request to restore the main app window.
+    func consumeMiniPlayerMainWindowRestoreRequest() -> Bool {
+        let shouldRestore = self.miniPlayerMainWindowRestoreRequest
+        self.miniPlayerMainWindowRestoreRequest = false
+        return shouldRestore
+    }
+
+    /// Switches between compact and expanded mini player layouts.
+    func toggleMiniPlayerPanel() {
+        self.miniPlayerPanel = switch self.miniPlayerPanel {
+        case .compact:
+            .expanded
+        case .expanded:
+            .compact
+        case .lyrics:
+            .expanded
+        }
+    }
+
     /// Plays a track by video ID.
     func play(videoId: String) async {
         self.logger.debug("play() called with videoId: \(videoId)")

@@ -330,6 +330,8 @@ ${APP_LOCALIZATIONS_PLIST}
     <integer>86400</integer>
     <key>SUAllowsAutomaticUpdates</key>
     <true/>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
 
     <!-- AppleScript Support -->
     <key>NSAppleScriptEnabled</key>
@@ -359,25 +361,57 @@ find "$APP_BUNDLE" -name '._*' -delete 2>/dev/null || true
 
 # ── Code signing ──────────────────────────────────────────────────────────────
 
-echo "🔏 Signing app..."
-if [[ "$SIGNING_MODE" == "adhoc" ]]; then
-  CODESIGN_ARGS=(--force --sign -)
-elif [[ "$SIGNING_MODE" == "dev" ]]; then
-  if [[ -n "${APP_IDENTITY:-}" ]]; then
-    CODESIGN_ID="$APP_IDENTITY"
-  else
-    CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}')
-  fi
-  if [[ -z "$CODESIGN_ID" ]]; then
-    echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
-    CODESIGN_ARGS=(--force --sign -)
-  else
-    CODESIGN_ARGS=(--force --options runtime --sign "$CODESIGN_ID")
-  fi
-else
-  CODESIGN_ID="${APP_IDENTITY:-Developer ID Application}"
-  CODESIGN_ARGS=(--force --timestamp --options runtime --sign "$CODESIGN_ID")
+if [[ "$SIGNING_MODE" == "unsigned" || "$SIGNING_MODE" == "none" ]]; then
+  echo "🔓 Skipping code signing."
+  echo ""
+  echo "✅ Build complete!"
+  echo "📍 App location: $APP_BUNDLE"
+  echo "   Version: ${MARKETING_VERSION} (${BUILD_NUMBER})"
+  echo "   Commit:  ${GIT_COMMIT}"
+  echo "   Arches:  ${ARCH_LIST[*]}"
+  echo "   Signing: unsigned"
+  echo ""
+  echo "To run: open $APP_BUNDLE"
+  echo "To install: cp -r $APP_BUNDLE /Applications/"
+  exit 0
 fi
+
+echo "🔏 Signing app..."
+case "$SIGNING_MODE" in
+  adhoc)
+    CODESIGN_ARGS=(--force --sign -)
+    ;;
+  dev|development)
+    if [[ -n "${APP_IDENTITY:-}" ]]; then
+      CODESIGN_ID="$APP_IDENTITY"
+    else
+      CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}' || true)
+    fi
+    if [[ -z "$CODESIGN_ID" ]]; then
+      echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
+      CODESIGN_ARGS=(--force --sign -)
+    else
+      CODESIGN_ARGS=(--force --options runtime --sign "$CODESIGN_ID")
+    fi
+    ;;
+  developer-id|distribution|release)
+    if [[ -n "${APP_IDENTITY:-}" ]]; then
+      CODESIGN_ID="$APP_IDENTITY"
+    else
+      CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.+)".*/\1/' || true)
+    fi
+    if [[ -z "$CODESIGN_ID" ]]; then
+      echo "ERROR: No Developer ID Application certificate found for release signing." >&2
+      exit 1
+    fi
+    CODESIGN_ARGS=(--force --timestamp --options runtime --sign "$CODESIGN_ID")
+    ;;
+  *)
+    echo "ERROR: Unknown KASET_SIGNING mode: $SIGNING_MODE" >&2
+    echo "Expected one of: adhoc, dev, developer-id, unsigned" >&2
+    exit 1
+    ;;
+esac
 
 resign() { codesign "${CODESIGN_ARGS[@]}" "$1"; }
 

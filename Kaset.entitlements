@@ -28,5 +28,12 @@
 		<string>(allow network-outbound (subpath "/private/var/folders"))</string>
 		<string>(allow network-outbound (subpath "/var/folders"))</string>
 	</array>
+
+	<!-- Required by Sparkle's sandboxed installer launcher/status services. -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.sertacozercan.Kaset-spks</string>
+		<string>com.sertacozercan.Kaset-spki</string>
+	</array>
 </dict>
 </plist>
