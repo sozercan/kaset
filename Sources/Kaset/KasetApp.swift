@@ -331,10 +331,12 @@ struct KasetApp: App {
                 .keyboardShortcut("f", modifiers: .command)
 
                 // Command Bar - ⌘K
-                Button("Command Bar") {
-                    self.showCommandBar = true
+                if PlatformCapabilities.supportsCommandBar {
+                    Button("Command Bar") {
+                        self.showCommandBar = true
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
                 }
-                .keyboardShortcut("k", modifiers: .command)
             }
 
             // Window menu - show main window

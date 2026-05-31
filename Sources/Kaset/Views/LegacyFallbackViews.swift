@@ -14,6 +14,7 @@ struct SimplePlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     init(playlist: Playlist, viewModel: PlaylistDetailViewModel) {
         self.playlist = playlist
@@ -57,6 +58,11 @@ struct SimplePlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
+            guard let event else { return }
+            guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
+            self.viewModel.handleLikeStatusChange(event)
+        }
     }
 
     private func content(_ detail: PlaylistDetail) -> some View {
@@ -72,7 +78,9 @@ struct SimplePlaylistDetailView: View {
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
-        HStack(alignment: .top, spacing: 20) {
+        let playableTracks = self.playableTracks(in: detail.tracks)
+
+        return HStack(alignment: .top, spacing: 20) {
             AsyncImage(url: detail.thumbnailURL) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
@@ -93,21 +101,23 @@ struct SimplePlaylistDetailView: View {
 
                 HStack(spacing: 10) {
                     Button {
-                        Task { await self.playFromIndex(0, tracks: detail.tracks) }
+                        Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
                         Label("Play", systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(detail.tracks.isEmpty)
+                    .disabled(playableTracks.isEmpty)
 
                     Button {
-                        self.playerService.toggleShuffle()
-                        Task { await self.playFromIndex(0, tracks: detail.tracks) }
+                        if !self.playerService.shuffleEnabled {
+                            self.playerService.toggleShuffle()
+                        }
+                        Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(detail.tracks.isEmpty)
+                    .disabled(playableTracks.isEmpty)
                 }
                 .padding(.top, 6)
             }
@@ -117,7 +127,7 @@ struct SimplePlaylistDetailView: View {
 
     private func trackList(_ tracks: [Song]) -> some View {
         VStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                 Button {
                     Task { await self.playFromIndex(index, tracks: tracks) }
                 } label: {
@@ -153,14 +163,43 @@ struct SimplePlaylistDetailView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(!track.isPlayable)
+                .opacity(track.isPlayable ? 1 : 0.5)
+                .onAppear {
+                    if index >= tracks.count - 3, self.viewModel.hasMore {
+                        Task { await self.viewModel.loadMore() }
+                    }
+                }
                 Divider().opacity(0.2)
+            }
+
+            if self.viewModel.loadingState == .loadingMore {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding()
+                    Spacer()
+                }
             }
         }
     }
 
     private func playFromIndex(_ index: Int, tracks: [Song]) async {
+        guard tracks.indices.contains(index), tracks[index].isPlayable else { return }
+
+        let playableTracks = self.playableTracks(in: tracks)
+        let playableIndex = tracks[...index].filter(\.isPlayable).count - 1
+        await self.play(playableTracks, startingAt: playableIndex)
+    }
+
+    private func play(_ tracks: [Song], startingAt index: Int) async {
         guard tracks.indices.contains(index) else { return }
         await self.playerService.playQueue(tracks, startingAt: index)
+    }
+
+    private func playableTracks(in tracks: [Song]) -> [Song] {
+        tracks.filter(\.isPlayable)
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {
@@ -183,38 +222,211 @@ struct SimpleLyricsView: View {
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
 
+    @State private var lastLoadedVideoId: String?
+    @State private var isLoadingFallback = false
+
     var body: some View {
-        VStack(spacing: 0) {
-            if self.showsHeader {
-                HStack {
-                    Text(String(localized: "Lyrics"))
-                        .font(.headline)
-                    Spacer()
-                }
-                .padding()
-                Divider().opacity(0.3)
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(String(localized: "Apple Intelligence lyric explanations require macOS 26."))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, 8)
-
-                    if let track = playerService.currentTrack {
-                        Text(track.title).font(.title3.bold())
-                        Text(track.artistsDisplay).foregroundStyle(.secondary)
-                    } else {
-                        Text(String(localized: "No track playing"))
-                            .foregroundStyle(.secondary)
+        CompatGlassContainer(spacing: 0) {
+            VStack(spacing: 0) {
+                if self.showsHeader {
+                    HStack {
+                        Text(String(localized: "Lyrics"))
+                            .font(.headline)
+                        Spacer()
                     }
+                    .padding()
+                    Divider().opacity(0.3)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+
+                self.contentView
+            }
+            .frame(width: self.preferredWidth)
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+        }
+        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+            if let videoId = newVideoId, videoId != self.lastLoadedVideoId {
+                Task { await self.loadLyrics(for: videoId) }
             }
         }
-        .frame(width: self.preferredWidth)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .task {
+            if let videoId = self.playerService.currentTrack?.videoId {
+                await self.loadLyrics(for: videoId)
+            }
+        }
+        .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
+            self.updateLyricsPolling(for: newLyrics)
+        }
+        .onDisappear {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+        .onAppear {
+            self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        if self.playerService.currentTrack == nil {
+            self.noTrackPlayingView
+        } else if self.syncedLyricsService.isLoading || self.isLoadingFallback {
+            self.loadingView
+        } else {
+            switch self.syncedLyricsService.currentLyrics {
+            case let .synced(synced):
+                SyncedLyricsDisplayView(
+                    lyrics: synced,
+                    currentTimeMs: self.playerService.currentTimeMs,
+                    onSeek: { timeMs in
+                        Task { await self.playerService.seek(to: Double(timeMs) / 1000.0) }
+                    }
+                )
+            case let .plain(plain):
+                self.plainLyricsContentView(plain)
+            case .unavailable:
+                self.noLyricsView
+            }
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.regular)
+                .frame(width: 20, height: 20)
+            Text(String(localized: "Loading lyrics..."))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func plainLyricsContentView(_ lyrics: Lyrics) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                self.appleIntelligenceUnavailableNote
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+
+                Text(lyrics.text)
+                    .font(.system(size: 15, weight: .medium))
+                    .lineSpacing(8)
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 20)
+
+                if let source = lyrics.source {
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    Text(source)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                }
+            }
+        }
+    }
+
+    private var appleIntelligenceUnavailableNote: some View {
+        Label(String(localized: "Lyric explanations require macOS 26."), systemImage: "sparkles")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private var noLyricsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "music.note")
+                .font(.system(size: 40))
+                .foregroundStyle(.tertiary)
+
+            Text(String(localized: "No Lyrics Available"))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text(String(localized: "There aren't any lyrics available for this song."))
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            self.appleIntelligenceUnavailableNote
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var noTrackPlayingView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "play.circle")
+                .font(.system(size: 40))
+                .foregroundStyle(.tertiary)
+
+            Text(String(localized: "No Song Playing"))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text(String(localized: "Play a song to view its lyrics here."))
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func updateLyricsPolling(for result: LyricResult) {
+        if case .synced = result {
+            SingletonPlayerWebView.shared.startLyricsPoll()
+        } else {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+    }
+
+    @MainActor
+    private func loadLyrics(for videoId: String) async {
+        self.lastLoadedVideoId = videoId
+        self.isLoadingFallback = false
+
+        guard let track = self.playerService.currentTrack else { return }
+        guard track.videoId == videoId else { return }
+
+        let info = LyricsSearchInfo(
+            title: track.title,
+            artist: track.artistsDisplay,
+            album: track.album?.title,
+            duration: track.duration,
+            videoId: track.videoId
+        )
+
+        if SettingsManager.shared.syncedLyricsEnabled {
+            await self.syncedLyricsService.fetchLyrics(for: info)
+        } else {
+            self.syncedLyricsService.currentLyrics = .unavailable
+            self.syncedLyricsService.activeProvider = nil
+        }
+
+        guard self.lastLoadedVideoId == videoId else { return }
+        guard self.playerService.currentTrack?.videoId == videoId else { return }
+
+        if case .unavailable = self.syncedLyricsService.currentLyrics {
+            self.isLoadingFallback = true
+            defer {
+                if self.lastLoadedVideoId == videoId {
+                    self.isLoadingFallback = false
+                }
+            }
+
+            do {
+                let fetchedLyrics = try await self.client.getLyrics(videoId: videoId)
+                if self.lastLoadedVideoId == videoId,
+                   self.playerService.currentTrack?.videoId == videoId
+                {
+                    self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+                }
+            } catch {
+                DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
+            }
+        }
     }
 }

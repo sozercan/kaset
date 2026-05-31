@@ -20,8 +20,8 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - 🕓 **History** — Revisit recently played tracks
 - 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
 - 🌍 **Localized** — Available in English, French, Korean, Indonesian, Turkish, and Arabic
-- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement
-- 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis
+- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
+- 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
 - 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`
@@ -30,7 +30,8 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 
 ## Requirements
 
-- macOS 26.0 or later
+- macOS 15.4 or later
+- Apple Intelligence features require macOS 26.0 or later
 - [Google](https://accounts.google.com) account
 
 ## Installation

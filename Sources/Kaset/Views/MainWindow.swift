@@ -141,7 +141,7 @@ struct MainWindow: View {
         }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.isCommandBarPresented {
+            if PlatformCapabilities.supportsCommandBar, self.isCommandBarPresented {
                 ZStack {
                     // Background tap area to dismiss
                     Rectangle()
@@ -172,7 +172,7 @@ struct MainWindow: View {
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
-                self.isCommandBarPresented = true
+                self.presentCommandBarIfAvailable()
                 self.showCommandBar.wrappedValue = false
             }
         }
@@ -357,19 +357,26 @@ struct MainWindow: View {
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .frame(minWidth: 900, minHeight: 600)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    self.isCommandBarPresented = true
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.primary)
+            if PlatformCapabilities.supportsCommandBar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        self.presentCommandBarIfAvailable()
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .help(String(localized: "Open Command Bar (⌘K)"))
+                    .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 }
-                .keyboardShortcut("k", modifiers: .command)
-                .help(String(localized: "Open Command Bar (⌘K)"))
-                .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
             }
         }
+    }
+
+    private func presentCommandBarIfAvailable() {
+        guard PlatformCapabilities.supportsCommandBar else { return }
+        self.isCommandBarPresented = true
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
