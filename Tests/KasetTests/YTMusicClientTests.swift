@@ -3,6 +3,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - YTMusicClientTests
+
 /// Tests for YTMusicClient.
 @Suite(.tags(.api))
 struct YTMusicClientTests {
@@ -235,5 +237,149 @@ struct YTMusicClientTests {
 
         // Should not throw for valid ID
         try await mockClient.unsubscribeFromPodcast(showId: "MPSPPLXz2p9abc123")
+    }
+}
+
+// MARK: - YTMusicAPIKeyResolverTests
+
+/// Tests for runtime resolution of the YouTube Music web client API key.
+@Suite(.serialized, .tags(.api))
+struct YTMusicAPIKeyResolverTests {
+    @Test("Extracts Innertube API key from web client HTML")
+    @MainActor
+    func extractsInnertubeAPIKey() {
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"test-api-key","INNERTUBE_API_VERSION":"v1"});"#
+
+        #expect(YTMusicAPIKeyResolver.extractInnertubeAPIKey(from: html) == "test-api-key")
+    }
+
+    @Test("Environment override is trimmed and avoids network fetch")
+    @MainActor
+    func environmentOverrideAvoidsNetworkFetch() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        MockURLProtocol.requestHandler = { _ in
+            throw URLError(.badServerResponse)
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let resolver = YTMusicAPIKeyResolver(
+            session: session,
+            environment: { name in
+                name == YTMusicAPIKeyResolver.environmentVariable ? "  env-api-key\n" : nil
+            }
+        )
+
+        let apiKey = try await resolver.resolve()
+
+        #expect(apiKey == "env-api-key")
+    }
+
+    @Test("Fetches and caches API key from mocked web client HTML")
+    @MainActor
+    func fetchesAndCachesAPIKeyFromHTML() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-html-api-key"});"#
+        nonisolated(unsafe) var requestCount = 0
+
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data(html.utf8))
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        let first = try await resolver.resolve()
+        let second = try await resolver.resolve()
+
+        #expect(first == "mock-html-api-key")
+        #expect(second == "mock-html-api-key")
+        #expect(requestCount == 1)
+    }
+
+    @Test("HTTP failures map to YTMusic API errors")
+    @MainActor
+    func httpFailureMapsToAPIError() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        MockURLProtocol.requestHandler = { request in
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 503,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data("temporarily unavailable".utf8))
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        do {
+            _ = try await resolver.resolve()
+            Issue.record("Expected resolver to throw for HTTP 503")
+        } catch let error as YTMusicError {
+            guard case let .apiError(_, code) = error else {
+                Issue.record("Expected apiError, got \(error)")
+                return
+            }
+            #expect(code == 503)
+        }
+    }
+
+    @Test("HTML without API key maps to parse error")
+    @MainActor
+    func missingAPIKeyMapsToParseError() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        MockURLProtocol.requestHandler = { request in
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data("<html></html>".utf8))
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        do {
+            _ = try await resolver.resolve()
+            Issue.record("Expected resolver to throw for missing API key")
+        } catch let error as YTMusicError {
+            guard case .parseError = error else {
+                Issue.record("Expected parseError, got \(error)")
+                return
+            }
+        }
     }
 }

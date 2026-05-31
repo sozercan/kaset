@@ -33,6 +33,9 @@
 	<key>SUAllowsAutomaticUpdates</key>
 	<true/>
 
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+
 	<!-- AppleScript Support -->
 	<key>NSAppleScriptEnabled</key>
 	<true/>

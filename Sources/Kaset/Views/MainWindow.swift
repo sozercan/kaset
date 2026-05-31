@@ -355,7 +355,7 @@ struct MainWindow: View {
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 980, minHeight: 600)
         .toolbar {
             if PlatformCapabilities.supportsCommandBar {
                 ToolbarItem(placement: .primaryAction) {
@@ -533,7 +533,7 @@ struct MainWindow: View {
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
         }
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 980, minHeight: 600)
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {

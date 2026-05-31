@@ -157,7 +157,7 @@ player WebView from `SingletonPlayerWebView+PlaybackPreferences.swift` and
 
 | Script | Injection timing | Purpose |
 |--------|------------------|---------|
-| Media control bootstrap | document start | Wraps `navigator.mediaSession.setActionHandler` so the macOS media keys can use either seek-forward/back or next/previous behavior. |
+| Media control bootstrap | document start | Wraps `navigator.mediaSession.setActionHandler` so seek-forward/back commands stay owned by Swift remote-command handlers while next/previous behavior can still be mirrored into the WebView when needed. |
 | Playback audio-quality bootstrap | document start | Stores the preferred `SettingsManager.PlaybackAudioQuality` value on `window.__kasetPlaybackAudioQuality` before YouTube's player finishes booting. |
 | Playback audio-quality override | document end | Finds candidate YouTube player APIs, asks them to use the preferred audio quality, and reports sanitized diagnostics back to Swift. |
 | Playback audio-quality sync | runtime preference changes | Updates `window.__kasetPlaybackAudioQuality` and immediately reapplies the preference if the override script is already installed. |

@@ -38,7 +38,9 @@ import Foundation
 
 // MARK: - Configuration
 
-let apiKey = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
+let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
+let webClientURL = URL(string: "https://music.youtube.com")!
+nonisolated(unsafe) var cachedAPIKey: String?
 let clientVersion = "1.20231204.01.00"
 let baseURL = "https://music.youtube.com/youtubei/v1"
 let origin = "https://music.youtube.com"
@@ -160,6 +162,65 @@ func computeSAPISIDHASH(sapisid: String) -> String {
     return "\(timestamp)_\(hashHex)"
 }
 
+// MARK: - API Key Resolution
+
+func resolveAPIKey() async throws -> String {
+    if let cachedAPIKey {
+        return cachedAPIKey
+    }
+
+    if let override = ProcessInfo.processInfo.environment[apiKeyEnvironmentVariable],
+       !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    {
+        let trimmed = override.trimmingCharacters(in: .whitespacesAndNewlines)
+        cachedAPIKey = trimmed
+        return trimmed
+    }
+
+    var request = URLRequest(url: webClientURL)
+    request.setValue(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        forHTTPHeaderField: "User-Agent"
+    )
+    let (data, response) = try await URLSession.shared.data(for: request)
+    if let httpResponse = response as? HTTPURLResponse,
+       !(200 ... 399).contains(httpResponse.statusCode)
+    {
+        throw NSError(
+            domain: "APIExplorer",
+            code: httpResponse.statusCode,
+            userInfo: [NSLocalizedDescriptionKey: "Could not load YouTube Music web client configuration"]
+        )
+    }
+
+    guard let html = String(data: data, encoding: .utf8),
+          let key = extractInnertubeAPIKey(from: html)
+    else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Could not resolve YouTube Music API configuration"]
+        )
+    }
+
+    cachedAPIKey = key
+    return key
+}
+
+func extractInnertubeAPIKey(from html: String) -> String? {
+    let pattern = #""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#
+    guard let regex = try? NSRegularExpression(pattern: pattern),
+          let match = regex.firstMatch(
+              in: html,
+              range: NSRange(html.startIndex ..< html.endIndex, in: html)
+          ),
+          let range = Range(match.range(at: 1), in: html)
+    else {
+        return nil
+    }
+    return String(html[range])
+}
+
 // MARK: - Request Builder
 
 func buildContext(brandAccountId: String? = nil) -> [String: Any] {
@@ -217,8 +278,13 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
 func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
     -> (data: [String: Any], statusCode: Int)
 {
-    let urlString = "\(baseURL)/\(endpoint)?key=\(apiKey)&prettyPrint=false"
-    guard let url = URL(string: urlString) else {
+    let apiKey = try await resolveAPIKey()
+    var components = URLComponents(string: "\(baseURL)/\(endpoint)")
+    components?.queryItems = [
+        URLQueryItem(name: "key", value: apiKey),
+        URLQueryItem(name: "prettyPrint", value: "false"),
+    ]
+    guard let url = components?.url else {
         throw NSError(
             domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]
         )
@@ -860,7 +926,14 @@ func discoverAccounts(verbose: Bool) async {
 private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
     name: String, handle: String?
 )? {
-    let url = URL(string: "\(baseURL)/account/account_menu?key=\(apiKey)")!
+    guard let apiKey = try? await resolveAPIKey() else {
+        return nil
+    }
+    var components = URLComponents(string: "\(baseURL)/account/account_menu")
+    components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+    guard let url = components?.url else {
+        return nil
+    }
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
 

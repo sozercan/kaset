@@ -14,6 +14,11 @@ on:
         description: "Optional tag/label used for naming the release asset"
         required: false
         default: ""
+      require_developer_id:
+        description: "Fail unless a Developer ID Application certificate and notarization secrets are configured"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -71,39 +76,81 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Using version: $VERSION"
 
-      - name: Import Apple Development certificate
+      - name: Configure release signing
         id: import_cert
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+          REQUIRE_DEVELOPER_ID: ${{ inputs.require_developer_id || 'false' }}
         run: |
-          # All three secrets must be present; otherwise fall back to ad-hoc.
-          # Failing partway through import would leave the workflow in a worse
-          # state than ad-hoc, so validate up front.
-          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
-            if [ -n "$MACOS_CERTIFICATE" ]; then
-              echo "WARN: MACOS_CERTIFICATE is set but MACOS_CERTIFICATE_PWD or MACOS_KEYCHAIN_PWD is missing; falling back to ad-hoc signing."
-            else
-              echo "No MACOS_CERTIFICATE secret set; falling back to ad-hoc signing."
+          set -euo pipefail
+
+          require_developer_id() {
+            [[ "$REQUIRE_DEVELOPER_ID" == "true" ]]
+          }
+
+          use_adhoc_signing() {
+            local reason="$1"
+            if require_developer_id; then
+              echo "ERROR: $reason" >&2
+              echo "Developer ID signing was required by workflow input." >&2
+              exit 1
             fi
+
+            echo "WARN: $reason" >&2
+            echo "WARN: Falling back to ad-hoc signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
             echo "identity=" >> "$GITHUB_OUTPUT"
             echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
+          }
+
+          use_development_signing() {
+            local identity_hash="$1"
+            local reason="$2"
+            if require_developer_id; then
+              echo "ERROR: $reason" >&2
+              echo "Developer ID signing was required by workflow input." >&2
+              exit 1
+            fi
+
+            echo "WARN: $reason" >&2
+            echo "WARN: Using Apple Development signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "::add-mask::$identity_hash"
+            echo "Using Apple Development signing identity."
+            echo "identity=$identity_hash" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
+          }
+
+          # Developer ID Application signing + notarization is the preferred
+          # distribution path, but it requires a paid Apple Developer Program
+          # membership. Maintainer builds without that account intentionally use
+          # Apple Development signing when the existing non-paid-account .p12 is
+          # available, then ad-hoc signing as a last resort.
+          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
+            use_adhoc_signing "MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, or MACOS_KEYCHAIN_PWD is not configured."
             exit 0
           fi
 
           KEYCHAIN_PATH="$RUNNER_TEMP/kaset-signing.keychain-db"
           CERT_PATH="$RUNNER_TEMP/cert.p12"
 
-          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          if ! printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_PATH"; then
+            use_adhoc_signing "MACOS_CERTIFICATE is not valid base64."
+            exit 0
+          fi
 
           security create-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
           # Restrict private-key access to codesign rather than -A (all apps).
-          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
+          if ! security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
             -t cert -f pkcs12 -k "$KEYCHAIN_PATH" \
-            -T /usr/bin/codesign -T /usr/bin/security
+            -T /usr/bin/codesign -T /usr/bin/security; then
+            rm -f "$CERT_PATH"
+            use_adhoc_signing "MACOS_CERTIFICATE could not be imported."
+            exit 0
+          fi
+
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH" >/dev/null
 
@@ -113,17 +160,24 @@ jobs:
 
           rm -f "$CERT_PATH"
 
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
-            | grep "Apple Development" | head -1 | sed -E 's/.*"(.+)".*/\1/')
-          if [ -z "$IDENTITY" ]; then
-            echo "ERROR: Imported keychain has no Apple Development identity"
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            exit 1
+          IDENTITY_HASH=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null \
+            | awk '/Developer ID Application/ { print $2; exit }' || true)
+          if [ -n "$IDENTITY_HASH" ]; then
+            echo "::add-mask::$IDENTITY_HASH"
+            echo "Using Developer ID Application signing identity."
+            echo "identity=$IDENTITY_HASH" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=developer-id" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          echo "Using signing identity: $IDENTITY"
-          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
-          echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
+          DEVELOPMENT_IDENTITY_HASH=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null \
+            | awk '/Apple Development/ { print $2; exit }' || true)
+          if [ -n "$DEVELOPMENT_IDENTITY_HASH" ]; then
+            use_development_signing "$DEVELOPMENT_IDENTITY_HASH" "Imported keychain has no Developer ID Application identity."
+            exit 0
+          fi
+
+          use_adhoc_signing "Imported keychain has no Developer ID Application or Apple Development identity."
 
       - name: Build release app
         env:
@@ -135,6 +189,14 @@ jobs:
           echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
+
+      - name: Verify release app
+        run: |
+          VERIFY_ARGS=()
+          if [ "${{ steps.import_cert.outputs.signing_mode }}" = "developer-id" ]; then
+            VERIFY_ARGS+=(--require-developer-id)
+          fi
+          Scripts/verify-release-app.sh "${VERIFY_ARGS[@]}" .build/app/Kaset.app
 
       - name: Cache Homebrew
         id: cache-homebrew
@@ -216,6 +278,42 @@ jobs:
       - name: Rename DMG
         run: mv kaset.dmg "${{ steps.artifact.outputs.filename }}"
 
+      - name: Sign and notarize DMG
+        env:
+          APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
+          SIGNING_MODE: ${{ steps.import_cert.outputs.signing_mode }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          FILE="${{ steps.artifact.outputs.filename }}"
+
+          if [ "$SIGNING_MODE" != "developer-id" ]; then
+            echo "Skipping DMG Developer ID signing and notarization because SIGNING_MODE=$SIGNING_MODE."
+            echo "This release will rely on checksum verification, GitHub/Homebrew transport, and Sparkle EdDSA update signatures."
+            echo "macOS Gatekeeper may warn users because Developer ID notarization requires a paid Apple Developer Program membership."
+            exit 0
+          fi
+
+          codesign --force --timestamp --sign "$APP_IDENTITY" "$FILE"
+          codesign --verify --verbose=2 "$FILE"
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "ERROR: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required for notarized Developer ID releases." >&2
+            echo "A Developer ID certificate was imported, so publishing an unnotarized DMG would be a release misconfiguration." >&2
+            exit 1
+          fi
+
+          xcrun notarytool submit "$FILE" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$FILE"
+          xcrun stapler validate "$FILE"
+          spctl --assess --type open --verbose=4 "$FILE"
+
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
@@ -250,13 +348,14 @@ jobs:
             exit 0
           fi
 
-          # Write private key to temp file
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          chmod 600 /tmp/sparkle_key
+          # Write private key to a runner-temp file and always remove it before the step exits.
+          SPARKLE_KEY_FILE=$(mktemp "$RUNNER_TEMP/kaset-sparkle-key.XXXXXX")
+          trap 'rm -f "$SPARKLE_KEY_FILE"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$SPARKLE_KEY_FILE"
+          chmod 600 "$SPARKLE_KEY_FILE"
 
-          # Sign the DMG and capture output
-          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file /tmp/sparkle_key "${{ steps.artifact.outputs.filename }}")
-          rm -f /tmp/sparkle_key
+          # Sign the DMG and capture output. Do not echo SIGN_OUTPUT: it contains the public update signature.
+          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_KEY_FILE" "${{ steps.artifact.outputs.filename }}")
 
           # Parse signature and length from output
           # Output format: sparkle:edSignature="..." length="..."
