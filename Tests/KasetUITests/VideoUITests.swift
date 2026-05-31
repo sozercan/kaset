@@ -3,6 +3,14 @@ import XCTest
 /// UI tests for Video functionality.
 @MainActor
 final class VideoUITests: KasetUITestCase {
+    private var videoWindow: XCUIElement {
+        app.windows.matching(NSPredicate(
+            format: "identifier == %@ OR label == %@",
+            TestAccessibilityID.VideoWindow.container,
+            "Video"
+        )).firstMatch
+    }
+
     // MARK: - Video Button Visibility
 
     func testVideoButtonVisibleWhenNoVideo() {
@@ -90,7 +98,7 @@ final class VideoUITests: KasetUITestCase {
         videoButton.click()
 
         // Wait for video window to appear
-        let videoWindow = app.windows[TestAccessibilityID.VideoWindow.container]
+        let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5), "Video window should appear after clicking video button")
     }
 
@@ -104,7 +112,7 @@ final class VideoUITests: KasetUITestCase {
 
         videoButton.click()
 
-        let videoWindow = app.windows[TestAccessibilityID.VideoWindow.container]
+        let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
         // Window title should be "Video"
@@ -122,7 +130,7 @@ final class VideoUITests: KasetUITestCase {
         // Open video window
         videoButton.click()
 
-        let videoWindow = app.windows[TestAccessibilityID.VideoWindow.container]
+        let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
         // Close button (red button)
@@ -151,7 +159,7 @@ final class VideoUITests: KasetUITestCase {
         // Open video window
         videoButton.click()
 
-        let videoWindow = app.windows[TestAccessibilityID.VideoWindow.container]
+        let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
         // Click video button again to close
@@ -200,7 +208,7 @@ final class VideoUITests: KasetUITestCase {
         app.typeKey("v", modifierFlags: [.command, .shift])
 
         // Wait for video window to appear as confirmation shortcut worked
-        let videoWindow = app.windows[TestAccessibilityID.VideoWindow.container]
+        let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5), "Video window should open after keyboard shortcut")
 
         // Video button should now show Playing

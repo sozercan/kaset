@@ -46,17 +46,20 @@ final class MacOS15FallbackUITests: KasetUITestCase {
         // Wait for at least one playlist row to appear. Depending on the OS
         // and SwiftUI accessibility flattening, the card title may surface as
         // either a static text or as part of the enclosing button label.
-        let firstPlaylistTitle = app.staticTexts["Playlist 0"].firstMatch
-        let firstPlaylistButton = app.buttons.matching(
+        let firstPlaylistElement = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@", "Playlist 0")
         ).firstMatch
         XCTAssertTrue(
-            waitForElement(firstPlaylistTitle, timeout: 15) || waitForElement(firstPlaylistButton, timeout: 5),
+            waitForElement(firstPlaylistElement, timeout: 15),
             "Mock library playlist should render"
         )
 
         // Click into the playlist. We accept either staticText or button
         // because the row may be wrapped differently in the fallback.
+        let firstPlaylistTitle = app.staticTexts["Playlist 0"].firstMatch
+        let firstPlaylistButton = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "Playlist 0")
+        ).firstMatch
         if firstPlaylistButton.exists {
             firstPlaylistButton.click()
         } else if firstPlaylistTitle.isHittable {
