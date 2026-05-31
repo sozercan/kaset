@@ -330,7 +330,7 @@ struct SimpleLyricsView: View {
     }
 
     private var appleIntelligenceUnavailableNote: some View {
-        Label(String(localized: "Lyric explanations require macOS 26."), systemImage: "sparkles")
+        Label(String(localized: "Apple Intelligence lyric explanations require macOS 26."), systemImage: "sparkles")
             .font(.caption)
             .foregroundStyle(.secondary)
     }
