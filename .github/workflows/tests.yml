@@ -137,6 +137,9 @@ jobs:
       - name: Build app bundle for UI tests
         env:
           KASET_SIGNING: adhoc
+          # Xcode 26 actool cannot distill Icon Composer assets on macos-15
+          # runners, but UI tests only need a launchable bundle.
+          KASET_SKIP_MAIN_ASSETS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
         run: Scripts/build-app.sh debug
 
       - name: Install app for UI tests
