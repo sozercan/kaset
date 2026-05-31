@@ -32,7 +32,7 @@ The YouTube Music API (`youtubei/v1`) is an internal API used by the YouTube Mus
 | Property | Value |
 |----------|-------|
 | Base URL | `https://music.youtube.com/youtubei/v1` |
-| API Key | `AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30` |
+| API Key | Resolved at runtime from `INNERTUBE_API_KEY` in the YouTube Music web client config |
 | Client Name | `WEB_REMIX` |
 | Client Version | `1.20231204.01.00` |
 | Protocol | HTTPS POST with JSON body |
