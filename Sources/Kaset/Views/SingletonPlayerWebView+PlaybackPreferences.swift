@@ -24,15 +24,16 @@ extension SingletonPlayerWebView {
                 } catch (e) {}
                 window.__kasetUseNextPrev = \(jsBoolean);
                 // Wrap setActionHandler at document start so YouTube's seekforward/seekbackward
-                // registrations are blocked before Control Center can reflect them. Without this
-                // the existing RAF override only clears them on the next frame, leaving a window
-                // where the macOS Now Playing widget briefly shows the 15s skip buttons.
+                // registrations stay owned by the native remote command handlers. Without this,
+                // WebKit and MPRemoteCommandCenter can both handle the same 15s skip command.
                 try {
                     var ms = navigator.mediaSession;
                     if (ms && !ms.__kasetSetActionHandlerWrapped) {
                         var orig = ms.setActionHandler.bind(ms);
                         ms.setActionHandler = function(type, handler) {
-                            if (window.__kasetUseNextPrev && (type === 'seekforward' || type === 'seekbackward')) {
+                            if (type === 'seekforward' || type === 'seekbackward'
+                                    || (!window.__kasetUseNextPrev
+                                        && (type === 'nexttrack' || type === 'previoustrack'))) {
                                 return orig(type, null);
                             }
                             return orig(type, handler);
@@ -46,7 +47,7 @@ extension SingletonPlayerWebView {
 
     static func mediaControlStyleSyncScript(useNextPrev: Bool) -> String {
         let jsBoolean = useNextPrev ? "true" : "false"
-        let restoreSeekHandlers = if useNextPrev {
+        let clearWebViewSkipHandlers = if useNextPrev {
             ""
         } else {
             """
@@ -54,16 +55,8 @@ extension SingletonPlayerWebView {
                     var ms = navigator.mediaSession;
                     ms.setActionHandler('nexttrack', null);
                     ms.setActionHandler('previoustrack', null);
-                    ms.setActionHandler('seekforward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.min(v.duration,
-                            v.currentTime + ((d && d.seekOffset) || 15));
-                    });
-                    ms.setActionHandler('seekbackward', function(d) {
-                        var v = document.querySelector('video');
-                        if (v) v.currentTime = Math.max(0,
-                            v.currentTime - ((d && d.seekOffset) || 15));
-                    });
+                    ms.setActionHandler('seekforward', null);
+                    ms.setActionHandler('seekbackward', null);
                 } catch (e) {}
             """
         }
@@ -77,7 +70,7 @@ extension SingletonPlayerWebView {
                 if (typeof window.__kasetRefreshMediaControlStyle === 'function') {
                     window.__kasetRefreshMediaControlStyle();
                 }
-                \(restoreSeekHandlers)
+                \(clearWebViewSkipHandlers)
             })();
         """
     }
