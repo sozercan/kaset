@@ -116,12 +116,10 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             // The fallback panel specifically advertises that Apple
             // Intelligence requires macOS 26. If this label disappears the
             // fallback was probably dead-coded.
-            let fallbackContent = app.descendants(matching: .any).matching(
-                NSPredicate(format: "label CONTAINS 'macOS 26' OR label CONTAINS 'mock lyrics'")
-            ).firstMatch
+            let fallbackContent = app.descendants(matching: .any)[TestAccessibilityID.Lyrics.fallbackPanel]
             XCTAssertTrue(
                 waitForElement(fallbackContent, timeout: 8),
-                "macOS 15 fallback lyrics panel should show lyrics or explain why AI explanations are absent"
+                "macOS 15 fallback lyrics panel should be active"
             )
         }
     }

@@ -262,6 +262,7 @@ struct SimpleLyricsView: View {
         .onAppear {
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
+        .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)
     }
 
     @ViewBuilder
