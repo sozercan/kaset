@@ -536,6 +536,7 @@ struct PlayerBar: View {
     private var volumeControl: some View {
         HStack(spacing: 8) {
             if self.isCompactLayout {
+                CompactVisibleActionButtons(playerNamespace: self.playerNamespace)
                 self.compactActionsMenu
             } else {
                 // Like/Dislike/Library actions
@@ -622,43 +623,6 @@ struct PlayerBar: View {
 
             Button {
                 HapticService.toggle()
-                self.playerService.dislikeCurrentTrack()
-            } label: {
-                Label(
-                    self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Dislike"),
-                    systemImage: self.playerService.currentTrackLikeStatus == .dislike
-                        ? "hand.thumbsdown.fill"
-                        : "hand.thumbsdown"
-                )
-            }
-            .disabled(self.playerService.currentTrack == nil)
-
-            Button {
-                HapticService.toggle()
-                self.playerService.likeCurrentTrack()
-            } label: {
-                Label(
-                    self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Like"),
-                    systemImage: self.playerService.currentTrackLikeStatus == .like
-                        ? "hand.thumbsup.fill"
-                        : "hand.thumbsup"
-                )
-            }
-            .disabled(self.playerService.currentTrack == nil)
-
-            Divider()
-
-            Button {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showLyrics.toggle()
-                }
-            } label: {
-                Label(String(localized: "Lyrics"), systemImage: "quote.bubble")
-            }
-
-            Button {
-                HapticService.toggle()
                 withAnimation(AppAnimation.standard) {
                     player.showQueue.toggle()
                 }
@@ -679,23 +643,6 @@ struct PlayerBar: View {
                         : "rectangle.inset.bottomright.filled"
                 )
             }
-
-            Divider()
-
-            Button {
-                guard self.playerService.currentTrackHasVideo else { return }
-                HapticService.toggle()
-                DiagnosticsLogger.player.debug(
-                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-                )
-                withAnimation(AppAnimation.standard) {
-                    player.showVideo.toggle()
-                }
-            } label: {
-                Label(String(localized: "Video"), systemImage: self.playerService.showVideo ? "tv.fill" : "tv")
-            }
-            .keyboardShortcut("v", modifiers: [.command, .shift])
-            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 15, weight: .medium))
@@ -828,6 +775,94 @@ struct PlayerBar: View {
             return "speaker.wave.1.fill"
         } else {
             return "speaker.wave.2.fill"
+        }
+    }
+}
+
+// MARK: - CompactVisibleActionButtons
+
+@available(macOS 26.0, *)
+private struct CompactVisibleActionButtons: View {
+    let playerNamespace: Namespace.ID
+
+    @Environment(PlayerService.self) private var playerService
+
+    var body: some View {
+        @Bindable var player = self.playerService
+
+        HStack(spacing: 12) {
+            Button {
+                HapticService.toggle()
+                self.playerService.dislikeCurrentTrack()
+            } label: {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
+                    ? "hand.thumbsdown.fill"
+                    : "hand.thumbsdown")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
+            .accessibilityLabel(String(localized: "Dislike"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked"))
+            .disabled(self.playerService.currentTrack == nil)
+
+            Button {
+                HapticService.toggle()
+                self.playerService.likeCurrentTrack()
+            } label: {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .like
+                    ? "hand.thumbsup.fill"
+                    : "hand.thumbsup")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
+            .accessibilityLabel(String(localized: "Like"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked"))
+            .disabled(self.playerService.currentTrack == nil)
+
+            Button {
+                HapticService.toggle()
+                withAnimation(AppAnimation.standard) {
+                    player.showLyrics.toggle()
+                }
+            } label: {
+                Image(systemName: "quote.bubble")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .glassEffectID("compactLyrics", in: self.playerNamespace)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
+            .accessibilityLabel(String(localized: "Lyrics"))
+            .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
+
+            Button {
+                guard self.playerService.currentTrackHasVideo else { return }
+                HapticService.toggle()
+                DiagnosticsLogger.player.debug(
+                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+                )
+                withAnimation(AppAnimation.standard) {
+                    player.showVideo.toggle()
+                }
+            } label: {
+                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .glassEffectID("compactVideo", in: self.playerNamespace)
+            .keyboardShortcut("v", modifiers: [.command, .shift])
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
+            .accessibilityLabel(String(localized: "Video"))
+            .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
+            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
         }
     }
 }
