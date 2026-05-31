@@ -26,6 +26,7 @@ struct MainWindow: View {
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
+    @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -141,7 +142,7 @@ struct MainWindow: View {
         }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if PlatformCapabilities.supportsCommandBar, self.isCommandBarPresented {
+            if self.supportsCommandBarUI, self.isCommandBarPresented {
                 ZStack {
                     // Background tap area to dismiss
                     Rectangle()
@@ -173,6 +174,12 @@ struct MainWindow: View {
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
                 self.presentCommandBarIfAvailable()
+                self.showCommandBar.wrappedValue = false
+            }
+        }
+        .onChange(of: self.usesLegacyMacOS15UI) { _, usesLegacyUI in
+            if usesLegacyUI {
+                self.isCommandBarPresented = false
                 self.showCommandBar.wrappedValue = false
             }
         }
@@ -357,7 +364,7 @@ struct MainWindow: View {
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .frame(minWidth: 980, minHeight: 600)
         .toolbar {
-            if PlatformCapabilities.supportsCommandBar {
+            if self.supportsCommandBarUI {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         self.presentCommandBarIfAvailable()
@@ -375,8 +382,12 @@ struct MainWindow: View {
     }
 
     private func presentCommandBarIfAvailable() {
-        guard PlatformCapabilities.supportsCommandBar else { return }
+        guard self.supportsCommandBarUI else { return }
         self.isCommandBarPresented = true
+    }
+
+    private var supportsCommandBarUI: Bool {
+        PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -390,7 +401,7 @@ struct MainWindow: View {
 
                 Group {
                     if self.playerService.showLyrics {
-                        if #available(macOS 26.0, *) {
+                        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                             LyricsView(client: client)
                         } else {
                             SimpleLyricsView(client: client)
@@ -434,7 +445,7 @@ struct MainWindow: View {
 
     @ViewBuilder
     private var commandBar: some View {
-        if #available(macOS 26.0, *) {
+        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             CommandBarView(
                 client: self.client,
                 playerService: self.playerService,
@@ -470,7 +481,7 @@ struct MainWindow: View {
                 if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
                         Group {
-                            if #available(macOS 26.0, *) {
+                            if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                                 PlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
                                     viewModel: vm
@@ -500,7 +511,7 @@ struct MainWindow: View {
     ) -> some View {
         NavigationStack {
             Group {
-                if #available(macOS 26.0, *) {
+                if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
                         playlist: item.playlistRoute,
                         viewModel: PlaylistDetailViewModel(

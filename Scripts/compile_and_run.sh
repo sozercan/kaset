@@ -14,6 +14,7 @@ LOCK_PID_FILE="${LOCK_DIR}/pid"
 WAIT_FOR_LOCK=0
 RUN_TESTS=0
 RUN_LINT=0
+BUILD_CONFIG="release"
 
 log()  { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -104,11 +105,15 @@ for arg in "$@"; do
     --wait|-w) WAIT_FOR_LOCK=1 ;;
     --test|-t) RUN_TESTS=1 ;;
     --lint|-l) RUN_LINT=1 ;;
+    --debug|-d) BUILD_CONFIG="debug" ;;
+    --release|-r) BUILD_CONFIG="release" ;;
     --help|-h)
-      log "Usage: $(basename "$0") [--wait] [--test] [--lint]"
+      log "Usage: $(basename "$0") [--wait] [--test] [--lint] [--debug|--release]"
       log "  --wait, -w    Wait if another compile is in progress"
       log "  --test, -t    Run tests before packaging"
       log "  --lint, -l    Run swiftformat and swiftlint before building"
+      log "  --debug, -d   Package a debug app bundle (shows DEBUG-only settings)"
+      log "  --release, -r Package a release app bundle (default)"
       exit 0
       ;;
     *)
@@ -134,7 +139,7 @@ if [[ "${RUN_TESTS}" == "1" ]]; then
 fi
 
 # 5) Package.
-run_step "package app" "${ROOT_DIR}/Scripts/build-app.sh"
+run_step "package app (${BUILD_CONFIG})" "${ROOT_DIR}/Scripts/build-app.sh" "${BUILD_CONFIG}"
 
 # 6) Launch the packaged app.
 log "==> Launching app"

@@ -17,6 +17,10 @@ extension EnvironmentValues {
     @Entry var showWhatsNew: Binding<Bool> = .constant(false)
 }
 
+extension EnvironmentValues {
+    @Entry var usesLegacyMacOS15UI = false
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.
@@ -139,6 +143,7 @@ struct KasetApp: App {
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
                     .environment(\.showWhatsNew, self.$showWhatsNew)
+                    .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                     .onAppear {
                         DiagnosticsLogger.app.info("KasetApp: App content appeared")
                         // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
@@ -157,7 +162,7 @@ struct KasetApp: App {
                         await self.accountService?.fetchAccounts()
 
                         // Warm up Foundation Models in background (macOS 26+ only)
-                        if #available(macOS 26.0, *) {
+                        if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
                             await FoundationModelsService.shared.warmup()
                         }
                     }
@@ -331,7 +336,7 @@ struct KasetApp: App {
                 .keyboardShortcut("f", modifiers: .command)
 
                 // Command Bar - ⌘K
-                if PlatformCapabilities.supportsCommandBar {
+                if PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.settings.useLegacyMacOS15UI) {
                     Button("Command Bar") {
                         self.showCommandBar = true
                     }
@@ -491,6 +496,7 @@ struct KasetApp: App {
 struct SettingsView: View {
     @Environment(UpdaterService.self) private var updaterService
     @Environment(ScrobblingCoordinator.self) private var scrobblingCoordinator
+    @State private var settings = SettingsManager.shared
 
     var body: some View {
         TabView {
@@ -499,7 +505,7 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
-            if #available(macOS 26.0, *) {
+            if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
                 IntelligenceSettingsView()
                     .tabItem {
                         Label("Intelligence", systemImage: "sparkles")

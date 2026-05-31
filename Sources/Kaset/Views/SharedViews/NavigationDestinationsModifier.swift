@@ -7,6 +7,7 @@ import SwiftUI
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     func body(content: Content) -> some View {
         content
@@ -28,7 +29,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                         )
                     } else {
                         // Fallback - shouldn't happen
-                        if #available(macOS 26.0, *) {
+                        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                             PlaylistDetailView(
                                 playlist: playlist,
                                 viewModel: PlaylistDetailViewModel(
@@ -47,7 +48,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                         }
                     }
                 } else {
-                    if #available(macOS 26.0, *) {
+                    if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                         PlaylistDetailView(
                             playlist: playlist,
                             viewModel: PlaylistDetailViewModel(

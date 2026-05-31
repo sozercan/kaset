@@ -102,6 +102,7 @@ struct MiniPlayerWindow: View {
 
     let client: any YTMusicClientProtocol
 
+    @State private var settings = SettingsManager.shared
     @State private var seekValue: Double = 0
     @State private var isSeeking = false
     @State private var volumeValue: Double = 1
@@ -118,6 +119,7 @@ struct MiniPlayerWindow: View {
 
             self.hoverChrome
         }
+        .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
         .contentShape(.rect)
         .onHover { hovering in
             self.isHovering = hovering
@@ -310,7 +312,7 @@ struct MiniPlayerWindow: View {
                 switch self.detailPane {
                 case .lyrics:
                     Group {
-                        if #available(macOS 26.0, *) {
+                        if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
                             LyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
                         } else {
                             SimpleLyricsView(client: self.client, showsHeader: false, preferredWidth: nil)

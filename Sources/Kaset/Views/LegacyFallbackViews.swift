@@ -304,10 +304,6 @@ struct SimpleLyricsView: View {
     private func plainLyricsContentView(_ lyrics: Lyrics) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                self.appleIntelligenceUnavailableNote
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-
                 Text(lyrics.text)
                     .font(.system(size: 15, weight: .medium))
                     .lineSpacing(8)
@@ -330,12 +326,6 @@ struct SimpleLyricsView: View {
         }
     }
 
-    private var appleIntelligenceUnavailableNote: some View {
-        Label(String(localized: "Apple Intelligence lyric explanations require macOS 26."), systemImage: "sparkles")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
-
     private var noLyricsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "music.note")
@@ -351,8 +341,6 @@ struct SimpleLyricsView: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-
-            self.appleIntelligenceUnavailableNote
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

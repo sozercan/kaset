@@ -24,6 +24,9 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
+        #if DEBUG
+            static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
+        #endif
     }
 
     // MARK: - Launch Page Options
@@ -290,6 +293,18 @@ final class SettingsManager {
         }
     }
 
+    #if DEBUG
+        /// Debug-only switch that forces the app to render macOS 15 fallback UI on newer OS versions.
+        var useLegacyMacOS15UI: Bool {
+            didSet {
+                UserDefaults.standard.set(self.useLegacyMacOS15UI, forKey: Keys.useLegacyMacOS15UI)
+            }
+        }
+    #else
+        /// Release builds always use the native UI for the host OS.
+        let useLegacyMacOS15UI = false
+    #endif
+
     // MARK: - Initialization
 
     private init() {
@@ -312,6 +327,9 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        #if DEBUG
+            self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
+        #endif
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)
