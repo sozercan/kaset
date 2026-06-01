@@ -6,6 +6,7 @@ import SwiftUI
 struct HomeSectionItemCard: View {
     let item: HomeSectionItem
     let rank: Int?
+    let playAction: (() -> Void)?
     let action: () -> Void
 
     /// Card dimensions.
@@ -16,21 +17,41 @@ struct HomeSectionItemCard: View {
     @State private var isHovering = false
     @State private var failedThumbnailURLs: Set<URL> = []
 
-    init(item: HomeSectionItem, rank: Int? = nil, action: @escaping () -> Void) {
+    init(
+        item: HomeSectionItem,
+        rank: Int? = nil,
+        playAction: (() -> Void)? = nil,
+        action: @escaping () -> Void
+    ) {
         self.item = item
         self.rank = rank
+        self.playAction = playAction
         self.action = action
     }
 
     var body: some View {
-        Button(action: self.action) {
-            if let rank {
-                self.chartContent(rank: rank)
-            } else {
-                self.regularContent
+        ZStack(alignment: .topLeading) {
+            Button(action: self.action) {
+                if let rank {
+                    self.chartContent(rank: rank)
+                } else {
+                    self.regularContent
+                }
+            }
+            .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
+
+            if self.showsPlaylistPlayButton {
+                self.playButton
             }
         }
-        .buttonStyle(.interactiveCard)
+        .scaleEffect(self.isHovering ? 1.02 : 1)
+        .shadow(
+            color: self.isHovering ? .black.opacity(0.15) : .clear,
+            radius: self.isHovering ? 12 : 0,
+            x: 0,
+            y: self.isHovering ? 4 : 0
+        )
+        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -92,16 +113,8 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        Image(systemName: "play.fill")
-                            .font(.title2)
-                            .foregroundStyle(.primary)
-                            .offset(x: 2)
-                    }
-                    .transition(.scale.combined(with: .opacity))
+                self.playButtonChrome
+                    .transition(.opacity)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -111,6 +124,35 @@ struct HomeSectionItemCard: View {
                     .padding(6)
             }
         }
+    }
+
+    private var showsPlaylistPlayButton: Bool {
+        guard case .playlist = self.item else { return false }
+        return self.playAction != nil && self.isHovering
+    }
+
+    private var playButton: some View {
+        ZStack {
+            Button {
+                self.playAction?()
+            } label: {
+                self.playButtonChrome
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
+        .transition(.opacity)
+        .accessibilityLabel(String(localized: "Play \(self.item.title)"))
+        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
+    }
+
+    private var playButtonChrome: some View {
+        Image(systemName: "play.fill")
+            .font(.title2)
+            .foregroundStyle(.primary)
+            .offset(x: 2)
+            .frame(width: 48, height: 48)
+            .compatGlass(interactive: true, in: .circle)
     }
 
     @ViewBuilder

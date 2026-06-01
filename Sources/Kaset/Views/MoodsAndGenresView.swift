@@ -84,13 +84,32 @@ struct MoodsAndGenresView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { index, item in
-            HomeSectionItemCard(item: item) {
+            HomeSectionItemCard(
+                item: item,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
                 self.playItem(item, in: section, at: index)
             }
         }
     }
 
     // MARK: - Actions
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              !MoodCategory.isMoodCategory(playlist.id)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {

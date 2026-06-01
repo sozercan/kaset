@@ -94,7 +94,11 @@ struct HomeView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { index, item in
-            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+            HomeSectionItemCard(
+                item: item,
+                rank: section.isChart ? index + 1 : nil,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
                 self.playItem(item, in: section, at: index)
             }
             .contextMenu {
@@ -104,6 +108,18 @@ struct HomeView: View {
     }
 
     // MARK: - Context Menu
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item else { return nil }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     @ViewBuilder
     private func contextMenuItems(for item: HomeSectionItem, in _: HomeSection, at _: Int) -> some View {

@@ -249,6 +249,55 @@ enum SongActionsHelper {
         }
     }
 
+    /// Plays a playlist immediately, replacing the current queue.
+    static func playPlaylist(
+        _ playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        playerService: PlayerService
+    ) {
+        Task {
+            do {
+                let response = try await client.getPlaylist(id: playlist.id)
+                var songs = response.detail.tracks
+
+                do {
+                    let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
+                    if allTracks.count >= songs.count, !allTracks.isEmpty {
+                        songs = allTracks
+                    }
+                } catch {
+                    DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
+                }
+
+                guard !songs.isEmpty else { return }
+
+                let songsWithPlaylistArtwork = songs.map { song in
+                    Song(
+                        id: song.id,
+                        title: song.title,
+                        artists: song.artists,
+                        album: song.album,
+                        duration: song.duration,
+                        thumbnailURL: song.thumbnailURL ?? playlist.thumbnailURL,
+                        videoId: song.videoId,
+                        isPlayable: song.isPlayable,
+                        hasVideo: song.hasVideo,
+                        musicVideoType: song.musicVideoType,
+                        likeStatus: song.likeStatus,
+                        isInLibrary: song.isInLibrary,
+                        feedbackTokens: song.feedbackTokens,
+                        isExplicit: song.isExplicit
+                    )
+                }
+
+                await playerService.playQueue(songsWithPlaylistArtwork, startingAt: 0)
+                DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(songsWithPlaylistArtwork.count) songs)")
+            } catch {
+                DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Permanently deletes a playlist owned by the user.
     static func deletePlaylist(
         _ playlist: Playlist,
