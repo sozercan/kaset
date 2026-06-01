@@ -4,6 +4,8 @@ import SwiftUI
 
 /// A native horizontal shelf with edge fades and glass paging controls.
 struct CarouselShelf<Content: View>: View {
+    private static var hoverBleed: CGFloat { 4 }
+
     let accessibilityLabel: String
     let fadeWidth: CGFloat
     let pageFraction: CGFloat
@@ -44,9 +46,13 @@ struct CarouselShelf<Content: View>: View {
         } action: { _, newMetrics in
             self.scrollMetrics = newMetrics
         }
+        .padding(.horizontal, Self.hoverBleed)
+        .padding(.vertical, Self.hoverBleed)
         .mask {
             self.edgeFadeMask
         }
+        .padding(.horizontal, -Self.hoverBleed)
+        .padding(.vertical, -Self.hoverBleed)
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
                 self.controlButton(for: .leading)
