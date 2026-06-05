@@ -6,31 +6,64 @@ import SwiftUI
 struct HomeSectionItemCard: View {
     let item: HomeSectionItem
     let rank: Int?
+    let playAction: (() -> Void)?
     let action: () -> Void
 
     /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
     private static let videoThumbnailSize = CGSize(width: 284, height: 160)
+    private static let playButtonSize = CGSize(width: 48, height: 48)
 
     /// Hover state for play overlay.
     @State private var isHovering = false
     @State private var failedThumbnailURLs: Set<URL> = []
 
-    init(item: HomeSectionItem, rank: Int? = nil, action: @escaping () -> Void) {
+    init(
+        item: HomeSectionItem,
+        rank: Int? = nil,
+        playAction: (() -> Void)? = nil,
+        action: @escaping () -> Void
+    ) {
         self.item = item
         self.rank = rank
+        self.playAction = playAction
         self.action = action
     }
 
     var body: some View {
-        Button(action: self.action) {
-            if let rank {
-                self.chartContent(rank: rank)
-            } else {
-                self.regularContent
+        if self.supportsPlaylistPlayAction {
+            self.cardContent
+                .accessibilityAction(named: Text("Play \(self.item.title)")) {
+                    self.playAction?()
+                }
+        } else {
+            self.cardContent
+        }
+    }
+
+    private var cardContent: some View {
+        ZStack(alignment: .topLeading) {
+            Button(action: self.action) {
+                if let rank {
+                    self.chartContent(rank: rank)
+                } else {
+                    self.regularContent
+                }
+            }
+            .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
+
+            if self.showsPlaylistPlayButton {
+                self.playButton
             }
         }
-        .buttonStyle(.interactiveCard)
+        .scaleEffect(self.isHovering ? 1.02 : 1)
+        .shadow(
+            color: self.isHovering ? .black.opacity(0.15) : .clear,
+            radius: self.isHovering ? 12 : 0,
+            x: 0,
+            y: self.isHovering ? 4 : 0
+        )
+        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -92,16 +125,8 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        Image(systemName: "play.fill")
-                            .font(.title2)
-                            .foregroundStyle(.primary)
-                            .offset(x: 2)
-                    }
-                    .transition(.scale.combined(with: .opacity))
+                self.playButtonChrome(interactive: false)
+                    .transition(.opacity)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -111,6 +136,41 @@ struct HomeSectionItemCard: View {
                     .padding(6)
             }
         }
+    }
+
+    private var showsPlaylistPlayButton: Bool {
+        self.supportsPlaylistPlayAction && self.isHovering
+    }
+
+    private var supportsPlaylistPlayAction: Bool {
+        guard case .playlist = self.item else { return false }
+        return self.playAction != nil
+    }
+
+    private var playButton: some View {
+        Button {
+            self.playAction?()
+        } label: {
+            self.playButtonChrome(interactive: true)
+        }
+        .buttonStyle(.plain)
+        .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
+        .offset(
+            x: (self.thumbnailSize.width - Self.playButtonSize.width) / 2,
+            y: (self.thumbnailSize.height - Self.playButtonSize.height) / 2
+        )
+        .transition(.opacity)
+        .accessibilityLabel(String(localized: "Play \(self.item.title)"))
+        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
+    }
+
+    private func playButtonChrome(interactive: Bool) -> some View {
+        Image(systemName: "play.fill")
+            .font(.title2)
+            .foregroundStyle(.primary)
+            .offset(x: 2)
+            .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
+            .compatGlass(interactive: interactive, in: .circle)
     }
 
     @ViewBuilder

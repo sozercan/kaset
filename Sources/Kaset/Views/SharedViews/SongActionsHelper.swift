@@ -11,6 +11,73 @@ enum SongActionsHelper {
 
     private static var artistLibraryReconciliationTasks: [String: Task<Void, Never>] = [:]
 
+    /// Whether a playlist card should expose direct playback.
+    static func canQuickPlayPlaylist(_ playlist: Playlist) -> Bool {
+        !MoodCategory.isMoodCategory(playlist.id)
+    }
+
+    private static func isRadioPlaylist(_ playlistId: String) -> Bool {
+        playlistId.contains("RDCLAK") || playlistId.hasPrefix("RD")
+    }
+
+    private static func tracksForPlaylistPlayback(browseTracks: [Song], queueTracks: [Song]) -> [Song] {
+        var browsePlayabilityByVideoId: [String: Bool] = [:]
+        for track in browseTracks {
+            browsePlayabilityByVideoId[track.videoId] = track.isPlayable
+        }
+
+        return queueTracks.map { track in
+            guard let browseIsPlayable = browsePlayabilityByVideoId[track.videoId],
+                  browseIsPlayable != track.isPlayable
+            else {
+                return track
+            }
+
+            return Song(
+                id: track.id,
+                title: track.title,
+                artists: track.artists,
+                album: track.album,
+                duration: track.duration,
+                thumbnailURL: track.thumbnailURL,
+                videoId: track.videoId,
+                isPlayable: browseIsPlayable,
+                hasVideo: track.hasVideo,
+                musicVideoType: track.musicVideoType,
+                likeStatus: track.likeStatus,
+                isInLibrary: track.isInLibrary,
+                feedbackTokens: track.feedbackTokens,
+                isExplicit: track.isExplicit
+            )
+        }
+    }
+
+    private static func loadPlaylistContinuations(
+        startingWith tracks: [Song],
+        continuationToken: String?,
+        client: any YTMusicClientProtocol
+    ) async -> [Song] {
+        var songs = tracks
+        var nextContinuationToken = continuationToken
+        var seenVideoIds = Set(songs.map(\.videoId))
+
+        while let token = nextContinuationToken {
+            do {
+                let response = try await client.getPlaylistContinuation(token: token)
+                let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
+                guard !newTracks.isEmpty else { break }
+
+                songs.append(contentsOf: newTracks)
+                nextContinuationToken = response.continuationToken
+            } catch {
+                DiagnosticsLogger.ui.debug("Falling back to loaded playlist tracks: \(error.localizedDescription)")
+                break
+            }
+        }
+
+        return songs
+    }
+
     private static func cleanedArtistPreservingMetadata(_ artist: Artist) -> Artist? {
         var cleanName = artist.name
 
@@ -246,6 +313,67 @@ enum SongActionsHelper {
             DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
         } catch {
             DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
+        }
+    }
+
+    /// Plays a playlist immediately, replacing the current queue.
+    static func playPlaylist(
+        _ playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        playerService: PlayerService
+    ) {
+        Task {
+            do {
+                let response = try await client.getPlaylist(id: playlist.id)
+                var songs = response.detail.tracks
+
+                if self.isRadioPlaylist(playlist.id) {
+                    do {
+                        let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
+                        if allTracks.count >= songs.count, !allTracks.isEmpty {
+                            songs = self.tracksForPlaylistPlayback(
+                                browseTracks: response.detail.tracks,
+                                queueTracks: allTracks
+                            )
+                        }
+                    } catch {
+                        DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
+                    }
+                } else {
+                    songs = await self.loadPlaylistContinuations(
+                        startingWith: songs,
+                        continuationToken: response.continuationToken,
+                        client: client
+                    )
+                }
+
+                let playableSongs = songs.filter(\.isPlayable)
+                guard !playableSongs.isEmpty else { return }
+
+                let songsWithPlaylistArtwork = playableSongs.map { song in
+                    Song(
+                        id: song.id,
+                        title: song.title,
+                        artists: song.artists,
+                        album: song.album,
+                        duration: song.duration,
+                        thumbnailURL: song.thumbnailURL ?? playlist.thumbnailURL,
+                        videoId: song.videoId,
+                        isPlayable: song.isPlayable,
+                        hasVideo: song.hasVideo,
+                        musicVideoType: song.musicVideoType,
+                        likeStatus: song.likeStatus,
+                        isInLibrary: song.isInLibrary,
+                        feedbackTokens: song.feedbackTokens,
+                        isExplicit: song.isExplicit
+                    )
+                }
+
+                await playerService.playQueue(songsWithPlaylistArtwork, startingAt: 0)
+                DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(songsWithPlaylistArtwork.count) songs)")
+            } catch {
+                DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
+            }
         }
     }
 

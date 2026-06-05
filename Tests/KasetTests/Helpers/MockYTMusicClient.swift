@@ -73,6 +73,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var likedSongs: [Song] = []
     var likedSongsContinuationSongs: [[Song]] = []
     var playlistDetails: [String: PlaylistDetail] = [:]
+    var playlistAllTracks: [String: [Song]] = [:]
     var playlistContinuationTracks: [String: [[Song]]] = [:]
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
@@ -638,6 +639,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song] {
         if let error = shouldThrowError { throw error }
+        if let tracks = self.playlistAllTracks[playlistId] {
+            return tracks
+        }
         guard let detail = playlistDetails[playlistId] else {
             throw YTMusicError.parseError(message: "Playlist not found: \(playlistId)")
         }
@@ -962,6 +966,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistContinuationCalled = false
         self.getPlaylistContinuationCallCount = 0
         self.getPlaylistContinuationTokens = []
+        self.playlistAllTracks = [:]
         self.getArtistCalled = false
         self.getArtistIds = []
         self.getArtistSongsCalled = false
