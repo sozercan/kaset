@@ -12,6 +12,7 @@ struct HomeSectionItemCard: View {
     /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
     private static let videoThumbnailSize = CGSize(width: 284, height: 160)
+    private static let playButtonSize = CGSize(width: 48, height: 48)
 
     /// Hover state for play overlay.
     @State private var isHovering = false
@@ -30,6 +31,17 @@ struct HomeSectionItemCard: View {
     }
 
     var body: some View {
+        if self.supportsPlaylistPlayAction {
+            self.cardContent
+                .accessibilityAction(named: Text("Play \(self.item.title)")) {
+                    self.playAction?()
+                }
+        } else {
+            self.cardContent
+        }
+    }
+
+    private var cardContent: some View {
         ZStack(alignment: .topLeading) {
             Button(action: self.action) {
                 if let rank {
@@ -127,20 +139,26 @@ struct HomeSectionItemCard: View {
     }
 
     private var showsPlaylistPlayButton: Bool {
+        self.supportsPlaylistPlayAction && self.isHovering
+    }
+
+    private var supportsPlaylistPlayAction: Bool {
         guard case .playlist = self.item else { return false }
-        return self.playAction != nil && self.isHovering
+        return self.playAction != nil
     }
 
     private var playButton: some View {
-        ZStack {
-            Button {
-                self.playAction?()
-            } label: {
-                self.playButtonChrome
-            }
-            .buttonStyle(.plain)
+        Button {
+            self.playAction?()
+        } label: {
+            self.playButtonChrome
         }
-        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
+        .buttonStyle(.plain)
+        .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
+        .offset(
+            x: (self.thumbnailSize.width - Self.playButtonSize.width) / 2,
+            y: (self.thumbnailSize.height - Self.playButtonSize.height) / 2
+        )
         .transition(.opacity)
         .accessibilityLabel(String(localized: "Play \(self.item.title)"))
         .accessibilityHint(String(localized: "Starts this playlist without opening it"))
@@ -151,7 +169,7 @@ struct HomeSectionItemCard: View {
             .font(.title2)
             .foregroundStyle(.primary)
             .offset(x: 2)
-            .frame(width: 48, height: 48)
+            .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
             .compatGlass(interactive: true, in: .circle)
     }
 
