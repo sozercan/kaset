@@ -110,7 +110,11 @@ struct HomeView: View {
     // MARK: - Context Menu
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
-        guard case let .playlist(playlist) = item else { return nil }
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
 
         return {
             SongActionsHelper.playPlaylist(

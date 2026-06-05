@@ -97,7 +97,7 @@ struct MoodsAndGenresView: View {
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,
-              !MoodCategory.isMoodCategory(playlist.id)
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
         else {
             return nil
         }
