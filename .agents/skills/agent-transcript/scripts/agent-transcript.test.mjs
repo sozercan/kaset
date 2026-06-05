@@ -569,3 +569,30 @@ test("append-body requires and applies transcript scope", () => {
   assert.match(output, /Scoped transcript guidance/);
   assert.doesNotMatch(output, /Unrelated private request/);
 });
+
+test("html preview applies PR scope when rendering candidate sessions", () => {
+  const dir = tempDir();
+  const root = path.join(dir, "sessions");
+  fs.mkdirSync(root);
+  const session = path.join(root, "session.jsonl");
+  writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated private request." }] } },
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Scoped transcript guidance." }] } },
+  ]);
+  const prs = path.join(dir, "prs.json");
+  fs.writeFileSync(
+    prs,
+    JSON.stringify([
+      {
+        number: 286,
+        title: "Scoped transcript guidance",
+        headRefName: "docs/agent-review-transcript-guidance",
+        url: "https://github.example.test/repo/pull/286",
+      },
+    ]),
+  );
+
+  const output = run(["html", "--prs", prs, "--root", root, "--min-score", "1"]);
+  assert.match(output, /Scoped transcript guidance/);
+  assert.doesNotMatch(output, /Unrelated private request/);
+});

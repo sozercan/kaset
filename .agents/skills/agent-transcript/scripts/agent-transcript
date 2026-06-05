@@ -1061,7 +1061,14 @@ async function main() {
         continue;
       }
       try {
-        const rendered = await renderTranscript({ ...args, session: candidate.file, title: pr.title, url: pr.url });
+        const renderScope = optionString(args, "scopeQuery", "scope-query") || query;
+        const rendered = await renderTranscript({
+          ...args,
+          session: candidate.file,
+          scopeQuery: renderScope,
+          title: pr.title,
+          url: pr.url,
+        });
         records.push({
           ...pr,
           session: candidate.file,

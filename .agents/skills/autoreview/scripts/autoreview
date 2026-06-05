@@ -341,8 +341,9 @@ def resolve_command(name: str, repo: Path) -> str:
 def find_command(name: str, repo: Path) -> str | None:
     command = Path(name)
     if has_directory_component(name, command):
-        base = command if command.is_absolute() else repo / command
-        return first_executable_candidate(base)
+        if not command.is_absolute():
+            raise SystemExit(f"refusing relative executable path: {name}")
+        return first_executable_candidate(command, reject_root=repo.resolve())
     for part in os.environ.get("PATH", "").split(os.pathsep):
         if not part or part == ".":
             continue
@@ -521,7 +522,36 @@ def commit_bundle(repo: Path, commit_ref: str) -> str:
     )
 
 
-def review_paths(repo: Path, target: str, target_ref: str | None, commit_ref: str) -> set[str]:
+LineRanges = dict[str, list[tuple[int, int]]]
+
+
+def review_changed_lines(repo: Path, target: str, target_ref: str | None, commit_ref: str) -> LineRanges:
+    ranges: LineRanges = {}
+    changed_paths = review_changed_paths(repo, target, target_ref, commit_ref)
+    if target == "local":
+        for patch in [
+            git(repo, "diff", "--cached", "--unified=0", "--find-renames"),
+            git(repo, "diff", "--unified=0", "--find-renames"),
+        ]:
+            merge_line_ranges(ranges, parse_changed_line_ranges(patch))
+        for rel in git(repo, "ls-files", "--others", "--exclude-standard").splitlines():
+            path = rel.strip()
+            if path:
+                ranges.setdefault(path, []).append((1, max(1, file_line_count(repo / path))))
+    elif target == "branch":
+        assert target_ref
+        patch = git(repo, "diff", "--unified=0", "--find-renames", f"{target_ref}...HEAD")
+        merge_line_ranges(ranges, parse_changed_line_ranges(patch))
+    else:
+        patch = git(repo, "show", "--unified=0", "--find-renames", "--format=", commit_ref)
+        merge_line_ranges(ranges, parse_changed_line_ranges(patch))
+    for path in changed_paths:
+        if path not in ranges or not ranges[path]:
+            ranges[path] = [(1, 1)]
+    return {path: path_ranges for path, path_ranges in ranges.items() if path in changed_paths}
+
+
+def review_changed_paths(repo: Path, target: str, target_ref: str | None, commit_ref: str) -> set[str]:
     names: set[str] = set()
     if target == "local":
         sources = [
@@ -542,12 +572,81 @@ def review_paths(repo: Path, target: str, target_ref: str | None, commit_ref: st
     return names
 
 
+def merge_line_ranges(target: LineRanges, source: LineRanges) -> None:
+    for rel, rel_ranges in source.items():
+        target.setdefault(rel, []).extend(rel_ranges)
+
+
+def parse_changed_line_ranges(patch: str) -> LineRanges:
+    ranges: LineRanges = {}
+    current_path: str | None = None
+    old_path: str | None = None
+    current_deleted_file = False
+    in_hunk = False
+    for line in patch.splitlines():
+        if line.startswith("diff --git "):
+            current_path = None
+            old_path = None
+            current_deleted_file = False
+            in_hunk = False
+            continue
+        if not in_hunk and line.startswith("--- "):
+            raw = line[4:].strip()
+            old_path = None if raw == "/dev/null" else strip_diff_prefix(raw)
+            continue
+        if not in_hunk and line.startswith("+++ "):
+            raw = line[4:].strip()
+            current_deleted_file = raw == "/dev/null"
+            current_path = old_path if current_deleted_file else strip_diff_prefix(raw)
+            if current_path:
+                ranges.setdefault(current_path, [])
+                if current_deleted_file:
+                    ranges[current_path].append((1, sys.maxsize))
+            continue
+        if not current_path or not line.startswith("@@ "):
+            continue
+        in_hunk = True
+        if current_deleted_file:
+            continue
+        match = re.search(r"-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?", line)
+        if not match:
+            continue
+        old_start = int(match.group(1))
+        old_count = int(match.group(2) or "1")
+        new_start = int(match.group(3))
+        new_count = int(match.group(4) or "1")
+        if new_count > 0:
+            ranges.setdefault(current_path, []).append((new_start, new_start + new_count - 1))
+        if old_count > 0:
+            ranges.setdefault(current_path, []).append((old_start, old_start + old_count - 1))
+        elif new_count == 0:
+            anchor = max(1, new_start)
+            ranges.setdefault(current_path, []).append((anchor, anchor))
+    return ranges
+
+
+def strip_diff_prefix(path_text: str) -> str:
+    if path_text.startswith("a/") or path_text.startswith("b/"):
+        return path_text[2:]
+    return path_text
+
+
+def file_line_count(path: Path) -> int:
+    text = read_text(path)
+    if text.startswith("[") and text.endswith(" omitted]"):
+        return 1
+    return max(1, len(text.splitlines()))
+
+
 def load_extra_prompt(args: argparse.Namespace) -> str:
     chunks: list[str] = []
     for value in args.prompt or []:
-        chunks.append(value)
+        chunks.append(redact_review_text(value))
     for path in args.prompt_file or []:
-        chunks.append(Path(path).read_text())
+        prompt_path = Path(path)
+        if prompt_path.is_dir():
+            raise SystemExit(f"--prompt-file must be a file, got directory: {prompt_path}")
+        chunks.append(f"# Prompt file: {prompt_path.name}\n{read_untracked_text(prompt_path, str(prompt_path))}")
     return "\n\n".join(chunks)
 
 
@@ -963,7 +1062,7 @@ def parse_json_candidate(text: str) -> Any | None:
     return parsed
 
 
-def validate_report(report: dict[str, Any], repo: Path, changed_paths: set[str], required: list[str]) -> None:
+def validate_report(report: dict[str, Any], repo: Path, changed_lines: LineRanges, required: list[str]) -> None:
     allowed_top = {"findings", "overall_correctness", "overall_explanation", "overall_confidence"}
     extra_top = set(report) - allowed_top
     if extra_top:
@@ -1017,7 +1116,7 @@ def validate_report(report: dict[str, Any], repo: Path, changed_paths: set[str],
             raise SystemExit(f"finding {index} has invalid location: {location}")
         if Path(rel).is_absolute() or ".." in Path(rel).parts:
             raise SystemExit(f"finding {index} uses invalid file path: {rel}")
-        if rel not in changed_paths:
+        if rel not in changed_lines or not line_in_ranges(line, changed_lines[rel]):
             ignored_findings.append((index, finding, rel, line))
             continue
         kept_findings.append(finding)
@@ -1044,6 +1143,10 @@ def validate_report(report: dict[str, Any], repo: Path, changed_paths: set[str],
 
 def number_in_range(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 1
+
+
+def line_in_ranges(line: int, ranges: list[tuple[int, int]]) -> bool:
+    return any(start <= line <= end for start, end in ranges)
 
 
 def print_report(report: dict[str, Any], *, label: str = "autoreview") -> None:
@@ -1235,12 +1338,12 @@ def reviewer_label(args: argparse.Namespace) -> str:
     return " ".join(parts)
 
 
-def run_reviewer(args: argparse.Namespace, repo: Path, prompt: str, changed_paths: set[str], required: list[str]) -> dict[str, Any]:
+def run_reviewer(args: argparse.Namespace, repo: Path, prompt: str, changed_lines: LineRanges, required: list[str]) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="autoreview-workspace.") as tempdir:
         workspace = prepare_review_workspace(Path(tempdir), prompt)
         raw = run_engine(args, repo, workspace, prompt)
     report = extract_json(raw)
-    validate_report(report, repo, changed_paths, required)
+    validate_report(report, repo, changed_lines, required)
     return report
 
 
@@ -1272,12 +1375,12 @@ def merge_panel_reports(reports: list[tuple[str, dict[str, Any]]]) -> dict[str, 
     }
 
 
-def run_panel(args: argparse.Namespace, reviewers: list[argparse.Namespace], repo: Path, prompt: str, changed_paths: set[str]) -> dict[str, Any]:
+def run_panel(args: argparse.Namespace, reviewers: list[argparse.Namespace], repo: Path, prompt: str, changed_lines: LineRanges) -> dict[str, Any]:
     reports: list[tuple[str, dict[str, Any]]] = []
     failures: list[str] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(reviewers)) as executor:
         future_by_label = {
-            executor.submit(run_reviewer, reviewer, repo, prompt, changed_paths, []): reviewer_label(reviewer)
+            executor.submit(run_reviewer, reviewer, repo, prompt, changed_lines, []): reviewer_label(reviewer)
             for reviewer in reviewers
         }
         for future in concurrent.futures.as_completed(future_by_label):
@@ -1297,7 +1400,7 @@ def run_panel(args: argparse.Namespace, reviewers: list[argparse.Namespace], rep
         raise SystemExit("autoreview panel produced no reports")
     reports.sort(key=lambda item: item[0])
     report = merge_panel_reports(reports)
-    validate_report(report, repo, changed_paths, args.require_finding)
+    validate_report(report, repo, changed_lines, args.require_finding)
     return report
 
 
@@ -1333,7 +1436,7 @@ def main() -> int:
         bundle = commit_bundle(repo, args.commit)
         target_ref = args.commit
     prompt = build_prompt(repo, target, target_ref, bundle, load_extra_prompt(args), load_datasets(args))
-    changed_paths = review_paths(repo, target, target_ref, args.commit)
+    changed_lines = review_changed_lines(repo, target, target_ref, args.commit)
     print(f"bundle: {len(prompt)} chars")
 
     tests_proc: tuple[subprocess.Popen, float] | None = None
@@ -1341,10 +1444,10 @@ def main() -> int:
         tests_proc = start_parallel_tests(args.parallel_tests, repo, args.parallel_tests_shell)
     try:
         if len(reviewers) == 1:
-            report = run_reviewer(reviewers[0], repo, prompt, changed_paths, args.require_finding)
+            report = run_reviewer(reviewers[0], repo, prompt, changed_lines, args.require_finding)
             label = "autoreview"
         else:
-            report = run_panel(args, reviewers, repo, prompt, changed_paths)
+            report = run_panel(args, reviewers, repo, prompt, changed_lines)
             label = "autoreview panel"
         if args.json_output:
             Path(args.json_output).write_text(json.dumps(report, indent=2) + "\n")
