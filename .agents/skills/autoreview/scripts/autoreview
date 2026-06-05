@@ -62,11 +62,11 @@ REVIEW_BUNDLE_REDACTIONS = [
     (COOKIE_ASSIGNMENT_RE, "[REDACTED_COOKIE]"),
     (AUTH_URL_RE, "[REDACTED_AUTH_URL]"),
     (SERVICE_CREDENTIAL_URL_RE, "[REDACTED_CREDENTIAL_URL]"),
-    (re.compile(r"/Users/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
-    (re.compile(r"/home/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
+    (re.compile(r"/Users/(?!\[)[^\s`\"'>)]+"), "[LOCAL_PATH]"),
+    (re.compile(r"/home/(?!\[)[^\s`\"'>)]+"), "[LOCAL_PATH]"),
     (re.compile(r"/(?:private/var/folders|var/folders|tmp)/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
     (re.compile(r"[A-Za-z]:\\Users\\[^\s`\"'>)]+"), "[LOCAL_PATH]"),
-    (re.compile(r"~/[^\s`\"'>)]+"), "[HOME_PATH]"),
+    (re.compile(r"~/(?!\[)[^\s`\"'>)]+"), "[HOME_PATH]"),
     (
         re.compile(
             r"([?&](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|"
