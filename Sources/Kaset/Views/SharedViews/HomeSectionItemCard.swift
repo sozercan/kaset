@@ -125,7 +125,7 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                self.playButtonChrome
+                self.playButtonChrome(interactive: false)
                     .transition(.opacity)
             }
         }
@@ -151,7 +151,7 @@ struct HomeSectionItemCard: View {
         Button {
             self.playAction?()
         } label: {
-            self.playButtonChrome
+            self.playButtonChrome(interactive: true)
         }
         .buttonStyle(.plain)
         .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
@@ -164,13 +164,13 @@ struct HomeSectionItemCard: View {
         .accessibilityHint(String(localized: "Starts this playlist without opening it"))
     }
 
-    private var playButtonChrome: some View {
+    private func playButtonChrome(interactive: Bool) -> some View {
         Image(systemName: "play.fill")
             .font(.title2)
             .foregroundStyle(.primary)
             .offset(x: 2)
             .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
-            .compatGlass(interactive: true, in: .circle)
+            .compatGlass(interactive: interactive, in: .circle)
     }
 
     @ViewBuilder
