@@ -20,7 +20,8 @@ from typing import Any, Callable
 
 ENGINES = ("codex", "claude", "droid", "copilot")
 SENSITIVE_UNTRACKED_PATH = re.compile(
-    r"(^|/)(\.env(?:[./_-]|$)|\.npmrc$|\.netrc$|\.git-credentials$|credentials$|\.docker/config\.json$|"
+    r"(^|/)(\.envrc(?:[./_-]|$)|\.env(?:[./_-]|$)|\.direnv(?:/|$)|"
+    r"\.npmrc$|\.netrc$|\.git-credentials$|credentials$|\.docker/config\.json$|"
     r".*(?:auth|cookie|credential|secret|token).*\.(?:json|log|txt|env)|"
     r".*(?:id_rsa|id_ed25519|known_hosts|\.pem|\.p12|\.pfx|\.key|\.p8)$)",
     re.IGNORECASE,
@@ -556,12 +557,13 @@ def load_datasets(args: argparse.Namespace) -> str:
         path = Path(spec)
         if path.is_dir():
             raise SystemExit(f"--dataset must be a file, got directory: {path}")
-        chunks.append(f"# Dataset: {path}\n{read_untracked_text(path, str(path))}")
+        chunks.append(f"# Dataset: {path.name}\n{read_untracked_text(path, str(path))}")
     return "\n\n".join(chunks)
 
 
 def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, extra_prompt: str, datasets: str) -> str:
     target_line = f"{target} {target_ref}" if target_ref else target
+    repo_label = repo.name or "repository"
     return textwrap.dedent(
         f"""
         You are a senior code reviewer. Review the provided git change bundle only.
@@ -573,7 +575,8 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
         - Do not modify files.
         - Do not invoke nested reviewers or review tools.
         - Forbidden nested review commands include: codex review, autoreview, claude review, oracle review.
-        - You may use read-only tools and web search to inspect files, dependency contracts, upstream docs, current behavior, and security implications.
+        - You may use read-only tools and web search to inspect the sanitized review workspace, dependency contracts, upstream docs, current behavior, and security implications.
+        - The real checkout path is intentionally not provided. Treat the change bundle below as authoritative; do not look for another local checkout.
         - Shell commands, if available, must be read-only inspection commands. Do not run tests, formatters, package installs, generators, network mutation commands, git mutation commands, or commands that write files.
         - Report only actionable defects introduced or exposed by this change.
         - Prefer high-signal findings over style feedback.
@@ -583,7 +586,7 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
         - If there are no actionable findings, return an empty findings array and mark the patch correct.
 
         Review target: {target_line}
-        Repository: {repo}
+        Repository: {repo_label}
 
         {extra_prompt}
 
@@ -595,18 +598,24 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
     ).strip()
 
 
-def write_json_temp(data: dict[str, Any]) -> Path:
-    handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
-    with handle:
-        json.dump(data, handle)
-    return Path(handle.name)
+def prepare_review_workspace(root: Path, prompt: str) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    prompt_path = root / "review-prompt.md"
+    prompt_path.write_text(prompt)
+    os.chmod(prompt_path, 0o600)
+    (root / "README.md").write_text(
+        "This is a sanitized autoreview workspace. It intentionally contains only the review prompt and helper control files.\n"
+    )
+    return root
 
 
-def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_codex(args: argparse.Namespace, repo: Path, workspace: Path, prompt: str) -> str:
     if not args.tools:
         raise SystemExit("--no-tools is not supported by the Codex engine; use --engine claude --no-tools for a no-tools run")
-    schema_path = write_json_temp(SCHEMA)
-    output_path = Path(tempfile.NamedTemporaryFile("w", suffix=".json", delete=False).name)
+    schema_path = workspace / "output-schema.json"
+    schema_path.write_text(json.dumps(SCHEMA))
+    os.chmod(schema_path, 0o600)
+    output_path = workspace / "last-message.json"
     cmd = [resolve_command(args.codex_bin, repo), "--ask-for-approval", "never"]
     if args.web_search:
         cmd.append("--search")
@@ -622,7 +631,8 @@ def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
         [
             "--ephemeral",
             "-C",
-            str(repo),
+            str(workspace),
+            "--skip-git-repo-check",
             "-s",
             "read-only",
             "--output-schema",
@@ -634,23 +644,19 @@ def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
     )
     result = run_with_heartbeat(
         cmd,
-        repo,
+        workspace,
         input_text=prompt,
         label="codex",
         stream_output=args.stream_engine_output,
         stream_display=CodexStreamDisplay() if args.stream_engine_output else None,
     )
-    try:
-        output = output_path.read_text()
-    finally:
-        schema_path.unlink(missing_ok=True)
-        output_path.unlink(missing_ok=True)
+    output = output_path.read_text() if output_path.exists() else ""
     if result.returncode != 0:
         raise SystemExit(f"codex engine failed ({result.returncode})\n{result.stderr or result.stdout}")
     return output or result.stdout
 
 
-def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_claude(args: argparse.Namespace, repo: Path, workspace: Path, prompt: str) -> str:
     cmd = [
         resolve_command(args.claude_bin, repo),
         "--print",
@@ -673,7 +679,7 @@ def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
         cmd.extend(["--effort", args.thinking])
     result = run_with_heartbeat(
         cmd,
-        repo,
+        workspace,
         input_text=prompt,
         label="claude",
         stream_output=args.stream_engine_output,
@@ -684,16 +690,17 @@ def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
     return result.stdout
 
 
-def run_droid(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_droid(args: argparse.Namespace, repo: Path, workspace: Path, prompt: str) -> str:
     if args.thinking:
         raise SystemExit("--thinking is not supported by the droid engine")
-    prompt_path = Path(tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False).name)
+    prompt_path = workspace / "droid-prompt.txt"
     prompt_path.write_text(prompt)
+    os.chmod(prompt_path, 0o600)
     cmd = [
         resolve_command(args.droid_bin, repo),
         "exec",
         "--cwd",
-        str(repo),
+        str(workspace),
         "--output-format",
         "json",
         "-f",
@@ -702,45 +709,40 @@ def run_droid(args: argparse.Namespace, repo: Path, prompt: str) -> str:
     if args.model:
         cmd.extend(["--model", args.model])
     cmd.extend(["--disabled-tools", "*"])
-    result = run_with_heartbeat(cmd, repo, label="droid", stream_output=args.stream_engine_output)
-    prompt_path.unlink(missing_ok=True)
+    result = run_with_heartbeat(cmd, workspace, label="droid", stream_output=args.stream_engine_output)
     if result.returncode != 0:
         raise SystemExit(f"droid engine failed ({result.returncode})\n{result.stderr or result.stdout}")
     return result.stdout
 
 
-def run_copilot(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_copilot(args: argparse.Namespace, repo: Path, workspace: Path, prompt: str) -> str:
     if args.thinking:
         raise SystemExit("--thinking is not supported by the copilot engine")
     if not args.tools:
         raise SystemExit("--no-tools is not supported by the copilot engine; copilot requires a read-only file view tool to load the review bundle without exposing it in argv")
-    with tempfile.TemporaryDirectory(prefix="autoreview-copilot.") as tempdir:
-        prompt_path = Path(tempdir) / "prompt.txt"
-        prompt_path.write_text(prompt)
-        os.chmod(prompt_path, 0o600)
-        cmd = [
-            resolve_command(args.copilot_bin, repo),
-            "-C",
-            tempdir,
-            "-p",
-            "Read ./prompt.txt and follow it exactly. Return only the requested JSON object.",
-            "--output-format",
-            "json",
-            "--stream",
-            "on" if args.stream_engine_output else "off",
-            "--no-ask-user",
-            "--disable-builtin-mcps",
-        ]
-        if args.model:
-            cmd.extend(["--model", args.model])
-        tools = ["read_agent", "rg", "view"]
-        if args.web_search:
-            tools.append("web_fetch")
-            cmd.append("--allow-all-urls")
-        cmd.append(f"--available-tools={','.join(tools)}")
-        for tool in tools:
-            cmd.append(f"--allow-tool={tool}")
-        result = run_with_heartbeat(cmd, Path(tempdir), label="copilot", stream_output=args.stream_engine_output)
+    cmd = [
+        resolve_command(args.copilot_bin, repo),
+        "-C",
+        str(workspace),
+        "-p",
+        "Read ./review-prompt.md and follow it exactly. Return only the requested JSON object.",
+        "--output-format",
+        "json",
+        "--stream",
+        "on" if args.stream_engine_output else "off",
+        "--no-ask-user",
+        "--disable-builtin-mcps",
+    ]
+    if args.model:
+        cmd.extend(["--model", args.model])
+    tools = ["read_agent", "rg", "view"]
+    if args.web_search:
+        tools.append("web_fetch")
+        cmd.append("--allow-all-urls")
+    cmd.append(f"--available-tools={','.join(tools)}")
+    for tool in tools:
+        cmd.append(f"--allow-tool={tool}")
+    result = run_with_heartbeat(cmd, workspace, label="copilot", stream_output=args.stream_engine_output)
     if result.returncode != 0:
         raise SystemExit(f"copilot engine failed ({result.returncode})\n{result.stderr or result.stdout}")
     return result.stdout
@@ -1138,15 +1140,15 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def run_engine(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_engine(args: argparse.Namespace, repo: Path, workspace: Path, prompt: str) -> str:
     if args.engine == "codex":
-        return run_codex(args, repo, prompt)
+        return run_codex(args, repo, workspace, prompt)
     if args.engine == "claude":
-        return run_claude(args, repo, prompt)
+        return run_claude(args, repo, workspace, prompt)
     if args.engine == "droid":
-        return run_droid(args, repo, prompt)
+        return run_droid(args, repo, workspace, prompt)
     if args.engine == "copilot":
-        return run_copilot(args, repo, prompt)
+        return run_copilot(args, repo, workspace, prompt)
     raise SystemExit(f"unsupported engine: {args.engine}")
 
 
@@ -1234,7 +1236,9 @@ def reviewer_label(args: argparse.Namespace) -> str:
 
 
 def run_reviewer(args: argparse.Namespace, repo: Path, prompt: str, changed_paths: set[str], required: list[str]) -> dict[str, Any]:
-    raw = run_engine(args, repo, prompt)
+    with tempfile.TemporaryDirectory(prefix="autoreview-workspace.") as tempdir:
+        workspace = prepare_review_workspace(Path(tempdir), prompt)
+        raw = run_engine(args, repo, workspace, prompt)
     report = extract_json(raw)
     validate_report(report, repo, changed_paths, required)
     return report
