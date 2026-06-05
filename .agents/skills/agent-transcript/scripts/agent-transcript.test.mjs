@@ -367,6 +367,22 @@ test("render drops raw tool outputs but keeps a compact tool summary", () => {
   assert.doesNotMatch(output, /sk-abcdefghijklmnopqrstuvwxyz123456/);
 });
 
+test("render omits tool summary for scoped transcripts", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated request." }] } },
+    { type: "response_item", payload: { type: "function_call", name: "exec_command", arguments: "npm test" } },
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Scoped transcript guidance." }] } },
+  ]);
+
+  const output = run(["render", "--session", session, "--scope-query", "transcript guidance"]);
+  assert.match(output, /Scoped transcript guidance/);
+  assert.doesNotMatch(output, /tool summary/);
+  assert.doesNotMatch(output, /Unrelated request/);
+  assert.match(output, /"toolCalls":0/);
+});
+
 test("render drops nested Claude tool result rows", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");

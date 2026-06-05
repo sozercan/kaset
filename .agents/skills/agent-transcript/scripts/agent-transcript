@@ -455,15 +455,27 @@ function scopeTerms(options) {
   ];
 }
 
+function hasScope(options) {
+  return scopeTerms(options).length > 0;
+}
+
 function requireScopedPublicTranscript(command, options) {
-  if (scopeTerms(options).length || allowUnscoped(options)) return;
+  if (hasScope(options) || allowUnscoped(options)) return;
   throw new Error(`--scope-query is required for ${command}; use --allow-unscoped only for local inspection`);
 }
 
 function requireNonEmptyScopedTranscript(rendered, options) {
-  if (scopeTerms(options).length && rendered.stats.entries === 0) {
+  if (hasScope(options) && rendered.stats.entries === 0) {
     throw new Error("scoped transcript is empty; not adding Agent Transcript section");
   }
+}
+
+function trimScopedStats(stats, options) {
+  if (!hasScope(options)) return;
+  stats.rawEntries = stats.entries;
+  stats.toolCalls = 0;
+  stats.toolOutputsDropped = 0;
+  stats.web = 0;
 }
 
 function applyScope(entries, options) {
@@ -619,12 +631,13 @@ function renderSession(file, options = {}) {
     if (role === "assistant") stats.assistant++;
   }
   const scopedItems = applyScope(items, options);
-  if (toolCounts.size && scopedItems.length) {
+  if (!hasScope(options) && toolCounts.size && scopedItems.length) {
     scopedItems.push(`[tool summary]\n${compactToolSummary(toolCounts, stats.toolOutputsDropped)}`);
     stats.entries++;
   }
   const renderedItems = coalesceEntries(scopedItems);
   recountEntries(stats, renderedItems);
+  trimScopedStats(stats, options);
   const maxChars = optionNumber(options, "maxChars", "max-chars", DEFAULT_MAX_CHARS);
   let joined = renderedItems.join("\n\n");
   if (joined.length > maxChars) joined = `${joined.slice(0, maxChars).trimEnd()}\n\n...[transcript truncated to ${maxChars} chars]`;
@@ -780,6 +793,7 @@ async function renderThread(threadId, options = {}) {
   }
   const renderedItems = coalesceEntries(applyScope(items, options));
   recountEntries(stats, renderedItems);
+  trimScopedStats(stats, options);
   const maxChars = optionNumber(options, "maxChars", "max-chars", DEFAULT_MAX_CHARS);
   let joined = renderedItems.join("\n\n");
   if (joined.length > maxChars) joined = `${joined.slice(0, maxChars).trimEnd()}\n\n...[transcript truncated to ${maxChars} chars]`;
