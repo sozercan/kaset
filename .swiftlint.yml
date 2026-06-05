@@ -81,6 +81,7 @@ custom_rules:
     severity: error
     excluded:
       - "Sources/Kaset/Services/NetworkMonitor.swift"  # NWPathMonitor requires DispatchQueue
+      - "Sources/Kaset/Services/NowPlaying/LocalNowPlayingBridgeAdapter.swift"  # NWListener/NWConnection require DispatchQueue
 
   no_print:
     name: "No print statements"
