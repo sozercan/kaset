@@ -880,10 +880,9 @@ def run_copilot(args: argparse.Namespace, repo: Path, workspace: Path, prompt: s
     ]
     if args.model:
         cmd.extend(["--model", args.model])
+    # Copilot's URL fetch support requires --allow-all-urls. The review prompt
+    # contains an untrusted change bundle, so do not expose arbitrary fetches.
     tools = ["read_agent", "rg", "view"]
-    if args.web_search:
-        tools.append("web_fetch")
-        cmd.append("--allow-all-urls")
     cmd.append(f"--available-tools={','.join(tools)}")
     for tool in tools:
         cmd.append(f"--allow-tool={tool}")
