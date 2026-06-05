@@ -28,7 +28,7 @@ SENSITIVE_UNTRACKED_PATH = re.compile(
 )
 SENSITIVE_UNTRACKED_TEXT = re.compile(
     r"BEGIN [A-Z ]*PRIVATE KEY|github_pat_|gh[pousr]_|AIza[0-9A-Za-z_-]{20,}|SAPISID|"
-    r"Cookie:|Set-Cookie:|[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=",
+    r"Cookie:|Set-Cookie:|[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=",
     re.IGNORECASE,
 )
 COOKIE_ASSIGNMENT_RE = re.compile(
@@ -39,6 +39,10 @@ COOKIE_ASSIGNMENT_RE = re.compile(
 AUTH_URL_RE = re.compile(
     r"\bhttps?://[^\s`\"'<>]*(?:[?&](?:code|state|oauth_token|oauth_verifier|id_token|"
     r"refresh_token|session_state|access_token|auth)=)[^\s`\"'<>]*",
+    re.IGNORECASE,
+)
+SERVICE_CREDENTIAL_URL_RE = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9+.-]*://[^\s`\"'<>/@:]*:[^\s`\"'<>/@]+@[^\s`\"'<>]+",
     re.IGNORECASE,
 )
 REVIEW_BUNDLE_REDACTIONS = [
@@ -57,6 +61,7 @@ REVIEW_BUNDLE_REDACTIONS = [
     (re.compile(r"(\b(?:Cookie|Set-Cookie):\s*)[^\r\n`\"']+", re.IGNORECASE), r"\1[REDACTED_COOKIE_HEADER]"),
     (COOKIE_ASSIGNMENT_RE, "[REDACTED_COOKIE]"),
     (AUTH_URL_RE, "[REDACTED_AUTH_URL]"),
+    (SERVICE_CREDENTIAL_URL_RE, "[REDACTED_CREDENTIAL_URL]"),
     (re.compile(r"/Users/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
     (re.compile(r"/home/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
     (re.compile(r"/(?:private/var/folders|var/folders|tmp)/[^\s`\"'>)]+"), "[LOCAL_PATH]"),
@@ -71,12 +76,27 @@ REVIEW_BUNDLE_REDACTIONS = [
         r"\1[REDACTED]",
     ),
     (
-        re.compile(r"\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=\s*[^\s`\"'<>&]+"),
+        re.compile(
+            r"(?:(?<!const )(?<!let )(?<!var )"
+            r"\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
+            r"[\"']?(?!re\.compile\()[^\s`\"'<>&]+|"
+            r"(?:(?<=const )|(?<=let )|(?<=var ))"
+            r"\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
+            r"[\"'][^\s`\"'<>&]+|"
+            r"(?:(?<=const )|(?<=let )|(?<=var ))"
+            r"\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
+            r"[\"']?(?!/)(?!re\.compile\()[^\s`\"'<>&]+)"
+        ),
         "[REDACTED_ENV_SECRET]",
     ),
 ]
 UNRESOLVED_SECRET_RE = re.compile(
-    r"(?ix)\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*"
+    r"(?ix)(?:(?<!const\ )(?<!let\ )(?<!var\ )"
+    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*"
+    r"(?!(?:re\.compile\())|"
+    r"(?:(?<=const\ )|(?<=let\ )|(?<=var\ ))"
+    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*"
+    r"(?!/)(?!(?:re\.compile\()))"
     r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
     r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
     r"[\"']?[A-Za-z0-9_./+=:-]{8,}"

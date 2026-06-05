@@ -10,7 +10,24 @@ const MARKER_START = "<!-- agent-transcript:start -->";
 const MARKER_END = "<!-- agent-transcript:end -->";
 const DEFAULT_MAX_CHARS = 50000;
 const DEFAULT_ENTRY_MAX_CHARS = 6000;
-const SCOPE_STOP_WORDS = new Set(["agent", "branch", "change", "changes", "issue", "pull", "request", "the", "this", "with"]);
+const SCOPE_STOP_WORDS = new Set([
+  "agent",
+  "branch",
+  "change",
+  "changes",
+  "com",
+  "github",
+  "http",
+  "https",
+  "issue",
+  "issues",
+  "pull",
+  "request",
+  "the",
+  "this",
+  "with",
+  "www",
+]);
 const COOKIE_ASSIGNMENT =
   /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/i;
 const COOKIE_ASSIGNMENT_GLOBAL =
@@ -19,12 +36,16 @@ const AUTH_QUERY_PARAM =
   /([?&](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
 const AUTH_URL =
   /\bhttps?:\/\/[^\s`"'<>]*(?:[?&](?:code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state|access_token|auth)=)[^\s`"'<>]*/i;
+const SERVICE_CREDENTIAL_URL =
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s`"'<>/@:]*:[^\s`"'<>/@]+@[^\s`"'<>]+/i;
+const SERVICE_CREDENTIAL_URL_GLOBAL =
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s`"'<>/@:]*:[^\s`"'<>/@]+@[^\s`"'<>]+/gi;
 const SECRET_ENV_ASSIGNMENT =
-  /\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=\s*[^\s`"'<>&]+/;
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/;
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
-  /\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=\s*[^\s`"'<>&]+/g;
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/g;
 const UNRESOLVED_SECRET_FIELD =
-  /\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)["']?[A-Za-z0-9_./+=:-]{8,}/i;
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*(?!\/))(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)["']?[A-Za-z0-9_./+=:-]{8,}/i;
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../..");
 
@@ -317,9 +338,10 @@ function hasSetupBlob(text) {
     text.includes("# AGENTS.MD") ||
     text.includes("Knowledge cutoff:") ||
     text.includes("You are Codex") ||
+    /^\s*#?\s*AGENTS\.md instructions for\b/im.test(text) ||
+    /\bGuidance for AI coding assistants working on this repository\b/i.test(text) ||
     /\byour instructions\b/i.test(text) ||
-    /\binstructions absorbed\b/i.test(text) ||
-    /\bAGENTS\.md\b/i.test(text)
+    /\binstructions absorbed\b/i.test(text)
   );
 }
 
@@ -340,6 +362,7 @@ function redact(input, stats) {
     [/\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}/gi, "[REDACTED_AUTH_HEADER]"],
     [/\b(?:Cookie|Set-Cookie):\s*[^\r\n]+/gi, "[REDACTED_COOKIE_HEADER]"],
     [COOKIE_ASSIGNMENT_GLOBAL, "[REDACTED_COOKIE]"],
+    [SERVICE_CREDENTIAL_URL_GLOBAL, "[REDACTED_CREDENTIAL_URL]"],
     [SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]"],
     [/\b(?:\+?\d[\d .()-]{7,}\d)\b/g, "[REDACTED_PHONE]"],
@@ -367,6 +390,7 @@ function unsafe(text) {
     /\b(?:Cookie|Set-Cookie):/i,
     COOKIE_ASSIGNMENT,
     AUTH_URL,
+    SERVICE_CREDENTIAL_URL,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -381,6 +405,7 @@ function unsafeBeforeRedaction(text) {
     /\b(?:Cookie|Set-Cookie):/i,
     COOKIE_ASSIGNMENT,
     AUTH_URL,
+    SERVICE_CREDENTIAL_URL,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -481,10 +506,19 @@ function trimScopedStats(stats, options) {
 function applyScope(entries, options) {
   const terms = scopeTerms(options);
   if (!terms.length) return entries;
-  return entries.filter((entry) => {
+  const matches = entries.map((entry) => {
     const text = entry.toLowerCase();
     return terms.some((term) => text.includes(term));
   });
+  const keep = new Set();
+  for (let index = 0; index < entries.length; index++) {
+    if (!matches[index]) continue;
+    keep.add(index);
+    if (entries[index].startsWith("[user]\n") && entries[index + 1]?.startsWith("[assistant]\n")) {
+      keep.add(index + 1);
+    }
+  }
+  return entries.filter((_, index) => keep.has(index));
 }
 
 function toolFamily(name) {
@@ -1075,7 +1109,11 @@ async function main() {
         continue;
       }
       try {
-        const renderScope = optionString(args, "scopeQuery", "scope-query") || query;
+        const renderScope =
+          optionString(args, "scopeQuery", "scope-query") ||
+          [pr.number ? `#${pr.number}` : "", pr.title, pr.headRefName, pr.headRefName || pr.branch]
+            .filter(Boolean)
+            .join(" ");
         const rendered = await renderTranscript({
           ...args,
           session: candidate.file,

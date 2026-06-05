@@ -171,6 +171,66 @@ test("render redacts Google API keys", () => {
   assert.doesNotMatch(output, /AIzaABCDEFGHIJKLMNOPQRSTUVWXYZ123456789/);
 });
 
+test("render omits credential-bearing service URLs", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "DATABASE_URL=postgres://user:pass@example.test/db" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /postgres:\/\//);
+  assert.doesNotMatch(output, /example\.test/);
+});
+
+test("render keeps AGENTS.md task prompts when scoped", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "Please update AGENTS.md with review guidance." }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session, "--scope-query", "AGENTS.md review guidance"]);
+  assert.match(output, /Please update AGENTS\.md with review guidance/);
+});
+
+test("render omits AGENTS.md setup blobs when scoped", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "# AGENTS.md instructions for /repo\n\nGuidance for AI coding assistants working on this repository.\n\nReview guidance.",
+          },
+        ],
+      },
+    },
+  ]);
+
+  assert.throws(
+    () => run(["render", "--session", session, "--scope-query", "AGENTS.md review guidance"]),
+    /scoped transcript is empty/,
+  );
+});
+
 test("render omits generic secret env assignments", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -195,6 +255,50 @@ test("render omits generic secret env assignments", () => {
   assert.doesNotMatch(output, /NPM_TOKEN/);
   assert.doesNotMatch(output, /fake-secret-value/);
   assert.doesNotMatch(output, /fake-npm-token/);
+});
+
+test("render omits slash-prefixed secret env assignments", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "API_TOKEN=/abcDEF123456 PASSWORD=/secret-value" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abcDEF123456/);
+  assert.doesNotMatch(output, /secret-value/);
+});
+
+test("render omits declared secret literals", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: 'const DATABASE_PASSWORD = "supersecret123"; let API_TOKEN = "mock-token-123456"; const SECRET = "/slash-secret-123456";',
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /supersecret123/);
+  assert.doesNotMatch(output, /mock-token-123456/);
+  assert.doesNotMatch(output, /slash-secret-123456/);
 });
 
 test("render omits unresolved secret fields", () => {
@@ -311,6 +415,42 @@ test("render keeps code references with secret-like property names", () => {
   const output = run(["render", "--session", session]);
   assert.match(output, /user\.passwordHash/);
   assert.match(output, /config\.apiKey/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+});
+
+test("render keeps regex declarations with secret-like names", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "const SERVICE_CREDENTIAL_URL = /postgres:\\/\\/user:pass@example.test/i;" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /SERVICE_CREDENTIAL_URL/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+});
+
+test("render keeps wrapped diff regex declarations with secret-like names", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "+const SERVICE_CREDENTIAL_URL =\n+  /postgres:\\/\\/user:pass@example.test/i;" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /SERVICE_CREDENTIAL_URL/);
   assert.doesNotMatch(output, /browser\/session\/auth internals/);
 });
 
@@ -568,6 +708,7 @@ test("append-body requires and applies transcript scope", () => {
   writeJsonl(session, [
     { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated private request." }] } },
     { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Scoped transcript guidance." }] } },
+    { type: "response_item", payload: { role: "assistant", content: [{ type: "text", text: "Implemented." }] } },
   ]);
   fs.writeFileSync(body, "# PR\n");
 
@@ -583,6 +724,20 @@ test("append-body requires and applies transcript scope", () => {
 
   const output = run(["append-body", "--body", body, "--session", session, "--scope-query", "transcript guidance"]);
   assert.match(output, /Scoped transcript guidance/);
+  assert.match(output, /Implemented/);
+  assert.doesNotMatch(output, /Unrelated private request/);
+});
+
+test("render does not pull previous user turn for matching assistant", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated private request." }] } },
+    { type: "response_item", payload: { role: "assistant", content: [{ type: "text", text: "Implemented transcript guidance." }] } },
+  ]);
+
+  const output = run(["render", "--session", session, "--scope-query", "transcript guidance"]);
+  assert.match(output, /Implemented transcript guidance/);
   assert.doesNotMatch(output, /Unrelated private request/);
 });
 
@@ -592,8 +747,10 @@ test("html preview applies PR scope when rendering candidate sessions", () => {
   fs.mkdirSync(root);
   const session = path.join(root, "session.jsonl");
   writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated GitHub cleanup." }] } },
     { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Unrelated private request." }] } },
     { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Scoped transcript guidance." }] } },
+    { type: "response_item", payload: { role: "assistant", content: [{ type: "text", text: "Implemented." }] } },
   ]);
   const prs = path.join(dir, "prs.json");
   fs.writeFileSync(
@@ -610,5 +767,7 @@ test("html preview applies PR scope when rendering candidate sessions", () => {
 
   const output = run(["html", "--prs", prs, "--root", root, "--min-score", "1"]);
   assert.match(output, /Scoped transcript guidance/);
+  assert.match(output, /Implemented/);
+  assert.doesNotMatch(output, /Unrelated GitHub cleanup/);
   assert.doesNotMatch(output, /Unrelated private request/);
 });
