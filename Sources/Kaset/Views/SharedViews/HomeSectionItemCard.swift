@@ -125,7 +125,7 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                self.playButtonChrome(interactive: false)
+                SongCoverPlayOverlay()
                     .transition(.opacity)
             }
         }
@@ -148,29 +148,13 @@ struct HomeSectionItemCard: View {
     }
 
     private var playButton: some View {
-        Button {
-            self.playAction?()
-        } label: {
-            self.playButtonChrome(interactive: true)
-        }
-        .buttonStyle(.plain)
-        .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
-        .offset(
-            x: (self.thumbnailSize.width - Self.playButtonSize.width) / 2,
-            y: (self.thumbnailSize.height - Self.playButtonSize.height) / 2
+        PlaylistPlayButton(
+            title: self.item.title,
+            size: Self.playButtonSize,
+            action: { self.playAction?() }
         )
+        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .transition(.opacity)
-        .accessibilityLabel(String(localized: "Play \(self.item.title)"))
-        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
-    }
-
-    private func playButtonChrome(interactive: Bool) -> some View {
-        Image(systemName: "play.fill")
-            .font(.title2)
-            .foregroundStyle(.primary)
-            .offset(x: 2)
-            .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
-            .compatGlass(interactive: interactive, in: .circle)
     }
 
     @ViewBuilder
@@ -339,6 +323,75 @@ struct HomeSectionItemCard: View {
 
         let subtitle = song.artistsDisplay.lowercased()
         return subtitle.contains("views") || subtitle.contains("video")
+    }
+}
+
+// MARK: - PlaylistPlayButton
+
+private struct PlaylistPlayButton: View {
+    let title: String
+    let size: CGSize
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: self.action) {
+            PlaylistPlayButtonChrome(size: self.size, interactive: self.isHovering)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .frame(width: self.size.width, height: self.size.height)
+        .contentShape(.circle)
+        .onHover { hovering in
+            withAnimation(AppAnimation.quick) {
+                self.isHovering = hovering
+            }
+        }
+        .accessibilityLabel(String(localized: "Play \(self.title)"))
+        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
+    }
+}
+
+// MARK: - PlaylistPlayButtonChrome
+
+private struct PlaylistPlayButtonChrome: View {
+    let size: CGSize
+    let interactive: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.primary.opacity(0.001))
+                .frame(width: self.size.width, height: self.size.height)
+                .compatGlass(interactive: false, in: .circle)
+                .opacity(self.interactive ? 0.48 : 0.34)
+
+            Image(systemName: "play.fill")
+                .font(.title2)
+                .foregroundStyle(.primary)
+                .offset(x: 2)
+                .opacity(self.interactive ? 1 : 0.88)
+                .scaleEffect(self.interactive ? 1.04 : 1)
+        }
+        .frame(width: self.size.width, height: self.size.height)
+    }
+}
+
+// MARK: - SongCoverPlayOverlay
+
+private struct SongCoverPlayOverlay: View {
+    var body: some View {
+        Rectangle()
+            .fill(.black.opacity(0.18))
+            .overlay {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 2)
+                    .offset(x: 3)
+            }
+            .allowsHitTesting(false)
     }
 }
 

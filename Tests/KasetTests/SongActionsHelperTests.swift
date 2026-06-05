@@ -47,6 +47,16 @@ struct SongActionsHelperTests {
         }
     }
 
+    private func awaitPlaylistContinuationReturns(_ expectedCount: Int = 1) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while self.mockClient.getPlaylistContinuationReturnCount < expectedCount {
+            guard clock.now < deadline else { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     @Test("canQuickPlayPlaylist rejects mood category browse IDs")
     func canQuickPlayPlaylistRejectsMoodCategories() {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist")
@@ -121,6 +131,87 @@ struct SongActionsHelperTests {
         #expect(playerService.queue.map(\.videoId) == ["playable", "playable-continuation"])
         #expect(playerService.currentTrack?.videoId == "playable")
         #expect(playerService.queue.first?.thumbnailURL == playlist.thumbnailURL)
+    }
+
+    @Test("playPlaylist starts playback before loading continuations")
+    func playPlaylistStartsBeforeContinuations() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")
+        let initial = Song(
+            id: "initial",
+            title: "Initial",
+            artists: [],
+            videoId: "initial"
+        )
+        let continuation = Song(
+            id: "continuation",
+            title: "Continuation",
+            artists: [],
+            videoId: "continuation"
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [initial],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [[continuation]]
+        self.mockClient.playlistContinuationDelay = .milliseconds(250)
+        let playerService = PlayerService()
+
+        SongActionsHelper.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(1, in: playerService)
+
+        #expect(playerService.currentTrack?.videoId == "initial")
+        #expect(playerService.queue.map(\.videoId) == ["initial"])
+
+        await self.awaitQueueCount(2, in: playerService)
+        #expect(playerService.queue.map(\.videoId) == ["initial", "continuation"])
+    }
+
+    @Test("playPlaylist discards continuations after queue replacement")
+    func playPlaylistDiscardsContinuationsAfterQueueReplacement() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")
+        let initial = Song(
+            id: "initial",
+            title: "Initial",
+            artists: [],
+            videoId: "initial"
+        )
+        let continuation = Song(
+            id: "continuation",
+            title: "Continuation",
+            artists: [],
+            videoId: "continuation"
+        )
+        let replacement = Song(
+            id: "replacement",
+            title: "Replacement",
+            artists: [],
+            videoId: "replacement"
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [initial],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [[continuation]]
+        self.mockClient.playlistContinuationDelay = .milliseconds(250)
+        let playerService = PlayerService()
+
+        SongActionsHelper.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(1, in: playerService)
+
+        await playerService.playQueue([replacement], startingAt: 0)
+        await self.awaitPlaylistContinuationReturns()
+
+        #expect(playerService.queue.map(\.videoId) == ["replacement"])
     }
 
     @Test("addPlaylistToLibrary keeps optimistic playlist when refresh response is stale")
