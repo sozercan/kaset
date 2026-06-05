@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const MARKER_START = "<!-- agent-transcript:start -->";
 const MARKER_END = "<!-- agent-transcript:end -->";
@@ -23,7 +24,9 @@ const SECRET_ENV_ASSIGNMENT =
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
   /\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*\s*=\s*[^\s`"'<>&]+/g;
 const UNRESOLVED_SECRET_FIELD =
-  /\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*["']?[A-Za-z0-9_./+=:-]{8,}/i;
+  /\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)["']?[A-Za-z0-9_./+=:-]{8,}/i;
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SKILL_REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../..");
 
 function usage() {
   console.log(`Usage:
@@ -71,6 +74,71 @@ function optionNumber(options, camelName, kebabName, fallback) {
 
 function homePath(...parts) {
   return path.join(os.homedir(), ...parts);
+}
+
+function isWithin(child, parent) {
+  const relative = path.relative(parent, child);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function executablePath(file) {
+  try {
+    const real = fs.realpathSync(file);
+    fs.accessSync(real, fs.constants.X_OK);
+    return real;
+  } catch {
+    return null;
+  }
+}
+
+function realPathIfExists(file) {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return null;
+  }
+}
+
+function findWorkspaceRoot(start) {
+  let current = realPathIfExists(start);
+  if (!current) return null;
+  while (true) {
+    if (fs.existsSync(path.join(current, ".git"))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+function repoBoundaryRoots(cwd) {
+  return [...new Set([findWorkspaceRoot(cwd), realPathIfExists(SKILL_REPO_ROOT)].filter(Boolean))];
+}
+
+function isWithinAny(child, parents) {
+  return parents.some((parent) => isWithin(child, parent));
+}
+
+function resolveTrustedCommand(name, cwd = process.cwd()) {
+  const repoRoots = repoBoundaryRoots(cwd);
+  if (name.includes("/") || name.includes("\\")) {
+    if (!path.isAbsolute(name)) throw new Error(`refusing relative executable path: ${name}`);
+    const real = executablePath(name);
+    if (!real || isWithinAny(real, repoRoots)) throw new Error(`refusing repo-controlled executable: ${name}`);
+    return real;
+  }
+  for (const part of String(process.env.PATH || "").split(path.delimiter)) {
+    if (!part || part === "." || !path.isAbsolute(part)) continue;
+    let realPart;
+    try {
+      realPart = fs.realpathSync(part);
+    } catch {
+      continue;
+    }
+    if (isWithinAny(realPart, repoRoots)) continue;
+    const real = executablePath(path.join(realPart, name));
+    if (real && !isWithinAny(real, repoRoots)) return real;
+  }
+  throw new Error(`trusted executable not found: ${name}`);
 }
 
 function openClawSessionRoots() {
@@ -590,7 +658,8 @@ ${MARKER_END}
 
 function appServerThreadRead(threadId) {
   return new Promise((resolve, reject) => {
-    const child = spawn("codex", ["app-server", "--listen", "stdio://"], {
+    const codexBin = resolveTrustedCommand(process.env.CODEX_BIN || "codex");
+    const child = spawn(codexBin, ["app-server", "--listen", "stdio://"], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";

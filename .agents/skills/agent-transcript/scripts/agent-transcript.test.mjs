@@ -217,6 +217,123 @@ test("render omits unresolved secret fields", () => {
   assert.doesNotMatch(output, /abcdefghijklmnop/);
 });
 
+test("render omits bare alphabetic secret fields", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["api", "_ke", "y: abcdefghijklmnop"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abcdefghijklmnop/);
+});
+
+test("render omits dotted secret field values", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["api", "_ke", "y: abc", ".defghijkl"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abc\.defghijkl/);
+});
+
+test("render omits dotted generic secret field values", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["api", "Key: abc", ".defghijkl and sec", "ret: xyz", ".abcdefgh"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abc\.defghijkl/);
+  assert.doesNotMatch(output, /xyz\.abcdefgh/);
+});
+
+test("render omits malformed quoted and short dotted secret values", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["api", "_ke", 'y: "abcdefghijklmnop and pass', "word: pa.ssword"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abcdefghijklmnop/);
+  assert.doesNotMatch(output, /pa\.ssword/);
+});
+
+test("render keeps code references with secret-like property names", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "return { password: user.passwordHash, apiKey: config.apiKey };" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /user\.passwordHash/);
+  assert.match(output, /config\.apiKey/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+});
+
+test("render omits prefixed secret-looking values without secret property names", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["to", "ken: request.abcdefghijkl and pass", "word: credentials.abcdefghijkl"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /request\.abcdefghijkl/);
+  assert.doesNotMatch(output, /credentials\.abcdefghijkl/);
+});
+
 test("render rejects unsafe title metadata", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -271,6 +388,38 @@ test("render drops nested Claude tool result rows", () => {
   assert.match(output, /Reviewed result/);
   assert.doesNotMatch(output, /raw tool result/);
   assert.doesNotMatch(output, /sk-abcdefghijklmnopqrstuvwxyz123456/);
+});
+
+test("render-thread rejects repo-relative CODEX_BIN", () => {
+  assert.throws(
+    () =>
+      execFileSync(process.execPath, [script, "render-thread", "--thread-id", "fake-thread", "--allow-unscoped"], {
+        cwd: path.resolve("."),
+        encoding: "utf8",
+        env: { ...process.env, CODEX_BIN: "./codex" },
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    /refusing relative executable path/,
+  );
+});
+
+test("render-thread rejects repo-contained absolute CODEX_BIN outside cwd", () => {
+  const fakeCodex = path.join(path.resolve("."), ".tmp-agent-transcript-codex");
+  fs.writeFileSync(fakeCodex, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
+  try {
+    assert.throws(
+      () =>
+        execFileSync(process.execPath, [script, "render-thread", "--thread-id", "fake-thread", "--allow-unscoped"], {
+          cwd: os.tmpdir(),
+          encoding: "utf8",
+          env: { ...process.env, CODEX_BIN: fakeCodex },
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      /refusing repo-controlled executable/,
+    );
+  } finally {
+    fs.rmSync(fakeCodex, { force: true });
+  }
 });
 
 test("render omits browser cookie material", () => {

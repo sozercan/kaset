@@ -70,7 +70,10 @@ REVIEW_BUNDLE_REDACTIONS = [
     ),
 ]
 UNRESOLVED_SECRET_RE = re.compile(
-    r"(?i)\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*[\"']?[A-Za-z0-9_./+=:-]{8,}"
+    r"(?ix)\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*\s*[:=]\s*"
+    r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
+    r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
+    r"[\"']?[A-Za-z0-9_./+=:-]{8,}"
 )
 THINKING_LEVELS_BY_ENGINE = {
     "codex": {"low", "medium", "high", "xhigh"},
