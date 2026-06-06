@@ -190,6 +190,25 @@ test("render omits credential-bearing service URLs", () => {
   assert.doesNotMatch(output, /example\.test/);
 });
 
+test("render omits credential URLs with email-style usernames", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "DATABASE_URL=postgres://user@example.com:mock-password@db.example.test/app" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /mock-password/);
+  assert.doesNotMatch(output, /db\.example\.test/);
+});
+
 test("render keeps AGENTS.md task prompts when scoped", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -255,6 +274,25 @@ test("render omits generic secret env assignments", () => {
   assert.doesNotMatch(output, /NPM_TOKEN/);
   assert.doesNotMatch(output, /fake-secret-value/);
   assert.doesNotMatch(output, /fake-npm-token/);
+});
+
+test("render omits quoted secret env assignments with spaces", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: 'PASSWORD="mock secret phrase value"' }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /mock secret phrase value/);
+  assert.doesNotMatch(output, /phrase value/);
 });
 
 test("render omits slash-prefixed secret env assignments", () => {
@@ -636,6 +674,31 @@ test("render omits OAuth callback URLs", () => {
   assert.doesNotMatch(output, /fake-state/);
 });
 
+test("render omits fragment-only OAuth callback URLs", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Callback https://accounts.example.test/oauth2/callback#code=mock-code-123456",
+          },
+        ],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /accounts\.example\.test/);
+  assert.doesNotMatch(output, /code=/);
+  assert.doesNotMatch(output, /mock-code-123456/);
+});
+
 test("render prevents transcript marker and fence injection", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -770,4 +833,30 @@ test("html preview applies PR scope when rendering candidate sessions", () => {
   assert.match(output, /Implemented/);
   assert.doesNotMatch(output, /Unrelated GitHub cleanup/);
   assert.doesNotMatch(output, /Unrelated private request/);
+});
+
+test("html preview rejects generated scopes with no specific terms", () => {
+  const dir = tempDir();
+  const root = path.join(dir, "sessions");
+  fs.mkdirSync(root);
+  const session = path.join(root, "session.jsonl");
+  writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Fix UI unrelated private details." }] } },
+  ]);
+  const prs = path.join(dir, "prs.json");
+  fs.writeFileSync(
+    prs,
+    JSON.stringify([
+      {
+        number: 12,
+        title: "Fix UI",
+        headRefName: "ui",
+        url: "https://github.example.test/repo/pull/12",
+      },
+    ]),
+  );
+
+  const output = run(["html", "--prs", prs, "--root", root, "--min-score", "1"]);
+  assert.match(output, /--scope-query is required for html/);
+  assert.doesNotMatch(output, /unrelated private details/);
 });

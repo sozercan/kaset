@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 import shutil
 import stat
@@ -175,7 +176,12 @@ def cleanup_repo(repo: Path) -> None:
     if not repo.exists():
         return
     try:
-        shutil.rmtree(repo, onerror=make_writable_and_retry)
+        rmtree_kwargs = (
+            {"onexc": make_writable_and_retry}
+            if "onexc" in inspect.signature(shutil.rmtree).parameters
+            else {"onerror": make_writable_and_retry}
+        )
+        shutil.rmtree(repo, **rmtree_kwargs)
     except OSError as exc:
         print(f"warning: unable to remove temp repo {repo}: {exc}", file=sys.stderr)
 

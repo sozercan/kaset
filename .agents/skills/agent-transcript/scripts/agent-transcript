@@ -33,13 +33,17 @@ const COOKIE_ASSIGNMENT =
 const COOKIE_ASSIGNMENT_GLOBAL =
   /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/gi;
 const AUTH_QUERY_PARAM =
-  /([?&](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
+  /([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
 const AUTH_URL =
-  /\bhttps?:\/\/[^\s`"'<>]*(?:[?&](?:code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state|access_token|auth)=)[^\s`"'<>]*/i;
+  /\bhttps?:\/\/[^\s`"'<>]*(?:[?&#](?:code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state|access_token|auth)=)[^\s`"'<>]*/i;
 const SERVICE_CREDENTIAL_URL =
-  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s`"'<>/@:]*:[^\s`"'<>/@]+@[^\s`"'<>]+/i;
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/(?=[^\s`"'<>/]*:[^\s`"'<>/]*@)[^\s`"'<>]+/i;
 const SERVICE_CREDENTIAL_URL_GLOBAL =
-  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s`"'<>/@:]*:[^\s`"'<>/@]+@[^\s`"'<>]+/gi;
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/(?=[^\s`"'<>/]*:[^\s`"'<>/]*@)[^\s`"'<>]+/gi;
+const QUOTED_SECRET_ENV_ASSIGNMENT =
+  /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/;
+const QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL =
+  /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/g;
 const SECRET_ENV_ASSIGNMENT =
   /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/;
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
@@ -363,6 +367,7 @@ function redact(input, stats) {
     [/\b(?:Cookie|Set-Cookie):\s*[^\r\n]+/gi, "[REDACTED_COOKIE_HEADER]"],
     [COOKIE_ASSIGNMENT_GLOBAL, "[REDACTED_COOKIE]"],
     [SERVICE_CREDENTIAL_URL_GLOBAL, "[REDACTED_CREDENTIAL_URL]"],
+    [QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]"],
     [/\b(?:\+?\d[\d .()-]{7,}\d)\b/g, "[REDACTED_PHONE]"],
@@ -391,6 +396,7 @@ function unsafe(text) {
     COOKIE_ASSIGNMENT,
     AUTH_URL,
     SERVICE_CREDENTIAL_URL,
+    QUOTED_SECRET_ENV_ASSIGNMENT,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -406,6 +412,7 @@ function unsafeBeforeRedaction(text) {
     COOKIE_ASSIGNMENT,
     AUTH_URL,
     SERVICE_CREDENTIAL_URL,
+    QUOTED_SECRET_ENV_ASSIGNMENT,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -1114,13 +1121,16 @@ async function main() {
           [pr.number ? `#${pr.number}` : "", pr.title, pr.headRefName, pr.headRefName || pr.branch]
             .filter(Boolean)
             .join(" ");
-        const rendered = await renderTranscript({
+        const renderOptions = {
           ...args,
           session: candidate.file,
           scopeQuery: renderScope,
           title: pr.title,
           url: pr.url,
-        });
+        };
+        requireScopedPublicTranscript("html", renderOptions);
+        const rendered = await renderTranscript(renderOptions);
+        requireNonEmptyScopedTranscript(rendered, renderOptions);
         records.push({
           ...pr,
           session: candidate.file,

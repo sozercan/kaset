@@ -37,12 +37,12 @@ COOKIE_ASSIGNMENT_RE = re.compile(
     re.IGNORECASE,
 )
 AUTH_URL_RE = re.compile(
-    r"\bhttps?://[^\s`\"'<>]*(?:[?&](?:code|state|oauth_token|oauth_verifier|id_token|"
+    r"\bhttps?://[^\s`\"'<>]*(?:[?&#](?:code|state|oauth_token|oauth_verifier|id_token|"
     r"refresh_token|session_state|access_token|auth)=)[^\s`\"'<>]*",
     re.IGNORECASE,
 )
 SERVICE_CREDENTIAL_URL_RE = re.compile(
-    r"\b[A-Za-z][A-Za-z0-9+.-]*://[^\s`\"'<>/@:]*:[^\s`\"'<>/@]+@[^\s`\"'<>]+",
+    r"\b[A-Za-z][A-Za-z0-9+.-]*://(?=[^\s`\"'<>/]*:[^\s`\"'<>/]*@)[^\s`\"'<>]+",
     re.IGNORECASE,
 )
 REVIEW_BUNDLE_REDACTIONS = [
@@ -69,11 +69,18 @@ REVIEW_BUNDLE_REDACTIONS = [
     (re.compile(r"~/(?!\[)[^\s`\"'>)]+"), "[HOME_PATH]"),
     (
         re.compile(
-            r"([?&](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|"
+            r"([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|"
             r"refresh_token|session_state)=)[^\s`\"'>&]+",
             re.IGNORECASE,
         ),
         r"\1[REDACTED]",
+    ),
+    (
+        re.compile(
+            r"\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
+            r"(?:\"[^\"\r\n]*\"|'[^'\r\n]*')"
+        ),
+        "[REDACTED_ENV_SECRET]",
     ),
     (
         re.compile(
@@ -476,9 +483,8 @@ def omitted_sensitive_paths_notice(paths: list[str]) -> str:
 
 
 def safe_diff(repo: Path, diff_ref_args: list[str], output_args: list[str]) -> str:
-    paths = [line for line in git(repo, "diff", *diff_ref_args, "--name-only").splitlines() if line]
-    safe_paths = [path for path in paths if not is_sensitive_path(path)]
-    omitted_paths = [path for path in paths if is_sensitive_path(path)]
+    path_entries = diff_path_entries(repo, diff_ref_args)
+    safe_paths, omitted_paths = partition_safe_path_entries(path_entries)
     parts = []
     notice = omitted_sensitive_paths_notice(omitted_paths)
     if notice:
@@ -488,14 +494,44 @@ def safe_diff(repo: Path, diff_ref_args: list[str], output_args: list[str]) -> s
     return "\n".join(part for part in parts if part)
 
 
+def diff_path_entries(repo: Path, diff_ref_args: list[str]) -> list[list[str]]:
+    return parse_name_status_entries(
+        git(repo, "diff", *diff_ref_args, "--name-status", "--find-renames", "--find-copies-harder")
+    )
+
+
+def parse_name_status_entries(text: str) -> list[list[str]]:
+    entries: list[list[str]] = []
+    for line in text.splitlines():
+        parts = [part for part in line.split("\t") if part]
+        if len(parts) < 2:
+            continue
+        status = parts[0]
+        if status.startswith(("R", "C")) and len(parts) >= 3:
+            entries.append([parts[1], parts[2]])
+        else:
+            entries.append([parts[-1]])
+    return entries
+
+
+def partition_safe_path_entries(path_entries: list[list[str]]) -> tuple[list[str], list[str]]:
+    safe_paths: list[str] = []
+    omitted_paths: list[str] = []
+    for paths in path_entries:
+        if any(is_sensitive_path(path) for path in paths):
+            omitted_paths.append(paths[-1])
+        else:
+            safe_paths.append(paths[-1])
+    return safe_paths, omitted_paths
+
+
 def commit_paths(repo: Path, commit_ref: str) -> list[str]:
     return [line for line in git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", commit_ref).splitlines() if line]
 
 
 def safe_show(repo: Path, commit_ref: str, output_args: list[str]) -> str:
-    paths = commit_paths(repo, commit_ref)
-    safe_paths = [path for path in paths if not is_sensitive_path(path)]
-    omitted_paths = [path for path in paths if is_sensitive_path(path)]
+    path_entries = commit_path_entries(repo, commit_ref)
+    safe_paths, omitted_paths = partition_safe_path_entries(path_entries)
     parts = []
     notice = omitted_sensitive_paths_notice(omitted_paths)
     if notice:
@@ -503,6 +539,21 @@ def safe_show(repo: Path, commit_ref: str, output_args: list[str]) -> str:
     if safe_paths:
         parts.append(redact_review_text(git(repo, "show", *output_args, commit_ref, "--", *safe_paths)))
     return "\n".join(part for part in parts if part)
+
+
+def commit_path_entries(repo: Path, commit_ref: str) -> list[list[str]]:
+    return parse_name_status_entries(
+        git(
+            repo,
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "--find-renames",
+            "--find-copies-harder",
+            "-r",
+            commit_ref,
+        )
+    )
 
 
 def local_bundle(repo: Path) -> str:
@@ -663,8 +714,6 @@ def parse_changed_line_ranges(patch: str) -> LineRanges:
         new_count = int(match.group(4) or "1")
         if new_count > 0:
             ranges.setdefault(current_path, []).append((new_start, new_start + new_count - 1))
-        if old_count > 0:
-            ranges.setdefault(current_path, []).append((old_start, old_start + old_count - 1))
         if new_count == 0:
             anchor = max(1, new_start)
             ranges.setdefault(current_path, []).append((anchor, anchor))
@@ -1501,8 +1550,10 @@ def main() -> int:
             original_stdout = sys.stdout
             with Path(args.output).open("w") as handle:
                 sys.stdout = Tee(original_stdout, handle)
-                print_report(report, label=label)
-                sys.stdout = original_stdout
+                try:
+                    print_report(report, label=label)
+                finally:
+                    sys.stdout = original_stdout
         else:
             print_report(report, label=label)
     finally:
