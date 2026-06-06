@@ -22,7 +22,7 @@ ENGINES = ("codex", "claude", "droid", "copilot")
 SENSITIVE_UNTRACKED_PATH = re.compile(
     r"(^|/)(\.envrc(?:[./_-]|$)|\.env(?:[./_-]|$)|\.direnv(?:/|$)|"
     r"\.npmrc$|\.netrc$|\.git-credentials$|credentials$|\.docker/config\.json$|"
-    r".*(?:auth|cookie|credential|secret|token).*\.(?:json|log|txt|env)|"
+    r".*(?:auth|cookie|credential|secret|token).*\.(?:json|ya?ml|log|txt|env)|"
     r".*(?:id_rsa|id_ed25519|known_hosts|\.pem|\.p12|\.pfx|\.key|\.p8)$)",
     re.IGNORECASE,
 )
@@ -32,7 +32,7 @@ SENSITIVE_UNTRACKED_TEXT = re.compile(
     re.IGNORECASE,
 )
 COOKIE_ASSIGNMENT_RE = re.compile(
-    r"\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|"
+    r"\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|"
     r"__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`\"'<>&)]+",
     re.IGNORECASE,
 )
@@ -57,6 +57,10 @@ REVIEW_BUNDLE_REDACTIONS = [
     (re.compile(r"AKIA[0-9A-Z]{16}"), "[REDACTED_AWS_KEY]"),
     (re.compile(r"AIza[0-9A-Za-z_-]{20,}"), "[REDACTED_GOOGLE_API_KEY]"),
     (re.compile(r"eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}"), "[REDACTED_JWT]"),
+    (
+        re.compile(r"(\bAuthorization:\s*)(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}", re.IGNORECASE),
+        r"\1[REDACTED_AUTH_HEADER]",
+    ),
     (re.compile(r"\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}", re.IGNORECASE), "[REDACTED_AUTH_HEADER]"),
     (re.compile(r"(\b(?:Cookie|Set-Cookie):\s*)[^\r\n`\"']+", re.IGNORECASE), r"\1[REDACTED_COOKIE_HEADER]"),
     (COOKIE_ASSIGNMENT_RE, "[REDACTED_COOKIE]"),
@@ -92,6 +96,15 @@ REVIEW_BUNDLE_REDACTIONS = [
             r"(?:\"[^\"\r\n]*\"|'[^'\r\n]*')"
         ),
         "[REDACTED_ENV_SECRET]",
+    ),
+    (
+        re.compile(
+            r"(?<![A-Za-z0-9_])[\"']?"
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[\"']?"
+            r"[^\S\r\n]*:[^\S\r\n]*(?:\"[^\"\r\n]*\"|'[^'\r\n]*')",
+            re.IGNORECASE,
+        ),
+        "[REDACTED_FIELD_SECRET]",
     ),
     (
         re.compile(
@@ -728,8 +741,6 @@ def parse_changed_line_ranges(patch: str) -> LineRanges:
         match = re.search(r"-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?", line)
         if not match:
             continue
-        old_start = int(match.group(1))
-        old_count = int(match.group(2) or "1")
         new_start = int(match.group(3))
         new_count = int(match.group(4) or "1")
         if new_count > 0:

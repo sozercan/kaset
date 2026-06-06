@@ -30,6 +30,14 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn("mock secret phrase value", output)
         self.assertNotIn("phrase value", output)
 
+    def test_redacts_colon_style_quoted_secret_values_with_spaces(self) -> None:
+        output = autoreview.redact_review_text('password: "mock secret phrase value"\n{"api_key": "mock api key value"}')
+
+        self.assertIn("[REDACTED_FIELD_SECRET]", output)
+        self.assertNotIn("mock secret phrase value", output)
+        self.assertNotIn("mock api key value", output)
+        self.assertNotIn("phrase value", output)
+
     def test_redacts_credential_urls_with_email_style_usernames(self) -> None:
         output = autoreview.redact_review_text(
             "DATABASE_URL=postgres://user@example.com:mock-password@db.example.test/app"
@@ -43,6 +51,22 @@ class AutoReviewHelperTests(unittest.TestCase):
         output = autoreview.redact_review_text("https://accounts.example.test/callback#code=mock-code-123456")
 
         self.assertEqual("[REDACTED_AUTH_URL]", output)
+
+    def test_redacts_generic_session_cookies(self) -> None:
+        output = autoreview.redact_review_text("SESSIONID=abcdef1234567890")
+
+        self.assertEqual("[REDACTED_COOKIE]", output)
+
+    def test_redacts_token_auth_schemes(self) -> None:
+        output = autoreview.redact_review_text("Authorization: Token abcdefghijklmnop")
+
+        self.assertIn("[REDACTED_AUTH_HEADER]", output)
+        self.assertNotIn("abcdefghijklmnop", output)
+
+    def test_keeps_benign_token_prose(self) -> None:
+        output = autoreview.redact_review_text("token classification should stay reviewable")
+
+        self.assertEqual("token classification should stay reviewable", output)
 
     def test_allows_documented_secret_placeholders(self) -> None:
         output = autoreview.redact_review_text(
@@ -114,6 +138,21 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn(".env", output)
         self.assertNotIn("example.txt", output)
         self.assertNotIn("mock-secret-value", output)
+
+    def test_safe_diff_omits_yaml_secret_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run(["git", "init"], repo)
+            secret_path = repo / "config" / "secrets.yml"
+            secret_path.parent.mkdir()
+            secret_path.write_text("prod: opaque-credential-value\n")
+            run(["git", "add", "config/secrets.yml"], repo)
+
+            output = autoreview.safe_diff(repo, ["--cached"], ["--patch"])
+
+        self.assertIn("[1 sensitive changed path omitted from review bundle]", output)
+        self.assertNotIn("config/secrets.yml", output)
+        self.assertNotIn("opaque-credential-value", output)
 
     def test_safe_diff_treats_safe_paths_as_literal_pathspecs(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -29,9 +29,9 @@ const SCOPE_STOP_WORDS = new Set([
   "www",
 ]);
 const COOKIE_ASSIGNMENT =
-  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/i;
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/i;
 const COOKIE_ASSIGNMENT_GLOBAL =
-  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/gi;
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/gi;
 const AUTH_QUERY_PARAM =
   /([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
 const AUTH_URL =
@@ -44,6 +44,10 @@ const QUOTED_SECRET_ENV_ASSIGNMENT =
   /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/;
 const QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL =
   /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/g;
+const QUOTED_SECRET_FIELD =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/i;
+const QUOTED_SECRET_FIELD_GLOBAL =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/gi;
 const SECRET_ENV_ASSIGNMENT =
   /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/;
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
@@ -344,7 +348,7 @@ function hasSetupBlob(text) {
     text.includes("You are Codex") ||
     /^\s*#?\s*AGENTS\.md instructions for\b/im.test(text) ||
     /\bGuidance for AI coding assistants working on this repository\b/i.test(text) ||
-    /\byour instructions\b/i.test(text) ||
+    /^\s*(?:here are|below are|these are) your instructions\b/im.test(text) ||
     /\binstructions absorbed\b/i.test(text)
   );
 }
@@ -363,11 +367,13 @@ function redact(input, stats) {
     [/(github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED_GITHUB_TOKEN]"],
     [/(AKIA[0-9A-Z]{16})/g, "[REDACTED_AWS_KEY]"],
     [/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, "[REDACTED_JWT]"],
+    [/\b(Authorization:\s*)(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/gi, "$1[REDACTED_AUTH_HEADER]"],
     [/\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}/gi, "[REDACTED_AUTH_HEADER]"],
     [/\b(?:Cookie|Set-Cookie):\s*[^\r\n]+/gi, "[REDACTED_COOKIE_HEADER]"],
     [COOKIE_ASSIGNMENT_GLOBAL, "[REDACTED_COOKIE]"],
     [SERVICE_CREDENTIAL_URL_GLOBAL, "[REDACTED_CREDENTIAL_URL]"],
     [QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
+    [QUOTED_SECRET_FIELD_GLOBAL, "[REDACTED_FIELD_SECRET]"],
     [SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]"],
     [/\b(?:\+?\d[\d .()-]{7,}\d)\b/g, "[REDACTED_PHONE]"],
@@ -391,12 +397,14 @@ function unsafe(text) {
     /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
     /AIza[0-9A-Za-z_-]{20,}/,
     /github_pat_[A-Za-z0-9_]{20,}/,
+    /\bAuthorization:\s*(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
     /\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
     /\b(?:Cookie|Set-Cookie):/i,
     COOKIE_ASSIGNMENT,
     AUTH_URL,
     SERVICE_CREDENTIAL_URL,
     QUOTED_SECRET_ENV_ASSIGNMENT,
+    QUOTED_SECRET_FIELD,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -408,11 +416,13 @@ function unsafe(text) {
 
 function unsafeBeforeRedaction(text) {
   const patterns = [
+    /\bAuthorization:\s*(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
     /\b(?:Cookie|Set-Cookie):/i,
     COOKIE_ASSIGNMENT,
     AUTH_URL,
     SERVICE_CREDENTIAL_URL,
     QUOTED_SECRET_ENV_ASSIGNMENT,
+    QUOTED_SECRET_FIELD,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -531,7 +541,7 @@ function applyScope(entries, options) {
 function toolFamily(name) {
   const normalized = String(name).toLowerCase();
   if (
-    /(read|fetch|open|list|find|search|grep|rg|sed|cat|head|tail|jq|wc|status|diff|show|view|snapshot|screenshot)/.test(
+    /(read|open|list|find|search|grep|rg|sed|cat|head|tail|jq|wc|status|diff|show|view|snapshot|screenshot)/.test(
       normalized,
     )
   ) {

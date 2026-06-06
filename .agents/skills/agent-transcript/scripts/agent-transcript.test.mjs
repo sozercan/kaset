@@ -250,6 +250,30 @@ test("render omits AGENTS.md setup blobs when scoped", () => {
   );
 });
 
+test("render omits explicit setup instruction blobs when scoped", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Here are your instructions:\n\nScoped transcript guidance.",
+          },
+        ],
+      },
+    },
+  ]);
+
+  assert.throws(
+    () => run(["render", "--session", session, "--scope-query", "transcript guidance"]),
+    /scoped transcript is empty/,
+  );
+});
+
 test("render omits generic secret env assignments", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -292,6 +316,26 @@ test("render omits quoted secret env assignments with spaces", () => {
   const output = run(["render", "--session", session]);
   assert.match(output, /browser\/session\/auth internals/);
   assert.doesNotMatch(output, /mock secret phrase value/);
+  assert.doesNotMatch(output, /phrase value/);
+});
+
+test("render omits colon-style quoted secret fields with spaces", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: 'password: "mock secret phrase value"\n{"api_key": "mock api key value"}' }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /mock secret phrase value/);
+  assert.doesNotMatch(output, /mock api key value/);
   assert.doesNotMatch(output, /phrase value/);
 });
 
@@ -545,6 +589,20 @@ test("render drops raw tool outputs but keeps a compact tool summary", () => {
   assert.doesNotMatch(output, /sk-abcdefghijklmnopqrstuvwxyz123456/);
 });
 
+test("render classifies web fetch tools as network", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    { type: "response_item", payload: { role: "user", content: [{ type: "text", text: "Fetch reference docs." }] } },
+    { type: "response_item", payload: { type: "function_call", name: "WebFetch", arguments: "{}" } },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /tool summary/);
+  assert.match(output, /1 network/);
+  assert.doesNotMatch(output, /1 read/);
+});
+
 test("render omits tool summary for scoped transcripts", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -645,6 +703,63 @@ test("render omits browser cookie material", () => {
   assert.doesNotMatch(output, /SAPISID=/);
   assert.doesNotMatch(output, /__Secure-3PAPISID/);
   assert.doesNotMatch(output, /__Secure-1PSID/);
+});
+
+test("render omits generic session cookie material", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "SESSIONID=abcdef1234567890" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /SESSIONID=/);
+  assert.doesNotMatch(output, /abcdef1234567890/);
+});
+
+test("render omits token auth schemes", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "Authorization: Token abcdefghijklmnop" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /Authorization: Token/);
+  assert.doesNotMatch(output, /abcdefghijklmnop/);
+});
+
+test("render keeps benign token prose", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "token classification should stay reviewable" }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /token classification should stay reviewable/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /\[REDACTED_AUTH_HEADER\]/);
 });
 
 test("render omits OAuth callback URLs", () => {
@@ -789,6 +904,30 @@ test("append-body requires and applies transcript scope", () => {
   assert.match(output, /Scoped transcript guidance/);
   assert.match(output, /Implemented/);
   assert.doesNotMatch(output, /Unrelated private request/);
+});
+
+test("render preserves scoped prompts mentioning instructions", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Following your instructions, please update transcript guidance.",
+          },
+        ],
+      },
+    },
+    { type: "response_item", payload: { role: "assistant", content: [{ type: "text", text: "Implemented." }] } },
+  ]);
+
+  const output = run(["render", "--session", session, "--scope-query", "transcript guidance"]);
+  assert.match(output, /Following your instructions/);
+  assert.match(output, /Implemented/);
 });
 
 test("render does not pull previous user turn for matching assistant", () => {
