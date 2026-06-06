@@ -51,10 +51,6 @@ struct HomeSectionItemCard: View {
                 }
             }
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
-
-            if self.showsPlaylistPlayButton {
-                self.playButton
-            }
         }
         .scaleEffect(self.isHovering ? 1.02 : 1)
         .shadow(
@@ -125,7 +121,7 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                SongCoverPlayOverlay()
+                SongCoverPlayOverlay(size: Self.playButtonSize)
                     .transition(.opacity)
             }
         }
@@ -138,23 +134,9 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    private var showsPlaylistPlayButton: Bool {
-        self.supportsPlaylistPlayAction && self.isHovering
-    }
-
     private var supportsPlaylistPlayAction: Bool {
         guard case .playlist = self.item else { return false }
         return self.playAction != nil
-    }
-
-    private var playButton: some View {
-        PlaylistPlayButton(
-            title: self.item.title,
-            size: Self.playButtonSize,
-            action: { self.playAction?() }
-        )
-        .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
-        .transition(.opacity)
     }
 
     @ViewBuilder
@@ -326,71 +308,29 @@ struct HomeSectionItemCard: View {
     }
 }
 
-// MARK: - PlaylistPlayButton
+// MARK: - LiquidGlassPlayIcon
 
-private struct PlaylistPlayButton: View {
-    let title: String
-    let size: CGSize
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: self.action) {
-            PlaylistPlayButtonChrome(size: self.size, interactive: self.isHovering)
-                .contentShape(.circle)
-        }
-        .buttonStyle(.plain)
-        .frame(width: self.size.width, height: self.size.height)
-        .contentShape(.circle)
-        .onHover { hovering in
-            withAnimation(AppAnimation.quick) {
-                self.isHovering = hovering
-            }
-        }
-        .accessibilityLabel(String(localized: "Play \(self.title)"))
-        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
-    }
-}
-
-// MARK: - PlaylistPlayButtonChrome
-
-private struct PlaylistPlayButtonChrome: View {
+private struct LiquidGlassPlayIcon: View {
     let size: CGSize
     let interactive: Bool
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.primary.opacity(0.001))
-                .frame(width: self.size.width, height: self.size.height)
-                .compatGlass(interactive: false, in: .circle)
-                .opacity(self.interactive ? 0.48 : 0.34)
-
-            Image(systemName: "play.fill")
-                .font(.title2)
-                .foregroundStyle(.primary)
-                .offset(x: 2)
-                .opacity(self.interactive ? 1 : 0.88)
-                .scaleEffect(self.interactive ? 1.04 : 1)
-        }
-        .frame(width: self.size.width, height: self.size.height)
+        Image(systemName: "play.fill")
+            .font(.title2)
+            .foregroundStyle(.primary)
+            .offset(x: 2)
+            .frame(width: self.size.width, height: self.size.height)
+            .compatGlass(interactive: self.interactive, in: .circle)
     }
 }
 
 // MARK: - SongCoverPlayOverlay
 
 private struct SongCoverPlayOverlay: View {
+    let size: CGSize
+
     var body: some View {
-        Rectangle()
-            .fill(.black.opacity(0.18))
-            .overlay {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 36, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 2)
-                    .offset(x: 3)
-            }
+        LiquidGlassPlayIcon(size: self.size, interactive: false)
             .allowsHitTesting(false)
     }
 }
