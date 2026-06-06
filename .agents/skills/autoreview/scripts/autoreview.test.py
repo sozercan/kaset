@@ -44,6 +44,16 @@ class AutoReviewHelperTests(unittest.TestCase):
 
         self.assertEqual("[REDACTED_AUTH_URL]", output)
 
+    def test_allows_documented_secret_placeholders(self) -> None:
+        output = autoreview.redact_review_text(
+            'password: "REDACTED"\napiKey: "mock-token"\ntoken: "test-cookie"\\nsecret=mock-token'
+        )
+
+        self.assertEqual(
+            "[PLACEHOLDER_SECRET]\n[PLACEHOLDER_SECRET]\n[PLACEHOLDER_SECRET]\\n[PLACEHOLDER_SECRET]",
+            output,
+        )
+
     def test_deletion_hunks_use_new_file_anchor_not_old_span(self) -> None:
         patch = """diff --git a/file.txt b/file.txt
 --- a/file.txt
@@ -104,6 +114,39 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn(".env", output)
         self.assertNotIn("example.txt", output)
         self.assertNotIn("mock-secret-value", output)
+
+    def test_safe_diff_treats_safe_paths_as_literal_pathspecs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run(["git", "init"], repo)
+            magic_path = repo / ":(glob)*"
+            sensitive_path = repo / "token.txt"
+            magic_path.write_text("safe-content\n")
+            sensitive_path.write_text("opaque-sensitive-content\n")
+            run(["git", "add", str(magic_path.name), str(sensitive_path.name)], repo)
+
+            output = autoreview.safe_diff(repo, ["--cached"], ["--patch"])
+
+        self.assertIn("[1 sensitive changed path omitted from review bundle]", output)
+        self.assertIn("safe-content", output)
+        self.assertNotIn("token.txt", output)
+        self.assertNotIn("opaque-sensitive-content", output)
+
+    def test_safe_show_includes_root_commit_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run(["git", "init"], repo)
+            run(["git", "config", "user.email", "test@example.invalid"], repo)
+            run(["git", "config", "user.name", "Test User"], repo)
+            (repo / "first.txt").write_text("root-commit-content\n")
+            run(["git", "add", "first.txt"], repo)
+            run(["git", "commit", "-m", "initial"], repo)
+            commit = run(["git", "rev-parse", "HEAD"], repo).strip()
+
+            output = autoreview.safe_show(repo, commit, ["--patch", "--format=fuller"])
+
+        self.assertIn("first.txt", output)
+        self.assertIn("root-commit-content", output)
 
 
 if __name__ == "__main__":

@@ -69,6 +69,17 @@ REVIEW_BUNDLE_REDACTIONS = [
     (re.compile(r"~/(?!\[)[^\s`\"'>)]+"), "[HOME_PATH]"),
     (
         re.compile(
+            r"(^|\\n|[^A-Za-z0-9_])"
+            r"((?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|token|secret|password|credential)"
+            r"(?:[_-][A-Za-z0-9]+)*"
+            r"[^\S\r\n]*[:=][^\S\r\n]*(?:[\"'](?:REDACTED|mock-token|test-cookie)[\"']|"
+            r"(?:REDACTED|mock-token|test-cookie)))(?=$|[^\w-])",
+            re.IGNORECASE,
+        ),
+        r"\1[PLACEHOLDER_SECRET]",
+    ),
+    (
+        re.compile(
             r"([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|"
             r"refresh_token|session_state)=)[^\s`\"'>&]+",
             re.IGNORECASE,
@@ -307,6 +318,10 @@ def git(repo: Path, *args: str, check: bool = True) -> str:
     return run([resolve_command("git", repo), *args], repo, check=check).stdout
 
 
+def git_literal_pathspecs(repo: Path, *args: str, check: bool = True) -> str:
+    return run([resolve_command("git", repo), "--literal-pathspecs", *args], repo, check=check).stdout
+
+
 def repo_root() -> Path:
     start = Path.cwd().resolve()
     unsafe_root = discover_repo_root(start) or start
@@ -490,7 +505,9 @@ def safe_diff(repo: Path, diff_ref_args: list[str], output_args: list[str]) -> s
     if notice:
         parts.append(notice)
     if safe_paths:
-        parts.append(redact_review_text(git(repo, "diff", *diff_ref_args, *output_args, "--", *safe_paths)))
+        parts.append(
+            redact_review_text(git_literal_pathspecs(repo, "diff", *diff_ref_args, *output_args, "--", *safe_paths))
+        )
     return "\n".join(part for part in parts if part)
 
 
@@ -537,7 +554,9 @@ def safe_show(repo: Path, commit_ref: str, output_args: list[str]) -> str:
     if notice:
         parts.append(notice)
     if safe_paths:
-        parts.append(redact_review_text(git(repo, "show", *output_args, commit_ref, "--", *safe_paths)))
+        parts.append(
+            redact_review_text(git_literal_pathspecs(repo, "show", *output_args, commit_ref, "--", *safe_paths))
+        )
     return "\n".join(part for part in parts if part)
 
 
@@ -547,6 +566,7 @@ def commit_path_entries(repo: Path, commit_ref: str) -> list[list[str]]:
             repo,
             "diff-tree",
             "--no-commit-id",
+            "--root",
             "--name-status",
             "--find-renames",
             "--find-copies-harder",
