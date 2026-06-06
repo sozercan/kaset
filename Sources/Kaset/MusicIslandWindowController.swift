@@ -1,6 +1,60 @@
 import AppKit
 import SwiftUI
 
+// MARK: - MusicIslandLayoutMetrics
+
+struct MusicIslandLayoutMetrics: Equatable {
+    let notchWidth: CGFloat
+    let notchDepth: CGFloat
+    let contentHeight: CGFloat
+    let windowWidth: CGFloat
+    let windowHeight: CGFloat
+
+    static func metrics(for screen: NSScreen?) -> Self {
+        let contentHeight: CGFloat = 54
+        guard let screen,
+              let leftArea = screen.auxiliaryTopLeftArea,
+              let rightArea = screen.auxiliaryTopRightArea,
+              !leftArea.isEmpty,
+              !rightArea.isEmpty
+        else {
+            return Self(
+                notchWidth: 0,
+                notchDepth: 0,
+                contentHeight: contentHeight,
+                windowWidth: 340,
+                windowHeight: contentHeight
+            )
+        }
+
+        let frame = screen.frame
+        let notchWidth = max(CGFloat(0), rightArea.minX - leftArea.maxX)
+        guard notchWidth > 40 else {
+            return Self(
+                notchWidth: 0,
+                notchDepth: 0,
+                contentHeight: contentHeight,
+                windowWidth: 340,
+                windowHeight: contentHeight
+            )
+        }
+        let notchDepth = max(screen.safeAreaInsets.top, max(frame.maxY - leftArea.minY, frame.maxY - rightArea.minY))
+
+        let windowWidth = max(340, min(520, notchWidth + 240))
+        let windowHeight = notchDepth + contentHeight
+
+        return Self(
+            notchWidth: notchWidth,
+            notchDepth: notchDepth,
+            contentHeight: contentHeight,
+            windowWidth: windowWidth,
+            windowHeight: windowHeight
+        )
+    }
+}
+
+// MARK: - MusicIslandWindowController
+
 @available(macOS 26.0, *)
 @MainActor
 final class MusicIslandWindowController: NowPlayingSurfaceAdapter {
@@ -18,19 +72,20 @@ final class MusicIslandWindowController: NowPlayingSurfaceAdapter {
     private init() {}
 
     func start(context: NowPlayingSurfaceContext) async -> Bool {
-        self.context = context
         if let window {
             window.orderFrontRegardless()
             self.positionAtTopCenter(window: window)
             return true
         }
 
-        let contentView = MusicIslandView(openMainWindow: context.openMainWindow)
+        let metrics = MusicIslandLayoutMetrics.metrics(for: NSScreen.main)
+        self.context = context
+        let contentView = MusicIslandView(metrics: metrics, openMainWindow: context.openMainWindow)
             .environment(context.snapshots)
 
         let hostingView = NSHostingView(rootView: contentView)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 498, height: 116),
+            contentRect: NSRect(x: 0, y: 0, width: metrics.windowWidth, height: metrics.windowHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

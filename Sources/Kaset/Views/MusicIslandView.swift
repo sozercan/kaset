@@ -5,62 +5,43 @@ struct MusicIslandView: View {
     @Environment(NowPlayingSnapshotStore.self) private var snapshots
     @State private var isHovered = false
 
+    let metrics: MusicIslandLayoutMetrics
     let openMainWindow: @MainActor () -> Void
 
     var body: some View {
         let snapshot = self.snapshots.snapshot
 
-        HStack(alignment: .top, spacing: 14) {
-            self.artwork(snapshot: snapshot)
+        VStack(spacing: 0) {
+            // Reserve the real camera housing depth so content starts below the notch.
+            Color.clear
+                .frame(height: self.metrics.notchDepth)
 
-            VStack(alignment: .leading, spacing: 3) {
-                if let line = snapshot.currentLyricLine {
-                    Text(line.text.isEmpty ? "♪" : line.text)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .contentTransition(.numericText())
+            HStack(alignment: .center, spacing: 12) {
+                self.artwork(snapshot: snapshot)
 
-                    if let romanizedText = line.romanizedText {
-                        Text(romanizedText)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .contentTransition(.numericText())
-                    }
-                } else {
-                    Text(snapshot.track?.title ?? "Kaset")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Text(snapshot.track?.artist ?? "Not Playing")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    self.primaryText(snapshot: snapshot)
+                    self.secondaryText(snapshot: snapshot)
                 }
-            }
-            .padding(.top, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: self.metrics.contentHeight)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 16)
-        .frame(minWidth: 220, idealWidth: 360, maxWidth: 498)
+        .frame(width: self.metrics.windowWidth, height: self.metrics.windowHeight)
         .background(
-            UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24, style: .continuous)
+            UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22, style: .continuous)
                 .fill(.black)
-                .shadow(color: .black.opacity(0.5), radius: 15, x: 0, y: 8)
         )
         .overlay(alignment: .topTrailing) {
             if self.isHovered {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 16)
-                    .padding(.trailing, 16)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .padding(.top, self.metrics.notchDepth + 8)
+                    .padding(.trailing, 12)
                     .transition(.scale.combined(with: .opacity))
             }
         }
@@ -83,16 +64,53 @@ struct MusicIslandView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                 } else if phase.error != nil {
-                    CassetteIcon(size: 48)
+                    CassetteIcon(size: 34)
                 } else {
                     ProgressView()
                         .controlSize(.small)
+                        .tint(.white.opacity(0.68))
                 }
             }
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         } else {
-            CassetteIcon(size: 64)
+            CassetteIcon(size: 44)
+        }
+    }
+
+    @ViewBuilder
+    private func primaryText(snapshot: NowPlayingSnapshot) -> some View {
+        if let line = snapshot.currentLyricLine {
+            Text(line.text.isEmpty ? "♪" : line.text)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .contentTransition(.numericText())
+        } else {
+            Text(snapshot.track?.title ?? "Kaset")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+    }
+
+    @ViewBuilder
+    private func secondaryText(snapshot: NowPlayingSnapshot) -> some View {
+        if let romanizedText = snapshot.currentLyricLine?.romanizedText {
+            Text(romanizedText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .contentTransition(.numericText())
+        } else {
+            Text(snapshot.track?.artist ?? "Not Playing")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.68))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
     }
 }
