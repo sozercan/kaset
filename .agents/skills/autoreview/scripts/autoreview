@@ -22,6 +22,7 @@ ENGINES = ("codex", "claude", "droid", "copilot")
 SENSITIVE_UNTRACKED_PATH = re.compile(
     r"(^|/)(\.envrc(?:[./_-]|$)|\.env(?:[./_-]|$)|\.direnv(?:/|$)|"
     r"\.npmrc$|\.netrc$|\.git-credentials$|credentials$|\.docker/config\.json$|"
+    r".*(?:auth|cookie|credential|secret|token)s?$|"
     r".*(?:auth|cookie|credential|secret|token).*\.(?:json|ya?ml|log|txt|env)|"
     r".*(?:id_rsa|id_ed25519|known_hosts|\.pem|\.p12|\.pfx|\.key|\.p8)$)",
     re.IGNORECASE,
@@ -111,6 +112,20 @@ REVIEW_BUNDLE_REDACTIONS = [
             r"(?<![A-Za-z0-9_])[\"']?"
             r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[\"']?"
             r"[^\S\r\n]*:[^\S\r\n]*(?:\"[^\"\r\n]*\"|'[^'\r\n]*')",
+            re.IGNORECASE,
+        ),
+        "[REDACTED_FIELD_SECRET]",
+    ),
+    (
+        re.compile(
+            r"(?<![A-Za-z0-9_])[\"']?"
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[\"']?"
+            r"[^\S\r\n]*:[^\S\r\n]*"
+            r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
+            r"(?![\"'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)"
+            r"(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))"
+            r"(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+",
             re.IGNORECASE,
         ),
         "[REDACTED_FIELD_SECRET]",
@@ -586,10 +601,6 @@ def partition_safe_path_entries(path_entries: list[list[str]]) -> tuple[list[str
     return safe_paths, omitted_paths
 
 
-def commit_paths(repo: Path, commit_ref: str) -> list[str]:
-    return [line for line in git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", commit_ref).splitlines() if line]
-
-
 def safe_show(repo: Path, commit_ref: str, output_args: list[str]) -> str:
     path_entries = commit_path_entries(repo, commit_ref)
     safe_paths, omitted_paths = partition_safe_path_entries(path_entries)
@@ -925,7 +936,7 @@ def run_claude(args: argparse.Namespace, repo: Path, workspace: Path, prompt: st
         json.dumps(SCHEMA),
     ]
     if args.tools:
-        cmd.extend(["--allowedTools", claude_allowed_tools(args)])
+        cmd.extend(["--allowedTools", claude_allowed_tools(args, workspace)])
     else:
         cmd.extend(["--tools", ""])
     if args.stream_engine_output:
@@ -1134,11 +1145,39 @@ def format_codex_usage(usage: dict[str, Any]) -> str:
     return "codex usage: " + " ".join(parts) if parts else "codex usage: unavailable"
 
 
-def claude_allowed_tools(args: argparse.Namespace) -> str:
+def claude_allowed_tools(args: argparse.Namespace, workspace: Path) -> str:
     tools = [tool.strip() for tool in args.claude_allowed_tools.split(",") if tool.strip()]
     if not args.web_search:
         tools = [tool for tool in tools if tool not in {"WebSearch", "WebFetch"}]
-    return ",".join(tools)
+    return ",".join(scope_claude_file_tool(tool, workspace) for tool in tools)
+
+
+def scope_claude_file_tool(tool: str, workspace: Path) -> str:
+    match = re.fullmatch(r"([A-Za-z][A-Za-z0-9_]*)(?:\((.*)\))?", tool)
+    if not match:
+        return tool
+    name, pattern = match.groups()
+    if name not in {"Read", "Grep", "Glob"}:
+        return tool
+    workspace_root = workspace.resolve()
+    if not pattern:
+        return f"{name}(./**)"
+    if not claude_tool_pattern_within_workspace(pattern, workspace_root):
+        raise SystemExit(f"refusing unscoped Claude file tool: {tool}")
+    return tool
+
+
+def claude_tool_pattern_within_workspace(pattern: str, workspace: Path) -> bool:
+    stripped = pattern.strip()
+    if not stripped or stripped.startswith(("~", "//")) or "[" in stripped or "]" in stripped:
+        return False
+    prefix = re.split(r"[*?\[]", stripped, maxsplit=1)[0] or "."
+    if prefix.startswith("/"):
+        candidate = workspace / prefix.lstrip("/")
+    else:
+        candidate = workspace / prefix
+    resolved = candidate.resolve(strict=False)
+    return is_within(resolved, workspace)
 
 
 def extract_json(text: str) -> dict[str, Any]:

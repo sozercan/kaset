@@ -481,6 +481,48 @@ test("render omits malformed quoted and short dotted secret values", () => {
   assert.doesNotMatch(output, /pa\.ssword/);
 });
 
+test("render omits short unquoted secret fields", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const secretText = ["pass", "word: abc123\napi", "_key: x9"].join("");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretText }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /abc123/);
+  assert.doesNotMatch(output, /x9/);
+});
+
+test("render keeps common short secret-field literals", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const text = "password: false\ntoken: null\napiKey: test\nsecret: 2";
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /password: false/);
+  assert.match(output, /token: null/);
+  assert.match(output, /apiKey: test/);
+  assert.match(output, /secret: 2/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+});
+
 test("render keeps code references with secret-like property names", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");

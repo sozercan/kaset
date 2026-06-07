@@ -66,6 +66,25 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn("mock api key value", output)
         self.assertNotIn("phrase value", output)
 
+    def test_redacts_short_unquoted_secret_fields(self) -> None:
+        output = autoreview.redact_review_text('password: abc123\n{"api_key": x9}')
+
+        self.assertEqual("[REDACTED_FIELD_SECRET]\n{[REDACTED_FIELD_SECRET]}", output)
+        self.assertNotIn("abc123", output)
+        self.assertNotIn("x9", output)
+
+    def test_keeps_common_short_secret_field_literals(self) -> None:
+        text = "password: false\ntoken: null\napiKey: test\nsecret: 2"
+
+        output = autoreview.redact_review_text(text)
+
+        self.assertEqual(text, output)
+
+    def test_keeps_code_references_with_secret_like_property_names(self) -> None:
+        output = autoreview.redact_review_text("return { password: user.passwordHash, apiKey: config.apiKey };")
+
+        self.assertEqual("return { password: user.passwordHash, apiKey: config.apiKey };", output)
+
     def test_redacts_credential_urls_with_email_style_usernames(self) -> None:
         output = autoreview.redact_review_text(
             "DATABASE_URL=postgres://user@example.com:mock-password@db.example.test/app"
@@ -194,6 +213,20 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn("config/secrets.yml", output)
         self.assertNotIn("opaque-credential-value", output)
 
+    def test_safe_diff_omits_extensionless_secret_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run(["git", "init"], repo)
+            secret_path = repo / "secrets"
+            secret_path.write_text("prod: opaque-credential-value\n")
+            run(["git", "add", "secrets"], repo)
+
+            output = autoreview.safe_diff(repo, ["--cached"], ["--patch"])
+
+        self.assertIn("[1 sensitive changed path omitted from review bundle]", output)
+        self.assertNotIn("secrets", output)
+        self.assertNotIn("opaque-credential-value", output)
+
     def test_safe_diff_includes_non_ascii_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -238,6 +271,66 @@ class AutoReviewHelperTests(unittest.TestCase):
 
         self.assertIn("first.txt", output)
         self.assertIn("root-commit-content", output)
+
+    def test_claude_file_tools_are_scoped_to_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            args = type("Args", (), {
+                "claude_allowed_tools": "Read,Grep,Glob,WebSearch",
+                "web_search": True,
+            })()
+
+            output = autoreview.claude_allowed_tools(args, workspace)
+
+        self.assertIn("Read(./**)", output)
+        self.assertIn("Grep(./**)", output)
+        self.assertIn("Glob(./**)", output)
+        self.assertIn("WebSearch", output)
+        self.assertNotIn("Read,", output)
+
+    def test_claude_file_tools_reject_out_of_workspace_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            absolute_args = type("Args", (), {
+                "claude_allowed_tools": "Read(//Users/**),WebSearch",
+                "web_search": True,
+            })()
+
+            with self.assertRaises(SystemExit):
+                autoreview.claude_allowed_tools(absolute_args, workspace)
+
+    def test_claude_file_tools_allow_project_root_relative_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            args = type("Args", (), {
+                "claude_allowed_tools": "Read(/src/**),Glob(/docs/**),WebSearch",
+                "web_search": True,
+            })()
+
+            output = autoreview.claude_allowed_tools(args, workspace)
+
+        self.assertIn("Read(/src/**)", output)
+        self.assertIn("Glob(/docs/**)", output)
+        self.assertIn("WebSearch", output)
+
+    def test_claude_file_tools_reject_placeholder_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp)
+            args = type("Args", (), {
+                "claude_allowed_tools": "Read([LOCAL_PATH]),WebSearch",
+                "web_search": True,
+            })()
+
+            with self.assertRaises(SystemExit):
+                autoreview.claude_allowed_tools(args, workspace)
+
+            args = type("Args", (), {
+                "claude_allowed_tools": "Read(/[LOCAL_PATH]),WebSearch",
+                "web_search": True,
+            })()
+
+            with self.assertRaises(SystemExit):
+                autoreview.claude_allowed_tools(args, workspace)
 
 
 if __name__ == "__main__":

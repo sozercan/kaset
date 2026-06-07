@@ -48,6 +48,10 @@ const QUOTED_SECRET_FIELD =
   /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/i;
 const QUOTED_SECRET_FIELD_GLOBAL =
   /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/gi;
+const UNQUOTED_SHORT_SECRET_FIELD =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!["'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+/i;
+const UNQUOTED_SHORT_SECRET_FIELD_GLOBAL =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!["'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+/gi;
 const SECRET_ENV_ASSIGNMENT =
   /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/;
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
@@ -374,6 +378,7 @@ function redact(input, stats) {
     [SERVICE_CREDENTIAL_URL_GLOBAL, "[REDACTED_CREDENTIAL_URL]"],
     [QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [QUOTED_SECRET_FIELD_GLOBAL, "[REDACTED_FIELD_SECRET]"],
+    [UNQUOTED_SHORT_SECRET_FIELD_GLOBAL, "[REDACTED_FIELD_SECRET]"],
     [SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
     [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]"],
     [/\b(?:\+?\d[\d .()-]{7,}\d)\b/g, "[REDACTED_PHONE]"],
@@ -405,6 +410,7 @@ function unsafe(text) {
     SERVICE_CREDENTIAL_URL,
     QUOTED_SECRET_ENV_ASSIGNMENT,
     QUOTED_SECRET_FIELD,
+    UNQUOTED_SHORT_SECRET_FIELD,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
@@ -423,6 +429,7 @@ function unsafeBeforeRedaction(text) {
     SERVICE_CREDENTIAL_URL,
     QUOTED_SECRET_ENV_ASSIGNMENT,
     QUOTED_SECRET_FIELD,
+    UNQUOTED_SHORT_SECRET_FIELD,
     SECRET_ENV_ASSIGNMENT,
     UNRESOLVED_SECRET_FIELD,
     /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
