@@ -155,6 +155,11 @@ final class SearchViewModel {
     @ObservationIgnored private var suppressedSuggestionsQuery: String?
     // swiftformat:enable modifierOrder
 
+    private struct SearchAllAttempt {
+        let response: SearchResponse?
+        let error: (any Error)?
+    }
+
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
@@ -331,29 +336,29 @@ final class SearchViewModel {
     /// Performs the broadest search for the All filter by combining the mixed search response
     /// with the dedicated result-type searches.
     private func searchAll(query: String) async throws -> SearchResponse {
-        async let mixedResults = self.bestEffortSearch(label: "mixed search") {
+        async let mixedResults = self.attemptSearch(label: "mixed search") {
             try await self.client.search(query: query)
         }
-        async let songResults = self.bestEffortSearch(label: "songs search") {
+        async let songResults = self.attemptSearch(label: "songs search") {
             try await self.client.searchSongsWithPagination(query: query)
         }
-        async let albumResults = self.bestEffortSearch(label: "albums search") {
+        async let albumResults = self.attemptSearch(label: "albums search") {
             try await self.client.searchAlbums(query: query)
         }
-        async let artistResults = self.bestEffortSearch(label: "artists search") {
+        async let artistResults = self.attemptSearch(label: "artists search") {
             try await self.client.searchArtists(query: query)
         }
-        async let featuredPlaylistResults = self.bestEffortSearch(label: "featured playlists search") {
+        async let featuredPlaylistResults = self.attemptSearch(label: "featured playlists search") {
             try await self.client.searchFeaturedPlaylists(query: query)
         }
-        async let communityPlaylistResults = self.bestEffortSearch(label: "community playlists search") {
+        async let communityPlaylistResults = self.attemptSearch(label: "community playlists search") {
             try await self.client.searchCommunityPlaylists(query: query)
         }
-        async let podcastResults = self.bestEffortSearch(label: "podcasts search") {
+        async let podcastResults = self.attemptSearch(label: "podcasts search") {
             try await self.client.searchPodcasts(query: query)
         }
 
-        let responses = await [
+        let attempts = await [
             mixedResults,
             songResults,
             albumResults,
@@ -363,20 +368,35 @@ final class SearchViewModel {
             podcastResults,
         ]
 
+        if let authError = attempts.compactMap(\.error).first(where: Self.isAuthenticationError) {
+            throw authError
+        }
+
+        let responses = attempts.compactMap(\.response)
+        guard !responses.isEmpty else {
+            throw attempts.compactMap(\.error).first ?? YTMusicError.unknown(message: "All-filter search failed")
+        }
+
         return Self.mergeSearchResponses(responses)
     }
 
-    /// Runs a search request and falls back to an empty response if a specific endpoint fails.
-    private func bestEffortSearch(
+    /// Runs one All-filter search request, preserving failures so total failure still surfaces as an error.
+    private func attemptSearch(
         label: String,
         operation: @escaping @Sendable () async throws -> SearchResponse
-    ) async -> SearchResponse {
+    ) async -> SearchAllAttempt {
         do {
-            return try await operation()
+            let response = try await operation()
+            return SearchAllAttempt(response: response, error: nil)
         } catch {
             self.logger.debug("All-filter \(label) failed: \(error.localizedDescription)")
-            return .empty
+            return SearchAllAttempt(response: nil, error: error)
         }
+    }
+
+    private static func isAuthenticationError(_ error: any Error) -> Bool {
+        guard let ytError = error as? YTMusicError else { return false }
+        return ytError.requiresReauth
     }
 
     /// Combines multiple search responses while keeping the first occurrence of each item.

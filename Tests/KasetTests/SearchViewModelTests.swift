@@ -209,4 +209,24 @@ struct SearchViewModelTests {
         #expect(self.viewModel.results.podcastShows.count == 1)
         #expect(self.mockClient.searchQueries.count == 7)
     }
+
+    @Test("All filter reports error when every aggregate request fails")
+    func allFilterReportsErrorWhenEveryAggregateRequestFails() async {
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
+
+        self.viewModel.query = "lofi"
+        self.viewModel.selectedFilter = .all
+        self.viewModel.searchImmediately()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        guard case let .error(error) = self.viewModel.loadingState else {
+            Issue.record("Expected all-filter total failure to surface an error")
+            return
+        }
+
+        #expect(error.title == "Connection Error")
+        #expect(error.isRetryable)
+        #expect(self.viewModel.results.isEmpty)
+        #expect(self.mockClient.searchQueries.count == 7)
+    }
 }
