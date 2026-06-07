@@ -30,6 +30,34 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertNotIn("mock secret phrase value", output)
         self.assertNotIn("phrase value", output)
 
+    def test_keeps_call_expression_secret_assignments(self) -> None:
+        output = autoreview.redact_review_text("let password = getPassword()")
+        multiline_assignment = "let pass" "word = getPassword()\nnext line"
+        multiline_output = autoreview.redact_review_text(multiline_assignment)
+
+        self.assertEqual("let password = getPassword()", output)
+        self.assertIn("next line", multiline_output)
+
+    def test_rejects_call_expression_secret_literal_arguments(self) -> None:
+        assignment = "let pass" 'word = getPassword("actual-secret-123")'
+        fallback_assignment = "let pass" 'word = getPassword() || "actual-secret-123"'
+        template_assignment = "let pass" "word = getPassword(`actual-secret-123`)"
+        bare_argument_assignment = "let pass" "word = getPassword(actual-secret-123)"
+        secret_identifier_call = "let to" "ken = actualSecret123()"
+        prefixed_secret_identifier_call = "let to" "ken = getActualSecret123()"
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(assignment)
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(fallback_assignment)
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(template_assignment)
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(bare_argument_assignment)
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(secret_identifier_call)
+        with self.assertRaises(SystemExit):
+            autoreview.redact_review_text(prefixed_secret_identifier_call)
+
     def test_redacts_colon_style_quoted_secret_values_with_spaces(self) -> None:
         output = autoreview.redact_review_text('password: "mock secret phrase value"\n{"api_key": "mock api key value"}')
 
@@ -56,6 +84,18 @@ class AutoReviewHelperTests(unittest.TestCase):
         output = autoreview.redact_review_text("SESSIONID=abcdef1234567890")
 
         self.assertEqual("[REDACTED_COOKIE]", output)
+
+    def test_redacts_quoted_cookie_assignments(self) -> None:
+        output = autoreview.redact_review_text(
+            'SID="abcdef1234567890"\n'
+            'redact_review_text(\'Cookie: SID="fedcba0987654321"\'); check(\'important change\')'
+        )
+
+        self.assertIn("[REDACTED_COOKIE]", output)
+        self.assertIn("Cookie: [REDACTED_COOKIE_HEADER]", output)
+        self.assertIn("); check('important change')", output)
+        self.assertNotIn("abcdef1234567890", output)
+        self.assertNotIn("fedcba0987654321", output)
 
     def test_redacts_token_auth_schemes(self) -> None:
         output = autoreview.redact_review_text("Authorization: Token abcdefghijklmnop")
@@ -153,6 +193,18 @@ class AutoReviewHelperTests(unittest.TestCase):
         self.assertIn("[1 sensitive changed path omitted from review bundle]", output)
         self.assertNotIn("config/secrets.yml", output)
         self.assertNotIn("opaque-credential-value", output)
+
+    def test_safe_diff_includes_non_ascii_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run(["git", "init"], repo)
+            path = repo / "é.txt"
+            path.write_text("unicode-content\n")
+            run(["git", "add", "é.txt"], repo)
+
+            output = autoreview.safe_diff(repo, ["--cached"], ["--patch"])
+
+        self.assertIn("unicode-content", output)
 
     def test_safe_diff_treats_safe_paths_as_literal_pathspecs(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -500,6 +500,97 @@ test("render keeps code references with secret-like property names", () => {
   assert.doesNotMatch(output, /browser\/session\/auth internals/);
 });
 
+test("render keeps call expression secret assignments", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const multilineAssignment = "let pass" + "word = getPassword()\nnext line";
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: "let password = getPassword()" }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: multilineAssignment }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.ok(output.includes("let password = getPassword()"));
+  assert.match(output, /next line/);
+  assert.doesNotMatch(output, /browser\/session\/auth internals/);
+});
+
+test("render omits call expression secret literal arguments", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  const assignment = "let pass" + 'word = getPassword("' + "actual-secret-123" + '")';
+  const fallbackAssignment = "let pass" + 'word = getPassword() || "' + "actual-secret-456" + '"';
+  const templateAssignment = "let pass" + "word = getPassword(`" + "actual-secret-789" + "`)";
+  const bareArgumentAssignment = "let pass" + "word = getPassword(actual-secret-000)";
+  const secretIdentifierCall = "let to" + "ken = actualSecret123()";
+  const prefixedSecretIdentifierCall = "let to" + "ken = getActualSecret123()";
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: assignment }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: fallbackAssignment }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: templateAssignment }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: bareArgumentAssignment }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: secretIdentifierCall }],
+      },
+    },
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: prefixedSecretIdentifierCall }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /actual-secret-123/);
+  assert.doesNotMatch(output, /actual-secret-456/);
+  assert.doesNotMatch(output, /actual-secret-789/);
+  assert.doesNotMatch(output, /actual-secret-000/);
+  assert.doesNotMatch(output, /actualSecret123/);
+  assert.doesNotMatch(output, /getActualSecret123/);
+});
+
 test("render keeps regex declarations with secret-like names", () => {
   const dir = tempDir();
   const session = path.join(dir, "session.jsonl");
@@ -721,6 +812,25 @@ test("render omits generic session cookie material", () => {
   const output = run(["render", "--session", session]);
   assert.match(output, /browser\/session\/auth internals/);
   assert.doesNotMatch(output, /SESSIONID=/);
+  assert.doesNotMatch(output, /abcdef1234567890/);
+});
+
+test("render omits quoted cookie assignments", () => {
+  const dir = tempDir();
+  const session = path.join(dir, "session.jsonl");
+  writeJsonl(session, [
+    {
+      type: "response_item",
+      payload: {
+        role: "user",
+        content: [{ type: "text", text: 'SID="abcdef1234567890"' }],
+      },
+    },
+  ]);
+
+  const output = run(["render", "--session", session]);
+  assert.match(output, /browser\/session\/auth internals/);
+  assert.doesNotMatch(output, /SID=/);
   assert.doesNotMatch(output, /abcdef1234567890/);
 });
 

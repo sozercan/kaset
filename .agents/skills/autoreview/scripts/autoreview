@@ -33,7 +33,8 @@ SENSITIVE_UNTRACKED_TEXT = re.compile(
 )
 COOKIE_ASSIGNMENT_RE = re.compile(
     r"\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|"
-    r"__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`\"'<>&)]+",
+    r"__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*"
+    r"(?:\"[^\"\r\n;`'<>&)]*\"|'[^'\r\n;`\"<>&)]*'|[^;\s`\"'<>&)]+)",
     re.IGNORECASE,
 )
 AUTH_URL_RE = re.compile(
@@ -62,7 +63,15 @@ REVIEW_BUNDLE_REDACTIONS = [
         r"\1[REDACTED_AUTH_HEADER]",
     ),
     (re.compile(r"\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}", re.IGNORECASE), "[REDACTED_AUTH_HEADER]"),
-    (re.compile(r"(\b(?:Cookie|Set-Cookie):\s*)[^\r\n`\"']+", re.IGNORECASE), r"\1[REDACTED_COOKIE_HEADER]"),
+    (
+        re.compile(
+            r"(\b(?:Cookie|Set-Cookie):\s*)"
+            r"(?:[A-Za-z0-9_.-]+\s*=\s*(?:\"[^\"\r\n;]*\"|'[^'\r\n;]*'|[^;\r\n`\"']+)|[^;\r\n`\"']+)"
+            r"(?:;\s*(?:[A-Za-z0-9_.-]+\s*=\s*(?:\"[^\"\r\n;]*\"|'[^'\r\n;]*'|[^;\r\n`\"']+)|[^;\r\n`\"']+))*",
+            re.IGNORECASE,
+        ),
+        r"\1[REDACTED_COOKIE_HEADER]",
+    ),
     (COOKIE_ASSIGNMENT_RE, "[REDACTED_COOKIE]"),
     (AUTH_URL_RE, "[REDACTED_AUTH_URL]"),
     (SERVICE_CREDENTIAL_URL_RE, "[REDACTED_CREDENTIAL_URL]"),
@@ -130,6 +139,10 @@ UNRESOLVED_SECRET_RE = re.compile(
     r"(?!/)(?!(?:re\.compile\()))"
     r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
     r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
+    r"(?!(?:(?:try|await)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\.)*"
+    r"(?:get|load|read|fetch|build|make|create|resolve|retrieve)"
+    r"(?:password|token|secret|credentials?|api[_-]?key|key|hash)?\s*"
+    r"(?:\([^\S\r\n]*\)|\\\([^\S\r\n]*\\\))[^\S\r\n]*(?=$|[\r\n;,)\]\}\"']))"
     r"[\"']?[A-Za-z0-9_./+=:-]{8,}"
 )
 THINKING_LEVELS_BY_ENGINE = {
@@ -526,11 +539,13 @@ def safe_diff(repo: Path, diff_ref_args: list[str], output_args: list[str]) -> s
 
 def diff_path_entries(repo: Path, diff_ref_args: list[str]) -> list[list[str]]:
     return parse_name_status_entries(
-        git(repo, "diff", *diff_ref_args, "--name-status", "--find-renames", "--find-copies-harder")
+        git(repo, "diff", *diff_ref_args, "--name-status", "-z", "--find-renames", "--find-copies-harder")
     )
 
 
 def parse_name_status_entries(text: str) -> list[list[str]]:
+    if "\0" in text:
+        return parse_nul_name_status_entries(text)
     entries: list[list[str]] = []
     for line in text.splitlines():
         parts = [part for part in line.split("\t") if part]
@@ -541,6 +556,22 @@ def parse_name_status_entries(text: str) -> list[list[str]]:
             entries.append([parts[1], parts[2]])
         else:
             entries.append([parts[-1]])
+    return entries
+
+
+def parse_nul_name_status_entries(text: str) -> list[list[str]]:
+    entries: list[list[str]] = []
+    fields = [field for field in text.split("\0") if field]
+    index = 0
+    while index < len(fields):
+        status = fields[index]
+        index += 1
+        if status.startswith(("R", "C")) and index + 1 < len(fields):
+            entries.append([fields[index], fields[index + 1]])
+            index += 2
+        elif index < len(fields):
+            entries.append([fields[index]])
+            index += 1
     return entries
 
 
@@ -581,6 +612,7 @@ def commit_path_entries(repo: Path, commit_ref: str) -> list[list[str]]:
             "--no-commit-id",
             "--root",
             "--name-status",
+            "-z",
             "--find-renames",
             "--find-copies-harder",
             "-r",

@@ -29,9 +29,9 @@ const SCOPE_STOP_WORDS = new Set([
   "www",
 ]);
 const COOKIE_ASSIGNMENT =
-  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/i;
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*(?:"[^"\r\n;`'<>&)]*"|'[^'\r\n;`"<>&)]*'|[^;\s`"'<>&)]+)/i;
 const COOKIE_ASSIGNMENT_GLOBAL =
-  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*[^;\s`"'<>&)]+/gi;
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*(?:"[^"\r\n;`'<>&)]*"|'[^'\r\n;`"<>&)]*'|[^;\s`"'<>&)]+)/gi;
 const AUTH_QUERY_PARAM =
   /([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
 const AUTH_URL =
@@ -53,7 +53,7 @@ const SECRET_ENV_ASSIGNMENT =
 const SECRET_ENV_ASSIGNMENT_GLOBAL =
   /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/g;
 const UNRESOLVED_SECRET_FIELD =
-  /(?:(?<!const )(?<!let )(?<!var )\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*(?!\/))(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)["']?[A-Za-z0-9_./+=:-]{8,}/i;
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*(?!\/))(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!(?:(?:try|await)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:get|load|read|fetch|build|make|create|resolve|retrieve)(?:password|token|secret|credentials?|api[_-]?key|key|hash)?\s*(?:\([^\S\r\n]*\)|\\\([^\S\r\n]*\\\))[^\S\r\n]*(?=$|[\r\n;,)\]\}"']))["']?[A-Za-z0-9_./+=:-]{8,}/i;
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../..");
 
