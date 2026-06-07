@@ -463,7 +463,10 @@ jobs:
             homepage "https://github.com/sozercan/kaset"
 
             auto_updates true
-            depends_on macos: ">= :tahoe"
+            # Homebrew casks can gate on macOS release symbols, but not this
+            # app's exact 15.4 patch minimum; LSMinimumSystemVersion and
+            # Sparkle's appcast enforce 15.4 at launch/update time.
+            depends_on macos: ">= :sequoia"
 
             app "Kaset.app"
 
@@ -524,7 +527,7 @@ jobs:
                           length="${LENGTH}"
                           type="application/octet-stream"
                           sparkle:edSignature="${SIGNATURE}"/>
-                      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+                      <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
                   </item>
 
               </channel>

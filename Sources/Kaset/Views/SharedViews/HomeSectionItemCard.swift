@@ -3,35 +3,63 @@ import SwiftUI
 // MARK: - HomeSectionItemCard
 
 /// Reusable card view for home section items (songs, playlists, albums, artists).
-@available(macOS 26.0, *)
 struct HomeSectionItemCard: View {
     let item: HomeSectionItem
     let rank: Int?
+    let playAction: (() -> Void)?
     let action: () -> Void
 
     /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
     private static let videoThumbnailSize = CGSize(width: 284, height: 160)
+    private static let playButtonSize = CGSize(width: 48, height: 48)
 
     /// Hover state for play overlay.
     @State private var isHovering = false
     @State private var failedThumbnailURLs: Set<URL> = []
 
-    init(item: HomeSectionItem, rank: Int? = nil, action: @escaping () -> Void) {
+    init(
+        item: HomeSectionItem,
+        rank: Int? = nil,
+        playAction: (() -> Void)? = nil,
+        action: @escaping () -> Void
+    ) {
         self.item = item
         self.rank = rank
+        self.playAction = playAction
         self.action = action
     }
 
     var body: some View {
-        Button(action: self.action) {
-            if let rank {
-                self.chartContent(rank: rank)
-            } else {
-                self.regularContent
-            }
+        if self.supportsPlaylistPlayAction {
+            self.cardContent
+                .accessibilityAction(named: Text("Play \(self.item.title)")) {
+                    self.playAction?()
+                }
+        } else {
+            self.cardContent
         }
-        .buttonStyle(.interactiveCard)
+    }
+
+    private var cardContent: some View {
+        ZStack(alignment: .topLeading) {
+            Button(action: self.action) {
+                if let rank {
+                    self.chartContent(rank: rank)
+                } else {
+                    self.regularContent
+                }
+            }
+            .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
+        }
+        .scaleEffect(self.isHovering ? 1.02 : 1)
+        .shadow(
+            color: self.isHovering ? .black.opacity(0.15) : .clear,
+            radius: self.isHovering ? 12 : 0,
+            x: 0,
+            y: self.isHovering ? 4 : 0
+        )
+        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -93,16 +121,8 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        Image(systemName: "play.fill")
-                            .font(.title2)
-                            .foregroundStyle(.primary)
-                            .offset(x: 2)
-                    }
-                    .transition(.scale.combined(with: .opacity))
+                SongCoverPlayOverlay(size: Self.playButtonSize)
+                    .transition(.opacity)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -112,6 +132,11 @@ struct HomeSectionItemCard: View {
                     .padding(6)
             }
         }
+    }
+
+    private var supportsPlaylistPlayAction: Bool {
+        guard case .playlist = self.item else { return false }
+        return self.playAction != nil
     }
 
     @ViewBuilder
@@ -280,6 +305,33 @@ struct HomeSectionItemCard: View {
 
         let subtitle = song.artistsDisplay.lowercased()
         return subtitle.contains("views") || subtitle.contains("video")
+    }
+}
+
+// MARK: - LiquidGlassPlayIcon
+
+private struct LiquidGlassPlayIcon: View {
+    let size: CGSize
+    let interactive: Bool
+
+    var body: some View {
+        Image(systemName: "play.fill")
+            .font(.title2)
+            .foregroundStyle(.primary)
+            .offset(x: 2)
+            .frame(width: self.size.width, height: self.size.height)
+            .compatGlass(interactive: self.interactive, in: .circle)
+    }
+}
+
+// MARK: - SongCoverPlayOverlay
+
+private struct SongCoverPlayOverlay: View {
+    let size: CGSize
+
+    var body: some View {
+        LiquidGlassPlayIcon(size: self.size, interactive: false)
+            .allowsHitTesting(false)
     }
 }
 

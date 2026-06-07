@@ -32,10 +32,22 @@ import Testing
 /// xcodebuild test -scheme Kaset -destination 'platform=macOS' \
 ///   -only-testing:KasetTests
 /// ```
+/// macOS 26+ gate. `SystemLanguageModel` is unavailable on macOS 15,
+/// so this returns false there and the suite is skipped entirely.
+private func isAppleIntelligenceAvailable() -> Bool {
+    if #available(macOS 26.0, *) {
+        SystemLanguageModel.default.availability == .available
+    } else {
+        false
+    }
+}
+
+// MARK: - MusicIntentIntegrationTests
+
 @Suite(
     .tags(.integration, .slow),
     .serialized,
-    .enabled(if: SystemLanguageModel.default.availability == .available, "Apple Intelligence required")
+    .enabled(if: isAppleIntelligenceAvailable(), "Apple Intelligence required")
 )
 @MainActor
 struct MusicIntentIntegrationTests {

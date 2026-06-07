@@ -9,6 +9,13 @@
             <cocoa class="NSQuitCommand"/>
         </command>
 
+        <class name="application" code="capp" description="Kaset's top-level scripting object.">
+            <cocoa class="NSApplication"/>
+            <responds-to command="quit">
+                <cocoa method="terminate:"/>
+            </responds-to>
+        </class>
+
     </suite>
 
     <!-- Kaset Suite -->

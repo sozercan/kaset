@@ -5,7 +5,6 @@ import SwiftUI
 // MARK: - LikeDislikeContextMenu
 
 /// Reusable context menu items for like/dislike actions.
-@available(macOS 26.0, *)
 struct LikeDislikeContextMenu: View {
     let song: Song
     let likeStatusManager: SongLikeStatusManager
@@ -46,7 +45,6 @@ struct LikeDislikeContextMenu: View {
 // MARK: - AddToQueueContextMenu
 
 /// Reusable context menu items for adding songs to the queue.
-@available(macOS 26.0, *)
 struct AddToQueueContextMenu: View {
     let song: Song
     let playerService: PlayerService
@@ -69,7 +67,6 @@ struct AddToQueueContextMenu: View {
 // MARK: - AddToPlaylistContextMenu
 
 /// Reusable context-menu submenu for adding a song to one of the user's playlists.
-@available(macOS 26.0, *)
 struct AddToPlaylistContextMenu: View {
     let song: Song
     let client: any YTMusicClientProtocol

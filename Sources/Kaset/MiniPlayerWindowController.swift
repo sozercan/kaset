@@ -4,7 +4,6 @@ import SwiftUI
 // MARK: - MiniPlayerWindowController
 
 /// Manages the Apple Music-style floating mini player window.
-@available(macOS 26.0, *)
 @MainActor
 final class MiniPlayerWindowController {
     static let shared = MiniPlayerWindowController()

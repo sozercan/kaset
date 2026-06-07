@@ -751,6 +751,7 @@ private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
     }
 }
 
+@available(macOS 26.0, *)
 #Preview {
     let playlist = Playlist(
         id: "test",

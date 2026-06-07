@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// View displaying all top songs for an artist.
-@available(macOS 26.0, *)
 struct TopSongsView: View {
     @State var viewModel: TopSongsViewModel
     @Environment(PlayerService.self) private var playerService

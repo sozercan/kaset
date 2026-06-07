@@ -17,7 +17,6 @@ import Sparkle
 /// }
 /// .disabled(!updaterService.canCheckForUpdates)
 /// ```
-@available(macOS 26.0, *)
 @MainActor
 @Observable
 final class UpdaterService {

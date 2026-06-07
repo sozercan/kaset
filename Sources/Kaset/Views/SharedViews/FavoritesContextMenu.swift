@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - FavoritesContextMenu
 
 /// Shared context menu items for adding/removing items from Favorites.
-@available(macOS 26.0, *)
 @MainActor
 enum FavoritesContextMenu {
     /// Creates a context menu button for toggling a song in/out of Favorites.

@@ -858,9 +858,9 @@ Before completing non-trivial features, verify:
 - [ ] Search input is debounced (not firing on every keystroke)
 - [ ] ForEach uses stable identity (avoid `Array(enumerated())` unless needed)
 
-## UI Design (macOS 26+)
+## UI Design (macOS 26+ with macOS 15 fallbacks)
 
-The app uses Apple's **Liquid Glass** design language introduced in macOS 26.
+The app uses Apple's **Liquid Glass** design language introduced in macOS 26 when available. Compatibility helpers in `LiquidGlassCompat.swift` keep the core app usable on macOS 15 by falling back to material backgrounds and non-AI views.
 
 ### Glass Effect Patterns
 
@@ -1155,12 +1155,14 @@ var mainContent: some View {
 
 ### @available Attributes
 
-All UI components require macOS 26.0+ for Liquid Glass:
+Foundation Models-backed AI components remain macOS 26.0+ only:
 
 ```swift
 @available(macOS 26.0, *)
-struct PlayerBar: View { ... }
+struct CommandBarView: View { ... }
 
 @available(macOS 26.0, *)
-struct MainWindow: View { ... }
+struct LyricsView: View { ... }
 ```
+
+Core navigation and playback surfaces should avoid macOS 26-only annotations and use compatibility wrappers or explicit fallback views instead.

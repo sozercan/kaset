@@ -11,7 +11,6 @@ import SwiftUI
 ///
 /// Shows the current user's account info with an option to switch accounts
 /// if brand accounts are available.
-@available(macOS 26.0, *)
 struct SidebarProfileView: View {
     @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
@@ -222,7 +221,6 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("With Account") {
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
@@ -235,7 +233,6 @@ extension AccessibilityID {
         .padding()
 }
 
-@available(macOS 26.0, *)
 #Preview("Logged Out") {
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)

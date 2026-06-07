@@ -4,7 +4,6 @@ import SwiftUI
 ///
 /// Mirrors YouTube Music's inline `MUSIC_EXPLICIT_BADGE` indicator. Render
 /// only when `Song.isExplicit == true`.
-@available(macOS 26.0, *)
 struct ExplicitBadge: View {
     var body: some View {
         Text("E")
@@ -16,7 +15,6 @@ struct ExplicitBadge: View {
     }
 }
 
-@available(macOS 26.0, *)
 #Preview {
     ExplicitBadge()
         .padding()

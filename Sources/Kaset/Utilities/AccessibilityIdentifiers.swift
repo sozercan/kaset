@@ -85,6 +85,12 @@ enum AccessibilityID {
         }
     }
 
+    // MARK: - Lyrics
+
+    enum Lyrics {
+        static let fallbackPanel = "lyrics.fallbackPanel"
+    }
+
     // MARK: - HomeView
 
     enum Home {

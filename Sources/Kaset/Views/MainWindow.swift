@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - MainWindow
 
 /// Main application window with sidebar navigation and player bar.
-@available(macOS 26.0, *)
 struct MainWindow: View {
     private struct PresentedWhatsNew: Identifiable {
         let whatsNew: WhatsNew
@@ -27,6 +26,7 @@ struct MainWindow: View {
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
+    @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -142,7 +142,7 @@ struct MainWindow: View {
         }
         .overlay {
             // Command bar overlay - dismisses when clicking outside
-            if self.isCommandBarPresented {
+            if self.supportsCommandBarUI, self.isCommandBarPresented {
                 ZStack {
                     // Background tap area to dismiss
                     Rectangle()
@@ -173,7 +173,13 @@ struct MainWindow: View {
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
-                self.isCommandBarPresented = true
+                self.presentCommandBarIfAvailable()
+                self.showCommandBar.wrappedValue = false
+            }
+        }
+        .onChange(of: self.usesLegacyMacOS15UI) { _, usesLegacyUI in
+            if usesLegacyUI {
+                self.isCommandBarPresented = false
                 self.showCommandBar.wrappedValue = false
             }
         }
@@ -356,21 +362,32 @@ struct MainWindow: View {
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 980, minHeight: 600)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    self.isCommandBarPresented = true
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.primary)
+            if self.supportsCommandBarUI {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        self.presentCommandBarIfAvailable()
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .help(String(localized: "Open Command Bar (⌘K)"))
+                    .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 }
-                .keyboardShortcut("k", modifiers: .command)
-                .help(String(localized: "Open Command Bar (⌘K)"))
-                .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
             }
         }
+    }
+
+    private func presentCommandBarIfAvailable() {
+        guard self.supportsCommandBarUI else { return }
+        self.isCommandBarPresented = true
+    }
+
+    private var supportsCommandBarUI: Bool {
+        PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -384,7 +401,11 @@ struct MainWindow: View {
 
                 Group {
                     if self.playerService.showLyrics {
-                        LyricsView(client: client)
+                        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+                            LyricsView(client: client)
+                        } else {
+                            SimpleLyricsView(client: client)
+                        }
                     } else if self.playerService.showQueue {
                         if self.playerService.queueDisplayMode == .sidepanel {
                             QueueSidePanelView()
@@ -422,15 +443,18 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    @ViewBuilder
     private var commandBar: some View {
-        CommandBarView(
-            client: self.client,
-            playerService: self.playerService,
-            isPresented: self.$isCommandBarPresented,
-            navigationSelection: self.$navigationSelection,
-            searchFocusTrigger: self.searchFocusTrigger,
-            searchViewModel: self.searchViewModel
-        )
+        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+            CommandBarView(
+                client: self.client,
+                playerService: self.playerService,
+                isPresented: self.$isCommandBarPresented,
+                navigationSelection: self.$navigationSelection,
+                searchFocusTrigger: self.searchFocusTrigger,
+                searchViewModel: self.searchViewModel
+            )
+        }
     }
 
     /// Returns the view for a specific navigation item.
@@ -456,10 +480,19 @@ struct MainWindow: View {
             case .likedMusic:
                 if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
-                        PlaylistDetailView(
-                            playlist: LikedMusicPlaylist.playlist,
-                            viewModel: vm
-                        )
+                        Group {
+                            if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+                                PlaylistDetailView(
+                                    playlist: LikedMusicPlaylist.playlist,
+                                    viewModel: vm
+                                )
+                            } else {
+                                SimplePlaylistDetailView(
+                                    playlist: LikedMusicPlaylist.playlist,
+                                    viewModel: vm
+                                )
+                            }
+                        }
                         .navigationDestinations(client: self.client)
                     }
                 }
@@ -477,13 +510,25 @@ struct MainWindow: View {
         client: any YTMusicClientProtocol
     ) -> some View {
         NavigationStack {
-            PlaylistDetailView(
-                playlist: item.playlistRoute,
-                viewModel: PlaylistDetailViewModel(
-                    playlist: item.playlistRoute,
-                    client: client
-                )
-            )
+            Group {
+                if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    PlaylistDetailView(
+                        playlist: item.playlistRoute,
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: item.playlistRoute,
+                            client: client
+                        )
+                    )
+                } else {
+                    SimplePlaylistDetailView(
+                        playlist: item.playlistRoute,
+                        viewModel: PlaylistDetailViewModel(
+                            playlist: item.playlistRoute,
+                            client: client
+                        )
+                    )
+                }
+            }
             .id(item.contentId)
             .navigationDestinations(client: client)
         }
@@ -499,7 +544,7 @@ struct MainWindow: View {
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
         }
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 980, minHeight: 600)
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
@@ -668,7 +713,6 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
-@available(macOS 26.0, *)
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
     let authService = AuthService()

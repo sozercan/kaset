@@ -5,7 +5,6 @@ import SwiftUI
 
 /// Shared context menu items for sharing items via NSSharingServicePicker.
 /// Uses native macOS sharing services for proper popup positioning in context menus.
-@available(macOS 26.0, *)
 @MainActor
 enum ShareContextMenu {
     /// Shows the share picker at the current mouse location.

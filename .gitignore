@@ -1,6 +1,8 @@
 # Build artifacts
 .build/
 DerivedData/
+__pycache__/
+*.py[cod]
 *.xcuserstate
 *.xccheckout
 *.moved-aside

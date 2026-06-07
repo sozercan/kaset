@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Using strong reference to prevent deallocation when window is hidden.
     private var mainWindow: NSWindow?
 
+    /// Tracks when the app is quitting so we can allow window closures.
+    private var isTerminating = false
+
     func applicationDidFinishLaunching(_: Notification) {
         DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
         // Set up notification center delegate to show notifications in foreground
@@ -44,6 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Save queue for persistence on next launch
         self.playerService?.saveQueueForPersistence()
         DiagnosticsLogger.player.info("Application will terminate - saved queue for persistence")
+    }
+
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        self.isTerminating = true
+        return .terminateNow
     }
 
     /// Registers for system sleep and wake notifications to handle playback appropriately.
@@ -250,7 +258,7 @@ extension AppDelegate: NSWindowDelegate {
     /// In UI test mode, close normally to avoid process conflicts.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         // In UI test mode, allow normal close behavior
-        if UITestConfig.isUITestMode {
+        if UITestConfig.isUITestMode || self.isTerminating {
             return true
         }
 

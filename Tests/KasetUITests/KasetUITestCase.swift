@@ -43,6 +43,10 @@ enum TestAccessibilityID {
         static let container = "videoWindow"
     }
 
+    enum Lyrics {
+        static let fallbackPanel = "lyrics.fallbackPanel"
+    }
+
     // MARK: - Sidebar Profile
 
     enum SidebarProfile {

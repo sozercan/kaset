@@ -2,7 +2,6 @@ import SwiftUI
 
 /// View displaying the user's YouTube Music listening history.
 /// Fetches history from the API and displays songs grouped by time period.
-@available(macOS 26.0, *)
 struct HistoryView: View {
     @State var viewModel: HistoryViewModel
     @Environment(PlayerService.self) private var playerService

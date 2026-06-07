@@ -12,6 +12,7 @@ source "$ROOT/version.env"
 # Configuration
 CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
+SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
 APP_NAME="Kaset"
 BUNDLE_ID="com.sertacozercan.Kaset"
 DEVELOPMENT_LOCALIZATION="en"
@@ -83,7 +84,7 @@ compile_asset_catalog() {
   xcrun actool \
     --compile "$output_dir" \
     --platform macosx \
-    --minimum-deployment-target 26.0 \
+    --minimum-deployment-target 15.4 \
     "$source_catalog"
 }
 
@@ -163,8 +164,14 @@ if [[ -d "$ICON_SOURCE" ]]; then
   cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
 fi
 
-# Compile AppIcon.icon and AccentColor into Contents/Resources/Assets.car
-if [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
+# Compile AppIcon.icon and AccentColor into Contents/Resources/Assets.car.
+# Xcode 26's actool currently fails on macOS 15 runners while processing
+# Icon Composer assets because it loads newer AVFCore/CoreMedia symbols.
+# UI-test CI can opt out via KASET_SKIP_MAIN_ASSETS=1; release builds should
+# keep compiling these assets so AppIcon/AccentColor remain complete.
+if [[ "$SKIP_MAIN_ASSETS" == "1" ]]; then
+  echo "⚠️  Skipping main asset catalog compilation (KASET_SKIP_MAIN_ASSETS=1)."
+elif [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
   echo "🎨 Compiling main asset catalog..."
   ICON_PARTIAL_PLIST="$BUILD_DIR/AppIconPartialInfo.plist"
   xcrun actool "$ICON_SOURCE" "$APP_ASSET_CATALOG" \
@@ -175,7 +182,7 @@ if [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun 
     --enable-on-demand-resources NO \
     --development-region "$DEVELOPMENT_LOCALIZATION" \
     --target-device mac \
-    --minimum-deployment-target 26.0 \
+    --minimum-deployment-target 15.4 \
     --platform macosx
   if [[ ! -f "$APP_BUNDLE/Contents/Resources/Assets.car" ]]; then
     echo "ERROR: actool did not produce Assets.car from $ICON_SOURCE and $APP_ASSET_CATALOG" >&2
@@ -296,7 +303,7 @@ ${APP_LOCALIZATIONS_PLIST}
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key>
-    <string>26.0</string>
+    <string>15.4</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2025 Sertac Ozercan. All rights reserved.</string>
     <key>NSPrincipalClass</key>

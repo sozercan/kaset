@@ -12,7 +12,6 @@ import SwiftUI
 /// path used by `LikeDislikeContextMenu`. Tap events do not propagate to the
 /// surrounding row button (`.buttonStyle(.borderless)` plus `.contentShape`
 /// on a tight frame keeps the hit area local).
-@available(macOS 26.0, *)
 struct LikeButton: View {
     let song: Song
     let isRowHovered: Bool
@@ -55,7 +54,6 @@ struct LikeButton: View {
 
 /// Wraps a row's body and provides per-row hover state via closure.
 /// Use to drive `LikeButton.isRowHovered` and any other hover-only chrome.
-@available(macOS 26.0, *)
 struct HoverObservingRow<Content: View>: View {
     @ViewBuilder let content: (Bool) -> Content
     @State private var isHovered: Bool = false

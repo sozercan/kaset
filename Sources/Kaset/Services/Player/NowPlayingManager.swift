@@ -17,6 +17,11 @@ final class NowPlayingManager {
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
     private let settings = SettingsManager.shared
+    private static let defaultSkipInterval: TimeInterval = 15
+    private static let skipTargetCoalescingWindow: Duration = .seconds(1)
+    private var lastSkipTarget: TimeInterval?
+    private var lastSkipVideoId: String?
+    private var lastSkipIssuedAt: ContinuousClock.Instant?
 
     private init() {}
 
@@ -53,6 +58,14 @@ final class NowPlayingManager {
     private func syncMediaControlSetting() {
         let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
         SingletonPlayerWebView.shared.setMediaControlStyle(useNextPrev: useNextPrev)
+        self.syncSkipCommandAvailability(useNextPrev: useNextPrev)
+    }
+
+    private func syncSkipCommandAvailability(useNextPrev: Bool) {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        let enableSkipCommands = !useNextPrev
+        commandCenter.skipForwardCommand.isEnabled = enableSkipCommands
+        commandCenter.skipBackwardCommand.isEnabled = enableSkipCommands
     }
 
     /// Syncs the preferred playback audio quality setting to the singleton WebView and its bootstrap state.
@@ -71,6 +84,8 @@ final class NowPlayingManager {
         commandCenter.togglePlayPauseCommand.removeTarget(nil)
         commandCenter.nextTrackCommand.removeTarget(nil)
         commandCenter.previousTrackCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
         commandCenter.changePlaybackPositionCommand.removeTarget(nil)
 
         // Play command
@@ -102,35 +117,163 @@ final class NowPlayingManager {
 
         // Next track command
         commandCenter.nextTrackCommand.isEnabled = true
-        commandCenter.nextTrackCommand.addTarget { _ in
+        commandCenter.nextTrackCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
             Task { @MainActor in
-                await player.next()
+                await self.handleNextPreviousMediaKey(direction: .forward, player: player)
             }
             return .success
         }
 
         // Previous track command
         commandCenter.previousTrackCommand.isEnabled = true
-        commandCenter.previousTrackCommand.addTarget { _ in
+        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
             Task { @MainActor in
-                await player.previous()
+                await self.handleNextPreviousMediaKey(direction: .backward, player: player)
+            }
+            return .success
+        }
+
+        // Skip forward command (Control Center skip buttons or media keys)
+        commandCenter.skipForwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
+            Task { @MainActor in
+                await self.handleSkipCommand(interval: interval, direction: .forward, player: player)
+            }
+            return .success
+        }
+
+        // Skip backward command (Control Center skip buttons or media keys)
+        commandCenter.skipBackwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
+            Task { @MainActor in
+                await self.handleSkipCommand(interval: interval, direction: .backward, player: player)
             }
             return .success
         }
 
         // Change playback position command
         commandCenter.changePlaybackPositionCommand.isEnabled = true
-        commandCenter.changePlaybackPositionCommand.addTarget { event in
+        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
             guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
             let position = positionEvent.positionTime
             Task { @MainActor in
+                self.clearSkipCoalescingTarget()
                 await player.seek(to: position)
             }
             return .success
         }
 
         self.logger.info("Remote commands configured")
+    }
+
+    private enum SkipDirection {
+        case forward
+        case backward
+    }
+
+    private func handleNextPreviousMediaKey(direction: SkipDirection, player: PlayerService) async {
+        if self.settings.mediaControlStyle == .skipForwardBackward {
+            await self.handleSkipCommand(interval: Self.defaultSkipInterval, direction: direction, player: player)
+        } else {
+            await self.handleTrackNavigation(direction: direction, player: player)
+        }
+    }
+
+    private func handleSkipCommand(
+        interval: TimeInterval,
+        direction: SkipDirection,
+        player: PlayerService
+    ) async {
+        guard player.currentTrack != nil || player.pendingPlayVideoId != nil || !player.queue.isEmpty else {
+            return
+        }
+
+        if self.settings.mediaControlStyle == .nextPreviousTrack {
+            await self.handleTrackNavigation(direction: direction, player: player)
+            return
+        }
+
+        let now = ContinuousClock.now
+        let currentVideoId = player.currentTrack?.videoId ?? player.pendingPlayVideoId
+        if let currentVideoId {
+            if self.lastSkipVideoId != currentVideoId {
+                self.clearSkipCoalescingTarget()
+            }
+            self.lastSkipVideoId = currentVideoId
+        }
+
+        guard let playbackSnapshot = await SingletonPlayerWebView.shared.currentPlaybackSnapshot(),
+              self.playbackSnapshot(playbackSnapshot, matches: currentVideoId)
+        else {
+            self.clearSkipCoalescingTarget()
+            return
+        }
+
+        let reportedProgress = playbackSnapshot.progress
+        let reportedDuration = playbackSnapshot.duration
+
+        // WebView progress can lag behind rapid media-key repeats. Briefly use the cached
+        // target so repeated or reversed skips accumulate before stale observer updates land.
+        let baseProgress = if self.canCoalesceSkipTarget(at: now), let lastSkipTarget = self.lastSkipTarget {
+            lastSkipTarget
+        } else {
+            reportedProgress
+        }
+
+        let rawTarget = switch direction {
+        case .forward:
+            baseProgress + interval
+        case .backward:
+            baseProgress - interval
+        }
+        let target = if reportedDuration > 0 {
+            min(max(0, rawTarget), reportedDuration)
+        } else {
+            max(0, rawTarget)
+        }
+
+        self.lastSkipTarget = target
+        self.lastSkipIssuedAt = now
+        player.progress = target
+        await player.seek(to: target)
+    }
+
+    private func playbackSnapshot(
+        _ snapshot: SingletonPlayerWebView.PlaybackSnapshot?,
+        matches currentVideoId: String?
+    ) -> Bool {
+        guard let snapshotVideoId = snapshot?.videoId, let currentVideoId else { return true }
+        return snapshotVideoId == currentVideoId
+    }
+
+    private func handleTrackNavigation(direction: SkipDirection, player: PlayerService) async {
+        self.clearSkipCoalescingTarget()
+        switch direction {
+        case .forward:
+            await player.next()
+        case .backward:
+            await player.previous()
+        }
+    }
+
+    private func canCoalesceSkipTarget(at now: ContinuousClock.Instant) -> Bool {
+        guard let lastSkipIssuedAt = self.lastSkipIssuedAt else { return false }
+        return now - lastSkipIssuedAt <= Self.skipTargetCoalescingWindow
+    }
+
+    private func clearSkipCoalescingTarget() {
+        self.lastSkipTarget = nil
+        self.lastSkipIssuedAt = nil
     }
 }

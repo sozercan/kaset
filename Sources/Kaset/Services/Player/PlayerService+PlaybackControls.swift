@@ -212,6 +212,13 @@ extension PlayerService {
     /// It does NOT auto-close an open video window, since hasVideo detection
     /// can be unreliable when the video element has been extracted by video mode CSS.
     func updateVideoAvailability(hasVideo: Bool) {
+        if UITestConfig.isUITestMode,
+           UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) == "true",
+           !hasVideo
+        {
+            return
+        }
+
         let previousValue = self.currentTrackHasVideo
         self.currentTrackHasVideo = hasVideo
 

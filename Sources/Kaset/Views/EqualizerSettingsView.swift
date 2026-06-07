@@ -5,7 +5,6 @@ import SwiftUI
 /// Settings tab for the equalizer, styled after Spotify's mobile EQ:
 /// a curve overlay riding on top of six vertical band sliders, a preset
 /// picker, a preamp slider, and a master toggle.
-@available(macOS 26.0, *)
 struct EqualizerSettingsView: View {
     @Environment(EqualizerService.self) private var service
 
@@ -132,7 +131,6 @@ struct EqualizerSettingsView: View {
 /// When the failure suggests a permission denial, a deep-link button
 /// opens System Settings → Privacy & Security → Screen & System Audio
 /// Recording directly.
-@available(macOS 26.0, *)
 private struct EQStatusRow: View {
     let status: EqualizerService.Status
 
@@ -226,7 +224,6 @@ private struct EQStatusRow: View {
 
 /// The visual heart of the EQ tab: a frequency-response curve drawn over a
 /// row of vertical band sliders.
-@available(macOS 26.0, *)
 private struct EQCurveAndSlidersView: View {
     let bands: [EQBand]
     let gains: [Float]
@@ -269,7 +266,6 @@ private struct EQCurveAndSlidersView: View {
 
 /// Single band: vertical slider with frequency label below and live-updating
 /// gain label above.
-@available(macOS 26.0, *)
 private struct EQBandSlider: View {
     let band: EQBand
     @Binding var gain: Float

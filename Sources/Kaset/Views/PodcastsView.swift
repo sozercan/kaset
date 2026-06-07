@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - PodcastsView
 
 /// Podcasts discovery view displaying podcast shows and episodes.
-@available(macOS 26.0, *)
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
     @Environment(PlayerService.self) private var playerService
@@ -118,7 +117,6 @@ struct PodcastsView: View {
 
 // MARK: - PodcastShowCard
 
-@available(macOS 26.0, *)
 private struct PodcastShowCard: View {
     let show: PodcastShow
     let favoritesManager: FavoritesManager
@@ -162,7 +160,6 @@ private struct PodcastShowCard: View {
 
 // MARK: - PodcastEpisodeCard
 
-@available(macOS 26.0, *)
 private struct PodcastEpisodeCard: View {
     let episode: PodcastEpisode
     let action: () -> Void
@@ -231,7 +228,6 @@ private struct PodcastEpisodeCard: View {
 // MARK: - PodcastShowView
 
 /// Detail view for a podcast show with its episodes.
-@available(macOS 26.0, *)
 struct PodcastShowView: View {
     let show: PodcastShow
     let client: any YTMusicClientProtocol
@@ -344,7 +340,7 @@ struct PodcastShowView: View {
                             Label("Play Latest", systemImage: "play.fill")
                                 .font(.headline)
                         }
-                        .buttonStyle(.glassProminent)
+                        .compatGlassProminentButton()
                     }
 
                     // Add to Library button
@@ -489,7 +485,6 @@ struct PodcastShowView: View {
 
 // MARK: - PodcastEpisodeRow
 
-@available(macOS 26.0, *)
 struct PodcastEpisodeRow: View {
     let episode: PodcastEpisode
     let action: () -> Void
@@ -576,7 +571,6 @@ struct AllEpisodesDestination: Hashable {
 // MARK: - AllEpisodesView
 
 /// View displaying all episodes of a podcast show with infinite scroll pagination.
-@available(macOS 26.0, *)
 struct AllEpisodesView: View {
     let show: PodcastShow
     let initialEpisodes: [PodcastEpisode]

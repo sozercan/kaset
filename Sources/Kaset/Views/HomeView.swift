@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Home view displaying personalized content sections.
-@available(macOS 26.0, *)
 struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
@@ -95,7 +94,11 @@ struct HomeView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { index, item in
-            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+            HomeSectionItemCard(
+                item: item,
+                rank: section.isChart ? index + 1 : nil,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
                 self.playItem(item, in: section, at: index)
             }
             .contextMenu {
@@ -105,6 +108,22 @@ struct HomeView: View {
     }
 
     // MARK: - Context Menu
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     @ViewBuilder
     private func contextMenuItems(for item: HomeSectionItem, in _: HomeSection, at _: Int) -> some View {

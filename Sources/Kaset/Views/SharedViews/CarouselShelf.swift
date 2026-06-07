@@ -3,8 +3,11 @@ import SwiftUI
 // MARK: - CarouselShelf
 
 /// A native horizontal shelf with edge fades and glass paging controls.
-@available(macOS 26.0, *)
 struct CarouselShelf<Content: View>: View {
+    private static var hoverBleed: CGFloat {
+        4
+    }
+
     let accessibilityLabel: String
     let fadeWidth: CGFloat
     let pageFraction: CGFloat
@@ -45,9 +48,11 @@ struct CarouselShelf<Content: View>: View {
         } action: { _, newMetrics in
             self.scrollMetrics = newMetrics
         }
+        .padding(Self.hoverBleed)
         .mask {
             self.edgeFadeMask
         }
+        .padding(-Self.hoverBleed)
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
                 self.controlButton(for: .leading)
@@ -117,7 +122,7 @@ struct CarouselShelf<Content: View>: View {
         }
         .buttonStyle(.plain)
         .focused(self.$focusedDirection, equals: direction)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .compatGlass(interactive: true, in: .circle)
         .opacity(self.hasControlProminence || self.focusedDirection == direction ? 1 : 0.72)
         .scaleEffect(self.focusedDirection == direction ? 1.04 : 1)
         .shadow(
@@ -169,7 +174,6 @@ struct CarouselShelf<Content: View>: View {
 // MARK: - CarouselShelfSection
 
 /// A reusable section that renders a header and a horizontal ``CarouselShelf`` of items.
-@available(macOS 26.0, *)
 struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header: View, ItemContent: View>: View {
     let accessibilityLabel: String
     let items: Items
@@ -234,7 +238,6 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
     }
 }
 
-@available(macOS 26.0, *)
 extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.Element.ID {
     init(
         accessibilityLabel: String,
@@ -268,7 +271,6 @@ extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.El
 
 // MARK: - CarouselShelfScrollMetrics
 
-@available(macOS 26.0, *)
 private struct CarouselShelfScrollMetrics: Equatable {
     var contentOffsetX: CGFloat = 0
     var viewportWidth: CGFloat = 0
@@ -293,7 +295,6 @@ private struct CarouselShelfScrollMetrics: Equatable {
 
 // MARK: - CarouselShelfDirection
 
-@available(macOS 26.0, *)
 private enum CarouselShelfDirection: Hashable {
     case leading
     case trailing

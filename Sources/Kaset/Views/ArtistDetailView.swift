@@ -3,7 +3,6 @@
 import SwiftUI
 
 /// Detail view for an artist showing their songs and albums.
-@available(macOS 26.0, *)
 struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
     @State var viewModel: ArtistDetailViewModel
@@ -260,7 +259,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         .foregroundStyle(.white)
                 }
             }
-            .buttonStyle(.glassProminent)
+            .compatGlassProminentButton()
             .controlSize(.large)
             .disabled(self.viewModel.isSubscribing)
         }

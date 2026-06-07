@@ -97,7 +97,6 @@ extension String {
 /// Re-evaluates the navigation title when the app language changes.
 /// Uses `Bundle.localizedString(forKey:value:table:)` because `AppLocalization.bundle`
 /// may be a resolved `.lproj` sub-bundle, and this method reads strings from it directly.
-@available(macOS 26.0, *)
 private struct LocalizedNavigationTitleModifier: ViewModifier {
     let key: String
     @Environment(\.locale) private var locale
@@ -108,7 +107,6 @@ private struct LocalizedNavigationTitleModifier: ViewModifier {
     }
 }
 
-@available(macOS 26.0, *)
 extension View {
     func localizedNavigationTitle(_ key: String) -> some View {
         self.modifier(LocalizedNavigationTitleModifier(key: key))

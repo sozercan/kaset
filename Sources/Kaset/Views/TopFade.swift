@@ -3,7 +3,6 @@ import SwiftUI
 // MARK: - TopFade
 
 /// A lightweight top overlay that fades scrolling content beneath hidden toolbar backgrounds.
-@available(macOS 26.0, *)
 struct TopFade: View {
     enum Style {
         /// Fades plain pages with the existing painted scrim overlay.
@@ -49,7 +48,6 @@ struct TopFade: View {
 // MARK: - TopFadeMask
 
 /// A mask that makes foreground content transparent at the top edge.
-@available(macOS 26.0, *)
 private struct TopFadeMask: View {
     let height: CGFloat
 
@@ -75,7 +73,6 @@ private struct TopFadeMask: View {
 
 // MARK: - TopFadeModifier
 
-@available(macOS 26.0, *)
 struct TopFadeModifier: ViewModifier {
     let height: CGFloat
     let style: TopFade.Style
@@ -96,7 +93,6 @@ struct TopFadeModifier: ViewModifier {
     }
 }
 
-@available(macOS 26.0, *)
 extension View {
     /// Adds the same top fade treatment used by toolbar-backed pages when the toolbar background is hidden.
     /// - Parameters:

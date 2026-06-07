@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Explore view displaying new releases, charts, and moods & genres.
-@available(macOS 26.0, *)
 struct ExploreView: View {
     @State var viewModel: ExploreViewModel
     @Environment(PlayerService.self) private var playerService
@@ -62,6 +61,7 @@ struct ExploreView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
         }
+        .accessibilityIdentifier(AccessibilityID.Explore.scrollView)
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
@@ -75,13 +75,33 @@ struct ExploreView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { index, item in
-            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+            HomeSectionItemCard(
+                item: item,
+                rank: section.isChart ? index + 1 : nil,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
                 self.playItem(item, in: section, at: index)
             }
         }
     }
 
     // MARK: - Actions
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {

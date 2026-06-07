@@ -17,10 +17,13 @@ extension EnvironmentValues {
     @Entry var showWhatsNew: Binding<Bool> = .constant(false)
 }
 
+extension EnvironmentValues {
+    @Entry var usesLegacyMacOS15UI = false
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.
-@available(macOS 26.0, *)
 @main
 struct KasetApp: App {
     /// App delegate for lifecycle management (background playback).
@@ -140,6 +143,7 @@ struct KasetApp: App {
                     .environment(\.navigationSelection, self.$navigationSelection)
                     .environment(\.showCommandBar, self.$showCommandBar)
                     .environment(\.showWhatsNew, self.$showWhatsNew)
+                    .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                     .onAppear {
                         DiagnosticsLogger.app.info("KasetApp: App content appeared")
                         // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
@@ -157,8 +161,10 @@ struct KasetApp: App {
                         // Fetch accounts after login check (for account switcher)
                         await self.accountService?.fetchAccounts()
 
-                        // Warm up Foundation Models in background
-                        await FoundationModelsService.shared.warmup()
+                        // Warm up Foundation Models in background (macOS 26+ only)
+                        if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                            await FoundationModelsService.shared.warmup()
+                        }
                     }
                     .onOpenURL { url in
                         self.handleIncomingURL(url)
@@ -330,10 +336,12 @@ struct KasetApp: App {
                 .keyboardShortcut("f", modifiers: .command)
 
                 // Command Bar - ⌘K
-                Button("Command Bar") {
-                    self.showCommandBar = true
+                if PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.settings.useLegacyMacOS15UI) {
+                    Button("Command Bar") {
+                        self.showCommandBar = true
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
                 }
-                .keyboardShortcut("k", modifiers: .command)
             }
 
             // Window menu - show main window
@@ -485,10 +493,10 @@ struct KasetApp: App {
 // MARK: - SettingsView
 
 /// Main settings view with tabbed navigation.
-@available(macOS 26.0, *)
 struct SettingsView: View {
     @Environment(UpdaterService.self) private var updaterService
     @Environment(ScrobblingCoordinator.self) private var scrobblingCoordinator
+    @State private var settings = SettingsManager.shared
 
     var body: some View {
         TabView {
@@ -497,10 +505,12 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
-            IntelligenceSettingsView()
-                .tabItem {
-                    Label("Intelligence", systemImage: "sparkles")
-                }
+            if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                IntelligenceSettingsView()
+                    .tabItem {
+                        Label("Intelligence", systemImage: "sparkles")
+                    }
+            }
 
             ScrobblingSettingsView()
                 .environment(self.scrobblingCoordinator)

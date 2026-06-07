@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Charts view displaying top songs, albums, and trending charts.
-@available(macOS 26.0, *)
 struct ChartsView: View {
     @State var viewModel: ChartsViewModel
     @Environment(PlayerService.self) private var playerService
@@ -75,13 +74,33 @@ struct ChartsView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { index, item in
-            HomeSectionItemCard(item: item, rank: section.isChart ? index + 1 : nil) {
+            HomeSectionItemCard(
+                item: item,
+                rank: section.isChart ? index + 1 : nil,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
                 self.playItem(item, in: section, at: index)
             }
         }
     }
 
     // MARK: - Actions
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {

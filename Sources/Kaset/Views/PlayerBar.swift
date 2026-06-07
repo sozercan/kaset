@@ -3,9 +3,9 @@ import SwiftUI
 // MARK: - PlayerBar
 
 /// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
-@available(macOS 26.0, *)
 struct PlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
+    private static let compactLayoutThreshold: CGFloat = 980
 
     @Environment(PlayerService.self) private var playerService
     @Environment(WebKitManager.self) private var webKitManager
@@ -25,6 +25,8 @@ struct PlayerBar: View {
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
 
+    @State private var playerBarWidth: CGFloat = 0
+
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
     @State private var formattedRemaining: String = "-0:00"
@@ -32,7 +34,7 @@ struct PlayerBar: View {
     @State private var lastProgressSecond: Int = -1
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
+        CompatGlassContainer(spacing: 0) {
             HStack(spacing: 0) {
                 // Left section: Playback controls
                 self.playbackControls
@@ -50,13 +52,19 @@ struct PlayerBar: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
             .frame(height: 52)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .glassEffectID("playerBar", in: self.playerNamespace)
+            .compatGlass(interactive: true, in: .capsule)
+            .compatGlassID("playerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .background(alignment: .bottom) {
             self.playerAreaFade
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: PlayerBarWidthPreferenceKey.self, value: proxy.size.width)
+            }
         }
         .background {
             // Keyboard shortcuts for media controls
@@ -97,6 +105,11 @@ struct PlayerBar: View {
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
                 .opacity(0)
+            }
+        }
+        .onPreferenceChange(PlayerBarWidthPreferenceKey.self) { width in
+            if abs(width - self.playerBarWidth) > 0.5 {
+                self.playerBarWidth = width
             }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
@@ -176,18 +189,23 @@ struct PlayerBar: View {
         self.isHoveringSeekBar && self.playerService.currentTrack != nil
     }
 
+    private var isCompactLayout: Bool {
+        self.playerBarWidth > 0 && self.playerBarWidth < Self.compactLayoutThreshold
+    }
+
     private var seekInteractionLayer: some View {
-        Group {
-            if self.showsSeekControls {
-                if self.playerService.isCurrentItemLive {
-                    self.liveIndicatorView
-                        .transition(.opacity)
-                } else {
-                    self.seekBarView
-                        .transition(.opacity)
-                }
-            } else if !self.playerService.isCurrentItemLive {
+        ZStack {
+            if self.playerService.isCurrentItemLive {
+                self.liveIndicatorView
+                    .opacity(self.showsSeekControls ? 1 : 0)
+                    .transition(.opacity)
+            } else {
+                self.seekBarView
+                    .opacity(self.showsSeekControls ? 1 : 0)
+                    .allowsHitTesting(self.showsSeekControls)
+
                 self.compactProgressView
+                    .opacity(self.showsSeekControls ? 0 : 1)
             }
         }
         .frame(height: self.showsSeekControls ? 28 : 10, alignment: .bottom)
@@ -458,7 +476,7 @@ struct PlayerBar: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .glassEffectID("playPause", in: self.playerNamespace)
+            .compatGlassID("playPause", in: self.playerNamespace)
             .accessibilityLabel(self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
 
             // Next
@@ -516,23 +534,14 @@ struct PlayerBar: View {
 
     private var volumeControl: some View {
         HStack(spacing: 8) {
-            // Like/Dislike/Library actions
-            self.actionButtons
-
-            // AirPlay button
-            Button {
-                HapticService.toggle()
-                self.playerService.showAirPlayPicker()
-            } label: {
-                Image(systemName: "airplayaudio")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.isAirPlayConnected ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
+            if self.isCompactLayout {
+                CompactVisibleActionButtons(playerNamespace: self.playerNamespace)
+                self.compactActionsMenu
+            } else {
+                // Like/Dislike/Library actions
+                self.actionButtons
+                self.airPlayButton
             }
-            .buttonStyle(.pressable)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
-            .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
-            .disabled(self.playerService.currentTrack == nil)
 
             Divider()
                 .frame(height: 20)
@@ -543,36 +552,103 @@ struct PlayerBar: View {
                 .foregroundStyle(.primary.opacity(0.85))
                 .frame(width: 18)
 
-            // Volume slider with immediate updates
-            Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
-                if editing {
-                    // User started dragging
-                    self.isAdjustingVolume = true
-                } else {
-                    // User finished dragging/clicking - apply volume change
-                    self.isAdjustingVolume = false
-                    // Always apply volume when interaction ends to ensure WebView is synced
-                    Task {
-                        await self.playerService.setVolume(self.volumeValue)
-                    }
-                }
-            }
-            .frame(width: 80)
-            .controlSize(.small)
-            .tint(Self.brandAccent)
-            .onChange(of: self.volumeValue) { oldValue, newValue in
-                // Apply volume changes in real-time during dragging for immediate feedback
-                if self.isAdjustingVolume {
-                    // Haptic feedback at slider boundaries
-                    if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
-                        HapticService.sliderBoundary()
-                    }
-                    Task {
-                        await self.playerService.setVolume(newValue)
-                    }
+            self.volumeSlider
+        }
+    }
+
+    private var airPlayButton: some View {
+        Button {
+            HapticService.toggle()
+            self.playerService.showAirPlayPicker()
+        } label: {
+            Image(systemName: "airplayaudio")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(self.playerService.isAirPlayConnected ? .red : .primary.opacity(0.85))
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.pressable)
+        .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
+        .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
+        .disabled(self.playerService.currentTrack == nil)
+    }
+
+    private var volumeSlider: some View {
+        Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
+            if editing {
+                // User started dragging
+                self.isAdjustingVolume = true
+            } else {
+                // User finished dragging/clicking - apply volume change
+                self.isAdjustingVolume = false
+                // Always apply volume when interaction ends to ensure WebView is synced
+                Task {
+                    await self.playerService.setVolume(self.volumeValue)
                 }
             }
         }
+        .frame(width: 80)
+        .controlSize(.small)
+        .tint(Self.brandAccent)
+        .onChange(of: self.volumeValue) { oldValue, newValue in
+            // Apply volume changes in real-time during dragging for immediate feedback
+            if self.isAdjustingVolume {
+                // Haptic feedback at slider boundaries
+                if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
+                    HapticService.sliderBoundary()
+                }
+                Task {
+                    await self.playerService.setVolume(newValue)
+                }
+            }
+        }
+    }
+
+    private var compactActionsMenu: some View {
+        @Bindable var player = self.playerService
+
+        return Menu {
+            Button {
+                HapticService.toggle()
+                self.playerService.showAirPlayPicker()
+            } label: {
+                Label(
+                    self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"),
+                    systemImage: "airplayaudio"
+                )
+            }
+            .disabled(self.playerService.currentTrack == nil)
+
+            Divider()
+
+            Button {
+                HapticService.toggle()
+                withAnimation(AppAnimation.standard) {
+                    player.showQueue.toggle()
+                }
+            } label: {
+                Label(String(localized: "Queue"), systemImage: "list.bullet")
+            }
+
+            Button {
+                HapticService.toggle()
+                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
+            } label: {
+                Label(
+                    self.playerService.isMiniPlayerVisible
+                        ? String(localized: "Return to Kaset")
+                        : String(localized: "Switch to Mini Player"),
+                    systemImage: self.playerService.isMiniPlayerVisible
+                        ? "macwindow"
+                        : "rectangle.inset.bottomright.filled"
+                )
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.85))
+        }
+        .menuStyle(.borderlessButton)
+        .accessibilityLabel(String(localized: "More"))
     }
 
     // MARK: - Action Buttons (Like/Dislike/Lyrics/Queue)
@@ -629,7 +705,7 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
-            .glassEffectID("lyrics", in: self.playerNamespace)
+            .compatGlassID("lyrics", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
             .accessibilityLabel(String(localized: "Lyrics"))
             .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
@@ -646,7 +722,7 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
-            .glassEffectID("queue", in: self.playerNamespace)
+            .compatGlassID("queue", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)
             .accessibilityLabel(String(localized: "Queue"))
             .accessibilityValue(self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"))
@@ -660,7 +736,7 @@ struct PlayerBar: View {
                     .foregroundStyle(self.playerService.isMiniPlayerVisible ? .red : .primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
-            .glassEffectID("miniPlayer", in: self.playerNamespace)
+            .compatGlassID("miniPlayer", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.PlayerBar.miniPlayerButton)
             .accessibilityLabel(self.playerService.isMiniPlayerVisible ? String(localized: "Return to Kaset") : String(localized: "Switch to Mini Player"))
 
@@ -681,7 +757,7 @@ struct PlayerBar: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.pressable)
-            .glassEffectID("video", in: self.playerNamespace)
+            .compatGlassID("video", in: self.playerNamespace)
             .keyboardShortcut("v", modifiers: [.command, .shift])
             .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
             .accessibilityLabel(String(localized: "Video"))
@@ -702,7 +778,93 @@ struct PlayerBar: View {
     }
 }
 
-@available(macOS 26.0, *)
+// MARK: - CompactVisibleActionButtons
+
+private struct CompactVisibleActionButtons: View {
+    let playerNamespace: Namespace.ID
+
+    @Environment(PlayerService.self) private var playerService
+
+    var body: some View {
+        @Bindable var player = self.playerService
+
+        HStack(spacing: 12) {
+            Button {
+                HapticService.toggle()
+                self.playerService.dislikeCurrentTrack()
+            } label: {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
+                    ? "hand.thumbsdown.fill"
+                    : "hand.thumbsdown")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
+            .accessibilityLabel(String(localized: "Dislike"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked"))
+            .disabled(self.playerService.currentTrack == nil)
+
+            Button {
+                HapticService.toggle()
+                self.playerService.likeCurrentTrack()
+            } label: {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .like
+                    ? "hand.thumbsup.fill"
+                    : "hand.thumbsup")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
+            .accessibilityLabel(String(localized: "Like"))
+            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked"))
+            .disabled(self.playerService.currentTrack == nil)
+
+            Button {
+                HapticService.toggle()
+                withAnimation(AppAnimation.standard) {
+                    player.showLyrics.toggle()
+                }
+            } label: {
+                Image(systemName: "quote.bubble")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .compatGlassID("compactLyrics", in: self.playerNamespace)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
+            .accessibilityLabel(String(localized: "Lyrics"))
+            .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
+
+            Button {
+                guard self.playerService.currentTrackHasVideo else { return }
+                HapticService.toggle()
+                DiagnosticsLogger.player.debug(
+                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+                )
+                withAnimation(AppAnimation.standard) {
+                    player.showVideo.toggle()
+                }
+            } label: {
+                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .compatGlassID("compactVideo", in: self.playerNamespace)
+            .keyboardShortcut("v", modifiers: [.command, .shift])
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
+            .accessibilityLabel(String(localized: "Video"))
+            .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
+            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
+        }
+    }
+}
+
 #Preview {
     PlayerBar()
         .environment(PlayerService())
@@ -712,4 +874,14 @@ struct PlayerBar: View {
         .frame(width: 600)
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
+}
+
+// MARK: - PlayerBarWidthPreferenceKey
+
+private struct PlayerBarWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }

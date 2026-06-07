@@ -3,6 +3,98 @@ import WebKit
 // MARK: - SingletonPlayerWebView Playback Controls Extension
 
 extension SingletonPlayerWebView {
+    struct PlaybackSnapshot {
+        let progress: TimeInterval
+        let duration: TimeInterval
+        let videoId: String?
+    }
+
+    /// Reads playback time from the live WebView video element.
+    func currentPlaybackSnapshot() async -> PlaybackSnapshot? {
+        guard let webView else { return nil }
+
+        let script = """
+            (function() {
+                function currentPlayerData() {
+                    const ytmusicPlayer = document.querySelector('ytmusic-player');
+                    if (ytmusicPlayer && ytmusicPlayer.playerApi
+                        && typeof ytmusicPlayer.playerApi.getVideoData === 'function') {
+                        const data = ytmusicPlayer.playerApi.getVideoData();
+                        if (data && typeof data === 'object') return data;
+                    }
+
+                    const moviePlayer = document.getElementById('movie_player');
+                    if (moviePlayer && typeof moviePlayer.getVideoData === 'function') {
+                        const data = moviePlayer.getVideoData();
+                        if (data && typeof data === 'object') return data;
+                    }
+
+                    return null;
+                }
+
+                function currentVideoId() {
+                    const playerData = currentPlayerData();
+                    if (playerData) {
+                        const playerVideoId = playerData.video_id || playerData.videoId || '';
+                        if (playerVideoId) return playerVideoId;
+                    }
+
+                    try {
+                        const url = new URL(window.location.href);
+                        return url.searchParams.get('v') || '';
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
+                const video = document.querySelector('video');
+                if (!video) return null;
+                return {
+                    progress: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+                    duration: Number.isFinite(video.duration) ? video.duration : 0,
+                    videoId: currentVideoId()
+                };
+            })();
+        """
+
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error {
+                    self.logger.error("currentPlaybackSnapshot error: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                guard let dictionary = result as? [String: Any] else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let progress = Self.timeInterval(from: dictionary["progress"])
+                let duration = Self.timeInterval(from: dictionary["duration"])
+                let videoId = (dictionary["videoId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                continuation.resume(returning: PlaybackSnapshot(
+                    progress: progress,
+                    duration: duration,
+                    videoId: videoId
+                ))
+            }
+        }
+    }
+
+    private static func timeInterval(from value: Any?) -> TimeInterval {
+        switch value {
+        case let number as NSNumber:
+            number.doubleValue
+        case let double as Double:
+            double
+        case let string as String:
+            Double(string) ?? 0
+        default:
+            0
+        }
+    }
+
     /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }

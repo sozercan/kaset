@@ -6,7 +6,6 @@ import SwiftUI
 /// Displays sections of songs and playlists for the selected mood/genre.
 /// Note: This view is pushed onto an existing NavigationStack, so it uses NavigationLink
 /// to leverage the parent's navigation context.
-@available(macOS 26.0, *)
 struct MoodCategoryDetailView: View {
     @State var viewModel: MoodCategoryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -137,7 +136,6 @@ struct MoodCategoryDetailView: View {
 // MARK: - ItemCardContent
 
 /// A non-button card view for use inside NavigationLink.
-@available(macOS 26.0, *)
 private struct ItemCardContent: View {
     let item: HomeSectionItem
 

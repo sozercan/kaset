@@ -75,12 +75,14 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
     var getPodcastsDelay: Duration?
+    var playlistContinuationDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
     var likedSongs: [Song] = []
     var likedSongsContinuationSongs: [[Song]] = []
     var playlistDetails: [String: PlaylistDetail] = [:]
+    var playlistAllTracks: [String: [Song]] = [:]
     var playlistContinuationTracks: [String: [[Song]]] = [:]
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
@@ -95,6 +97,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     private(set) var getSongCalled = false
     private(set) var getSongVideoIds: [String] = []
+    private(set) var getPlaylistContinuationReturnCount = 0
 
     // MARK: - Continuation State
 
@@ -635,6 +638,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistContinuationCalled = true
         self.getPlaylistContinuationCallCount += 1
         self.getPlaylistContinuationTokens.append(token)
+        defer {
+            self.getPlaylistContinuationReturnCount += 1
+        }
+        if let playlistContinuationDelay {
+            try? await Task.sleep(for: playlistContinuationDelay)
+        }
         if let error = shouldThrowError { throw error }
         guard let (playlistId, index) = Self.parsePlaylistContinuationToken(token),
               let continuations = playlistContinuationTracks[playlistId],
@@ -653,6 +662,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song] {
         if let error = shouldThrowError { throw error }
+        if let tracks = self.playlistAllTracks[playlistId] {
+            return tracks
+        }
         guard let detail = playlistDetails[playlistId] else {
             throw YTMusicError.parseError(message: "Playlist not found: \(playlistId)")
         }
@@ -977,6 +989,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistContinuationCalled = false
         self.getPlaylistContinuationCallCount = 0
         self.getPlaylistContinuationTokens = []
+        self.playlistAllTracks = [:]
         self.getArtistCalled = false
         self.getArtistIds = []
         self.getArtistSongsCalled = false

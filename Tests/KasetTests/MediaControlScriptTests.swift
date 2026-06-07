@@ -45,8 +45,8 @@ struct MediaControlScriptTests {
         #expect(calls == "seekforward:clear,seekbackward:clear,nexttrack:set")
     }
 
-    @Test("Bootstrap wrapper passes seekforward/seekbackward through when nextPrev is disabled")
-    func bootstrapWrapperPassesSeekHandlersInSkipMode() throws {
+    @Test("Bootstrap wrapper clears seekforward/seekbackward when skip mode uses native handlers")
+    func bootstrapWrapperClearsSeekHandlersInSkipMode() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: false), in: context)
@@ -54,12 +54,14 @@ struct MediaControlScriptTests {
             """
             navigator.mediaSession.setActionHandler('seekforward', function() {});
             navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            navigator.mediaSession.setActionHandler('nexttrack', function() {});
+            navigator.mediaSession.setActionHandler('previoustrack', function() {});
             """,
             in: context
         )
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls == "seekforward:set,seekbackward:set")
+        #expect(calls == "seekforward:clear,seekbackward:clear,nexttrack:clear,previoustrack:clear")
     }
 
     @Test("Bootstrap wrapper honors runtime toggle skip → nextPrev")
@@ -72,7 +74,7 @@ struct MediaControlScriptTests {
         self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls == "seekforward:set,seekforward:clear")
+        #expect(calls == "seekforward:clear,seekforward:clear")
     }
 
     @Test("Bootstrap wrapper honors runtime toggle nextPrev → skip")
@@ -83,9 +85,10 @@ struct MediaControlScriptTests {
         self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
         self.evaluate("window.__kasetUseNextPrev = false;", in: context)
         self.evaluate("navigator.mediaSession.setActionHandler('seekforward', function() {});", in: context)
+        self.evaluate("navigator.mediaSession.setActionHandler('nexttrack', function() {});", in: context)
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls == "seekforward:clear,seekforward:set")
+        #expect(calls == "seekforward:clear,seekforward:clear,nexttrack:clear")
     }
 
     @Test("Bootstrap wrapper installs only once per page even on repeat injection")

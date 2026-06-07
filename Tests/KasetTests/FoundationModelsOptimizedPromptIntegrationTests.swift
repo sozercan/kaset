@@ -16,6 +16,8 @@ private let optimizedPromptIntegrationEnabled: Bool = {
 ///
 /// These tests focus on the optimized prompts Kaset ships, rather than generic schema-only prompts.
 /// They are intentionally narrow so we can validate the main 26.4 behavior changes with low flakiness.
+@available(macOS 26.0, *)
+
 @Suite(
     .tags(.integration, .slow),
     .serialized,
