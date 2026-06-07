@@ -49,6 +49,14 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var podcastsSections: [PodcastSection] = []
     var podcastsContinuationSections: [[PodcastSection]] = []
     var searchResponse: SearchResponse = .empty
+    var mixedSearchResponse: SearchResponse?
+    var songsSearchResponse: SearchResponse?
+    var albumsSearchResponse: SearchResponse?
+    var artistsSearchResponse: SearchResponse?
+    var playlistsSearchResponse: SearchResponse?
+    var featuredPlaylistsSearchResponse: SearchResponse?
+    var communityPlaylistsSearchResponse: SearchResponse?
+    var podcastsSearchResponse: SearchResponse?
     var searchContinuationResponses: [SearchResponse] = []
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
@@ -394,14 +402,14 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
-        return self.searchResponse
+        return self.mixedSearchResponse ?? self.searchResponse
     }
 
     func searchSongs(query: String) async throws -> [Song] {
         self.searchCalled = true
         self.searchQueries.append(query)
         if let error = shouldThrowError { throw error }
-        return self.searchResponse.songs
+        return (self.songsSearchResponse ?? self.searchResponse).songs
     }
 
     func searchSongsWithPagination(query: String) async throws -> SearchResponse {
@@ -410,8 +418,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.songsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: self.searchResponse.songs,
+            songs: response.songs,
             albums: [],
             artists: [],
             playlists: [],
@@ -425,9 +434,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.albumsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
-            albums: self.searchResponse.albums,
+            albums: response.albums,
             artists: [],
             playlists: [],
             continuationToken: hasMore ? "mock-token" : nil
@@ -440,10 +450,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.artistsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
             albums: [],
-            artists: self.searchResponse.artists,
+            artists: response.artists,
             playlists: [],
             continuationToken: hasMore ? "mock-token" : nil
         )
@@ -455,11 +466,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.playlistsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
             albums: [],
             artists: [],
-            playlists: self.searchResponse.playlists,
+            playlists: response.playlists,
             continuationToken: hasMore ? "mock-token" : nil
         )
     }
@@ -470,11 +482,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.featuredPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
             albums: [],
             artists: [],
-            playlists: self.searchResponse.playlists,
+            playlists: response.playlists,
             continuationToken: hasMore ? "mock-token" : nil
         )
     }
@@ -485,11 +498,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.communityPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
             albums: [],
             artists: [],
-            playlists: self.searchResponse.playlists,
+            playlists: response.playlists,
             continuationToken: hasMore ? "mock-token" : nil
         )
     }
@@ -500,12 +514,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._searchContinuationIndex = 0
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
+        let response = self.podcastsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: [],
             albums: [],
             artists: [],
-            playlists: [],
-            podcastShows: [],
+            playlists: response.playlists,
+            podcastShows: response.podcastShows,
             continuationToken: hasMore ? "mock-token" : nil
         )
     }
