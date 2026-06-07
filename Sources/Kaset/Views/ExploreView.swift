@@ -61,6 +61,7 @@ struct ExploreView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
         }
+        .accessibilityIdentifier(AccessibilityID.Explore.scrollView)
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
