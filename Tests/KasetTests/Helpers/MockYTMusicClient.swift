@@ -67,6 +67,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
     var getPodcastsDelay: Duration?
+    var playlistContinuationDelay: Duration?
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
@@ -88,6 +89,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     private(set) var getSongCalled = false
     private(set) var getSongVideoIds: [String] = []
+    private(set) var getPlaylistContinuationReturnCount = 0
 
     // MARK: - Continuation State
 
@@ -621,6 +623,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistContinuationCalled = true
         self.getPlaylistContinuationCallCount += 1
         self.getPlaylistContinuationTokens.append(token)
+        defer {
+            self.getPlaylistContinuationReturnCount += 1
+        }
+        if let playlistContinuationDelay {
+            try? await Task.sleep(for: playlistContinuationDelay)
+        }
         if let error = shouldThrowError { throw error }
         guard let (playlistId, index) = Self.parsePlaylistContinuationToken(token),
               let continuations = playlistContinuationTracks[playlistId],
