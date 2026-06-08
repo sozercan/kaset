@@ -151,4 +151,82 @@ struct SearchViewModelTests {
         #expect(self.viewModel.filteredItems.isEmpty)
         #expect(self.viewModel.shouldShowFilters)
     }
+
+    @Test("All filter aggregates category-specific search results when mixed search is empty")
+    func allFilterAggregatesCategorySpecificSearchResults() async {
+        let songsResponse = TestFixtures.makeSearchResponse(
+            songCount: 2,
+            albumCount: 0,
+            artistCount: 0,
+            playlistCount: 0
+        )
+        let albumsResponse = TestFixtures.makeSearchResponse(
+            songCount: 0,
+            albumCount: 1,
+            artistCount: 0,
+            playlistCount: 0
+        )
+        let artistsResponse = TestFixtures.makeSearchResponse(
+            songCount: 0,
+            albumCount: 0,
+            artistCount: 1,
+            playlistCount: 0
+        )
+        let playlistsResponse = TestFixtures.makeSearchResponse(
+            songCount: 0,
+            albumCount: 0,
+            artistCount: 0,
+            playlistCount: 1
+        )
+        let podcastsResponse = SearchResponse(
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+            podcastShows: [TestFixtures.makePodcastShow()],
+            continuationToken: nil
+        )
+
+        self.mockClient.mixedSearchResponse = .empty
+        self.mockClient.songsSearchResponse = songsResponse
+        self.mockClient.albumsSearchResponse = albumsResponse
+        self.mockClient.artistsSearchResponse = artistsResponse
+        self.mockClient.featuredPlaylistsSearchResponse = playlistsResponse
+        self.mockClient.communityPlaylistsSearchResponse = playlistsResponse
+        self.mockClient.podcastsSearchResponse = podcastsResponse
+
+        self.viewModel.query = "lofi"
+        self.viewModel.selectedFilter = .all
+        self.viewModel.searchImmediately()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.filteredItems.count == 6)
+        #expect(self.viewModel.results.songs.count == 2)
+        #expect(self.viewModel.results.albums.count == 1)
+        #expect(self.viewModel.results.artists.count == 1)
+        #expect(self.viewModel.results.playlists.count == 1)
+        #expect(self.viewModel.results.podcastShows.count == 1)
+        #expect(self.mockClient.searchQueries.count == 7)
+    }
+
+    @Test("All filter reports error when every aggregate request fails")
+    func allFilterReportsErrorWhenEveryAggregateRequestFails() async {
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
+
+        self.viewModel.query = "lofi"
+        self.viewModel.selectedFilter = .all
+        self.viewModel.searchImmediately()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        guard case let .error(error) = self.viewModel.loadingState else {
+            Issue.record("Expected all-filter total failure to surface an error")
+            return
+        }
+
+        #expect(error.title == "Connection Error")
+        #expect(error.isRetryable)
+        #expect(self.viewModel.results.isEmpty)
+        #expect(self.mockClient.searchQueries.count == 7)
+    }
 }

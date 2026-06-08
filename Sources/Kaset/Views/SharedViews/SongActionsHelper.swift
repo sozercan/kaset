@@ -52,32 +52,6 @@ enum SongActionsHelper {
         }
     }
 
-    private static func loadPlaylistContinuations(
-        startingWith tracks: [Song],
-        continuationToken: String?,
-        client: any YTMusicClientProtocol
-    ) async -> [Song] {
-        var songs = tracks
-        var nextContinuationToken = continuationToken
-        var seenVideoIds = Set(songs.map(\.videoId))
-
-        while let token = nextContinuationToken {
-            do {
-                let response = try await client.getPlaylistContinuation(token: token)
-                let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
-                guard !newTracks.isEmpty else { break }
-
-                songs.append(contentsOf: newTracks)
-                nextContinuationToken = response.continuationToken
-            } catch {
-                DiagnosticsLogger.ui.debug("Falling back to loaded playlist tracks: \(error.localizedDescription)")
-                break
-            }
-        }
-
-        return songs
-    }
-
     private static func cleanedArtistPreservingMetadata(_ artist: Artist) -> Artist? {
         var cleanName = artist.name
 
@@ -340,37 +314,30 @@ enum SongActionsHelper {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
                     }
                 } else {
-                    songs = await self.loadPlaylistContinuations(
-                        startingWith: songs,
-                        continuationToken: response.continuationToken,
-                        client: client
+                    let playableSongs = PlaylistPlaybackHelper.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
+                    guard !playableSongs.isEmpty else { return }
+
+                    await playerService.playQueue(playableSongs, startingAt: 0)
+                    DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
+
+                    await PlaylistPlaybackHelper.appendContinuations(
+                        PlaylistPlaybackHelper.ContinuationContext(
+                            continuationToken: response.continuationToken,
+                            existingVideoIds: Set(songs.map(\.videoId)),
+                            expectedQueueEntryIDs: playerService.queueEntryIDs,
+                            playlist: playlist,
+                            client: client,
+                            playerService: playerService
+                        )
                     )
+                    return
                 }
 
-                let playableSongs = songs.filter(\.isPlayable)
+                let playableSongs = PlaylistPlaybackHelper.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                 guard !playableSongs.isEmpty else { return }
 
-                let songsWithPlaylistArtwork = playableSongs.map { song in
-                    Song(
-                        id: song.id,
-                        title: song.title,
-                        artists: song.artists,
-                        album: song.album,
-                        duration: song.duration,
-                        thumbnailURL: song.thumbnailURL ?? playlist.thumbnailURL,
-                        videoId: song.videoId,
-                        isPlayable: song.isPlayable,
-                        hasVideo: song.hasVideo,
-                        musicVideoType: song.musicVideoType,
-                        likeStatus: song.likeStatus,
-                        isInLibrary: song.isInLibrary,
-                        feedbackTokens: song.feedbackTokens,
-                        isExplicit: song.isExplicit
-                    )
-                }
-
-                await playerService.playQueue(songsWithPlaylistArtwork, startingAt: 0)
-                DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(songsWithPlaylistArtwork.count) songs)")
+                await playerService.playQueue(playableSongs, startingAt: 0)
+                DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
             }
@@ -862,6 +829,68 @@ enum SongActionsHelper {
                 DiagnosticsLogger.ui.info("Playing album '\(album.title)' (\(songs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play album: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+
+// MARK: - PlaylistPlaybackHelper
+
+@MainActor
+private enum PlaylistPlaybackHelper {
+    struct ContinuationContext {
+        let continuationToken: String?
+        let existingVideoIds: Set<String>
+        let expectedQueueEntryIDs: [UUID]
+        let playlist: Playlist
+        let client: any YTMusicClientProtocol
+        let playerService: PlayerService
+    }
+
+    static func playableSongsWithPlaylistArtwork(_ songs: [Song], playlist: Playlist) -> [Song] {
+        songs.filter(\.isPlayable).map { song in
+            Song(
+                id: song.id,
+                title: song.title,
+                artists: song.artists,
+                album: song.album,
+                duration: song.duration,
+                thumbnailURL: song.thumbnailURL ?? playlist.thumbnailURL,
+                videoId: song.videoId,
+                isPlayable: song.isPlayable,
+                hasVideo: song.hasVideo,
+                musicVideoType: song.musicVideoType,
+                likeStatus: song.likeStatus,
+                isInLibrary: song.isInLibrary,
+                feedbackTokens: song.feedbackTokens,
+                isExplicit: song.isExplicit
+            )
+        }
+    }
+
+    static func appendContinuations(_ context: ContinuationContext) async {
+        var nextContinuationToken = context.continuationToken
+        var seenVideoIds = context.existingVideoIds
+
+        while let token = nextContinuationToken, !Task.isCancelled {
+            do {
+                let response = try await context.client.getPlaylistContinuation(token: token)
+                let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
+                guard !newTracks.isEmpty else { break }
+
+                let playableSongs = Self.playableSongsWithPlaylistArtwork(newTracks, playlist: context.playlist)
+                if !playableSongs.isEmpty {
+                    guard Array(context.playerService.queueEntryIDs.prefix(context.expectedQueueEntryIDs.count)) == context.expectedQueueEntryIDs else {
+                        DiagnosticsLogger.ui.debug("Discarding playlist continuations because the queue changed")
+                        return
+                    }
+                    context.playerService.appendToQueue(playableSongs)
+                }
+
+                nextContinuationToken = response.continuationToken
+            } catch {
+                DiagnosticsLogger.ui.debug("Stopped loading playlist continuations: \(error.localizedDescription)")
+                break
             }
         }
     }

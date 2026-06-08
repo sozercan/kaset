@@ -1,0 +1,1176 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const MARKER_START = "<!-- agent-transcript:start -->";
+const MARKER_END = "<!-- agent-transcript:end -->";
+const DEFAULT_MAX_CHARS = 50000;
+const DEFAULT_ENTRY_MAX_CHARS = 6000;
+const SCOPE_STOP_WORDS = new Set([
+  "agent",
+  "branch",
+  "change",
+  "changes",
+  "com",
+  "github",
+  "http",
+  "https",
+  "issue",
+  "issues",
+  "pull",
+  "request",
+  "the",
+  "this",
+  "with",
+  "www",
+]);
+const COOKIE_ASSIGNMENT =
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*(?:"[^"\r\n;`'<>&)]*"|'[^'\r\n;`"<>&)]*'|[^;\s`"'<>&)]+)/i;
+const COOKIE_ASSIGNMENT_GLOBAL =
+  /\b(?:SID|HSID|SSID|APISID|SAPISID|SIDCC|SESSIONID|LOGIN_INFO|YSC|VISITOR_INFO1_LIVE|PREF|__Secure-[A-Za-z0-9_-]+|__Host-[A-Za-z0-9_-]+)\s*=\s*(?:"[^"\r\n;`'<>&)]*"|'[^'\r\n;`"<>&)]*'|[^;\s`"'<>&)]+)/gi;
+const AUTH_QUERY_PARAM =
+  /([?&#](?:token|key|secret|signature|sig|access_token|auth|code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state)=)[^\s`"'>&]+/gi;
+const AUTH_URL =
+  /\bhttps?:\/\/[^\s`"'<>]*(?:[?&#](?:code|state|oauth_token|oauth_verifier|id_token|refresh_token|session_state|access_token|auth)=)[^\s`"'<>]*/i;
+const SERVICE_CREDENTIAL_URL =
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/(?=[^\s`"'<>/]*:[^\s`"'<>/]*@)[^\s`"'<>]+/i;
+const SERVICE_CREDENTIAL_URL_GLOBAL =
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/(?=[^\s`"'<>/]*:[^\s`"'<>/]*@)[^\s`"'<>]+/gi;
+const QUOTED_SECRET_ENV_ASSIGNMENT =
+  /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/;
+const QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL =
+  /\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/g;
+const QUOTED_SECRET_FIELD =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/i;
+const QUOTED_SECRET_FIELD_GLOBAL =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?:"[^"\r\n]*"|'[^'\r\n]*')/gi;
+const UNQUOTED_SHORT_SECRET_FIELD =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!["'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+/i;
+const UNQUOTED_SHORT_SECRET_FIELD_GLOBAL =
+  /(?<![A-Za-z0-9_])["']?[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*["']?[^\S\r\n]*:[^\S\r\n]*(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!["'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+/gi;
+const SECRET_ENV_ASSIGNMENT =
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/;
+const SECRET_ENV_ASSIGNMENT_GLOBAL =
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?[^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["'][^\s`"'<>&]+|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*[^\S\r\n]*=[^\S\r\n]*["']?(?!\/)[^\s`"'<>&]+)/g;
+const UNRESOLVED_SECRET_FIELD =
+  /(?:(?<!const )(?<!let )(?<!var )\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*|(?:(?<=const )|(?<=let )|(?<=var ))\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*(?!\/))(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\.[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)(?!(?:(?:try|await)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:get|load|read|fetch|build|make|create|resolve|retrieve)(?:password|token|secret|credentials?|api[_-]?key|key|hash)?\s*(?:\([^\S\r\n]*\)|\\\([^\S\r\n]*\\\))[^\S\r\n]*(?=$|[\r\n;,)\]\}"']))["']?[A-Za-z0-9_./+=:-]{8,}/i;
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SKILL_REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../..");
+
+function usage() {
+  console.log(`Usage:
+  agent-transcript find --query TEXT [--cwd PATH] [--since-days N] [--max-files N] [--root PATH...]
+  agent-transcript render --session FILE --scope-query TEXT [--allow-unscoped] [--app-server] [--thread-id ID] [--out FILE] [--max-chars N] [--entry-max-chars N] [--title TEXT] [--url URL]
+  agent-transcript render-thread --thread-id ID --scope-query TEXT [--allow-unscoped] [--out FILE] [--max-chars N] [--entry-max-chars N] [--title TEXT] [--url URL]
+  agent-transcript preview --session FILE --scope-query TEXT [--allow-unscoped] [--app-server] [--thread-id ID] [--out FILE] [--max-chars N] [--entry-max-chars N] [--title TEXT] [--url URL]
+  agent-transcript append-body --body FILE --session FILE --scope-query TEXT [--app-server] [--thread-id ID] [--out FILE] [--max-chars N] [--entry-max-chars N]
+  agent-transcript html --prs FILE [--out FILE] [--since-days N] [--min-score N] [--root PATH...] [--exclude-session FILE...]
+
+Local-only. No network calls.`);
+}
+
+function parseArgs(argv) {
+  const args = { _: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith("--")) {
+      args._.push(arg);
+      continue;
+    }
+    const key = arg.slice(2);
+    const next = argv[i + 1];
+    if (next == null || next.startsWith("--")) {
+      args[key] = true;
+      continue;
+    }
+    i++;
+    if (args[key] == null) args[key] = next;
+    else if (Array.isArray(args[key])) args[key].push(next);
+    else args[key] = [args[key], next];
+  }
+  return args;
+}
+
+function asArray(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function optionNumber(options, camelName, kebabName, fallback) {
+  const value = options[camelName] ?? options[kebabName] ?? fallback;
+  return Number(value);
+}
+
+function homePath(...parts) {
+  return path.join(os.homedir(), ...parts);
+}
+
+function isWithin(child, parent) {
+  const relative = path.relative(parent, child);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function executablePath(file) {
+  try {
+    const real = fs.realpathSync(file);
+    fs.accessSync(real, fs.constants.X_OK);
+    return real;
+  } catch {
+    return null;
+  }
+}
+
+function realPathIfExists(file) {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return null;
+  }
+}
+
+function findWorkspaceRoot(start) {
+  let current = realPathIfExists(start);
+  if (!current) return null;
+  while (true) {
+    if (fs.existsSync(path.join(current, ".git"))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+function repoBoundaryRoots(cwd) {
+  return [...new Set([findWorkspaceRoot(cwd), realPathIfExists(SKILL_REPO_ROOT)].filter(Boolean))];
+}
+
+function isWithinAny(child, parents) {
+  return parents.some((parent) => isWithin(child, parent));
+}
+
+function resolveTrustedCommand(name, cwd = process.cwd()) {
+  const repoRoots = repoBoundaryRoots(cwd);
+  if (name.includes("/") || name.includes("\\")) {
+    if (!path.isAbsolute(name)) throw new Error(`refusing relative executable path: ${name}`);
+    const real = executablePath(name);
+    if (!real || isWithinAny(real, repoRoots)) throw new Error(`refusing repo-controlled executable: ${name}`);
+    return real;
+  }
+  for (const part of String(process.env.PATH || "").split(path.delimiter)) {
+    if (!part || part === "." || !path.isAbsolute(part)) continue;
+    let realPart;
+    try {
+      realPart = fs.realpathSync(part);
+    } catch {
+      continue;
+    }
+    if (isWithinAny(realPart, repoRoots)) continue;
+    const real = executablePath(path.join(realPart, name));
+    if (real && !isWithinAny(real, repoRoots)) return real;
+  }
+  throw new Error(`trusted executable not found: ${name}`);
+}
+
+function openClawSessionRoots() {
+  const stateDir = process.env.OPENCLAW_STATE_DIR || homePath(".openclaw");
+  const agentsDir = path.join(stateDir, "agents");
+  if (!fs.existsSync(agentsDir)) return [];
+  try {
+    const roots = fs
+      .readdirSync(agentsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => {
+        const agentDir = path.join(agentsDir, entry.name);
+        return [
+          path.join(agentDir, "sessions"),
+          path.join(agentDir, "agent", "sessions"),
+          path.join(agentDir, "agent", "codex-home", "sessions"),
+        ];
+      })
+      .filter((root) => fs.existsSync(root));
+    return [...new Set(roots)];
+  } catch {
+    return [];
+  }
+}
+
+function defaultRoots() {
+  return [
+    homePath(".codex", "sessions"),
+    homePath(".claude", "projects"),
+    homePath(".pi", "agent", "sessions"),
+    ...openClawSessionRoots(),
+  ];
+}
+
+function walkJsonl(root, sinceMs, out = []) {
+  if (!root || !fs.existsSync(root)) return out;
+  const stat = fs.statSync(root);
+  if (stat.isFile()) {
+    if (root.endsWith(".jsonl") && stat.mtimeMs >= sinceMs) out.push(root);
+    return out;
+  }
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const file = path.join(root, entry.name);
+    if (entry.isDirectory()) walkJsonl(file, sinceMs, out);
+    else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      const entryStat = fs.statSync(file);
+      if (entryStat.mtimeMs >= sinceMs) out.push(file);
+    }
+  }
+  return out;
+}
+
+function readJsonl(file, maxLines = 12000) {
+  const text = fs.readFileSync(file, "utf8");
+  const lines = text.split(/\n+/).filter(Boolean).slice(-maxLines);
+  const rows = [];
+  for (const line of lines) {
+    try {
+      rows.push(JSON.parse(line));
+    } catch {
+      rows.push({ type: "unparsed", text: line });
+    }
+  }
+  return rows;
+}
+
+function sessionThreadId(file) {
+  const name = path.basename(String(file || ""));
+  const match = name.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\.jsonl)?$/i);
+  return match ? match[1] : null;
+}
+
+function stringContent(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(stringContent).filter(Boolean).join("\n");
+  if (typeof value === "object") {
+    if (typeof value.text === "string") return value.text;
+    if (typeof value.content === "string") return value.content;
+    if (typeof value.message === "string") return value.message;
+    if (Array.isArray(value.content)) return stringContent(value.content);
+    if (value.type === "text" && value.text) return String(value.text);
+  }
+  return "";
+}
+
+function nestedToolRole(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const role = nestedToolRole(item);
+      if (role) return role;
+    }
+    return null;
+  }
+  if (typeof value !== "object") return null;
+  if (value.type === "tool_result" || value.type === "function_call_output") return "tool_output";
+  if (value.type === "tool_use" || value.type === "function_call") return "tool";
+  return nestedToolRole(value.content) || nestedToolRole(value.message) || nestedToolRole(value.payload);
+}
+
+function detectAgent(file, rows) {
+  if (file.includes(`${path.sep}.codex${path.sep}`)) return "codex";
+  if (file.includes(`${path.sep}.claude${path.sep}`)) return "claude";
+  if (file.includes(`${path.sep}.pi${path.sep}`)) return "pi";
+  if (
+    file.includes(`${path.sep}.openclaw${path.sep}`) ||
+    (file.includes(`${path.sep}agents${path.sep}`) && file.includes(`${path.sep}sessions${path.sep}`))
+  ) {
+    return "openclaw";
+  }
+  if (rows.some((row) => row?.type === "session_meta" || row?.type === "response_item")) return "codex";
+  if (rows.some((row) => row?.sessionId && row?.userType)) return "claude";
+  return "agent";
+}
+
+function eventText(row) {
+  if (row?.type === "compacted_replacement_item") {
+    return stringContent(row.payload?.content || row.payload?.summary || row.payload?.arguments || row.payload?.output);
+  }
+  if (row?.type === "event_msg") {
+    const payload = row.payload || {};
+    return stringContent(payload.message || payload.text_elements || payload.content);
+  }
+  if (row?.type === "response_item") {
+    const payload = row.payload || {};
+    return stringContent(payload.content || payload.summary || payload.arguments || payload.output);
+  }
+  if (row?.message) return stringContent(row.message);
+  if (row?.content) return stringContent(row.content);
+  if (row?.text) return stringContent(row.text);
+  return "";
+}
+
+function eventRole(row) {
+  if (row?.type === "compacted_replacement_item") {
+    const payload = row.payload || {};
+    if (payload.type === "function_call") return "tool";
+    if (payload.type === "function_call_output") return "tool_output";
+    if (payload.type === "reasoning" || payload.type === "compaction") return null;
+    if (payload.type === "web_search_call") return "web";
+    if (payload.role === "user") return "user";
+    if (payload.role === "assistant") return "assistant";
+    return null;
+  }
+  if (row?.type === "event_msg") {
+    const type = row.payload?.type;
+    if (type === "user_message") return "user";
+    if (type === "agent_message") return "assistant";
+    if (type === "token_count" || type === "task_started" || type === "task_complete") return null;
+    if (type === "web_search_end") return "web";
+  }
+  if (row?.type === "response_item") {
+    const payload = row.payload || {};
+    if (payload.type === "function_call") return "tool";
+    if (payload.type === "function_call_output") return "tool_output";
+    if (payload.type === "reasoning") return null;
+    if (payload.type === "web_search_call") return "web";
+    if (payload.role === "user") return "user";
+    if (payload.role === "assistant") return "assistant";
+  }
+  const nestedRole = nestedToolRole(row?.message) || nestedToolRole(row?.content);
+  if (nestedRole) return nestedRole;
+  if (row?.type === "user") return "user";
+  if (row?.type === "assistant") return "assistant";
+  if (row?.message?.role === "user") return "user";
+  if (row?.message?.role === "assistant") return "assistant";
+  if (row?.type === "tool_result" || row?.type === "tool_use") return "tool";
+  return null;
+}
+
+function hasSetupBlob(text) {
+  return (
+    text.includes("<INSTRUCTIONS>") ||
+    text.includes("# AGENTS.MD") ||
+    text.includes("Knowledge cutoff:") ||
+    text.includes("You are Codex") ||
+    /^\s*#?\s*AGENTS\.md instructions for\b/im.test(text) ||
+    /\bGuidance for AI coding assistants working on this repository\b/i.test(text) ||
+    /^\s*(?:here are|below are|these are) your instructions\b/im.test(text) ||
+    /\binstructions absorbed\b/i.test(text)
+  );
+}
+
+function redact(input, stats) {
+  let s = String(input ?? "");
+  const rules = [
+    [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]"],
+    [/sk-[A-Za-z0-9_-]{20,}/g, "[REDACTED_OPENAI_KEY]"],
+    [/sk_live_[A-Za-z0-9_-]{16,}/g, "[REDACTED_STRIPE_KEY]"],
+    [/rk_live_[A-Za-z0-9_-]{16,}/g, "[REDACTED_STRIPE_KEY]"],
+    [/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[REDACTED_SLACK_TOKEN]"],
+    [/npm_[A-Za-z0-9]{20,}/g, "[REDACTED_NPM_TOKEN]"],
+    [/AIza[0-9A-Za-z_-]{20,}/g, "[REDACTED_GOOGLE_API_KEY]"],
+    [/(gh[pousr]_[A-Za-z0-9_]{20,})/g, "[REDACTED_GITHUB_TOKEN]"],
+    [/(github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED_GITHUB_TOKEN]"],
+    [/(AKIA[0-9A-Z]{16})/g, "[REDACTED_AWS_KEY]"],
+    [/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, "[REDACTED_JWT]"],
+    [/\b(Authorization:\s*)(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/gi, "$1[REDACTED_AUTH_HEADER]"],
+    [/\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}/gi, "[REDACTED_AUTH_HEADER]"],
+    [/\b(?:Cookie|Set-Cookie):\s*[^\r\n]+/gi, "[REDACTED_COOKIE_HEADER]"],
+    [COOKIE_ASSIGNMENT_GLOBAL, "[REDACTED_COOKIE]"],
+    [SERVICE_CREDENTIAL_URL_GLOBAL, "[REDACTED_CREDENTIAL_URL]"],
+    [QUOTED_SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
+    [QUOTED_SECRET_FIELD_GLOBAL, "[REDACTED_FIELD_SECRET]"],
+    [UNQUOTED_SHORT_SECRET_FIELD_GLOBAL, "[REDACTED_FIELD_SECRET]"],
+    [SECRET_ENV_ASSIGNMENT_GLOBAL, "[REDACTED_ENV_SECRET]"],
+    [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]"],
+    [/\b(?:\+?\d[\d .()-]{7,}\d)\b/g, "[REDACTED_PHONE]"],
+    [/\/Users\/[^\s`"'>)]+/g, "[LOCAL_PATH]"],
+    [/\/home\/[^\s`"'>)]+/g, "[LOCAL_PATH]"],
+    [/\/(?:private\/var\/folders|var\/folders|tmp)\/[^\s`"'>)]+/g, "[LOCAL_PATH]"],
+    [/[A-Za-z]:\\Users\\[^\s`"'>)]+/g, "[LOCAL_PATH]"],
+    [/~\/[^\s`"'>)]+/g, "[HOME_PATH]"],
+    [AUTH_QUERY_PARAM, "$1[REDACTED]"],
+  ];
+  for (const [re, repl] of rules) {
+    const before = s;
+    s = s.replace(re, repl);
+    if (s !== before) stats.redactions++;
+  }
+  return s;
+}
+
+function unsafe(text) {
+  const patterns = [
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+    /AIza[0-9A-Za-z_-]{20,}/,
+    /github_pat_[A-Za-z0-9_]{20,}/,
+    /\bAuthorization:\s*(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
+    /\b(?:Bearer|Basic|SAPISIDHASH)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
+    /\b(?:Cookie|Set-Cookie):/i,
+    COOKIE_ASSIGNMENT,
+    AUTH_URL,
+    SERVICE_CREDENTIAL_URL,
+    QUOTED_SECRET_ENV_ASSIGNMENT,
+    QUOTED_SECRET_FIELD,
+    UNQUOTED_SHORT_SECRET_FIELD,
+    SECRET_ENV_ASSIGNMENT,
+    UNRESOLVED_SECRET_FIELD,
+    /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
+    /\b(?:GITHUB_TOKEN|GH_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY)\b/,
+    /\/upload\/policies\/assets|uploadToken|authenticity_token/i,
+  ];
+  return patterns.filter((pattern) => pattern.test(text)).map((pattern) => String(pattern));
+}
+
+function unsafeBeforeRedaction(text) {
+  const patterns = [
+    /\bAuthorization:\s*(?:Token|ApiKey)\s+[A-Za-z0-9._~+/=:-]{8,}/i,
+    /\b(?:Cookie|Set-Cookie):/i,
+    COOKIE_ASSIGNMENT,
+    AUTH_URL,
+    SERVICE_CREDENTIAL_URL,
+    QUOTED_SECRET_ENV_ASSIGNMENT,
+    QUOTED_SECRET_FIELD,
+    UNQUOTED_SHORT_SECRET_FIELD,
+    SECRET_ENV_ASSIGNMENT,
+    UNRESOLVED_SECRET_FIELD,
+    /\b(?:user_session|_gh_sess|__Host-user_session_same_site|GH_SESSION_TOKEN)\b/i,
+  ];
+  return patterns.filter((pattern) => pattern.test(text)).map((pattern) => String(pattern));
+}
+
+function sanitizeTranscriptMarkdown(text) {
+  return String(text)
+    .replaceAll(MARKER_START, "[agent-transcript marker removed]")
+    .replaceAll(MARKER_END, "[agent-transcript marker removed]");
+}
+
+function markdownFence(text) {
+  const longest = Math.max(0, ...Array.from(String(text).matchAll(/`+/g), (match) => match[0].length));
+  return "`".repeat(Math.max(4, longest + 1));
+}
+
+function normalizeEntry(role, text, stats, options = {}) {
+  const rawUnsafe = unsafeBeforeRedaction(String(text ?? ""));
+  let t = redact(text, stats).replace(/\n{3,}/g, "\n\n").trim();
+  if (!t) return null;
+  if (hasSetupBlob(t)) t = "[instructions recap omitted; policy/config text, not task dialogue]";
+  if (rawUnsafe.length || unsafe(t).length) t = "[omitted: browser/session/auth internals; not useful for public PR transcript]";
+  const entryMaxChars = optionNumber(options, "entryMaxChars", "entry-max-chars", DEFAULT_ENTRY_MAX_CHARS);
+  if (t.length > entryMaxChars) {
+    t = `${t.slice(0, entryMaxChars).trimEnd()}\n...[truncated ${t.length - entryMaxChars} chars]`;
+  }
+  return `[${role}]\n${t}`;
+}
+
+function entryRole(entry) {
+  const match = entry.match(/^\[([^\]]+)\]\n/);
+  return match ? match[1] : null;
+}
+
+function entryBody(entry) {
+  return entry.replace(/^\[[^\]]+\]\n/, "");
+}
+
+function coalesceEntries(entries) {
+  const coalesced = [];
+  for (const entry of entries) {
+    const role = entryRole(entry);
+    const body = entryBody(entry);
+    const last = coalesced[coalesced.length - 1];
+    if (last && role && entryRole(last) === role && role !== "tool summary" && entryBody(last) === body) {
+      continue;
+    }
+    coalesced.push(entry);
+  }
+  return coalesced;
+}
+
+function optionString(options, camelName, kebabName) {
+  const value = options[camelName] ?? options[kebabName];
+  return value == null ? "" : String(value);
+}
+
+function allowUnscoped(options) {
+  return Boolean(options.allowUnscoped || options["allow-unscoped"]);
+}
+
+function scopeTerms(options) {
+  return [
+    ...new Set(
+      optionString(options, "scopeQuery", "scope-query")
+        .toLowerCase()
+        .split(/[^a-z0-9_-]+/)
+        .filter((term) => term.length >= 4 && !SCOPE_STOP_WORDS.has(term)),
+    ),
+  ];
+}
+
+function hasScope(options) {
+  return scopeTerms(options).length > 0;
+}
+
+function requireScopedPublicTranscript(command, options) {
+  if (hasScope(options) || allowUnscoped(options)) return;
+  throw new Error(`--scope-query is required for ${command}; use --allow-unscoped only for local inspection`);
+}
+
+function requireNonEmptyScopedTranscript(rendered, options) {
+  if (hasScope(options) && rendered.stats.entries === 0) {
+    throw new Error("scoped transcript is empty; not adding Agent Transcript section");
+  }
+}
+
+function trimScopedStats(stats, options) {
+  if (!hasScope(options)) return;
+  stats.rawEntries = stats.entries;
+  stats.toolCalls = 0;
+  stats.toolOutputsDropped = 0;
+  stats.web = 0;
+}
+
+function applyScope(entries, options) {
+  const terms = scopeTerms(options);
+  if (!terms.length) return entries;
+  const matches = entries.map((entry) => {
+    const text = entry.toLowerCase();
+    return terms.some((term) => text.includes(term));
+  });
+  const keep = new Set();
+  for (let index = 0; index < entries.length; index++) {
+    if (!matches[index]) continue;
+    keep.add(index);
+    if (entries[index].startsWith("[user]\n") && entries[index + 1]?.startsWith("[assistant]\n")) {
+      keep.add(index + 1);
+    }
+  }
+  return entries.filter((_, index) => keep.has(index));
+}
+
+function toolFamily(name) {
+  const normalized = String(name).toLowerCase();
+  if (
+    /(read|open|list|find|search|grep|rg|sed|cat|head|tail|jq|wc|status|diff|show|view|snapshot|screenshot)/.test(
+      normalized,
+    )
+  ) {
+    return "read";
+  }
+  if (/(write|edit|patch|apply|create|update|append|save|comment|fill|click|type|navigate|upload)/.test(normalized)) {
+    return "write";
+  }
+  if (/(exec|command|shell|run|test|build|lint|format|install|pnpm|npm|node|git|gh|ssh)/.test(normalized)) {
+    return "execute";
+  }
+  if (/(web|http|fetch|browser|chrome|github|dropbox|notion|gmail|calendar)/.test(normalized)) {
+    return "network";
+  }
+  return "other";
+}
+
+function shellFamily(command) {
+  const cmd = String(command || "").trim();
+  if (!cmd) return "execute";
+  if (
+    /^(rg|grep|sed|cat|head|tail|jq|wc|ls|find|pwd|git (status|diff|show|log|blame)|gh (pr|issue|api|run|repo|auth) (view|list|status)|test |stat |ps |which |command -v )\b/.test(
+      cmd,
+    )
+  ) {
+    return "read";
+  }
+  if (/^(open |chmod |mkdir |touch |cp |mv |kill |git add|git commit|git push|gh pr create|gh issue create)\b/.test(cmd)) {
+    return "write";
+  }
+  if (/^(node|npm|pnpm|bun|python|python3|ruby|tsx|tsgo|make|cargo|go test|swift|xcodebuild)\b/.test(cmd)) {
+    return "execute";
+  }
+  if (/^(ssh|curl|wget|tailscale|nc )\b/.test(cmd)) return "network";
+  return "execute";
+}
+
+function toolCallFamily(row) {
+  const name = row.payload?.name || row.name || row.message?.name || row.type || "tool";
+  if (name === "exec_command") {
+    try {
+      const args = JSON.parse(row.payload?.arguments || "{}");
+      return shellFamily(args.cmd);
+    } catch {
+      return "execute";
+    }
+  }
+  if (name === "apply_patch") return "write";
+  if (name === "write_stdin") return "execute";
+  return toolFamily(name);
+}
+
+function compactToolSummary(familyCounts, dropped) {
+  const families = new Map();
+  for (const [family, count] of familyCounts.entries()) {
+    families.set(family, (families.get(family) || 0) + count);
+  }
+  const ordered = ["read", "write", "execute", "network", "other"]
+    .map((family) => [family, families.get(family) || 0])
+    .filter(([, count]) => count > 0)
+    .map(([family, count]) => `${count} ${family}`);
+  const calls = ordered.length ? ordered.join(", ") : "0 tool";
+  return `${calls}; raw tool outputs dropped: ${dropped}`;
+}
+
+function recountEntries(stats, entries) {
+  stats.rawEntries = stats.entries;
+  stats.entries = entries.length;
+  stats.user = entries.filter((entry) => entry.startsWith("[user]\n")).length;
+  stats.assistant = entries.filter((entry) => entry.startsWith("[assistant]\n")).length;
+}
+
+function expandCompactedReplacementItems(row) {
+  if (row?.type !== "compacted") return [];
+  const replacementHistory = row.payload?.replacement_history;
+  if (!Array.isArray(replacementHistory)) return [];
+  return replacementHistory.map((item, index) => ({
+    type: "compacted_replacement_item",
+    payload: item,
+    timestamp: row.timestamp,
+    sourceLineType: row.type,
+    replacementIndex: index,
+  }));
+}
+
+function renderSession(file, options = {}) {
+  const rows = readJsonl(file);
+  const agent = detectAgent(file, rows);
+  const stats = {
+    agent,
+    entries: 0,
+    user: 0,
+    assistant: 0,
+    toolCalls: 0,
+    toolOutputsDropped: 0,
+    web: 0,
+    redactions: 0,
+    omittedUnsafe: 0,
+  };
+  const toolCounts = new Map();
+  const items = [];
+  const seenEntries = new Set();
+  const hasEventDialogue = rows.some((row) => {
+    const type = row?.type === "event_msg" ? row.payload?.type : null;
+    return type === "user_message" || type === "agent_message";
+  });
+  const renderRows = rows.flatMap((row) => [row, ...expandCompactedReplacementItems(row)]);
+  for (const row of renderRows) {
+    const role = eventRole(row);
+    if (!role) continue;
+    if (hasEventDialogue && row.type === "response_item" && (role === "user" || role === "assistant")) {
+      continue;
+    }
+    if (role === "tool_output") {
+      stats.toolOutputsDropped++;
+      continue;
+    }
+    if (role === "tool") {
+      const family = toolCallFamily(row);
+      toolCounts.set(family, (toolCounts.get(family) || 0) + 1);
+      stats.toolCalls++;
+      continue;
+    }
+    if (role === "web") {
+      stats.web++;
+      continue;
+    }
+    const before = eventText(row);
+    const entry = normalizeEntry(role, before, stats, options);
+    if (!entry) continue;
+    const dedupeKey = entry.replace(/\s+/g, " ").trim();
+    if (seenEntries.has(dedupeKey)) continue;
+    seenEntries.add(dedupeKey);
+    if (entry.includes("[omitted: browser/session/auth internals")) stats.omittedUnsafe++;
+    items.push(entry);
+    stats.entries++;
+    if (role === "user") stats.user++;
+    if (role === "assistant") stats.assistant++;
+  }
+  const scopedItems = applyScope(items, options);
+  if (!hasScope(options) && toolCounts.size && scopedItems.length) {
+    scopedItems.push(`[tool summary]\n${compactToolSummary(toolCounts, stats.toolOutputsDropped)}`);
+    stats.entries++;
+  }
+  const renderedItems = coalesceEntries(scopedItems);
+  recountEntries(stats, renderedItems);
+  trimScopedStats(stats, options);
+  const maxChars = optionNumber(options, "maxChars", "max-chars", DEFAULT_MAX_CHARS);
+  let joined = renderedItems.join("\n\n");
+  if (joined.length > maxChars) joined = `${joined.slice(0, maxChars).trimEnd()}\n\n...[transcript truncated to ${maxChars} chars]`;
+  joined = sanitizeTranscriptMarkdown(joined);
+  const fence = markdownFence(joined);
+  const headerBits = [options.title, options.url].filter(Boolean).join(" | ");
+  const redactedHeader = redact(headerBits, stats);
+  const unsafeHeader = headerBits ? [...unsafeBeforeRedaction(headerBits), ...unsafe(redactedHeader)] : [];
+  const unsafeAfter = [...unsafeHeader, ...unsafe(joined)];
+  const safe = unsafeAfter.length === 0;
+  const markdown = `${MARKER_START}
+## Agent Transcript
+
+<details>
+<summary>Redacted ${agent} session transcript${headerBits && !unsafeHeader.length ? `: ${escapeHtml(redactedHeader)}` : ""}</summary>
+
+${fence}text
+source: [LOCAL_SESSION]
+redaction: local paths, emails, phone-shaped strings, token-shaped strings, auth headers, auth query params
+omitted: raw tool outputs, system/developer prompts, local paths, secrets, browser/session/auth details
+stats: ${JSON.stringify(stats)}
+
+${joined}
+${fence}
+
+</details>
+${MARKER_END}
+`;
+  return { file, agent, safe, unsafeAfter, stats, markdown };
+}
+
+function appServerThreadRead(threadId) {
+  return new Promise((resolve, reject) => {
+    const codexBin = resolveTrustedCommand(process.env.CODEX_BIN || "codex");
+    const child = spawn(codexBin, ["app-server", "--listen", "stdio://"], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGTERM");
+      reject(new Error("thread/read timed out"));
+    }, 30000);
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.kill("SIGTERM");
+      fn(value);
+    };
+    const send = (item) => child.stdin.write(`${JSON.stringify(item)}\n`);
+    let buffer = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      buffer += chunk.toString();
+      let newline;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        if (!line.trim()) continue;
+        let message;
+        try {
+          message = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (message.id === 1) {
+          send({ method: "initialized", params: {} });
+          send({
+            method: "thread/read",
+            id: 2,
+            params: {
+              threadId,
+              includeTurns: true,
+            },
+          });
+        }
+        if (message.id === 2) {
+          if (message.error) finish(reject, new Error(`thread/read failed: ${JSON.stringify(message.error)}`));
+          else if (message.result?.thread) finish(resolve, message.result.thread);
+          else finish(reject, new Error("thread/read did not return a thread"));
+        }
+      }
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => finish(reject, error));
+    child.on("exit", () => {
+      if (settled) return;
+      const detail = stderr.trim() || stdout.trim();
+      finish(reject, new Error(`app-server exited before thread/read response${detail ? `: ${detail}` : ""}`));
+    });
+    send({
+      method: "initialize",
+      id: 1,
+      params: {
+        clientInfo: {
+          name: "agent_transcript",
+          title: "Agent Transcript",
+          version: "0.0.0",
+        },
+        capabilities: {
+          experimentalApi: true,
+          optOutNotificationMethods: [],
+        },
+      },
+    });
+  });
+}
+
+function threadItemText(item) {
+  if (item?.type === "userMessage") return stringContent(item.content);
+  if (item?.type === "agentMessage") return stringContent(item.text);
+  return "";
+}
+
+function threadItemRole(item) {
+  if (item?.type === "userMessage") return "user";
+  if (item?.type === "agentMessage") return "assistant";
+  return null;
+}
+
+async function renderThread(threadId, options = {}) {
+  const thread = await appServerThreadRead(threadId);
+  const stats = {
+    agent: "codex",
+    entries: 0,
+    user: 0,
+    assistant: 0,
+    toolCalls: 0,
+    toolOutputsDropped: 0,
+    web: 0,
+    redactions: 0,
+    omittedUnsafe: 0,
+  };
+  const items = [];
+  for (const turn of thread.turns || []) {
+    for (const item of turn.items || []) {
+      const role = threadItemRole(item);
+      if (!role) continue;
+      const entry = normalizeEntry(role, threadItemText(item), stats, options);
+      if (!entry) continue;
+      if (entry.includes("[omitted: browser/session/auth internals")) stats.omittedUnsafe++;
+      items.push(entry);
+      stats.entries++;
+      if (role === "user") stats.user++;
+      if (role === "assistant") stats.assistant++;
+    }
+  }
+  const renderedItems = coalesceEntries(applyScope(items, options));
+  recountEntries(stats, renderedItems);
+  trimScopedStats(stats, options);
+  const maxChars = optionNumber(options, "maxChars", "max-chars", DEFAULT_MAX_CHARS);
+  let joined = renderedItems.join("\n\n");
+  if (joined.length > maxChars) joined = `${joined.slice(0, maxChars).trimEnd()}\n\n...[transcript truncated to ${maxChars} chars]`;
+  joined = sanitizeTranscriptMarkdown(joined);
+  const fence = markdownFence(joined);
+  const headerBits = [options.title, options.url].filter(Boolean).join(" | ");
+  const redactedHeader = redact(headerBits, stats);
+  const unsafeHeader = headerBits ? [...unsafeBeforeRedaction(headerBits), ...unsafe(redactedHeader)] : [];
+  const unsafeAfter = [...unsafeHeader, ...unsafe(joined)];
+  const safe = unsafeAfter.length === 0;
+  const markdown = `${MARKER_START}
+## Agent Transcript
+
+<details>
+<summary>Redacted codex app-server transcript${headerBits && !unsafeHeader.length ? `: ${escapeHtml(redactedHeader)}` : ""}</summary>
+
+${fence}text
+source: codex app-server thread/read includeTurns
+thread: ${redact(threadId, stats)}
+redaction: local paths, emails, phone-shaped strings, token-shaped strings, auth headers, auth query params
+omitted: raw tool outputs, system/developer prompts, local paths, secrets, browser/session/auth details
+stats: ${JSON.stringify(stats)}
+
+${joined}
+${fence}
+
+</details>
+${MARKER_END}
+`;
+  return { file: null, agent: "codex", safe, unsafeAfter, stats, markdown };
+}
+
+async function renderTranscript(options) {
+  if (options["app-server"] || options.appServer || options.threadId || options["thread-id"]) {
+    const threadId = options.threadId || options["thread-id"] || sessionThreadId(options.session);
+    if (!threadId) throw new Error("--thread-id is required when --app-server cannot infer it from --session");
+    return renderThread(threadId, options);
+  }
+  return renderSession(options.session, options);
+}
+
+function readBoundedText(file, maxBytes = 220000) {
+  const fd = fs.openSync(file, "r");
+  try {
+    const stat = fs.fstatSync(fd);
+    if (stat.size <= maxBytes) {
+      const buffer = Buffer.alloc(stat.size);
+      fs.readSync(fd, buffer, 0, stat.size, 0);
+      return buffer.toString("utf8");
+    }
+    const half = Math.floor(maxBytes / 2);
+    const head = Buffer.alloc(half);
+    const tail = Buffer.alloc(half);
+    fs.readSync(fd, head, 0, half, 0);
+    fs.readSync(fd, tail, 0, half, Math.max(0, stat.size - half));
+    return `${head.toString("utf8")}\n[...middle omitted for scan...]\n${tail.toString("utf8")}`;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function sessionScanRecord(file, maxBytes) {
+  const stat = fs.statSync(file);
+  const agent = detectAgent(file, []);
+  return {
+    file,
+    agent,
+    mtime: new Date(stat.mtimeMs).toISOString(),
+    haystack: `${file}\n${readBoundedText(file, maxBytes)}`.toLowerCase(),
+  };
+}
+
+function scoreScanRecord(record, terms, cwd) {
+  const haystack = record.haystack;
+  let score = 0;
+  const reasons = [];
+  for (const term of terms) {
+    const normalized = term.toLowerCase().trim();
+    if (normalized.length < 3) continue;
+    if (haystack.includes(normalized)) {
+      score += Math.min(20, Math.max(3, Math.floor(normalized.length / 3)));
+      reasons.push(normalized.slice(0, 80));
+    }
+  }
+  if (cwd) {
+    const cwdLower = cwd.toLowerCase();
+    if (haystack.includes(cwdLower) || record.file.toLowerCase().includes(cwdLower.replaceAll("/", "-"))) {
+      score += 8;
+      reasons.push("cwd");
+    }
+  }
+  return { file: record.file, score, reasons, mtime: record.mtime, agent: record.agent };
+}
+
+function recentFiles(files, maxFiles) {
+  return files
+    .map((file) => {
+      try {
+        return { file, mtimeMs: fs.statSync(file).mtimeMs };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .slice(0, maxFiles)
+    .map((entry) => entry.file);
+}
+
+function candidateFiles(roots, terms, sinceMs, options = {}) {
+  return recentFiles(roots.flatMap((root) => walkJsonl(root, sinceMs)), Number(options["max-files"] || 400));
+}
+
+function findSessions(options) {
+  const sinceDays = Number(options["since-days"] || 14);
+  const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+  const roots = asArray(options.root).length ? asArray(options.root) : defaultRoots();
+  const query = String(options.query || "");
+  const terms = query
+    .split(/\s+/)
+    .concat(query.match(/https?:\/\/\S+/g) || [])
+    .filter(Boolean);
+  const files = candidateFiles(roots, terms, sinceMs, options);
+  const scanBytes = Number(options["scan-bytes"] || 60000);
+  const results = files
+    .map((file) => scoreScanRecord(sessionScanRecord(file, scanBytes), terms, options.cwd))
+    .filter((result) => result.score > 0)
+    .sort((a, b) => b.score - a.score || b.mtime.localeCompare(a.mtime))
+    .slice(0, Number(options.limit || 10));
+  return results;
+}
+
+function sessionScanRecords(options) {
+  const sinceDays = Number(options["since-days"] || 14);
+  const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+  const roots = asArray(options.root).length ? asArray(options.root) : defaultRoots();
+  const excluded = new Set(asArray(options["exclude-session"]).map((file) => path.resolve(file)));
+  return roots
+    .flatMap((root) => walkJsonl(root, sinceMs))
+    .filter((file) => !excluded.has(path.resolve(file)))
+    .map((file) => sessionScanRecord(file, Number(options["scan-bytes"] || 90000)));
+}
+
+function replaceSection(body, section) {
+  const start = body.indexOf(MARKER_START);
+  const end = body.indexOf(MARKER_END);
+  if (start !== -1 && end !== -1 && end > start) {
+    return `${body.slice(0, start).trimEnd()}\n\n${section.trim()}\n\n${body.slice(end + MARKER_END.length).trimStart()}`;
+  }
+  return `${body.trimEnd()}\n\n${section.trim()}\n`;
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function htmlDocument(records) {
+  const rows = records
+    .map((record) => `<section>
+<h2><a href="${escapeHtml(record.url || "")}">${escapeHtml(record.title || record.url || "PR")}</a></h2>
+<p><code>${escapeHtml(record.session ? "[LOCAL_SESSION]" : "no session")}</code> score: ${escapeHtml(record.score ?? "")} safe: ${escapeHtml(record.safe ?? "")}</p>
+<pre>${escapeHtml(record.markdown || record.error || "")}</pre>
+</section>`)
+    .join("\n");
+  return `<!doctype html>
+<meta charset="utf-8">
+<title>Agent Transcript Preview</title>
+<style>
+body{font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:32px;color:#1f2328;background:#fff}
+section{border-top:1px solid #d0d7de;padding:24px 0}
+h1,h2{line-height:1.2}
+pre{white-space:pre-wrap;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto}
+code{background:#f6f8fa;padding:2px 4px;border-radius:4px}
+a{color:#0969da}
+</style>
+<h1>Agent Transcript Preview</h1>
+${rows}
+`;
+}
+
+function singlePreviewDocument(record) {
+  return htmlDocument([record]);
+}
+
+function readPrs(file) {
+  const raw = fs.readFileSync(file, "utf8");
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) ? parsed : parsed.items || parsed.prs || [];
+}
+
+async function main() {
+  const [command, ...rest] = process.argv.slice(2);
+  const args = parseArgs(rest);
+  if (!command || command === "--help" || command === "-h" || args.help) {
+    usage();
+    return;
+  }
+  if (command === "find") {
+    console.log(JSON.stringify(findSessions(args), null, 2));
+    return;
+  }
+  if (command === "render") {
+    if (!args.session) throw new Error("--session is required");
+    requireScopedPublicTranscript("render", args);
+    const rendered = await renderTranscript(args);
+    if (!rendered.safe) throw new Error(`unsafe transcript after redaction: ${rendered.unsafeAfter.join(", ")}`);
+    requireNonEmptyScopedTranscript(rendered, args);
+    if (args.out) fs.writeFileSync(args.out, rendered.markdown);
+    else process.stdout.write(rendered.markdown);
+    return;
+  }
+  if (command === "render-thread") {
+    if (!args["thread-id"] && !args.threadId) throw new Error("--thread-id is required");
+    requireScopedPublicTranscript("render-thread", args);
+    const rendered = await renderThread(args.threadId || args["thread-id"], args);
+    if (!rendered.safe) throw new Error(`unsafe transcript after redaction: ${rendered.unsafeAfter.join(", ")}`);
+    requireNonEmptyScopedTranscript(rendered, args);
+    if (args.out) fs.writeFileSync(args.out, rendered.markdown);
+    else process.stdout.write(rendered.markdown);
+    return;
+  }
+  if (command === "preview") {
+    if (!args.session) throw new Error("--session is required");
+    requireScopedPublicTranscript("preview", args);
+    const rendered = await renderTranscript(args);
+    if (!rendered.safe) throw new Error(`unsafe transcript after redaction: ${rendered.unsafeAfter.join(", ")}`);
+    requireNonEmptyScopedTranscript(rendered, args);
+    const output = singlePreviewDocument({
+      title: args.title || "Agent Transcript Preview",
+      url: args.url || "",
+      session: args.session,
+      safe: rendered.safe,
+      markdown: rendered.markdown,
+    });
+    if (args.out) fs.writeFileSync(args.out, output);
+    else process.stdout.write(output);
+    return;
+  }
+  if (command === "append-body") {
+    if (!args.body || !args.session) throw new Error("--body and --session are required");
+    if (!optionString(args, "scopeQuery", "scope-query")) {
+      throw new Error("--scope-query is required for append-body to avoid unscoped public transcripts");
+    }
+    if (!scopeTerms(args).length) {
+      throw new Error("--scope-query must include at least one specific term of 4+ characters");
+    }
+    const rendered = await renderTranscript(args);
+    if (!rendered.safe) throw new Error(`unsafe transcript after redaction: ${rendered.unsafeAfter.join(", ")}`);
+    requireNonEmptyScopedTranscript(rendered, args);
+    const body = fs.readFileSync(args.body, "utf8");
+    const next = replaceSection(body, rendered.markdown);
+    if (args.out) fs.writeFileSync(args.out, next);
+    else process.stdout.write(next);
+    return;
+  }
+  if (command === "html") {
+    if (!args.prs) throw new Error("--prs is required");
+    const records = [];
+    const scanRecords = sessionScanRecords(args);
+    const minScore = Number(args["min-score"] || 50);
+    for (const pr of readPrs(args.prs)) {
+      const query = [pr.url, pr.number ? `#${pr.number}` : "", pr.number, pr.title, pr.headRefName, pr.headRefName || pr.branch]
+        .filter(Boolean)
+        .join(" ");
+      const terms = query
+        .split(/\s+/)
+        .concat(query.match(/https?:\/\/\S+/g) || [])
+        .filter(Boolean);
+      const [candidate] = scanRecords
+        .map((record) => scoreScanRecord(record, terms, args.cwd))
+        .filter((result) => result.score >= minScore)
+        .sort((a, b) => b.score - a.score || b.mtime.localeCompare(a.mtime));
+      if (!candidate) {
+        records.push({ ...pr, error: "No local session match found." });
+        continue;
+      }
+      try {
+        const renderScope =
+          optionString(args, "scopeQuery", "scope-query") ||
+          [pr.number ? `#${pr.number}` : "", pr.title, pr.headRefName, pr.headRefName || pr.branch]
+            .filter(Boolean)
+            .join(" ");
+        const renderOptions = {
+          ...args,
+          session: candidate.file,
+          scopeQuery: renderScope,
+          title: pr.title,
+          url: pr.url,
+        };
+        requireScopedPublicTranscript("html", renderOptions);
+        const rendered = await renderTranscript(renderOptions);
+        requireNonEmptyScopedTranscript(rendered, renderOptions);
+        records.push({
+          ...pr,
+          session: candidate.file,
+          score: candidate.score,
+          safe: rendered.safe,
+          markdown: rendered.markdown,
+        });
+      } catch (error) {
+        records.push({ ...pr, session: candidate.file, score: candidate.score, error: String(error) });
+      }
+    }
+    const output = htmlDocument(records);
+    if (args.out) fs.writeFileSync(args.out, output);
+    else process.stdout.write(output);
+    return;
+  }
+  usage();
+  process.exitCode = 2;
+}
+
+try {
+  await main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

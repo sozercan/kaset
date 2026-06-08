@@ -51,10 +51,6 @@ struct HomeSectionItemCard: View {
                 }
             }
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
-
-            if self.showsPlaylistPlayButton {
-                self.playButton
-            }
         }
         .scaleEffect(self.isHovering ? 1.02 : 1)
         .shadow(
@@ -125,7 +121,7 @@ struct HomeSectionItemCard: View {
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
-                self.playButtonChrome(interactive: false)
+                SongCoverPlayOverlay(size: Self.playButtonSize)
                     .transition(.opacity)
             }
         }
@@ -138,39 +134,9 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    private var showsPlaylistPlayButton: Bool {
-        self.supportsPlaylistPlayAction && self.isHovering
-    }
-
     private var supportsPlaylistPlayAction: Bool {
         guard case .playlist = self.item else { return false }
         return self.playAction != nil
-    }
-
-    private var playButton: some View {
-        Button {
-            self.playAction?()
-        } label: {
-            self.playButtonChrome(interactive: true)
-        }
-        .buttonStyle(.plain)
-        .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
-        .offset(
-            x: (self.thumbnailSize.width - Self.playButtonSize.width) / 2,
-            y: (self.thumbnailSize.height - Self.playButtonSize.height) / 2
-        )
-        .transition(.opacity)
-        .accessibilityLabel(String(localized: "Play \(self.item.title)"))
-        .accessibilityHint(String(localized: "Starts this playlist without opening it"))
-    }
-
-    private func playButtonChrome(interactive: Bool) -> some View {
-        Image(systemName: "play.fill")
-            .font(.title2)
-            .foregroundStyle(.primary)
-            .offset(x: 2)
-            .frame(width: Self.playButtonSize.width, height: Self.playButtonSize.height)
-            .compatGlass(interactive: interactive, in: .circle)
     }
 
     @ViewBuilder
@@ -339,6 +305,33 @@ struct HomeSectionItemCard: View {
 
         let subtitle = song.artistsDisplay.lowercased()
         return subtitle.contains("views") || subtitle.contains("video")
+    }
+}
+
+// MARK: - LiquidGlassPlayIcon
+
+private struct LiquidGlassPlayIcon: View {
+    let size: CGSize
+    let interactive: Bool
+
+    var body: some View {
+        Image(systemName: "play.fill")
+            .font(.title2)
+            .foregroundStyle(.primary)
+            .offset(x: 2)
+            .frame(width: self.size.width, height: self.size.height)
+            .compatGlass(interactive: self.interactive, in: .circle)
+    }
+}
+
+// MARK: - SongCoverPlayOverlay
+
+private struct SongCoverPlayOverlay: View {
+    let size: CGSize
+
+    var body: some View {
+        LiquidGlassPlayIcon(size: self.size, interactive: false)
+            .allowsHitTesting(false)
     }
 }
 
