@@ -14,8 +14,8 @@ actor ImageCache {
     /// Maximum disk cache size in bytes (200MB).
     private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
-    private let memoryCache = NSCache<NSURL, NSImage>()
-    private var inFlight: [URL: Task<NSImage?, Never>] = [:]
+    private let memoryCache = NSCache<NSString, NSImage>()
+    private var inFlight: [String: Task<NSImage?, Never>] = [:]
     private let fileManager = FileManager.default
     private let diskCacheURL: URL
 
@@ -63,19 +63,21 @@ actor ImageCache {
     ///   - targetSize: Optional target size for downsampling. If provided, the image will be
     ///                 downsampled to fit this size, significantly reducing memory usage.
     func image(for url: URL, targetSize: CGSize? = nil) async -> NSImage? {
+        let cacheKey = self.cacheKey(for: url, targetSize: targetSize)
+
         // Check memory cache
-        if let cached = memoryCache.object(forKey: url as NSURL) {
+        if let cached = self.memoryCache.object(forKey: cacheKey as NSString) {
             return cached
         }
 
         // Check disk cache
         if let diskImage = loadFromDisk(url: url, targetSize: targetSize) {
-            self.memoryCache.setObject(diskImage, forKey: url as NSURL)
+            self.memoryCache.setObject(diskImage, forKey: cacheKey as NSString)
             return diskImage
         }
 
         // Check if already fetching
-        if let existing = inFlight[url] {
+        if let existing = self.inFlight[cacheKey] {
             return await existing.value
         }
 
@@ -86,7 +88,7 @@ actor ImageCache {
                 guard Self.isSuccessfulResponse(response) else { return nil }
                 guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
                 let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                self.memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
+                self.memoryCache.setObject(image, forKey: cacheKey as NSString, cost: cost)
                 self.saveToDisk(url: url, data: data)
                 return image
             } catch {
@@ -94,9 +96,9 @@ actor ImageCache {
             }
         }
 
-        self.inFlight[url] = task
+        self.inFlight[cacheKey] = task
         let result = await task.value
-        self.inFlight.removeValue(forKey: url)
+        self.inFlight.removeValue(forKey: cacheKey)
         return result
     }
 
@@ -121,7 +123,7 @@ actor ImageCache {
                 guard !Task.isCancelled else { break }
 
                 // Skip if already in memory cache
-                if self.memoryCache.object(forKey: url as NSURL) != nil {
+                if self.memoryCache.object(forKey: self.cacheKey(for: url, targetSize: targetSize) as NSString) != nil {
                     continue
                 }
 
@@ -210,8 +212,14 @@ actor ImageCache {
 
     // MARK: - Disk Cache Helpers
 
-    private func cacheKey(for url: URL) -> String {
-        let data = Data(url.absoluteString.utf8)
+    private func cacheKey(for url: URL, targetSize: CGSize? = nil) -> String {
+        let targetComponent = if let targetSize {
+            "\(Int(targetSize.width.rounded()))x\(Int(targetSize.height.rounded()))"
+        } else {
+            "original"
+        }
+
+        let data = Data("\(url.absoluteString)|\(targetComponent)".utf8)
         let hash = SHA256.hash(data: data)
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }

@@ -243,7 +243,7 @@ final class FoundationModelsService {
 
         for try await snapshot in stream {
             partial = snapshot.content
-            await onPartial(snapshot.content)
+            onPartial(snapshot.content)
         }
 
         guard let final = partial,
