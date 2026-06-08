@@ -326,6 +326,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Current playback position in seconds.
     var progress: TimeInterval { get }
 
+    /// High-resolution playback position in milliseconds for synced lyrics and auxiliary surfaces.
+    var currentTimeMs: Int { get }
+
     /// Total duration of current track in seconds.
     var duration: TimeInterval { get }
 

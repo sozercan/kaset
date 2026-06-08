@@ -21,6 +21,10 @@ extension EnvironmentValues {
     @Entry var usesLegacyMacOS15UI = false
 }
 
+extension EnvironmentValues {
+    @Entry var lyricsDemandCoordinator: LyricsDemandCoordinator?
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.
@@ -45,6 +49,10 @@ struct KasetApp: App {
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
+    @State private var nowPlayingSnapshotStore: NowPlayingSnapshotStore
+    @State private var nowPlayingCommandRouter: PlayerNowPlayingCommandRouter
+    @State private var lyricsDemandCoordinator: LyricsDemandCoordinator
+    @State private var nowPlayingSurfaceCoordinator: NowPlayingSurfaceCoordinator?
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -92,10 +100,26 @@ struct KasetApp: App {
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
         _sharedClient = State(initialValue: client)
-        _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
+        let syncedLyricsService = SyncedLyricsService(providers: [
             YTMusicSyncedProvider(client: client),
             LRCLibProvider(),
-        ]))
+        ])
+
+        let nowPlayingSnapshotStore = NowPlayingSnapshotStore(
+            playerService: player,
+            lyricsService: syncedLyricsService
+        )
+        let nowPlayingCommandRouter = PlayerNowPlayingCommandRouter(playerService: player)
+        let lyricsDemandCoordinator = LyricsDemandCoordinator(
+            playerService: player,
+            lyricsService: syncedLyricsService
+        )
+
+        _syncedLyricsService = State(initialValue: syncedLyricsService)
+        _nowPlayingSnapshotStore = State(initialValue: nowPlayingSnapshotStore)
+        _nowPlayingCommandRouter = State(initialValue: nowPlayingCommandRouter)
+        _lyricsDemandCoordinator = State(initialValue: lyricsDemandCoordinator)
+        _nowPlayingSurfaceCoordinator = State(initialValue: nil)
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
@@ -137,6 +161,8 @@ struct KasetApp: App {
                     .environment(self.accountService)
                     .environment(self.scrobblingCoordinator)
                     .environment(self.syncedLyricsService)
+                    .environment(self.nowPlayingSnapshotStore)
+                    .environment(\.lyricsDemandCoordinator, self.lyricsDemandCoordinator)
                     .environment(self.equalizerService)
                     .environment(self.podcastsAvailabilityService)
                     .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
@@ -151,6 +177,8 @@ struct KasetApp: App {
                         self.appDelegate.playerService = self.playerService
                         // Reference notificationService to keep SwiftUI from deallocating it
                         _ = self.notificationService
+                        self.configureNowPlayingSurfaceCoordinatorIfNeeded()
+                        self.nowPlayingSurfaceCoordinator?.start()
                     }
                     .task {
                         DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -183,7 +211,8 @@ struct KasetApp: App {
                             MiniPlayerWindowController.shared.show(
                                 playerService: self.playerService,
                                 client: self.sharedClient,
-                                syncedLyricsService: self.syncedLyricsService
+                                syncedLyricsService: self.syncedLyricsService,
+                                lyricsDemandCoordinator: self.lyricsDemandCoordinator
                             )
                             if self.playerService.miniPlayerMode == .switchFromMainWindow {
                                 self.hideMainWindow()
@@ -200,6 +229,11 @@ struct KasetApp: App {
                     }
                     .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
                         MiniPlayerWindowController.shared.syncWindowState()
+                    }
+                    .onChange(of: self.settings.enabledNowPlayingSurfaces) { _, _ in
+                        Task {
+                            await self.nowPlayingSurfaceCoordinator?.reconcileEnabledSurfaces()
+                        }
                     }
             }
         }
@@ -373,6 +407,29 @@ struct KasetApp: App {
                 }
             }
         }
+    }
+
+    private func configureNowPlayingSurfaceCoordinatorIfNeeded() {
+        guard self.nowPlayingSurfaceCoordinator == nil else { return }
+
+        var adapters: [any NowPlayingSurfaceAdapter] = [
+            LocalNowPlayingBridgeAdapter(),
+        ]
+
+        if #available(macOS 26.0, *), !self.settings.useLegacyMacOS15UI {
+            adapters.append(MusicIslandWindowController.shared)
+        }
+
+        self.nowPlayingSurfaceCoordinator = NowPlayingSurfaceCoordinator(
+            adapters: adapters,
+            settingsManager: self.settings,
+            snapshotStore: self.nowPlayingSnapshotStore,
+            commandRouter: self.nowPlayingCommandRouter,
+            lyricsDemandCoordinator: self.lyricsDemandCoordinator,
+            openMainWindow: {
+                self.showMainWindow()
+            }
+        )
     }
 
     /// Shows the main window.

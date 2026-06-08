@@ -24,6 +24,7 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
+        static let enabledNowPlayingSurfaces = "settings.enabledNowPlayingSurfaces"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -284,6 +285,26 @@ final class SettingsManager {
         }
     }
 
+    /// Auxiliary now-playing surfaces enabled by the user.
+    var enabledNowPlayingSurfaces: Set<NowPlayingSurfaceID> {
+        didSet {
+            let rawValues = self.enabledNowPlayingSurfaces.map(\.rawValue).sorted()
+            UserDefaults.standard.set(rawValues, forKey: Keys.enabledNowPlayingSurfaces)
+        }
+    }
+
+    func isNowPlayingSurfaceEnabled(_ id: NowPlayingSurfaceID) -> Bool {
+        self.enabledNowPlayingSurfaces.contains(id)
+    }
+
+    func setNowPlayingSurface(_ id: NowPlayingSurfaceID, enabled: Bool) {
+        if enabled {
+            self.enabledNowPlayingSurfaces.insert(id)
+        } else {
+            self.enabledNowPlayingSurfaces.remove(id)
+        }
+    }
+
     /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
@@ -327,6 +348,8 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        let enabledSurfaceRawValues = UserDefaults.standard.stringArray(forKey: Keys.enabledNowPlayingSurfaces) ?? []
+        self.enabledNowPlayingSurfaces = Set(enabledSurfaceRawValues.map(NowPlayingSurfaceID.init(_:)))
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif

@@ -60,6 +60,17 @@ struct GeneralSettingsView: View {
                 Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
                     .help("Keep the mini player visible above other windows")
 
+                ForEach(self.nowPlayingSurfaceDescriptors) { descriptor in
+                    Toggle(
+                        descriptor.displayName,
+                        isOn: Binding(
+                            get: { self.settings.isNowPlayingSurfaceEnabled(descriptor.id) },
+                            set: { self.settings.setNowPlayingSurface(descriptor.id, enabled: $0) }
+                        )
+                    )
+                    .help(descriptor.helpText)
+                }
+
                 // Playback Audio Quality
                 Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
                     ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
@@ -197,6 +208,16 @@ struct GeneralSettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return build.isEmpty ? version : "\(version) (\(build))"
+    }
+
+    private var nowPlayingSurfaceDescriptors: [NowPlayingSurfaceDescriptor] {
+        let includeMusicIsland = if #available(macOS 26.0, *) {
+            !self.settings.useLegacyMacOS15UI
+        } else {
+            false
+        }
+
+        return NowPlayingSurfaceCatalog.descriptors(includeMusicIsland: includeMusicIsland)
     }
 
     // MARK: - Actions
