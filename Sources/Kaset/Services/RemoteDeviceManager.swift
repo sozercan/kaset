@@ -48,9 +48,8 @@ final class RemoteDeviceManager {
         self.loadPendingRequests()
     }
 
-    func requestApproval(deviceId: String, deviceName: String, pin: String) -> Bool {
-        guard pin == self.globalPin else { return false }
-        if self.approvedDevices.contains(where: { $0.deviceId == deviceId }) { return true }
+    func requestApproval(deviceId: String, deviceName: String) {
+        if self.approvedDevices.contains(where: { $0.deviceId == deviceId }) { return }
         if !self.pendingRequests.contains(where: { $0.deviceId == deviceId }) {
             self.pendingRequests.append(PendingApproval(
                 deviceId: deviceId,
@@ -58,7 +57,23 @@ final class RemoteDeviceManager {
                 requestedAt: Date()
             ))
         }
-        return true
+    }
+
+    func verifyPinAndApprove(deviceId: String, deviceName: String, pin: String) -> String? {
+        guard pin == self.globalPin else { return nil }
+        self.pendingRequests.removeAll(where: { $0.deviceId == deviceId })
+        if let idx = self.approvedDevices.firstIndex(where: { $0.deviceId == deviceId }) {
+            return self.approvedDevices[idx].token
+        }
+        let token = UUID().uuidString.lowercased()
+        self.approvedDevices.append(RemoteDevice(
+            deviceId: deviceId,
+            name: deviceName,
+            token: token,
+            approvedAt: Date(),
+            lastActive: Date()
+        ))
+        return token
     }
 
     func approveDevice(deviceId: String) {

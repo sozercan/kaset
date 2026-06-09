@@ -49,5 +49,11 @@
 	<string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Kaset taps its own audio output (not the screen) so the built-in equalizer can apply effects to your music. No screen content is recorded.</string>
+
+	<!-- Bonjour Services Advertisement -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+	</array>
 </dict>
 </plist>

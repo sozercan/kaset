@@ -69,27 +69,34 @@ struct LocalControlServerTests {
 
     @Test("Authorizes query form and bearer tokens")
     func authorizesTokenSources() {
-        let settings = SettingsManager.shared
-        let originalToken = settings.localControlServerToken
-        defer {
-            settings.localControlServerToken = originalToken
-        }
-        settings.localControlServerToken = "secret-token"
+        let manager = RemoteDeviceManager.shared
+        manager.clearAll()
+        
+        let testToken = "mock-device-token-xyz"
+        manager.approvedDevices = [
+            RemoteDevice(
+                deviceId: "test-device",
+                name: "Test Phone",
+                token: testToken,
+                approvedAt: Date(),
+                lastActive: Date()
+            )
+        ]
 
         #expect(LocalControlServer.isAuthorized(.init(
             method: "GET",
             path: "/status",
-            queryItems: ["token": "secret-token"]
+            queryItems: ["token": testToken]
         )))
         #expect(LocalControlServer.isAuthorized(.init(
             method: "POST",
             path: "/next",
-            headers: ["Authorization": "Bearer secret-token"]
+            headers: ["Authorization": "Bearer \(testToken)"]
         )))
         #expect(LocalControlServer.isAuthorized(.init(
             method: "POST",
             path: "/volume",
-            formItems: ["token": "secret-token"]
+            formItems: ["token": testToken]
         )))
         #expect(!LocalControlServer.isAuthorized(.init(
             method: "GET",
@@ -141,35 +148,31 @@ struct LocalControlServerTests {
         #expect(text.contains("\"ok\":true"))
     }
 
-    @Test("Remote control HTML contains controls and token")
-    func remoteControlHTMLContainsControlsAndToken() {
-        let html = LocalControlServer.remoteControlHTML(token: "abc123")
+    @Test("Remote control HTML contains controls and elements")
+    func remoteControlHTMLContainsControlsAndElements() {
+        let html = LocalControlServer.remoteControlHTML()
 
         #expect(html.contains("Kaset Remote"))
         #expect(html.contains("Previous"))
         #expect(html.contains("Play/Pause"))
         #expect(html.contains("Next"))
-        #expect(html.contains("abc123"))
     }
 
     @Test("Discovers local control URLs starting with localhost")
     func discoversLocalControlURLs() {
         let settings = SettingsManager.shared
-        let originalToken = settings.localControlServerToken
         let originalLAN = settings.localControlServerAllowsLAN
         defer {
-            settings.localControlServerToken = originalToken
             settings.localControlServerAllowsLAN = originalLAN
         }
-        settings.localControlServerToken = "test-token"
         settings.localControlServerAllowsLAN = true
 
         let urls = LocalControlServer.localControlURLs()
         #expect(!urls.isEmpty)
-        #expect(urls[0].absoluteString == "http://127.0.0.1:\(settings.localControlServerPort)/?token=test-token")
+        #expect(urls[0].absoluteString == "http://127.0.0.1:\(settings.localControlServerPort)/")
 
         for url in urls {
-            #expect(url.query?.contains("token=test-token") == true)
+            #expect(url.query == nil)
         }
     }
 }

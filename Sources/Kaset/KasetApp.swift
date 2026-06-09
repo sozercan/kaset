@@ -79,6 +79,7 @@ struct KasetApp: App {
 
         // Set shared instance for AppleScript access
         PlayerService.shared = player
+        LocalControlServer.shared.configure(playerService: player)
 
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth)
@@ -200,6 +201,15 @@ struct KasetApp: App {
                     }
                     .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
                         MiniPlayerWindowController.shared.syncWindowState()
+                    }
+                    .onChange(of: self.settings.localControlServerEnabled) { _, _ in
+                        LocalControlServer.shared.applySettings()
+                    }
+                    .onChange(of: self.settings.localControlServerPort) { _, _ in
+                        LocalControlServer.shared.applySettings()
+                    }
+                    .onChange(of: self.settings.localControlServerAllowsLAN) { _, _ in
+                        LocalControlServer.shared.applySettings()
                     }
             }
         }
