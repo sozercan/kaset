@@ -211,6 +211,31 @@ final class LocalControlServer {
         case .volume(let value):
             await playerService.setVolume(value)
             return .json(["ok": true, "action": "volume", "volume": playerService.volume])
+        case .search:
+            let query = request.queryItems["q"] ?? request.queryItems["query"] ?? ""
+            guard !query.isEmpty else {
+                return .json(["results": []])
+            }
+            guard let client = playerService.ytMusicClient else {
+                return .json(["ok": false, "error": "API client not initialized"])
+            }
+            do {
+                let songs = try await client.searchSongs(query: query)
+                let results = songs.map { Self.trackPayload($0) }
+                return .json(["results": results])
+            } catch {
+                return .json(["ok": false, "error": error.localizedDescription])
+            }
+        case .playQueueIndex(let index):
+            guard index >= 0 && index < playerService.queue.count else {
+                return .json(["ok": false, "error": "Index out of bounds"])
+            }
+            let queue = playerService.queue
+            await playerService.playQueue(queue, startingAt: index)
+            return .json(["ok": true, "action": "playQueueIndex", "index": index])
+        case .playTrack(let videoId):
+            await playerService.play(videoId: videoId)
+            return .json(["ok": true, "action": "playTrack", "videoId": videoId])
         case .notFound:
             return .notFound(message: "Unknown endpoint")
         case .methodNotAllowed:
@@ -238,6 +263,8 @@ final class LocalControlServer {
         } else {
             payload["track"] = NSNull()
         }
+
+        payload["queue"] = playerService.queue.map { Self.trackPayload($0) }
 
         return payload
     }
@@ -289,6 +316,12 @@ final class LocalControlServer {
             .previous
         case ("POST", "/volume"):
             Self.volumeRoute(request)
+        case ("GET", "/search"):
+            .search
+        case ("POST", "/play_index"):
+            Self.playIndexRoute(request)
+        case ("POST", "/play_track"):
+            Self.playTrackRoute(request)
         case ("GET", _), ("POST", _):
             .notFound
         default:
@@ -305,6 +338,23 @@ final class LocalControlServer {
         return .volume(max(0, min(1, value)))
     }
 
+    private static func playIndexRoute(_ request: HTTPRequest) -> Route {
+        let queryValue = request.queryItems["index"] ?? request.formItems["index"]
+        guard let rawValue = queryValue, let index = Int(rawValue) else {
+            return .badRequest("Missing integer index value")
+        }
+        return .playQueueIndex(index)
+    }
+
+    private static func playTrackRoute(_ request: HTTPRequest) -> Route {
+        let queryValue = request.queryItems["videoId"] ?? request.queryItems["video_id"] ??
+                         request.formItems["videoId"] ?? request.formItems["video_id"]
+        guard let videoId = queryValue, !videoId.isEmpty else {
+            return .badRequest("Missing videoId parameter")
+        }
+        return .playTrack(videoId)
+    }
+
     enum Route: Equatable {
         case webInterface
         case check
@@ -316,6 +366,9 @@ final class LocalControlServer {
         case next
         case previous
         case volume(Double)
+        case search
+        case playQueueIndex(Int)
+        case playTrack(String)
         case notFound
         case methodNotAllowed
         case badRequest(String)
@@ -726,6 +779,116 @@ final class LocalControlServer {
               align-items: center;
               gap: 12px;
             }
+
+            /* Search elements */
+            .search-results-dropdown {
+              position: absolute;
+              top: 50px;
+              left: 0;
+              right: 0;
+              background: rgba(28, 28, 30, 0.95);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              border-radius: 14px;
+              z-index: 100;
+              max-height: 280px;
+              overflow-y: auto;
+              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+              backdrop-filter: blur(15px);
+              -webkit-backdrop-filter: blur(15px);
+            }
+            .search-result-item {
+              padding: 12px 16px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              cursor: pointer;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+              transition: background 0.2s ease;
+              text-align: left;
+            }
+            .search-result-item:hover {
+              background: rgba(255, 255, 255, 0.08);
+            }
+            .search-result-item img {
+              width: 40px;
+              height: 40px;
+              border-radius: 6px;
+              object-fit: cover;
+            }
+            .search-result-info {
+              flex: 1;
+              min-width: 0;
+            }
+            .search-result-title {
+              font-size: 14px;
+              font-weight: 600;
+              color: #fff;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .search-result-artist {
+              font-size: 12px;
+              color: #8e8e93;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            
+            /* Queue elements */
+            .queue-list {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              max-height: 320px;
+              overflow-y: auto;
+              padding-right: 4px;
+            }
+            .queue-item {
+              padding: 10px 12px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              border-radius: 10px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              text-align: left;
+            }
+            .queue-item:hover {
+              background: rgba(255, 255, 255, 0.06);
+            }
+            .queue-item.active {
+              background: rgba(255, 45, 85, 0.12);
+              border: 1px solid rgba(255, 45, 85, 0.3);
+            }
+            .queue-item img {
+              width: 36px;
+              height: 36px;
+              border-radius: 4px;
+              object-fit: cover;
+            }
+            .queue-item-info {
+              flex: 1;
+              min-width: 0;
+            }
+            .queue-item-title {
+              font-size: 13.5px;
+              font-weight: 600;
+              color: #fff;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .queue-item-title.active {
+              color: #ff2d55;
+            }
+            .queue-item-artist {
+              font-size: 11.5px;
+              color: #8e8e93;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
           </style>
         </head>
         <body>
@@ -755,6 +918,13 @@ final class LocalControlServer {
             <!-- Controller Screen: Music Player -->
             <section id="screen-player" class="hidden">
               <div class="card">
+                <!-- Search Bar -->
+                <div style="position: relative; margin-bottom: 20px;">
+                  <input id="search-input" type="text" placeholder="Search songs..." oninput="handleSearch(this.value)" style="font-size: 15px; padding: 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
+                  <div id="search-results" class="search-results-dropdown hidden"></div>
+                </div>
+
+                <!-- Artwork -->
                 <div class="artwork-container">
                   <div id="artwork-wrapper" class="artwork-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
@@ -787,6 +957,17 @@ final class LocalControlServer {
                 
                 <div class="status-container" id="status" style="margin-top: 24px;"></div>
               </div>
+
+              <!-- Queue Panel -->
+              <div class="card" style="margin-top: 20px; padding: 20px 16px;">
+                <div style="font-size: 16px; font-weight: 700; text-align: left; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <span>Up Next</span>
+                  <span id="queue-count" style="font-size: 12px; color: #8e8e93; font-weight: 500;">0 songs</span>
+                </div>
+                <div id="queue-list" class="queue-list">
+                  <!-- Queue items dynamically loaded -->
+                </div>
+              </div>
             </section>
           </main>
 
@@ -803,6 +984,7 @@ final class LocalControlServer {
             let activeToken = localStorage.getItem('kaset_active_token') || '';
             let checkInterval = null;
             let refreshInterval = null;
+            let searchTimeout = null;
 
             function showScreen(id) {
               document.getElementById('screen-auth').classList.add('hidden');
@@ -937,6 +1119,68 @@ final class LocalControlServer {
               refresh();
             }
 
+            async function playQueueIndex(index) {
+              await fetch(withToken('/play_index?index=' + index), { method: 'POST' });
+              refresh();
+            }
+
+            async function playTrack(videoId) {
+              await fetch(withToken('/play_track?videoId=' + encodeURIComponent(videoId)), { method: 'POST' });
+              refresh();
+            }
+
+            function handleSearch(query) {
+              if (searchTimeout) clearTimeout(searchTimeout);
+              if (!query || query.trim() === '') {
+                document.getElementById('search-results').classList.add('hidden');
+                return;
+              }
+              searchTimeout = setTimeout(() => performSearch(query), 400);
+            }
+
+            async function performSearch(query) {
+              try {
+                const res = await fetch(withToken('/search?q=' + encodeURIComponent(query)));
+                if (res.status === 401) return;
+                const data = await res.json();
+                const resultsDiv = document.getElementById('search-results');
+                resultsDiv.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                  data.results.forEach(song => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    item.innerHTML = `
+                      <img src="${artworkUrl}" alt="Artwork">
+                      <div class="search-result-info">
+                        <div class="search-result-title">${song.title}</div>
+                        <div class="search-result-artist">${song.artist}</div>
+                      </div>
+                    `;
+                    item.onclick = () => {
+                      playTrack(song.videoId);
+                      resultsDiv.classList.add('hidden');
+                      document.getElementById('search-input').value = '';
+                    };
+                    resultsDiv.appendChild(item);
+                  });
+                  resultsDiv.classList.remove('hidden');
+                } else {
+                  resultsDiv.classList.add('hidden');
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }
+
+            document.addEventListener('click', (e) => {
+              const searchResults = document.getElementById('search-results');
+              const searchInput = document.getElementById('search-input');
+              if (searchResults && e.target !== searchResults && e.target !== searchInput) {
+                searchResults.classList.add('hidden');
+              }
+            });
+
             async function refresh() {
               try {
                 const res = await fetch(withToken('/status'));
@@ -966,6 +1210,32 @@ final class LocalControlServer {
 
                 document.getElementById('status').textContent = data.state.toUpperCase() + ' • VOLUME ' + Math.round((data.volume || 0) * 100) + '%';
                 document.getElementById('volume').value = data.volume || 0;
+
+                // Render queue
+                const queueList = document.getElementById('queue-list');
+                const queueCount = document.getElementById('queue-count');
+                if (data.queue && data.queue.length > 0) {
+                  queueCount.textContent = data.queue.length + ' songs';
+                  queueList.innerHTML = '';
+                  data.queue.forEach((song, idx) => {
+                    const isActive = idx === data.queueIndex;
+                    const item = document.createElement('div');
+                    item.className = 'queue-item' + (isActive ? ' active' : '');
+                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    item.innerHTML = `
+                      <img src="${artworkUrl}" alt="Artwork">
+                      <div class="queue-item-info">
+                        <div class="queue-item-title${isActive ? ' active' : ''}">${song.title}</div>
+                        <div class="queue-item-artist">${song.artist}</div>
+                      </div>
+                    `;
+                    item.onclick = () => playQueueIndex(idx);
+                    queueList.appendChild(item);
+                  });
+                } else {
+                  queueCount.textContent = '0 songs';
+                  queueList.innerHTML = '<div style="color:#8e8e93; font-size:13px; text-align:center; padding:20px 0;">Queue is empty</div>';
+                }
               } catch (error) {
                 document.getElementById('title').textContent = 'Cannot reach Kaset';
                 document.getElementById('artist').textContent = '';
