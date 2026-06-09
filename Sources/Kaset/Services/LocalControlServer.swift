@@ -234,7 +234,16 @@ final class LocalControlServer {
             await playerService.playQueue(queue, startingAt: index)
             return .json(["ok": true, "action": "playQueueIndex", "index": index])
         case .playTrack(let videoId):
-            await playerService.play(videoId: videoId)
+            let song = Song(
+                id: videoId,
+                title: "Loading...",
+                artists: [],
+                album: nil,
+                duration: nil,
+                thumbnailURL: nil,
+                videoId: videoId
+            )
+            await playerService.playWithRadio(song: song)
             return .json(["ok": true, "action": "playTrack", "videoId": videoId])
         case .notFound:
             return .notFound(message: "Unknown endpoint")
