@@ -213,16 +213,49 @@ final class LocalControlServer {
             return .json(["ok": true, "action": "volume", "volume": playerService.volume])
         case .search:
             let query = request.queryItems["q"] ?? request.queryItems["query"] ?? ""
+            let filter = request.queryItems["filter"] ?? "all"
             guard !query.isEmpty else {
-                return .json(["results": []])
+                return .json(["results": [], "type": filter])
             }
             guard let client = playerService.ytMusicClient else {
                 return .json(["ok": false, "error": "API client not initialized"])
             }
             do {
-                let songs = try await client.searchSongs(query: query)
-                let results = songs.map { Self.trackPayload($0) }
-                return .json(["results": results])
+                if filter == "songs" {
+                    let songs = try await client.searchSongs(query: query)
+                    let results = songs.map { Self.trackPayload($0) }
+                    return .json(["results": results, "type": "songs"])
+                } else if filter == "albums" {
+                    let response = try await client.searchAlbums(query: query)
+                    let results = response.albums.map { Self.albumPayload($0) }
+                    return .json(["results": results, "type": "albums"])
+                } else if filter == "playlists" {
+                    let response = try await client.searchCommunityPlaylists(query: query)
+                    let results = response.playlists.map { Self.playlistPayload($0) }
+                    return .json(["results": results, "type": "playlists"])
+                } else {
+                    let response = try await client.search(query: query)
+                    var items: [[String: Any]] = []
+                    for item in response.allItems {
+                        switch item {
+                        case .song(let song):
+                            var p = Self.trackPayload(song)
+                            p["type"] = "song"
+                            items.append(p)
+                        case .album(let album):
+                            var p = Self.albumPayload(album)
+                            p["type"] = "album"
+                            items.append(p)
+                        case .playlist(let playlist):
+                            var p = Self.playlistPayload(playlist)
+                            p["type"] = "playlist"
+                            items.append(p)
+                        default:
+                            break
+                        }
+                    }
+                    return .json(["results": items, "type": "all"])
+                }
             } catch {
                 return .json(["ok": false, "error": error.localizedDescription])
             }
@@ -245,6 +278,62 @@ final class LocalControlServer {
             )
             await playerService.playWithRadio(song: song)
             return .json(["ok": true, "action": "playTrack", "videoId": videoId])
+        case .playNext(let videoId, let playlistId, let song):
+            if let song = song {
+                playerService.insertNextInQueue([song])
+                return .json(["ok": true, "action": "playNext", "videoId": videoId ?? ""])
+            } else if let playlistId = playlistId {
+                guard let client = playerService.ytMusicClient else {
+                    return .json(["ok": false, "error": "API client not initialized"])
+                }
+                do {
+                    let tracks = try await client.getPlaylistAllTracks(playlistId: playlistId)
+                    playerService.insertNextInQueue(tracks)
+                    return .json(["ok": true, "action": "playNext", "playlistId": playlistId])
+                } catch {
+                    return .json(["ok": false, "error": error.localizedDescription])
+                }
+            }
+            return .badRequest(message: "Missing parameters")
+        case .addToQueue(let videoId, let playlistId, let song):
+            if let song = song {
+                playerService.appendToQueue([song])
+                return .json(["ok": true, "action": "addToQueue", "videoId": videoId ?? ""])
+            } else if let playlistId = playlistId {
+                guard let client = playerService.ytMusicClient else {
+                    return .json(["ok": false, "error": "API client not initialized"])
+                }
+                do {
+                    let tracks = try await client.getPlaylistAllTracks(playlistId: playlistId)
+                    playerService.appendToQueue(tracks)
+                    return .json(["ok": true, "action": "addToQueue", "playlistId": playlistId])
+                } catch {
+                    return .json(["ok": false, "error": error.localizedDescription])
+                }
+            }
+            return .badRequest(message: "Missing parameters")
+        case .playPlaylist(let playlistId):
+            guard let client = playerService.ytMusicClient else {
+                return .json(["ok": false, "error": "API client not initialized"])
+            }
+            do {
+                let tracks = try await client.getPlaylistAllTracks(playlistId: playlistId)
+                await playerService.playQueue(tracks, startingAt: 0)
+                return .json(["ok": true, "action": "playPlaylist", "playlistId": playlistId])
+            } catch {
+                return .json(["ok": false, "error": error.localizedDescription])
+            }
+        case .playlistTracks(let playlistId):
+            guard let client = playerService.ytMusicClient else {
+                return .json(["ok": false, "error": "API client not initialized"])
+            }
+            do {
+                let response = try await client.getPlaylist(id: playlistId)
+                let tracks = response.detail.tracks.map { Self.trackPayload($0) }
+                return .json(["ok": true, "tracks": tracks, "title": response.detail.title, "playlistId": playlistId])
+            } catch {
+                return .json(["ok": false, "error": error.localizedDescription])
+            }
         case .notFound:
             return .notFound(message: "Unknown endpoint")
         case .methodNotAllowed:
@@ -303,6 +392,30 @@ final class LocalControlServer {
         return payload
     }
 
+    static func albumPayload(_ album: Album) -> [String: Any] {
+        var payload: [String: Any] = [
+            "id": album.id,
+            "title": album.title,
+            "artist": album.artistsDisplay,
+        ]
+        if let artworkURL = album.thumbnailURL?.absoluteString {
+            payload["artworkURL"] = artworkURL
+        }
+        return payload
+    }
+
+    static func playlistPayload(_ playlist: Playlist) -> [String: Any] {
+        var payload: [String: Any] = [
+            "id": playlist.id,
+            "title": playlist.title,
+            "artist": playlist.author?.name ?? playlist.description ?? "",
+        ]
+        if let artworkURL = playlist.thumbnailURL?.absoluteString {
+            payload["artworkURL"] = artworkURL
+        }
+        return payload
+    }
+
     static func route(_ request: HTTPRequest) -> Route {
         switch (request.method, request.path) {
         case ("GET", "/"), ("GET", "/remote"):
@@ -331,6 +444,14 @@ final class LocalControlServer {
             Self.playIndexRoute(request)
         case ("POST", "/play_track"):
             Self.playTrackRoute(request)
+        case ("POST", "/play_next"):
+            Self.playNextRoute(request)
+        case ("POST", "/add_to_queue"):
+            Self.addToQueueRoute(request)
+        case ("POST", "/play_playlist"):
+            Self.playPlaylistRoute(request)
+        case ("GET", "/playlist_tracks"):
+            Self.playlistTracksRoute(request)
         case ("GET", _), ("POST", _):
             .notFound
         default:
@@ -364,6 +485,76 @@ final class LocalControlServer {
         return .playTrack(videoId)
     }
 
+    private static func playNextRoute(_ request: HTTPRequest) -> Route {
+        let videoId = request.queryItems["videoId"] ?? request.queryItems["video_id"] ?? request.formItems["videoId"] ?? request.formItems["video_id"]
+        let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"]
+        
+        if let videoId = videoId, !videoId.isEmpty {
+            let title = request.queryItems["title"] ?? request.formItems["title"] ?? "Loading..."
+            let artist = request.queryItems["artist"] ?? request.formItems["artist"] ?? ""
+            let artworkURL = request.queryItems["artworkURL"] ?? request.formItems["artworkURL"] ?? request.queryItems["artwork_url"] ?? request.formItems["artwork_url"]
+            let artists = artist.isEmpty ? [] : [Artist(id: UUID().uuidString, name: artist, thumbnailURL: nil)]
+            
+            let song = Song(
+                id: videoId,
+                title: title,
+                artists: artists,
+                album: nil,
+                duration: nil,
+                thumbnailURL: artworkURL.flatMap { URL(string: $0) },
+                videoId: videoId
+            )
+            return .playNext(videoId: videoId, playlistId: nil, song: song)
+        } else if let playlistId = playlistId, !playlistId.isEmpty {
+            return .playNext(videoId: nil, playlistId: playlistId, song: nil)
+        } else {
+            return .badRequest("Missing videoId or playlistId parameter")
+        }
+    }
+    
+    private static func addToQueueRoute(_ request: HTTPRequest) -> Route {
+        let videoId = request.queryItems["videoId"] ?? request.queryItems["video_id"] ?? request.formItems["videoId"] ?? request.formItems["video_id"]
+        let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"]
+        
+        if let videoId = videoId, !videoId.isEmpty {
+            let title = request.queryItems["title"] ?? request.formItems["title"] ?? "Loading..."
+            let artist = request.queryItems["artist"] ?? request.formItems["artist"] ?? ""
+            let artworkURL = request.queryItems["artworkURL"] ?? request.formItems["artworkURL"] ?? request.queryItems["artwork_url"] ?? request.formItems["artwork_url"]
+            let artists = artist.isEmpty ? [] : [Artist(id: UUID().uuidString, name: artist, thumbnailURL: nil)]
+            
+            let song = Song(
+                id: videoId,
+                title: title,
+                artists: artists,
+                album: nil,
+                duration: nil,
+                thumbnailURL: artworkURL.flatMap { URL(string: $0) },
+                videoId: videoId
+            )
+            return .addToQueue(videoId: videoId, playlistId: nil, song: song)
+        } else if let playlistId = playlistId, !playlistId.isEmpty {
+            return .addToQueue(videoId: nil, playlistId: playlistId, song: nil)
+        } else {
+            return .badRequest("Missing videoId or playlistId parameter")
+        }
+    }
+
+    private static func playPlaylistRoute(_ request: HTTPRequest) -> Route {
+        let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"]
+        guard let id = playlistId, !id.isEmpty else {
+            return .badRequest("Missing playlistId parameter")
+        }
+        return .playPlaylist(playlistId: id)
+    }
+
+    private static func playlistTracksRoute(_ request: HTTPRequest) -> Route {
+        let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"] ?? request.queryItems["id"] ?? request.formItems["id"]
+        guard let id = playlistId, !id.isEmpty else {
+            return .badRequest("Missing playlistId parameter")
+        }
+        return .playlistTracks(playlistId: id)
+    }
+
     enum Route: Equatable {
         case webInterface
         case check
@@ -378,6 +569,10 @@ final class LocalControlServer {
         case search
         case playQueueIndex(Int)
         case playTrack(String)
+        case playNext(videoId: String?, playlistId: String?, song: Song?)
+        case addToQueue(videoId: String?, playlistId: String?, song: Song?)
+        case playPlaylist(playlistId: String)
+        case playlistTracks(playlistId: String)
         case notFound
         case methodNotAllowed
         case badRequest(String)
@@ -557,6 +752,7 @@ final class LocalControlServer {
               max-width: 440px;
               padding: 24px;
               box-sizing: border-box;
+              position: relative;
             }
             h1 {
               font-size: 24px;
@@ -577,6 +773,7 @@ final class LocalControlServer {
               -webkit-backdrop-filter: blur(20px);
               box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
               transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+              position: relative;
             }
             .title {
               font-size: 20px;
@@ -596,6 +793,25 @@ final class LocalControlServer {
               text-overflow: ellipsis;
               white-space: nowrap;
               text-align: center;
+            }
+            .share-btn {
+              position: absolute;
+              right: 8px;
+              top: 0;
+              background: none;
+              border: none;
+              color: #a1a1a6;
+              cursor: pointer;
+              padding: 8px;
+              border-radius: 50%;
+              transition: all 0.2s ease;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .share-btn:hover {
+              color: #fff !important;
+              background: rgba(255, 255, 255, 0.08) !important;
             }
             .controls {
               display: flex;
@@ -788,29 +1004,59 @@ final class LocalControlServer {
               align-items: center;
               gap: 12px;
             }
+            
+            /* Search tabs */
+            .search-tabs {
+              display: flex;
+              gap: 6px;
+              margin-top: 8px;
+              margin-bottom: 8px;
+            }
+            .search-tab {
+              flex: 1;
+              padding: 8px 4px;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              background: rgba(255, 255, 255, 0.04);
+              color: #a1a1a6;
+              border-radius: 8px;
+              font-size: 11px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              outline: none;
+            }
+            .search-tab:hover {
+              background: rgba(255, 255, 255, 0.1);
+              color: #fff;
+            }
+            .search-tab.active {
+              background: #ff2d55;
+              border-color: #ff2d55;
+              color: #fff;
+              box-shadow: 0 2px 8px rgba(255, 45, 85, 0.3);
+            }
 
             /* Search elements */
             .search-results-dropdown {
               position: absolute;
-              top: 50px;
+              top: 96px;
               left: 0;
               right: 0;
-              background: rgba(28, 28, 30, 0.95);
-              border: 1px solid rgba(255, 255, 255, 0.12);
+              background: rgba(28, 28, 30, 0.96);
+              border: 1px solid rgba(255, 255, 255, 0.14);
               border-radius: 14px;
               z-index: 100;
               max-height: 280px;
               overflow-y: auto;
-              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
-              backdrop-filter: blur(15px);
-              -webkit-backdrop-filter: blur(15px);
+              box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+              backdrop-filter: blur(20px);
+              -webkit-backdrop-filter: blur(20px);
             }
             .search-result-item {
-              padding: 12px 16px;
+              padding: 10px 14px;
               display: flex;
               align-items: center;
               gap: 12px;
-              cursor: pointer;
               border-bottom: 1px solid rgba(255, 255, 255, 0.05);
               transition: background 0.2s ease;
               text-align: left;
@@ -842,6 +1088,110 @@ final class LocalControlServer {
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
+            }
+            
+            /* Action Buttons inside items */
+            .result-actions {
+              display: flex;
+              gap: 6px;
+            }
+            .result-act-btn {
+              background: rgba(255, 255, 255, 0.06);
+              border: none;
+              color: #a1a1a6;
+              border-radius: 6px;
+              width: 28px;
+              height: 28px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            }
+            .result-act-btn:hover {
+              background: rgba(255, 255, 255, 0.16);
+              color: #fff;
+            }
+
+            /* Playlist Details Panel */
+            .playlist-details-pane {
+              position: absolute;
+              top: 50px;
+              left: 24px;
+              right: 24px;
+              bottom: 24px;
+              background: rgba(18, 18, 20, 0.98);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              border-radius: 20px;
+              z-index: 110;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+              backdrop-filter: blur(24px);
+              -webkit-backdrop-filter: blur(24px);
+              padding: 20px;
+              box-sizing: border-box;
+            }
+            .playlist-details-header {
+              margin-bottom: 14px;
+              flex-shrink: 0;
+            }
+            .back-btn {
+              background: none;
+              border: none;
+              color: #ff2d55;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              padding: 0;
+              margin-bottom: 10px;
+            }
+            .playlist-title {
+              font-size: 16px;
+              font-weight: 800;
+              color: #fff;
+              margin-bottom: 12px;
+              text-align: left;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .playlist-actions {
+              display: flex;
+              gap: 8px;
+              margin-bottom: 4px;
+            }
+            .playlist-act-btn {
+              flex: 1;
+              padding: 8px;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              background: rgba(255, 255, 255, 0.04);
+              color: #fff;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            }
+            .playlist-act-btn.play {
+              background: #ff2d55;
+              border-color: #ff2d55;
+            }
+            .playlist-act-btn:hover {
+              background: rgba(255, 255, 255, 0.12);
+            }
+            .playlist-act-btn.play:hover {
+              background: #ff3b30;
+            }
+            .playlist-tracks-list {
+              flex: 1;
+              overflow-y: auto;
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
             }
             
             /* Queue elements */
@@ -927,9 +1277,17 @@ final class LocalControlServer {
             <!-- Controller Screen: Music Player -->
             <section id="screen-player" class="hidden">
               <div class="card">
-                <!-- Search Bar -->
+                <!-- Search Bar and Tabs -->
                 <div style="position: relative; margin-bottom: 20px;">
-                  <input id="search-input" type="text" placeholder="Search songs..." oninput="handleSearch(this.value)" style="font-size: 15px; padding: 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
+                  <input id="search-input" type="text" placeholder="Search..." oninput="handleSearch(this.value)" style="font-size: 15px; padding: 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
+                  
+                  <div class="search-tabs">
+                    <button class="search-tab active" onclick="setSearchFilter('all')">All</button>
+                    <button class="search-tab" onclick="setSearchFilter('songs')">Songs</button>
+                    <button class="search-tab" onclick="setSearchFilter('albums')">Albums</button>
+                    <button class="search-tab" onclick="setSearchFilter('playlists')">Playlists</button>
+                  </div>
+                  
                   <div id="search-results" class="search-results-dropdown hidden"></div>
                 </div>
 
@@ -939,8 +1297,17 @@ final class LocalControlServer {
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
                   </div>
                 </div>
-                <div class="title" id="title">Loading...</div>
-                <div class="artist" id="artist"></div>
+                
+                <!-- Title & Artist & Share -->
+                <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 12px;">
+                  <div style="flex: 1; min-width: 0; padding-left: 32px; padding-right: 32px;">
+                    <div class="title" id="title">Loading...</div>
+                    <div class="artist" id="artist" style="margin-bottom: 0;"></div>
+                  </div>
+                  <button id="share-btn" class="share-btn" onclick="shareCurrentSong()" aria-label="Share">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                  </button>
+                </div>
                 
                 <div class="controls">
                   <button class="control-btn prev" onclick="send('previous')" aria-label="Previous">
@@ -978,6 +1345,25 @@ final class LocalControlServer {
                 </div>
               </div>
             </section>
+
+            <!-- Album / Playlist Track Detail Panel -->
+            <section id="playlist-details" class="playlist-details-pane hidden">
+              <div class="playlist-details-header">
+                <button class="back-btn" onclick="closePlaylistDetails()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                  <span>Back</span>
+                </button>
+                <div class="playlist-title" id="p-title">Playlist Details</div>
+                <div class="playlist-actions">
+                  <button class="playlist-act-btn play" onclick="playlistAction('play')">Play</button>
+                  <button class="playlist-act-btn" onclick="playlistAction('next')">Play Next</button>
+                  <button class="playlist-act-btn" onclick="playlistAction('queue')">Add Queue</button>
+                </div>
+              </div>
+              <div id="playlist-tracks-list" class="playlist-tracks-list">
+                <!-- Tracks dynamically loaded -->
+              </div>
+            </section>
           </main>
 
           <script>
@@ -994,6 +1380,10 @@ final class LocalControlServer {
             let checkInterval = null;
             let refreshInterval = null;
             let searchTimeout = null;
+            let currentSearchFilter = 'all';
+            let currentPlaylistId = '';
+            let currentPlaylistTitle = '';
+            let currentVideoId = '';
 
             function showScreen(id) {
               document.getElementById('screen-auth').classList.add('hidden');
@@ -1138,6 +1528,123 @@ final class LocalControlServer {
               refresh();
             }
 
+            async function playNext(videoId, title, artist, artworkURL) {
+              const body = 'videoId=' + encodeURIComponent(videoId) +
+                           '&title=' + encodeURIComponent(title) +
+                           '&artist=' + encodeURIComponent(artist) +
+                           '&artworkURL=' + encodeURIComponent(artworkURL);
+              await fetch(withToken('/play_next'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+              });
+              refresh();
+            }
+
+            async function addToQueue(videoId, title, artist, artworkURL) {
+              const body = 'videoId=' + encodeURIComponent(videoId) +
+                           '&title=' + encodeURIComponent(title) +
+                           '&artist=' + encodeURIComponent(artist) +
+                           '&artworkURL=' + encodeURIComponent(artworkURL);
+              await fetch(withToken('/add_to_queue'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+              });
+              refresh();
+            }
+
+            function escapeJS(str) {
+              if (!str) return '';
+              return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+            }
+
+            function shareCurrentSong() {
+              if (currentVideoId) {
+                const shareUrl = "https://music.youtube.com/watch?v=" + currentVideoId;
+                window.open(shareUrl, '_blank');
+              }
+            }
+
+            function setSearchFilter(filter) {
+              currentSearchFilter = filter;
+              document.querySelectorAll('.search-tab').forEach(tab => {
+                tab.classList.remove('active');
+              });
+              event.target.classList.add('active');
+              
+              const query = document.getElementById('search-input').value;
+              if (query && query.trim() !== '') {
+                performSearch(query);
+              }
+            }
+
+            async function openPlaylistDetails(id, title) {
+              currentPlaylistId = id;
+              currentPlaylistTitle = title;
+              
+              const pane = document.getElementById('playlist-details');
+              const list = document.getElementById('playlist-tracks-list');
+              document.getElementById('p-title').innerText = title;
+              list.innerHTML = '<div style="color:#8e8e93; font-size:13px; text-align:center; padding:40px 0;">Loading tracks...</div>';
+              pane.classList.remove('hidden');
+              
+              try {
+                const res = await fetch(withToken('/playlist_tracks?id=' + encodeURIComponent(id)));
+                if (res.status === 401) return;
+                const data = await res.json();
+                if (data.ok && data.tracks) {
+                  list.innerHTML = '';
+                  data.tracks.forEach(song => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    item.innerHTML = `
+                      <img src="${artworkUrl}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                      <div class="search-result-info" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                        <div class="search-result-title">${song.title}</div>
+                        <div class="search-result-artist">${song.artist}</div>
+                      </div>
+                      <div class="result-actions">
+                        <button class="result-act-btn" onclick="playNext('${song.videoId}', '${escapeJS(song.title)}', '${escapeJS(song.artist)}', '${song.artworkURL || ''}')" title="Play Next">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 4 15 12 5 20"></polyline><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                        </button>
+                        <button class="result-act-btn" onclick="addToQueue('${song.videoId}', '${escapeJS(song.title)}', '${escapeJS(song.artist)}', '${song.artworkURL || ''}')" title="Add to Queue">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                      </div>
+                    `;
+                    list.appendChild(item);
+                  });
+                } else {
+                  list.innerHTML = '<div style="color:#ff453a; font-size:13px; text-align:center; padding:40px 0;">Failed to load tracks.</div>';
+                }
+              } catch (e) {
+                list.innerHTML = '<div style="color:#ff453a; font-size:13px; text-align:center; padding:40px 0;">Error loading tracks.</div>';
+              }
+            }
+
+            function closePlaylistDetails() {
+              document.getElementById('playlist-details').classList.add('hidden');
+            }
+
+            async function playlistAction(action) {
+              if (!currentPlaylistId) return;
+              
+              let endpoint = '';
+              if (action === 'play') {
+                endpoint = '/play_playlist?playlistId=' + encodeURIComponent(currentPlaylistId);
+              } else if (action === 'next') {
+                endpoint = '/play_next?playlistId=' + encodeURIComponent(currentPlaylistId);
+              } else if (action === 'queue') {
+                endpoint = '/add_to_queue?playlistId=' + encodeURIComponent(currentPlaylistId);
+              }
+              
+              await fetch(withToken(endpoint), { method: 'POST' });
+              closePlaylistDetails();
+              refresh();
+            }
+
             function handleSearch(query) {
               if (searchTimeout) clearTimeout(searchTimeout);
               if (!query || query.trim() === '') {
@@ -1149,7 +1656,7 @@ final class LocalControlServer {
 
             async function performSearch(query) {
               try {
-                const res = await fetch(withToken('/search?q=' + encodeURIComponent(query)));
+                const res = await fetch(withToken('/search?q=' + encodeURIComponent(query) + '&filter=' + currentSearchFilter));
                 if (res.status === 401) return;
                 const data = await res.json();
                 const resultsDiv = document.getElementById('search-results');
@@ -1159,18 +1666,40 @@ final class LocalControlServer {
                     const item = document.createElement('div');
                     item.className = 'search-result-item';
                     const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
-                    item.innerHTML = `
-                      <img src="${artworkUrl}" alt="Artwork">
-                      <div class="search-result-info">
-                        <div class="search-result-title">${song.title}</div>
-                        <div class="search-result-artist">${song.artist}</div>
-                      </div>
-                    `;
-                    item.onclick = () => {
-                      playTrack(song.videoId);
-                      resultsDiv.classList.add('hidden');
-                      document.getElementById('search-input').value = '';
-                    };
+                    
+                    const isSong = song.type === 'song' || data.type === 'songs';
+                    
+                    if (isSong) {
+                      item.innerHTML = `
+                        <img src="${artworkUrl}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                        <div class="search-result-info" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                          <div class="search-result-title">${song.title}</div>
+                          <div class="search-result-artist">${song.artist}</div>
+                        </div>
+                        <div class="result-actions">
+                          <button class="result-act-btn" onclick="playNext('${song.videoId}', '${escapeJS(song.title)}', '${escapeJS(song.artist)}', '${song.artworkURL || ''}')" title="Play Next">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 4 15 12 5 20"></polyline><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                          </button>
+                          <button class="result-act-btn" onclick="addToQueue('${song.videoId}', '${escapeJS(song.title)}', '${escapeJS(song.artist)}', '${song.artworkURL || ''}')" title="Add to Queue">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                          </button>
+                        </div>
+                      `;
+                    } else {
+                      const typeLabel = song.type === 'album' ? 'Album' : 'Playlist';
+                      item.innerHTML = `
+                        <img src="${artworkUrl}" alt="Artwork" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" style="cursor:pointer;">
+                        <div class="search-result-info" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" style="cursor:pointer;">
+                          <div class="search-result-title">${song.title}</div>
+                          <div class="search-result-artist">${song.artist || typeLabel}</div>
+                        </div>
+                        <div class="result-actions">
+                          <button class="result-act-btn" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" title="View Tracks">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                          </button>
+                        </div>
+                      `;
+                    }
                     resultsDiv.appendChild(item);
                   });
                   resultsDiv.classList.remove('hidden');
@@ -1185,7 +1714,7 @@ final class LocalControlServer {
             document.addEventListener('click', (e) => {
               const searchResults = document.getElementById('search-results');
               const searchInput = document.getElementById('search-input');
-              if (searchResults && e.target !== searchResults && e.target !== searchInput) {
+              if (searchResults && e.target !== searchResults && e.target !== searchInput && !searchResults.contains(e.target)) {
                 searchResults.classList.add('hidden');
               }
             });
@@ -1203,6 +1732,12 @@ final class LocalControlServer {
                 const data = await res.json();
                 document.getElementById('title').textContent = data.track?.title || 'Nothing playing';
                 document.getElementById('artist').textContent = data.track?.artist || '';
+                
+                if (data.track) {
+                  currentVideoId = data.track.videoId || '';
+                } else {
+                  currentVideoId = '';
+                }
                 
                 if (data.track && data.track.artworkURL) {
                   document.getElementById('artwork-wrapper').innerHTML = '<img class="artwork-image" src="' + data.track.artworkURL + '" alt="Artwork">';
