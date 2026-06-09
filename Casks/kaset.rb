@@ -10,7 +10,7 @@ cask "kaset" do
   deprecate! date: "2026-01-06", because: "has moved to the tap at https://github.com/sozercan/homebrew-repo"
 
   auto_updates false
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Kaset.app"
 
