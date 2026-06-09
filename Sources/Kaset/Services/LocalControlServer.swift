@@ -473,49 +473,178 @@ final class LocalControlServer {
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <title>Kaset Remote</title>
           <style>
-            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #111; color: #f6f6f6; }
-            main { max-width: 520px; margin: 0 auto; padding: 24px; }
+            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #111; color: #f6f6f6; text-align: center; }
+            main { max-width: 520px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
             h1 { font-size: 28px; margin: 0 0 16px; }
-            .track { min-height: 120px; padding: 18px; border: 1px solid #333; border-radius: 12px; background: #1c1c1f; }
+            .card { padding: 24px; border: 1px solid #333; border-radius: 16px; background: #1c1c1f; margin-bottom: 18px; }
             .title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-            .artist { color: #bbb; }
+            .artist { color: #bbb; margin-bottom: 12px; }
             .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
-            button { min-height: 58px; border: 0; border-radius: 12px; background: #f6f6f6; color: #111; font-size: 18px; font-weight: 700; }
-            button:active { transform: scale(0.98); }
-            input { width: 100%; margin-top: 22px; }
+            button { min-height: 58px; border: 0; border-radius: 12px; background: #f6f6f6; color: #111; font-size: 18px; font-weight: 700; cursor: pointer; }
+            button:disabled { background: #555; color: #aaa; }
+            button:active:not(:disabled) { transform: scale(0.98); }
+            input[type="range"] { width: 100%; margin-top: 22px; }
+            input[type="text"] { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 1px solid #444; background: #2c2c2f; color: #fff; box-sizing: border-box; text-align: center; margin-bottom: 12px; }
             .status { color: #999; margin-top: 14px; font-size: 14px; }
+            .hidden { display: none !important; }
+            .error { color: #ff5b5b; font-weight: bold; margin-bottom: 10px; }
           </style>
         </head>
         <body>
           <main>
             <h1>Kaset Remote</h1>
-            <section class="track">
-              <div class="title" id="title">Loading...</div>
-              <div class="artist" id="artist"></div>
-              <div class="status" id="status"></div>
+
+            <!-- Auth Screen: Enter PIN -->
+            <section id="screen-auth" class="card hidden">
+              <div class="title">Access Required</div>
+              <p>Enter the 4-digit PIN shown in Kaset settings on the Mac.</p>
+              <div id="auth-error" class="error hidden">Invalid PIN, please try again.</div>
+              <input id="pin-input" type="text" maxlength="6" placeholder="Enter PIN">
+              <button onclick="requestAccess()" style="width: 100%;">Request Access</button>
             </section>
-            <section class="controls">
-              <button onclick="send('previous')">Previous</button>
-              <button onclick="send('play-pause')">Play/Pause</button>
-              <button onclick="send('next')">Next</button>
+
+            <!-- Pending Screen: Waiting for host approval -->
+            <section id="screen-pending" class="card hidden">
+              <div class="title">Approval Pending</div>
+              <p>Approval request sent. Please approve this device on your Mac.</p>
+              <div class="status">Waiting for host approval...</div>
             </section>
-            <input id="volume" type="range" min="0" max="1" step="0.01" onchange="setVolume(this.value)">
-            <div class="status">Keep this page open on your phone or another device on the same Wi-Fi.</div>
+
+            <!-- Controller Screen: Music Player -->
+            <section id="screen-player" class="hidden">
+              <div class="card">
+                <div class="title" id="title">Loading...</div>
+                <div class="artist" id="artist"></div>
+                <div class="status" id="status"></div>
+              </div>
+              <section class="controls">
+                <button onclick="send('previous')">Previous</button>
+                <button onclick="send('play-pause')">Play/Pause</button>
+                <button onclick="send('next')">Next</button>
+              </section>
+              <input id="volume" type="range" min="0" max="1" step="0.01" onchange="setVolume(this.value)">
+            </section>
           </main>
+
           <script>
-            const token = new URLSearchParams(location.search).get('token') || '\(Self.escapeJavaScriptString(token))';
-            const withToken = path => path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+            let deviceId = localStorage.getItem('kaset_device_id');
+            if (!deviceId) {
+              deviceId = 'device_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+              localStorage.setItem('kaset_device_id', deviceId);
+            }
+
+            const deviceName = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'iOS Device' : 
+                               /Android/.test(navigator.userAgent) ? 'Android Device' : 'Web Remote';
+
+            let activeToken = new URLSearchParams(location.search).get('token') || localStorage.getItem('kaset_active_token') || '';
+            let checkInterval = null;
+            let refreshInterval = null;
+
+            function showScreen(id) {
+              document.getElementById('screen-auth').classList.add('hidden');
+              document.getElementById('screen-pending').classList.add('hidden');
+              document.getElementById('screen-player').classList.add('hidden');
+              document.getElementById(id).classList.remove('hidden');
+            }
+
+            async function startup() {
+              if (activeToken) {
+                const valid = await checkToken(activeToken);
+                if (valid) {
+                  startPlayer();
+                  return;
+                }
+              }
+              pollApproval();
+            }
+
+            async function checkToken(token) {
+              try {
+                const res = await fetch('/status?token=' + encodeURIComponent(token));
+                return res.status === 200;
+              } catch (e) {
+                return false;
+              }
+            }
+
+            async function pollApproval() {
+              if (checkInterval) clearInterval(checkInterval);
+
+              async function runCheck() {
+                try {
+                  const res = await fetch('/check?device_id=' + encodeURIComponent(deviceId) + '&device_name=' + encodeURIComponent(deviceName));
+                  const data = await res.json();
+                  if (data.status === 'approved') {
+                    activeToken = data.token;
+                    localStorage.setItem('kaset_active_token', activeToken);
+                    clearInterval(checkInterval);
+                    startPlayer();
+                  } else if (data.status === 'pending') {
+                    showScreen('screen-pending');
+                  } else {
+                    showScreen('screen-auth');
+                  }
+                } catch (e) {
+                  showScreen('screen-auth');
+                }
+              }
+
+              await runCheck();
+              checkInterval = setInterval(runCheck, 2000);
+            }
+
+            async function requestAccess() {
+              const pin = document.getElementById('pin-input').value;
+              document.getElementById('auth-error').classList.add('hidden');
+              try {
+                const body = 'device_id=' + encodeURIComponent(deviceId) + 
+                            '&device_name=' + encodeURIComponent(deviceName) + 
+                            '&pin=' + encodeURIComponent(pin);
+                const res = await fetch('/request_approval', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: body
+                });
+                const data = await res.json();
+                if (data.status === 'pending') {
+                  pollApproval();
+                } else {
+                  document.getElementById('auth-error').classList.remove('hidden');
+                }
+              } catch (e) {
+                document.getElementById('auth-error').classList.remove('hidden');
+              }
+            }
+
+            function startPlayer() {
+              showScreen('screen-player');
+              refresh();
+              if (refreshInterval) clearInterval(refreshInterval);
+              refreshInterval = setInterval(refresh, 2000);
+            }
+
+            const withToken = path => path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(activeToken);
+
             async function send(action) {
               await fetch(withToken('/' + action), { method: 'POST' });
               refresh();
             }
+
             async function setVolume(value) {
               await fetch(withToken('/volume?value=' + encodeURIComponent(value)), { method: 'POST' });
               refresh();
             }
+
             async function refresh() {
               try {
                 const res = await fetch(withToken('/status'));
+                if (res.status === 401) {
+                  localStorage.removeItem('kaset_active_token');
+                  activeToken = '';
+                  clearInterval(refreshInterval);
+                  pollApproval();
+                  return;
+                }
                 const data = await res.json();
                 document.getElementById('title').textContent = data.track?.title || 'Nothing playing';
                 document.getElementById('artist').textContent = data.track?.artist || '';
@@ -526,8 +655,8 @@ final class LocalControlServer {
                 document.getElementById('status').textContent = String(error);
               }
             }
-            refresh();
-            setInterval(refresh, 2000);
+
+            startup();
           </script>
         </body>
         </html>
