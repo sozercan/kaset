@@ -76,6 +76,7 @@ enum AccessibilityID {
         static let container = "queueView"
         static let scrollView = "queueView.scrollView"
         static let clearButton = "queueView.clearButton"
+        static let saveToPlaylistButton = "queueView.saveToPlaylistButton"
         static let emptyState = "queueView.emptyState"
         static let refineButton = "queueView.refineButton"
         static let suggestionButton = "queueView.suggestionButton"

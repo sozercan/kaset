@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - QueueSidePanelView
@@ -647,6 +648,8 @@ private struct QueueSidePanelHeader: View {
 private struct QueueFooterActions: View {
     @Environment(PlayerService.self) private var playerService
 
+    @State private var isSavingPlaylist = false
+
     var body: some View {
         HStack(spacing: 12) {
             Button {
@@ -674,6 +677,18 @@ private struct QueueFooterActions: View {
             .buttonStyle(.plain)
 
             Button {
+                self.presentSaveQueueAsPlaylistDialog()
+            } label: {
+                Label(
+                    self.isSavingPlaylist ? "Saving…" : "Save to Playlist",
+                    systemImage: "text.badge.plus"
+                )
+            }
+            .disabled(self.playerService.queue.isEmpty || self.isSavingPlaylist || self.playerService.ytMusicClient == nil)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.Queue.saveToPlaylistButton)
+
+            Button {
                 Task {
                     if self.playerService.isPlaying {
                         await self.playerService.stop()
@@ -691,6 +706,81 @@ private struct QueueFooterActions: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func presentSaveQueueAsPlaylistDialog() {
+        guard !self.isSavingPlaylist else { return }
+        guard let client = self.playerService.ytMusicClient else { return }
+
+        let songs = self.playerService.queue
+        guard !songs.isEmpty else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Save Queue to Playlist"
+        alert.informativeText = "Create a private playlist with all \(songs.count) songs from your queue."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let titleField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        titleField.placeholderString = "Playlist name"
+        alert.accessoryView = titleField
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else {
+                self.presentSaveQueueErrorAlert(message: "Playlist name is required.")
+                return
+            }
+            Task { await self.saveQueueAsPlaylist(title: title, songs: songs, client: client) }
+        }
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            handleResponse(alert.runModal())
+        }
+    }
+
+    private func saveQueueAsPlaylist(
+        title: String,
+        songs: [Song],
+        client: any YTMusicClientProtocol
+    ) async {
+        guard !self.isSavingPlaylist else { return }
+        self.isSavingPlaylist = true
+        defer { self.isSavingPlaylist = false }
+
+        do {
+            _ = try await SongActionsHelper.saveQueueAsPlaylist(
+                songs: songs,
+                title: title,
+                client: client
+            )
+            self.presentSaveQueueSuccessAlert(title: title, songCount: songs.count)
+        } catch {
+            DiagnosticsLogger.ui.error("Failed to save queue as playlist: \(error.localizedDescription)")
+            self.presentSaveQueueErrorAlert(message: "Unable to save queue as playlist. Please try again.")
+        }
+    }
+
+    private func presentSaveQueueSuccessAlert(title: String, songCount: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Playlist Saved"
+        alert.informativeText = "\"\(title)\" was created with \(songCount) songs."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func presentSaveQueueErrorAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Save Failed"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 
