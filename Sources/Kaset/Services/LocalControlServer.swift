@@ -414,6 +414,9 @@ extension LocalControlServer {
             } catch {
                 return .json(["ok": false, "error": error.localizedDescription])
             }
+        case .clearQueue:
+            playerService.clearQueueEntirely()
+            return .json(["ok": true, "action": "clearQueue"])
         case .notFound:
             return .notFound(message: "Unknown endpoint")
         case .methodNotAllowed:
@@ -535,6 +538,8 @@ extension LocalControlServer {
             self.playPlaylistRoute(request)
         case ("GET", "/playlist_tracks"):
             self.playlistTracksRoute(request)
+        case ("POST", "/clear_queue"):
+            .clearQueue
         case ("GET", _), ("POST", _):
             .notFound
         default:
@@ -658,6 +663,7 @@ extension LocalControlServer {
         case addToQueue(videoId: String?, playlistId: String?, song: Song?)
         case playPlaylist(playlistId: String)
         case playlistTracks(playlistId: String)
+        case clearQueue
         case notFound
         case methodNotAllowed
         case badRequest(String)
@@ -903,6 +909,31 @@ extension LocalControlServer {
             .share-btn:hover {
               color: #fff !important;
               background: rgba(255, 255, 255, 0.08) !important;
+            }
+            
+            /* Toast Message */
+            .toast {
+              position: fixed;
+              bottom: 32px;
+              left: 50%;
+              transform: translate(-50%, 100px);
+              background: rgba(28, 28, 30, 0.95);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              border-radius: 16px;
+              padding: 12px 20px;
+              color: #fff;
+              font-size: 14px;
+              font-weight: 600;
+              box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              z-index: 9999;
+              transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+              pointer-events: none;
+            }
+            .toast.show {
+              transform: translate(-50%, 0);
             }
             .controls {
               display: flex;
@@ -1342,6 +1373,10 @@ extension LocalControlServer {
           </style>
         </head>
         <body>
+          <div id="toast" class="toast">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <span id="toast-message"></span>
+          </div>
           <main>
             <h1>Kaset Remote</h1>
 
@@ -1433,7 +1468,10 @@ extension LocalControlServer {
               <!-- Queue Panel -->
               <div class="card" style="margin-top: 20px; padding: 20px 16px;">
                 <div style="font-size: 16px; font-weight: 700; text-align: left; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                  <span>Up Next</span>
+                  <span style="display: flex; align-items: center; gap: 8px;">
+                    <span>Up Next</span>
+                    <button id="clear-queue-btn" onclick="clearQueue()" style="background: none; border: 1px solid rgba(255, 45, 85, 0.4); color: #ff2d55; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; cursor: pointer; outline: none; transition: all 0.2s ease;">Clear</button>
+                  </span>
                   <span id="queue-count" style="font-size: 12px; color: #8e8e93; font-weight: 500;">0 songs</span>
                 </div>
                 <div id="queue-list" class="queue-list">
@@ -1634,6 +1672,7 @@ extension LocalControlServer {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body
               });
+              showToast('"' + title + '" will play next');
               refresh();
             }
 
@@ -1647,7 +1686,26 @@ extension LocalControlServer {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body
               });
+              showToast('Added "' + title + '" to queue');
               refresh();
+            }
+
+            function showToast(message) {
+              const toast = document.getElementById('toast');
+              const toastMsg = document.getElementById('toast-message');
+              toastMsg.textContent = message;
+              toast.classList.add('show');
+              setTimeout(() => {
+                toast.classList.remove('show');
+              }, 2500);
+            }
+
+            async function clearQueue() {
+              if (confirm('Are you sure you want to clear the queue?')) {
+                await fetch(withToken('/clear_queue'), { method: 'POST' });
+                showToast('Queue cleared');
+                refresh();
+              }
             }
 
             function escapeJS(str) {
@@ -1728,15 +1786,20 @@ extension LocalControlServer {
               if (!currentPlaylistId) return;
               
               let endpoint = '';
+              let msg = '';
               if (action === 'play') {
                 endpoint = '/play_playlist?playlistId=' + encodeURIComponent(currentPlaylistId);
+                msg = 'Playing "' + currentPlaylistTitle + '"';
               } else if (action === 'next') {
                 endpoint = '/play_next?playlistId=' + encodeURIComponent(currentPlaylistId);
+                msg = '"' + currentPlaylistTitle + '" will play next';
               } else if (action === 'queue') {
                 endpoint = '/add_to_queue?playlistId=' + encodeURIComponent(currentPlaylistId);
+                msg = 'Added "' + currentPlaylistTitle + '" to queue';
               }
               
               await fetch(withToken(endpoint), { method: 'POST' });
+              if (msg) showToast(msg);
               closePlaylistDetails();
               refresh();
             }

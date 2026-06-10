@@ -859,12 +859,21 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
 
         // No caching for queue endpoint - we want fresh results each time
-        let data = try await request("music/get_queue", body: body, ttl: nil)
+        do {
+            let data = try await request("music/get_queue", body: body, ttl: nil)
+            let tracks = PlaylistParser.parseQueueTracks(data)
+            if !tracks.isEmpty {
+                self.logger.info("Fetched \(tracks.count) tracks from queue endpoint")
+                return tracks
+            }
+        } catch {
+            self.logger.warning("Failed to fetch via get_queue: \(error.localizedDescription). Trying getPlaylist fallback.")
+        }
 
-        let tracks = PlaylistParser.parseQueueTracks(data)
-        self.logger.info("Fetched \(tracks.count) tracks from queue endpoint")
-
-        return tracks
+        // Fallback: Fetch via getPlaylist
+        self.logger.info("Falling back to getPlaylist for \(playlistId)")
+        let playlist = try await self.getPlaylist(id: playlistId)
+        return playlist.detail.tracks
     }
 
     /// Fetches a batch of playlist tracks using the provided continuation token.
