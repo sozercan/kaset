@@ -1,8 +1,13 @@
 import Foundation
 import Observation
 
+// MARK: - RemoteDevice
+
 struct RemoteDevice: Codable, Identifiable, Hashable {
-    var id: String { self.deviceId }
+    var id: String {
+        self.deviceId
+    }
+
     let deviceId: String
     let name: String
     let token: String
@@ -10,12 +15,19 @@ struct RemoteDevice: Codable, Identifiable, Hashable {
     var lastActive: Date
 }
 
+// MARK: - PendingApproval
+
 struct PendingApproval: Codable, Identifiable, Hashable {
-    var id: String { self.deviceId }
+    var id: String {
+        self.deviceId
+    }
+
     let deviceId: String
     let name: String
     let requestedAt: Date
 }
+
+// MARK: - RemoteDeviceManager
 
 @Observable
 @MainActor
@@ -119,7 +131,7 @@ final class RemoteDeviceManager {
     }
 
     private static func generateRandomPin() -> String {
-        String((0..<4).map { _ in "0123456789".randomElement()! })
+        String((0 ..< 4).map { _ in "0123456789".randomElement()! })
     }
 
     private func saveApprovedDevices() {
@@ -130,7 +142,8 @@ final class RemoteDeviceManager {
 
     private func loadApprovedDevices() {
         if let data = UserDefaults.standard.data(forKey: Keys.approvedDevices),
-           let devices = try? JSONDecoder().decode([RemoteDevice].self, from: data) {
+           let devices = try? JSONDecoder().decode([RemoteDevice].self, from: data)
+        {
             self.approvedDevices = devices
         }
     }
@@ -143,7 +156,8 @@ final class RemoteDeviceManager {
 
     private func loadPendingRequests() {
         if let data = UserDefaults.standard.data(forKey: Keys.pendingRequests),
-           let pending = try? JSONDecoder().decode([PendingApproval].self, from: data) {
+           let pending = try? JSONDecoder().decode([PendingApproval].self, from: data)
+        {
             self.pendingRequests = pending
         }
     }

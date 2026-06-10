@@ -1,5 +1,7 @@
-import SwiftUI
 import CoreImage.CIFilterBuiltins
+import SwiftUI
+
+// MARK: - GeneralSettingsView
 
 /// Settings view for general app preferences.
 struct GeneralSettingsView: View {
@@ -85,7 +87,7 @@ struct GeneralSettingsView: View {
                 Stepper(
                     "Local Control Port: \(self.settings.localControlServerPort)",
                     value: self.$settings.localControlServerPort,
-                    in: 1024 ... 65_535
+                    in: 1024 ... 65535
                 )
                 .disabled(!self.settings.localControlServerEnabled)
                 .help("Local API endpoint: http://127.0.0.1:\(self.settings.localControlServerPort)")
@@ -109,7 +111,7 @@ struct GeneralSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Active Remote URL(s)")
                             .font(.headline)
-                        
+
                         ForEach(LocalControlServer.localControlURLs(), id: \.self) { url in
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
@@ -126,7 +128,7 @@ struct GeneralSettingsView: View {
                                     .buttonStyle(.borderless)
                                     .help("Copy URL")
                                 }
-                                
+
                                 // Show QR code for LAN URL (non-localhost)
                                 if url.host != "127.0.0.1" {
                                     HStack {
@@ -148,7 +150,7 @@ struct GeneralSettingsView: View {
                             Text("Pending Approvals (\(deviceManager.pendingRequests.count))")
                                 .font(.headline)
                                 .foregroundStyle(.orange)
-                            
+
                             ForEach(deviceManager.pendingRequests) { request in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
@@ -164,7 +166,7 @@ struct GeneralSettingsView: View {
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .tint(.green)
-                                    
+
                                     Button("Deny") {
                                         deviceManager.denyDevice(deviceId: request.deviceId)
                                     }
@@ -181,7 +183,7 @@ struct GeneralSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Approved Devices (\(deviceManager.approvedDevices.count))")
                             .font(.headline)
-                        
+
                         if deviceManager.approvedDevices.isEmpty {
                             Text("No approved devices yet.")
                                 .font(.caption)
@@ -347,6 +349,8 @@ struct GeneralSettingsView: View {
         self.isClearing = false
     }
 }
+
+// MARK: - QRCodeView
 
 struct QRCodeView: View {
     let urlString: String

@@ -71,7 +71,7 @@ struct LocalControlServerTests {
     func authorizesTokenSources() {
         let manager = RemoteDeviceManager.shared
         manager.clearAll()
-        
+
         let testToken = "mock-device-token-xyz"
         manager.approvedDevices = [
             RemoteDevice(
@@ -80,7 +80,7 @@ struct LocalControlServerTests {
                 token: testToken,
                 approvedAt: Date(),
                 lastActive: Date()
-            )
+            ),
         ]
 
         #expect(LocalControlServer.isAuthorized(.init(
@@ -106,7 +106,7 @@ struct LocalControlServerTests {
     }
 
     @Test("Track payload includes currently playing metadata")
-    func trackPayloadIncludesMetadata() throws {
+    func trackPayloadIncludesMetadata() {
         let track = Song(
             id: "song-id",
             title: "A Song",

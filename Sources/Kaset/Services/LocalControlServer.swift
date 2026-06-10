@@ -1,6 +1,8 @@
-import Foundation
 import Darwin
+import Foundation
 @preconcurrency import Network
+
+// MARK: - LocalControlServer
 
 /// HTTP API for local automation and remote-control companions.
 @MainActor
@@ -29,7 +31,7 @@ final class LocalControlServer {
             return
         }
 
-        let port = UInt16(min(max(settings.localControlServerPort, 1024), 65_535))
+        let port = UInt16(min(max(settings.localControlServerPort, 1024), 65535))
         let allowsLAN = settings.localControlServerAllowsLAN
         if self.listener != nil, self.activePort == port, self.activeAllowsLAN == allowsLAN {
             return
@@ -113,18 +115,17 @@ final class LocalControlServer {
         }
 
         connection.start(queue: .main)
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { [weak self, weak playerService] data, _, _, _ in
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self, weak playerService] data, _, _, _ in
             Task { @MainActor in
                 guard let self, let playerService else {
                     connection.cancel()
                     return
                 }
 
-                let response: HTTPResponse
-                if let data, let request = HTTPRequest(data: data) {
-                    response = await self.response(for: request, playerService: playerService)
+                let response: HTTPResponse = if let data, let request = HTTPRequest(data: data) {
+                    await self.response(for: request, playerService: playerService)
                 } else {
-                    response = .badRequest(message: "Invalid HTTP request")
+                    .badRequest(message: "Invalid HTTP request")
                 }
 
                 connection.send(content: response.serialized(), completion: .contentProcessed { _ in
@@ -137,13 +138,13 @@ final class LocalControlServer {
     private func isLoopback(_ endpoint: NWEndpoint) -> Bool {
         guard case let .hostPort(host, _) = endpoint else { return false }
         switch host {
-        case .ipv4(let address):
+        case let .ipv4(address):
             guard let loopbackAddress = IPv4Address("127.0.0.1") else { return false }
             return address == loopbackAddress
-        case .ipv6(let address):
+        case let .ipv6(address):
             guard let loopbackAddress = IPv6Address("::1") else { return false }
             return address == loopbackAddress
-        case .name(let name, _):
+        case let .name(name, _):
             return name == "localhost"
         default:
             return false
@@ -180,7 +181,7 @@ final class LocalControlServer {
             let deviceId = request.formItems["device_id"] ?? request.queryItems["device_id"] ?? ""
             let deviceName = request.formItems["device_name"] ?? request.queryItems["device_name"] ?? "Remote Web Browser"
             let pin = request.formItems["pin"] ?? request.queryItems["pin"] ?? ""
-            
+
             if !pin.isEmpty {
                 if let token = RemoteDeviceManager.shared.verifyPinAndApprove(deviceId: deviceId, deviceName: deviceName, pin: pin) {
                     return .json(["status": "approved", "token": token])
@@ -208,7 +209,7 @@ final class LocalControlServer {
         case .previous:
             await playerService.previous()
             return .json(["ok": true, "action": "previous"])
-        case .volume(let value):
+        case let .volume(value):
             await playerService.setVolume(value)
             return .json(["ok": true, "action": "volume", "volume": playerService.volume])
         case .search:
@@ -238,15 +239,15 @@ final class LocalControlServer {
                     var items: [[String: Any]] = []
                     for item in response.allItems {
                         switch item {
-                        case .song(let song):
+                        case let .song(song):
                             var p = Self.trackPayload(song)
                             p["type"] = "song"
                             items.append(p)
-                        case .album(let album):
+                        case let .album(album):
                             var p = Self.albumPayload(album)
                             p["type"] = "album"
                             items.append(p)
-                        case .playlist(let playlist):
+                        case let .playlist(playlist):
                             var p = Self.playlistPayload(playlist)
                             p["type"] = "playlist"
                             items.append(p)
@@ -259,14 +260,14 @@ final class LocalControlServer {
             } catch {
                 return .json(["ok": false, "error": error.localizedDescription])
             }
-        case .playQueueIndex(let index):
-            guard index >= 0 && index < playerService.queue.count else {
+        case let .playQueueIndex(index):
+            guard index >= 0, index < playerService.queue.count else {
                 return .json(["ok": false, "error": "Index out of bounds"])
             }
             let queue = playerService.queue
             await playerService.playQueue(queue, startingAt: index)
             return .json(["ok": true, "action": "playQueueIndex", "index": index])
-        case .playTrack(let videoId):
+        case let .playTrack(videoId):
             let song = Song(
                 id: videoId,
                 title: "Loading...",
@@ -278,11 +279,11 @@ final class LocalControlServer {
             )
             await playerService.playWithRadio(song: song)
             return .json(["ok": true, "action": "playTrack", "videoId": videoId])
-        case .playNext(let videoId, let playlistId, let song):
-            if let song = song {
+        case let .playNext(videoId, playlistId, song):
+            if let song {
                 playerService.insertNextInQueue([song])
                 return .json(["ok": true, "action": "playNext", "videoId": videoId ?? ""])
-            } else if let playlistId = playlistId {
+            } else if let playlistId {
                 guard let client = playerService.ytMusicClient else {
                     return .json(["ok": false, "error": "API client not initialized"])
                 }
@@ -295,11 +296,11 @@ final class LocalControlServer {
                 }
             }
             return .badRequest(message: "Missing parameters")
-        case .addToQueue(let videoId, let playlistId, let song):
-            if let song = song {
+        case let .addToQueue(videoId, playlistId, song):
+            if let song {
                 playerService.appendToQueue([song])
                 return .json(["ok": true, "action": "addToQueue", "videoId": videoId ?? ""])
-            } else if let playlistId = playlistId {
+            } else if let playlistId {
                 guard let client = playerService.ytMusicClient else {
                     return .json(["ok": false, "error": "API client not initialized"])
                 }
@@ -312,7 +313,7 @@ final class LocalControlServer {
                 }
             }
             return .badRequest(message: "Missing parameters")
-        case .playPlaylist(let playlistId):
+        case let .playPlaylist(playlistId):
             guard let client = playerService.ytMusicClient else {
                 return .json(["ok": false, "error": "API client not initialized"])
             }
@@ -323,7 +324,7 @@ final class LocalControlServer {
             } catch {
                 return .json(["ok": false, "error": error.localizedDescription])
             }
-        case .playlistTracks(let playlistId):
+        case let .playlistTracks(playlistId):
             guard let client = playerService.ytMusicClient else {
                 return .json(["ok": false, "error": "API client not initialized"])
             }
@@ -338,7 +339,7 @@ final class LocalControlServer {
             return .notFound(message: "Unknown endpoint")
         case .methodNotAllowed:
             return .methodNotAllowed(message: "Unsupported method")
-        case .badRequest(let message):
+        case let .badRequest(message):
             return .badRequest(message: message)
         }
     }
@@ -437,21 +438,21 @@ final class LocalControlServer {
         case ("POST", "/previous"):
             .previous
         case ("POST", "/volume"):
-            Self.volumeRoute(request)
+            self.volumeRoute(request)
         case ("GET", "/search"):
             .search
         case ("POST", "/play_index"):
-            Self.playIndexRoute(request)
+            self.playIndexRoute(request)
         case ("POST", "/play_track"):
-            Self.playTrackRoute(request)
+            self.playTrackRoute(request)
         case ("POST", "/play_next"):
-            Self.playNextRoute(request)
+            self.playNextRoute(request)
         case ("POST", "/add_to_queue"):
-            Self.addToQueueRoute(request)
+            self.addToQueueRoute(request)
         case ("POST", "/play_playlist"):
-            Self.playPlaylistRoute(request)
+            self.playPlaylistRoute(request)
         case ("GET", "/playlist_tracks"):
-            Self.playlistTracksRoute(request)
+            self.playlistTracksRoute(request)
         case ("GET", _), ("POST", _):
             .notFound
         default:
@@ -478,7 +479,7 @@ final class LocalControlServer {
 
     private static func playTrackRoute(_ request: HTTPRequest) -> Route {
         let queryValue = request.queryItems["videoId"] ?? request.queryItems["video_id"] ??
-                         request.formItems["videoId"] ?? request.formItems["video_id"]
+            request.formItems["videoId"] ?? request.formItems["video_id"]
         guard let videoId = queryValue, !videoId.isEmpty else {
             return .badRequest("Missing videoId parameter")
         }
@@ -488,13 +489,13 @@ final class LocalControlServer {
     private static func playNextRoute(_ request: HTTPRequest) -> Route {
         let videoId = request.queryItems["videoId"] ?? request.queryItems["video_id"] ?? request.formItems["videoId"] ?? request.formItems["video_id"]
         let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"]
-        
-        if let videoId = videoId, !videoId.isEmpty {
+
+        if let videoId, !videoId.isEmpty {
             let title = request.queryItems["title"] ?? request.formItems["title"] ?? "Loading..."
             let artist = request.queryItems["artist"] ?? request.formItems["artist"] ?? ""
             let artworkURL = request.queryItems["artworkURL"] ?? request.formItems["artworkURL"] ?? request.queryItems["artwork_url"] ?? request.formItems["artwork_url"]
             let artists = artist.isEmpty ? [] : [Artist(id: UUID().uuidString, name: artist, thumbnailURL: nil)]
-            
+
             let song = Song(
                 id: videoId,
                 title: title,
@@ -505,23 +506,23 @@ final class LocalControlServer {
                 videoId: videoId
             )
             return .playNext(videoId: videoId, playlistId: nil, song: song)
-        } else if let playlistId = playlistId, !playlistId.isEmpty {
+        } else if let playlistId, !playlistId.isEmpty {
             return .playNext(videoId: nil, playlistId: playlistId, song: nil)
         } else {
             return .badRequest("Missing videoId or playlistId parameter")
         }
     }
-    
+
     private static func addToQueueRoute(_ request: HTTPRequest) -> Route {
         let videoId = request.queryItems["videoId"] ?? request.queryItems["video_id"] ?? request.formItems["videoId"] ?? request.formItems["video_id"]
         let playlistId = request.queryItems["playlistId"] ?? request.queryItems["playlist_id"] ?? request.formItems["playlistId"] ?? request.formItems["playlist_id"]
-        
-        if let videoId = videoId, !videoId.isEmpty {
+
+        if let videoId, !videoId.isEmpty {
             let title = request.queryItems["title"] ?? request.formItems["title"] ?? "Loading..."
             let artist = request.queryItems["artist"] ?? request.formItems["artist"] ?? ""
             let artworkURL = request.queryItems["artworkURL"] ?? request.formItems["artworkURL"] ?? request.queryItems["artwork_url"] ?? request.formItems["artwork_url"]
             let artists = artist.isEmpty ? [] : [Artist(id: UUID().uuidString, name: artist, thumbnailURL: nil)]
-            
+
             let song = Song(
                 id: videoId,
                 title: title,
@@ -532,7 +533,7 @@ final class LocalControlServer {
                 videoId: videoId
             )
             return .addToQueue(videoId: videoId, playlistId: nil, song: song)
-        } else if let playlistId = playlistId, !playlistId.isEmpty {
+        } else if let playlistId, !playlistId.isEmpty {
             return .addToQueue(videoId: nil, playlistId: playlistId, song: nil)
         } else {
             return .badRequest("Missing videoId or playlistId parameter")
@@ -1279,13 +1280,18 @@ final class LocalControlServer {
               <div class="card">
                 <!-- Search Bar and Tabs -->
                 <div style="position: relative; margin-bottom: 20px;">
-                  <input id="search-input" type="text" placeholder="Search..." oninput="handleSearch(this.value)" style="font-size: 15px; padding: 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
+                  <div class="search-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
+                    <input id="search-input" type="text" placeholder="Search..." oninput="handleSearch(this.value)" onfocus="handleSearchFocus(this)" onblur="handleSearchBlur()" style="font-size: 15px; padding: 12px 40px 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
+                    <button id="clear-search-btn" onclick="clearSearch()" style="position: absolute; right: 12px; background: none; border: none; color: #8e8e93; cursor: pointer; padding: 4px; display: none; align-items: center; justify-content: center; outline: none;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  </div>
                   
                   <div class="search-tabs">
-                    <button class="search-tab active" onclick="setSearchFilter('all')">All</button>
-                    <button class="search-tab" onclick="setSearchFilter('songs')">Songs</button>
-                    <button class="search-tab" onclick="setSearchFilter('albums')">Albums</button>
-                    <button class="search-tab" onclick="setSearchFilter('playlists')">Playlists</button>
+                    <button class="search-tab active" onclick="setSearchFilter(this, 'all')">All</button>
+                    <button class="search-tab" onclick="setSearchFilter(this, 'songs')">Songs</button>
+                    <button class="search-tab" onclick="setSearchFilter(this, 'albums')">Albums</button>
+                    <button class="search-tab" onclick="setSearchFilter(this, 'playlists')">Playlists</button>
                   </div>
                   
                   <div id="search-results" class="search-results-dropdown hidden"></div>
@@ -1566,12 +1572,12 @@ final class LocalControlServer {
               }
             }
 
-            function setSearchFilter(filter) {
+            function setSearchFilter(element, filter) {
               currentSearchFilter = filter;
               document.querySelectorAll('.search-tab').forEach(tab => {
                 tab.classList.remove('active');
               });
-              event.target.classList.add('active');
+              element.classList.add('active');
               
               const query = document.getElementById('search-input').value;
               if (query && query.trim() !== '') {
@@ -1645,7 +1651,36 @@ final class LocalControlServer {
               refresh();
             }
 
+            let searchInputFocused = false;
+
+            function handleSearchFocus(input) {
+              if (!searchInputFocused) {
+                setTimeout(() => input.select(), 50);
+                searchInputFocused = true;
+              }
+            }
+
+            function handleSearchBlur() {
+              searchInputFocused = false;
+            }
+
+            function clearSearch() {
+              const input = document.getElementById('search-input');
+              input.value = '';
+              input.focus();
+              document.getElementById('clear-search-btn').style.display = 'none';
+              document.getElementById('search-results').classList.add('hidden');
+              if (searchTimeout) clearTimeout(searchTimeout);
+            }
+
             function handleSearch(query) {
+              const clearBtn = document.getElementById('clear-search-btn');
+              if (query && query.length > 0) {
+                clearBtn.style.display = 'flex';
+              } else {
+                clearBtn.style.display = 'none';
+              }
+
               if (searchTimeout) clearTimeout(searchTimeout);
               if (!query || query.trim() === '') {
                 document.getElementById('search-results').classList.add('hidden');
@@ -1875,7 +1910,6 @@ final class LocalControlServer {
             .replacingOccurrences(of: "\r", with: "\\r")
     }
 }
-
 
 private extension PlayerService.PlaybackState {
     var apiValue: String {
