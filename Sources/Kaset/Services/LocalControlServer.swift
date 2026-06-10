@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Darwin
 import Foundation
 @preconcurrency import Network
@@ -107,7 +108,11 @@ final class LocalControlServer {
             self.logger.error("Local control server could not start: \(error.localizedDescription)")
         }
     }
+}
 
+// MARK: - LocalControlServer Connections
+
+extension LocalControlServer {
     private func handleConnection(_ connection: NWConnection, playerService: PlayerService) {
         guard SettingsManager.shared.localControlServerAllowsLAN || self.isLoopback(connection.endpoint) else {
             connection.cancel()
@@ -115,7 +120,7 @@ final class LocalControlServer {
         }
 
         connection.start(queue: .main)
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self, weak playerService] data, _, _, _ in
+        self.readRequest(connection: connection, accumulatedData: Data()) { [weak self, weak playerService] data in
             Task { @MainActor in
                 guard let self, let playerService else {
                     connection.cancel()
@@ -135,6 +140,79 @@ final class LocalControlServer {
         }
     }
 
+    private func readRequest(
+        connection: NWConnection,
+        accumulatedData: Data,
+        completion: @escaping @MainActor @Sendable (Data?) -> Void
+    ) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self] data, _, isComplete, error in
+            Task { @MainActor in
+                guard let self else {
+                    connection.cancel()
+                    return
+                }
+
+                if error != nil {
+                    completion(nil)
+                    return
+                }
+
+                var newAccumulated = accumulatedData
+                if let data {
+                    newAccumulated.append(data)
+                }
+
+                if self.isRequestComplete(newAccumulated) {
+                    completion(newAccumulated)
+                } else if isComplete {
+                    completion(newAccumulated.isEmpty ? nil : newAccumulated)
+                } else {
+                    self.readRequest(connection: connection, accumulatedData: newAccumulated, completion: completion)
+                }
+            }
+        }
+    }
+
+    private func isRequestComplete(_ data: Data) -> Bool {
+        // Look for the end of headers: \r\n\r\n
+        guard let range = data.range(of: Data("\r\n\r\n".utf8)) else {
+            // Also check for \n\n just in case
+            if let lfRange = data.range(of: Data("\n\n".utf8)) {
+                return self.isRequestComplete(data, headerBoundaryEnd: lfRange.upperBound)
+            }
+            return false
+        }
+        return self.isRequestComplete(data, headerBoundaryEnd: range.upperBound)
+    }
+
+    private func isRequestComplete(_ data: Data, headerBoundaryEnd: Data.Index) -> Bool {
+        let headersData = data.subdata(in: 0 ..< headerBoundaryEnd)
+        guard let headersText = String(data: headersData, encoding: .utf8) else {
+            return true // Cannot parse as UTF-8, stop reading
+        }
+
+        let lines = headersText.components(separatedBy: "\r\n")
+        var contentLength: Int?
+
+        for line in lines {
+            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            if key == "content-length", let length = Int(value) {
+                contentLength = length
+                break
+            }
+        }
+
+        if let contentLength {
+            let bodySize = data.count - headerBoundaryEnd
+            return bodySize >= contentLength
+        }
+
+        return true
+    }
+
     private func isLoopback(_ endpoint: NWEndpoint) -> Bool {
         guard case let .hostPort(host, _) = endpoint else { return false }
         switch host {
@@ -151,6 +229,7 @@ final class LocalControlServer {
         }
     }
 
+    // swiftlint:disable cyclomatic_complexity function_body_length
     private func response(for request: HTTPRequest, playerService: PlayerService) async -> HTTPResponse {
         if request.method == "OPTIONS" {
             return .empty()
@@ -344,6 +423,8 @@ final class LocalControlServer {
         }
     }
 
+    // swiftlint:enable cyclomatic_complexity function_body_length
+
     private func statusPayload(playerService: PlayerService) -> [String: Any] {
         var payload: [String: Any] = [
             "state": playerService.state.apiValue,
@@ -417,6 +498,7 @@ final class LocalControlServer {
         return payload
     }
 
+    // swiftlint:disable cyclomatic_complexity
     static func route(_ request: HTTPRequest) -> Route {
         switch (request.method, request.path) {
         case ("GET", "/"), ("GET", "/remote"):
@@ -459,6 +541,8 @@ final class LocalControlServer {
             .methodNotAllowed
         }
     }
+
+    // swiftlint:enable cyclomatic_complexity
 
     private static func volumeRoute(_ request: HTTPRequest) -> Route {
         let queryValue = request.queryItems["value"] ?? request.queryItems["level"]
@@ -642,7 +726,8 @@ final class LocalControlServer {
                       !key.isEmpty
                 else { continue }
                 let rawValue = parts.count > 1 ? String(parts[1]) : ""
-                result[key] = rawValue.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? rawValue
+                let decodedValue = rawValue.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? rawValue
+                result[key] = decodedValue.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             return result
         }
@@ -725,7 +810,12 @@ final class LocalControlServer {
 
         return RemoteDeviceManager.shared.approvedDevices.contains(where: { $0.token == requestToken })
     }
+}
 
+// MARK: - LocalControlServer Helpers
+
+extension LocalControlServer {
+    // swiftlint:disable function_body_length trailing_whitespace
     static func remoteControlHTML() -> String {
         #"""
         <!doctype html>
@@ -1773,13 +1863,13 @@ final class LocalControlServer {
                 } else {
                   currentVideoId = '';
                 }
-                
+
                 if (data.track && data.track.artworkURL) {
                   document.getElementById('artwork-wrapper').innerHTML = '<img class="artwork-image" src="' + data.track.artworkURL + '" alt="Artwork">';
                 } else {
                   document.getElementById('artwork-wrapper').innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>';
                 }
-                
+
                 const playPauseBtn = document.getElementById('play-pause-btn');
                 if (data.isPlaying) {
                   playPauseBtn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
@@ -1828,6 +1918,8 @@ final class LocalControlServer {
         </html>
         """#
     }
+
+    // swiftlint:enable function_body_length trailing_whitespace
 
     static func getLocalIPAddresses() -> [String] {
         var addresses: [String] = []

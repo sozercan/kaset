@@ -108,37 +108,48 @@ struct GeneralSettingsView: View {
                 }
 
                 if self.settings.localControlServerEnabled {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Active Remote URL(s)")
+                    let urls = LocalControlServer.localControlURLs()
+                    let primaryURL = urls.first { $0.host?.lowercased().hasSuffix(".local") == true } ??
+                        urls.first { $0.host != "127.0.0.1" } ??
+                        urls.first
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Remote Control Access")
                             .font(.headline)
 
-                        ForEach(LocalControlServer.localControlURLs(), id: \.self) { url in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(url.absoluteString)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .textSelection(.enabled)
-                                    Spacer()
-                                    Button {
-                                        NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(url.absoluteString, forType: .string)
-                                    } label: {
-                                        Image(systemName: "doc.on.doc")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help("Copy URL")
+                        if let primary = primaryURL, primary.host != "127.0.0.1" {
+                            HStack {
+                                Spacer()
+                                VStack(spacing: 4) {
+                                    QRCodeView(urlString: primary.absoluteString)
+                                        .help("Scan with your phone to open the Remote Control page")
+                                    Text("Scan to connect")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
 
-                                // Show QR code for LAN URL (non-localhost)
-                                if url.host != "127.0.0.1" {
-                                    HStack {
-                                        Spacer()
-                                        QRCodeView(urlString: url.absoluteString)
-                                            .help("Scan with your phone to open the Remote Control page")
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 4)
+                        Text("Connection URL(s)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(urls, id: \.self) { url in
+                            HStack {
+                                Text(url.absoluteString)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .textSelection(.enabled)
+                                Spacer()
+                                Button {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                                } label: {
+                                    Image(systemName: "doc.on.doc")
                                 }
+                                .buttonStyle(.borderless)
+                                .help("Copy URL")
                             }
                         }
                     }
