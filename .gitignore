@@ -50,7 +50,6 @@ Thumbs.db
 
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
 *~
@@ -66,10 +65,3 @@ TEMP_*
 build/
 .codex/environments/environment.toml
 Build
-
-# Agent-specific files
-.agents/
-docs/plans/
-dump_methods.swift
-dump_wkext.swift
-test_wkwebext.swift
