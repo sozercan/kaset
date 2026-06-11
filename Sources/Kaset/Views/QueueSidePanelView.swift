@@ -657,6 +657,35 @@ private struct QueueSidePanelHeader: View {
     }
 }
 
+// MARK: - QueueFooterIconButton
+
+private struct QueueFooterIconButton: View {
+    let systemImage: String
+    let helpText: String
+    let accessibilityLabel: String
+    var isEnabled: Bool = true
+    var tint: Color = .secondary
+    let action: () -> Void
+
+    var body: some View {
+        Group {
+            Button {
+                guard self.isEnabled else { return }
+                self.action()
+            } label: {
+                Image(systemName: self.systemImage)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(self.tint)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .opacity(self.isEnabled ? 1 : 0.45)
+        }
+        .help(self.helpText)
+        .accessibilityLabel(self.accessibilityLabel)
+    }
+}
+
 // MARK: - QueueFooterActions
 
 private struct QueueFooterActions: View {
@@ -664,59 +693,79 @@ private struct QueueFooterActions: View {
 
     @State private var isSavingPlaylist = false
 
+    private var canSaveQueueAsPlaylist: Bool {
+        !self.playerService.queue.isEmpty
+            && !self.isSavingPlaylist
+            && self.playerService.ytMusicClient != nil
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                self.playerService.undoQueue()
-            } label: {
-                Label("Undo", systemImage: "arrow.uturn.backward")
-            }
-            .disabled(!self.playerService.canUndoQueue)
-            .buttonStyle(.plain)
-
-            Button {
-                self.playerService.redoQueue()
-            } label: {
-                Label("Redo", systemImage: "arrow.uturn.forward")
-            }
-            .disabled(!self.playerService.canRedoQueue)
-            .buttonStyle(.plain)
-
-            Button {
-                self.playerService.shuffleQueue()
-            } label: {
-                Label("Shuffle", systemImage: "shuffle")
-            }
-            .disabled(self.playerService.queue.isEmpty)
-            .buttonStyle(.plain)
-
-            Button {
-                self.presentSaveQueueAsPlaylistDialog()
-            } label: {
-                Label(
-                    self.isSavingPlaylist ? "Saving…" : "Save to Playlist",
-                    systemImage: "text.badge.plus"
-                )
-            }
-            .disabled(self.playerService.queue.isEmpty || self.isSavingPlaylist || self.playerService.ytMusicClient == nil)
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(AccessibilityID.Queue.saveToPlaylistButton)
-
-            Button {
-                Task {
-                    if self.playerService.isPlaying {
-                        await self.playerService.stop()
-                    }
-                    self.playerService.clearQueueEntirely()
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
+                QueueFooterIconButton(
+                    systemImage: "arrow.uturn.backward",
+                    helpText: String(localized: "Undo the last queue change."),
+                    accessibilityLabel: String(localized: "Undo"),
+                    isEnabled: self.playerService.canUndoQueue
+                ) {
+                    self.playerService.undoQueue()
                 }
-            } label: {
-                Label("Clear", systemImage: "trash")
-                    .foregroundStyle(.red)
-            }
-            .disabled(self.playerService.queue.isEmpty)
-            .buttonStyle(.plain)
 
-            Spacer()
+                QueueFooterIconButton(
+                    systemImage: "arrow.uturn.forward",
+                    helpText: String(localized: "Redo the last undone queue change."),
+                    accessibilityLabel: String(localized: "Redo"),
+                    isEnabled: self.playerService.canRedoQueue
+                ) {
+                    self.playerService.redoQueue()
+                }
+            }
+
+            HStack(spacing: 0) {
+                Spacer(minLength: 16)
+
+                QueueFooterIconButton(
+                    systemImage: "shuffle",
+                    helpText: String(localized: "Shuffle the queue, keeping the current song first."),
+                    accessibilityLabel: String(localized: "Shuffle"),
+                    isEnabled: !self.playerService.queue.isEmpty
+                ) {
+                    self.playerService.shuffleQueue()
+                }
+
+                Spacer()
+
+                Group {
+                    QueueFooterIconButton(
+                        systemImage: "text.badge.plus",
+                        helpText: self.isSavingPlaylist
+                            ? String(localized: "Saving queue as playlist…")
+                            : String(localized: "Save the current queue as a new private playlist."),
+                        accessibilityLabel: String(localized: "Save to Playlist"),
+                        isEnabled: self.canSaveQueueAsPlaylist
+                    ) {
+                        self.presentSaveQueueAsPlaylistDialog()
+                    }
+                }
+                .accessibilityIdentifier(AccessibilityID.Queue.saveToPlaylistButton)
+
+                Spacer()
+
+                QueueFooterIconButton(
+                    systemImage: "trash",
+                    helpText: String(localized: "Clear the entire queue and stop playback."),
+                    accessibilityLabel: String(localized: "Clear Queue"),
+                    isEnabled: !self.playerService.queue.isEmpty,
+                    tint: .red
+                ) {
+                    Task {
+                        if self.playerService.isPlaying {
+                            await self.playerService.stop()
+                        }
+                        self.playerService.clearQueueEntirely()
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
