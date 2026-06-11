@@ -553,45 +553,6 @@ enum SongActionsHelper {
         DiagnosticsLogger.ui.info("Added song to play next: \(song.title)")
     }
 
-    /// Creates a private playlist from the current queue and notifies library views.
-    static func saveQueueAsPlaylist(
-        songs: [Song],
-        title: String,
-        client: any YTMusicClientProtocol
-    ) async throws -> Playlist {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else {
-            throw YTMusicError.parseError(message: "Playlist name is required")
-        }
-
-        let videoIds = songs.map(\.videoId)
-        let playlistId = try await client.createPlaylist(
-            title: trimmedTitle,
-            description: nil,
-            privacyStatus: .private,
-            videoIds: videoIds
-        )
-
-        let playlist = Playlist(
-            id: playlistId,
-            title: trimmedTitle,
-            description: nil,
-            thumbnailURL: songs.first?.thumbnailURL,
-            trackCount: songs.count
-        )
-
-        self.invalidateLibraryResponseCaches()
-        LibraryMutationBroadcaster.shared.playlistCreated(playlist)
-
-        try? await Task.sleep(for: .milliseconds(500))
-        self.invalidateLibraryResponseCaches()
-        await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
-        self.invalidateLibraryResponseCaches()
-
-        DiagnosticsLogger.api.info("Saved queue as playlist '\(trimmedTitle)' with \(songs.count) songs")
-        return playlist
-    }
-
     /// Adds a song to the end of the queue.
     static func addToQueueLast(_ song: Song, playerService: PlayerService) {
         playerService.appendToQueue([song])

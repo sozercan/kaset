@@ -810,8 +810,6 @@ private struct QueueFooterActions: View {
 
     private func presentSaveQueueAsPlaylistDialog() {
         guard !self.isSavingPlaylist else { return }
-        guard let client = self.playerService.ytMusicClient else { return }
-
         let songs = self.playerService.queue
         guard !songs.isEmpty else { return }
 
@@ -833,7 +831,7 @@ private struct QueueFooterActions: View {
                 self.presentSaveQueueErrorAlert(message: "Playlist name is required.")
                 return
             }
-            Task { await self.saveQueueAsPlaylist(title: title, songs: songs, client: client) }
+            Task { await self.saveQueueAsPlaylist(title: title, songCount: songs.count) }
         }
 
         if let window = NSApp.keyWindow ?? NSApp.mainWindow {
@@ -843,22 +841,14 @@ private struct QueueFooterActions: View {
         }
     }
 
-    private func saveQueueAsPlaylist(
-        title: String,
-        songs: [Song],
-        client: any YTMusicClientProtocol
-    ) async {
+    private func saveQueueAsPlaylist(title: String, songCount: Int) async {
         guard !self.isSavingPlaylist else { return }
         self.isSavingPlaylist = true
         defer { self.isSavingPlaylist = false }
 
         do {
-            _ = try await SongActionsHelper.saveQueueAsPlaylist(
-                songs: songs,
-                title: title,
-                client: client
-            )
-            self.presentSaveQueueSuccessAlert(title: title, songCount: songs.count)
+            _ = try await self.playerService.saveQueueAsPlaylist(title: title)
+            self.presentSaveQueueSuccessAlert(title: title, songCount: songCount)
         } catch {
             DiagnosticsLogger.ui.error("Failed to save queue as playlist: \(error.localizedDescription)")
             self.presentSaveQueueErrorAlert(message: "Unable to save queue as playlist. Please try again.")

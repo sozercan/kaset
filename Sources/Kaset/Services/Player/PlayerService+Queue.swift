@@ -278,10 +278,8 @@ extension PlayerService {
     /// Whether the queue contains the same song more than once.
     var queueHasDuplicateEntries: Bool {
         var seenVideoIds = Set<String>()
-        for song in self.queue {
-            if !seenVideoIds.insert(song.videoId).inserted {
-                return true
-            }
+        for song in self.queue where !seenVideoIds.insert(song.videoId).inserted {
+            return true
         }
         return false
     }
@@ -389,7 +387,7 @@ extension PlayerService {
             return
         }
 
-        let removedBeforeCurrent = removedIndices.filter { $0 < self.currentIndex }.count
+        let removedBeforeCurrent = removedIndices.count(where: { $0 < self.currentIndex })
         if removedBeforeCurrent > 0 {
             self.currentIndex = max(0, self.currentIndex - removedBeforeCurrent)
         } else if self.currentIndex >= self.queue.count {
