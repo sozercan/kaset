@@ -111,7 +111,7 @@ struct QueueView: View {
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
-                            self.playerService.removeFromQueue(entryIDs: Set([entry.id]))
+                            self.playerService.removeFromQueue(at: index)
                         },
                         onTap: {
                             Task {
