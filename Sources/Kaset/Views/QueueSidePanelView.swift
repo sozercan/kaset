@@ -35,8 +35,8 @@ struct QueueSidePanelView: View {
                     onReorder: { source, destination in
                         self.playerService.reorderQueue(from: IndexSet(integer: source), to: destination)
                     },
-                    onRemove: { entryID in
-                        self.playerService.removeFromQueue(entryIDs: Set([entryID]))
+                    onRemove: { index in
+                        self.playerService.removeFromQueue(at: index)
                     },
                     onStartRadio: { song in
                         Task {
@@ -91,7 +91,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let likeStatusEvent: LikeStatusEvent?
     let onSelect: (Int) -> Void
     let onReorder: (Int, Int) -> Void
-    let onRemove: (UUID) -> Void
+    let onRemove: (Int) -> Void
     let onStartRadio: (Song) -> Void
 
     func makeNSViewController(context: Context) -> QueueListViewController {
@@ -208,7 +208,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         var lastLikeEvent: LikeStatusEvent?
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
-        let onRemove: (UUID) -> Void
+        let onRemove: (Int) -> Void
         let onStartRadio: (Song) -> Void
         weak var viewController: QueueListViewController?
         var isDragging = false
@@ -216,7 +216,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
              likeStatusManager: SongLikeStatusManager,
-             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (UUID) -> Void, onStartRadio: @escaping (Song) -> Void)
+             onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (Int) -> Void, onStartRadio: @escaping (Song) -> Void)
         {
             self.entries = entries
             self.currentIndex = currentIndex
@@ -232,16 +232,15 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         /// Removes the row with slide-out animation, then calls onRemove.
         /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
-        func removeRowWithAnimation(row: Int, entry: QueueEntry, slideDirection: CGFloat) {
+        func removeRowWithAnimation(row: Int, slideDirection: CGFloat) {
             guard let tableView = viewController?.tableView else {
-                self.onRemove(entry.id)
+                self.onRemove(row)
                 return
             }
             guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
-                self.onRemove(entry.id)
+                self.onRemove(row)
                 return
             }
-            let entryID = entry.id
             let offsetX = slideDirection * rowView.bounds.width
             let originalFrame = rowView.frame
             NSAnimationContext.runAnimationGroup { context in
@@ -254,7 +253,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     // Reset row view so it can be reused without a stuck frame/alpha (fixes misaligned rows).
                     rowView.alphaValue = 1
                     rowView.frame = originalFrame
-                    self?.onRemove(entryID)
+                    self?.onRemove(row)
                 }
             }
         }
@@ -275,7 +274,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 isPlaying: self.isPlaying,
                 actions: QueueCellActions(
                     onPlay: { [weak self] in self?.onSelect(row) },
-                    onRemove: { [weak self] in self?.onRemove(entry.id) },
+                    onRemove: { [weak self] in self?.onRemove(row) },
                     onToggleLike: { [weak self] in
                         guard let self else { return }
                         if self.likeStatusManager.isLiked(song) {
@@ -381,7 +380,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             if row != self.currentIndex {
                 let removeItem = NSMenuItem(title: "Remove from Queue", action: #selector(Coordinator.contextMenuRemove(_:)), keyEquivalent: "")
                 removeItem.target = self
-                removeItem.representedObject = entry.id.uuidString
+                removeItem.representedObject = NSNumber(value: row)
                 removeItem.image = NSImage(systemSymbolName: "minus.circle", accessibilityDescription: nil)
                 menu.addItem(removeItem)
             }
@@ -408,10 +407,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         @objc private func contextMenuRemove(_ sender: NSMenuItem) {
-            guard let entryIDString = sender.representedObject as? String,
-                  let entryID = UUID(uuidString: entryIDString)
-            else { return }
-            self.onRemove(entryID)
+            guard let rowNumber = sender.representedObject as? NSNumber else { return }
+            self.onRemove(rowNumber.intValue)
         }
     }
 }
@@ -542,7 +539,7 @@ class DraggableTableView: NSTableView {
             self.swipeTrackedInitialOriginX = nil
             guard let coord = coordinator,
                   swipeRemoveTargetRow >= 0,
-                  let entry = coord.entries[safe: swipeRemoveTargetRow]
+                  coord.entries[safe: swipeRemoveTargetRow] != nil
             else {
                 self.swipeRemoveTargetRow = -1
                 return false
@@ -561,7 +558,6 @@ class DraggableTableView: NSTableView {
             if passed {
                 let slideDirection: CGFloat = accH > 0 ? 1 : -1
                 let targetX = initialX + slideDirection * rowView.bounds.width
-                let entryID = entry.id
                 self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
@@ -576,7 +572,7 @@ class DraggableTableView: NSTableView {
                         var f = rowView.frame
                         f.origin.x = initialX
                         rowView.frame = f
-                        coord.onRemove(entryID)
+                        coord.onRemove(row)
                     }
                 }
                 return true
@@ -602,10 +598,10 @@ class DraggableTableView: NSTableView {
         self.swipeRemoveTargetRow = -1
         if row < 0 { return false }
         if row == coord.currentIndex { return false }
-        guard let entry = coord.entries[safe: row] else { return false }
+        guard coord.entries[safe: row] != nil else { return false }
         let slideDirection: CGFloat = accH > 0 ? 1 : -1
         self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
-        coord.removeRowWithAnimation(row: row, entry: entry, slideDirection: slideDirection)
+        coord.removeRowWithAnimation(row: row, slideDirection: slideDirection)
         return true
     }
 }
@@ -626,6 +622,24 @@ private struct QueueSidePanelHeader: View {
             Text("\(self.playerService.queue.count) songs", comment: "Queue song count")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            Group {
+                Button {
+                    guard self.playerService.queueHasDuplicateEntries else { return }
+                    self.playerService.removeDuplicateQueueEntries()
+                } label: {
+                    Image(systemName: "arrow.triangle.merge")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .opacity(self.playerService.queueHasDuplicateEntries ? 1 : 0.45)
+                .allowsHitTesting(self.playerService.queueHasDuplicateEntries)
+            }
+            .help(String(localized: "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each."))
+            .accessibilityLabel(String(localized: "Remove Duplicates"))
+            .accessibilityIdentifier(AccessibilityID.Queue.removeDuplicatesButton)
 
             Button {
                 self.playerService.toggleQueueDisplayMode()
