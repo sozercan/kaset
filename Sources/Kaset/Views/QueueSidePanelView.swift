@@ -111,6 +111,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         if !context.coordinator.isDragging {
             viewController.tableView?.reloadData()
+            viewController.tableView?.normalizeVisibleRowFrames()
         }
 
         // Update current track highlighting and waveform animation
@@ -200,6 +201,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
     @MainActor
     class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
+        private static let cellIdentifier = NSUserInterfaceItemIdentifier("QueueTableCell")
+
         var entries: [QueueEntry]
         var currentIndex: Int
         var isPlaying: Bool
@@ -252,7 +255,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 MainActor.assumeIsolated {
                     // Reset row view so it can be reused without a stuck frame/alpha (fixes misaligned rows).
                     rowView.alphaValue = 1
-                    rowView.frame = originalFrame
+                    var resetFrame = originalFrame
+                    resetFrame.origin.x = 0
+                    rowView.frame = resetFrame
                     self?.onRemove(row)
                 }
             }
@@ -262,8 +267,12 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.entries.count
         }
 
-        func tableView(_: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
-            let cellView = QueueTableCellView()
+        func tableView(_ tableView: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
+            let cellView = (tableView.makeView(withIdentifier: Self.cellIdentifier, owner: nil) as? QueueTableCellView) ?? {
+                let view = QueueTableCellView()
+                view.identifier = Self.cellIdentifier
+                return view
+            }()
             let entry = self.entries[row]
             let song = entry.song
             let isLiked = self.likeStatusManager.isLiked(song)
@@ -315,8 +324,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             // Dragging session began
         }
 
-        func tableView(_: NSTableView, draggingSession _: NSDraggingSession, endedAt _: NSPoint, operation _: NSDragOperation) {
+        func tableView(_ tableView: NSTableView, draggingSession _: NSDraggingSession, endedAt _: NSPoint, operation _: NSDragOperation) {
             self.isDragging = false
+            (tableView as? DraggableTableView)?.normalizeVisibleRowFrames()
         }
 
         /// Drop Destination
@@ -462,6 +472,27 @@ class DraggableTableView: NSTableView {
         self.draggingDestinationFeedbackStyle = .gap
     }
 
+    /// Resets row views that still carry a horizontal offset from swipe-to-remove feedback.
+    func normalizeVisibleRowFrames() {
+        let visibleRange = self.rows(in: self.visibleRect)
+        guard visibleRange.length > 0 else { return }
+
+        for row in visibleRange.location ..< NSMaxRange(visibleRange) {
+            Self.normalizeRowView(self.rowView(atRow: row, makeIfNecessary: false))
+        }
+    }
+
+    private static func normalizeRowView(_ rowView: NSTableRowView?) {
+        guard let rowView else { return }
+
+        var frame = rowView.frame
+        guard frame.origin.x != 0 || rowView.alphaValue != 1 else { return }
+
+        frame.origin.x = 0
+        rowView.frame = frame
+        rowView.alphaValue = 1
+    }
+
     /// Two-finger horizontal trackpad swipe: row follows finger in real time; release past threshold to remove, or return to cancel.
     override func scrollWheel(with event: NSEvent) {
         let dx = event.scrollingDeltaX
@@ -497,6 +528,10 @@ class DraggableTableView: NSTableView {
             let localPoint = self.convert(point, from: nil)
             let rowAtStart = self.row(at: localPoint)
             self.swipeRemoveTargetRow = rowAtStart
+            if rowAtStart >= 0 {
+                Self.normalizeRowView(self.rowView(atRow: rowAtStart, makeIfNecessary: false))
+            }
+            self.swipeTrackedInitialOriginX = 0
         }
     }
 
@@ -516,9 +551,10 @@ class DraggableTableView: NSTableView {
                 return
             }
             if self.swipeTrackedInitialOriginX == nil {
-                self.swipeTrackedInitialOriginX = rowView.frame.origin.x
+                Self.normalizeRowView(rowView)
+                self.swipeTrackedInitialOriginX = 0
             }
-            let initialX = self.swipeTrackedInitialOriginX!
+            let initialX = self.swipeTrackedInitialOriginX ?? 0
             let maxDrag = rowView.bounds.width * Self.swipeMaxDragFactor
             let clamped = max(-maxDrag, min(maxDrag, self.horizontalSwipeAccumulator))
             var f = rowView.frame
@@ -568,10 +604,7 @@ class DraggableTableView: NSTableView {
                     rowView.animator().alphaValue = 0
                 } completionHandler: {
                     MainActor.assumeIsolated {
-                        rowView.alphaValue = 1
-                        var f = rowView.frame
-                        f.origin.x = initialX
-                        rowView.frame = f
+                        Self.normalizeRowView(rowView)
                         coord.onRemove(row)
                     }
                 }
@@ -582,9 +615,13 @@ class DraggableTableView: NSTableView {
                     context.duration = 0.2
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                     var f = rowView.frame
-                    f.origin.x = initialX
+                    f.origin.x = 0
                     rowView.animator().frame = f
-                } completionHandler: {}
+                } completionHandler: {
+                    MainActor.assumeIsolated {
+                        Self.normalizeRowView(rowView)
+                    }
+                }
                 return true
             }
         }
