@@ -52,6 +52,9 @@ struct KasetApp: App {
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
 
+    /// Current navigation selection for the YouTube (video) experience.
+    @State private var youtubeNavigationSelection: YouTubeNavigationItem? = .home
+
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
 
@@ -125,82 +128,86 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
-                MainWindow(navigationSelection: self.$navigationSelection, client: self.sharedClient)
-                    .id(self.settings.contentLanguage)
-                    .environment(\.locale, self.settings.contentLanguage.locale)
-                    .environment(self.authService)
-                    .environment(self.webKitManager)
-                    .environment(self.playerService)
-                    .environment(self.favoritesManager)
-                    .environment(self.sidebarPinnedItemsManager)
-                    .environment(self.likeStatusManager)
-                    .environment(self.accountService)
-                    .environment(self.scrobblingCoordinator)
-                    .environment(self.syncedLyricsService)
-                    .environment(self.equalizerService)
-                    .environment(self.podcastsAvailabilityService)
-                    .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
-                    .environment(\.navigationSelection, self.$navigationSelection)
-                    .environment(\.showCommandBar, self.$showCommandBar)
-                    .environment(\.showWhatsNew, self.$showWhatsNew)
-                    .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
-                    .onAppear {
-                        DiagnosticsLogger.app.info("KasetApp: App content appeared")
-                        // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
-                        // This runs synchronously so AppleScript commands can access playerService immediately
-                        self.appDelegate.playerService = self.playerService
-                        // Reference notificationService to keep SwiftUI from deallocating it
-                        _ = self.notificationService
-                    }
-                    .task {
-                        DiagnosticsLogger.app.info("KasetApp: Root task started")
-                        // Check if user is already logged in from previous session
-                        await self.authService.checkLoginStatus()
-                        DiagnosticsLogger.app.info("KasetApp: Login status check complete")
+                MainWindow(
+                    navigationSelection: self.$navigationSelection,
+                    youtubeNavigationSelection: self.$youtubeNavigationSelection,
+                    client: self.sharedClient
+                )
+                .id(self.settings.contentLanguage)
+                .environment(\.locale, self.settings.contentLanguage.locale)
+                .environment(self.authService)
+                .environment(self.webKitManager)
+                .environment(self.playerService)
+                .environment(self.favoritesManager)
+                .environment(self.sidebarPinnedItemsManager)
+                .environment(self.likeStatusManager)
+                .environment(self.accountService)
+                .environment(self.scrobblingCoordinator)
+                .environment(self.syncedLyricsService)
+                .environment(self.equalizerService)
+                .environment(self.podcastsAvailabilityService)
+                .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
+                .environment(\.navigationSelection, self.$navigationSelection)
+                .environment(\.showCommandBar, self.$showCommandBar)
+                .environment(\.showWhatsNew, self.$showWhatsNew)
+                .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
+                .onAppear {
+                    DiagnosticsLogger.app.info("KasetApp: App content appeared")
+                    // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
+                    // This runs synchronously so AppleScript commands can access playerService immediately
+                    self.appDelegate.playerService = self.playerService
+                    // Reference notificationService to keep SwiftUI from deallocating it
+                    _ = self.notificationService
+                }
+                .task {
+                    DiagnosticsLogger.app.info("KasetApp: Root task started")
+                    // Check if user is already logged in from previous session
+                    await self.authService.checkLoginStatus()
+                    DiagnosticsLogger.app.info("KasetApp: Login status check complete")
 
-                        // Fetch accounts after login check (for account switcher)
-                        await self.accountService?.fetchAccounts()
+                    // Fetch accounts after login check (for account switcher)
+                    await self.accountService?.fetchAccounts()
 
-                        // Warm up Foundation Models in background (macOS 26+ only)
-                        if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
-                            await FoundationModelsService.shared.warmup()
+                    // Warm up Foundation Models in background (macOS 26+ only)
+                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                        await FoundationModelsService.shared.warmup()
+                    }
+                }
+                .onOpenURL { url in
+                    self.handleIncomingURL(url)
+                }
+                .onChange(of: self.playerService.isPlaying) { _, isPlaying in
+                    // The Core Audio process tap needs WebKit's GPU
+                    // process to be actively emitting audio before it
+                    // can be discovered. When playback starts, give the
+                    // equalizer a chance to spin up.
+                    if isPlaying {
+                        self.equalizerService.retryStartIfEnabled()
+                    }
+                }
+                .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
+                    if isVisible {
+                        MiniPlayerWindowController.shared.show(
+                            playerService: self.playerService,
+                            client: self.sharedClient,
+                            syncedLyricsService: self.syncedLyricsService
+                        )
+                        if self.playerService.miniPlayerMode == .switchFromMainWindow {
+                            self.hideMainWindow()
+                        }
+                    } else {
+                        MiniPlayerWindowController.shared.close()
+                        if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
+                            self.showMainWindow()
                         }
                     }
-                    .onOpenURL { url in
-                        self.handleIncomingURL(url)
-                    }
-                    .onChange(of: self.playerService.isPlaying) { _, isPlaying in
-                        // The Core Audio process tap needs WebKit's GPU
-                        // process to be actively emitting audio before it
-                        // can be discovered. When playback starts, give the
-                        // equalizer a chance to spin up.
-                        if isPlaying {
-                            self.equalizerService.retryStartIfEnabled()
-                        }
-                    }
-                    .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
-                        if isVisible {
-                            MiniPlayerWindowController.shared.show(
-                                playerService: self.playerService,
-                                client: self.sharedClient,
-                                syncedLyricsService: self.syncedLyricsService
-                            )
-                            if self.playerService.miniPlayerMode == .switchFromMainWindow {
-                                self.hideMainWindow()
-                            }
-                        } else {
-                            MiniPlayerWindowController.shared.close()
-                            if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
-                                self.showMainWindow()
-                            }
-                        }
-                    }
-                    .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
-                        MiniPlayerWindowController.shared.syncWindowState()
-                    }
-                    .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
-                        MiniPlayerWindowController.shared.syncWindowState()
-                    }
+                }
+                .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
+                    MiniPlayerWindowController.shared.syncWindowState()
+                }
+                .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
+                    MiniPlayerWindowController.shared.syncWindowState()
+                }
             }
         }
 

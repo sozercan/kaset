@@ -31,8 +31,14 @@ struct MainWindow: View {
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
+    /// Binding to the YouTube (video) experience's navigation selection.
+    @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
+
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
+
+    /// App-wide settings; drives the active content source (music vs. video).
+    @State private var settings = SettingsManager.shared
 
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
@@ -58,8 +64,13 @@ struct MainWindow: View {
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
-    init(navigationSelection: Binding<NavigationItem?>, client: any YTMusicClientProtocol) {
+    init(
+        navigationSelection: Binding<NavigationItem?>,
+        youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        client: any YTMusicClientProtocol
+    ) {
         self._navigationSelection = navigationSelection
+        self._youtubeNavigationSelection = youtubeNavigationSelection
         self.client = client
         _homeViewModel = State(initialValue: HomeViewModel(client: client))
         _exploreViewModel = State(initialValue: ExploreViewModel(client: client))
@@ -336,18 +347,26 @@ struct MainWindow: View {
 
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
-            // Main navigation content
+            // Main navigation content — sidebar and detail swap with the active source.
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(
-                    selection: self.$navigationSelection,
-                    pinnedSelection: self.$selectedSidebarPinnedItem
-                )
+                if self.settings.appSource == .music {
+                    Sidebar(
+                        selection: self.$navigationSelection,
+                        pinnedSelection: self.$selectedSidebarPinnedItem
+                    )
+                } else {
+                    YouTubeSidebar(selection: self.$youtubeNavigationSelection)
+                }
             } detail: {
-                self.detailView(
-                    for: self.navigationSelection,
-                    pinnedItem: self.selectedSidebarPinnedItem,
-                    client: self.client
-                )
+                if self.settings.appSource == .music {
+                    self.detailView(
+                        for: self.navigationSelection,
+                        pinnedItem: self.selectedSidebarPinnedItem,
+                        client: self.client
+                    )
+                } else {
+                    YouTubeContentView(selection: self.youtubeNavigationSelection)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -715,12 +734,17 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
+    @Previewable @State var youtubeNavSelection: YouTubeNavigationItem? = .home
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
-    MainWindow(navigationSelection: $navSelection, client: ytMusicClient)
-        .environment(authService)
-        .environment(PlayerService())
-        .environment(WebKitManager.shared)
-        .environment(accountService)
+    MainWindow(
+        navigationSelection: $navSelection,
+        youtubeNavigationSelection: $youtubeNavSelection,
+        client: ytMusicClient
+    )
+    .environment(authService)
+    .environment(PlayerService())
+    .environment(WebKitManager.shared)
+    .environment(accountService)
 }
