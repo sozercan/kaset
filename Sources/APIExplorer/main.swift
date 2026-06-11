@@ -21,6 +21,8 @@
 //  Options:
 //    -v, --verbose                 - Show full raw JSON response (not truncated)
 //    -o, --output <file>           - Save raw JSON response to a file
+//    --youtube                     - Target regular YouTube (www.youtube.com, WEB client)
+//                                    instead of YouTube Music
 //
 //  Examples:
 //    ./Tools/api-explorer.swift browse FEmusic_home
@@ -39,11 +41,30 @@ import Foundation
 // MARK: - Configuration
 
 let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
-let webClientURL = URL(string: "https://music.youtube.com")!
 nonisolated(unsafe) var cachedAPIKey: String?
-let clientVersion = "1.20231204.01.00"
-let baseURL = "https://music.youtube.com/youtubei/v1"
-let origin = "https://music.youtube.com"
+nonisolated(unsafe) var cachedClientVersion: String?
+
+/// When true, the explorer targets regular YouTube (www.youtube.com, WEB client)
+/// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
+nonisolated(unsafe) var youtubeMode = false
+
+nonisolated(unsafe) var apiHost = "music.youtube.com"
+nonisolated(unsafe) var webClientURL = URL(string: "https://music.youtube.com")!
+nonisolated(unsafe) var clientName = "WEB_REMIX"
+nonisolated(unsafe) var fallbackClientVersion = "1.20231204.01.00"
+nonisolated(unsafe) var baseURL = "https://music.youtube.com/youtubei/v1"
+nonisolated(unsafe) var origin = "https://music.youtube.com"
+
+/// Switches all request configuration to regular YouTube (WEB client).
+func activateYouTubeMode() {
+    youtubeMode = true
+    apiHost = "www.youtube.com"
+    webClientURL = URL(string: "https://www.youtube.com")!
+    clientName = "WEB"
+    fallbackClientVersion = "2.20250101.00.00"
+    baseURL = "https://www.youtube.com/youtubei/v1"
+    origin = "https://www.youtube.com"
+}
 
 /// Global auth user index (0 = primary account, 1+ = brand accounts)
 nonisolated(unsafe) var globalAuthUserIndex = 0
@@ -110,26 +131,28 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
     return cookies.isEmpty ? nil : cookies
 }
 
-/// Filters cookies to those that match the music.youtube.com domain.
-/// Cookies with domain `.youtube.com` match `music.youtube.com` (subdomain matching).
-func filterCookiesForMusicYouTube(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
-    cookies.filter { cookie in
+/// Filters cookies to those that match the active API host
+/// (music.youtube.com or www.youtube.com depending on --youtube).
+/// Cookies with domain `.youtube.com` match either host via subdomain matching.
+func filterCookiesForAPIHost(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
+    let host = apiHost
+    return cookies.filter { cookie in
         let domain = cookie.domain.lowercased()
         // Cookies with leading dot match subdomains (e.g., ".youtube.com" matches "music.youtube.com")
         if domain.hasPrefix(".") {
             let withoutDot = String(domain.dropFirst())
-            return "music.youtube.com".hasSuffix(withoutDot) || withoutDot == "music.youtube.com"
+            return host.hasSuffix(withoutDot) || withoutDot == host
         }
         // Exact match or subdomain
-        return domain == "music.youtube.com" || "music.youtube.com".hasSuffix("." + domain)
+        return domain == host || host.hasSuffix("." + domain)
     }
 }
 
 /// Gets the SAPISID value from cookies for authentication.
-/// Prefers .youtube.com domain cookies over .google.com for music.youtube.com requests.
+/// Prefers .youtube.com domain cookies over .google.com for youtube.com requests.
 func getSAPISID(from cookies: [HTTPCookie]) -> String? {
-    // Filter to youtube.com domain cookies first (better match for music.youtube.com)
-    let ytCookies = filterCookiesForMusicYouTube(cookies)
+    // Filter to youtube.com domain cookies first (better match for the API host)
+    let ytCookies = filterCookiesForAPIHost(cookies)
     let secureCookie = ytCookies.first { $0.name == "__Secure-3PAPISID" }
     let fallbackCookie = ytCookies.first { $0.name == "SAPISID" }
     return (secureCookie ?? fallbackCookie)?.value
@@ -138,8 +161,8 @@ func getSAPISID(from cookies: [HTTPCookie]) -> String? {
 /// Builds a cookie header string using HTTPCookie's built-in method.
 /// This ensures proper cookie formatting that matches what browsers send.
 func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
-    // Filter to only cookies that match music.youtube.com
-    let matchingCookies = filterCookiesForMusicYouTube(cookies)
+    // Filter to only cookies that match the active API host
+    let matchingCookies = filterCookiesForAPIHost(cookies)
     guard !matchingCookies.isEmpty else { return nil }
 
     // Use HTTPCookie's built-in method for proper formatting
@@ -203,12 +226,27 @@ func resolveAPIKey() async throws -> String {
         )
     }
 
+    // Opportunistically capture the live client version so requests
+    // match what the web client currently sends.
+    if let version = extractInnertubeClientVersion(from: html) {
+        cachedClientVersion = version
+    }
+
     cachedAPIKey = key
     return key
 }
 
 func extractInnertubeAPIKey(from html: String) -> String? {
-    let pattern = #""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#
+    extractConfigValue(named: "INNERTUBE_API_KEY", from: html)
+}
+
+func extractInnertubeClientVersion(from html: String) -> String? {
+    extractConfigValue(named: "INNERTUBE_CLIENT_VERSION", from: html)
+        ?? extractConfigValue(named: "INNERTUBE_CONTEXT_CLIENT_VERSION", from: html)
+}
+
+func extractConfigValue(named name: String, from html: String) -> String? {
+    let pattern = "\"\(name)\"\\s*:\\s*\"([^\"]+)\""
     guard let regex = try? NSRegularExpression(pattern: pattern),
           let match = regex.firstMatch(
               in: html,
@@ -235,8 +273,8 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
 
     return [
         "client": [
-            "clientName": "WEB_REMIX",
-            "clientVersion": clientVersion,
+            "clientName": clientName,
+            "clientVersion": cachedClientVersion ?? fallbackClientVersion,
             "hl": "en",
             "gl": "US",
             "browserName": "Safari",
@@ -426,6 +464,40 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
+/// Recursively counts renderer/viewModel dictionary keys in a response.
+/// Invaluable for mapping which renderers a YouTube surface currently serves
+/// (e.g. legacy `videoRenderer` vs. the newer `lockupViewModel`).
+private func countRenderers(in value: Any, counts: inout [String: Int]) {
+    if let dictionary = value as? [String: Any] {
+        for (key, nestedValue) in dictionary {
+            if key.hasSuffix("Renderer") || key.hasSuffix("ViewModel") {
+                counts[key, default: 0] += 1
+            }
+            countRenderers(in: nestedValue, counts: &counts)
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            countRenderers(in: item, counts: &counts)
+        }
+    }
+}
+
+func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
+    var counts: [String: Int] = [:]
+    countRenderers(in: data, counts: &counts)
+    guard !counts.isEmpty else { return "" }
+
+    let sorted = counts.sorted { lhs, rhs in
+        lhs.value != rhs.value ? lhs.value > rhs.value : lhs.key < rhs.key
+    }
+
+    var output = "\n📊 Renderer histogram (top \(min(limit, sorted.count)) of \(sorted.count)):\n"
+    for (key, count) in sorted.prefix(limit) {
+        output += "  \(String(format: "%4d", count))× \(key)\n"
+    }
+    return output
+}
+
 func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     var output = ""
 
@@ -510,6 +582,8 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
         output += playlistSummary
     }
 
+    output += rendererHistogram(data)
+
     return output
 }
 
@@ -535,9 +609,27 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_privately_owned_artists",
 ])
 
+/// Known YouTube (www.youtube.com, WEB client) browse endpoints that require authentication.
+let youtubeAuthRequiredEndpoints = Set([
+    "FEsubscriptions",
+    "FElibrary",
+    "FEhistory",
+    "FEplaylist_aggregation",
+])
+
 /// Checks if a browseId requires authentication.
 /// This includes known endpoints plus dynamic browseId prefixes that are sign-in backed.
 func needsAuthentication(_ browseId: String) -> Bool {
+    if youtubeMode {
+        if youtubeAuthRequiredEndpoints.contains(browseId) || browseId == "VLWL"
+            || browseId == "VLLL"
+        {
+            return true
+        }
+        // Personalized surfaces (home feed, etc.) return richer data signed in,
+        // so use auth whenever cookies are available.
+        return loadCookiesFromAppBackup() != nil
+    }
     if authRequiredEndpoints.contains(browseId) {
         return true
     }
@@ -642,7 +734,10 @@ let authRequiredActions = Set([
 func exploreAction(
     _ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil
 ) async {
+    // In YouTube mode, personalized actions (guide, next, search) return richer
+    // data signed in, so use auth whenever cookies are available.
     let needsAuth = authRequiredActions.contains(endpoint)
+        || (youtubeMode && loadCookiesFromAppBackup() != nil)
     let authIcon = needsAuth ? "🔐" : "🌐"
 
     print("\(authIcon) Exploring action endpoint: \(endpoint)")
@@ -824,9 +919,9 @@ func checkAuthStatus() {
         return
     }
 
-    let matchingCookies = filterCookiesForMusicYouTube(cookies)
+    let matchingCookies = filterCookiesForAPIHost(cookies)
     print("✅ Found \(cookies.count) cookies in app backup")
-    print("✅ \(matchingCookies.count) cookies match music.youtube.com domain\n")
+    print("✅ \(matchingCookies.count) cookies match \(apiHost) domain\n")
 
     // Check for key auth cookies (in youtube.com domain)
     let authCookieNames = [
@@ -1331,6 +1426,33 @@ func listEndpoints() {
         Browsing an MPLAUC... page directly also requires sign-in.
 
         ═══════════════════════════════════════════════════════════════════════════════
+        ▶️ YOUTUBE MODE (--youtube: www.youtube.com, WEB client)
+        ═══════════════════════════════════════════════════════════════════════════════
+
+        🌐/🔐 BROWSE (auth used automatically when cookies are available)
+        ───────────────────────────────────────────────────────────────────────────────
+        FEwhat_to_watch               Home feed (personalized recommendations)
+        FEtrending                    Trending
+        FEsubscriptions               Subscriptions feed (requires auth)
+        FElibrary                     Library overview (requires auth)
+        FEhistory                     Watch history (requires auth)
+        FEplaylist_aggregation        User playlists list (requires auth)
+        VLWL                          Watch Later playlist (requires auth)
+        VLLL                          Liked videos playlist (requires auth)
+        VL{playlistId}                Playlist detail
+        UC{channelId}                 Channel page (tab via params)
+
+        📡 ACTIONS
+        ───────────────────────────────────────────────────────────────────────────────
+        search                        Body: {"query": "..."} (+"params" for filters)
+        next                          Watch-next/related: Body: {"videoId": "..."}
+        guide                         Sidebar incl. subscriptions list. Body: {}
+        like/like, like/removelike    Body: {"target": {"videoId": "..."}}
+        subscription/subscribe        Body: {"channelIds": ["UC..."]}
+        subscription/unsubscribe      Body: {"channelIds": ["UC..."]}
+        browse/edit_playlist          Watch Later add/remove via playlistId "WL"
+
+        ═══════════════════════════════════════════════════════════════════════════════
         💡 USAGE TIPS
         ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1372,6 +1494,20 @@ func showHelp() {
           -o, --output <file>            Save raw JSON response to a file
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
+          --youtube                      Target regular YouTube (www.youtube.com, WEB client)
+                                         instead of YouTube Music
+
+        YouTube mode examples:
+          # Browse YouTube surfaces (auth used automatically when cookies exist)
+          ./api-explorer.swift --youtube browse FEwhat_to_watch     # Home feed
+          ./api-explorer.swift --youtube browse FEtrending          # Trending
+          ./api-explorer.swift --youtube browse FEsubscriptions     # Subscriptions feed
+          ./api-explorer.swift --youtube browse FEhistory           # Watch history
+          ./api-explorer.swift --youtube browse VLWL                # Watch Later
+          ./api-explorer.swift --youtube browse VLLL                # Liked videos
+          ./api-explorer.swift --youtube action search '{"query":"swift concurrency"}'
+          ./api-explorer.swift --youtube action next '{"videoId":"dQw4w9WgXcQ"}'
+          ./api-explorer.swift --youtube action guide '{}'          # Sidebar + subscriptions list
 
         Examples:
           # Explore public endpoints
@@ -1442,6 +1578,11 @@ func runMain() async {
         }
     }
 
+    // Parse YouTube mode option (target www.youtube.com / WEB client)
+    if args.contains("--youtube") || args.contains("--yt") {
+        activateYouTubeMode()
+    }
+
     // Filter out option flags and their values
     var filteredArgs: [String] = []
     var skipNext = false
@@ -1450,7 +1591,7 @@ func runMain() async {
             skipNext = false
             continue
         }
-        if arg == "-v" || arg == "--verbose" {
+        if arg == "-v" || arg == "--verbose" || arg == "--youtube" || arg == "--yt" {
             continue
         }
         if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {

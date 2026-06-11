@@ -1,0 +1,85 @@
+{
+  "header": {
+    "feedTabbedHeaderRenderer": {
+      "title": {
+        "runs": [
+          {
+            "text": "Home"
+          }
+        ]
+      }
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "tabIdentifier": "FEwhat_to_watch",
+            "content": {
+              "richGridRenderer": {
+                "reflowOptions": {
+                  "minimumRowsOfVideosBetweenSections": 1,
+                  "minimumRowsOfVideosAtStart": 2
+                },
+                "contents": [
+                  {
+                    "richSectionRenderer": {
+                      "content": {
+                        "feedNudgeRenderer": {
+                          "applyModernizedStyle": true,
+                          "subtitle": {
+                            "runs": [
+                              {
+                                "text": "Start watching videos to help us build a feed of videos you'll love."
+                              }
+                            ],
+                            "accessibility": {
+                              "accessibilityData": {
+                                "label": "Start watching videos to help us build a feed of videos you'll love."
+                              }
+                            }
+                          },
+                          "impressionEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "apiUrl": "/youtubei/v1/feedback",
+                                "sendPost": true
+                              }
+                            },
+                            "feedbackEndpoint": {
+                              "feedbackToken": "AB9zfpL3eHj8BJwGZSwVDLxeuR5McmKBL1FlC3WRBzb8ZBKUIg432VvP3-bZSgKVjJTwSFXopYBaJeYwA288HD9BWi1VAJDD1cqY0AP6o760yrGio9t6sS40OruRpW8HeVpTFqSuHRz9ACakPVXz0LF6v1wQUlJAVQ"
+                            }
+                          },
+                          "contentsLocation": "FEED_NUDGE_CONTENTS_LOCATION_UNKNOWN",
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Try searching to get started"
+                              }
+                            ],
+                            "accessibility": {
+                              "accessibilityData": {
+                                "label": "Try searching to get started"
+                              }
+                            }
+                          },
+                          "disableDropShadow": false,
+                          "trimStyle": "FEED_NUDGE_TRIM_STYLE_NO_TRIM",
+                          "backgroundStyle": "FEED_NUDGE_BACKGROUND_STYLE_UNKNOWN"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "targetId": "browse-feedFEwhat_to_watch",
+                "layoutSizing": "RICH_GRID_LAYOUT_SIZING_STANDARD"
+              }
+            },
+            "selected": true
+          }
+        }
+      ]
+    }
+  }
+}
