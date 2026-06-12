@@ -37,8 +37,14 @@ struct MainWindow: View {
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
 
+    /// Shared YouTube (video) API client.
+    let youtubeClient: any YouTubeClientProtocol
+
     /// App-wide settings; drives the active content source (music vs. video).
     @State private var settings = SettingsManager.shared
+
+    /// View models for the YouTube experience (persist across source toggles).
+    @State private var youtubeStore: YouTubeViewModelStore
 
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
@@ -67,11 +73,14 @@ struct MainWindow: View {
     init(
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
-        client: any YTMusicClientProtocol
+        client: any YTMusicClientProtocol,
+        youtubeClient: any YouTubeClientProtocol
     ) {
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
         self.client = client
+        self.youtubeClient = youtubeClient
+        _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
         _homeViewModel = State(initialValue: HomeViewModel(client: client))
         _exploreViewModel = State(initialValue: ExploreViewModel(client: client))
         _searchViewModel = State(initialValue: SearchViewModel(client: client))
@@ -365,7 +374,10 @@ struct MainWindow: View {
                         client: self.client
                     )
                 } else {
-                    YouTubeContentView(selection: self.youtubeNavigationSelection)
+                    YouTubeContentView(
+                        selection: self.youtubeNavigationSelection,
+                        store: self.youtubeStore
+                    )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -741,7 +753,8 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     MainWindow(
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
-        client: ytMusicClient
+        client: ytMusicClient,
+        youtubeClient: YouTubeClient(authService: authService)
     )
     .environment(authService)
     .environment(PlayerService())

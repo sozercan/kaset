@@ -34,6 +34,7 @@ struct KasetApp: App {
     @State private var webKitManager = WebKitManager.shared
     @State private var playerService = PlayerService()
     @State private var sharedClient: any YTMusicClientProtocol
+    @State private var sharedYouTubeClient: any YouTubeClientProtocol
     @State private var notificationService: NotificationService?
     @State private var updaterService = UpdaterService()
     @State private var favoritesManager = FavoritesManager.shared
@@ -91,10 +92,22 @@ struct KasetApp: App {
             account?.currentBrandId
         }
 
+        // YouTube (video) client — same login, www.youtube.com origin
+        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit)
+        realYouTubeClient.brandIdProvider = { [weak account] in
+            account?.currentBrandId
+        }
+        let youtubeClient: YouTubeClientProtocol = if UITestConfig.isUITestMode {
+            MockUITestYouTubeClient()
+        } else {
+            realYouTubeClient
+        }
+
         _authService = State(initialValue: auth)
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
         _sharedClient = State(initialValue: client)
+        _sharedYouTubeClient = State(initialValue: youtubeClient)
         _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
             YTMusicSyncedProvider(client: client),
             LRCLibProvider(),
@@ -131,7 +144,8 @@ struct KasetApp: App {
                 MainWindow(
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
-                    client: self.sharedClient
+                    client: self.sharedClient,
+                    youtubeClient: self.sharedYouTubeClient
                 )
                 .id(self.settings.contentLanguage)
                 .environment(\.locale, self.settings.contentLanguage.locale)

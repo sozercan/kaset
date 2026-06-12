@@ -5,14 +5,20 @@ import SwiftUI
 /// Detail-column router for the YouTube (video) experience.
 ///
 /// Mirrors `MainWindow.detailView`/`viewForNavigationItem` on the music side.
-/// Items render placeholders until their milestone lands.
+/// Sections without an implementation yet render placeholders.
 struct YouTubeContentView: View {
     let selection: YouTubeNavigationItem?
+    let store: YouTubeViewModelStore
 
     var body: some View {
         Group {
             if let selection {
-                self.placeholder(for: selection)
+                NavigationStack {
+                    self.rootView(for: selection)
+                        .youtubeNavigationDestinations(client: self.store.client)
+                }
+                // Reset the drill-in stack when the sidebar selection changes.
+                .id(selection)
             } else {
                 Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
                     .foregroundStyle(.secondary)
@@ -21,6 +27,18 @@ struct YouTubeContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+        }
+    }
+
+    @ViewBuilder
+    private func rootView(for item: YouTubeNavigationItem) -> some View {
+        switch item {
+        case .home:
+            YouTubeHomeView(viewModel: self.store.home)
+        case .search:
+            YouTubeSearchView(viewModel: self.store.search)
+        case .explore, .subscriptions, .likedVideos, .watchLater, .playlists, .history:
+            self.placeholder(for: item)
         }
     }
 
@@ -105,13 +123,4 @@ extension AccessibilityID {
             "youtubeContent.placeholder.\(item.rawValue)"
         }
     }
-}
-
-#Preview {
-    YouTubeContentView(selection: .home)
-        .environment(PlayerService())
-        .environment(WebKitManager.shared)
-        .environment(FavoritesManager.shared)
-        .environment(SongLikeStatusManager.shared)
-        .frame(width: 800, height: 600)
 }
