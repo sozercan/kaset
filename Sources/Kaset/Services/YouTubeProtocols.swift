@@ -33,6 +33,12 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches watch-page companion data (metadata + related videos).
     func getWatchNext(videoId: String) async throws -> WatchNextData
 
+    /// Fetches a page of comments by continuation token.
+    func getComments(continuation: String) async throws -> YouTubeCommentsPage
+
+    /// Posts a top-level comment.
+    func postComment(text: String, createCommentParams: String) async throws
+
     // MARK: Browse
 
     /// Fetches a channel page by `UC…` channel ID.

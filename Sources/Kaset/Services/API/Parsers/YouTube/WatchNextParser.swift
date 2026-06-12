@@ -58,8 +58,59 @@ enum WatchNextParser {
             publishedText: publishedText,
             channel: channel,
             related: YouTubeFeedParser.deduplicate(related),
-            isSubscribed: isSubscribed
+            isSubscribed: isSubscribed,
+            commentsContinuation: Self.commentsContinuation(of: data)
         )
+    }
+
+    /// The continuation token for the watch page's comments section
+    /// (the `comment-item-section` item section).
+    static func commentsContinuation(of data: [String: Any]) -> String? {
+        self.findCommentsSectionToken(in: data)
+    }
+
+    private static func findCommentsSectionToken(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            if let section = dict["itemSectionRenderer"] as? [String: Any],
+               (section["sectionIdentifier"] as? String) == "comment-item-section"
+            {
+                return self.firstContinuationToken(in: section)
+            }
+            for nested in dict.values {
+                if let token = Self.findCommentsSectionToken(in: nested) {
+                    return token
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let token = Self.findCommentsSectionToken(in: element) {
+                    return token
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func firstContinuationToken(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            if let command = dict["continuationCommand"] as? [String: Any],
+               let token = command["token"] as? String
+            {
+                return token
+            }
+            for nested in dict.values {
+                if let token = Self.firstContinuationToken(in: nested) {
+                    return token
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let token = Self.firstContinuationToken(in: element) {
+                    return token
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: - Private

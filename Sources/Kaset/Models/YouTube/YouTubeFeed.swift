@@ -96,6 +96,8 @@ struct WatchNextData {
     /// Whether the signed-in user is subscribed to the video's channel
     /// (nil when the page did not expose a subscribe button).
     var isSubscribed: Bool?
+    /// Continuation token for the video's comments section.
+    var commentsContinuation: String?
 
     static let empty = WatchNextData(
         videoTitle: nil,
@@ -136,6 +138,32 @@ enum YouTubeDestination: String, CaseIterable, Identifiable {
         case .learning: String(localized: "Learning")
         }
     }
+}
+
+// MARK: - YouTubeComment
+
+/// A comment on a YouTube video.
+struct YouTubeComment: Identifiable, Hashable {
+    let id: String
+    let author: String
+    let authorAvatarURL: URL?
+    let text: String
+    let publishedText: String?
+    let likeCountText: String?
+}
+
+// MARK: - YouTubeCommentsPage
+
+/// One page of a video's comments.
+struct YouTubeCommentsPage {
+    let comments: [YouTubeComment]
+    /// Token for the next page (nil when exhausted).
+    let continuation: String?
+    /// Params for posting a top-level comment (nil when signed out or
+    /// comments are disabled).
+    let createCommentParams: String?
+
+    static let empty = YouTubeCommentsPage(comments: [], continuation: nil, createCommentParams: nil)
 }
 
 // MARK: - YouTubeCaptionTrack

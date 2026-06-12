@@ -165,3 +165,119 @@ struct YouTubePlaylistPageParserTests {
         #expect(detail.playlist.firstVideoId == detail.videos.first?.videoId)
     }
 }
+
+// MARK: - YouTubeCommentsParserTests
+
+@Suite("YouTubeCommentsParser", .tags(.parser))
+struct YouTubeCommentsParserTests {
+    @Test("Watch-next fixture exposes the comments continuation")
+    func watchNextHasCommentsContinuation() throws {
+        let data = try loadYouTubeFixture("youtube_watch_next")
+        #expect(WatchNextParser.commentsContinuation(of: data) != nil)
+    }
+
+    @Test("Parses comments from entity payload mutations")
+    func parsesEntityPayloads() throws {
+        let data: [String: Any] = [
+            "frameworkUpdates": [
+                "entityBatchUpdate": [
+                    "mutations": [
+                        [
+                            "payload": [
+                                "commentEntityPayload": [
+                                    "properties": [
+                                        "commentId": "c1",
+                                        "content": ["content": "Nice video"],
+                                        "publishedTime": "2 days ago",
+                                    ],
+                                    "author": [
+                                        "displayName": "@someone",
+                                        "avatarThumbnailUrl": "https://example.com/a.jpg",
+                                    ],
+                                    "toolbar": ["likeCountNotliked": "42"],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "onResponseReceivedEndpoints": [
+                [
+                    "appendContinuationItemsAction": [
+                        "continuationItems": [
+                            [
+                                "continuationItemRenderer": [
+                                    "continuationEndpoint": [
+                                        "continuationCommand": ["token": "next-page"],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let page = YouTubeCommentsParser.parse(data)
+
+        let comment = try #require(page.comments.first)
+        #expect(comment.id == "c1")
+        #expect(comment.author == "@someone")
+        #expect(comment.text == "Nice video")
+        #expect(comment.publishedText == "2 days ago")
+        #expect(comment.likeCountText == "42")
+        #expect(page.continuation == "next-page")
+    }
+
+    @Test("Parses legacy commentRenderer responses and create params")
+    func parsesLegacyRenderers() throws {
+        let data: [String: Any] = [
+            "onResponseReceivedEndpoints": [
+                [
+                    "appendContinuationItemsAction": [
+                        "continuationItems": [
+                            [
+                                "commentThreadRenderer": [
+                                    "comment": [
+                                        "commentRenderer": [
+                                            "commentId": "legacy1",
+                                            "contentText": ["runs": [["text": "Old style"]]],
+                                            "authorText": ["simpleText": "@old"],
+                                            "publishedTimeText": ["runs": [["text": "1 year ago"]]],
+                                            "voteCount": ["simpleText": "7"],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "header": [
+                "commentsHeaderRenderer": [
+                    "createRenderer": [
+                        "commentSimpleboxRenderer": [
+                            "submitButton": [
+                                "buttonRenderer": [
+                                    "serviceEndpoint": [
+                                        "createCommentEndpoint": [
+                                            "createCommentParams": "create-params-token",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let page = YouTubeCommentsParser.parse(data)
+
+        let comment = try #require(page.comments.first)
+        #expect(comment.id == "legacy1")
+        #expect(comment.author == "@old")
+        #expect(comment.text == "Old style")
+        #expect(page.createCommentParams == "create-params-token")
+    }
+}

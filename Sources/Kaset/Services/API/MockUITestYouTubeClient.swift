@@ -63,6 +63,25 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         )
     }
 
+    func getComments(continuation _: String) async throws -> YouTubeCommentsPage {
+        YouTubeCommentsPage(
+            comments: [
+                YouTubeComment(
+                    id: "mock-comment-1",
+                    author: "Mock Commenter",
+                    authorAvatarURL: nil,
+                    text: "Great video!",
+                    publishedText: "1 day ago",
+                    likeCountText: "12"
+                ),
+            ],
+            continuation: nil,
+            createCommentParams: "mock-create-params"
+        )
+    }
+
+    func postComment(text _: String, createCommentParams _: String) async throws {}
+
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         YouTubeChannelDetail(
             channel: YouTubeChannel(

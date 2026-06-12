@@ -26,6 +26,8 @@ final class YouTubeWatchContainerView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         self.postsFrameChangedNotifications = true
+        self.wantsLayer = true
+        self.layer?.masksToBounds = true
     }
 
     @available(*, unavailable)
@@ -35,9 +37,12 @@ final class YouTubeWatchContainerView: NSView {
 
     override func layout() {
         super.layout()
-        // Keep the WebView matched to our bounds when we own it.
+        // Overscan the WebView slightly: fractional-point rounding between
+        // SwiftUI's aspect-fitted frame and the page's 100vw video leaves
+        // hairline black slivers at the edges otherwise. The container's
+        // layer clips the overflow.
         for subview in self.subviews where subview is WKWebView {
-            subview.frame = self.bounds
+            subview.frame = self.bounds.insetBy(dx: -1.5, dy: -1.5)
         }
     }
 }

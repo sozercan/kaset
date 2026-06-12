@@ -63,6 +63,21 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.watchNextData
     }
 
+    var commentsPage = YouTubeCommentsPage.empty
+    private(set) var postedComments: [(text: String, params: String)] = []
+    private(set) var lastCommentsContinuation: String?
+
+    func getComments(continuation: String) async throws -> YouTubeCommentsPage {
+        if let error { throw error }
+        self.lastCommentsContinuation = continuation
+        return self.commentsPage
+    }
+
+    func postComment(text: String, createCommentParams: String) async throws {
+        if let error { throw error }
+        self.postedComments.append((text, createCommentParams))
+    }
+
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         if let error { throw error }
         if let channelDetail { return channelDetail }

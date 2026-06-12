@@ -153,6 +153,63 @@ struct YouTubeExploreViewModelTests {
 @Suite("YouTubeWatchViewModel actions", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeWatchViewModelActionTests {
+    @Test("Comments load after watch-next and posting clears on success")
+    func commentsFlow() async {
+        let client = MockYouTubeClient()
+        client.watchNextData = WatchNextData(
+            videoTitle: "Title",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            commentsContinuation: "comments-token"
+        )
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                YouTubeComment(
+                    id: "c1",
+                    author: "@a",
+                    authorAvatarURL: nil,
+                    text: "Hi",
+                    publishedText: nil,
+                    likeCountText: nil
+                ),
+            ],
+            continuation: nil,
+            createCommentParams: "create-params"
+        )
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+
+        await sut.load()
+
+        #expect(client.lastCommentsContinuation == "comments-token")
+        #expect(sut.comments.count == 1)
+        #expect(sut.canComment)
+        #expect(sut.canLoadMoreComments == false)
+
+        let posted = await sut.postComment(text: "  Hello there  ")
+        #expect(posted)
+        #expect(client.postedComments.first?.text == "Hello there")
+        #expect(client.postedComments.first?.params == "create-params")
+    }
+
+    @Test("Posting without create params is rejected")
+    func postWithoutParamsRejected() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+
+        let posted = await sut.postComment(text: "Hello")
+
+        #expect(posted == false)
+        #expect(client.postedComments.isEmpty)
+    }
+
     @Test("Subscribe toggle uses the watch-next channel and seeds from data")
     func subscribeToggle() async {
         let client = MockYouTubeClient()

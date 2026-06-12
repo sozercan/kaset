@@ -138,6 +138,23 @@ final class YouTubeClient: YouTubeClientProtocol {
         return WatchNextParser.parse(data)
     }
 
+    func getComments(continuation: String) async throws -> YouTubeCommentsPage {
+        self.logger.info("Fetching YouTube comments page")
+
+        let data = try await self.request("next", body: ["continuation": continuation])
+        return YouTubeCommentsParser.parse(data)
+    }
+
+    func postComment(text: String, createCommentParams: String) async throws {
+        self.logger.info("Posting YouTube comment")
+
+        let body: [String: Any] = [
+            "commentText": text,
+            "createCommentParams": createCommentParams,
+        ]
+        _ = try await self.request("comment/create_comment", body: body)
+    }
+
     // MARK: - Browse
 
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {

@@ -21,16 +21,28 @@ struct YouTubeWatchView: View {
         )
     }
 
+    @State private var commentDraft = ""
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 self.videoSurface
 
-                self.metadataSection
+                // Below the video: title/metadata + comments down the left,
+                // the related rail down the right.
+                HStack(alignment: .top, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        self.metadataSection
 
-                Divider()
+                        Divider()
 
-                self.relatedSection
+                        self.commentsSection
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    self.relatedColumn
+                        .frame(width: 360)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
@@ -220,42 +232,229 @@ struct YouTubeWatchView: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
 
-    // MARK: - Related
+    // MARK: - Related Column
 
-    @ViewBuilder
-    private var relatedSection: some View {
-        Text("Related", comment: "Related videos section header")
-            .font(.title3.bold())
+    private var relatedColumn: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Related", comment: "Related videos section header")
+                .font(.title3.bold())
 
-        switch self.viewModel.loadingState {
-        case .idle, .loading:
-            ForEach(0 ..< 5, id: \.self) { _ in
-                HStack(spacing: 12) {
-                    SkeletonView.rectangle(cornerRadius: 8)
-                        .frame(width: 160, height: 90)
-                    VStack(alignment: .leading, spacing: 6) {
-                        SkeletonView.rectangle(cornerRadius: 4)
-                            .frame(width: 240, height: 12)
-                        SkeletonView.rectangle(cornerRadius: 4)
-                            .frame(width: 140, height: 10)
+            switch self.viewModel.loadingState {
+            case .idle, .loading:
+                ForEach(0 ..< 5, id: \.self) { _ in
+                    HStack(spacing: 12) {
+                        SkeletonView.rectangle(cornerRadius: 8)
+                            .frame(width: 140, height: 79)
+                        VStack(alignment: .leading, spacing: 6) {
+                            SkeletonView.rectangle(cornerRadius: 4)
+                                .frame(width: 160, height: 12)
+                            SkeletonView.rectangle(cornerRadius: 4)
+                                .frame(width: 100, height: 10)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer()
                 }
-            }
-        case let .error(error):
-            Text(error.message)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        case .loaded, .loadingMore:
-            LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(self.viewModel.data.related) { related in
-                    NavigationLink(value: YouTubeRoute.watch(related)) {
-                        VideoRowView(video: related)
+            case let .error(error):
+                Text(error.message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            case .loaded, .loadingMore:
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(self.viewModel.data.related) { related in
+                        NavigationLink(value: YouTubeRoute.watch(related)) {
+                            RelatedVideoRow(video: related)
+                        }
+                        .buttonStyle(.interactiveRow)
                     }
-                    .buttonStyle(.interactiveRow)
                 }
             }
         }
+    }
+
+    // MARK: - Comments
+
+    private var commentsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Comments", comment: "Comments section header")
+                .font(.title3.bold())
+
+            self.commentComposer
+
+            if self.viewModel.comments.isEmpty, !self.viewModel.isLoadingComments {
+                Text("No comments yet.", comment: "Empty comments section")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(self.viewModel.comments) { comment in
+                        CommentRow(comment: comment)
+                    }
+                }
+            }
+
+            if self.viewModel.isLoadingComments {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity)
+            } else if self.viewModel.canLoadMoreComments {
+                Button {
+                    Task {
+                        await self.viewModel.loadMoreComments()
+                    }
+                } label: {
+                    Text("Show more comments", comment: "Load more comments button")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentsSection)
+    }
+
+    private var commentComposer: some View {
+        HStack(spacing: 10) {
+            TextField(
+                self.viewModel.canComment
+                    ? String(localized: "Add a comment…")
+                    : String(localized: "Sign in to comment"),
+                text: self.$commentDraft
+            )
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.quaternary.opacity(0.5), in: Capsule())
+            .disabled(!self.viewModel.canComment)
+            .onSubmit {
+                self.submitComment()
+            }
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentField)
+
+            Button {
+                self.submitComment()
+            } label: {
+                if self.viewModel.isPostingComment {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(
+                !self.viewModel.canComment
+                    || self.viewModel.isPostingComment
+                    || self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+            .accessibilityLabel(String(localized: "Post comment"))
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentPostButton)
+        }
+    }
+
+    private func submitComment() {
+        let draft = self.commentDraft
+        Task {
+            if await self.viewModel.postComment(text: draft) {
+                self.commentDraft = ""
+            }
+        }
+    }
+}
+
+// MARK: - CommentRow
+
+/// One comment: avatar, author + time, text, like count.
+private struct CommentRow: View {
+    let comment: YouTubeComment
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            CachedAsyncImage(
+                url: self.comment.authorAvatarURL,
+                targetSize: CGSize(width: 56, height: 56)
+            ) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Circle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+            }
+            .frame(width: 28, height: 28)
+            .clipShape(.circle)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(self.comment.author)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    if let publishedText = self.comment.publishedText {
+                        Text(publishedText)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                Text(self.comment.text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+
+                if let likeCountText = self.comment.likeCountText, !likeCountText.isEmpty {
+                    Label(likeCountText, systemImage: "hand.thumbsup")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - RelatedVideoRow
+
+/// Compact related-rail row sized for the right column.
+private struct RelatedVideoRow: View {
+    let video: YouTubeVideo
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VideoThumbnailView(video: self.video)
+                .frame(width: 140)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(self.video.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if let channelName = self.video.channelName {
+                    Text(channelName)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                if let viewCountText = self.video.viewCountText {
+                    Text(viewCountText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -263,6 +462,9 @@ struct YouTubeWatchView: View {
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"
+    static let commentsSection = "youtubeContent.commentsSection"
+    static let commentField = "youtubeContent.commentField"
+    static let commentPostButton = "youtubeContent.commentPostButton"
     static let subscribeButton = "youtubeContent.subscribeButton"
     static let watchMoveHere = "youtubeContent.watchMoveHere"
 }

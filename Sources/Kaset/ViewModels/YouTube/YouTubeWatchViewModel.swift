@@ -32,6 +32,31 @@ final class YouTubeWatchViewModel {
     /// Whether the user is subscribed to the channel (seeded from watch-next).
     private(set) var isSubscribed = false
 
+    // MARK: - Comments State
+
+    /// Loaded comments (top-level threads).
+    private(set) var comments: [YouTubeComment] = []
+
+    /// Whether comments are currently loading.
+    private(set) var isLoadingComments = false
+
+    /// Token for the next comments page.
+    private var commentsContinuation: String?
+
+    /// Params for posting a comment (nil = signed out / disabled).
+    private(set) var createCommentParams: String?
+
+    /// Whether a comment is currently being posted.
+    private(set) var isPostingComment = false
+
+    var canLoadMoreComments: Bool {
+        self.commentsContinuation != nil
+    }
+
+    var canComment: Bool {
+        self.createCommentParams != nil
+    }
+
     func load() async {
         self.loadGeneration += 1
         let generation = self.loadGeneration
@@ -41,7 +66,9 @@ final class YouTubeWatchViewModel {
             guard generation == self.loadGeneration else { return }
             self.data = data
             self.isSubscribed = data.isSubscribed ?? false
+            self.commentsContinuation = data.commentsContinuation
             self.loadingState = .loaded
+            await self.loadMoreComments()
         } catch {
             guard generation == self.loadGeneration else { return }
             // A cancelled load (view went away mid-flight) is not an
@@ -52,6 +79,54 @@ final class YouTubeWatchViewModel {
             }
             self.logger.error("Failed to load watch-next data: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
+        }
+    }
+
+    // MARK: - Comments
+
+    /// Loads the next page of comments.
+    func loadMoreComments() async {
+        guard !self.isLoadingComments, let continuation = self.commentsContinuation else { return }
+
+        self.isLoadingComments = true
+        defer {
+            self.isLoadingComments = false
+        }
+        do {
+            let page = try await self.client.getComments(continuation: continuation)
+            guard self.commentsContinuation == continuation else { return }
+            let existing = Set(self.comments.map(\.id))
+            self.comments.append(contentsOf: page.comments.filter { !existing.contains($0.id) })
+            self.commentsContinuation = page.continuation
+            if let params = page.createCommentParams {
+                self.createCommentParams = params
+            }
+        } catch {
+            if error is CancellationError { return }
+            self.logger.error("Failed to load comments: \(error.localizedDescription)")
+            self.commentsContinuation = nil
+        }
+    }
+
+    /// Posts a top-level comment; returns true on success.
+    func postComment(text: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let params = self.createCommentParams, !self.isPostingComment else {
+            return false
+        }
+
+        self.isPostingComment = true
+        defer {
+            self.isPostingComment = false
+        }
+        do {
+            try await self.client.postComment(text: trimmed, createCommentParams: params)
+            HapticService.success()
+            return true
+        } catch {
+            self.logger.error("Failed to post comment: \(error.localizedDescription)")
+            HapticService.error()
+            return false
         }
     }
 
