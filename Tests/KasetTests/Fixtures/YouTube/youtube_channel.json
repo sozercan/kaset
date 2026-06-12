@@ -119,13 +119,13 @@
                                   "navigationEndpoint": {
                                     "commandMetadata": {
                                       "webCommandMetadata": {
-                                        "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa0dMOGhHUHlaRmZXVFVnaFU2Z3d6ZnlUU250UXxBQ3Jtc0tuOTEzclJBS0VmZFp6c3FmOEhKY0Z4X1l1bXE3T3dfaENabWZPYWxKQTFkRDQtZUJqQmZ1Ulc2NE15RmRSeVFseHFqaGVPUVZLLXlqM1FjZGdENzViODVKQUxxbzVubjQ1d0t2U2VBTlN3d1Fmck84TQ&q=https%3A%2F%2Fgoo.gle%2Fdevelopers",
+                                        "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2Fgoo.gle%2Fdevelopers",
                                         "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                                         "rootVe": 83769
                                       }
                                     },
                                     "urlEndpoint": {
-                                      "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa0dMOGhHUHlaRmZXVFVnaFU2Z3d6ZnlUU250UXxBQ3Jtc0tuOTEzclJBS0VmZFp6c3FmOEhKY0Z4X1l1bXE3T3dfaENabWZPYWxKQTFkRDQtZUJqQmZ1Ulc2NE15RmRSeVFseHFqaGVPUVZLLXlqM1FjZGdENzViODVKQUxxbzVubjQ1d0t2U2VBTlN3d1Fmck84TQ&q=https%3A%2F%2Fgoo.gle%2Fdevelopers",
+                                      "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2Fgoo.gle%2Fdevelopers",
                                       "target": "TARGET_NEW_WINDOW",
                                       "nofollow": true
                                     }
@@ -6114,13 +6114,13 @@
                       "innertubeCommand": {
                         "commandMetadata": {
                           "webCommandMetadata": {
-                            "url": "https://www.youtube.com/redirect?event=channel_header&redir_token=QUFFLUhqa2c1Wl83aVpzUUV4ZlRtbXVzYW9DMnVtbUo5d3xBQ3Jtc0tsN3lNWFZyZ1BRTGljV25yajBMZG9OMk1tTE5qS0dyYVM3d19QTUFoMlpxd0x4WXpnTFFzaXYyVnpaZ3ZDT3kzcFpPQ29VbkJJQzZCZTJacW5kYnQxMmh3cnBXeWtsOUR3UE1vX25xV3p2TGotbDZ6QQ&q=https%3A%2F%2Fwww.tiktok.com%2F%40googlefordevs%3Flang%3Den",
+                            "url": "https://www.youtube.com/redirect?event=channel_header&redir=REDACTED&q=https%3A%2F%2Fwww.tiktok.com%2F%40googlefordevs%3Flang%3Den",
                             "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                             "rootVe": 83769
                           }
                         },
                         "urlEndpoint": {
-                          "url": "https://www.youtube.com/redirect?event=channel_header&redir_token=QUFFLUhqa2c1Wl83aVpzUUV4ZlRtbXVzYW9DMnVtbUo5d3xBQ3Jtc0tsN3lNWFZyZ1BRTGljV25yajBMZG9OMk1tTE5qS0dyYVM3d19QTUFoMlpxd0x4WXpnTFFzaXYyVnpaZ3ZDT3kzcFpPQ29VbkJJQzZCZTJacW5kYnQxMmh3cnBXeWtsOUR3UE1vX25xV3p2TGotbDZ6QQ&q=https%3A%2F%2Fwww.tiktok.com%2F%40googlefordevs%3Flang%3Den",
+                          "url": "https://www.youtube.com/redirect?event=channel_header&redir=REDACTED&q=https%3A%2F%2Fwww.tiktok.com%2F%40googlefordevs%3Flang%3Den",
                           "target": "TARGET_NEW_WINDOW"
                         }
                       }

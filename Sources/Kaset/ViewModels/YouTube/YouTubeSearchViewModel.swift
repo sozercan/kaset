@@ -69,7 +69,7 @@ final class YouTubeSearchViewModel {
 
     /// Loads the next page of results.
     func loadMore() async {
-        guard self.loadingState == .loaded, self.results.continuationToken != nil else { return }
+        guard self.loadingState == .loaded, self.results.continuation != nil else { return }
 
         self.loadingState = .loadingMore
         do {
@@ -86,15 +86,15 @@ final class YouTubeSearchViewModel {
                 self.results.playlists.append(
                     contentsOf: more.playlists.filter { !existingPlaylists.contains($0.playlistId) }
                 )
-                self.results.continuationToken = more.continuationToken
+                self.results.continuation = more.continuation
             } else {
-                self.results.continuationToken = nil
+                self.results.continuation = nil
             }
             self.loadingState = .loaded
         } catch {
             self.logger.error("YouTube search continuation failed: \(error.localizedDescription)")
             self.loadingState = .loaded
-            self.results.continuationToken = nil
+            self.results.continuation = nil
         }
     }
 }

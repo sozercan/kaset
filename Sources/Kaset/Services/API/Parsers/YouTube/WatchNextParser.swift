@@ -43,12 +43,12 @@ enum WatchNextParser {
 
         // Related videos rail
         var related: [YouTubeVideo] = []
-        var continuationToken: String?
+        var continuation: String?
         if let secondaryResults = results?["secondaryResults"] {
             YouTubeFeedParser.collect(
                 in: secondaryResults,
                 videos: &related,
-                continuationToken: &continuationToken
+                continuation: &continuation
             )
         }
 

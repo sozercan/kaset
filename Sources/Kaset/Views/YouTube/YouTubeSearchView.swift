@@ -137,7 +137,7 @@ struct YouTubeSearchView: View {
                     }
                 }
 
-                if self.viewModel.results.continuationToken != nil {
+                if self.viewModel.results.continuation != nil {
                     ProgressView()
                         .controlSize(.small)
                         .frame(maxWidth: .infinity)

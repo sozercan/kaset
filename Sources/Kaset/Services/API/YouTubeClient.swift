@@ -38,11 +38,11 @@ final class YouTubeClient: YouTubeClientProtocol {
     /// invalidation patterns ("browse:", "next:", …).
     private static let cachePrefix = "yt:"
 
-    private var homeContinuationToken: String?
-    private var searchContinuationToken: String?
+    private var homeContinuation: String?
+    private var searchContinuation: String?
 
     var hasMoreHomeFeed: Bool {
-        self.homeContinuationToken != nil
+        self.homeContinuation != nil
     }
 
     init(
@@ -81,19 +81,19 @@ final class YouTubeClient: YouTubeClientProtocol {
             ttl: APICache.TTL.home
         )
         let feed = YouTubeFeedParser.parse(data)
-        self.homeContinuationToken = feed.continuationToken
-        self.logger.info("YouTube home feed loaded: \(feed.videos.count) videos, hasMore: \(feed.continuationToken != nil)")
+        self.homeContinuation = feed.continuation
+        self.logger.info("YouTube home feed loaded: \(feed.videos.count) videos, hasMore: \(feed.continuation != nil)")
         return feed
     }
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
-        guard let token = self.homeContinuationToken else {
+        guard let continuation = self.homeContinuation else {
             return nil
         }
 
-        let data = try await self.request("browse", body: ["continuation": token])
+        let data = try await self.request("browse", body: ["continuation": continuation])
         let feed = YouTubeFeedParser.parseContinuation(data)
-        self.homeContinuationToken = feed.continuationToken
+        self.homeContinuation = feed.continuation
         self.logger.info("YouTube home continuation: \(feed.videos.count) videos")
         return feed
     }
@@ -110,8 +110,8 @@ final class YouTubeClient: YouTubeClientProtocol {
 
         let data = try await self.request("search", body: body, ttl: APICache.TTL.search)
         var response = YouTubeSearchParser.parse(data)
-        self.searchContinuationToken = response.continuationToken
-        response.continuationToken = self.searchContinuationToken
+        self.searchContinuation = response.continuation
+        response.continuation = self.searchContinuation
         self.logger.info(
             "YouTube search: \(response.videos.count) videos, \(response.channels.count) channels, \(response.playlists.count) playlists"
         )
@@ -119,13 +119,13 @@ final class YouTubeClient: YouTubeClientProtocol {
     }
 
     func getSearchContinuation() async throws -> YouTubeSearchResponse? {
-        guard let token = self.searchContinuationToken else {
+        guard let continuation = self.searchContinuation else {
             return nil
         }
 
-        let data = try await self.request("search", body: ["continuation": token])
+        let data = try await self.request("search", body: ["continuation": continuation])
         let response = YouTubeSearchParser.parseContinuation(data)
-        self.searchContinuationToken = response.continuationToken
+        self.searchContinuation = response.continuation
         return response
     }
 
@@ -178,8 +178,8 @@ final class YouTubeClient: YouTubeClientProtocol {
         return YouTubeFeedParser.parse(data)
     }
 
-    func getFeedContinuation(token: String) async throws -> YouTubeFeed {
-        let data = try await self.request("browse", body: ["continuation": token])
+    func getFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        let data = try await self.request("browse", body: ["continuation": continuation])
         return YouTubeFeedParser.parseContinuation(data)
     }
 

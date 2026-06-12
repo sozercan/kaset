@@ -45,7 +45,7 @@ protocol YouTubeClientProtocol: Sendable {
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed
 
     /// Fetches the next page of any browse feed by continuation token.
-    func getFeedContinuation(token: String) async throws -> YouTubeFeed
+    func getFeedContinuation(continuation: String) async throws -> YouTubeFeed
 
     // MARK: Subscriptions & Library
 

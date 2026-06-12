@@ -12,7 +12,7 @@ struct YouTubeSubscriptionsViewModelTests {
         let client = MockYouTubeClient()
         client.subscriptionsFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 4),
-            continuationToken: "token"
+            continuation: "token"
         )
         client.subscribedChannels = [
             YouTubeChannel(channelId: "UC1", name: "One"),
@@ -33,18 +33,18 @@ struct YouTubeSubscriptionsViewModelTests {
         let client = MockYouTubeClient()
         client.subscriptionsFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 2),
-            continuationToken: "token-1"
+            continuation: "token-1"
         )
         client.feedContinuation = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "more-1")],
-            continuationToken: nil
+            continuation: nil
         )
         let sut = YouTubeSubscriptionsViewModel(client: client)
         await sut.load()
 
         await sut.loadMore()
 
-        #expect(client.lastContinuationToken == "token-1")
+        #expect(client.lastFeedContinuation == "token-1")
         #expect(sut.videos.count == 3)
         #expect(sut.hasMoreVideos == false)
     }
@@ -75,7 +75,7 @@ struct YouTubeHistoryViewModelTests {
         let client = MockYouTubeClient()
         client.historyFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 3),
-            continuationToken: nil
+            continuation: nil
         )
         let sut = YouTubeHistoryViewModel(client: client)
 
@@ -118,7 +118,7 @@ struct YouTubeExploreViewModelTests {
         let client = MockYouTubeClient()
         client.destinationFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 2),
-            continuationToken: nil
+            continuation: nil
         )
         let sut = YouTubeExploreViewModel(client: client)
         sut.selectedDestination = .news
@@ -135,7 +135,7 @@ struct YouTubeExploreViewModelTests {
         let client = MockYouTubeClient()
         client.destinationFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 2),
-            continuationToken: nil
+            continuation: nil
         )
         let sut = YouTubeExploreViewModel(client: client)
         await sut.load()

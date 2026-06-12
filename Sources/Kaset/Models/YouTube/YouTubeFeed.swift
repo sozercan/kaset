@@ -5,9 +5,9 @@ import Foundation
 /// A page of the YouTube home (recommended) feed.
 struct YouTubeFeed {
     let videos: [YouTubeVideo]
-    let continuationToken: String?
+    let continuation: String?
 
-    static let empty = YouTubeFeed(videos: [], continuationToken: nil)
+    static let empty = YouTubeFeed(videos: [], continuation: nil)
 }
 
 // MARK: - YouTubeSearchResponse
@@ -17,13 +17,13 @@ struct YouTubeSearchResponse {
     var videos: [YouTubeVideo]
     var channels: [YouTubeChannel]
     var playlists: [YouTubePlaylist]
-    var continuationToken: String?
+    var continuation: String?
 
     static let empty = YouTubeSearchResponse(
         videos: [],
         channels: [],
         playlists: [],
-        continuationToken: nil
+        continuation: nil
     )
 
     var isEmpty: Bool {

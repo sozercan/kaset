@@ -10,11 +10,11 @@ enum YouTubeFeedParser {
     /// Parses a full browse response into a feed page.
     static func parse(_ data: [String: Any]) -> YouTubeFeed {
         var videos: [YouTubeVideo] = []
-        var continuationToken: String?
-        Self.collect(in: data, videos: &videos, continuationToken: &continuationToken)
+        var continuation: String?
+        Self.collect(in: data, videos: &videos, continuation: &continuation)
         return YouTubeFeed(
             videos: Self.deduplicate(videos),
-            continuationToken: continuationToken
+            continuation: continuation
         )
     }
 
@@ -22,7 +22,7 @@ enum YouTubeFeedParser {
     static func parseContinuation(_ data: [String: Any]) -> YouTubeFeed {
         let actions = data["onResponseReceivedActions"] as? [[String: Any]] ?? []
         var videos: [YouTubeVideo] = []
-        var continuationToken: String?
+        var continuation: String?
 
         for action in actions {
             let items = (action["appendContinuationItemsAction"] as? [String: Any])?["continuationItems"]
@@ -31,18 +31,18 @@ enum YouTubeFeedParser {
                 as? [[String: Any]]
                 ?? []
             for item in items {
-                Self.collect(in: item, videos: &videos, continuationToken: &continuationToken)
+                Self.collect(in: item, videos: &videos, continuation: &continuation)
             }
         }
 
         // Fall back to a full walk for unrecognized response shapes.
-        if videos.isEmpty, continuationToken == nil {
-            Self.collect(in: data, videos: &videos, continuationToken: &continuationToken)
+        if videos.isEmpty, continuation == nil {
+            Self.collect(in: data, videos: &videos, continuation: &continuation)
         }
 
         return YouTubeFeed(
             videos: Self.deduplicate(videos),
-            continuationToken: continuationToken
+            continuation: continuation
         )
     }
 
@@ -55,7 +55,7 @@ enum YouTubeFeedParser {
     static func collect(
         in value: Any,
         videos: inout [YouTubeVideo],
-        continuationToken: inout String?
+        continuation: inout String?
     ) {
         if let dict = value as? [String: Any] {
             if let video = YouTubeItemParser.video(fromAnyItem: dict) {
@@ -63,10 +63,10 @@ enum YouTubeFeedParser {
                 return
             }
 
-            if continuationToken == nil,
+            if continuation == nil,
                let continuationItem = dict["continuationItemRenderer"] as? [String: Any]
             {
-                continuationToken = Self.token(fromContinuationItem: continuationItem)
+                continuation = Self.token(fromContinuationItem: continuationItem)
                 return
             }
 
@@ -75,11 +75,11 @@ enum YouTubeFeedParser {
                 if key == "engagementPanels" || key == "playerOverlays" {
                     continue
                 }
-                Self.collect(in: nested, videos: &videos, continuationToken: &continuationToken)
+                Self.collect(in: nested, videos: &videos, continuation: &continuation)
             }
         } else if let array = value as? [Any] {
             for element in array {
-                Self.collect(in: element, videos: &videos, continuationToken: &continuationToken)
+                Self.collect(in: element, videos: &videos, continuation: &continuation)
             }
         }
     }

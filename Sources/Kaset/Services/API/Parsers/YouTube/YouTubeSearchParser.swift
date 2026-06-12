@@ -20,10 +20,10 @@ enum YouTubeSearchParser {
                 for item in items {
                     Self.append(item, to: &response)
                 }
-            } else if response.continuationToken == nil,
+            } else if response.continuation == nil,
                       let continuationItem = section["continuationItemRenderer"] as? [String: Any]
             {
-                response.continuationToken = YouTubeFeedParser.token(
+                response.continuation = YouTubeFeedParser.token(
                     fromContinuationItem: continuationItem
                 )
             }
@@ -49,11 +49,11 @@ enum YouTubeSearchParser {
                     for item in items {
                         Self.append(item, to: &response)
                     }
-                } else if response.continuationToken == nil,
+                } else if response.continuation == nil,
                           let continuationItem = sectionItem["continuationItemRenderer"]
                           as? [String: Any]
                 {
-                    response.continuationToken = YouTubeFeedParser.token(
+                    response.continuation = YouTubeFeedParser.token(
                         fromContinuationItem: continuationItem
                     )
                 }

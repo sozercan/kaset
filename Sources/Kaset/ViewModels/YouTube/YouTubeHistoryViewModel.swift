@@ -12,10 +12,10 @@ final class YouTubeHistoryViewModel {
     private(set) var videos: [YouTubeVideo] = []
 
     /// Continuation token for the next page.
-    private var continuationToken: String?
+    private var continuation: String?
 
     var hasMoreVideos: Bool {
-        self.continuationToken != nil
+        self.continuation != nil
     }
 
     let client: any YouTubeClientProtocol
@@ -32,7 +32,7 @@ final class YouTubeHistoryViewModel {
         do {
             let feed = try await client.getHistory()
             self.videos = feed.videos
-            self.continuationToken = feed.continuationToken
+            self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
             self.logger.error("Failed to load YouTube history: \(error.localizedDescription)")
@@ -43,23 +43,23 @@ final class YouTubeHistoryViewModel {
     func refresh() async {
         self.loadingState = .idle
         self.videos = []
-        self.continuationToken = nil
+        self.continuation = nil
         await self.load()
     }
 
     func loadMore() async {
-        guard self.loadingState == .loaded, let token = self.continuationToken else { return }
+        guard self.loadingState == .loaded, let continuation = self.continuation else { return }
 
         self.loadingState = .loadingMore
         do {
-            let feed = try await client.getFeedContinuation(token: token)
+            let feed = try await client.getFeedContinuation(continuation: continuation)
             let existing = Set(self.videos.map(\.videoId))
             self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
-            self.continuationToken = feed.continuationToken
+            self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
             self.logger.error("Failed to load more history: \(error.localizedDescription)")
-            self.continuationToken = nil
+            self.continuation = nil
             self.loadingState = .loaded
         }
     }

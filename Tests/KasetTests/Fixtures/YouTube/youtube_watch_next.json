@@ -1771,13 +1771,13 @@
                                     "command": {
                                       "commandMetadata": {
                                         "webCommandMetadata": {
-                                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbUpWQTN0dW5PNTNNUUtyUUJkal9DOExCWEhBQXxBQ3Jtc0tuWW9XZmVSWVNUaXF3eHVFWWNYS3RldXB0QTNYSU1LcmVfelF0Zk5kVmZlQWE5Y0c2UVZoc0lUM0hDeGRGWXJHbVhPUGx1QXpmcnRlU1g5cUFrN0JFWWVpeUgwVlRkWUhfWGRIeGh3UWIyUEFRcFIzNA&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D742595760%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D742595760%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                                           "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                                           "rootVe": 83769
                                         }
                                       },
                                       "urlEndpoint": {
-                                        "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbUpWQTN0dW5PNTNNUUtyUUJkal9DOExCWEhBQXxBQ3Jtc0tuWW9XZmVSWVNUaXF3eHVFWWNYS3RldXB0QTNYSU1LcmVfelF0Zk5kVmZlQWE5Y0c2UVZoc0lUM0hDeGRGWXJHbVhPUGx1QXpmcnRlU1g5cUFrN0JFWWVpeUgwVlRkWUhfWGRIeGh3UWIyUEFRcFIzNA&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D742595760%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                                        "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D742595760%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                                         "target": "TARGET_NEW_WINDOW",
                                         "nofollow": true
                                       }
@@ -1792,13 +1792,13 @@
                                     "command": {
                                       "commandMetadata": {
                                         "webCommandMetadata": {
-                                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbjVuMV90M0RhUXZLZWxEZEVlcGdGVnEtUDRTd3xBQ3Jtc0ttendfYWF2aXh6Mzc2Nld4aWxPWkFtZFI0b19lbnRyLThTN0VheGhtdndBY192THRTM0NCc3NjeEdyWDR0WmFTYmM0X2phVF9Eel9uSHpGUl9KNEVqLWllVmFydGdJRllyWXJ2RlhjRHVCaDlSQ2hXcw&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D434367169%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D434367169%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                                           "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                                           "rootVe": 83769
                                         }
                                       },
                                       "urlEndpoint": {
-                                        "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbjVuMV90M0RhUXZLZWxEZEVlcGdGVnEtUDRTd3xBQ3Jtc0ttendfYWF2aXh6Mzc2Nld4aWxPWkFtZFI0b19lbnRyLThTN0VheGhtdndBY192THRTM0NCc3NjeEdyWDR0WmFTYmM0X2phVF9Eel9uSHpGUl9KNEVqLWllVmFydGdJRllyWXJ2RlhjRHVCaDlSQ2hXcw&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D434367169%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                                        "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037113847%3Fticket_id%3D434367169%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                                         "target": "TARGET_NEW_WINDOW",
                                         "nofollow": true
                                       }
@@ -1833,13 +1833,13 @@
                       "buttonCommand": {
                         "commandMetadata": {
                           "webCommandMetadata": {
-                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbW1WY21QY2JyNGZ6dmVXOEc0S3BQMGVXNWpiQXxBQ3Jtc0tuaG5QblU3LTY3SnQzN0NHVGxQSjVXY0JaNEtmZ3QwWVZ2UlEwNDBudXAtVEk5eVJFblpqbHdWeWZUTHJPVlBCb2NzY0pGYXJhTzd0bG5KZlA3ZG9kYkdiei1xYjhGbTM4S3Y1dUw1VEdwcHV5cnk0UQ&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037809009%3Fticket_id%3D455917191%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037809009%3Fticket_id%3D455917191%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                             "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                             "rootVe": 83769
                           }
                         },
                         "urlEndpoint": {
-                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbW1WY21QY2JyNGZ6dmVXOEc0S3BQMGVXNWpiQXxBQ3Jtc0tuaG5QblU3LTY3SnQzN0NHVGxQSjVXY0JaNEtmZ3QwWVZ2UlEwNDBudXAtVEk5eVJFblpqbHdWeWZUTHJPVlBCb2NzY0pGYXJhTzd0bG5KZlA3ZG9kYkdiei1xYjhGbTM4S3Y1dUw1VEdwcHV5cnk0UQ&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037809009%3Fticket_id%3D455917191%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1037809009%3Fticket_id%3D455917191%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                           "target": "TARGET_NEW_WINDOW",
                           "nofollow": true
                         }
@@ -1862,13 +1862,13 @@
                       "buttonCommand": {
                         "commandMetadata": {
                           "webCommandMetadata": {
-                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqa0Z0SzFVSklHY3g5VGNrRk9wcWtZVHFxN1NhZ3xBQ3Jtc0trVXdiYXYxaENmMmlBN1JCNzl4UFUzaU9lTkdjc3NZRXFjWjJoZkFfdXFQbW85T0t0VmpvNjFQZnRVYmhUWXdZSEIxVXVYb1d5eUtvX2FEN0syWDBfWEdBRGlmSHZFTnlweDJLRXRJUlZIZnJ6ZUNqdw&q=https%3A%2F%2Fwww.bandsintown.com%2Fe%2F108354657%3Fapp_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Devent",
+                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Fe%2F108354657%3Fapp_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Devent",
                             "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                             "rootVe": 83769
                           }
                         },
                         "urlEndpoint": {
-                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqa0Z0SzFVSklHY3g5VGNrRk9wcWtZVHFxN1NhZ3xBQ3Jtc0trVXdiYXYxaENmMmlBN1JCNzl4UFUzaU9lTkdjc3NZRXFjWjJoZkFfdXFQbW85T0t0VmpvNjFQZnRVYmhUWXdZSEIxVXVYb1d5eUtvX2FEN0syWDBfWEdBRGlmSHZFTnlweDJLRXRJUlZIZnJ6ZUNqdw&q=https%3A%2F%2Fwww.bandsintown.com%2Fe%2F108354657%3Fapp_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Devent",
+                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Fe%2F108354657%3Fapp_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Devent",
                           "target": "TARGET_NEW_WINDOW",
                           "nofollow": true
                         }
@@ -1891,13 +1891,13 @@
                       "buttonCommand": {
                         "commandMetadata": {
                           "webCommandMetadata": {
-                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbDY3dDNhXzNkbUJpbnc5U3daUi1BNUhlLVhzUXxBQ3Jtc0tsWTZPQXYxRUh3WkgybHZjTm9EM1Jtbi0yY01uQmxSUDFoUjF5N1dxbDNDd1NUZTZKSTJ6WExsUzdESjZ2YlF2YnpMam9NOXZQcm9jNUVvM2txOFljTFFxNF9ZdmxWUkVrTjBHVHB0SjNDZVFsZWZLaw&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1036724596%3Fticket_id%3D422300388%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                            "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1036724596%3Fticket_id%3D422300388%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                             "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                             "rootVe": 83769
                           }
                         },
                         "urlEndpoint": {
-                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir_token=QUFFLUhqbDY3dDNhXzNkbUJpbnc5U3daUi1BNUhlLVhzUXxBQ3Jtc0tsWTZPQXYxRUh3WkgybHZjTm9EM1Jtbi0yY01uQmxSUDFoUjF5N1dxbDNDd1NUZTZKSTJ6WExsUzdESjZ2YlF2YnpMam9NOXZQcm9jNUVvM2txOFljTFFxNF9ZdmxWUkVrTjBHVHB0SjNDZVFsZWZLaw&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1036724596%3Fticket_id%3D422300388%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
+                          "url": "https://www.youtube.com/redirect?event=ticket_shelf&redir=REDACTED&q=https%3A%2F%2Fwww.bandsintown.com%2Ft%2F1036724596%3Fticket_id%3D422300388%26app_id%3Dyt_feed%26came_from%3D286%26utm_medium%3Dweb%26utm_source%3Dyt_feed%26utm_campaign%3Dticket",
                           "target": "TARGET_NEW_WINDOW",
                           "nofollow": true
                         }
@@ -3006,13 +3006,13 @@
                         "innertubeCommand": {
                           "commandMetadata": {
                             "webCommandMetadata": {
-                              "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa185TGdxUGRnd211dDRaM2paTU9Ib3BxdWVhd3xBQ3Jtc0tuYkFmVXVzUnFJZkpGOWtyRU1XQ014cWRjQkFmSTNOQzR4Y2pxellFd1o1eTgyeDFZb3pmMFN6REQ0N1ZwMklNaGdxeVlnQVNLU3QwSHZTUUZSelV3TnJ3dHp0UTdpYkFsYTBQV1huRFdpeEM1VThqdw&q=https%3A%2F%2Flinktr.ee%2Frickastleynever&v=dQw4w9WgXcQ",
+                              "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2Flinktr.ee%2Frickastleynever&v=dQw4w9WgXcQ",
                               "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                               "rootVe": 83769
                             }
                           },
                           "urlEndpoint": {
-                            "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa185TGdxUGRnd211dDRaM2paTU9Ib3BxdWVhd3xBQ3Jtc0tuYkFmVXVzUnFJZkpGOWtyRU1XQ014cWRjQkFmSTNOQzR4Y2pxellFd1o1eTgyeDFZb3pmMFN6REQ0N1ZwMklNaGdxeVlnQVNLU3QwSHZTUUZSelV3TnJ3dHp0UTdpYkFsYTBQV1huRFdpeEM1VThqdw&q=https%3A%2F%2Flinktr.ee%2Frickastleynever&v=dQw4w9WgXcQ",
+                            "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2Flinktr.ee%2Frickastleynever&v=dQw4w9WgXcQ",
                             "target": "TARGET_NEW_WINDOW",
                             "nofollow": true
                           }
@@ -3026,13 +3026,13 @@
                         "innertubeCommand": {
                           "commandMetadata": {
                             "webCommandMetadata": {
-                              "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbFE3d0pvdm1EZ2YzUEtiYnJXaVVCd0g5OHZtUXxBQ3Jtc0tsVmR5NHNjX041MTBueWhhekVjREFyRTljZmRURklFWkZCaVBubEEwUTdHbWFsRFBETmZ5VGRKd01VZXQ4NkhUZjBoc0pvUVk4aW14eWFkbmg5V2ItdWFqa2NEYV92WnhYODY1U2tLSEVhczJVdHRHdw&q=https%3A%2F%2FRickAstley.lnk.to%2FYTSubID&v=dQw4w9WgXcQ",
+                              "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2FRickAstley.lnk.to%2FYTSubID&v=dQw4w9WgXcQ",
                               "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                               "rootVe": 83769
                             }
                           },
                           "urlEndpoint": {
-                            "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbFE3d0pvdm1EZ2YzUEtiYnJXaVVCd0g5OHZtUXxBQ3Jtc0tsVmR5NHNjX041MTBueWhhekVjREFyRTljZmRURklFWkZCaVBubEEwUTdHbWFsRFBETmZ5VGRKd01VZXQ4NkhUZjBoc0pvUVk4aW14eWFkbmg5V2ItdWFqa2NEYV92WnhYODY1U2tLSEVhczJVdHRHdw&q=https%3A%2F%2FRickAstley.lnk.to%2FYTSubID&v=dQw4w9WgXcQ",
+                            "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2FRickAstley.lnk.to%2FYTSubID&v=dQw4w9WgXcQ",
                             "target": "TARGET_NEW_WINDOW",
                             "nofollow": true
                           }
@@ -3046,13 +3046,13 @@
                         "innertubeCommand": {
                           "commandMetadata": {
                             "webCommandMetadata": {
-                              "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbWFyYVpzV2dvX2lDMlA4TktyQmtLT2VNZFRBd3xBQ3Jtc0tudTh6S0JremIyaUVrMGdfQjFaU3lkcmNKaDJlVVhGd2NTb2tBT0VxN1ZHTVRkX1cyQUE0VFd2cFpVdUVEVWtaczk1akJKcDQ0bmtnSDk1dWk3S0NRUmtfZkFKM0liNVdHNncyaUtzWWJoRF9LcmZRWQ&q=https%3A%2F%2FRickAstley.lnk.to%2FFBFollowID&v=dQw4w9WgXcQ",
+                              "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2FRickAstley.lnk.to%2FFBFollowID&v=dQw4w9WgXcQ",
                               "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
                               "rootVe": 83769
                             }
                           },
                           "urlEndpoint": {
-                            "url": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbWFyYVpzV2dvX2lDMlA4TktyQmtLT2VNZFRBd3xBQ3Jtc0tudTh6S0JremIyaUVrMGdfQjFaU3lkcmNKaDJlVVhGd2NTb2tBT0VxN1ZHTVRkX1cyQUE0VFd2cFpVdUVEVWtaczk1akJKcDQ0bmtnSDk1dWk3S0NRUmtfZkFKM0liNVdHNncyaUtzWWJoRF9LcmZRWQ&q=https%3A%2F%2FRickAstley.lnk.to%2FFBFollowID&v=dQw4w9WgXcQ",
+                            "url": "https://www.youtube.com/redirect?event=video_description&redir=REDACTED&q=https%3A%2F%2FRickAstley.lnk.to%2FFBFollowID&v=dQw4w9WgXcQ",
                             "target": "TARGET_NEW_WINDOW",
                             "nofollow": true
                           }

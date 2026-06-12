@@ -19,7 +19,7 @@ struct YouTubeSearchViewModelTests {
             videos: MockYouTubeClient.makeVideos(count: 2),
             channels: [],
             playlists: [],
-            continuationToken: nil
+            continuation: nil
         )
         self.sut.query = "swift"
         self.sut.selectedFilter = .videos
@@ -48,7 +48,7 @@ struct YouTubeSearchViewModelTests {
             videos: MockYouTubeClient.makeVideos(count: 1),
             channels: [],
             playlists: [],
-            continuationToken: nil
+            continuation: nil
         )
         self.sut.query = "swift"
         await self.sut.search()
@@ -80,7 +80,7 @@ struct YouTubeSearchViewModelTests {
             videos: MockYouTubeClient.makeVideos(count: 2),
             channels: [],
             playlists: [],
-            continuationToken: "token"
+            continuation: "token"
         )
         self.mockClient.searchContinuation = YouTubeSearchResponse(
             videos: [
@@ -89,7 +89,7 @@ struct YouTubeSearchViewModelTests {
             ],
             channels: [],
             playlists: [],
-            continuationToken: nil
+            continuation: nil
         )
         self.sut.query = "swift"
         await self.sut.search()
@@ -97,6 +97,6 @@ struct YouTubeSearchViewModelTests {
         await self.sut.loadMore()
 
         #expect(self.sut.results.videos.map(\.videoId) == ["video-0", "video-1", "video-extra"])
-        #expect(self.sut.results.continuationToken == nil)
+        #expect(self.sut.results.continuation == nil)
     }
 }

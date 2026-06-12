@@ -23,7 +23,7 @@ struct YouTubeHomeViewModelTests {
     func loadPopulatesVideos() async {
         self.mockClient.homeFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 3),
-            continuationToken: nil
+            continuation: nil
         )
 
         await self.sut.load()
@@ -51,14 +51,14 @@ struct YouTubeHomeViewModelTests {
     func loadMoreAppendsAndDeduplicates() async {
         self.mockClient.homeFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 2),
-            continuationToken: "token"
+            continuation: "token"
         )
         self.mockClient.homeFeedContinuation = YouTubeFeed(
             videos: [
                 MockYouTubeClient.makeVideo(videoId: "video-1"), // duplicate
                 MockYouTubeClient.makeVideo(videoId: "video-new"),
             ],
-            continuationToken: nil
+            continuation: nil
         )
 
         await self.sut.load()
@@ -74,7 +74,7 @@ struct YouTubeHomeViewModelTests {
     func refreshReloads() async {
         self.mockClient.homeFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 1),
-            continuationToken: nil
+            continuation: nil
         )
         await self.sut.load()
         #expect(self.mockClient.homeFeedCallCount == 1)

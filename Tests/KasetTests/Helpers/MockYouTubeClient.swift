@@ -93,7 +93,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var watchLaterAdds: [String] = []
     private(set) var watchLaterRemovals: [String] = []
     private(set) var lastDestination: YouTubeDestination?
-    private(set) var lastContinuationToken: String?
+    private(set) var lastFeedContinuation: String?
 
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
         if let error { throw error }
@@ -101,9 +101,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.destinationFeed
     }
 
-    func getFeedContinuation(token: String) async throws -> YouTubeFeed {
+    func getFeedContinuation(continuation: String) async throws -> YouTubeFeed {
         if let error { throw error }
-        self.lastContinuationToken = token
+        self.lastFeedContinuation = continuation
         return self.feedContinuation
     }
 

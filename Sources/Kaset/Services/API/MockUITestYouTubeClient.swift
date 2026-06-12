@@ -9,7 +9,7 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
     }
 
     func getHomeFeed() async throws -> YouTubeFeed {
-        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+        YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
@@ -23,28 +23,28 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
                 videos: Self.sampleVideos,
                 channels: [Self.sampleChannel],
                 playlists: [Self.samplePlaylist],
-                continuationToken: nil
+                continuation: nil
             )
         case .videos:
             YouTubeSearchResponse(
                 videos: Self.sampleVideos,
                 channels: [],
                 playlists: [],
-                continuationToken: nil
+                continuation: nil
             )
         case .channels:
             YouTubeSearchResponse(
                 videos: [],
                 channels: [Self.sampleChannel],
                 playlists: [],
-                continuationToken: nil
+                continuation: nil
             )
         case .playlists:
             YouTubeSearchResponse(
                 videos: [],
                 channels: [],
                 playlists: [Self.samplePlaylist],
-                continuationToken: nil
+                continuation: nil
             )
         }
     }
@@ -88,15 +88,15 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
     }
 
     func getDestinationFeed(_: YouTubeDestination) async throws -> YouTubeFeed {
-        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+        YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
-    func getFeedContinuation(token _: String) async throws -> YouTubeFeed {
+    func getFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
         .empty
     }
 
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
-        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+        YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
     func getSubscribedChannels() async throws -> [YouTubeChannel] {
@@ -104,7 +104,7 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
     }
 
     func getHistory() async throws -> YouTubeFeed {
-        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+        YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
     func getUserPlaylists() async throws -> [YouTubePlaylist] {

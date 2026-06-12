@@ -41,29 +41,35 @@ import Foundation
 // MARK: - Configuration
 
 let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
+let webClientURL = URL(string: "https://music.youtube.com")!
 nonisolated(unsafe) var cachedAPIKey: String?
-nonisolated(unsafe) var cachedClientVersion: String?
+let clientVersion = "1.20231204.01.00"
+let baseURL = "https://music.youtube.com/youtubei/v1"
+let origin = "https://music.youtube.com"
 
 /// When true, the explorer targets regular YouTube (www.youtube.com, WEB client)
 /// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
 nonisolated(unsafe) var youtubeMode = false
+nonisolated(unsafe) var cachedClientVersion: String?
 
-nonisolated(unsafe) var apiHost = "music.youtube.com"
-nonisolated(unsafe) var webClientURL = URL(string: "https://music.youtube.com")!
-nonisolated(unsafe) var clientName = "WEB_REMIX"
-nonisolated(unsafe) var fallbackClientVersion = "1.20231204.01.00"
-nonisolated(unsafe) var baseURL = "https://music.youtube.com/youtubei/v1"
-nonisolated(unsafe) var origin = "https://music.youtube.com"
+// Active request configuration. Defaults to YouTube Music (the constants
+// above); --youtube switches everything to regular YouTube.
+nonisolated(unsafe) var activeAPIHost = "music.youtube.com"
+nonisolated(unsafe) var activeWebClientURL = webClientURL
+nonisolated(unsafe) var activeClientName = "WEB_REMIX"
+nonisolated(unsafe) var activeFallbackClientVersion = clientVersion
+nonisolated(unsafe) var activeBaseURL = baseURL
+nonisolated(unsafe) var activeOrigin = origin
 
 /// Switches all request configuration to regular YouTube (WEB client).
 func activateYouTubeMode() {
     youtubeMode = true
-    apiHost = "www.youtube.com"
-    webClientURL = URL(string: "https://www.youtube.com")!
-    clientName = "WEB"
-    fallbackClientVersion = "2.20250101.00.00"
-    baseURL = "https://www.youtube.com/youtubei/v1"
-    origin = "https://www.youtube.com"
+    activeAPIHost = "www.youtube.com"
+    activeWebClientURL = URL(string: "https://www.youtube.com")!
+    activeClientName = "WEB"
+    activeFallbackClientVersion = "2.20250101.00.00"
+    activeBaseURL = "https://www.youtube.com/youtubei/v1"
+    activeOrigin = "https://www.youtube.com"
 }
 
 /// Global auth user index (0 = primary account, 1+ = brand accounts)
@@ -135,7 +141,7 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
 /// (music.youtube.com or www.youtube.com depending on --youtube).
 /// Cookies with domain `.youtube.com` match either host via subdomain matching.
 func filterCookiesForAPIHost(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
-    let host = apiHost
+    let host = activeAPIHost
     return cookies.filter { cookie in
         let domain = cookie.domain.lowercased()
         // Cookies with leading dot match subdomains (e.g., ".youtube.com" matches "music.youtube.com")
@@ -173,7 +179,7 @@ func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
 /// Computes SAPISIDHASH for YouTube API authentication.
 func computeSAPISIDHASH(sapisid: String) -> String {
     let timestamp = Int(Date().timeIntervalSince1970)
-    let input = "\(timestamp) \(sapisid) \(origin)"
+    let input = "\(timestamp) \(sapisid) \(activeOrigin)"
 
     let data = Data(input.utf8)
     var hash = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
@@ -200,7 +206,7 @@ func resolveAPIKey() async throws -> String {
         return trimmed
     }
 
-    var request = URLRequest(url: webClientURL)
+    var request = URLRequest(url: activeWebClientURL)
     request.setValue(
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
         forHTTPHeaderField: "User-Agent"
@@ -273,8 +279,8 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
 
     return [
         "client": [
-            "clientName": clientName,
-            "clientVersion": cachedClientVersion ?? fallbackClientVersion,
+            "clientName": activeClientName,
+            "clientVersion": cachedClientVersion ?? activeFallbackClientVersion,
             "hl": "en",
             "gl": "US",
             "browserName": "Safari",
@@ -292,8 +298,8 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
         "Content-Type": "application/json",
         "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        "Origin": origin,
-        "Referer": "\(origin)/",
+        "Origin": activeOrigin,
+        "Referer": "\(activeOrigin)/",
     ]
 
     if authenticated, let cookies = loadCookiesFromAppBackup() {
@@ -304,7 +310,7 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
             headers["Cookie"] = cookieHeader
             headers["Authorization"] = "SAPISIDHASH \(sapisidhash)"
             headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
-            headers["X-Origin"] = origin
+            headers["X-Origin"] = activeOrigin
         }
     }
 
@@ -317,7 +323,7 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
     -> (data: [String: Any], statusCode: Int)
 {
     let apiKey = try await resolveAPIKey()
-    var components = URLComponents(string: "\(baseURL)/\(endpoint)")
+    var components = URLComponents(string: "\(activeBaseURL)/\(endpoint)")
     components?.queryItems = [
         URLQueryItem(name: "key", value: apiKey),
         URLQueryItem(name: "prettyPrint", value: "false"),
@@ -921,7 +927,7 @@ func checkAuthStatus() {
 
     let matchingCookies = filterCookiesForAPIHost(cookies)
     print("✅ Found \(cookies.count) cookies in app backup")
-    print("✅ \(matchingCookies.count) cookies match \(apiHost) domain\n")
+    print("✅ \(matchingCookies.count) cookies match \(activeAPIHost) domain\n")
 
     // Check for key auth cookies (in youtube.com domain)
     let authCookieNames = [
@@ -1024,7 +1030,7 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
     guard let apiKey = try? await resolveAPIKey() else {
         return nil
     }
-    var components = URLComponents(string: "\(baseURL)/account/account_menu")
+    var components = URLComponents(string: "\(activeBaseURL)/account/account_menu")
     components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
     guard let url = components?.url else {
         return nil

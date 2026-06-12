@@ -8,12 +8,12 @@ import Foundation
 enum YouTubePlaylistPageParser {
     static func parse(_ data: [String: Any], playlistId: String) -> YouTubePlaylistDetail {
         var videos: [YouTubeVideo] = []
-        var continuationToken: String?
+        var continuation: String?
         if let contents = data["contents"] {
             YouTubeFeedParser.collect(
                 in: contents,
                 videos: &videos,
-                continuationToken: &continuationToken
+                continuation: &continuation
             )
         }
         let deduplicated = YouTubeFeedParser.deduplicate(videos)
