@@ -256,6 +256,8 @@ struct MainWindow: View {
                 guard newAccountId != nil else { return }
 
                 self.historyViewModel?.reset()
+                // YouTube surfaces are account-scoped too.
+                self.youtubeStore.resetForAccountChange()
 
                 // Brand accounts can have a different region than the
                 // primary; re-probe in the background so the sidebar

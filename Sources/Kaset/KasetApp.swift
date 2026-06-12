@@ -352,29 +352,56 @@ struct KasetApp: App {
             }
 
             // Navigation commands - replace default sidebar toggle
+            // Each routes to the active source's equivalent destination.
             CommandGroup(replacing: .sidebar) {
                 // Home - ⌘1
                 Button("Home") {
-                    self.navigationSelection = .home
+                    if self.settings.appSource == .video {
+                        self.youtubeNavigationSelection = .home
+                    } else {
+                        self.navigationSelection = .home
+                    }
                 }
                 .keyboardShortcut("1", modifiers: .command)
 
                 // Explore - ⌘2
                 Button("Explore") {
-                    self.navigationSelection = .explore
+                    if self.settings.appSource == .video {
+                        self.youtubeNavigationSelection = .explore
+                    } else {
+                        self.navigationSelection = .explore
+                    }
                 }
                 .keyboardShortcut("2", modifiers: .command)
 
                 // Library - ⌘3
                 Button("Library") {
-                    self.navigationSelection = .library
+                    if self.settings.appSource == .video {
+                        self.youtubeNavigationSelection = .playlists
+                    } else {
+                        self.navigationSelection = .library
+                    }
                 }
                 .keyboardShortcut("3", modifiers: .command)
 
                 Divider()
 
+                // Switch Source - ⌘⇧Y
+                Button(self.settings.appSource == .music ? "Switch to YouTube" : "Switch to Music") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        self.settings.appSource = self.settings.appSource == .music ? .video : .music
+                    }
+                }
+                .keyboardShortcut("y", modifiers: [.command, .shift])
+
+                Divider()
+
                 // Search - ⌘F
                 Button("Search") {
+                    if self.settings.appSource == .video {
+                        self.youtubeNavigationSelection = .search
+                        return
+                    }
                     self.navigationSelection = .search
                     // Trigger focus after a brief delay to allow view to appear
                     Task { @MainActor in
@@ -531,6 +558,16 @@ struct KasetApp: App {
             Task {
                 await self.playerService.play(song: song)
             }
+
+        case let .youtubeVideo(videoId):
+            DiagnosticsLogger.app.info("Playing YouTube video from URL")
+            // Switch to the video experience and play in the floating
+            // window (no inline watch view is open yet).
+            self.settings.appSource = .video
+            self.youtubePlayerService.play(
+                video: YouTubeVideo(videoId: videoId, title: String(localized: "YouTube video"))
+            )
+            self.youtubePlayerService.popOutToWindow()
 
         case .playlist, .album, .artist:
             // Only song playback is supported via URL scheme
