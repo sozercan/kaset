@@ -82,6 +82,8 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
 
     func postComment(text _: String, createCommentParams _: String) async throws {}
 
+    func performCommentAction(_: String) async throws {}
+
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         YouTubeChannelDetail(
             channel: YouTubeChannel(

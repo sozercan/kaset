@@ -287,7 +287,7 @@ struct YouTubeWatchView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(self.viewModel.comments) { comment in
-                        CommentRow(comment: comment)
+                        CommentThread(comment: comment, viewModel: self.viewModel)
                     }
                 }
             }
@@ -304,8 +304,12 @@ struct YouTubeWatchView: View {
                 } label: {
                     Text("Show more comments", comment: "Load more comments button")
                         .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(.quaternary.opacity(0.5), in: Capsule())
+                        .contentShape(Capsule())
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
             }
         }
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentsSection)
@@ -321,7 +325,7 @@ struct YouTubeWatchView: View {
             )
             .textFieldStyle(.plain)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .frame(height: 30)
             .background(.quaternary.opacity(0.5), in: Capsule())
             .disabled(!self.viewModel.canComment)
             .onSubmit {
@@ -332,15 +336,20 @@ struct YouTubeWatchView: View {
             Button {
                 self.submitComment()
             } label: {
-                if self.viewModel.isPostingComment {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                Group {
+                    if self.viewModel.isPostingComment {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
                 }
+                .frame(width: 30, height: 30)
+                .background(.quaternary.opacity(0.5), in: Circle())
+                .contentShape(Circle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .disabled(
                 !self.viewModel.canComment
                     || self.viewModel.isPostingComment
@@ -361,39 +370,113 @@ struct YouTubeWatchView: View {
     }
 }
 
+// MARK: - CommentThread
+
+/// A comment with its action row (like/dislike, replies) and, when
+/// expanded, its indented reply thread.
+private struct CommentThread: View {
+    let comment: YouTubeComment
+    let viewModel: YouTubeWatchViewModel
+
+    @State private var showsReplies = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CommentRow(
+                comment: self.comment,
+                isLiked: self.viewModel.likedComments.contains(self.comment.id),
+                isDisliked: self.viewModel.dislikedComments.contains(self.comment.id),
+                onLike: {
+                    Task {
+                        await self.viewModel.likeComment(self.comment)
+                    }
+                },
+                onDislike: {
+                    Task {
+                        await self.viewModel.dislikeComment(self.comment)
+                    }
+                }
+            )
+
+            if self.comment.repliesContinuation != nil {
+                Button {
+                    self.showsReplies.toggle()
+                    if self.showsReplies {
+                        Task {
+                            await self.viewModel.loadReplies(for: self.comment)
+                        }
+                    }
+                } label: {
+                    Label(
+                        self.showsReplies
+                            ? String(localized: "Hide replies")
+                            : String(localized: "View replies"),
+                        systemImage: self.showsReplies ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 38)
+            }
+
+            if self.showsReplies {
+                if self.viewModel.loadingReplies.contains(self.comment.id) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(.leading, 38)
+                } else if let replies = self.viewModel.repliesByComment[self.comment.id] {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        ForEach(replies) { reply in
+                            CommentRow(
+                                comment: reply,
+                                isLiked: self.viewModel.likedComments.contains(reply.id),
+                                isDisliked: self.viewModel.dislikedComments.contains(reply.id),
+                                onLike: {
+                                    Task {
+                                        await self.viewModel.likeComment(reply)
+                                    }
+                                },
+                                onDislike: {
+                                    Task {
+                                        await self.viewModel.dislikeComment(reply)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.leading, 38)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - CommentRow
 
-/// One comment: avatar, author + time, text, like count.
+/// One comment: avatar, author + time, text, and working like/dislike.
+/// The author (avatar/name) navigates to their channel.
 private struct CommentRow: View {
     let comment: YouTubeComment
+    let isLiked: Bool
+    let isDisliked: Bool
+    let onLike: () -> Void
+    let onDislike: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            CachedAsyncImage(
-                url: self.comment.authorAvatarURL,
-                targetSize: CGSize(width: 56, height: 56)
-            ) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Circle()
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
+            self.authorLink {
+                self.avatar
             }
-            .frame(width: 28, height: 28)
-            .clipShape(.circle)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(self.comment.author)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                    self.authorLink {
+                        Text(self.comment.author)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
 
                     if let publishedText = self.comment.publishedText {
                         Text(publishedText)
@@ -407,14 +490,70 @@ private struct CommentRow: View {
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
 
-                if let likeCountText = self.comment.likeCountText, !likeCountText.isEmpty {
-                    Label(likeCountText, systemImage: "hand.thumbsup")
+                HStack(spacing: 14) {
+                    Button(action: self.onLike) {
+                        HStack(spacing: 4) {
+                            Image(systemName: self.isLiked ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.system(size: 11))
+                            if let likeCountText = self.comment.likeCountText, !likeCountText.isEmpty {
+                                Text(likeCountText)
+                                    .font(.system(size: 11))
+                            }
+                        }
+                        .foregroundStyle(self.isLiked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(self.comment.likeActionToken == nil)
+                    .accessibilityLabel(String(localized: "Like comment"))
+
+                    Button(action: self.onDislike) {
+                        Image(systemName: self.isDisliked ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                            .font(.system(size: 11))
+                            .foregroundStyle(self.isDisliked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(self.comment.dislikeActionToken == nil)
+                    .accessibilityLabel(String(localized: "Dislike comment"))
+                }
+                .padding(.top, 2)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Wraps content in a channel link when the author's channel is known.
+    @ViewBuilder
+    private func authorLink(@ViewBuilder content: () -> some View) -> some View {
+        if let channelId = self.comment.authorChannelId {
+            NavigationLink(value: YouTubeRoute.channel(channelId: channelId)) {
+                content()
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            content()
+        }
+    }
+
+    private var avatar: some View {
+        CachedAsyncImage(
+            url: self.comment.authorAvatarURL,
+            targetSize: CGSize(width: 56, height: 56)
+        ) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Circle()
+                .fill(.quaternary)
+                .overlay {
+                    Image(systemName: "person.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                 }
-            }
         }
-        .accessibilityElement(children: .combine)
+        .frame(width: 28, height: 28)
+        .clipShape(.circle)
     }
 }
 

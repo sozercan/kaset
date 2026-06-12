@@ -78,6 +78,13 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.postedComments.append((text, createCommentParams))
     }
 
+    private(set) var performedCommentActions: [String] = []
+
+    func performCommentAction(_ action: String) async throws {
+        if let error { throw error }
+        self.performedCommentActions.append(action)
+    }
+
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         if let error { throw error }
         if let channelDetail { return channelDetail }

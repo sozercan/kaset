@@ -155,6 +155,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ = try await self.request("comment/create_comment", body: body)
     }
 
+    func performCommentAction(_ action: String) async throws {
+        self.logger.info("Performing comment action")
+
+        let body: [String: Any] = ["actions": [action]]
+        _ = try await self.request("comment/perform_comment_action", body: body)
+    }
+
     // MARK: - Browse
 
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {

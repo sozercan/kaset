@@ -57,6 +57,17 @@ final class YouTubeWatchViewModel {
         self.createCommentParams != nil
     }
 
+    /// Comments the user liked/disliked this session (display state only —
+    /// undo tokens aren't tracked, so actions are one-shot).
+    private(set) var likedComments: Set<String> = []
+    private(set) var dislikedComments: Set<String> = []
+
+    /// Loaded reply threads by parent comment ID.
+    private(set) var repliesByComment: [String: [YouTubeComment]] = [:]
+
+    /// Parent comments whose replies are currently loading.
+    private(set) var loadingReplies: Set<String> = []
+
     func load() async {
         self.loadGeneration += 1
         let generation = self.loadGeneration
@@ -105,6 +116,63 @@ final class YouTubeWatchViewModel {
             if error is CancellationError { return }
             self.logger.error("Failed to load comments: \(error.localizedDescription)")
             self.commentsContinuation = nil
+        }
+    }
+
+    /// Likes a comment (one-shot; YouTube's undo token isn't tracked).
+    func likeComment(_ comment: YouTubeComment) async {
+        guard let token = comment.likeActionToken,
+              !self.likedComments.contains(comment.id)
+        else {
+            return
+        }
+        do {
+            try await self.client.performCommentAction(token)
+            self.likedComments.insert(comment.id)
+            self.dislikedComments.remove(comment.id)
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to like comment: \(error.localizedDescription)")
+        }
+    }
+
+    /// Dislikes a comment (one-shot).
+    func dislikeComment(_ comment: YouTubeComment) async {
+        guard let token = comment.dislikeActionToken,
+              !self.dislikedComments.contains(comment.id)
+        else {
+            return
+        }
+        do {
+            try await self.client.performCommentAction(token)
+            self.dislikedComments.insert(comment.id)
+            self.likedComments.remove(comment.id)
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to dislike comment: \(error.localizedDescription)")
+        }
+    }
+
+    /// Loads a comment's reply thread.
+    func loadReplies(for comment: YouTubeComment) async {
+        guard let continuation = comment.repliesContinuation,
+              self.repliesByComment[comment.id] == nil,
+              !self.loadingReplies.contains(comment.id)
+        else {
+            return
+        }
+
+        self.loadingReplies.insert(comment.id)
+        defer {
+            self.loadingReplies.remove(comment.id)
+        }
+        do {
+            let page = try await self.client.getComments(continuation: continuation)
+            // Reply pages can echo the parent; drop it.
+            self.repliesByComment[comment.id] = page.comments.filter { $0.id != comment.id }
+        } catch {
+            if error is CancellationError { return }
+            self.logger.error("Failed to load replies: \(error.localizedDescription)")
         }
     }
 

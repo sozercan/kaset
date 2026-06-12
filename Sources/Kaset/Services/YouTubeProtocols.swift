@@ -39,6 +39,9 @@ protocol YouTubeClientProtocol: Sendable {
     /// Posts a top-level comment.
     func postComment(text: String, createCommentParams: String) async throws
 
+    /// Performs a comment toolbar action (like/dislike) by action token.
+    func performCommentAction(_ action: String) async throws
+
     // MARK: Browse
 
     /// Fetches a channel page by `UC…` channel ID.

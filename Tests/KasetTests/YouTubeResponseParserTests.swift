@@ -229,6 +229,91 @@ struct YouTubeCommentsParserTests {
         #expect(page.continuation == "next-page")
     }
 
+    @Test("Links view models to entity payloads, surfaces, and replies")
+    func linksViewModels() throws {
+        let data: [String: Any] = [
+            "frameworkUpdates": [
+                "entityBatchUpdate": [
+                    "mutations": [
+                        [
+                            "entityKey": "key-c1",
+                            "payload": [
+                                "commentEntityPayload": [
+                                    "properties": [
+                                        "commentId": "c1",
+                                        "content": ["content": "Threaded"],
+                                    ],
+                                    "author": [
+                                        "displayName": "@author",
+                                        "channelId": "UCauthor",
+                                    ],
+                                ],
+                            ],
+                        ],
+                        [
+                            "entityKey": "key-s1",
+                            "payload": [
+                                "engagementToolbarSurfaceEntityPayload": [
+                                    "likeCommand": [
+                                        "innertubeCommand": [
+                                            "performCommentActionEndpoint": ["action": "like-token"],
+                                        ],
+                                    ],
+                                    "dislikeCommand": [
+                                        "innertubeCommand": [
+                                            "performCommentActionEndpoint": ["action": "dislike-token"],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            "onResponseReceivedEndpoints": [
+                [
+                    "appendContinuationItemsAction": [
+                        "continuationItems": [
+                            [
+                                "commentThreadRenderer": [
+                                    "commentViewModel": [
+                                        "commentViewModel": [
+                                            "commentId": "c1",
+                                            "commentKey": "key-c1",
+                                            "toolbarSurfaceKey": "key-s1",
+                                        ],
+                                    ],
+                                    "replies": [
+                                        "commentRepliesRenderer": [
+                                            "contents": [
+                                                [
+                                                    "continuationItemRenderer": [
+                                                        "continuationEndpoint": [
+                                                            "continuationCommand": ["token": "replies-token"],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let page = YouTubeCommentsParser.parse(data)
+
+        let comment = try #require(page.comments.first)
+        #expect(comment.id == "c1")
+        #expect(comment.authorChannelId == "UCauthor")
+        #expect(comment.likeActionToken == "like-token")
+        #expect(comment.dislikeActionToken == "dislike-token")
+        #expect(comment.repliesContinuation == "replies-token")
+    }
+
     @Test("Parses legacy commentRenderer responses and create params")
     func parsesLegacyRenderers() throws {
         let data: [String: Any] = [

@@ -150,6 +150,38 @@ struct YouTubeComment: Identifiable, Hashable {
     let text: String
     let publishedText: String?
     let likeCountText: String?
+    /// The author's channel (for navigation to their page).
+    var authorChannelId: String?
+    /// Action token for liking this comment.
+    var likeActionToken: String?
+    /// Action token for disliking this comment.
+    var dislikeActionToken: String?
+    /// Continuation token for this comment's reply thread.
+    var repliesContinuation: String?
+
+    init(
+        id: String,
+        author: String,
+        authorAvatarURL: URL?,
+        text: String,
+        publishedText: String?,
+        likeCountText: String?,
+        authorChannelId: String? = nil,
+        likeActionToken: String? = nil,
+        dislikeActionToken: String? = nil,
+        repliesContinuation: String? = nil
+    ) {
+        self.id = id
+        self.author = author
+        self.authorAvatarURL = authorAvatarURL
+        self.text = text
+        self.publishedText = publishedText
+        self.likeCountText = likeCountText
+        self.authorChannelId = authorChannelId
+        self.likeActionToken = likeActionToken
+        self.dislikeActionToken = dislikeActionToken
+        self.repliesContinuation = repliesContinuation
+    }
 }
 
 // MARK: - YouTubeCommentsPage

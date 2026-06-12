@@ -27,14 +27,106 @@ enum YouTubeCommentsParser {
         let batch = updates?["entityBatchUpdate"] as? [String: Any]
         let mutations = batch?["mutations"] as? [[String: Any]] ?? []
 
-        return mutations.compactMap { mutation in
-            guard let payload = (mutation["payload"] as? [String: Any])?["commentEntityPayload"]
-                as? [String: Any]
-            else {
-                return nil
+        // Entity payloads are flat; the thread structure and ordering come
+        // from the comment view models in the continuation items.
+        var commentsByKey: [String: [String: Any]] = [:]
+        var orderedPayloads: [[String: Any]] = []
+        var surfacesByKey: [String: (like: String?, dislike: String?)] = [:]
+
+        for mutation in mutations {
+            guard let payload = mutation["payload"] as? [String: Any] else { continue }
+            let key = mutation["entityKey"] as? String
+            if let comment = payload["commentEntityPayload"] as? [String: Any] {
+                orderedPayloads.append(comment)
+                if let key {
+                    commentsByKey[key] = comment
+                }
             }
-            return Self.comment(fromEntityPayload: payload)
+            if let key,
+               let surface = payload["engagementToolbarSurfaceEntityPayload"] as? [String: Any]
+               ?? payload["commentSurfaceEntityPayload"] as? [String: Any]
+            {
+                surfacesByKey[key] = (
+                    like: Self.actionToken(of: surface["likeCommand"]),
+                    dislike: Self.actionToken(of: surface["dislikeCommand"])
+                )
+            }
         }
+
+        // Preferred path: walk the view models for order, thread replies,
+        // and the toolbar-surface linkage.
+        var viewModels: [(vm: [String: Any], replies: String?)] = []
+        Self.collectCommentViewModels(in: data, into: &viewModels)
+
+        if !viewModels.isEmpty {
+            return viewModels.compactMap { entry in
+                guard let commentKey = entry.vm["commentKey"] as? String,
+                      let payload = commentsByKey[commentKey],
+                      var comment = Self.comment(fromEntityPayload: payload)
+                else {
+                    return nil
+                }
+                if let surfaceKey = entry.vm["toolbarSurfaceKey"] as? String,
+                   let surface = surfacesByKey[surfaceKey]
+                {
+                    comment.likeActionToken = surface.like
+                    comment.dislikeActionToken = surface.dislike
+                }
+                comment.repliesContinuation = entry.replies
+                return comment
+            }
+        }
+
+        // Fallback: mutation order without thread/action linkage.
+        return orderedPayloads.compactMap { Self.comment(fromEntityPayload: $0) }
+    }
+
+    /// Extracts the `performCommentActionEndpoint.action` token from a
+    /// toolbar command container.
+    private static func actionToken(of command: Any?) -> String? {
+        guard let command else { return nil }
+        return Self.firstString(forKey: "action", in: command)
+    }
+
+    /// Collects comment view models in display order, with each thread's
+    /// replies continuation. Handles top-level threads
+    /// (`commentThreadRenderer`) and bare view models (reply pages).
+    private static func collectCommentViewModels(
+        in value: Any,
+        into results: inout [(vm: [String: Any], replies: String?)]
+    ) {
+        if let dict = value as? [String: Any] {
+            if let thread = dict["commentThreadRenderer"] as? [String: Any] {
+                if let viewModel = innerCommentViewModel(of: thread["commentViewModel"]) {
+                    let repliesToken = (thread["replies"] as? [String: Any])
+                        .flatMap { Self.firstString(forKey: "token", in: $0) }
+                    results.append((viewModel, repliesToken))
+                }
+                return
+            }
+
+            if let viewModel = Self.innerCommentViewModel(of: dict["commentViewModel"]) {
+                results.append((viewModel, nil))
+                return
+            }
+
+            for nested in dict.values {
+                Self.collectCommentViewModels(in: nested, into: &results)
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                Self.collectCommentViewModels(in: element, into: &results)
+            }
+        }
+    }
+
+    /// `commentViewModel` sometimes wraps another `commentViewModel` level.
+    private static func innerCommentViewModel(of value: Any?) -> [String: Any]? {
+        guard let dict = value as? [String: Any] else { return nil }
+        if let inner = dict["commentViewModel"] as? [String: Any] {
+            return inner["commentKey"] != nil ? inner : nil
+        }
+        return dict["commentKey"] != nil ? dict : nil
     }
 
     private static func comment(fromEntityPayload payload: [String: Any]) -> YouTubeComment? {
@@ -56,7 +148,8 @@ enum YouTubeCommentsParser {
             authorAvatarURL: (author?["avatarThumbnailUrl"] as? String).flatMap(URL.init(string:)),
             text: text,
             publishedText: properties?["publishedTime"] as? String,
-            likeCountText: toolbar?["likeCountNotliked"] as? String
+            likeCountText: toolbar?["likeCountNotliked"] as? String,
+            authorChannelId: author?["channelId"] as? String
         )
     }
 
