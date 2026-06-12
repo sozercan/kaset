@@ -5,6 +5,7 @@ enum SearchResponseParser {
     private static let logger = DiagnosticsLogger.api
 
     /// Parses a search response.
+    /// Parses a search response.
     static func parse(_ data: [String: Any]) -> SearchResponse {
         var songs: [Song] = []
         var albums: [Album] = []
@@ -26,22 +27,9 @@ enum SearchResponseParser {
         }
 
         for sectionData in sectionContents {
-            // Parse musicCardShelfRenderer (Top Result section)
-            if let cardShelfRenderer = sectionData["musicCardShelfRenderer"] as? [String: Any] {
-                if let item = parseCardShelfRenderer(cardShelfRenderer) {
-                    Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
-                }
-            }
-
-            // Parse musicShelfRenderer (regular results)
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData) {
-                        Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
-                    }
-                }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
             }
         }
 
@@ -82,25 +70,101 @@ enum SearchResponseParser {
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             // Try tabbed structure as fallback
-            let response = self.parse(data)
+            let response = Self.parse(data)
             return response.songs
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .song(song) = item
-                    {
-                        songs.append(song)
-                    }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                if case let .song(song) = item {
+                    songs.append(song)
                 }
             }
         }
 
         return songs
+    }
+
+    /// Helper to extract all search result items from a section renderer (handles card shelf, regular shelf, and item section renderers).
+    private static func extractItems(from sectionData: [String: Any]) -> [SearchResultItem] {
+        var items: [SearchResultItem] = []
+
+        // 1. Parse musicCardShelfRenderer (Top Result section)
+        if let cardShelfRenderer = sectionData["musicCardShelfRenderer"] as? [String: Any] {
+            if let item = Self.parseCardShelfRenderer(cardShelfRenderer) {
+                items.append(item)
+            }
+        }
+
+        // 2. Parse musicShelfRenderer (regular results)
+        if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+           let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+        {
+            for itemData in shelfContents {
+                if let item = Self.parseSearchResultItem(itemData) {
+                    items.append(item)
+                }
+            }
+        }
+
+        // 3. Parse itemSectionRenderer (regular results nested in a section)
+        if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
+           let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
+        {
+            for itemContent in itemContents {
+                if let item = Self.parseSearchResultItem(itemContent) {
+                    items.append(item)
+                } else if let shelfRenderer = itemContent["musicShelfRenderer"] as? [String: Any],
+                          let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+                {
+                    for itemData in shelfContents {
+                        if let item = Self.parseSearchResultItem(itemData) {
+                            items.append(item)
+                        }
+                    }
+                }
+            }
+        }
+
+        return items
+    }
+
+    /// Helper to extract all podcast shows from a section renderer (handles regular shelf and item section renderers).
+    private static func extractPodcastShows(from sectionData: [String: Any]) -> [PodcastShow] {
+        var shows: [PodcastShow] = []
+
+        // 1. Parse musicShelfRenderer
+        if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
+           let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+        {
+            for itemData in shelfContents {
+                if let show = Self.parsePodcastShowFromSearchResult(itemData) {
+                    shows.append(show)
+                }
+            }
+        }
+
+        // 2. Parse itemSectionRenderer
+        if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
+           let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
+        {
+            for itemContent in itemContents {
+                if let show = Self.parsePodcastShowFromSearchResult(itemContent) {
+                    shows.append(show)
+                } else if let shelfRenderer = itemContent["musicShelfRenderer"] as? [String: Any],
+                          let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
+                {
+                    for itemData in shelfContents {
+                        if let show = Self.parsePodcastShowFromSearchResult(itemData) {
+                            shows.append(show)
+                        }
+                    }
+                }
+            }
+        }
+
+        return shows
     }
 
     // MARK: - Item Parsing
@@ -290,22 +354,17 @@ enum SearchResponseParser {
     static func parseAlbumsOnly(_ data: [String: Any]) -> ([Album], String?) {
         var albums: [Album] = []
 
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
+        guard let sectionListRenderer = Self.getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             return ([], nil)
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .album(album) = item
-                    {
-                        albums.append(album)
-                    }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                if case let .album(album) = item {
+                    albums.append(album)
                 }
             }
         }
@@ -318,22 +377,17 @@ enum SearchResponseParser {
     static func parseArtistsOnly(_ data: [String: Any]) -> ([Artist], String?) {
         var artists: [Artist] = []
 
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
+        guard let sectionListRenderer = Self.getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             return ([], nil)
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .artist(artist) = item
-                    {
-                        artists.append(artist)
-                    }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                if case let .artist(artist) = item {
+                    artists.append(artist)
                 }
             }
         }
@@ -346,22 +400,17 @@ enum SearchResponseParser {
     static func parsePlaylistsOnly(_ data: [String: Any]) -> ([Playlist], String?) {
         var playlists: [Playlist] = []
 
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
+        guard let sectionListRenderer = Self.getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             return ([], nil)
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .playlist(playlist) = item
-                    {
-                        playlists.append(playlist)
-                    }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                if case let .playlist(playlist) = item {
+                    playlists.append(playlist)
                 }
             }
         }
@@ -374,22 +423,15 @@ enum SearchResponseParser {
     static func parsePodcastsOnly(_ data: [String: Any]) -> ([PodcastShow], String?) {
         var podcasts: [PodcastShow] = []
 
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
+        guard let sectionListRenderer = Self.getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             return ([], nil)
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
-                        podcasts.append(show)
-                    }
-                }
-            }
+            let shows = Self.extractPodcastShows(from: sectionData)
+            podcasts.append(contentsOf: shows)
         }
 
         let token = Self.extractContinuationToken(from: sectionListRenderer)
@@ -430,22 +472,17 @@ enum SearchResponseParser {
     static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
         var songs: [Song] = []
 
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
+        guard let sectionListRenderer = Self.getSectionListRenderer(from: data),
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
             return ([], nil)
         }
 
         for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .song(song) = item
-                    {
-                        songs.append(song)
-                    }
+            let items = Self.extractItems(from: sectionData)
+            for item in items {
+                if case let .song(song) = item {
+                    songs.append(song)
                 }
             }
         }
@@ -474,7 +511,7 @@ enum SearchResponseParser {
                     // Try to parse as podcast show first (for podcast search continuation)
                     if let show = Self.parsePodcastShowFromSearchResult(itemData) {
                         podcastShows.append(show)
-                    } else if let item = parseSearchResultItem(itemData) {
+                    } else if let item = Self.parseSearchResultItem(itemData) {
                         Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
                     }
                 }
