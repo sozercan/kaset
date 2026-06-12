@@ -38,10 +38,10 @@ final class YouTubeVideoWindowController {
         let hostingView = NSHostingView(rootView: AnyView(contentView))
         self.hostingView = hostingView
 
-        let defaultRect = NSRect(x: 0, y: 0, width: 480, height: 270)
+        let defaultRect = NSRect(x: 0, y: 0, width: 640, height: 360)
         let window = NSWindow(
             contentRect: defaultRect,
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -53,11 +53,15 @@ final class YouTubeVideoWindowController {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.level = .normal
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // fullScreenPrimary so the green traffic light enters fullscreen
+        // (not just zoom).
+        window.collectionBehavior = [.fullScreenPrimary]
         // Lock resizing to the video's aspect ratio so the surface can't be
         // misshapen (controls overlay inside the video, so content == video).
         window.contentAspectRatio = NSSize(width: 16, height: 9)
-        window.minSize = NSSize(width: 320, height: 180)
+        // Generous floor: the full player bar needs the width, and very
+        // small WebView surfaces have crashed during live resizes.
+        window.contentMinSize = NSSize(width: 512, height: 288)
         window.backgroundColor = .black
         window.setFrameAutosaveName(self.frameAutosaveKey)
         window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.YouTubeContent.videoWindow)
@@ -67,9 +71,10 @@ final class YouTubeVideoWindowController {
         }
         // Saved frames from earlier layouts may not be 16:9; the aspect lock
         // only constrains user resizes, so normalize the content explicitly.
-        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        var contentSize = window.contentRect(forFrameRect: window.frame).size
+        contentSize.width = max(contentSize.width, 512)
         let expectedHeight = contentSize.width * 9 / 16
-        if abs(contentSize.height - expectedHeight) > 1 {
+        if abs(contentSize.height - expectedHeight) > 1 || contentSize.width < 512 {
             window.setContentSize(NSSize(width: contentSize.width, height: expectedHeight))
         }
 
@@ -160,24 +165,27 @@ private struct YouTubeVideoWindowContent: View {
     @State private var isHovering = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            YouTubeWatchSurfaceView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack(alignment: .topLeading) {
+            ZStack(alignment: .bottom) {
+                YouTubeWatchSurfaceView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if self.isHovering {
+                    // The full player bar — same items as the main window.
+                    YouTubePlayerBar()
+                        .transition(.opacity)
+                }
+            }
 
             if self.isHovering {
-                YouTubePlayerBar(compact: true)
-                    .transition(.opacity)
-            }
-        }
-        .overlay(alignment: .topLeading) {
-            if self.isHovering {
-                // Depth behind the traffic lights.
+                // Depth chip hugging the traffic lights (standard buttons
+                // sit at x 7–61, y 7–21 in the transparent title bar).
                 Capsule()
                     .fill(.clear)
-                    .frame(width: 76, height: 26)
+                    .frame(width: 62, height: 21)
                     .compatGlass(interactive: false, in: .capsule)
-                    .padding(.leading, 7)
-                    .padding(.top, 5)
+                    .padding(.leading, 4)
+                    .padding(.top, 4)
                     .transition(.opacity)
                     .allowsHitTesting(false)
             }

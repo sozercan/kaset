@@ -16,10 +16,6 @@ import SwiftUI
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
 
-    /// Compact layout for the pop-out window overlay: transport + seek +
-    /// like/dislike + pop-in only.
-    var compact = false
-
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     /// Namespace for glass effect morphing.
@@ -34,19 +30,15 @@ struct YouTubePlayerBar: View {
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             HStack(spacing: 0) {
-                if self.compact {
-                    self.compactContent
-                } else {
-                    self.playbackControls
+                self.playbackControls
 
-                    Spacer()
+                Spacer()
 
-                    self.centerSection
+                self.centerSection
 
-                    Spacer()
+                Spacer()
 
-                    self.rightSection
-                }
+                self.rightSection
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -92,72 +84,6 @@ struct YouTubePlayerBar: View {
         .padding(.bottom, -8)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    // MARK: - Compact Content (pop-out window overlay)
-
-    private var compactContent: some View {
-        HStack(spacing: 12) {
-            self.playbackControls
-
-            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
-                if editing {
-                    self.isSeeking = true
-                } else {
-                    self.performSeek()
-                }
-            }
-            .controlSize(.small)
-            .tint(Self.brandAccent)
-            .disabled(self.youtubePlayer.duration <= 0 || self.youtubePlayer.isShowingAd)
-            .accessibilityLabel(String(localized: "Seek"))
-
-            self.likeDislikeCompact
-
-            // Pop back into the app
-            Button {
-                HapticService.toggle()
-                self.youtubePlayer.requestPopIn()
-            } label: {
-                Image(systemName: "pip.exit")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(String(localized: "Pop video back into Kaset"))
-        }
-    }
-
-    private var likeDislikeCompact: some View {
-        HStack(spacing: 10) {
-            Button {
-                Task {
-                    await self.youtubePlayer.toggleDislike()
-                }
-            } label: {
-                Image(systemName: self.youtubePlayer.currentRating == .dislike
-                    ? "hand.thumbsdown.fill"
-                    : "hand.thumbsdown")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(self.youtubePlayer.currentRating == .dislike ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(String(localized: "Dislike"))
-
-            Button {
-                Task {
-                    await self.youtubePlayer.toggleLike()
-                }
-            } label: {
-                Image(systemName: self.youtubePlayer.currentRating == .like
-                    ? "hand.thumbsup.fill"
-                    : "hand.thumbsup")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(self.youtubePlayer.currentRating == .like ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(String(localized: "Like"))
-        }
     }
 
     // MARK: - Playback Controls
