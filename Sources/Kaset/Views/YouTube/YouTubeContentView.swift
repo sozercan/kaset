@@ -8,17 +8,14 @@ import SwiftUI
 /// Sections without an implementation yet render placeholders.
 struct YouTubeContentView: View {
     let selection: YouTubeNavigationItem?
-    let store: YouTubeViewModelStore
+    @Bindable var store: YouTubeViewModelStore
 
     @Environment(YouTubePlayerService.self) private var youtubePlayer
-
-    /// Drill-in path for the active section's stack.
-    @State private var navigationPath = NavigationPath()
 
     var body: some View {
         Group {
             if let selection {
-                NavigationStack(path: self.$navigationPath) {
+                NavigationStack(path: self.$store.navigationPath) {
                     // Each navigable view carries its own bar inset
                     // (pushed views don't inherit a parent's safeAreaInset).
                     self.rootView(for: selection)
@@ -43,7 +40,7 @@ struct YouTubeContentView: View {
             self.handleSkipNavigationRequest(request)
         }
         .onChange(of: self.selection) { _, _ in
-            self.navigationPath = NavigationPath()
+            self.store.navigationPath = NavigationPath()
         }
     }
 
@@ -54,7 +51,7 @@ struct YouTubeContentView: View {
         defer {
             self.youtubePlayer.consumeSkipNavigationRequest()
         }
-        self.navigationPath.append(YouTubeRoute.watch(video))
+        self.store.navigationPath.append(YouTubeRoute.watch(video))
     }
 
     /// Docks a popped-out video back into a watch view: adopts the one that
@@ -68,7 +65,7 @@ struct YouTubeContentView: View {
         if self.youtubePlayer.activeInlineVideoId == video.videoId {
             self.youtubePlayer.dockInline()
         } else {
-            self.navigationPath.append(YouTubeRoute.watch(video))
+            self.store.navigationPath.append(YouTubeRoute.watch(video))
         }
     }
 

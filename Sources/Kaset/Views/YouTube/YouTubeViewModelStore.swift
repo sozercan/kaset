@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// Owns the YouTube experience's view models so they persist across
 /// source toggles and sidebar navigation (parallel to MainWindow's cached
@@ -8,6 +9,11 @@ import Observation
 @Observable
 final class YouTubeViewModelStore {
     let client: any YouTubeClientProtocol
+
+    /// Drill-in path for the active section's stack. Lives here (not in
+    /// the content view) so toggling to Music and back restores the exact
+    /// screen — e.g. the watch view you were on.
+    var navigationPath = NavigationPath()
 
     private(set) var home: YouTubeHomeViewModel
     private(set) var search: YouTubeSearchViewModel

@@ -49,7 +49,8 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
-        .navigationTitle(Text(self.video.title))
+        // The in-page metadata shows the title; keep the bar clean.
+        .navigationTitle("")
         .task {
             self.startOrAdoptPlayback()
             await self.viewModel.load()
