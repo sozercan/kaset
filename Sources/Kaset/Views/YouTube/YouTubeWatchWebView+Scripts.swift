@@ -122,6 +122,25 @@ extension YouTubeWatchWebView {
         """
     }
 
+    /// Document-start blackout: the page is black from its very first paint
+    /// so YouTube's layout never flashes before extraction runs. Uses
+    /// element selectors only, so the extraction script's class-based
+    /// `.kaset-visible` chain (and caption whitelists) win once applied.
+    static var blackoutScript: String {
+        """
+        (function() {
+            'use strict';
+            const style = document.createElement('style');
+            style.id = 'kaset-yt-blackout';
+            style.textContent = `
+                html, body { background: #000 !important; }
+                html *, body * { visibility: hidden !important; }
+            `;
+            document.documentElement.appendChild(style);
+        })();
+        """
+    }
+
     /// Extraction script: hides all youtube.com chrome and leaves only the
     /// video surface visible, so the WebView can dock into native views.
     ///

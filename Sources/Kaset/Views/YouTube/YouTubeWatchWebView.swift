@@ -49,6 +49,9 @@ final class YouTubeWatchWebView {
         newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
 
+        // Kill the white flash between page navigations.
+        newWebView.underPageBackgroundColor = .black
+
         #if DEBUG
             newWebView.isInspectable = true
         #endif
@@ -120,6 +123,14 @@ final class YouTubeWatchWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(bootstrap)
+
+        // Black from first paint — no YouTube layout flash before extraction.
+        let blackout = WKUserScript(
+            source: Self.blackoutScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(blackout)
 
         let observer = WKUserScript(
             source: Self.observerScript,
