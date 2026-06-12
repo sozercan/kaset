@@ -77,9 +77,14 @@ struct KasetApp: App {
         player.setYTMusicClient(client)
         SongLikeStatusManager.shared.setClient(client)
 
+        let lyricsService = SyncedLyricsService(providers: [
+            YTMusicSyncedProvider(client: client),
+            LRCLibProvider(),
+        ])
+
         // Set shared instance for AppleScript access
         PlayerService.shared = player
-        LocalControlServer.shared.configure(playerService: player)
+        LocalControlServer.shared.configure(playerService: player, syncedLyricsService: lyricsService)
 
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth)
@@ -93,10 +98,7 @@ struct KasetApp: App {
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
         _sharedClient = State(initialValue: client)
-        _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
-            YTMusicSyncedProvider(client: client),
-            LRCLibProvider(),
-        ]))
+        _syncedLyricsService = State(initialValue: lyricsService)
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 

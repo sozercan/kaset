@@ -9,6 +9,7 @@ struct GeneralSettingsView: View {
     @State private var settings = SettingsManager.shared
     @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
+    @State private var selectedQRURL: URL?
 
     /// The updater service for managing app updates.
     var updaterService: UpdaterService
@@ -113,19 +114,32 @@ struct GeneralSettingsView: View {
                         urls.first { $0.host != "127.0.0.1" } ??
                         urls.first
 
+                    let activeQRURL: URL? = if let selected = self.selectedQRURL, urls.contains(selected) {
+                        selected
+                    } else {
+                        primaryURL
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Remote Control Access")
                             .font(.headline)
 
-                        if let primary = primaryURL, primary.host != "127.0.0.1" {
+                        if let active = activeQRURL, active.host != "127.0.0.1" {
                             HStack {
                                 Spacer()
                                 VStack(spacing: 4) {
-                                    QRCodeView(urlString: primary.absoluteString)
+                                    QRCodeView(urlString: active.absoluteString)
                                         .help("Scan with your phone to open the Remote Control page")
                                     Text("Scan to connect")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    if active.host?.lowercased().hasSuffix(".local") == true {
+                                        Text("Android devices: select an IP URL below if scanning fails.")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.center)
+                                            .frame(maxWidth: 220)
+                                    }
                                 }
                                 Spacer()
                             }
@@ -138,9 +152,20 @@ struct GeneralSettingsView: View {
 
                         ForEach(urls, id: \.self) { url in
                             HStack {
+                                Button {
+                                    self.selectedQRURL = url
+                                } label: {
+                                    Image(systemName: activeQRURL == url ? "record.circle" : "circle")
+                                        .foregroundStyle(activeQRURL == url ? .blue : .secondary)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Show QR code for this URL")
+
                                 Text(url.absoluteString)
                                     .font(.system(.caption, design: .monospaced))
                                     .textSelection(.enabled)
+                                    .foregroundStyle(activeQRURL == url ? .primary : .secondary)
+
                                 Spacer()
                                 Button {
                                     NSPasteboard.general.clearContents()

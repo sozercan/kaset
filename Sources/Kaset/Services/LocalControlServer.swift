@@ -15,11 +15,15 @@ final class LocalControlServer {
     private weak var playerService: PlayerService?
     private var activePort: UInt16?
     private var activeAllowsLAN = false
+    private var sleepTimerTask: Task<Void, Never>?
+    private var sleepTimerTarget: Date?
+    private weak var syncedLyricsService: SyncedLyricsService?
 
     private init() {}
 
-    func configure(playerService: PlayerService) {
+    func configure(playerService: PlayerService, syncedLyricsService: SyncedLyricsService) {
         self.playerService = playerService
+        self.syncedLyricsService = syncedLyricsService
         self.applySettings()
     }
 
@@ -291,6 +295,41 @@ extension LocalControlServer {
         case let .volume(value):
             await playerService.setVolume(value)
             return .json(["ok": true, "action": "volume", "volume": playerService.volume])
+        case let .seek(time):
+            await playerService.seek(to: time)
+            return .json(["ok": true, "action": "seek", "progress": playerService.progress])
+        case .toggleShuffle:
+            playerService.toggleShuffle()
+            return .json(["ok": true, "action": "toggleShuffle", "shuffleEnabled": playerService.shuffleEnabled])
+        case .cycleRepeatMode:
+            playerService.cycleRepeatMode()
+            let modeStr = playerService.repeatMode == .one ? "one" : (playerService.repeatMode == .all ? "all" : "off")
+            return .json(["ok": true, "action": "cycleRepeatMode", "repeatMode": modeStr])
+        case .toggleMute:
+            await playerService.toggleMute()
+            return .json(["ok": true, "action": "toggleMute", "isMuted": playerService.isMuted, "volume": playerService.volume])
+        case let .sleepTimer(duration, cancel):
+            self.sleepTimerTask?.cancel()
+            self.sleepTimerTask = nil
+            self.sleepTimerTarget = nil
+
+            if cancel {
+                return .json(["ok": true, "action": "sleepTimer", "status": "cancelled"])
+            }
+
+            if let minutes = duration, minutes > 0 {
+                let seconds = minutes * 60.0
+                self.sleepTimerTarget = Date().addingTimeInterval(seconds)
+                self.sleepTimerTask = Task { [weak self, weak playerService] in
+                    try? await Task.sleep(for: .seconds(seconds))
+                    guard !Task.isCancelled else { return }
+                    await playerService?.pause()
+                    self?.sleepTimerTask = nil
+                    self?.sleepTimerTarget = nil
+                }
+                return .json(["ok": true, "action": "sleepTimer", "status": "scheduled", "duration": minutes])
+            }
+            return .badRequest(message: "Missing duration or cancel parameter")
         case .search:
             let query = request.queryItems["q"] ?? request.queryItems["query"] ?? ""
             let filter = request.queryItems["filter"] ?? "all"
@@ -437,8 +476,10 @@ extension LocalControlServer {
             "volume": playerService.volume,
             "isMuted": playerService.isMuted,
             "shuffleEnabled": playerService.shuffleEnabled,
+            "repeatMode": playerService.repeatMode == .one ? "one" : (playerService.repeatMode == .all ? "all" : "off"),
             "queueIndex": playerService.currentIndex,
             "queueCount": playerService.queue.count,
+            "currentTimeMs": playerService.currentTimeMs,
         ]
 
         if let track = playerService.currentTrack {
@@ -448,6 +489,49 @@ extension LocalControlServer {
         }
 
         payload["queue"] = playerService.queue.map { Self.trackPayload($0) }
+
+        if let target = self.sleepTimerTarget {
+            let remaining = max(0, target.timeIntervalSinceNow)
+            payload["sleepTimerRemaining"] = remaining
+        } else {
+            payload["sleepTimerRemaining"] = 0
+        }
+
+        if let syncedLyricsService = self.syncedLyricsService {
+            switch syncedLyricsService.currentLyrics {
+            case let .synced(synced):
+                payload["lyrics"] = [
+                    "type": "synced",
+                    "source": synced.source,
+                    "lines": synced.lines.map { line in
+                        var linePayload: [String: Any] = [
+                            "timeInMs": line.timeInMs,
+                            "duration": line.duration,
+                            "text": line.text,
+                        ]
+                        if let rom = line.romanizedText {
+                            linePayload["romanizedText"] = rom
+                        }
+                        return linePayload
+                    },
+                ]
+            case let .plain(plain):
+                payload["lyrics"] = [
+                    "type": "plain",
+                    "source": plain.source ?? "",
+                    "text": plain.text,
+                    "lines": plain.lines,
+                ]
+            case .unavailable:
+                payload["lyrics"] = [
+                    "type": "unavailable",
+                ]
+            }
+        } else {
+            payload["lyrics"] = [
+                "type": "unavailable",
+            ]
+        }
 
         return payload
     }
@@ -524,6 +608,16 @@ extension LocalControlServer {
             .previous
         case ("POST", "/volume"):
             self.volumeRoute(request)
+        case ("POST", "/seek"):
+            Self.seekRoute(request)
+        case ("POST", "/toggle_shuffle"):
+            .toggleShuffle
+        case ("POST", "/cycle_repeat"):
+            .cycleRepeatMode
+        case ("POST", "/toggle_mute"):
+            .toggleMute
+        case ("POST", "/sleep_timer"):
+            Self.sleepTimerRoute(request)
         case ("GET", "/search"):
             .search
         case ("POST", "/play_index"):
@@ -548,6 +642,24 @@ extension LocalControlServer {
     }
 
     // swiftlint:enable cyclomatic_complexity
+
+    private static func seekRoute(_ request: HTTPRequest) -> Route {
+        let queryValue = request.queryItems["time"] ?? request.queryItems["to"]
+        let bodyValue = request.formItems["time"] ?? request.formItems["to"]
+        guard let rawValue = queryValue ?? bodyValue, let value = Double(rawValue) else {
+            return .badRequest("Missing numeric time value")
+        }
+        return .seek(value)
+    }
+
+    private static func sleepTimerRoute(_ request: HTTPRequest) -> Route {
+        let cancelQuery = request.queryItems["cancel"] ?? request.formItems["cancel"]
+        let isCancel = cancelQuery?.lowercased() == "true"
+        let durationQuery = request.queryItems["duration"] ?? request.queryItems["time"] ??
+                             request.formItems["duration"] ?? request.formItems["time"]
+        let duration = durationQuery.flatMap { Double($0) }
+        return .sleepTimer(duration: duration, cancel: isCancel)
+    }
 
     private static func volumeRoute(_ request: HTTPRequest) -> Route {
         let queryValue = request.queryItems["value"] ?? request.queryItems["level"]
@@ -656,6 +768,11 @@ extension LocalControlServer {
         case next
         case previous
         case volume(Double)
+        case seek(TimeInterval)
+        case toggleShuffle
+        case cycleRepeatMode
+        case toggleMute
+        case sleepTimer(duration: TimeInterval?, cancel: Bool)
         case search
         case playQueueIndex(Int)
         case playTrack(String)
@@ -862,7 +979,7 @@ extension LocalControlServer {
               -webkit-text-fill-color: transparent;
             }
             .card {
-              padding: 32px 24px;
+              padding: 24px;
               border: 1px solid rgba(255, 255, 255, 0.08);
               border-radius: 24px;
               background: rgba(28, 28, 30, 0.55);
@@ -871,9 +988,10 @@ extension LocalControlServer {
               box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
               transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
               position: relative;
+              margin-bottom: 20px;
             }
             .title {
-              font-size: 20px;
+              font-size: 19px;
               font-weight: 700;
               margin-bottom: 6px;
               color: #fff;
@@ -883,9 +1001,9 @@ extension LocalControlServer {
               text-align: center;
             }
             .artist {
-              font-size: 15px;
+              font-size: 14px;
               color: #a1a1a6;
-              margin-bottom: 24px;
+              margin-bottom: 20px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
@@ -939,7 +1057,7 @@ extension LocalControlServer {
               display: flex;
               justify-content: center;
               align-items: center;
-              gap: 24px;
+              gap: 16px;
               margin-top: 12px;
             }
             .control-btn {
@@ -948,26 +1066,34 @@ extension LocalControlServer {
               justify-content: center;
               border: 0;
               border-radius: 50%;
-              background: rgba(255, 255, 255, 0.08);
+              background: rgba(255, 255, 255, 0.06);
               color: #fff;
               cursor: pointer;
               transition: all 0.2s ease;
               outline: none;
             }
             .control-btn:hover {
-              background: rgba(255, 255, 255, 0.15);
+              background: rgba(255, 255, 255, 0.12);
               transform: scale(1.05);
             }
             .control-btn:active {
               transform: scale(0.95);
             }
             .control-btn.prev, .control-btn.next {
-              width: 54px;
-              height: 54px;
+              width: 46px;
+              height: 46px;
+            }
+            .control-btn.skip-back, .control-btn.skip-forward {
+              width: 44px;
+              height: 44px;
+              color: #a1a1a6;
+            }
+            .control-btn.skip-back:hover, .control-btn.skip-forward:hover {
+              color: #fff;
             }
             .control-btn.play-pause {
-              width: 72px;
-              height: 72px;
+              width: 68px;
+              height: 68px;
               background: #fff;
               color: #000;
               box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2);
@@ -984,12 +1110,24 @@ extension LocalControlServer {
               display: flex;
               align-items: center;
               gap: 12px;
-              margin-top: 28px;
+              margin-top: 24px;
             }
-            .volume-icon {
+            .volume-icon-btn {
+              background: none;
+              border: none;
               color: #8e8e93;
+              cursor: pointer;
+              padding: 6px;
               display: flex;
               align-items: center;
+              justify-content: center;
+              border-radius: 50%;
+              transition: all 0.2s ease;
+              outline: none;
+            }
+            .volume-icon-btn:hover {
+              color: #fff;
+              background: rgba(255, 255, 255, 0.08);
             }
             input[type="range"] {
               -webkit-appearance: none;
@@ -1074,7 +1212,7 @@ extension LocalControlServer {
             }
             
             .status-container {
-              margin-top: 20px;
+              margin-top: 16px;
               padding: 12px;
               border-radius: 12px;
               background: rgba(255, 255, 255, 0.03);
@@ -1157,11 +1295,40 @@ extension LocalControlServer {
               color: #fff;
               box-shadow: 0 2px 8px rgba(255, 45, 85, 0.3);
             }
+            
+            /* Secondary bottom row controls */
+            .secondary-controls {
+              display: flex;
+              justify-content: space-around;
+              align-items: center;
+              margin-top: 16px;
+              border-top: 1px solid rgba(255, 255, 255, 0.06);
+              padding-top: 12px;
+            }
+            .sec-btn {
+              background: none;
+              border: none;
+              color: #8e8e93;
+              cursor: pointer;
+              padding: 8px;
+              border-radius: 8px;
+              transition: all 0.2s ease;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              outline: none;
+            }
+            .sec-btn:hover {
+              color: #fff;
+            }
+            .sec-btn.active {
+              color: #ff2d55;
+            }
 
             /* Search elements */
             .search-results-dropdown {
               position: absolute;
-              top: 96px;
+              top: 56px;
               left: 0;
               right: 0;
               background: rgba(28, 28, 30, 0.96);
@@ -1301,6 +1468,7 @@ extension LocalControlServer {
             .playlist-act-btn.play {
               background: #ff2d55;
               border-color: #ff2d55;
+              color: #fff;
             }
             .playlist-act-btn:hover {
               background: rgba(255, 255, 255, 0.12);
@@ -1316,12 +1484,36 @@ extension LocalControlServer {
               gap: 4px;
             }
             
-            /* Queue elements */
+            /* Tabs for Queue and Lyrics panels */
+            .panel-tabs {
+              display: flex;
+              gap: 12px;
+              margin-bottom: 12px;
+              border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+              padding-bottom: 8px;
+            }
+            .panel-tab {
+              border: none;
+              background: none;
+              font-size: 13px;
+              font-weight: 700;
+              color: #a1a1a6;
+              padding: 4px 8px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              border-bottom: 2px solid transparent;
+            }
+            .panel-tab.active {
+              color: #fff;
+              border-bottom-color: #ff2d55;
+            }
+            
+            /* Queue & Lyrics containers */
             .queue-list {
               display: flex;
               flex-direction: column;
               gap: 4px;
-              max-height: 320px;
+              max-height: 280px;
               overflow-y: auto;
               padding-right: 4px;
             }
@@ -1370,6 +1562,53 @@ extension LocalControlServer {
               text-overflow: ellipsis;
               white-space: nowrap;
             }
+            
+            /* Lyrics styling */
+            .lyrics-pane {
+              max-height: 280px;
+              overflow-y: auto;
+              padding: 8px 12px;
+              box-sizing: border-box;
+              text-align: center;
+              font-size: 15px;
+              font-weight: 600;
+              color: rgba(255, 255, 255, 0.45);
+              line-height: 1.6;
+              scroll-behavior: smooth;
+            }
+            .lyric-line {
+              padding: 8px 0;
+              transition: all 0.3s ease;
+              cursor: pointer;
+            }
+            .lyric-line:hover {
+              color: rgba(255, 255, 255, 0.8);
+            }
+            .lyric-line.active {
+              color: #fff;
+              font-size: 18px;
+              font-weight: 700;
+              text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            }
+            .lyric-romanized {
+              font-size: 12px;
+              font-weight: 400;
+              color: #8e8e93;
+              margin-top: 2px;
+              line-height: 1.4;
+            }
+            
+            /* Sleep timer selection menu */
+            .sleep-menu {
+              margin-top: 12px;
+              padding: 12px;
+              border-radius: 12px;
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              background: rgba(255, 255, 255, 0.02);
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+            }
           </style>
         </head>
         <body>
@@ -1404,7 +1643,7 @@ extension LocalControlServer {
             <section id="screen-player" class="hidden">
               <div class="card">
                 <!-- Search Bar and Tabs -->
-                <div style="position: relative; margin-bottom: 20px;">
+                <div style="position: relative; margin-bottom: 16px;">
                   <div class="search-input-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
                     <input id="search-input" type="text" placeholder="Search..." oninput="handleSearch(this.value)" onfocus="handleSearchFocus(this)" onblur="handleSearchBlur()" style="font-size: 15px; padding: 12px 40px 12px 16px; letter-spacing: 0; text-align: left; margin-bottom: 0; border-radius: 12px;">
                     <button id="clear-search-btn" onclick="clearSearch()" style="position: absolute; right: 12px; background: none; border: none; color: #8e8e93; cursor: pointer; padding: 4px; display: none; align-items: center; justify-content: center; outline: none;">
@@ -1439,43 +1678,96 @@ extension LocalControlServer {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
                   </button>
                 </div>
+
+                <!-- Seek Progress Slider -->
+                <div style="margin-top: 14px; margin-bottom: 8px;">
+                  <input id="progress-slider" type="range" min="0" max="100" value="0" oninput="handleProgressInput(this.value)" onchange="handleProgressChange(this.value)">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8e8e93; margin-top: 6px; font-weight: 500;">
+                    <span id="current-time">0:00</span>
+                    <span id="total-time">0:00</span>
+                  </div>
+                </div>
                 
+                <!-- Playback controls with Skip -10 / +10 -->
                 <div class="controls">
                   <button class="control-btn prev" onclick="send('previous')" aria-label="Previous">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                  </button>
+                  <button class="control-btn skip-back" onclick="skipTime(-10)" aria-label="Skip Backward 10s">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><text x="12" y="15" font-size="7.5" font-family="'Inter', sans-serif" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">10</text></svg>
                   </button>
                   <button id="play-pause-btn" class="control-btn play-pause" onclick="send('play-pause')" aria-label="Play/Pause">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                  <button class="control-btn skip-forward" onclick="skipTime(10)" aria-label="Skip Forward 10s">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><polyline points="21 3 21 8 16 8"></polyline><text x="12" y="15" font-size="7.5" font-family="'Inter', sans-serif" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">10</text></svg>
                   </button>
                   <button class="control-btn next" onclick="send('next')" aria-label="Next">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
                   </button>
                 </div>
                 
+                <!-- Volume Control & Mute -->
                 <div class="volume-container">
-                  <span class="volume-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>
-                  </span>
+                  <button id="mute-btn" class="volume-icon-btn" onclick="send('toggle_mute')" aria-label="Mute/Unmute">
+                    <span id="volume-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>
+                    </span>
+                  </button>
                   <input id="volume" type="range" min="0" max="1" step="0.01" onchange="setVolume(this.value)">
-                  <span class="volume-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                  </span>
                 </div>
                 
-                <div class="status-container" id="status" style="margin-top: 24px;"></div>
+                <!-- Shuffle, Repeat, Sleep Toggles -->
+                <div class="secondary-controls">
+                  <button id="shuffle-btn" class="sec-btn" onclick="send('toggle_shuffle')" title="Toggle Shuffle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                  </button>
+                  <button id="sleep-btn" class="sec-btn" onclick="toggleSleepMenu()" title="Sleep Timer" style="gap: 4px; font-size: 11px; font-weight: 700;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    <span id="sleep-label">Timer</span>
+                  </button>
+                  <button id="repeat-btn" class="sec-btn" onclick="send('cycle_repeat')" title="Cycle Repeat" style="position: relative;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23 3 19 7 15"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                    <span id="repeat-badge" style="position: absolute; top: -1px; right: -1px; font-size: 8px; font-weight: 900; background: #ff2d55; color: white; border-radius: 50%; width: 10px; height: 10px; display: none; align-items: center; justify-content: center; line-height: 1;">1</span>
+                  </button>
+                </div>
+
+                <!-- Sleep Menu -->
+                <div id="sleep-menu" class="sleep-menu hidden">
+                  <div style="font-size: 12px; font-weight: 700; text-align: center; color: #fff; margin-bottom: 4px;">Stop Playback in:</div>
+                  <div style="display: flex; gap: 6px;">
+                    <button class="search-tab" onclick="setSleepTimer(15)">15m</button>
+                    <button class="search-tab" onclick="setSleepTimer(30)">30m</button>
+                    <button class="search-tab" onclick="setSleepTimer(45)">45m</button>
+                    <button class="search-tab" onclick="setSleepTimer(60)">60m</button>
+                  </div>
+                  <button class="search-tab" id="cancel-sleep-btn" onclick="setSleepTimer(0)" style="display: none; border-color: rgba(255, 45, 85, 0.4); color: #ff2d55; margin-top: 4px; width: 100%;">Cancel Timer</button>
+                </div>
+                
+                <div class="status-container" id="status"></div>
               </div>
 
-              <!-- Queue Panel -->
-              <div class="card" style="margin-top: 20px; padding: 20px 16px;">
-                <div style="font-size: 16px; font-weight: 700; text-align: left; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                  <span style="display: flex; align-items: center; gap: 8px;">
-                    <span>Up Next</span>
-                    <button id="clear-queue-btn" onclick="clearQueue()" style="background: none; border: 1px solid rgba(255, 45, 85, 0.4); color: #ff2d55; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; cursor: pointer; outline: none; transition: all 0.2s ease;">Clear</button>
-                  </span>
-                  <span id="queue-count" style="font-size: 12px; color: #8e8e93; font-weight: 500;">0 songs</span>
+              <!-- Tabs Card: Up Next vs Lyrics -->
+              <div class="card" style="padding: 20px 16px;">
+                <div class="panel-tabs">
+                  <button id="tab-queue" class="panel-tab active" onclick="switchPanelTab('queue')">Up Next</button>
+                  <button id="tab-lyrics" class="panel-tab" onclick="switchPanelTab('lyrics')">Lyrics</button>
                 </div>
-                <div id="queue-list" class="queue-list">
-                  <!-- Queue items dynamically loaded -->
+
+                <!-- Queue Tab Panel -->
+                <div id="panel-queue-content">
+                  <div style="font-size: 14px; font-weight: 700; text-align: left; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <button id="clear-queue-btn" onclick="clearQueue()" style="background: none; border: 1px solid rgba(255, 45, 85, 0.4); color: #ff2d55; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; cursor: pointer; outline: none; transition: all 0.2s ease;">Clear Queue</button>
+                    <span id="queue-count" style="font-size: 12px; color: #8e8e93; font-weight: 500;">0 songs</span>
+                  </div>
+                  <div id="queue-list" class="queue-list">
+                    <!-- Queue items dynamically loaded -->
+                  </div>
+                </div>
+
+                <!-- Lyrics Tab Panel -->
+                <div id="panel-lyrics-content" class="lyrics-pane hidden">
+                  <div style="padding: 40px 0; color: #8e8e93;">Play a song to view lyrics</div>
                 </div>
               </div>
             </section>
@@ -1518,6 +1810,17 @@ extension LocalControlServer {
             let currentPlaylistId = '';
             let currentPlaylistTitle = '';
             let currentVideoId = '';
+
+            // Playback progress & Sync tracking
+            let localProgress = 0;
+            let localDuration = 0;
+            let localCurrentTimeMs = 0;
+            let localIsPlaying = false;
+            let isDraggingProgress = false;
+            let lastRefreshTime = Date.now();
+            let activeTab = 'queue';
+            let lyricsData = null;
+            let lastActiveLyricIndex = -1;
 
             function showScreen(id) {
               document.getElementById('screen-auth').classList.add('hidden');
@@ -1638,6 +1941,25 @@ extension LocalControlServer {
               refresh();
               if (refreshInterval) clearInterval(refreshInterval);
               refreshInterval = setInterval(refresh, 2000);
+
+              // Periodic 100ms smooth ticker loop (dead reckoning)
+              setInterval(() => {
+                if (localIsPlaying && !isDraggingProgress && localDuration > 0) {
+                  const now = Date.now();
+                  const delta = (now - lastRefreshTime) / 1000;
+                  lastRefreshTime = now;
+                  
+                  localProgress = Math.min(localProgress + delta, localDuration);
+                  localCurrentTimeMs = Math.min(localCurrentTimeMs + Math.round(delta * 1000), localDuration * 1000);
+                  
+                  updateProgressUI();
+                  if (activeTab === 'lyrics') {
+                    highlightSyncedLyrics();
+                  }
+                } else {
+                  lastRefreshTime = Date.now();
+                }
+              }, 100);
             }
 
             const withToken = path => path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(activeToken);
@@ -1907,6 +2229,173 @@ extension LocalControlServer {
               }
             });
 
+            // Seek slider handlers
+            function handleProgressInput(val) {
+              isDraggingProgress = true;
+              const targetTime = (val / 100) * localDuration;
+              document.getElementById('current-time').textContent = formatTime(targetTime);
+            }
+
+            async function handleProgressChange(val) {
+              const targetTime = (val / 100) * localDuration;
+              isDraggingProgress = false;
+              localProgress = targetTime;
+              localCurrentTimeMs = Math.round(targetTime * 1000);
+              await fetch(withToken('/seek?time=' + targetTime), { method: 'POST' });
+              refresh();
+            }
+
+            async function skipTime(delta) {
+              const targetTime = Math.max(0, Math.min(localProgress + delta, localDuration));
+              localProgress = targetTime;
+              localCurrentTimeMs = Math.round(targetTime * 1000);
+              updateProgressUI();
+              await fetch(withToken('/seek?time=' + targetTime), { method: 'POST' });
+              refresh();
+            }
+
+            // Sleep timer handlers
+            function toggleSleepMenu() {
+              const menu = document.getElementById('sleep-menu');
+              menu.classList.toggle('hidden');
+            }
+
+            async function setSleepTimer(minutes) {
+              let url = '/sleep_timer';
+              if (minutes === 0) {
+                url += '?cancel=true';
+                showToast('Sleep timer cancelled');
+              } else {
+                url += '?duration=' + minutes;
+                showToast('Sleep timer set for ' + minutes + ' minutes');
+              }
+              document.getElementById('sleep-menu').classList.add('hidden');
+              await fetch(withToken(url), { method: 'POST' });
+              refresh();
+            }
+
+            // Lyrics vs Queue panel switching
+            function switchPanelTab(tab) {
+              activeTab = tab;
+              document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+              
+              if (tab === 'queue') {
+                document.getElementById('tab-queue').classList.add('active');
+                document.getElementById('panel-queue-content').classList.remove('hidden');
+                document.getElementById('panel-lyrics-content').classList.add('hidden');
+              } else {
+                document.getElementById('tab-lyrics').classList.add('active');
+                document.getElementById('panel-queue-content').classList.add('hidden');
+                document.getElementById('panel-lyrics-content').classList.remove('hidden');
+                lastActiveLyricIndex = -1;
+                renderLyrics();
+              }
+            }
+
+            // Sync elapsed / duration timers & update slider
+            function updateProgressUI() {
+              if (localDuration > 0) {
+                document.getElementById('progress-slider').value = (localProgress / localDuration) * 100;
+                document.getElementById('total-time').textContent = formatTime(localDuration);
+              } else {
+                document.getElementById('progress-slider').value = 0;
+                document.getElementById('total-time').textContent = '0:00';
+              }
+              document.getElementById('current-time').textContent = formatTime(localProgress);
+            }
+
+            function formatTime(seconds) {
+              if (isNaN(seconds) || seconds < 0) return '0:00';
+              const m = Math.floor(seconds / 60);
+              const s = Math.floor(seconds % 60);
+              return m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            // Synchronized / static lyrics rendering
+            function renderLyrics() {
+              const container = document.getElementById('panel-lyrics-content');
+              if (!lyricsData || lyricsData.type === 'unavailable') {
+                container.innerHTML = '<div style="padding: 40px 0; color: #8e8e93;">There aren\'t any lyrics available for this song.</div>';
+                return;
+              }
+
+              if (lyricsData.type === 'plain') {
+                container.innerHTML = `<div style="text-align: center; padding: 10px 0; color: #fff; font-size: 15px; font-weight: 500; white-space: pre-wrap;">${lyricsData.text}</div>`;
+                if (lyricsData.source) {
+                  container.innerHTML += `<div style="color: #8e8e93; font-size: 11px; margin-top: 24px;">Source: ${lyricsData.source}</div>`;
+                }
+                return;
+              }
+
+              if (lyricsData.type === 'synced' && lyricsData.lines) {
+                container.innerHTML = '';
+                lyricsData.lines.forEach((line, idx) => {
+                  const el = document.createElement('div');
+                  el.className = 'lyric-line';
+                  el.id = 'lyric-line-' + idx;
+                  el.setAttribute('data-time', line.timeInMs);
+                  
+                  let innerHTML = `<span>${line.text}</span>`;
+                  if (line.romanizedText) {
+                    innerHTML += `<div class="lyric-romanized">${line.romanizedText}</div>`;
+                  }
+                  el.innerHTML = innerHTML;
+                  
+                  el.onclick = () => seekToMs(line.timeInMs);
+                  container.appendChild(el);
+                });
+                highlightSyncedLyrics();
+              }
+            }
+
+            async function seekToMs(ms) {
+              const seconds = ms / 1000.0;
+              localProgress = seconds;
+              localCurrentTimeMs = ms;
+              updateProgressUI();
+              highlightSyncedLyrics();
+              await fetch(withToken('/seek?time=' + seconds), { method: 'POST' });
+              refresh();
+            }
+
+            function highlightSyncedLyrics() {
+              if (!lyricsData || lyricsData.type !== 'synced') return;
+              
+              const container = document.getElementById('panel-lyrics-content');
+              const lines = lyricsData.lines;
+              if (!lines || lines.length === 0) return;
+
+              let activeIdx = -1;
+              for (let i = 0; i < lines.length; i++) {
+                if (localCurrentTimeMs >= lines[i].timeInMs) {
+                  activeIdx = i;
+                } else {
+                  break;
+                }
+              }
+
+              if (activeIdx !== lastActiveLyricIndex) {
+                lastActiveLyricIndex = activeIdx;
+                
+                // Reset classes
+                container.querySelectorAll('.lyric-line').forEach(el => el.classList.remove('active'));
+                
+                if (activeIdx !== -1) {
+                  const activeEl = document.getElementById('lyric-line-' + activeIdx);
+                  if (activeEl) {
+                    activeEl.classList.add('active');
+                    
+                    // Smoothly scroll container to center the active line
+                    const targetScroll = activeEl.offsetTop - container.offsetHeight / 2 + activeEl.offsetHeight / 2;
+                    container.scrollTo({
+                      top: targetScroll,
+                      behavior: 'smooth'
+                    });
+                  }
+                }
+              }
+            }
+
             async function refresh() {
               try {
                 const res = await fetch(withToken('/status'));
@@ -1935,13 +2424,79 @@ extension LocalControlServer {
 
                 const playPauseBtn = document.getElementById('play-pause-btn');
                 if (data.isPlaying) {
-                  playPauseBtn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+                  playPauseBtn.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
                 } else {
-                  playPauseBtn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+                  playPauseBtn.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
                 }
 
                 document.getElementById('status').textContent = data.state.toUpperCase() + ' • VOLUME ' + Math.round((data.volume || 0) * 100) + '%';
                 document.getElementById('volume').value = data.volume || 0;
+
+                // Sync local progress times if not dragging
+                if (!isDraggingProgress) {
+                  localProgress = data.progress || 0;
+                  localDuration = data.duration || 0;
+                  localCurrentTimeMs = data.currentTimeMs || 0;
+                  localIsPlaying = data.isPlaying || false;
+                  lastRefreshTime = Date.now();
+                  updateProgressUI();
+                }
+
+                // Volume & Mute UI State
+                const volumeIcon = document.getElementById('volume-icon');
+                if (data.isMuted || data.volume === 0) {
+                  volumeIcon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>';
+                } else if (data.volume < 0.3) {
+                  volumeIcon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 9v6h4l5 5V4L11 9H7z"/></svg>';
+                } else if (data.volume < 0.7) {
+                  volumeIcon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>';
+                } else {
+                  volumeIcon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+                }
+
+                // Shuffle UI
+                const shuffleBtn = document.getElementById('shuffle-btn');
+                if (data.shuffleEnabled) {
+                  shuffleBtn.classList.add('active');
+                } else {
+                  shuffleBtn.classList.remove('active');
+                }
+
+                // Repeat UI
+                const repeatBtn = document.getElementById('repeat-btn');
+                const repeatBadge = document.getElementById('repeat-badge');
+                if (data.repeatMode === 'one') {
+                  repeatBtn.classList.add('active');
+                  repeatBadge.style.display = 'flex';
+                } else if (data.repeatMode === 'all') {
+                  repeatBtn.classList.add('active');
+                  repeatBadge.style.display = 'none';
+                } else {
+                  repeatBtn.classList.remove('active');
+                  repeatBadge.style.display = 'none';
+                }
+
+                // Sleep Timer UI
+                const sleepLabel = document.getElementById('sleep-label');
+                const cancelSleepBtn = document.getElementById('cancel-sleep-btn');
+                if (data.sleepTimerRemaining > 0) {
+                  const remMin = Math.ceil(data.sleepTimerRemaining / 60.0);
+                  sleepLabel.textContent = remMin + 'm left';
+                  document.getElementById('sleep-btn').classList.add('active');
+                  cancelSleepBtn.style.display = 'block';
+                } else {
+                  sleepLabel.textContent = 'Timer';
+                  document.getElementById('sleep-btn').classList.remove('active');
+                  cancelSleepBtn.style.display = 'none';
+                }
+
+                // Render Lyrics when active and lyrics loaded or modified
+                const oldLyricsString = lyricsData ? JSON.stringify(lyricsData) : '';
+                lyricsData = data.lyrics;
+                const newLyricsString = lyricsData ? JSON.stringify(lyricsData) : '';
+                if (activeTab === 'lyrics' && oldLyricsString !== newLyricsString) {
+                  renderLyrics();
+                }
 
                 // Render queue
                 const queueList = document.getElementById('queue-list');
