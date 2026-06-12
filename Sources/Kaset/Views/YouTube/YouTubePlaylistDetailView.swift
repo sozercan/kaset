@@ -4,6 +4,10 @@ import SwiftUI
 struct YouTubePlaylistDetailView: View {
     @State private var viewModel: YouTubePlaylistViewModel
 
+    private static let columns = [
+        GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
+    ]
+
     init(playlistId: String, client: any YouTubeClientProtocol) {
         self._viewModel = State(
             initialValue: YouTubePlaylistViewModel(playlistId: playlistId, client: client)
@@ -59,19 +63,17 @@ struct YouTubePlaylistDetailView: View {
                         Label(String(localized: "No videos"), systemImage: "list.and.film")
                     }
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    LazyVGrid(columns: Self.columns, spacing: 20) {
                         ForEach(detail.videos) { video in
                             NavigationLink(value: YouTubeRoute.watch(video)) {
-                                VideoRowView(video: video)
+                                VideoCard(video: video)
                             }
-                            .buttonStyle(.interactiveRow)
+                            .buttonStyle(.interactiveCard)
                         }
                     }
                 }
             }
             .padding(20)
-            .frame(maxWidth: 1000)
-            .frame(maxWidth: .infinity)
         }
     }
 }

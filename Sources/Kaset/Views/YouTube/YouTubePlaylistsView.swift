@@ -37,19 +37,21 @@ struct YouTubePlaylistsView: View {
         }
     }
 
+    private static let columns = [
+        GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
+    ]
+
     private var playlistsList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: Self.columns, spacing: 20) {
                 ForEach(self.viewModel.playlists) { playlist in
                     NavigationLink(value: YouTubeRoute.playlist(playlistId: playlist.playlistId)) {
-                        YouTubePlaylistRowView(playlist: playlist)
+                        YouTubePlaylistCard(playlist: playlist)
                     }
-                    .buttonStyle(.interactiveRow)
+                    .buttonStyle(.interactiveCard)
                 }
             }
             .padding(20)
-            .frame(maxWidth: 1000)
-            .frame(maxWidth: .infinity)
         }
     }
 }

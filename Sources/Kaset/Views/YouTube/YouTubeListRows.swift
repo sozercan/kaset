@@ -160,3 +160,63 @@ struct YouTubePlaylistRowView: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - YouTubePlaylistCard
+
+/// Grid card for a YouTube playlist: 16:9 thumbnail with a count badge,
+/// title, and channel line (matches `VideoCard`'s layout).
+struct YouTubePlaylistCard: View {
+    let playlist: YouTubePlaylist
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CachedAsyncImage(
+                url: self.playlist.thumbnailURL,
+                targetSize: CGSize(width: 640, height: 360)
+            ) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "list.and.film")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.tertiary)
+                    }
+            }
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: 8))
+            .overlay(alignment: .bottomTrailing) {
+                if let videoCountText = self.playlist.videoCountText {
+                    Text(videoCountText)
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.75), in: .rect(cornerRadius: 4))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(self.playlist.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if let channelName = self.playlist.channelName {
+                    Text(channelName)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}

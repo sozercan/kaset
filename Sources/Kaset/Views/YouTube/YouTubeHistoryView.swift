@@ -37,28 +37,29 @@ struct YouTubeHistoryView: View {
         }
     }
 
+    private static let columns = [
+        GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
+    ]
+
     private var historyList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: Self.columns, spacing: 20) {
                 ForEach(self.viewModel.videos) { video in
                     NavigationLink(value: YouTubeRoute.watch(video)) {
-                        VideoRowView(video: video)
+                        VideoCard(video: video)
                     }
-                    .buttonStyle(.interactiveRow)
+                    .buttonStyle(.interactiveCard)
                 }
 
                 if self.viewModel.hasMoreVideos {
                     ProgressView()
                         .controlSize(.small)
-                        .frame(maxWidth: .infinity)
                         .task {
                             await self.viewModel.loadMore()
                         }
                 }
             }
             .padding(20)
-            .frame(maxWidth: 1000)
-            .frame(maxWidth: .infinity)
         }
     }
 }
