@@ -113,18 +113,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTFhJY2xMdmZFVFMwR0ZiTmJScHdDZ2gxQ0d3TzZoTHJ2"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=cd6e70a49635ae04&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "zW5wpJY1rgQ"
                                                 }
                                               }
@@ -155,18 +143,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTFhJY2xMdmZFVFMwR0ZiTmJScHdDZ2gxQ0d3TzZoTHJ2"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr2---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=bad2d9f021f725a4&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "utLZ8CH3JaQ"
                                                 }
                                               }
@@ -267,7 +243,6 @@
                       },
                       "contentId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
                       "rendererContext": {
-                        "loggingContext": {},
                         "commandContext": {
                           "onTap": {
                             "innertubeCommand": {
@@ -280,18 +255,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTFhJY2xMdmZFVFMwR0ZiTmJScHdDZ2gxQ0d3TzZoTHJ2"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=cd6e70a49635ae04&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "zW5wpJY1rgQ",
                                 "params": "OAI%3D"
                               }
@@ -313,18 +276,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTFhJY2xMdmZFVFMwR0ZiTmJScHdDZ2gxQ0d3TzZoTHJ2"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=cd6e70a49635ae04&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "zW5wpJY1rgQ",
                                 "params": "OAI%3D"
                               }
@@ -341,18 +292,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTFhJY2xMdmZFVFMwR0ZiTmJScHdDZ2gxQ0d3TzZoTHJ2"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=cd6e70a49635ae04&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "zW5wpJY1rgQ",
                                 "playerParams": "YAHIAQHwBAD4BACiBhUB15olE3Dh_nvn1K0a4Fe8xX-hfkQ%3D"
                               }
@@ -525,18 +464,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTE96RHUtTVhYTGxqN2Nyb0Rjd3ozM2MtYTVycE5FQk5l"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d686a14da54842f9&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "1oahTaVIQvk"
                                                 }
                                               }
@@ -567,18 +494,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTE96RHUtTVhYTGxqN2Nyb0Rjd3ozM2MtYTVycE5FQk5l"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr1---sn-hp57yns7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=ed898dbc2cb7d055&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "7YmNvCy30FU"
                                                 }
                                               }
@@ -679,7 +594,6 @@
                       },
                       "contentId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
                       "rendererContext": {
-                        "loggingContext": {},
                         "commandContext": {
                           "onTap": {
                             "innertubeCommand": {
@@ -692,18 +606,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTE96RHUtTVhYTGxqN2Nyb0Rjd3ozM2MtYTVycE5FQk5l"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d686a14da54842f9&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1oahTaVIQvk",
                                 "params": "OAI%3D"
                               }
@@ -725,18 +627,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTE96RHUtTVhYTGxqN2Nyb0Rjd3ozM2MtYTVycE5FQk5l"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d686a14da54842f9&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1oahTaVIQvk",
                                 "params": "OAI%3D"
                               }
@@ -753,18 +643,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTE96RHUtTVhYTGxqN2Nyb0Rjd3ozM2MtYTVycE5FQk5l"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d686a14da54842f9&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1oahTaVIQvk",
                                 "playerParams": "YAHIAQHwBAD4BACiBhUB15olEwaZ7Sa2VxYup_QhvTcXL8U%3D"
                               }
@@ -937,18 +815,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTEYzZU5FNnZSLTRXc0JmOHFuSkxxQnl3cVgzOVFjenhK"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr5---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d535653b4e54823c&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "1TVlO05Ugjw"
                                                 }
                                               }
@@ -979,18 +845,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTEYzZU5FNnZSLTRXc0JmOHFuSkxxQnl3cVgzOVFjenhK"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr2---sn-hp57ynly.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=22b2b704d9475e27&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "IrK3BNlHXic"
                                                 }
                                               }
@@ -1091,7 +945,6 @@
                       },
                       "contentId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
                       "rendererContext": {
-                        "loggingContext": {},
                         "commandContext": {
                           "onTap": {
                             "innertubeCommand": {
@@ -1104,18 +957,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTEYzZU5FNnZSLTRXc0JmOHFuSkxxQnl3cVgzOVFjenhK"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr5---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d535653b4e54823c&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1TVlO05Ugjw",
                                 "params": "OAI%3D"
                               }
@@ -1137,18 +978,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTEYzZU5FNnZSLTRXc0JmOHFuSkxxQnl3cVgzOVFjenhK"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr5---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d535653b4e54823c&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1TVlO05Ugjw",
                                 "params": "OAI%3D"
                               }
@@ -1165,18 +994,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTEYzZU5FNnZSLTRXc0JmOHFuSkxxQnl3cVgzOVFjenhK"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr5---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d535653b4e54823c&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "1TVlO05Ugjw",
                                 "playerParams": "YAHIAQHwBAD4BACiBhUB15olE2F5I1E-bDbx5uSQUtsyFrs%3D"
                               }
@@ -1290,18 +1107,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTENuWnN4WGRkbTVXNXdTWXBhb01MMXJTWHV3dGlIQVh5"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr3---sn-hp57ynsd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=3652d40b6dfa51f8&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "NlLUC236Ufg"
                                                 }
                                               }
@@ -1332,18 +1137,6 @@
                                                 },
                                                 "watchEndpoint": {
                                                   "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
-                                                  "loggingContext": {
-                                                    "vssLoggingContext": {
-                                                      "serializedContextData": "GiJQTENuWnN4WGRkbTVXNXdTWXBhb01MMXJTWHV3dGlIQVh5"
-                                                    }
-                                                  },
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr3---sn-u1hp55-5c.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=84c37f494c82e044&ip=38.27.127.51&initcwndbps=5188750&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                                      }
-                                                    }
-                                                  },
                                                   "videoId": "hMN_SUyC4EQ"
                                                 }
                                               }
@@ -1444,7 +1237,6 @@
                       },
                       "contentId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
                       "rendererContext": {
-                        "loggingContext": {},
                         "commandContext": {
                           "onTap": {
                             "innertubeCommand": {
@@ -1457,18 +1249,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTENuWnN4WGRkbTVXNXdTWXBhb01MMXJTWHV3dGlIQVh5"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr3---sn-hp57ynsd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=3652d40b6dfa51f8&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "NlLUC236Ufg",
                                 "params": "OAI%3D"
                               }
@@ -1490,18 +1270,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTENuWnN4WGRkbTVXNXdTWXBhb01MMXJTWHV3dGlIQVh5"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr3---sn-hp57ynsd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=3652d40b6dfa51f8&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "NlLUC236Ufg",
                                 "params": "OAI%3D"
                               }
@@ -1518,18 +1286,6 @@
                               },
                               "watchEndpoint": {
                                 "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
-                                "loggingContext": {
-                                  "vssLoggingContext": {
-                                    "serializedContextData": "GiJQTENuWnN4WGRkbTVXNXdTWXBhb01MMXJTWHV3dGlIQVh5"
-                                  }
-                                },
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr3---sn-hp57ynsd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=3652d40b6dfa51f8&ip=38.27.127.51&initcwndbps=4691250&mt=1781221978&oweuc=&pxtags=Cg4KAnR4Egg1MTkyOTU2Nw&rxtags=Cg4KAnR4Egg1MTkyOTU2Ng%2CCg4KAnR4Egg1MTkyOTU2Nw%2CCg4KAnR4Egg1MTkyOTU2OA"
-                                    }
-                                  }
-                                },
                                 "videoId": "NlLUC236Ufg",
                                 "playerParams": "YAHIAQHwBAD4BACiBhUB15olE875BtjUGEWY-b_5Y6uNrp0%3D"
                               }

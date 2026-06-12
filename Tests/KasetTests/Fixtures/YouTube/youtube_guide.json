@@ -59,14 +59,6 @@
                   "playerParams": "8AEBuAQPkAcC",
                   "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
                   "updateKey": "EhhTSE9SVFNfU0VFRExFU1NfRU5EUE9JTlQg5gEoAQ%3D%3D",
-                  "loggingContext": {
-                    "qoeLoggingContext": {
-                      "serializedContextData": "CgIIDA%3D%3D"
-                    },
-                    "vssLoggingContext": {
-                      "serializedContextData": "CgIIDA%3D%3D"
-                    }
-                  },
                   "inputType": "REEL_WATCH_INPUT_TYPE_SEEDLESS",
                   "ustreamerConfig": "CAw=",
                   "overlay": {

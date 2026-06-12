@@ -136,7 +136,6 @@
                                       "badges": [
                                         {
                                           "thumbnailBadgeViewModel": {
-                                            "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                             "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                             "lottieData": {
                                               "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -268,14 +267,7 @@
                                                                 }
                                                               },
                                                               "watchEndpoint": {
-                                                                "videoId": "QXeEoD0pB3E",
-                                                                "watchEndpointSupportedOnesieConfig": {
-                                                                  "html5PlaybackOnesieConfig": {
-                                                                    "commonConfig": {
-                                                                      "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                                                    }
-                                                                  }
-                                                                }
+                                                                "videoId": "QXeEoD0pB3E"
                                                               }
                                                             },
                                                             "videoIds": [
@@ -330,24 +322,11 @@
                                       "playerParams": "iAQB",
                                       "videoId": "QXeEoD0pB3E",
                                       "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                                      "loggingContext": {
-                                        "vssLoggingContext": {
-                                          "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                                        }
-                                      },
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                          }
-                                        }
-                                      },
                                       "index": 0
                                     }
                                   }
                                 }
                               },
-                              "loggingContext": {},
                               "accessibilityContext": {
                                 "label": "#0 Python for Beginners | Programming Tutorial 1 minute, 6 seconds"
                               }
@@ -476,7 +455,6 @@
                                       "badges": [
                                         {
                                           "thumbnailBadgeViewModel": {
-                                            "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                             "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                             "lottieData": {
                                               "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -608,14 +586,7 @@
                                                                 }
                                                               },
                                                               "watchEndpoint": {
-                                                                "videoId": "hEgO047GxaQ",
-                                                                "watchEndpointSupportedOnesieConfig": {
-                                                                  "html5PlaybackOnesieConfig": {
-                                                                    "commonConfig": {
-                                                                      "url": "https://rr3---sn-hp57knk7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=84480ed38ec6c5a4&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                                                    }
-                                                                  }
-                                                                }
+                                                                "videoId": "hEgO047GxaQ"
                                                               }
                                                             },
                                                             "videoIds": [
@@ -670,24 +641,11 @@
                                       "playerParams": "iAQB",
                                       "videoId": "hEgO047GxaQ",
                                       "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                                      "loggingContext": {
-                                        "vssLoggingContext": {
-                                          "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                                        }
-                                      },
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr3---sn-hp57knk7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=84480ed38ec6c5a4&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                          }
-                                        }
-                                      },
                                       "index": 1
                                     }
                                   }
                                 }
                               },
-                              "loggingContext": {},
                               "accessibilityContext": {
                                 "label": "#1 Python Tutorial for Beginners | Introduction to Python 4 minutes, 13 seconds"
                               }
@@ -816,7 +774,6 @@
                                       "badges": [
                                         {
                                           "thumbnailBadgeViewModel": {
-                                            "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                             "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                             "lottieData": {
                                               "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -948,14 +905,7 @@
                                                                 }
                                                               },
                                                               "watchEndpoint": {
-                                                                "videoId": "CScxy0294SE",
-                                                                "watchEndpointSupportedOnesieConfig": {
-                                                                  "html5PlaybackOnesieConfig": {
-                                                                    "commonConfig": {
-                                                                      "url": "https://rr4---sn-hp57yns6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=092731cb4dbde121&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                                                    }
-                                                                  }
-                                                                }
+                                                                "videoId": "CScxy0294SE"
                                                               }
                                                             },
                                                             "videoIds": [
@@ -1010,24 +960,11 @@
                                       "playerParams": "iAQB",
                                       "videoId": "CScxy0294SE",
                                       "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                                      "loggingContext": {
-                                        "vssLoggingContext": {
-                                          "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                                        }
-                                      },
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr4---sn-hp57yns6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=092731cb4dbde121&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                          }
-                                        }
-                                      },
                                       "index": 2
                                     }
                                   }
                                 }
                               },
-                              "loggingContext": {},
                               "accessibilityContext": {
                                 "label": "#2 Python Tutorial for Beginners | Python Installation | PyCharm 9 minutes, 33 seconds"
                               }
@@ -1156,7 +1093,6 @@
                                       "badges": [
                                         {
                                           "thumbnailBadgeViewModel": {
-                                            "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                             "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                             "lottieData": {
                                               "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -1289,14 +1225,7 @@
                                                               },
                                                               "watchEndpoint": {
                                                                 "videoId": "DWgzHbglNIo",
-                                                                "playerParams": "0gcJCZ0AKgI3ePta",
-                                                                "watchEndpointSupportedOnesieConfig": {
-                                                                  "html5PlaybackOnesieConfig": {
-                                                                    "commonConfig": {
-                                                                      "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=0d68331db825348a&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                                                    }
-                                                                  }
-                                                                }
+                                                                "playerParams": "0gcJCZ0AKgI3ePta"
                                                               }
                                                             },
                                                             "videoIds": [
@@ -1351,24 +1280,11 @@
                                       "playerParams": "iAQB",
                                       "videoId": "DWgzHbglNIo",
                                       "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                                      "loggingContext": {
-                                        "vssLoggingContext": {
-                                          "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                                        }
-                                      },
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr4---sn-hp57kndr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=0d68331db825348a&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                                          }
-                                        }
-                                      },
                                       "index": 3
                                     }
                                   }
                                 }
                               },
-                              "loggingContext": {},
                               "accessibilityContext": {
                                 "label": "#3 Python Tutorial for Beginners | Getting Started with Python 14 minutes, 49 seconds"
                               }
@@ -1571,9 +1487,7 @@
                             }
                           ]
                         },
-                        "rendererContext": {
-                          "loggingContext": {}
-                        },
+                        "rendererContext": {},
                         "progressSummary": {
                           "content": "0 of 125 lessons complete",
                           "styleRuns": [
@@ -1648,9 +1562,7 @@
                             }
                           }
                         ],
-                        "rendererContext": {
-                          "loggingContext": {}
-                        }
+                        "rendererContext": {}
                       }
                     }
                   ]
@@ -1958,18 +1870,6 @@
             },
             "watchEndpoint": {
               "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-              "loggingContext": {
-                "vssLoggingContext": {
-                  "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                }
-              },
-              "watchEndpointSupportedOnesieConfig": {
-                "html5PlaybackOnesieConfig": {
-                  "commonConfig": {
-                    "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                  }
-                }
-              },
               "videoId": "QXeEoD0pB3E",
               "playerParams": "iAQB"
             }
@@ -2023,18 +1923,6 @@
             },
             "watchEndpoint": {
               "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-              "loggingContext": {
-                "vssLoggingContext": {
-                  "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                }
-              },
-              "watchEndpointSupportedOnesieConfig": {
-                "html5PlaybackOnesieConfig": {
-                  "commonConfig": {
-                    "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                  }
-                }
-              },
               "videoId": "QXeEoD0pB3E",
               "playerParams": "iAQB0gcJCbECa94AFGB0"
             }
@@ -2087,8 +1975,7 @@
                     "popupType": "DIALOG"
                   }
                 }
-              ],
-              "serializedShareEntity": "EiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
+              ]
             }
           },
           "style": "STYLE_MONO_TONAL_OVERLAY",
@@ -2450,18 +2337,6 @@
               },
               "watchEndpoint": {
                 "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                "loggingContext": {
-                  "vssLoggingContext": {
-                    "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                  }
-                },
-                "watchEndpointSupportedOnesieConfig": {
-                  "html5PlaybackOnesieConfig": {
-                    "commonConfig": {
-                      "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                    }
-                  }
-                },
                 "videoId": "QXeEoD0pB3E",
                 "playerParams": "iAQB"
               }
@@ -2575,8 +2450,7 @@
                                 "popupType": "DIALOG"
                               }
                             }
-                          ],
-                          "serializedShareEntity": "EiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
+                          ]
                         }
                       },
                       "size": "SIZE_DEFAULT",
@@ -2684,18 +2558,6 @@
                     },
                     "watchEndpoint": {
                       "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
-                      "loggingContext": {
-                        "vssLoggingContext": {
-                          "serializedContextData": "GiJQTHN5ZW9ield4bDdwb0w5SlRWeW5kS2U2Mmllb04tTVoz"
-                        }
-                      },
-                      "watchEndpointSupportedOnesieConfig": {
-                        "html5PlaybackOnesieConfig": {
-                          "commonConfig": {
-                            "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                          }
-                        }
-                      },
                       "videoId": "QXeEoD0pB3E",
                       "playerParams": "iAQB"
                     }
@@ -2745,14 +2607,7 @@
                     },
                     "watchEndpoint": {
                       "videoId": "QXeEoD0pB3E",
-                      "playerParams": "0gcJCUEDrvzYGM7x",
-                      "watchEndpointSupportedOnesieConfig": {
-                        "html5PlaybackOnesieConfig": {
-                          "commonConfig": {
-                            "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=417784a03d290771&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc=&pxtags=Cg4KAnR4Egg1MTgyODk2Nw&rxtags=Cg4KAnR4Egg1MTgyODk2Nw%2CCg4KAnR4Egg1MTgyODk2OA"
-                          }
-                        }
-                      }
+                      "playerParams": "0gcJCUEDrvzYGM7x"
                     }
                   },
                   "text": {

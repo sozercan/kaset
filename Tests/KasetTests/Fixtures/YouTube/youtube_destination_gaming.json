@@ -8,17 +8,13 @@
               "text": {
                 "content": "Gaming"
               },
-              "rendererContext": {
-                "loggingContext": {}
-              }
+              "rendererContext": {}
             }
           },
           "animatedImage": {
             "contentPreviewImageViewModel": {
               "style": "CONTENT_PREVIEW_IMAGE_STYLE_CIRCLE",
-              "rendererContext": {
-                "loggingContext": {}
-              },
+              "rendererContext": {},
               "image": {
                 "sources": [
                   {
@@ -47,9 +43,7 @@
               "layoutMode": "CONTENT_PREVIEW_IMAGE_LAYOUT_MODE_UNKNOWN"
             }
           },
-          "rendererContext": {
-            "loggingContext": {}
-          }
+          "rendererContext": {}
         }
       },
       "pageTitle": "Gaming"
@@ -113,14 +107,7 @@
                                           }
                                         },
                                         "watchEndpoint": {
-                                          "videoId": "XaIPf-LpCI0",
-                                          "watchEndpointSupportedOnesieConfig": {
-                                            "html5PlaybackOnesieConfig": {
-                                              "commonConfig": {
-                                                "url": "https://rr4---sn-hp57kndy.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=5da20f7fe2e9088d&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                              }
-                                            }
-                                          }
+                                          "videoId": "XaIPf-LpCI0"
                                         }
                                       },
                                       "channelThumbnail": {
@@ -355,14 +342,7 @@
                                                               }
                                                             },
                                                             "watchEndpoint": {
-                                                              "videoId": "XaIPf-LpCI0",
-                                                              "watchEndpointSupportedOnesieConfig": {
-                                                                "html5PlaybackOnesieConfig": {
-                                                                  "commonConfig": {
-                                                                    "url": "https://rr4---sn-hp57kndy.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=5da20f7fe2e9088d&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                  }
-                                                                }
-                                                              }
+                                                              "videoId": "XaIPf-LpCI0"
                                                             }
                                                           },
                                                           "videoIds": [
@@ -452,14 +432,7 @@
                                           }
                                         },
                                         "watchEndpoint": {
-                                          "videoId": "f6LrgQwZs6g",
-                                          "watchEndpointSupportedOnesieConfig": {
-                                            "html5PlaybackOnesieConfig": {
-                                              "commonConfig": {
-                                                "url": "https://rr4---sn-hp57ynsl.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7fa2eb810c19b3a8&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                              }
-                                            }
-                                          }
+                                          "videoId": "f6LrgQwZs6g"
                                         }
                                       },
                                       "channelThumbnail": {
@@ -694,14 +667,7 @@
                                                               }
                                                             },
                                                             "watchEndpoint": {
-                                                              "videoId": "f6LrgQwZs6g",
-                                                              "watchEndpointSupportedOnesieConfig": {
-                                                                "html5PlaybackOnesieConfig": {
-                                                                  "commonConfig": {
-                                                                    "url": "https://rr4---sn-hp57ynsl.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7fa2eb810c19b3a8&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                  }
-                                                                }
-                                                              }
+                                                              "videoId": "f6LrgQwZs6g"
                                                             }
                                                           },
                                                           "videoIds": [
@@ -791,14 +757,7 @@
                                           }
                                         },
                                         "watchEndpoint": {
-                                          "videoId": "inPJQCqgyPU",
-                                          "watchEndpointSupportedOnesieConfig": {
-                                            "html5PlaybackOnesieConfig": {
-                                              "commonConfig": {
-                                                "url": "https://rr1---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=8a73c9402aa0c8f5&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                              }
-                                            }
-                                          }
+                                          "videoId": "inPJQCqgyPU"
                                         }
                                       },
                                       "channelThumbnail": {
@@ -1019,14 +978,7 @@
                                                               }
                                                             },
                                                             "watchEndpoint": {
-                                                              "videoId": "inPJQCqgyPU",
-                                                              "watchEndpointSupportedOnesieConfig": {
-                                                                "html5PlaybackOnesieConfig": {
-                                                                  "commonConfig": {
-                                                                    "url": "https://rr1---sn-ajhp55-53.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=8a73c9402aa0c8f5&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                  }
-                                                                }
-                                                              }
+                                                              "videoId": "inPJQCqgyPU"
                                                             }
                                                           },
                                                           "videoIds": [
@@ -1116,14 +1068,7 @@
                                           }
                                         },
                                         "watchEndpoint": {
-                                          "videoId": "4SKpQjTTWDU",
-                                          "watchEndpointSupportedOnesieConfig": {
-                                            "html5PlaybackOnesieConfig": {
-                                              "commonConfig": {
-                                                "url": "https://rr1---sn-hp57kndk.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=e122a94234d35835&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                              }
-                                            }
-                                          }
+                                          "videoId": "4SKpQjTTWDU"
                                         }
                                       },
                                       "channelThumbnail": {
@@ -1344,14 +1289,7 @@
                                                               }
                                                             },
                                                             "watchEndpoint": {
-                                                              "videoId": "4SKpQjTTWDU",
-                                                              "watchEndpointSupportedOnesieConfig": {
-                                                                "html5PlaybackOnesieConfig": {
-                                                                  "commonConfig": {
-                                                                    "url": "https://rr1---sn-hp57kndk.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=e122a94234d35835&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                  }
-                                                                }
-                                                              }
+                                                              "videoId": "4SKpQjTTWDU"
                                                             }
                                                           },
                                                           "videoIds": [
@@ -1801,14 +1739,7 @@
                                     },
                                     "watchEndpoint": {
                                       "videoId": "3ynmamX5lYU",
-                                      "playerParams": "0gcJCUELAYcqIYzv",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr3---sn-hp57yns7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=df29e66a65f99585&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "playerParams": "0gcJCUELAYcqIYzv"
                                     }
                                   },
                                   "menu": {
@@ -1855,14 +1786,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "3ynmamX5lYU",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr3---sn-hp57yns7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=df29e66a65f99585&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "3ynmamX5lYU"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -2128,14 +2052,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "2VpLwb5-4ZU",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr1---sn-hp57knk7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d95a4bc1be7ee195&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "2VpLwb5-4ZU"
                                     }
                                   },
                                   "menu": {
@@ -2182,14 +2099,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "2VpLwb5-4ZU",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr1---sn-hp57knk7.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d95a4bc1be7ee195&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "2VpLwb5-4ZU"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -2455,14 +2365,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "e-0H7KmxYcs",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr4---sn-hp57ynss.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7bed07eca9b161cb&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "e-0H7KmxYcs"
                                     }
                                   },
                                   "menu": {
@@ -2509,14 +2412,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "e-0H7KmxYcs",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr4---sn-hp57ynss.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7bed07eca9b161cb&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "e-0H7KmxYcs"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -2782,14 +2678,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "Wu3pEWQzbgM",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr4---sn-hp57kndy.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=5aede91164336e03&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "Wu3pEWQzbgM"
                                     }
                                   },
                                   "menu": {
@@ -2836,14 +2725,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "Wu3pEWQzbgM",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr4---sn-hp57kndy.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=5aede91164336e03&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "Wu3pEWQzbgM"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -3144,14 +3026,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "ibY5qR4CYU8",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=89b639a91e02614f&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "ibY5qR4CYU8"
                                     }
                                   },
                                   "menu": {
@@ -3198,14 +3073,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "ibY5qR4CYU8",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr1---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=89b639a91e02614f&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "ibY5qR4CYU8"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -3726,14 +3594,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "fEkFkFZyx5w",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr3---sn-hp57ynl6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7c4905905672c79c&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "fEkFkFZyx5w"
                                     }
                                   },
                                   "menu": {
@@ -3780,14 +3641,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "fEkFkFZyx5w",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr3---sn-hp57ynl6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7c4905905672c79c&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "fEkFkFZyx5w"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -4053,14 +3907,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "kJ04Npj6MpE",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr4---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=909d383698fa3291&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "kJ04Npj6MpE"
                                     }
                                   },
                                   "menu": {
@@ -4107,14 +3954,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "kJ04Npj6MpE",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr4---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=909d383698fa3291&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "kJ04Npj6MpE"
                                                         }
                                                       },
                                                       "videoIds": [
@@ -4380,14 +4220,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "m6ucCFhSY5k",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr1---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=9bab9c0858526399&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "m6ucCFhSY5k"
                                     }
                                   },
                                   "menu": {
@@ -4434,14 +4267,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "m6ucCFhSY5k",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr1---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=9bab9c0858526399&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "m6ucCFhSY5k"
                                                         }
                                                       },
                                                       "videoIds": [

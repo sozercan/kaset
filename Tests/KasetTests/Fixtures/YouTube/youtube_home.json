@@ -40,17 +40,6 @@
                               }
                             }
                           },
-                          "impressionEndpoint": {
-                            "commandMetadata": {
-                              "webCommandMetadata": {
-                                "apiUrl": "/youtubei/v1/feedback",
-                                "sendPost": true
-                              }
-                            },
-                            "feedbackEndpoint": {
-                              "feedbackToken": "AB9zfpL3eHj8BJwGZSwVDLxeuR5McmKBL1FlC3WRBzb8ZBKUIg432VvP3-bZSgKVjJTwSFXopYBaJeYwA288HD9BWi1VAJDD1cqY0AP6o760yrGio9t6sS40OruRpW8HeVpTFqSuHRz9ACakPVXz0LF6v1wQUlJAVQ"
-                            }
-                          },
                           "contentsLocation": "FEED_NUDGE_CONTENTS_LOCATION_UNKNOWN",
                           "title": {
                             "runs": [

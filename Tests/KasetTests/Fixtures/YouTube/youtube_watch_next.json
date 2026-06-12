@@ -89,8 +89,7 @@
                     "popupType": "DIALOG"
                   }
                 }
-              ],
-              "serializedShareEntity": "CgtkUXc0dzlXZ1hjUaABAg%3D%3D"
+              ]
             }
           },
           "style": "STYLE_OPACITY",
@@ -539,8 +538,7 @@
                                   "popupType": "DIALOG"
                                 }
                               }
-                            ],
-                            "serializedShareEntity": "CgtkUXc0dzlXZ1hjUaABAg%3D%3D"
+                            ]
                           }
                         }
                       }
@@ -676,14 +674,7 @@
                   }
                 },
                 "watchEndpoint": {
-                  "videoId": "yPYZpwSpKmA",
-                  "watchEndpointSupportedOnesieConfig": {
-                    "html5PlaybackOnesieConfig": {
-                      "commonConfig": {
-                        "url": "https://rr1---sn-hp57ynl6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=c8f619a704a92a60&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc="
-                      }
-                    }
-                  }
+                  "videoId": "yPYZpwSpKmA"
                 }
               },
               "style": "STYLE_DEFAULT",
@@ -891,14 +882,7 @@
                     }
                   },
                   "watchEndpoint": {
-                    "videoId": "pAMZjmDGFRQ",
-                    "watchEndpointSupportedOnesieConfig": {
-                      "html5PlaybackOnesieConfig": {
-                        "commonConfig": {
-                          "url": "https://rr2---sn-hp57ynl6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=a403198e60c61514&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                        }
-                      }
-                    }
+                    "videoId": "pAMZjmDGFRQ"
                   }
                 },
                 "shortViewCountText": {
@@ -1029,18 +1013,6 @@
                   },
                   "watchEndpoint": {
                     "playlistId": "RD0QVOc1aagSE",
-                    "loggingContext": {
-                      "vssLoggingContext": {
-                        "serializedContextData": "Gg1SRDBRVk9jMWFhZ1NF"
-                      }
-                    },
-                    "watchEndpointSupportedOnesieConfig": {
-                      "html5PlaybackOnesieConfig": {
-                        "commonConfig": {
-                          "url": "https://rr2---sn-hp57ynly.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d1054e73569a8121&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                        }
-                      }
-                    },
                     "videoId": "0QVOc1aagSE",
                     "params": "OAHAAQG4BQE%3D",
                     "playerParams": "oAcB"
@@ -1177,18 +1149,6 @@
                   },
                   "watchEndpoint": {
                     "playlistId": "RDC2xel6q0yao",
-                    "loggingContext": {
-                      "vssLoggingContext": {
-                        "serializedContextData": "Gg1SREMyeGVsNnEweWFv"
-                      }
-                    },
-                    "watchEndpointSupportedOnesieConfig": {
-                      "html5PlaybackOnesieConfig": {
-                        "commonConfig": {
-                          "url": "https://rr3---sn-ajhp55-5q.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=0b6c5e97aab4c9aa&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                        }
-                      }
-                    },
                     "videoId": "C2xel6q0yao",
                     "params": "OAHAAQG4BQE%3D",
                     "playerParams": "oAcB"
@@ -1325,13 +1285,6 @@
                   },
                   "watchEndpoint": {
                     "ustreamerConfig": "KgYKBBICZW4=",
-                    "watchEndpointSupportedOnesieConfig": {
-                      "html5PlaybackOnesieConfig": {
-                        "commonConfig": {
-                          "url": "https://rr3---sn-hp57ynsd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=1cbc43a79ad9988b&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                        }
-                      }
-                    },
                     "videoId": "HLxDp5rZmIs",
                     "playerParams": "ugUEEgJlbg%3D%3D"
                   }
@@ -1422,14 +1375,7 @@
       }
     },
     "watchEndpoint": {
-      "videoId": "dQw4w9WgXcQ",
-      "watchEndpointSupportedOnesieConfig": {
-        "html5PlaybackOnesieConfig": {
-          "commonConfig": {
-            "url": "https://rr4---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=750c38c3d5a05dc4&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc="
-          }
-        }
-      }
+      "videoId": "dQw4w9WgXcQ"
     }
   },
   "engagementPanels": [
@@ -2344,8 +2290,7 @@
                                             "popupType": "DIALOG"
                                           }
                                         }
-                                      ],
-                                      "serializedShareEntity": "CgtkUXc0dzlXZ1hjUaABAQ%3D%3D"
+                                      ]
                                     }
                                   }
                                 }
@@ -2462,14 +2407,7 @@
                                                           }
                                                         },
                                                         "watchEndpoint": {
-                                                          "videoId": "dQw4w9WgXcQ",
-                                                          "watchEndpointSupportedOnesieConfig": {
-                                                            "html5PlaybackOnesieConfig": {
-                                                              "commonConfig": {
-                                                                "url": "https://rr4---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=750c38c3d5a05dc4&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc="
-                                                              }
-                                                            }
-                                                          }
+                                                          "videoId": "dQw4w9WgXcQ"
                                                         }
                                                       }
                                                     }
@@ -2547,14 +2485,7 @@
                                                   }
                                                 },
                                                 "watchEndpoint": {
-                                                  "videoId": "dQw4w9WgXcQ",
-                                                  "watchEndpointSupportedOnesieConfig": {
-                                                    "html5PlaybackOnesieConfig": {
-                                                      "commonConfig": {
-                                                        "url": "https://rr4---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=750c38c3d5a05dc4&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc="
-                                                      }
-                                                    }
-                                                  }
+                                                  "videoId": "dQw4w9WgXcQ"
                                                 }
                                               }
                                             }
@@ -2783,14 +2714,7 @@
                                         }
                                       },
                                       "watchEndpoint": {
-                                        "videoId": "dQw4w9WgXcQ",
-                                        "watchEndpointSupportedOnesieConfig": {
-                                          "html5PlaybackOnesieConfig": {
-                                            "commonConfig": {
-                                              "url": "https://rr4---sn-hp57ynse.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=750c38c3d5a05dc4&ip=38.27.127.51&initcwndbps=4648750&mt=1781221249&oweuc="
-                                            }
-                                          }
-                                        }
+                                        "videoId": "dQw4w9WgXcQ"
                                       }
                                     },
                                     "idamTag": "66429"
@@ -3468,7 +3392,6 @@
                           "badges": [
                             {
                               "thumbnailBadgeViewModel": {
-                                "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                 "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                 "lottieData": {
                                   "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -3508,19 +3431,11 @@
                         },
                         "watchEndpoint": {
                           "videoId": "pAMZjmDGFRQ",
-                          "watchEndpointSupportedOnesieConfig": {
-                            "html5PlaybackOnesieConfig": {
-                              "commonConfig": {
-                                "url": "https://rr2---sn-hp57ynl6.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=a403198e60c61514&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                              }
-                            }
-                          },
                           "nofollow": true
                         }
                       }
                     }
                   },
-                  "loggingContext": {},
                   "accessibilityContext": {
                     "label": "Try Not to Laugh Challenge (IMPOSSIBLE) Laugh and You Lose! Part 4 17 minutes"
                   }
@@ -3564,14 +3479,6 @@
                             "playerParams": "8AEByANEuAQeogYVAdeaJRM87Zffk2iMfJQUIxW_yHwSkAcC",
                             "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
                             "videoId": "X4dGtpUD3gA",
-                            "loggingContext": {
-                              "qoeLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              },
-                              "vssLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              }
-                            },
                             "accessibilityRenderer": {
                               "reelWatchAccessibilityRenderer": {
                                 "enablePlayPauseA11yButton": true
@@ -3658,14 +3565,6 @@
                             "playerParams": "8AEByANEuAQeogYVAdeaJRNTHCOcCHWaZRh-MF24NZc2kAcC",
                             "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
                             "videoId": "KUM2p2Weicg",
-                            "loggingContext": {
-                              "qoeLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              },
-                              "vssLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              }
-                            },
                             "accessibilityRenderer": {
                               "reelWatchAccessibilityRenderer": {
                                 "enablePlayPauseA11yButton": true
@@ -3747,14 +3646,6 @@
                             "playerParams": "8AEByANEuAQeogYVAdeaJRPlUbKgydVvqZ2pBKtOJxaQkAcC",
                             "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
                             "videoId": "-Rdhra2LM_k",
-                            "loggingContext": {
-                              "qoeLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              },
-                              "vssLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              }
-                            },
                             "accessibilityRenderer": {
                               "reelWatchAccessibilityRenderer": {
                                 "enablePlayPauseA11yButton": true
@@ -3841,14 +3732,6 @@
                             "playerParams": "8AEByANEuAQeogYVAdeaJRMRIsoGBNYSubKSJNnGD36TkAcC",
                             "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
                             "videoId": "bF_QF14zpIw",
-                            "loggingContext": {
-                              "qoeLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              },
-                              "vssLoggingContext": {
-                                "serializedContextData": "CgIIDA%3D%3D"
-                              }
-                            },
                             "accessibilityRenderer": {
                               "reelWatchAccessibilityRenderer": {
                                 "enablePlayPauseA11yButton": true
@@ -4032,7 +3915,6 @@
                           "badges": [
                             {
                               "thumbnailBadgeViewModel": {
-                                "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                 "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                 "lottieData": {
                                   "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -4087,24 +3969,11 @@
                           "nofollow": true,
                           "playerParams": "oAcB",
                           "videoId": "0QVOc1aagSE",
-                          "playlistId": "RD0QVOc1aagSE",
-                          "loggingContext": {
-                            "vssLoggingContext": {
-                              "serializedContextData": "Gg1SRDBRVk9jMWFhZ1NF"
-                            }
-                          },
-                          "watchEndpointSupportedOnesieConfig": {
-                            "html5PlaybackOnesieConfig": {
-                              "commonConfig": {
-                                "url": "https://rr2---sn-hp57ynly.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=d1054e73569a8121&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                              }
-                            }
-                          }
+                          "playlistId": "RD0QVOc1aagSE"
                         }
                       }
                     }
                   },
-                  "loggingContext": {},
                   "accessibilityContext": {
                     "label": "Daft Punk ft. Pharell Williams Get lucky Extended Version Original Video Full HD 18 minutes"
                   }
@@ -4292,7 +4161,6 @@
                           "badges": [
                             {
                               "thumbnailBadgeViewModel": {
-                                "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                 "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                 "lottieData": {
                                   "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -4347,24 +4215,11 @@
                           "nofollow": true,
                           "playerParams": "oAcB",
                           "videoId": "C2xel6q0yao",
-                          "playlistId": "RDC2xel6q0yao",
-                          "loggingContext": {
-                            "vssLoggingContext": {
-                              "serializedContextData": "Gg1SREMyeGVsNnEweWFv"
-                            }
-                          },
-                          "watchEndpointSupportedOnesieConfig": {
-                            "html5PlaybackOnesieConfig": {
-                              "commonConfig": {
-                                "url": "https://rr3---sn-ajhp55-5q.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=0b6c5e97aab4c9aa&ip=38.27.127.51&initcwndbps=4268750&mt=1781221249&oweuc="
-                              }
-                            }
-                          }
+                          "playlistId": "RDC2xel6q0yao"
                         }
                       }
                     }
                   },
-                  "loggingContext": {},
                   "accessibilityContext": {
                     "label": "Rick Astley - Cry for Help (Official Video) (4K Remaster) 4 minutes, 52 seconds"
                   }

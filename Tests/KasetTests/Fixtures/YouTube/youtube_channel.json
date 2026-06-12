@@ -76,14 +76,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "bC8fvcpocBU",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr2---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=6c2f1fbdca687015&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "bC8fvcpocBU"
                                     }
                                   },
                                   "text": "Introducing Google for Developers!"
@@ -104,13 +97,6 @@
                                 }
                               },
                               "watchEndpoint": {
-                                "watchEndpointSupportedOnesieConfig": {
-                                  "html5PlaybackOnesieConfig": {
-                                    "commonConfig": {
-                                      "url": "https://rr2---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=6c2f1fbdca687015&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                    }
-                                  }
-                                },
                                 "videoId": "bC8fvcpocBU",
                                 "playerParams": "YAHIAQGiBhUB15olEzmet61_e1HCPI7gQLEz6b8%3D",
                                 "playerExtraUrlParams": [
@@ -180,14 +166,7 @@
                                       }
                                     },
                                     "watchEndpoint": {
-                                      "videoId": "bC8fvcpocBU",
-                                      "watchEndpointSupportedOnesieConfig": {
-                                        "html5PlaybackOnesieConfig": {
-                                          "commonConfig": {
-                                            "url": "https://rr2---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=6c2f1fbdca687015&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                          }
-                                        }
-                                      }
+                                      "videoId": "bC8fvcpocBU"
                                     }
                                   },
                                   "text": "Read more"
@@ -223,18 +202,6 @@
                                   },
                                   "watchEndpoint": {
                                     "playlistId": "PLOU2XLYxmsIIrmGwTYQoQF7LIwhS3jV5o",
-                                    "loggingContext": {
-                                      "vssLoggingContext": {
-                                        "serializedContextData": "GiJQTE9VMlhMWXhtc0lJcm1Hd1RZUW9RRjdMSXdoUzNqVjVv"
-                                      }
-                                    },
-                                    "watchEndpointSupportedOnesieConfig": {
-                                      "html5PlaybackOnesieConfig": {
-                                        "commonConfig": {
-                                          "url": "https://rr5---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=abf26ae088182269&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                        }
-                                      }
-                                    },
                                     "videoId": "q_Jq4IgYImk"
                                   }
                                 },
@@ -523,7 +490,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -655,14 +621,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "q_Jq4IgYImk",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr5---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=abf26ae088182269&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "q_Jq4IgYImk"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -713,19 +672,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "q_Jq4IgYImk",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr5---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=abf26ae088182269&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "q_Jq4IgYImk"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Build core skills to thrive as an AI-era developer 44 minutes"
                                         }
@@ -966,7 +917,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -1098,14 +1048,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "TUtKGTeFWjQ",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=4d4b4a1937855a34&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "TUtKGTeFWjQ"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -1156,19 +1099,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "TUtKGTeFWjQ",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr4---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=4d4b4a1937855a34&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "TUtKGTeFWjQ"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Build next-generation UIs with the HTML-in-Canvas API 16 minutes"
                                         }
@@ -1409,7 +1344,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -1541,14 +1475,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "dgBLVm2L1P4",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr1---sn-hp57ynee.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=76004b566d8bd4fe&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "dgBLVm2L1P4"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -1599,19 +1526,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "dgBLVm2L1P4",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr1---sn-hp57ynee.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=76004b566d8bd4fe&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "dgBLVm2L1P4"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "A new era of discovery: AI and the frontiers of science with Demis Hassabis 42 minutes"
                                         }
@@ -1852,7 +1771,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -1984,14 +1902,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "fwLiTPtPHjw",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr5---sn-hp57knks.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7f02e24cfb4f1e3c&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "fwLiTPtPHjw"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -2042,19 +1953,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "fwLiTPtPHjw",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr5---sn-hp57knks.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=7f02e24cfb4f1e3c&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "fwLiTPtPHjw"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "What’s new in Google Play 26 minutes"
                                         }
@@ -2114,18 +2017,6 @@
                                   },
                                   "watchEndpoint": {
                                     "playlistId": "PLOU2XLYxmsILZpGc5gWRO1vL0n9CtcPJL",
-                                    "loggingContext": {
-                                      "vssLoggingContext": {
-                                        "serializedContextData": "GiJQTE9VMlhMWXhtc0lMWnBHYzVnV1JPMXZMMG45Q3RjUEpM"
-                                      }
-                                    },
-                                    "watchEndpointSupportedOnesieConfig": {
-                                      "html5PlaybackOnesieConfig": {
-                                        "commonConfig": {
-                                          "url": "https://rr5---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=da5b5c6c0d82093a&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                        }
-                                      }
-                                    },
                                     "videoId": "2ltcbA2CCTo",
                                     "playerParams": "0gcJCW4EgXWwhyeT"
                                   }
@@ -2415,7 +2306,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -2547,14 +2437,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "2ltcbA2CCTo",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr5---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=da5b5c6c0d82093a&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "2ltcbA2CCTo"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -2605,19 +2488,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "2ltcbA2CCTo",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr5---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=da5b5c6c0d82093a&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "2ltcbA2CCTo"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Building Voice Agents with Gemini Live API and Agora’s Conversational AI 9 minutes, 24 seconds"
                                         }
@@ -2858,7 +2733,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -2991,14 +2865,7 @@
                                                                         },
                                                                         "watchEndpoint": {
                                                                           "videoId": "RsDSeMXaCak",
-                                                                          "playerParams": "0gcJCZ0AKgI3ePta",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr3---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=46c0d278c5da09a9&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "playerParams": "0gcJCZ0AKgI3ePta"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -3049,19 +2916,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "RsDSeMXaCak",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr3---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=46c0d278c5da09a9&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "RsDSeMXaCak"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Google I/O 2026 Recap with Logan Kilpatrick, Josh Woodward and Tulsee Doshi 32 minutes"
                                         }
@@ -3302,7 +3161,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -3434,14 +3292,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "Alu4L3Pgzkw",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr3---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=025bb82f73e0ce4c&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "Alu4L3Pgzkw"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -3492,19 +3343,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "Alu4L3Pgzkw",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr3---sn-hp57kn6y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=025bb82f73e0ce4c&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "Alu4L3Pgzkw"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Announcing ADK Go 1.0 2 minutes, 51 seconds"
                                         }
@@ -3745,7 +3588,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -3877,14 +3719,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "6yjJ7Prt-RI",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr1---sn-hp57knks.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=eb28c9ecfaedf912&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "6yjJ7Prt-RI"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -3935,19 +3770,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "6yjJ7Prt-RI",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr1---sn-hp57knks.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=eb28c9ecfaedf912&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "6yjJ7Prt-RI"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "AIventure: Learning about vibe-coding, agents and Gen AI with Gemma 4 6 minutes, 24 seconds"
                                         }
@@ -4184,7 +4011,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -4316,14 +4142,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "bKRe5wu4Fcw",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr1---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=6ca45ee70bb815cc&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "bKRe5wu4Fcw"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -4375,19 +4194,11 @@
                                               },
                                               "watchEndpoint": {
                                                 "videoId": "bKRe5wu4Fcw",
-                                                "playerParams": "0gcJCUELAYcqIYzv",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr1---sn-hp57kndd.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=6ca45ee70bb815cc&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "playerParams": "0gcJCUELAYcqIYzv"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Announcing Gemma 4, Google I/O ‘26 Updates, and more! - Google Developer News April 2026 5 minutes, 34 seconds"
                                         }
@@ -4863,7 +4674,6 @@
                                                     }
                                                   }
                                                 },
-                                                "loggingContext": {},
                                                 "accessibilityContext": {
                                                   "label": "Collaboration channels"
                                                 }
@@ -4932,7 +4742,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -5064,14 +4873,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "tnP_Q5mS1I8",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr3---sn-hp57yn7y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=b673ff439992d48f&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "tnP_Q5mS1I8"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -5122,19 +4924,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "tnP_Q5mS1I8",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr3---sn-hp57yn7y.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=b673ff439992d48f&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "tnP_Q5mS1I8"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "One Design Decision to Create Better Results in Stitch 23 minutes"
                                         }
@@ -5263,7 +5057,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -5395,14 +5188,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "E0hrcDO3Noc",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr5---sn-hp57ynee.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=13486b7033b73687&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "E0hrcDO3Noc"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -5453,19 +5239,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "E0hrcDO3Noc",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr5---sn-hp57ynee.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=13486b7033b73687&ip=38.27.127.51&initcwndbps=4385000&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "E0hrcDO3Noc"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "Introducing Opal 2 minutes, 4 seconds"
                                         }
@@ -5594,7 +5372,6 @@
                                                 "badges": [
                                                   {
                                                     "thumbnailBadgeViewModel": {
-                                                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
                                                       "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
                                                       "lottieData": {
                                                         "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
@@ -5726,14 +5503,7 @@
                                                                           }
                                                                         },
                                                                         "watchEndpoint": {
-                                                                          "videoId": "QNA-JB9YjAk",
-                                                                          "watchEndpointSupportedOnesieConfig": {
-                                                                            "html5PlaybackOnesieConfig": {
-                                                                              "commonConfig": {
-                                                                                "url": "https://rr4---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=40d03e241f588c09&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                                              }
-                                                                            }
-                                                                          }
+                                                                          "videoId": "QNA-JB9YjAk"
                                                                         }
                                                                       },
                                                                       "videoIds": [
@@ -5784,19 +5554,11 @@
                                                 }
                                               },
                                               "watchEndpoint": {
-                                                "videoId": "QNA-JB9YjAk",
-                                                "watchEndpointSupportedOnesieConfig": {
-                                                  "html5PlaybackOnesieConfig": {
-                                                    "commonConfig": {
-                                                      "url": "https://rr4---sn-hp57ynlr.googlevideo.com/initplayback?source=youtube&oeis=1&c=WEB&oad=3200&ovd=3200&oaad=11000&oavd=11000&ocs=700&oewis=1&oputc=1&ofpcc=1&msp=1&odepv=1&id=40d03e241f588c09&ip=38.27.127.51&initcwndbps=4592500&mt=1781221494&oweuc="
-                                                    }
-                                                  }
-                                                }
+                                                "videoId": "QNA-JB9YjAk"
                                               }
                                             }
                                           }
                                         },
-                                        "loggingContext": {},
                                         "accessibilityContext": {
                                           "label": "What is Genkit Go? 14 minutes, 49 seconds"
                                         }
@@ -5972,9 +5734,7 @@
                 ]
               },
               "style": "IMAGE_BANNER_STYLE_INSET",
-              "rendererContext": {
-                "loggingContext": {}
-              }
+              "rendererContext": {}
             }
           },
           "title": {
@@ -6045,7 +5805,6 @@
                 ]
               },
               "rendererContext": {
-                "loggingContext": {},
                 "accessibilityContext": {
                   "label": "Google for Developers, Verified"
                 }
@@ -6085,9 +5844,7 @@
               }
             }
           },
-          "rendererContext": {
-            "loggingContext": {}
-          },
+          "rendererContext": {},
           "description": {
             "descriptionPreviewViewModel": {
               "maxLines": 2,
@@ -6184,7 +5941,6 @@
                     }
                   }
                 },
-                "loggingContext": {},
                 "accessibilityContext": {
                   "label": "Description. Subscribe to join a community of creative developers and lea...tap for more."
                 }
@@ -6259,9 +6015,7 @@
                 }
               ],
               "delimiter": "•",
-              "rendererContext": {
-                "loggingContext": {}
-              }
+              "rendererContext": {}
             }
           },
           "actions": {
@@ -6343,17 +6097,13 @@
                   ]
                 }
               ],
-              "rendererContext": {
-                "loggingContext": {}
-              },
+              "rendererContext": {},
               "minimumRowHeight": 44
             }
           },
           "attribution": {
             "attributionViewModel": {
-              "rendererContext": {
-                "loggingContext": {}
-              },
+              "rendererContext": {},
               "text": {
                 "content": " TikTok",
                 "commandRuns": [
