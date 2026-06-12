@@ -46,6 +46,31 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
 
     func showAirPlayPicker() {}
 
+    var captionTracks: [YouTubeCaptionTrack] = []
+    var quality: [String] = []
+    private(set) var selectedCaption: String??
+    private(set) var selectedQuality: String?
+
+    func availableCaptionTracks() async -> [YouTubeCaptionTrack] {
+        self.captionTracks
+    }
+
+    func setCaptionTrack(languageCode: String?) {
+        self.selectedCaption = languageCode
+    }
+
+    func availableQualityLevels() async -> [String] {
+        self.quality
+    }
+
+    func currentQualityLevel() async -> String? {
+        self.quality.first
+    }
+
+    func setQualityLevel(_ level: String) {
+        self.selectedQuality = level
+    }
+
     func tearDown() {
         self.tearDownCount += 1
     }
@@ -299,6 +324,47 @@ struct YouTubePlayerServiceTests {
 
         #expect(self.sut.surfaceLocation == .floating)
         #expect(self.sut.skipNavigationRequest == nil)
+    }
+
+    @Test("Watch Later toggles through the client and resets per video")
+    func watchLaterToggles() async {
+        let client = MockYouTubeClient()
+        self.sut.youtubeClient = client
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.toggleWatchLater()
+        #expect(self.sut.isInWatchLater)
+        #expect(client.watchLaterAdds == ["abc"])
+
+        await self.sut.toggleWatchLater()
+        #expect(self.sut.isInWatchLater == false)
+        #expect(client.watchLaterRemovals == ["abc"])
+
+        await self.sut.toggleWatchLater()
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
+        #expect(self.sut.isInWatchLater == false)
+    }
+
+    @Test("Playback options load once per video and selections forward")
+    func playbackOptions() async {
+        self.controller.captionTracks = [
+            YouTubeCaptionTrack(languageCode: "en", displayName: "English"),
+        ]
+        self.controller.quality = ["hd1080", "hd720", "auto"]
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.refreshPlaybackOptions()
+
+        #expect(self.sut.captionTracks.count == 1)
+        #expect(self.sut.qualityLevels == ["hd1080", "hd720", "auto"])
+
+        self.sut.selectCaptionTrack(languageCode: "en")
+        #expect(self.sut.activeCaptionLanguageCode == "en")
+        #expect(self.controller.selectedCaption == "en")
+
+        self.sut.selectQuality("hd720")
+        #expect(self.sut.currentQuality == "hd720")
+        #expect(self.controller.selectedQuality == "hd720")
     }
 
     @Test("Pop-in request only fires from the floating window")

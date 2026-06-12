@@ -153,20 +153,14 @@ struct YouTubeWatchView: View {
                 .font(.title2.bold())
                 .lineLimit(3)
 
-            HStack(spacing: 12) {
-                let meta = [
-                    self.viewModel.data.viewCountText ?? self.video.viewCountText,
-                    self.viewModel.data.publishedText ?? self.video.publishedText,
-                ].compactMap(\.self)
-                if !meta.isEmpty {
-                    Text(meta.joined(separator: " · "))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                self.actionButtons
+            let meta = [
+                self.viewModel.data.viewCountText ?? self.video.viewCountText,
+                self.viewModel.data.publishedText ?? self.video.publishedText,
+            ].compactMap(\.self)
+            if !meta.isEmpty {
+                Text(meta.joined(separator: " · "))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
 
             if let channel = self.viewModel.data.channel {
@@ -206,27 +200,6 @@ struct YouTubeWatchView: View {
                     Spacer(minLength: 0)
                 }
             }
-        }
-    }
-
-    // MARK: - Actions
-
-    private var actionButtons: some View {
-        // Like/dislike live on the playback controls inside the video
-        // surface; Watch Later stays with the metadata.
-        HStack(spacing: 8) {
-            Button {
-                Task {
-                    await self.viewModel.toggleWatchLater()
-                }
-            } label: {
-                Image(systemName: self.viewModel.isInWatchLater ? "checkmark.circle.fill" : "clock.badge.plus")
-                    .font(.system(size: 13))
-            }
-            .buttonStyle(.bordered)
-            .help(String(localized: "Watch Later"))
-            .accessibilityLabel(String(localized: "Add to Watch Later"))
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLaterButton)
         }
     }
 
@@ -291,7 +264,6 @@ struct YouTubeWatchView: View {
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"
-    static let watchLaterButton = "youtubeContent.watchLaterButton"
     static let subscribeButton = "youtubeContent.subscribeButton"
     static let watchMoveHere = "youtubeContent.watchMoveHere"
 }

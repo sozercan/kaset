@@ -138,6 +138,41 @@ enum YouTubeDestination: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - YouTubeCaptionTrack
+
+/// A caption track offered by the watch page player.
+struct YouTubeCaptionTrack: Identifiable, Hashable {
+    let languageCode: String
+    let displayName: String
+
+    var id: String {
+        self.languageCode
+    }
+}
+
+// MARK: - YouTubeQuality
+
+/// Display helpers for YouTube's quality-level identifiers.
+enum YouTubeQuality {
+    /// Human-readable name for a player quality level (e.g. "hd1080" → "1080p").
+    static func displayName(for level: String) -> String {
+        switch level {
+        case "highres": "4320p (8K)"
+        case "hd2880": "2880p"
+        case "hd2160": "2160p (4K)"
+        case "hd1440": "1440p"
+        case "hd1080": "1080p"
+        case "hd720": "720p"
+        case "large": "480p"
+        case "medium": "360p"
+        case "small": "240p"
+        case "tiny": "144p"
+        case "auto": String(localized: "Auto")
+        default: level
+        }
+    }
+}
+
 // MARK: - YouTubeRating
 
 /// Rating actions for a video.

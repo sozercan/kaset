@@ -153,23 +153,6 @@ struct YouTubeExploreViewModelTests {
 @Suite("YouTubeWatchViewModel actions", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeWatchViewModelActionTests {
-    @Test("Watch Later toggle adds then removes")
-    func watchLaterToggle() async {
-        let client = MockYouTubeClient()
-        let sut = YouTubeWatchViewModel(
-            video: MockYouTubeClient.makeVideo(videoId: "abc"),
-            client: client
-        )
-
-        await sut.toggleWatchLater()
-        #expect(sut.isInWatchLater)
-        #expect(client.watchLaterAdds == ["abc"])
-
-        await sut.toggleWatchLater()
-        #expect(sut.isInWatchLater == false)
-        #expect(client.watchLaterRemovals == ["abc"])
-    }
-
     @Test("Subscribe toggle uses the watch-next channel and seeds from data")
     func subscribeToggle() async {
         let client = MockYouTubeClient()

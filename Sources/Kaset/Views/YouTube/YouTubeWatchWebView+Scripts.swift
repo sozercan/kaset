@@ -180,6 +180,13 @@ extension YouTubeWatchWebView {
                         display: none !important;
                     }
 
+                    /* YouTube hides the cursor over an idle player
+                       (ytp-autohide sets cursor: none); the native app owns
+                       the cursor, so force it back everywhere. */
+                    html, body, #movie_player, #movie_player *, video {
+                        cursor: auto !important;
+                    }
+
                     html, body {
                         background: #000 !important;
                         overflow: hidden !important;
@@ -275,6 +282,125 @@ extension YouTubeWatchWebView {
             """,
             completionHandler: nil
         )
+    }
+
+    /// Evaluates JavaScript that returns a string (nil on error).
+    private func evaluateForString(_ script: String) async -> String? {
+        guard let webView else { return nil }
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, _ in
+                continuation.resume(returning: result as? String)
+            }
+        }
+    }
+
+    /// Fetches the caption tracks the player offers.
+    func availableCaptionTracks() async -> [YouTubeCaptionTrack] {
+        let script = """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getOption !== 'function') { return '[]'; }
+                if (typeof player.loadModule === 'function') {
+                    try { player.loadModule('captions'); } catch (e) {}
+                }
+                const tracks = player.getOption('captions', 'tracklist') || [];
+                return JSON.stringify(tracks.map(function(track) {
+                    return {
+                        code: track.languageCode || '',
+                        name: track.displayName || track.languageName || track.languageCode || ''
+                    };
+                }));
+            } catch (e) { return '[]'; }
+        })();
+        """
+        guard let json = await self.evaluateForString(script),
+              let data = json.data(using: .utf8),
+              let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: String]]
+        else {
+            return []
+        }
+        return entries.compactMap { entry in
+            guard let code = entry["code"], !code.isEmpty,
+                  let name = entry["name"], !name.isEmpty
+            else {
+                return nil
+            }
+            return YouTubeCaptionTrack(languageCode: code, displayName: name)
+        }
+    }
+
+    /// Activates a caption track by language code, or turns captions off (nil).
+    func setCaptionTrack(languageCode: String?) {
+        let script = if let languageCode {
+            """
+            (function() {
+                const player = document.getElementById('movie_player');
+                if (!player) { return; }
+                try { player.loadModule('captions'); } catch (e) {}
+                try { player.setOption('captions', 'track', {languageCode: '\(languageCode)'}); } catch (e) {}
+            })();
+            """
+        } else {
+            """
+            (function() {
+                const player = document.getElementById('movie_player');
+                if (!player) { return; }
+                try { player.setOption('captions', 'track', {}); } catch (e) {}
+                try { player.unloadModule('captions'); } catch (e) {}
+            })();
+            """
+        }
+        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Fetches the quality levels the player offers.
+    func availableQualityLevels() async -> [String] {
+        let script = """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getAvailableQualityLevels !== 'function') { return '[]'; }
+                return JSON.stringify(player.getAvailableQualityLevels() || []);
+            } catch (e) { return '[]'; }
+        })();
+        """
+        guard let json = await self.evaluateForString(script),
+              let data = json.data(using: .utf8),
+              let levels = try? JSONSerialization.jsonObject(with: data) as? [String]
+        else {
+            return []
+        }
+        return levels
+    }
+
+    /// The player's current quality level.
+    func currentQualityLevel() async -> String? {
+        let script = """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getPlaybackQuality !== 'function') { return ''; }
+                return player.getPlaybackQuality() || '';
+            } catch (e) { return ''; }
+        })();
+        """
+        let level = await self.evaluateForString(script)
+        return (level?.isEmpty == false) ? level : nil
+    }
+
+    /// Requests a playback quality level.
+    func setQualityLevel(_ level: String) {
+        let script = """
+        (function() {
+            const player = document.getElementById('movie_player');
+            if (!player) { return; }
+            try { player.setPlaybackQualityRange('\(level)', '\(level)'); } catch (e) {
+                try { player.setPlaybackQuality('\(level)'); } catch (e2) {}
+            }
+        })();
+        """
+        self.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Shows the system AirPlay picker for the watch page's video element.

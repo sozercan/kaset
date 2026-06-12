@@ -15,6 +15,11 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func seek(to time: Double)
     func setVolume(_ volume: Double)
     func showAirPlayPicker()
+    func availableCaptionTracks() async -> [YouTubeCaptionTrack]
+    func setCaptionTrack(languageCode: String?)
+    func availableQualityLevels() async -> [String]
+    func currentQualityLevel() async -> String?
+    func setQualityLevel(_ level: String)
     func tearDown()
 }
 
@@ -95,6 +100,24 @@ final class YouTubePlayerService {
     /// YouTubeContentView can open the new video's watch view.
     private(set) var skipNavigationRequest: YouTubeVideo?
 
+    /// Whether the current video was added to Watch Later this session.
+    private(set) var isInWatchLater = false
+
+    /// Caption tracks available on the current watch page.
+    private(set) var captionTracks: [YouTubeCaptionTrack] = []
+
+    /// Language code of the active caption track (nil = captions off).
+    private(set) var activeCaptionLanguageCode: String?
+
+    /// Quality levels available on the current watch page.
+    private(set) var qualityLevels: [String] = []
+
+    /// The player's current quality level.
+    private(set) var currentQuality: String?
+
+    /// The video whose playback options were last fetched.
+    private var playbackOptionsVideoId: String?
+
     /// Client used by rating actions from the playback controls.
     /// Set once by KasetApp; optional so unit tests don't need it.
     @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
@@ -133,9 +156,7 @@ final class YouTubePlayerService {
         }
         self.upNext = []
         self.currentVideo = video
-        self.progress = 0
-        self.duration = 0
-        self.currentRating = .none
+        self.resetPerVideoState()
         self.surfaceLocation = .inline
 
         // Create the WebView on demand; containers reparent it on appear.
@@ -176,7 +197,7 @@ final class YouTubePlayerService {
         self.progress = 0
         self.duration = 0
         self.isShowingAd = false
-        self.currentRating = .none
+        self.resetPerVideoState()
         self.surfaceLocation = .none
         self.activeInlineVideoId = nil
         self.popInRequest = nil
@@ -259,9 +280,7 @@ final class YouTubePlayerService {
 
         self.playbackWillStart?()
         self.currentVideo = video
-        self.progress = 0
-        self.duration = 0
-        self.currentRating = .none
+        self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
 
@@ -277,6 +296,62 @@ final class YouTubePlayerService {
         if self.history.count > 50 {
             self.history.removeFirst()
         }
+    }
+
+    /// Clears state that is scoped to a single video.
+    private func resetPerVideoState() {
+        self.progress = 0
+        self.duration = 0
+        self.currentRating = .none
+        self.isInWatchLater = false
+        self.captionTracks = []
+        self.activeCaptionLanguageCode = nil
+        self.qualityLevels = []
+        self.currentQuality = nil
+        self.playbackOptionsVideoId = nil
+    }
+
+    // MARK: - Watch Later
+
+    /// Adds/removes the current video from Watch Later (optimistic with rollback).
+    func toggleWatchLater() async {
+        guard let video = self.currentVideo, let client = self.youtubeClient else { return }
+        let wasInWatchLater = self.isInWatchLater
+        self.isInWatchLater = !wasInWatchLater
+        do {
+            if wasInWatchLater {
+                try await client.removeFromWatchLater(videoId: video.videoId)
+            } else {
+                try await client.addToWatchLater(videoId: video.videoId)
+            }
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to edit Watch Later: \(error.localizedDescription)")
+            self.isInWatchLater = wasInWatchLater
+        }
+    }
+
+    // MARK: - Captions & Quality
+
+    /// Loads the caption tracks and quality levels the watch page offers.
+    func refreshPlaybackOptions() async {
+        self.captionTracks = await self.playbackController.availableCaptionTracks()
+        self.qualityLevels = await self.playbackController.availableQualityLevels()
+        self.currentQuality = await self.playbackController.currentQualityLevel()
+    }
+
+    /// Selects a caption track (nil turns captions off).
+    func selectCaptionTrack(languageCode: String?) {
+        self.activeCaptionLanguageCode = languageCode
+        self.playbackController.setCaptionTrack(languageCode: languageCode)
+        HapticService.toggle()
+    }
+
+    /// Selects a playback quality level.
+    func selectQuality(_ level: String) {
+        self.currentQuality = level
+        self.playbackController.setQualityLevel(level)
+        HapticService.toggle()
     }
 
     // MARK: - AirPlay
@@ -352,13 +427,25 @@ final class YouTubePlayerService {
         self.duration = update.duration
         self.isShowingAd = update.isAd
 
+        // Fetch captions/quality options once per video, after playback starts
+        // (the player APIs aren't ready before that).
+        if update.isPlaying,
+           let videoId = self.currentVideo?.videoId,
+           self.playbackOptionsVideoId != videoId
+        {
+            self.playbackOptionsVideoId = videoId
+            Task {
+                await self.refreshPlaybackOptions()
+            }
+        }
+
         // Track SPA drift: if the page moved to a different video, follow it
         // so the controls stay truthful.
         if let videoId = update.videoId, let current = self.currentVideo,
            videoId != current.videoId
         {
             self.logger.info("YouTubePlayer: page drifted to a different video, following")
-            self.currentRating = .none
+            self.resetPerVideoState()
             self.currentVideo = YouTubeVideo(
                 videoId: videoId,
                 title: update.title ?? current.title,

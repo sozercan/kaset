@@ -16,6 +16,10 @@ import SwiftUI
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
 
+    /// Compact layout for the pop-out window overlay: transport + seek +
+    /// like/dislike + pop-in only.
+    var compact = false
+
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     /// Namespace for glass effect morphing.
@@ -30,15 +34,19 @@ struct YouTubePlayerBar: View {
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             HStack(spacing: 0) {
-                self.playbackControls
+                if self.compact {
+                    self.compactContent
+                } else {
+                    self.playbackControls
 
-                Spacer()
+                    Spacer()
 
-                self.centerSection
+                    self.centerSection
 
-                Spacer()
+                    Spacer()
 
-                self.rightSection
+                    self.rightSection
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -84,6 +92,72 @@ struct YouTubePlayerBar: View {
         .padding(.bottom, -8)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    // MARK: - Compact Content (pop-out window overlay)
+
+    private var compactContent: some View {
+        HStack(spacing: 12) {
+            self.playbackControls
+
+            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
+                if editing {
+                    self.isSeeking = true
+                } else {
+                    self.performSeek()
+                }
+            }
+            .controlSize(.small)
+            .tint(Self.brandAccent)
+            .disabled(self.youtubePlayer.duration <= 0 || self.youtubePlayer.isShowingAd)
+            .accessibilityLabel(String(localized: "Seek"))
+
+            self.likeDislikeCompact
+
+            // Pop back into the app
+            Button {
+                HapticService.toggle()
+                self.youtubePlayer.requestPopIn()
+            } label: {
+                Image(systemName: "pip.exit")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityLabel(String(localized: "Pop video back into Kaset"))
+        }
+    }
+
+    private var likeDislikeCompact: some View {
+        HStack(spacing: 10) {
+            Button {
+                Task {
+                    await self.youtubePlayer.toggleDislike()
+                }
+            } label: {
+                Image(systemName: self.youtubePlayer.currentRating == .dislike
+                    ? "hand.thumbsdown.fill"
+                    : "hand.thumbsdown")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(self.youtubePlayer.currentRating == .dislike ? .red : .primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityLabel(String(localized: "Dislike"))
+
+            Button {
+                Task {
+                    await self.youtubePlayer.toggleLike()
+                }
+            } label: {
+                Image(systemName: self.youtubePlayer.currentRating == .like
+                    ? "hand.thumbsup.fill"
+                    : "hand.thumbsup")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(self.youtubePlayer.currentRating == .like ? .red : .primary.opacity(0.85))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityLabel(String(localized: "Like"))
+        }
     }
 
     // MARK: - Playback Controls
@@ -321,6 +395,25 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Like"))
 
+            // Watch Later (in the TV button's old slot, ahead of AirPlay)
+            Button {
+                Task {
+                    await self.youtubePlayer.toggleWatchLater()
+                }
+            } label: {
+                Image(systemName: self.youtubePlayer.isInWatchLater
+                    ? "checkmark.circle.fill"
+                    : "clock.badge.plus")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.youtubePlayer.isInWatchLater ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.youtubePlayer.isInWatchLater)
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLaterButton)
+            .disabled(self.youtubePlayer.currentVideo == nil)
+            .accessibilityLabel(String(localized: "Add to Watch Later"))
+
             // AirPlay
             Button {
                 HapticService.toggle()
@@ -334,27 +427,9 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "AirPlay"))
 
-            // Fullscreen (TV) — expands the pop-out window
-            Button {
-                HapticService.toggle()
-                if self.youtubePlayer.surfaceLocation == .inline {
-                    self.youtubePlayer.popOutToWindow()
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(250))
-                        YouTubeVideoWindowController.shared.toggleFullscreen()
-                    }
-                } else {
-                    YouTubeVideoWindowController.shared.toggleFullscreen()
-                }
-            } label: {
-                Image(systemName: "tv")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchFullscreen)
-            .disabled(self.youtubePlayer.currentVideo == nil)
-            .accessibilityLabel(String(localized: "Fullscreen"))
+            self.captionsMenu
+
+            self.qualityMenu
 
             // Picture in picture (pop out / pop in)
             Button {
@@ -381,6 +456,72 @@ struct YouTubePlayerBar: View {
                     : String(localized: "Picture in Picture")
             )
         }
+    }
+
+    // MARK: - Captions & Quality Menus
+
+    private var captionsMenu: some View {
+        Menu {
+            Button {
+                self.youtubePlayer.selectCaptionTrack(languageCode: nil)
+            } label: {
+                if self.youtubePlayer.activeCaptionLanguageCode == nil {
+                    Label(String(localized: "Off"), systemImage: "checkmark")
+                } else {
+                    Text("Off", comment: "Captions off menu item")
+                }
+            }
+
+            ForEach(self.youtubePlayer.captionTracks) { track in
+                Button {
+                    self.youtubePlayer.selectCaptionTrack(languageCode: track.languageCode)
+                } label: {
+                    if self.youtubePlayer.activeCaptionLanguageCode == track.languageCode {
+                        Label(track.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(track.displayName)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: self.youtubePlayer.activeCaptionLanguageCode == nil
+                ? "captions.bubble"
+                : "captions.bubble.fill")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(self.youtubePlayer.activeCaptionLanguageCode != nil ? .red : .primary.opacity(0.85))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(self.youtubePlayer.captionTracks.isEmpty)
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.captionsButton)
+        .accessibilityLabel(String(localized: "Closed captions"))
+    }
+
+    private var qualityMenu: some View {
+        Menu {
+            ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
+                Button {
+                    self.youtubePlayer.selectQuality(level)
+                } label: {
+                    if self.youtubePlayer.currentQuality == level {
+                        Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
+                    } else {
+                        Text(YouTubeQuality.displayName(for: level))
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.85))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(self.youtubePlayer.qualityLevels.isEmpty)
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.qualityButton)
+        .accessibilityLabel(String(localized: "Video quality"))
     }
 
     private var volumeSlider: some View {
@@ -445,6 +586,8 @@ extension AccessibilityID.YouTubeContent {
     static let watchPlayPause = "youtubeContent.watchPlayPause"
     static let watchLikeButton = "youtubeContent.watchLikeButton"
     static let watchDislikeButton = "youtubeContent.watchDislikeButton"
-    static let watchFullscreen = "youtubeContent.watchFullscreen"
+    static let watchLaterButton = "youtubeContent.watchLaterButton"
     static let watchPictureInPicture = "youtubeContent.watchPictureInPicture"
+    static let captionsButton = "youtubeContent.captionsButton"
+    static let qualityButton = "youtubeContent.qualityButton"
 }

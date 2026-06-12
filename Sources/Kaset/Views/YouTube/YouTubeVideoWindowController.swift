@@ -38,7 +38,7 @@ final class YouTubeVideoWindowController {
         let hostingView = NSHostingView(rootView: AnyView(contentView))
         self.hostingView = hostingView
 
-        let defaultRect = NSRect(x: 0, y: 0, width: 480, height: 300)
+        let defaultRect = NSRect(x: 0, y: 0, width: 480, height: 270)
         let window = NSWindow(
             contentRect: defaultRect,
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
@@ -65,6 +65,13 @@ final class YouTubeVideoWindowController {
         if !window.setFrameUsingName(self.frameAutosaveKey) {
             self.positionAtDefaultLocation(window: window)
         }
+        // Saved frames from earlier layouts may not be 16:9; the aspect lock
+        // only constrains user resizes, so normalize the content explicitly.
+        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        let expectedHeight = contentSize.width * 9 / 16
+        if abs(contentSize.height - expectedHeight) > 1 {
+            window.setContentSize(NSSize(width: contentSize.width, height: expectedHeight))
+        }
 
         window.orderFront(nil)
         self.window = window
@@ -81,6 +88,15 @@ final class YouTubeVideoWindowController {
     /// Toggles fullscreen on the floating window.
     func toggleFullscreen() {
         self.window?.toggleFullScreen(nil)
+    }
+
+    /// Shows/hides the traffic lights with the hover overlay so the video
+    /// is chrome-free when the cursor is elsewhere.
+    func setWindowChromeVisible(_ visible: Bool) {
+        guard let window = self.window else { return }
+        for buttonType in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            window.standardWindowButton(buttonType)?.animator().alphaValue = visible ? 1 : 0
+        }
     }
 
     /// Closes the window programmatically (e.g. when docking back inline).
@@ -134,15 +150,46 @@ final class YouTubeVideoWindowController {
 
 // MARK: - YouTubeVideoWindowContent
 
-/// Floating window content: just the video surface (aspect-locked window).
-/// Playback is controlled from the player bar in the main window.
+/// Floating window content: corner-to-corner video with hover-revealed
+/// chrome — a compact Liquid Glass bar over the bottom of the video and a
+/// small glass backing under the traffic lights. Cursor leaves → all
+/// chrome fades out.
 private struct YouTubeVideoWindowContent: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
+    @State private var isHovering = false
+
     var body: some View {
-        YouTubeWatchSurfaceView()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.black)
+        ZStack(alignment: .bottom) {
+            YouTubeWatchSurfaceView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if self.isHovering {
+                YouTubePlayerBar(compact: true)
+                    .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if self.isHovering {
+                // Depth behind the traffic lights.
+                Capsule()
+                    .fill(.clear)
+                    .frame(width: 76, height: 26)
+                    .compatGlass(interactive: false, in: .capsule)
+                    .padding(.leading, 7)
+                    .padding(.top, 5)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .background(.black)
+        .ignoresSafeArea()
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.18)) {
+                self.isHovering = hovering
+            }
+            YouTubeVideoWindowController.shared.setWindowChromeVisible(hovering)
+        }
     }
 }
 

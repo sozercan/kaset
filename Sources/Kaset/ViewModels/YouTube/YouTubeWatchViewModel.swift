@@ -22,11 +22,8 @@ final class YouTubeWatchViewModel {
 
     // MARK: - Action State (optimistic)
 
-    // Like/dislike state lives on YouTubePlayerService so the playback
-    // controls (inline and floating window) share it.
-
-    /// Whether this video has been added to Watch Later in this session.
-    private(set) var isInWatchLater = false
+    // Like/dislike and Watch Later live on YouTubePlayerService so the
+    // player bar (inline and pop-out) owns them.
 
     /// Whether the user is subscribed to the channel (seeded from watch-next).
     private(set) var isSubscribed = false
@@ -46,23 +43,6 @@ final class YouTubeWatchViewModel {
     }
 
     // MARK: - Actions
-
-    /// Adds or removes the video from Watch Later (optimistic with rollback).
-    func toggleWatchLater() async {
-        let wasInWatchLater = self.isInWatchLater
-        self.isInWatchLater = !wasInWatchLater
-        do {
-            if wasInWatchLater {
-                try await self.client.removeFromWatchLater(videoId: self.video.videoId)
-            } else {
-                try await self.client.addToWatchLater(videoId: self.video.videoId)
-            }
-            HapticService.toggle()
-        } catch {
-            self.logger.error("Failed to edit Watch Later: \(error.localizedDescription)")
-            self.isInWatchLater = wasInWatchLater
-        }
-    }
 
     /// Subscribes/unsubscribes the channel (optimistic with rollback).
     func toggleSubscribed() async {
