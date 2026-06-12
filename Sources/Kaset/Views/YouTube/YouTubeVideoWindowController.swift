@@ -134,21 +134,15 @@ final class YouTubeVideoWindowController {
 
 // MARK: - YouTubeVideoWindowContent
 
-/// Floating window content: the video surface with the controls overlaid
-/// inside it (same as the inline watch view).
+/// Floating window content: just the video surface (aspect-locked window).
+/// Playback is controlled from the player bar in the main window.
 private struct YouTubeVideoWindowContent: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            YouTubeWatchSurfaceView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            WatchControlsBar()
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
-        }
-        .background(.black)
+        YouTubeWatchSurfaceView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.black)
     }
 }
 

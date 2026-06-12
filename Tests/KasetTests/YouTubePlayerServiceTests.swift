@@ -44,6 +44,8 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
         self.volumes.append(volume)
     }
 
+    func showAirPlayPicker() {}
+
     func tearDown() {
         self.tearDownCount += 1
     }
@@ -224,6 +226,79 @@ struct YouTubePlayerServiceTests {
         await self.sut.toggleLike()
 
         #expect(self.sut.currentRating == YouTubeRating.none)
+    }
+
+    @Test("Skip forward plays the next up-next video and records history")
+    func skipForwardUsesUpNext() async {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))
+        self.sut.setUpNext([
+            MockYouTubeClient.makeVideo(videoId: "second"),
+            MockYouTubeClient.makeVideo(videoId: "third"),
+        ])
+
+        await self.sut.skipForward()
+
+        #expect(self.sut.currentVideo?.videoId == "second")
+        #expect(self.controller.loadedVideoIds == ["first", "second"])
+        // Inline surface: a navigation request opens the new watch view.
+        #expect(self.sut.skipNavigationRequest?.videoId == "second")
+
+        // Skip backward returns to the first video without re-recording it.
+        self.sut.skipBackward()
+        #expect(self.sut.currentVideo?.videoId == "first")
+    }
+
+    @Test("Skip forward fetches related lazily when no up-next is known")
+    func skipForwardFetchesLazily() async {
+        let client = MockYouTubeClient()
+        client.watchNextData = WatchNextData(
+            videoTitle: nil,
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [MockYouTubeClient.makeVideo(videoId: "fetched")]
+        )
+        self.sut.youtubeClient = client
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))
+
+        await self.sut.skipForward()
+
+        #expect(self.sut.currentVideo?.videoId == "fetched")
+    }
+
+    @Test("Skip backward with no history restarts the video")
+    func skipBackwardRestarts() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "only"))
+
+        self.sut.skipBackward()
+
+        #expect(self.sut.currentVideo?.videoId == "only")
+        #expect(self.controller.seeks == [0])
+    }
+
+    @Test("Up-next filters out the current video and Shorts")
+    func upNextFilters() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "current"))
+
+        self.sut.setUpNext([
+            MockYouTubeClient.makeVideo(videoId: "current"),
+            YouTubeVideo(videoId: "a-short", title: "Short", isShort: true),
+            MockYouTubeClient.makeVideo(videoId: "keeper"),
+        ])
+
+        #expect(self.sut.upNext.map(\.videoId) == ["keeper"])
+    }
+
+    @Test("Skipping while floating keeps the surface in the window")
+    func skipWhileFloatingStaysFloating() async {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))
+        self.sut.popOutToWindow()
+        self.sut.setUpNext([MockYouTubeClient.makeVideo(videoId: "second")])
+
+        await self.sut.skipForward()
+
+        #expect(self.sut.surfaceLocation == .floating)
+        #expect(self.sut.skipNavigationRequest == nil)
     }
 
     @Test("Pop-in request only fires from the floating window")

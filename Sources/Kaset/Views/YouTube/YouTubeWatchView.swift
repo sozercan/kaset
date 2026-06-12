@@ -40,6 +40,11 @@ struct YouTubeWatchView: View {
         .task {
             self.startOrAdoptPlayback()
             await self.viewModel.load()
+            // Feed the related list to the player so the bar's next/previous
+            // buttons can skip between videos.
+            if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
+                self.youtubePlayer.setUpNext(self.viewModel.data.related)
+            }
         }
         .onDisappear {
             self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
@@ -63,17 +68,12 @@ struct YouTubeWatchView: View {
     @ViewBuilder
     private var videoSurface: some View {
         if self.presentsLiveSurface {
-            // Controls live INSIDE the video surface, pinned to its bottom.
-            ZStack(alignment: .bottom) {
-                YouTubeWatchSurfaceView()
-                    .aspectRatio(16 / 9, contentMode: .fit)
-
-                WatchControlsBar()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-            }
-            .clipShape(.rect(cornerRadius: 12))
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+            // Clean video surface — playback is controlled from the
+            // Liquid Glass player bar at the bottom of the window.
+            YouTubeWatchSurfaceView()
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .clipShape(.rect(cornerRadius: 12))
+                .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
         } else if self.playsInFloatingWindow {
             // Native PiP-style placeholder while the video plays in the
             // pop-out window.

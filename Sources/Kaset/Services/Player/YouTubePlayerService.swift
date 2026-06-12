@@ -14,6 +14,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func pause()
     func seek(to time: Double)
     func setVolume(_ volume: Double)
+    func showAirPlayPicker()
     func tearDown()
 }
 
@@ -84,6 +85,16 @@ final class YouTubePlayerService {
     /// opens/adopts the watch view and consumes the request.
     private(set) var popInRequest: YouTubeVideo?
 
+    /// Up-next candidates for skip-forward (related videos from the watch page).
+    private(set) var upNext: [YouTubeVideo] = []
+
+    /// Videos played earlier this session, for skip-backward.
+    private var history: [YouTubeVideo] = []
+
+    /// Set when a skip changes the video while docked inline so
+    /// YouTubeContentView can open the new video's watch view.
+    private(set) var skipNavigationRequest: YouTubeVideo?
+
     /// Client used by rating actions from the playback controls.
     /// Set once by KasetApp; optional so unit tests don't need it.
     @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
@@ -117,6 +128,10 @@ final class YouTubePlayerService {
         self.logger.info("YouTubePlayer: play video")
         self.playbackWillStart?()
 
+        if let current = self.currentVideo, current.videoId != video.videoId {
+            self.rememberInHistory(current)
+        }
+        self.upNext = []
         self.currentVideo = video
         self.progress = 0
         self.duration = 0
@@ -165,6 +180,9 @@ final class YouTubePlayerService {
         self.surfaceLocation = .none
         self.activeInlineVideoId = nil
         self.popInRequest = nil
+        self.upNext = []
+        self.history = []
+        self.skipNavigationRequest = nil
         self.playbackController.tearDown()
     }
 
@@ -193,6 +211,79 @@ final class YouTubePlayerService {
     /// Marks the pop-in request as handled.
     func consumePopInRequest() {
         self.popInRequest = nil
+    }
+
+    // MARK: - Skipping
+
+    /// Supplies up-next candidates (the watch page's related list).
+    func setUpNext(_ videos: [YouTubeVideo]) {
+        let currentId = self.currentVideo?.videoId
+        self.upNext = videos.filter { $0.videoId != currentId && !$0.isShort }
+    }
+
+    /// Skips to the next video (first up-next candidate; fetched lazily
+    /// when none are known, e.g. when playing in the floating window).
+    func skipForward() async {
+        guard let current = self.currentVideo else { return }
+
+        var target = self.upNext.first
+        if target == nil, let client = self.youtubeClient {
+            target = await (try? client.getWatchNext(videoId: current.videoId))?
+                .related.first { !$0.isShort }
+        }
+        guard let next = target else { return }
+        self.advance(to: next)
+    }
+
+    /// Skips back to the previously played video, or restarts the current
+    /// one when there is no history.
+    func skipBackward() {
+        if let previous = self.history.popLast() {
+            self.advance(to: previous, recordingHistory: false)
+        } else {
+            self.seek(to: 0)
+        }
+    }
+
+    /// Marks the skip navigation request as handled.
+    func consumeSkipNavigationRequest() {
+        self.skipNavigationRequest = nil
+    }
+
+    private func advance(to video: YouTubeVideo, recordingHistory: Bool = true) {
+        self.logger.info("YouTubePlayer: advancing to another video")
+        if recordingHistory, let current = self.currentVideo {
+            self.rememberInHistory(current)
+        }
+        self.upNext.removeAll { $0.videoId == video.videoId }
+
+        self.playbackWillStart?()
+        self.currentVideo = video
+        self.progress = 0
+        self.duration = 0
+        self.currentRating = .none
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.loadVideo(videoId: video.videoId)
+
+        // Keep the surface where it is; when docked inline the content view
+        // opens the new video's watch view.
+        if self.surfaceLocation == .inline {
+            self.skipNavigationRequest = video
+        }
+    }
+
+    private func rememberInHistory(_ video: YouTubeVideo) {
+        self.history.append(video)
+        if self.history.count > 50 {
+            self.history.removeFirst()
+        }
+    }
+
+    // MARK: - AirPlay
+
+    /// Shows the system AirPlay picker for the video element.
+    func showAirPlayPicker() {
+        self.playbackController.showAirPlayPicker()
     }
 
     // MARK: - Rating

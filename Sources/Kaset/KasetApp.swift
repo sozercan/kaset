@@ -279,36 +279,55 @@ struct KasetApp: App {
                 .disabled(!self.updaterService.canCheckForUpdates)
             }
 
-            // Playback commands
+            // Playback commands — routed to whichever player is active
+            // (the YouTube video player when it played last, music otherwise).
             CommandMenu("Playback") {
                 // Play/Pause - Space
-                Button(self.playerService.isPlaying ? "Pause" : "Play") {
-                    Task {
-                        await self.playerService.playPause()
+                Button(self.activePlayerIsPlaying ? "Pause" : "Play") {
+                    if self.playbackArbiter.routesMediaKeysToVideo {
+                        self.youtubePlayerService.playPause()
+                    } else {
+                        Task {
+                            await self.playerService.playPause()
+                        }
                     }
                 }
                 .keyboardShortcut(.space, modifiers: [])
-                .disabled(self.playerService.currentTrack == nil && self.playerService.pendingPlayVideoId == nil)
+                .disabled(
+                    !self.playbackArbiter.routesMediaKeysToVideo
+                        && self.playerService.currentTrack == nil
+                        && self.playerService.pendingPlayVideoId == nil
+                )
 
                 Divider()
 
                 // Next Track - ⌘→
                 Button("Next") {
-                    Task {
-                        await self.playerService.next()
+                    if self.playbackArbiter.routesMediaKeysToVideo {
+                        Task {
+                            await self.youtubePlayerService.skipForward()
+                        }
+                    } else {
+                        Task {
+                            await self.playerService.next()
+                        }
                     }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(self.playerService.currentEpisode != nil)
+                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
 
                 // Previous Track - ⌘←
                 Button("Previous") {
-                    Task {
-                        await self.playerService.previous()
+                    if self.playbackArbiter.routesMediaKeysToVideo {
+                        self.youtubePlayerService.skipBackward()
+                    } else {
+                        Task {
+                            await self.playerService.previous()
+                        }
                     }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(self.playerService.currentEpisode != nil)
+                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
 
                 Divider()
 
@@ -518,6 +537,15 @@ struct KasetApp: App {
             }
             window.orderOut(nil)
             return
+        }
+    }
+
+    /// Whether the currently routed player (video or music) is playing.
+    private var activePlayerIsPlaying: Bool {
+        if self.playbackArbiter.routesMediaKeysToVideo {
+            self.youtubePlayerService.isPlaying
+        } else {
+            self.playerService.isPlaying
         }
     }
 

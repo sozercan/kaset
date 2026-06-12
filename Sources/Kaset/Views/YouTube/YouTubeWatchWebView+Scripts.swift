@@ -277,6 +277,21 @@ extension YouTubeWatchWebView {
         )
     }
 
+    /// Shows the system AirPlay picker for the watch page's video element.
+    func showAirPlayPicker() {
+        self.webView?.evaluateJavaScript(
+            """
+            (function() {
+                const video = document.querySelector('#movie_player video') || document.querySelector('video');
+                if (video && typeof video.webkitShowPlaybackTargetPicker === 'function') {
+                    video.webkitShowPlaybackTargetPicker();
+                }
+            })();
+            """,
+            completionHandler: nil
+        )
+    }
+
     /// Sets the playback volume (0...1) on the video element and player API.
     func setVolume(_ volume: Double) {
         let clamped = volume.isFinite ? min(max(volume, 0), 1) : 1.0

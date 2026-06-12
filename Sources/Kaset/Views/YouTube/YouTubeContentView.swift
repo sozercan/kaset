@@ -31,14 +31,34 @@ struct YouTubeContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
+            // One Liquid Glass bar that adapts to the active player:
+            // the YouTube variant while a video is loaded, the music bar
+            // otherwise (music keeps playing while browsing YouTube).
+            if self.youtubePlayer.currentVideo != nil {
+                YouTubePlayerBar()
+            } else {
+                PlayerBar()
+            }
         }
         .onChange(of: self.youtubePlayer.popInRequest) { _, request in
             self.handlePopInRequest(request)
         }
+        .onChange(of: self.youtubePlayer.skipNavigationRequest) { _, request in
+            self.handleSkipNavigationRequest(request)
+        }
         .onChange(of: self.selection) { _, _ in
             self.navigationPath = NavigationPath()
         }
+    }
+
+    /// A skip changed the video while docked inline: open the new video's
+    /// watch view so the surface has a home.
+    private func handleSkipNavigationRequest(_ request: YouTubeVideo?) {
+        guard let video = request else { return }
+        defer {
+            self.youtubePlayer.consumeSkipNavigationRequest()
+        }
+        self.navigationPath.append(YouTubeRoute.watch(video))
     }
 
     /// Docks a popped-out video back into a watch view: adopts the one that
