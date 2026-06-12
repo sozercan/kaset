@@ -32,9 +32,8 @@ struct YouTubeWatchView: View {
 
                 self.relatedSection
             }
-            .padding(20)
-            .frame(maxWidth: 1000)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
         .navigationTitle(Text(self.video.title))
         .task {

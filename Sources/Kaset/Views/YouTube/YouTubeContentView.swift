@@ -22,6 +22,7 @@ struct YouTubeContentView: View {
                     // Each navigable view carries its own bar inset
                     // (pushed views don't inherit a parent's safeAreaInset).
                     self.rootView(for: selection)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .youtubePlayerBarInset()
                         .youtubeNavigationDestinations(client: self.store.client)
                 }

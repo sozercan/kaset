@@ -29,6 +29,9 @@ final class YouTubeShortsViewModel {
             self.shorts = try await self.client.getShorts()
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load Shorts: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }

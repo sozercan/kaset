@@ -37,6 +37,9 @@ final class YouTubeWatchViewModel {
             self.isSubscribed = self.data.isSubscribed ?? false
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load watch-next data: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }

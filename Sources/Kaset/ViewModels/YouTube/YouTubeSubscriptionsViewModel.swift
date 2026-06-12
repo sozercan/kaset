@@ -44,6 +44,9 @@ final class YouTubeSubscriptionsViewModel {
             self.channels = await (try? channelsTask) ?? []
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load subscriptions: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
@@ -68,6 +71,9 @@ final class YouTubeSubscriptionsViewModel {
             self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load more subscriptions: \(error.localizedDescription)")
             self.continuation = nil
             self.loadingState = .loaded

@@ -35,6 +35,9 @@ final class YouTubeHistoryViewModel {
             self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load YouTube history: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
@@ -58,6 +61,9 @@ final class YouTubeHistoryViewModel {
             self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load more history: \(error.localizedDescription)")
             self.continuation = nil
             self.loadingState = .loaded

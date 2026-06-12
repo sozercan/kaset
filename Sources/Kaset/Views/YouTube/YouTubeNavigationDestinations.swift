@@ -28,6 +28,7 @@ extension View {
                     YouTubePlaylistDetailView(playlistId: playlistId, client: client)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .youtubePlayerBarInset()
         }
     }

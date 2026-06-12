@@ -173,6 +173,15 @@ extension YouTubeWatchWebView {
                         object-fit: contain !important;
                     }
 
+                    /* Captions are overlay siblings of the video, not
+                       ancestors — keep them visible above it. */
+                    .ytp-caption-window-container,
+                    .ytp-caption-window-container *,
+                    .caption-window, .caption-window * {
+                        visibility: visible !important;
+                        z-index: 2147483647 !important;
+                    }
+
                     /* Keep YouTube's own controls/overlays hidden */
                     .ytp-chrome-bottom, .ytp-chrome-top, .ytp-gradient-bottom,
                     .ytp-gradient-top, .ytp-ce-element, .ytp-cards-teaser,

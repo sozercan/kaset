@@ -32,6 +32,9 @@ final class YouTubeHomeViewModel {
             self.hasMoreVideos = self.client.hasMoreHomeFeed
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load YouTube home feed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
@@ -59,6 +62,9 @@ final class YouTubeHomeViewModel {
             }
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             self.logger.error("Failed to load more YouTube home feed: \(error.localizedDescription)")
             // Keep existing content; just stop paginating on error.
             self.loadingState = .loaded

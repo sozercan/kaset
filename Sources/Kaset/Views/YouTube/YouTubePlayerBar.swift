@@ -283,6 +283,25 @@ struct YouTubePlayerBar: View {
 
     private var actionButtons: some View {
         HStack(spacing: 12) {
+            // Like
+            Button {
+                Task {
+                    await self.youtubePlayer.toggleLike()
+                }
+            } label: {
+                Image(systemName: self.youtubePlayer.currentRating == .like
+                    ? "hand.thumbsup.fill"
+                    : "hand.thumbsup")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(self.youtubePlayer.currentRating == .like ? .red : .primary.opacity(0.85))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
+            .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .like)
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLikeButton)
+            .disabled(self.youtubePlayer.currentVideo == nil)
+            .accessibilityLabel(String(localized: "Like"))
+
             // Dislike
             Button {
                 Task {
@@ -302,24 +321,27 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Dislike"))
 
-            // Like
+            // Full view — expands the pop-out window to fullscreen
             Button {
-                Task {
-                    await self.youtubePlayer.toggleLike()
+                HapticService.toggle()
+                if self.youtubePlayer.surfaceLocation == .inline {
+                    self.youtubePlayer.popOutToWindow()
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        YouTubeVideoWindowController.shared.toggleFullscreen()
+                    }
+                } else {
+                    YouTubeVideoWindowController.shared.toggleFullscreen()
                 }
             } label: {
-                Image(systemName: self.youtubePlayer.currentRating == .like
-                    ? "hand.thumbsup.fill"
-                    : "hand.thumbsup")
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.youtubePlayer.currentRating == .like ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
+                    .foregroundStyle(.primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .like)
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLikeButton)
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchFullView)
             .disabled(self.youtubePlayer.currentVideo == nil)
-            .accessibilityLabel(String(localized: "Like"))
+            .accessibilityLabel(String(localized: "Full view"))
 
             // Watch Later (in the TV button's old slot, ahead of AirPlay)
             Button {
@@ -514,6 +536,7 @@ extension AccessibilityID.YouTubeContent {
     static let watchDislikeButton = "youtubeContent.watchDislikeButton"
     static let watchLaterButton = "youtubeContent.watchLaterButton"
     static let watchPictureInPicture = "youtubeContent.watchPictureInPicture"
+    static let watchFullView = "youtubeContent.watchFullView"
     static let captionsButton = "youtubeContent.captionsButton"
     static let qualityButton = "youtubeContent.qualityButton"
 }

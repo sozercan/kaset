@@ -40,6 +40,9 @@ final class YouTubeExploreViewModel {
             self.videos = feed.videos
             self.loadingState = .loaded
         } catch {
+            // A cancelled load (view went away mid-flight) is not an
+            // error; the next .task run reloads.
+            if error is CancellationError { return }
             guard destination == self.selectedDestination else { return }
             self.logger.error("Failed to load destination feed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
