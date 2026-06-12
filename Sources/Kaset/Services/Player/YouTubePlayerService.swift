@@ -208,6 +208,7 @@ final class YouTubePlayerService {
         self.upNext = []
         self.history = []
         self.skipNavigationRequest = nil
+        self.pauseInPlaceOnDisappear = false
         self.playbackController.tearDown()
     }
 
@@ -405,14 +406,39 @@ final class YouTubePlayerService {
         }
     }
 
+    /// Set by the source toggle right before switching away from the video
+    /// source: the inline surface pauses in place (no pop-out window) and
+    /// the restored watch view re-adopts it when the user comes back.
+    private var pauseInPlaceOnDisappear = false
+
+    /// Prepares the inline surface for a switch to the music source:
+    /// pause in place, keep everything loaded for restore.
+    func prepareForSourceSwitch() {
+        guard self.surfaceLocation == .inline, self.currentVideo != nil else { return }
+        if self.isPlaying {
+            self.pause()
+        }
+        self.pauseInPlaceOnDisappear = true
+    }
+
     /// A WatchView for `videoId` is disappearing. If it owns the inline
-    /// surface, hand off: keep playing in the floating window, or stop if
-    /// paused.
+    /// surface, hand off: keep playing in the floating window, stop if
+    /// paused — or, during a source switch, stay paused in place.
     func inlineSurfaceWillDisappear(videoId: String) {
         guard self.activeInlineVideoId == videoId else { return }
         self.activeInlineVideoId = nil
 
-        guard self.currentVideo?.videoId == videoId, self.surfaceLocation == .inline else { return }
+        guard self.currentVideo?.videoId == videoId, self.surfaceLocation == .inline else {
+            self.pauseInPlaceOnDisappear = false
+            return
+        }
+
+        if self.pauseInPlaceOnDisappear {
+            self.pauseInPlaceOnDisappear = false
+            // Surface stays .inline and paused; returning to the video
+            // source re-adopts it on the same watch view.
+            return
+        }
 
         if self.isPlaying {
             self.popOutToWindow()

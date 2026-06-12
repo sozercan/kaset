@@ -416,6 +416,10 @@ struct KasetApp: App {
 
                 // Switch Source - ⌘⇧Y
                 Button(self.settings.appSource == .music ? "Switch to YouTube" : "Switch to Music") {
+                    if self.settings.appSource == .video {
+                        // Pause a docked video in place — no pop-out handoff.
+                        self.youtubePlayerService.prepareForSourceSwitch()
+                    }
                     withAnimation(.easeInOut(duration: 0.2)) {
                         self.settings.appSource = self.settings.appSource == .music ? .video : .music
                     }

@@ -8,6 +8,7 @@ import SwiftUI
 /// Lives at the bottom of both sidebars, just above the profile section.
 struct SourceToggleView: View {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
+    @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var settings = SettingsManager.shared
 
     /// Namespace for the sliding selection highlight.
@@ -75,6 +76,10 @@ struct SourceToggleView: View {
     private func select(_ source: AppSource) {
         guard self.settings.appSource != source else { return }
 
+        if source == .music {
+            // Pause a docked video in place — don't hand it to the pop-out.
+            self.youtubePlayer.prepareForSourceSwitch()
+        }
         withAnimation(.easeInOut(duration: 0.2)) {
             self.settings.appSource = source
         }

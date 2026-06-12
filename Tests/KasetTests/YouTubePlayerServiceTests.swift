@@ -373,6 +373,34 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.selectedQuality == "hd720")
     }
 
+    @Test("Source switch pauses the docked video in place — no pop-out")
+    func sourceSwitchPausesInPlace() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.activeInlineVideoId = "abc"
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 5, duration: 60,
+            videoId: "abc", title: nil, isAd: false
+        ))
+
+        self.sut.prepareForSourceSwitch()
+        self.sut.inlineSurfaceWillDisappear(videoId: "abc")
+
+        #expect(self.controller.pauseCount == 1)
+        #expect(self.sut.surfaceLocation == .inline)
+        #expect(self.sut.currentVideo?.videoId == "abc")
+        #expect(self.controller.tearDownCount == 0)
+
+        // The suppression is one-shot: a later in-app navigation while
+        // playing pops out as usual.
+        self.sut.activeInlineVideoId = "abc"
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 6, duration: 60,
+            videoId: "abc", title: nil, isAd: false
+        ))
+        self.sut.inlineSurfaceWillDisappear(videoId: "abc")
+        #expect(self.sut.surfaceLocation == .floating)
+    }
+
     @Test("Pop-in request only fires from the floating window")
     func popInRequest() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
