@@ -9,6 +9,8 @@ import SwiftUI
 /// this view owns it. Navigating away while playing hands the surface off
 /// to the floating window (`YouTubeVideoWindowController`).
 struct YouTubeWatchView: View {
+    private static let brandAccent = PackageResourceLookup.brandAccent
+
     let video: YouTubeVideo
 
     @Environment(YouTubePlayerService.self) private var youtubePlayer
@@ -226,9 +228,19 @@ struct YouTubeWatchView: View {
                     : String(localized: "Subscribe")
             )
             .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(self.viewModel.isSubscribed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
+            .padding(.horizontal, 16)
+            // Same height as the avatar / name + subscriber-count block.
+            .frame(height: 36)
+            .background(
+                self.viewModel.isSubscribed
+                    ? AnyShapeStyle(.quaternary.opacity(0.6))
+                    : AnyShapeStyle(Self.brandAccent),
+                in: Capsule()
+            )
+            .contentShape(Capsule())
         }
-        .buttonStyle(.bordered)
-        .tint(self.viewModel.isSubscribed ? nil : .red)
+        .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
 
@@ -304,9 +316,10 @@ struct YouTubeWatchView: View {
                 } label: {
                     Text("Show more comments", comment: "Load more comments button")
                         .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .background(.quaternary.opacity(0.5), in: Capsule())
+                        .background(Self.brandAccent, in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -346,7 +359,13 @@ struct YouTubeWatchView: View {
                     }
                 }
                 .frame(width: 30, height: 30)
-                .background(.quaternary.opacity(0.5), in: Circle())
+                .foregroundStyle(self.hasCommentDraft ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .background(
+                    self.hasCommentDraft && self.viewModel.canComment
+                        ? AnyShapeStyle(Self.brandAccent)
+                        : AnyShapeStyle(.quaternary.opacity(0.5)),
+                    in: Circle()
+                )
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
@@ -358,6 +377,11 @@ struct YouTubeWatchView: View {
             .accessibilityLabel(String(localized: "Post comment"))
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentPostButton)
         }
+    }
+
+    /// Whether the composer holds postable text (drives the send accent).
+    private var hasCommentDraft: Bool {
+        !self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func submitComment() {
