@@ -78,6 +78,15 @@ extension YouTubeWatchWebView {
             function enforceVolume(video) {
                 if (window.__kasetIsSettingVolume) { return; }
                 const target = window.__kasetTargetVolume;
+                // YouTube persists its own mute state across sessions; Kaset
+                // owns audio, so unmute whenever our target volume is audible.
+                if (typeof target === 'number' && target > 0 && video.muted) {
+                    video.muted = false;
+                    const player = moviePlayer();
+                    if (player && typeof player.unMute === 'function') {
+                        try { player.unMute(); } catch (e) {}
+                    }
+                }
                 if (typeof target === 'number' && Math.abs(video.volume - target) > 0.01) {
                     window.__kasetIsSettingVolume = true;
                     video.volume = target;
@@ -110,6 +119,7 @@ extension YouTubeWatchWebView {
                 });
 
                 disableAutonav();
+                enforceVolume(video);
                 sendUpdate();
             }
 
@@ -199,6 +209,14 @@ extension YouTubeWatchWebView {
                     .caption-window, .caption-window * {
                         visibility: visible !important;
                         z-index: 2147483647 !important;
+                    }
+
+                    /* YouTube raises captions when its (invisible) controls
+                       show on hover — pin them to the bottom instead. */
+                    .caption-window.ytp-caption-window-bottom {
+                        bottom: 4% !important;
+                        top: auto !important;
+                        margin-bottom: 0 !important;
                     }
 
                     /* Keep YouTube's own controls/overlays hidden */
@@ -382,6 +400,22 @@ extension YouTubeWatchWebView {
         self.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    /// The language code of the player's active caption track (nil = off).
+    func currentCaptionLanguageCode() async -> String? {
+        let script = """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getOption !== 'function') { return ''; }
+                const track = player.getOption('captions', 'track');
+                return (track && track.languageCode) || '';
+            } catch (e) { return ''; }
+        })();
+        """
+        let code = await self.evaluateForString(script)
+        return (code?.isEmpty == false) ? code : nil
+    }
+
     /// Fetches the quality levels the player offers.
     func availableQualityLevels() async -> [String] {
         let script = """
@@ -455,10 +489,16 @@ extension YouTubeWatchWebView {
                 window.__kasetTargetVolume = \(clamped);
                 window.__kasetIsSettingVolume = true;
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');
-                if (video) { video.volume = \(clamped); }
+                if (video) {
+                    video.volume = \(clamped);
+                    if (\(clamped) > 0 && video.muted) { video.muted = false; }
+                }
                 const player = document.getElementById('movie_player');
                 if (player && typeof player.setVolume === 'function') {
                     player.setVolume(\(Int((clamped * 100).rounded())));
+                }
+                if (player && \(clamped) > 0 && typeof player.unMute === 'function') {
+                    try { player.unMute(); } catch (e) {}
                 }
                 setTimeout(function() { window.__kasetIsSettingVolume = false; }, 100);
             })();

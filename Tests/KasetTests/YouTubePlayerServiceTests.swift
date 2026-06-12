@@ -55,6 +55,12 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
         self.captionTracks
     }
 
+    var activeCaption: String?
+
+    func currentCaptionLanguageCode() async -> String? {
+        self.activeCaption
+    }
+
     func setCaptionTrack(languageCode: String?) {
         self.selectedCaption = languageCode
     }

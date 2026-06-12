@@ -16,6 +16,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func setVolume(_ volume: Double)
     func showAirPlayPicker()
     func availableCaptionTracks() async -> [YouTubeCaptionTrack]
+    func currentCaptionLanguageCode() async -> String?
     func setCaptionTrack(languageCode: String?)
     func availableQualityLevels() async -> [String]
     func currentQualityLevel() async -> String?
@@ -334,10 +335,25 @@ final class YouTubePlayerService {
     // MARK: - Captions & Quality
 
     /// Loads the caption tracks and quality levels the watch page offers.
+    /// Retries briefly — the captions module often isn't ready the moment
+    /// playback starts — and reads the player's actual caption state
+    /// (YouTube persists captions-on across sessions).
     func refreshPlaybackOptions() async {
-        self.captionTracks = await self.playbackController.availableCaptionTracks()
-        self.qualityLevels = await self.playbackController.availableQualityLevels()
-        self.currentQuality = await self.playbackController.currentQualityLevel()
+        let videoId = self.currentVideo?.videoId
+        for attempt in 0 ..< 3 {
+            let tracks = await self.playbackController.availableCaptionTracks()
+            guard self.currentVideo?.videoId == videoId else { return }
+
+            self.captionTracks = tracks
+            self.qualityLevels = await self.playbackController.availableQualityLevels()
+            self.currentQuality = await self.playbackController.currentQualityLevel()
+            self.activeCaptionLanguageCode = await self.playbackController.currentCaptionLanguageCode()
+
+            if !tracks.isEmpty || attempt == 2 {
+                return
+            }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
     }
 
     /// Selects a caption track (nil turns captions off).

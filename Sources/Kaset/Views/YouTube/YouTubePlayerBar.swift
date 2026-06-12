@@ -441,7 +441,7 @@ struct YouTubePlayerBar: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .disabled(self.youtubePlayer.captionTracks.isEmpty)
+        .disabled(self.youtubePlayer.currentVideo == nil)
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.captionsButton)
         .accessibilityLabel(String(localized: "Closed captions"))
     }
