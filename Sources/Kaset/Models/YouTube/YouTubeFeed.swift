@@ -84,6 +84,9 @@ struct WatchNextData {
     let publishedText: String?
     let channel: YouTubeChannel?
     let related: [YouTubeVideo]
+    /// Whether the signed-in user is subscribed to the video's channel
+    /// (nil when the page did not expose a subscribe button).
+    var isSubscribed: Bool?
 
     static let empty = WatchNextData(
         videoTitle: nil,
@@ -92,4 +95,54 @@ struct WatchNextData {
         channel: nil,
         related: []
     )
+}
+
+// MARK: - YouTubeDestination
+
+/// Public destination feeds shown on the Explore surface.
+/// (YouTube retired the Trending feed in 2025; these are its successors.)
+enum YouTubeDestination: String, CaseIterable, Identifiable {
+    case gaming
+    case news
+    case sports
+    case live
+    case fashion
+    case learning
+
+    var id: String {
+        rawValue
+    }
+
+    var browseId: String {
+        "FE\(rawValue)_destination"
+    }
+
+    var displayName: String {
+        switch self {
+        case .gaming: String(localized: "Gaming")
+        case .news: String(localized: "News")
+        case .sports: String(localized: "Sports")
+        case .live: String(localized: "Live")
+        case .fashion: String(localized: "Fashion & Beauty")
+        case .learning: String(localized: "Learning")
+        }
+    }
+}
+
+// MARK: - YouTubeRating
+
+/// Rating actions for a video.
+enum YouTubeRating {
+    case like
+    case dislike
+    case none
+
+    /// InnerTube action endpoint for this rating.
+    var endpoint: String {
+        switch self {
+        case .like: "like/like"
+        case .dislike: "like/dislike"
+        case .none: "like/removelike"
+        }
+    }
 }

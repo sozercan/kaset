@@ -12,6 +12,7 @@ enum WatchNextParser {
         var viewCountText: String?
         var publishedText: String?
         var channel: YouTubeChannel?
+        var isSubscribed: Bool?
 
         let primaryContents = (
             (results?["results"] as? [String: Any])?["results"] as? [String: Any]
@@ -26,11 +27,17 @@ enum WatchNextParser {
                 viewCountText = YouTubeItemParser.text(from: viewCount?["viewCount"])
             }
 
-            if let secondaryInfo = content["videoSecondaryInfoRenderer"] as? [String: Any],
-               let owner = (secondaryInfo["owner"] as? [String: Any])?["videoOwnerRenderer"]
-               as? [String: Any]
-            {
-                channel = Self.channel(fromVideoOwner: owner)
+            if let secondaryInfo = content["videoSecondaryInfoRenderer"] as? [String: Any] {
+                if let owner = (secondaryInfo["owner"] as? [String: Any])?["videoOwnerRenderer"]
+                    as? [String: Any]
+                {
+                    channel = Self.channel(fromVideoOwner: owner)
+                }
+                if let subscribeButton = (secondaryInfo["subscribeButton"] as? [String: Any])?["subscribeButtonRenderer"]
+                    as? [String: Any]
+                {
+                    isSubscribed = subscribeButton["subscribed"] as? Bool
+                }
             }
         }
 
@@ -50,7 +57,8 @@ enum WatchNextParser {
             viewCountText: viewCountText,
             publishedText: publishedText,
             channel: channel,
-            related: YouTubeFeedParser.deduplicate(related)
+            related: YouTubeFeedParser.deduplicate(related),
+            isSubscribed: isSubscribed
         )
     }
 

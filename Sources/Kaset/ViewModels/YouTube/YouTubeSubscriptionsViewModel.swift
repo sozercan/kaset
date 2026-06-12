@@ -1,0 +1,76 @@
+import Foundation
+import Observation
+
+/// View model for the YouTube subscriptions surface: the subscribed-channel
+/// rail plus the subscriptions feed.
+@MainActor
+@Observable
+final class YouTubeSubscriptionsViewModel {
+    /// Current loading state (covers the feed; the rail loads alongside).
+    private(set) var loadingState: LoadingState = .idle
+
+    /// Subscribed channels for the horizontal rail.
+    private(set) var channels: [YouTubeChannel] = []
+
+    /// Subscription feed videos.
+    private(set) var videos: [YouTubeVideo] = []
+
+    /// Continuation token for the next feed page.
+    private var continuationToken: String?
+
+    var hasMoreVideos: Bool {
+        self.continuationToken != nil
+    }
+
+    let client: any YouTubeClientProtocol
+    private let logger = DiagnosticsLogger.api
+
+    init(client: any YouTubeClientProtocol) {
+        self.client = client
+    }
+
+    func load() async {
+        guard self.loadingState != .loading else { return }
+
+        self.loadingState = .loading
+        do {
+            async let feedTask = self.client.getSubscriptionsFeed()
+            async let channelsTask = self.client.getSubscribedChannels()
+
+            let feed = try await feedTask
+            self.videos = feed.videos
+            self.continuationToken = feed.continuationToken
+            // Channel rail is best-effort; the feed alone is still useful.
+            self.channels = await (try? channelsTask) ?? []
+            self.loadingState = .loaded
+        } catch {
+            self.logger.error("Failed to load subscriptions: \(error.localizedDescription)")
+            self.loadingState = .error(LoadingError(from: error))
+        }
+    }
+
+    func refresh() async {
+        self.loadingState = .idle
+        self.videos = []
+        self.channels = []
+        self.continuationToken = nil
+        await self.load()
+    }
+
+    func loadMore() async {
+        guard self.loadingState == .loaded, let token = self.continuationToken else { return }
+
+        self.loadingState = .loadingMore
+        do {
+            let feed = try await client.getFeedContinuation(token: token)
+            let existing = Set(self.videos.map(\.videoId))
+            self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
+            self.continuationToken = feed.continuationToken
+            self.loadingState = .loaded
+        } catch {
+            self.logger.error("Failed to load more subscriptions: \(error.localizedDescription)")
+            self.continuationToken = nil
+            self.loadingState = .loaded
+        }
+    }
+}

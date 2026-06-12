@@ -116,48 +116,110 @@ struct YouTubeWatchView: View {
                 .font(.title2.bold())
                 .lineLimit(3)
 
-            let meta = [
-                self.viewModel.data.viewCountText ?? self.video.viewCountText,
-                self.viewModel.data.publishedText ?? self.video.publishedText,
-            ].compactMap(\.self)
-            if !meta.isEmpty {
-                Text(meta.joined(separator: " · "))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                let meta = [
+                    self.viewModel.data.viewCountText ?? self.video.viewCountText,
+                    self.viewModel.data.publishedText ?? self.video.publishedText,
+                ].compactMap(\.self)
+                if !meta.isEmpty {
+                    Text(meta.joined(separator: " · "))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                self.actionButtons
             }
 
             if let channel = self.viewModel.data.channel {
-                NavigationLink(value: YouTubeRoute.channel(channelId: channel.channelId)) {
-                    HStack(spacing: 10) {
-                        CachedAsyncImage(
-                            url: channel.thumbnailURL,
-                            targetSize: CGSize(width: 72, height: 72)
-                        ) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle().fill(.quaternary)
-                        }
-                        .frame(width: 36, height: 36)
-                        .clipShape(.circle)
+                HStack(spacing: 12) {
+                    NavigationLink(value: YouTubeRoute.channel(channelId: channel.channelId)) {
+                        HStack(spacing: 10) {
+                            CachedAsyncImage(
+                                url: channel.thumbnailURL,
+                                targetSize: CGSize(width: 72, height: 72)
+                            ) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Circle().fill(.quaternary)
+                            }
+                            .frame(width: 36, height: 36)
+                            .clipShape(.circle)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(channel.name)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            if let subscriberCountText = channel.subscriberCountText {
-                                Text(subscriberCountText)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(channel.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                if let subscriberCountText = channel.subscriberCountText {
+                                    Text(subscriberCountText)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+
+                    self.subscribeButton
+
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Actions
+
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            Button {
+                Task {
+                    await self.viewModel.toggleLike()
+                }
+            } label: {
+                Image(systemName: self.viewModel.rating == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    .font(.system(size: 13))
+            }
+            .buttonStyle(.bordered)
+            .help(String(localized: "Like"))
+            .accessibilityLabel(String(localized: "Like video"))
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLikeButton)
+
+            Button {
+                Task {
+                    await self.viewModel.toggleWatchLater()
+                }
+            } label: {
+                Image(systemName: self.viewModel.isInWatchLater ? "checkmark.circle.fill" : "clock.badge.plus")
+                    .font(.system(size: 13))
+            }
+            .buttonStyle(.bordered)
+            .help(String(localized: "Watch Later"))
+            .accessibilityLabel(String(localized: "Add to Watch Later"))
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLaterButton)
+        }
+    }
+
+    private var subscribeButton: some View {
+        Button {
+            Task {
+                await self.viewModel.toggleSubscribed()
+            }
+        } label: {
+            Text(
+                self.viewModel.isSubscribed
+                    ? String(localized: "Subscribed")
+                    : String(localized: "Subscribe")
+            )
+            .font(.system(size: 12, weight: .semibold))
+        }
+        .buttonStyle(.bordered)
+        .tint(self.viewModel.isSubscribed ? nil : .red)
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
 
     // MARK: - Related
@@ -203,4 +265,7 @@ struct YouTubeWatchView: View {
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"
+    static let watchLikeButton = "youtubeContent.watchLikeButton"
+    static let watchLaterButton = "youtubeContent.watchLaterButton"
+    static let subscribeButton = "youtubeContent.subscribeButton"
 }

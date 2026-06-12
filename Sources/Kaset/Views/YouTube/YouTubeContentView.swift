@@ -37,18 +37,21 @@ struct YouTubeContentView: View {
             YouTubeHomeView(viewModel: self.store.home)
         case .search:
             YouTubeSearchView(viewModel: self.store.search)
-        case .explore, .subscriptions, .likedVideos, .watchLater, .playlists, .history:
-            self.placeholder(for: item)
+        case .explore:
+            YouTubeExploreView(viewModel: self.store.explore)
+        case .subscriptions:
+            YouTubeSubscriptionsView(viewModel: self.store.subscriptions)
+        case .likedVideos:
+            // "LL" is YouTube's fixed liked-videos playlist.
+            YouTubePlaylistDetailView(playlistId: "LL", client: self.store.client)
+        case .watchLater:
+            // "WL" is YouTube's fixed Watch Later playlist.
+            YouTubePlaylistDetailView(playlistId: "WL", client: self.store.client)
+        case .playlists:
+            YouTubePlaylistsView(viewModel: self.store.playlists)
+        case .history:
+            YouTubeHistoryView(viewModel: self.store.history)
         }
-    }
-
-    private func placeholder(for item: YouTubeNavigationItem) -> some View {
-        ContentUnavailableView {
-            Label(item.displayName, systemImage: item.icon)
-        } description: {
-            Text("\(item.displayName) is coming soon.", comment: "Placeholder for an unimplemented YouTube section")
-        }
-        .accessibilityIdentifier(AccessibilityID.YouTubeContent.placeholder(for: item))
     }
 }
 
@@ -118,9 +121,5 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
 // MARK: - AccessibilityID.YouTubeContent
 
 extension AccessibilityID {
-    enum YouTubeContent {
-        static func placeholder(for item: YouTubeNavigationItem) -> String {
-            "youtubeContent.placeholder.\(item.rawValue)"
-        }
-    }
+    enum YouTubeContent {}
 }

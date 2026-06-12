@@ -97,4 +97,34 @@ enum YouTubeFeedParser {
         var seen = Set<String>()
         return videos.filter { seen.insert($0.videoId).inserted }
     }
+
+    // MARK: - Playlist Collection
+
+    /// Recursively collects playlist lockups (used by the user-playlists page).
+    static func collectPlaylists(_ data: [String: Any]) -> [YouTubePlaylist] {
+        var playlists: [YouTubePlaylist] = []
+        Self.collectPlaylists(in: data, into: &playlists)
+
+        var seen = Set<String>()
+        return playlists.filter { seen.insert($0.playlistId).inserted }
+    }
+
+    private static func collectPlaylists(in value: Any, into playlists: inout [YouTubePlaylist]) {
+        if let dict = value as? [String: Any] {
+            if let lockup = dict["lockupViewModel"] as? [String: Any] {
+                if let playlist = YouTubeItemParser.playlist(fromLockup: lockup) {
+                    playlists.append(playlist)
+                }
+                return
+            }
+
+            for nested in dict.values {
+                Self.collectPlaylists(in: nested, into: &playlists)
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                Self.collectPlaylists(in: element, into: &playlists)
+            }
+        }
+    }
 }

@@ -40,4 +40,38 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Fetches a playlist page by playlist ID (without the `VL` prefix).
     func getPlaylist(playlistId: String) async throws -> YouTubePlaylistDetail
+
+    /// Fetches a public destination feed (Gaming, News, …) for Explore.
+    func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed
+
+    /// Fetches the next page of any browse feed by continuation token.
+    func getFeedContinuation(token: String) async throws -> YouTubeFeed
+
+    // MARK: Subscriptions & Library
+
+    /// Fetches the subscriptions feed (`FEsubscriptions`).
+    func getSubscriptionsFeed() async throws -> YouTubeFeed
+
+    /// Fetches the signed-in user's subscribed channels (from `guide`).
+    func getSubscribedChannels() async throws -> [YouTubeChannel]
+
+    /// Fetches watch history (`FEhistory`).
+    func getHistory() async throws -> YouTubeFeed
+
+    /// Fetches the signed-in user's playlists.
+    func getUserPlaylists() async throws -> [YouTubePlaylist]
+
+    // MARK: Actions
+
+    /// Rates a video (like / dislike / remove rating).
+    func rateVideo(videoId: String, rating: YouTubeRating) async throws
+
+    /// Subscribes to or unsubscribes from a channel.
+    func setSubscribed(_ subscribed: Bool, channelId: String) async throws
+
+    /// Adds a video to Watch Later.
+    func addToWatchLater(videoId: String) async throws
+
+    /// Removes a video from Watch Later.
+    func removeFromWatchLater(videoId: String) async throws
 }

@@ -167,6 +167,106 @@ final class YouTubeClient: YouTubeClientProtocol {
         return YouTubePlaylistPageParser.parse(data, playlistId: id)
     }
 
+    func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
+        self.logger.info("Fetching YouTube destination feed: \(destination.rawValue)")
+
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": destination.browseId],
+            ttl: APICache.TTL.home
+        )
+        return YouTubeFeedParser.parse(data)
+    }
+
+    func getFeedContinuation(token: String) async throws -> YouTubeFeed {
+        let data = try await self.request("browse", body: ["continuation": token])
+        return YouTubeFeedParser.parseContinuation(data)
+    }
+
+    // MARK: - Subscriptions & Library
+
+    func getSubscriptionsFeed() async throws -> YouTubeFeed {
+        self.logger.info("Fetching YouTube subscriptions feed")
+
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEsubscriptions"],
+            ttl: APICache.TTL.home
+        )
+        return YouTubeFeedParser.parse(data)
+    }
+
+    func getSubscribedChannels() async throws -> [YouTubeChannel] {
+        self.logger.info("Fetching subscribed channels via guide")
+
+        let data = try await self.request("guide", body: [:], ttl: APICache.TTL.library)
+        return GuideParser.subscribedChannels(data)
+    }
+
+    func getHistory() async throws -> YouTubeFeed {
+        self.logger.info("Fetching YouTube watch history")
+
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEhistory"],
+            ttl: APICache.TTL.search
+        )
+        return YouTubeFeedParser.parse(data)
+    }
+
+    func getUserPlaylists() async throws -> [YouTubePlaylist] {
+        self.logger.info("Fetching YouTube user playlists")
+
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEplaylist_aggregation"],
+            ttl: APICache.TTL.library
+        )
+        return YouTubeFeedParser.collectPlaylists(data)
+    }
+
+    // MARK: - Actions
+
+    func rateVideo(videoId: String, rating: YouTubeRating) async throws {
+        self.logger.info("Rating YouTube video")
+
+        let body: [String: Any] = ["target": ["videoId": videoId]]
+        _ = try await self.request(rating.endpoint, body: body)
+        APICache.shared.invalidate(matching: Self.cachePrefix)
+    }
+
+    func setSubscribed(_ subscribed: Bool, channelId: String) async throws {
+        self.logger.info("\(subscribed ? "Subscribing to" : "Unsubscribing from") channel")
+
+        let endpoint = subscribed ? "subscription/subscribe" : "subscription/unsubscribe"
+        let body: [String: Any] = ["channelIds": [channelId]]
+        _ = try await self.request(endpoint, body: body)
+        APICache.shared.invalidate(matching: Self.cachePrefix)
+    }
+
+    func addToWatchLater(videoId: String) async throws {
+        try await self.editWatchLater(actions: [
+            ["addedVideoId": videoId, "action": "ACTION_ADD_VIDEO"],
+        ])
+    }
+
+    func removeFromWatchLater(videoId: String) async throws {
+        try await self.editWatchLater(actions: [
+            ["removedVideoId": videoId, "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID"],
+        ])
+    }
+
+    private func editWatchLater(actions: [[String: Any]]) async throws {
+        self.logger.info("Editing Watch Later")
+
+        let body: [String: Any] = [
+            "playlistId": "WL",
+            "actions": actions,
+        ]
+        _ = try await self.request("browse/edit_playlist", body: body)
+        APICache.shared.invalidate(matching: Self.cachePrefix)
+    }
+
     // MARK: - Request Core
 
     /// Builds authentication headers with the YouTube (not music) origin.

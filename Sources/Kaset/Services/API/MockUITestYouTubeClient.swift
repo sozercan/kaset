@@ -87,6 +87,38 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         )
     }
 
+    func getDestinationFeed(_: YouTubeDestination) async throws -> YouTubeFeed {
+        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+    }
+
+    func getFeedContinuation(token _: String) async throws -> YouTubeFeed {
+        .empty
+    }
+
+    func getSubscriptionsFeed() async throws -> YouTubeFeed {
+        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+    }
+
+    func getSubscribedChannels() async throws -> [YouTubeChannel] {
+        [Self.sampleChannel]
+    }
+
+    func getHistory() async throws -> YouTubeFeed {
+        YouTubeFeed(videos: Self.sampleVideos, continuationToken: nil)
+    }
+
+    func getUserPlaylists() async throws -> [YouTubePlaylist] {
+        [Self.samplePlaylist]
+    }
+
+    func rateVideo(videoId _: String, rating _: YouTubeRating) async throws {}
+
+    func setSubscribed(_: Bool, channelId _: String) async throws {}
+
+    func addToWatchLater(videoId _: String) async throws {}
+
+    func removeFromWatchLater(videoId _: String) async throws {}
+
     // MARK: - Sample Data
 
     private static let sampleVideos = [

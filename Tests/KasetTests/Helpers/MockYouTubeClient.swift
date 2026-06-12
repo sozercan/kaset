@@ -81,6 +81,72 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         )
     }
 
+    var destinationFeed = YouTubeFeed.empty
+    var feedContinuation = YouTubeFeed.empty
+    var subscriptionsFeed = YouTubeFeed.empty
+    var subscribedChannels: [YouTubeChannel] = []
+    var historyFeed = YouTubeFeed.empty
+    var userPlaylists: [YouTubePlaylist] = []
+
+    private(set) var ratedVideos: [(videoId: String, rating: YouTubeRating)] = []
+    private(set) var subscriptionChanges: [(channelId: String, subscribed: Bool)] = []
+    private(set) var watchLaterAdds: [String] = []
+    private(set) var watchLaterRemovals: [String] = []
+    private(set) var lastDestination: YouTubeDestination?
+    private(set) var lastContinuationToken: String?
+
+    func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
+        if let error { throw error }
+        self.lastDestination = destination
+        return self.destinationFeed
+    }
+
+    func getFeedContinuation(token: String) async throws -> YouTubeFeed {
+        if let error { throw error }
+        self.lastContinuationToken = token
+        return self.feedContinuation
+    }
+
+    func getSubscriptionsFeed() async throws -> YouTubeFeed {
+        if let error { throw error }
+        return self.subscriptionsFeed
+    }
+
+    func getSubscribedChannels() async throws -> [YouTubeChannel] {
+        if let error { throw error }
+        return self.subscribedChannels
+    }
+
+    func getHistory() async throws -> YouTubeFeed {
+        if let error { throw error }
+        return self.historyFeed
+    }
+
+    func getUserPlaylists() async throws -> [YouTubePlaylist] {
+        if let error { throw error }
+        return self.userPlaylists
+    }
+
+    func rateVideo(videoId: String, rating: YouTubeRating) async throws {
+        if let error { throw error }
+        self.ratedVideos.append((videoId, rating))
+    }
+
+    func setSubscribed(_ subscribed: Bool, channelId: String) async throws {
+        if let error { throw error }
+        self.subscriptionChanges.append((channelId, subscribed))
+    }
+
+    func addToWatchLater(videoId: String) async throws {
+        if let error { throw error }
+        self.watchLaterAdds.append(videoId)
+    }
+
+    func removeFromWatchLater(videoId: String) async throws {
+        if let error { throw error }
+        self.watchLaterRemovals.append(videoId)
+    }
+
     // MARK: - Factories
 
     nonisolated static func makeVideo(
