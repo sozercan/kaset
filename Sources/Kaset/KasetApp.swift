@@ -107,6 +107,7 @@ struct KasetApp: App {
 
         // YouTube video playback service + the one-audio-source arbiter
         let youtubePlayer = YouTubePlayerService(webKitManager: webkit)
+        youtubePlayer.youtubeClient = youtubeClient
         let arbiter = PlaybackArbiter(playerService: player, youtubePlayerService: youtubePlayer)
 
         _authService = State(initialValue: auth)
@@ -220,6 +221,14 @@ struct KasetApp: App {
                     } else {
                         YouTubeVideoWindowController.shared.close()
                     }
+                }
+                .onChange(of: self.youtubePlayerService.popInRequest) { _, request in
+                    // Pop-in from the floating window: bring the app to the
+                    // video source; YouTubeContentView opens/adopts the
+                    // watch view and consumes the request.
+                    guard request != nil else { return }
+                    self.settings.appSource = .video
+                    self.showMainWindow()
                 }
                 .task {
                     NowPlayingManager.shared.configureYouTubeRouting(

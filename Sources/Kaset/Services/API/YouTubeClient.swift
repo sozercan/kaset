@@ -183,6 +183,19 @@ final class YouTubeClient: YouTubeClientProtocol {
         return YouTubeFeedParser.parseContinuation(data)
     }
 
+    func getShorts() async throws -> [YouTubeVideo] {
+        self.logger.info("Fetching YouTube Shorts")
+
+        // Shorts ride along in the home feed response; the shared TTL means
+        // this is a cache hit right after the home grid loads.
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEwhat_to_watch"],
+            ttl: APICache.TTL.home
+        )
+        return YouTubeFeedParser.parse(data).shorts
+    }
+
     // MARK: - Subscriptions & Library
 
     func getSubscriptionsFeed() async throws -> YouTubeFeed {

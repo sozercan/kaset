@@ -54,7 +54,10 @@ final class YouTubeVideoWindowController {
         window.isMovableByWindowBackground = true
         window.level = .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.minSize = NSSize(width: 320, height: 200)
+        // Lock resizing to the video's aspect ratio so the surface can't be
+        // misshapen (controls overlay inside the video, so content == video).
+        window.contentAspectRatio = NSSize(width: 16, height: 9)
+        window.minSize = NSSize(width: 320, height: 180)
         window.backgroundColor = .black
         window.setFrameAutosaveName(self.frameAutosaveKey)
         window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.YouTubeContent.videoWindow)
@@ -73,6 +76,11 @@ final class YouTubeVideoWindowController {
             name: NSWindow.willCloseNotification,
             object: window
         )
+    }
+
+    /// Toggles fullscreen on the floating window.
+    func toggleFullscreen() {
+        self.window?.toggleFullScreen(nil)
     }
 
     /// Closes the window programmatically (e.g. when docking back inline).
@@ -126,17 +134,19 @@ final class YouTubeVideoWindowController {
 
 // MARK: - YouTubeVideoWindowContent
 
-/// Floating window content: the video surface with a slim control bar.
+/// Floating window content: the video surface with the controls overlaid
+/// inside it (same as the inline watch view).
 private struct YouTubeVideoWindowContent: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             YouTubeWatchSurfaceView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             WatchControlsBar()
-                .padding(10)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
         }
         .background(.black)
     }

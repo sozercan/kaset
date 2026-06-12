@@ -153,37 +153,6 @@ struct YouTubeExploreViewModelTests {
 @Suite("YouTubeWatchViewModel actions", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeWatchViewModelActionTests {
-    @Test("Toggle like sends the rating and toggles back to none")
-    func toggleLike() async {
-        let client = MockYouTubeClient()
-        let sut = YouTubeWatchViewModel(
-            video: MockYouTubeClient.makeVideo(videoId: "abc"),
-            client: client
-        )
-
-        await sut.toggleLike()
-        #expect(sut.rating == .like)
-
-        await sut.toggleLike()
-        #expect(sut.rating == YouTubeRating.none)
-        #expect(client.ratedVideos.count == 2)
-        #expect(client.ratedVideos.first?.videoId == "abc")
-    }
-
-    @Test("Like failure rolls back the optimistic state")
-    func likeFailureRollsBack() async {
-        let client = MockYouTubeClient()
-        client.error = YTMusicError.authExpired
-        let sut = YouTubeWatchViewModel(
-            video: MockYouTubeClient.makeVideo(videoId: "abc"),
-            client: client
-        )
-
-        await sut.toggleLike()
-
-        #expect(sut.rating == YouTubeRating.none)
-    }
-
     @Test("Watch Later toggle adds then removes")
     func watchLaterToggle() async {
         let client = MockYouTubeClient()

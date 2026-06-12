@@ -91,6 +91,13 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
+    func getShorts() async throws -> [YouTubeVideo] {
+        [
+            YouTubeVideo(videoId: "mock-short-1", title: "Mock Short One", viewCountText: "1M views", isShort: true),
+            YouTubeVideo(videoId: "mock-short-2", title: "Mock Short Two", viewCountText: "2M views", isShort: true),
+        ]
+    }
+
     func getFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
         .empty
     }

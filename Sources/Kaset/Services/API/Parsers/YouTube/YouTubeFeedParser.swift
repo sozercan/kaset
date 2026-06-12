@@ -8,12 +8,16 @@ import Foundation
 /// (legacy `videoRenderer` vs. `lockupViewModel`) and container reshuffles.
 enum YouTubeFeedParser {
     /// Parses a full browse response into a feed page.
+    /// Shorts are split out so feed grids stay uniform; the Shorts surface
+    /// presents them separately.
     static func parse(_ data: [String: Any]) -> YouTubeFeed {
         var videos: [YouTubeVideo] = []
+        var shorts: [YouTubeVideo] = []
         var continuation: String?
-        Self.collect(in: data, videos: &videos, continuation: &continuation)
+        Self.collect(in: data, videos: &videos, shorts: &shorts, continuation: &continuation)
         return YouTubeFeed(
             videos: Self.deduplicate(videos),
+            shorts: Self.deduplicate(shorts),
             continuation: continuation
         )
     }
@@ -22,6 +26,7 @@ enum YouTubeFeedParser {
     static func parseContinuation(_ data: [String: Any]) -> YouTubeFeed {
         let actions = data["onResponseReceivedActions"] as? [[String: Any]] ?? []
         var videos: [YouTubeVideo] = []
+        var shorts: [YouTubeVideo] = []
         var continuation: String?
 
         for action in actions {
@@ -31,35 +36,61 @@ enum YouTubeFeedParser {
                 as? [[String: Any]]
                 ?? []
             for item in items {
-                Self.collect(in: item, videos: &videos, continuation: &continuation)
+                Self.collect(in: item, videos: &videos, shorts: &shorts, continuation: &continuation)
             }
         }
 
         // Fall back to a full walk for unrecognized response shapes.
         if videos.isEmpty, continuation == nil {
-            Self.collect(in: data, videos: &videos, continuation: &continuation)
+            Self.collect(in: data, videos: &videos, shorts: &shorts, continuation: &continuation)
         }
 
         return YouTubeFeed(
             videos: Self.deduplicate(videos),
+            shorts: Self.deduplicate(shorts),
             continuation: continuation
         )
     }
 
     // MARK: - Collection
 
-    /// Recursively collects videos and the first continuation token.
+    /// Recursively collects regular videos and the first continuation token,
+    /// dropping Shorts. Convenience for surfaces that don't present Shorts
+    /// (watch-next related, channel pages).
+    static func collect(
+        in value: Any,
+        videos: inout [YouTubeVideo],
+        continuation: inout String?
+    ) {
+        var shorts: [YouTubeVideo] = []
+        Self.collect(in: value, videos: &videos, shorts: &shorts, continuation: &continuation)
+    }
+
+    /// Recursively collects videos (Shorts separated) and the first
+    /// continuation token.
     ///
     /// Recursion stops at recognized item wrappers, so nested renderers inside
     /// an item (e.g. avatar view models) are not double-counted.
     static func collect(
         in value: Any,
         videos: inout [YouTubeVideo],
+        shorts: inout [YouTubeVideo],
         continuation: inout String?
     ) {
         if let dict = value as? [String: Any] {
+            if let shortsLockup = dict["shortsLockupViewModel"] as? [String: Any] {
+                if let short = YouTubeItemParser.short(fromShortsLockup: shortsLockup) {
+                    shorts.append(short)
+                }
+                return
+            }
+
             if let video = YouTubeItemParser.video(fromAnyItem: dict) {
-                videos.append(video)
+                if video.isShort {
+                    shorts.append(video)
+                } else {
+                    videos.append(video)
+                }
                 return
             }
 
@@ -75,11 +106,11 @@ enum YouTubeFeedParser {
                 if key == "engagementPanels" || key == "playerOverlays" {
                     continue
                 }
-                Self.collect(in: nested, videos: &videos, continuation: &continuation)
+                Self.collect(in: nested, videos: &videos, shorts: &shorts, continuation: &continuation)
             }
         } else if let array = value as? [Any] {
             for element in array {
-                Self.collect(in: element, videos: &videos, continuation: &continuation)
+                Self.collect(in: element, videos: &videos, shorts: &shorts, continuation: &continuation)
             }
         }
     }

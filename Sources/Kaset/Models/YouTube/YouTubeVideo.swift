@@ -19,6 +19,8 @@ struct YouTubeVideo: Identifiable, Hashable {
     let publishedText: String?
     let thumbnailURL: URL?
     let isLive: Bool
+    /// Whether this is a YouTube Short (vertical, ≤60s).
+    let isShort: Bool
 
     var id: String {
         self.videoId
@@ -33,7 +35,8 @@ struct YouTubeVideo: Identifiable, Hashable {
         viewCountText: String? = nil,
         publishedText: String? = nil,
         thumbnailURL: URL? = nil,
-        isLive: Bool = false
+        isLive: Bool = false,
+        isShort: Bool = false
     ) {
         self.videoId = videoId
         self.title = title
@@ -44,5 +47,6 @@ struct YouTubeVideo: Identifiable, Hashable {
         self.publishedText = publishedText
         self.thumbnailURL = thumbnailURL
         self.isLive = isLive
+        self.isShort = isShort
     }
 }

@@ -10,10 +10,15 @@ struct YouTubeContentView: View {
     let selection: YouTubeNavigationItem?
     let store: YouTubeViewModelStore
 
+    @Environment(YouTubePlayerService.self) private var youtubePlayer
+
+    /// Drill-in path for the active section's stack.
+    @State private var navigationPath = NavigationPath()
+
     var body: some View {
         Group {
             if let selection {
-                NavigationStack {
+                NavigationStack(path: self.$navigationPath) {
                     self.rootView(for: selection)
                         .youtubeNavigationDestinations(client: self.store.client)
                 }
@@ -28,6 +33,27 @@ struct YouTubeContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
         }
+        .onChange(of: self.youtubePlayer.popInRequest) { _, request in
+            self.handlePopInRequest(request)
+        }
+        .onChange(of: self.selection) { _, _ in
+            self.navigationPath = NavigationPath()
+        }
+    }
+
+    /// Docks a popped-out video back into a watch view: adopts the one that
+    /// is already open for this video, or pushes a fresh watch route.
+    private func handlePopInRequest(_ request: YouTubeVideo?) {
+        guard let video = request else { return }
+        defer {
+            self.youtubePlayer.consumePopInRequest()
+        }
+
+        if self.youtubePlayer.activeInlineVideoId == video.videoId {
+            self.youtubePlayer.dockInline()
+        } else {
+            self.navigationPath.append(YouTubeRoute.watch(video))
+        }
     }
 
     @ViewBuilder
@@ -39,6 +65,8 @@ struct YouTubeContentView: View {
             YouTubeSearchView(viewModel: self.store.search)
         case .explore:
             YouTubeExploreView(viewModel: self.store.explore)
+        case .shorts:
+            YouTubeShortsView(viewModel: self.store.shorts)
         case .subscriptions:
             YouTubeSubscriptionsView(viewModel: self.store.subscriptions)
         case .likedVideos:
@@ -66,6 +94,7 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
     case search = "Search"
     case subscriptions = "Subscriptions"
     case explore = "Explore"
+    case shorts = "Shorts"
     case likedVideos = "Liked Videos"
     case watchLater = "Watch Later"
     case playlists = "Playlists"
@@ -85,6 +114,8 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
             String(localized: "Subscriptions")
         case .explore:
             String(localized: "Explore")
+        case .shorts:
+            String(localized: "Shorts")
         case .likedVideos:
             String(localized: "Liked Videos")
         case .watchLater:
@@ -106,6 +137,8 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
             "rectangle.stack.badge.play"
         case .explore:
             "globe"
+        case .shorts:
+            "rectangle.portrait.on.rectangle.portrait.angled"
         case .likedVideos:
             "hand.thumbsup.fill"
         case .watchLater:

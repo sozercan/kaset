@@ -222,6 +222,94 @@ struct YouTubeItemParserTests {
 
     // MARK: - Text extraction
 
+    // MARK: - Shorts
+
+    @Test("Detects Shorts from reel endpoints and /shorts/ URLs")
+    func detectsShorts() throws {
+        let reelRenderer: [String: Any] = [
+            "videoId": "short1",
+            "title": ["runs": [["text": "A Short"]]],
+            "navigationEndpoint": ["reelWatchEndpoint": ["videoId": "short1"]],
+        ]
+        let urlRenderer: [String: Any] = [
+            "videoId": "short2",
+            "title": ["runs": [["text": "Another Short"]]],
+            "navigationEndpoint": [
+                "commandMetadata": ["webCommandMetadata": ["url": "/shorts/short2"]],
+            ],
+        ]
+        let regularRenderer: [String: Any] = [
+            "videoId": "regular",
+            "title": ["runs": [["text": "Regular"]]],
+            "navigationEndpoint": [
+                "commandMetadata": ["webCommandMetadata": ["url": "/watch?v=regular"]],
+            ],
+        ]
+
+        #expect(try #require(YouTubeItemParser.video(fromVideoRenderer: reelRenderer)).isShort)
+        #expect(try #require(YouTubeItemParser.video(fromVideoRenderer: urlRenderer)).isShort)
+        #expect(try #require(YouTubeItemParser.video(fromVideoRenderer: regularRenderer)).isShort == false)
+    }
+
+    @Test("Parses a shortsLockupViewModel")
+    func parsesShortsLockup() throws {
+        let lockup: [String: Any] = [
+            "entityId": "shorts-shelf-item-X4dGtpUD3gA",
+            "onTap": [
+                "innertubeCommand": [
+                    "reelWatchEndpoint": ["videoId": "X4dGtpUD3gA"],
+                ],
+            ],
+            "overlayMetadata": [
+                "primaryText": ["content": "A Short Title"],
+                "secondaryText": ["content": "2.1M views"],
+            ],
+            "thumbnailViewModel": [
+                "image": [
+                    "sources": [["url": "https://example.com/short.jpg", "width": 405, "height": 720]],
+                ],
+            ],
+        ]
+
+        let short = try #require(YouTubeItemParser.short(fromShortsLockup: lockup))
+        #expect(short.videoId == "X4dGtpUD3gA")
+        #expect(short.title == "A Short Title")
+        #expect(short.viewCountText == "2.1M views")
+        #expect(short.isShort)
+    }
+
+    @Test("Feed collection separates Shorts from regular videos")
+    func feedSeparatesShorts() {
+        let data: [String: Any] = [
+            "contents": [
+                [
+                    "videoRenderer": [
+                        "videoId": "regular1",
+                        "title": ["runs": [["text": "Regular Video"]]],
+                    ],
+                ],
+                [
+                    "videoRenderer": [
+                        "videoId": "short1",
+                        "title": ["runs": [["text": "A Short"]]],
+                        "navigationEndpoint": ["reelWatchEndpoint": ["videoId": "short1"]],
+                    ],
+                ],
+                [
+                    "shortsLockupViewModel": [
+                        "onTap": ["innertubeCommand": ["reelWatchEndpoint": ["videoId": "short2"]]],
+                        "overlayMetadata": ["primaryText": ["content": "Shelf Short"]],
+                    ],
+                ],
+            ],
+        ]
+
+        let feed = YouTubeFeedParser.parse(data)
+
+        #expect(feed.videos.map(\.videoId) == ["regular1"])
+        #expect(Set(feed.shorts.map(\.videoId)) == ["short1", "short2"])
+    }
+
     @Test("Extracts text from all three InnerTube encodings")
     func textExtraction() {
         #expect(YouTubeItemParser.text(from: ["simpleText": "simple"]) == "simple")

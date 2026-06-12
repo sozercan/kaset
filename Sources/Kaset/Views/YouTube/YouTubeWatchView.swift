@@ -54,17 +54,54 @@ struct YouTubeWatchView: View {
             && self.youtubePlayer.surfaceLocation == .inline
     }
 
+    /// Whether this view's video is currently playing in the floating window.
+    private var playsInFloatingWindow: Bool {
+        self.youtubePlayer.currentVideo?.videoId == self.video.videoId
+            && self.youtubePlayer.surfaceLocation == .floating
+    }
+
     @ViewBuilder
     private var videoSurface: some View {
         if self.presentsLiveSurface {
-            VStack(spacing: 12) {
+            // Controls live INSIDE the video surface, pinned to its bottom.
+            ZStack(alignment: .bottom) {
                 YouTubeWatchSurfaceView()
                     .aspectRatio(16 / 9, contentMode: .fit)
-                    .clipShape(.rect(cornerRadius: 12))
-                    .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
 
                 WatchControlsBar()
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
             }
+            .clipShape(.rect(cornerRadius: 12))
+            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+        } else if self.playsInFloatingWindow {
+            // Native PiP-style placeholder while the video plays in the
+            // pop-out window.
+            Rectangle()
+                .fill(.black)
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .overlay {
+                    VStack(spacing: 12) {
+                        Image(systemName: "pip.exit")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text("This video is playing in the pop-out player.", comment: "Watch view placeholder while popped out")
+                            .font(.callout)
+                            .foregroundStyle(.white.opacity(0.7))
+                        Button {
+                            self.youtubePlayer.dockInline()
+                            HapticService.toggle()
+                        } label: {
+                            Text("Move Video Here", comment: "Button that docks the popped-out video back inline")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                        .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchMoveHere)
+                    }
+                }
+                .clipShape(.rect(cornerRadius: 12))
+                .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
         } else {
             Button {
                 self.startOrAdoptPlayback()
@@ -175,20 +212,9 @@ struct YouTubeWatchView: View {
     // MARK: - Actions
 
     private var actionButtons: some View {
+        // Like/dislike live on the playback controls inside the video
+        // surface; Watch Later stays with the metadata.
         HStack(spacing: 8) {
-            Button {
-                Task {
-                    await self.viewModel.toggleLike()
-                }
-            } label: {
-                Image(systemName: self.viewModel.rating == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    .font(.system(size: 13))
-            }
-            .buttonStyle(.bordered)
-            .help(String(localized: "Like"))
-            .accessibilityLabel(String(localized: "Like video"))
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLikeButton)
-
             Button {
                 Task {
                     await self.viewModel.toggleWatchLater()
@@ -265,7 +291,7 @@ struct YouTubeWatchView: View {
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"
-    static let watchLikeButton = "youtubeContent.watchLikeButton"
     static let watchLaterButton = "youtubeContent.watchLaterButton"
     static let subscribeButton = "youtubeContent.subscribeButton"
+    static let watchMoveHere = "youtubeContent.watchMoveHere"
 }

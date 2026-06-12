@@ -75,6 +75,19 @@ final class YouTubePlayerService {
     /// The videoId of the WatchView that currently owns the inline surface.
     var activeInlineVideoId: String?
 
+    /// The user's rating of the current video (optimistic; YouTube doesn't
+    /// expose the initial rating cheaply, so this tracks local actions).
+    private(set) var currentRating: YouTubeRating = .none
+
+    /// Set when the floating window asks to dock back into the app.
+    /// KasetApp brings the app to the video source; YouTubeContentView
+    /// opens/adopts the watch view and consumes the request.
+    private(set) var popInRequest: YouTubeVideo?
+
+    /// Client used by rating actions from the playback controls.
+    /// Set once by KasetApp; optional so unit tests don't need it.
+    @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
+
     // MARK: - Hooks
 
     /// Called right before video playback starts (PlaybackArbiter pauses music).
@@ -107,6 +120,7 @@ final class YouTubePlayerService {
         self.currentVideo = video
         self.progress = 0
         self.duration = 0
+        self.currentRating = .none
         self.surfaceLocation = .inline
 
         // Create the WebView on demand; containers reparent it on appear.
@@ -147,8 +161,10 @@ final class YouTubePlayerService {
         self.progress = 0
         self.duration = 0
         self.isShowingAd = false
+        self.currentRating = .none
         self.surfaceLocation = .none
         self.activeInlineVideoId = nil
+        self.popInRequest = nil
         self.playbackController.tearDown()
     }
 
@@ -166,6 +182,42 @@ final class YouTubePlayerService {
         guard self.currentVideo != nil else { return }
         self.logger.info("YouTubePlayer: dock inline")
         self.surfaceLocation = .inline
+    }
+
+    /// The floating window asked to dock the video back into the app.
+    func requestPopIn() {
+        guard self.surfaceLocation == .floating, let video = self.currentVideo else { return }
+        self.popInRequest = video
+    }
+
+    /// Marks the pop-in request as handled.
+    func consumePopInRequest() {
+        self.popInRequest = nil
+    }
+
+    // MARK: - Rating
+
+    /// Toggles a like on the current video (optimistic with rollback).
+    func toggleLike() async {
+        await self.setRating(self.currentRating == .like ? .none : .like)
+    }
+
+    /// Toggles a dislike on the current video (optimistic with rollback).
+    func toggleDislike() async {
+        await self.setRating(self.currentRating == .dislike ? .none : .dislike)
+    }
+
+    private func setRating(_ newRating: YouTubeRating) async {
+        guard let video = self.currentVideo, let client = self.youtubeClient else { return }
+        let previous = self.currentRating
+        self.currentRating = newRating
+        do {
+            try await client.rateVideo(videoId: video.videoId, rating: newRating)
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to rate video: \(error.localizedDescription)")
+            self.currentRating = previous
+        }
     }
 
     /// A WatchView for `videoId` is disappearing. If it owns the inline
@@ -215,6 +267,7 @@ final class YouTubePlayerService {
            videoId != current.videoId
         {
             self.logger.info("YouTubePlayer: page drifted to a different video, following")
+            self.currentRating = .none
             self.currentVideo = YouTubeVideo(
                 videoId: videoId,
                 title: update.title ?? current.title,

@@ -69,8 +69,53 @@ enum YouTubeItemParser {
                 ?? self.text(from: renderer["viewCountText"]),
             publishedText: self.text(from: renderer["publishedTimeText"]),
             thumbnailURL: self.thumbnailURL(fromThumbnail: renderer["thumbnail"]),
-            isLive: isLive
+            isLive: isLive,
+            isShort: self.isShort(navigationContainer: renderer["navigationEndpoint"])
         )
+    }
+
+    /// Parses a `shortsLockupViewModel` (Shorts shelves in feeds and search).
+    static func short(fromShortsLockup lockup: [String: Any]) -> YouTubeVideo? {
+        let onTapCommand = (lockup["onTap"] as? [String: Any])?["innertubeCommand"]
+            as? [String: Any]
+        let reelWatch = onTapCommand?["reelWatchEndpoint"] as? [String: Any]
+        guard let videoId = reelWatch?["videoId"] as? String
+            ?? (lockup["entityId"] as? String)?
+            .split(separator: "-").last.map(String.init)
+        else {
+            return nil
+        }
+
+        let overlay = lockup["overlayMetadata"] as? [String: Any]
+        guard let title = self.text(from: overlay?["primaryText"]) else {
+            return nil
+        }
+
+        let sources = (
+            (lockup["thumbnailViewModel"] as? [String: Any])?["image"] as? [String: Any]
+        )?["sources"] as? [[String: Any]]
+
+        return YouTubeVideo(
+            videoId: videoId,
+            title: title,
+            viewCountText: self.text(from: overlay?["secondaryText"]),
+            thumbnailURL: sources.flatMap { self.bestSourceURL(from: $0) },
+            isShort: true
+        )
+    }
+
+    /// Whether a navigation container points at the Shorts player
+    /// (`reelWatchEndpoint` or a `/shorts/…` web URL).
+    static func isShort(navigationContainer: Any?) -> Bool {
+        guard let container = navigationContainer as? [String: Any] else { return false }
+        if container["reelWatchEndpoint"] != nil {
+            return true
+        }
+        let url = (
+            (container["commandMetadata"] as? [String: Any])?["webCommandMetadata"]
+                as? [String: Any]
+        )?["url"] as? String
+        return url?.hasPrefix("/shorts/") == true
     }
 
     /// Parses a legacy `channelRenderer` from channel search results.
@@ -133,6 +178,8 @@ enum YouTubeItemParser {
         let publishedText = statsRow.first { $0.localizedCaseInsensitiveContains("ago") }
 
         let badgeText = self.thumbnailBadgeText(of: lockup)
+        let isShort = self.isShort(navigationContainer: self.onTapCommand(of: lockup))
+            || self.hasPortraitThumbnail(of: lockup)
 
         return YouTubeVideo(
             videoId: videoId,
@@ -143,8 +190,25 @@ enum YouTubeItemParser {
             viewCountText: viewCountText,
             publishedText: publishedText,
             thumbnailURL: self.thumbnailURL(fromLockup: lockup),
-            isLive: badgeText?.localizedCaseInsensitiveCompare("live") == .orderedSame
+            isLive: badgeText?.localizedCaseInsensitiveCompare("live") == .orderedSame,
+            isShort: isShort
         )
+    }
+
+    /// Portrait (taller-than-wide) lockup thumbnails indicate Shorts.
+    private static func hasPortraitThumbnail(of lockup: [String: Any]) -> Bool {
+        let sources = (
+            ((lockup["contentImage"] as? [String: Any])?["thumbnailViewModel"]
+                as? [String: Any])?["image"] as? [String: Any]
+        )?["sources"] as? [[String: Any]]
+        guard let first = sources?.first,
+              let width = first["width"] as? Int,
+              let height = first["height"] as? Int,
+              width > 0
+        else {
+            return false
+        }
+        return height > width
     }
 
     /// Parses a playlist `lockupViewModel` (playlist search results, shelves).

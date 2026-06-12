@@ -44,6 +44,9 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches a public destination feed (Gaming, News, …) for Explore.
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed
 
+    /// Fetches Shorts for the dedicated Shorts surface.
+    func getShorts() async throws -> [YouTubeVideo]
+
     /// Fetches the next page of any browse feed by continuation token.
     func getFeedContinuation(continuation: String) async throws -> YouTubeFeed
 

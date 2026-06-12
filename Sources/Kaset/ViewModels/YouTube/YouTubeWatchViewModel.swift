@@ -22,9 +22,8 @@ final class YouTubeWatchViewModel {
 
     // MARK: - Action State (optimistic)
 
-    /// The user's rating of this video. YouTube doesn't expose the initial
-    /// rating cheaply, so this starts at `.none` and tracks local actions.
-    private(set) var rating: YouTubeRating = .none
+    // Like/dislike state lives on YouTubePlayerService so the playback
+    // controls (inline and floating window) share it.
 
     /// Whether this video has been added to Watch Later in this session.
     private(set) var isInWatchLater = false
@@ -47,19 +46,6 @@ final class YouTubeWatchViewModel {
     }
 
     // MARK: - Actions
-
-    /// Toggles a like on the video (optimistic with rollback).
-    func toggleLike() async {
-        let previous = self.rating
-        self.rating = previous == .like ? YouTubeRating.none : .like
-        do {
-            try await self.client.rateVideo(videoId: self.video.videoId, rating: self.rating)
-            HapticService.toggle()
-        } catch {
-            self.logger.error("Failed to rate video: \(error.localizedDescription)")
-            self.rating = previous
-        }
-    }
 
     /// Adds or removes the video from Watch Later (optimistic with rollback).
     func toggleWatchLater() async {

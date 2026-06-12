@@ -8,7 +8,7 @@ struct YouTubeExploreView: View {
     @Bindable var viewModel: YouTubeExploreViewModel
 
     private static let columns = [
-        GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 16),
+        GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
     ]
 
     var body: some View {

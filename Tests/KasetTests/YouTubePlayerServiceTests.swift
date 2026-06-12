@@ -192,6 +192,56 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.volumes == [0.4])
     }
 
+    @Test("Like and dislike toggle through the client with reset on new video")
+    func ratingToggles() async {
+        let client = MockYouTubeClient()
+        self.sut.youtubeClient = client
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.toggleLike()
+        #expect(self.sut.currentRating == .like)
+
+        await self.sut.toggleDislike()
+        #expect(self.sut.currentRating == .dislike)
+
+        await self.sut.toggleDislike()
+        #expect(self.sut.currentRating == YouTubeRating.none)
+        #expect(client.ratedVideos.map(\.videoId) == ["abc", "abc", "abc"])
+
+        // A new video starts with no rating.
+        await self.sut.toggleLike()
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
+        #expect(self.sut.currentRating == YouTubeRating.none)
+    }
+
+    @Test("Rating failure rolls back the optimistic state")
+    func ratingFailureRollsBack() async {
+        let client = MockYouTubeClient()
+        client.error = YTMusicError.authExpired
+        self.sut.youtubeClient = client
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.toggleLike()
+
+        #expect(self.sut.currentRating == YouTubeRating.none)
+    }
+
+    @Test("Pop-in request only fires from the floating window")
+    func popInRequest() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        // Inline: no request.
+        self.sut.requestPopIn()
+        #expect(self.sut.popInRequest == nil)
+
+        self.sut.popOutToWindow()
+        self.sut.requestPopIn()
+        #expect(self.sut.popInRequest?.videoId == "abc")
+
+        self.sut.consumePopInRequest()
+        #expect(self.sut.popInRequest == nil)
+    }
+
     @Test("Stop resets everything and tears down the WebView")
     func stopResets() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))

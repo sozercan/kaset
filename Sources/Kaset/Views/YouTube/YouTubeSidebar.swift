@@ -24,6 +24,7 @@ struct YouTubeSidebar: View {
                     // Discover section
                     Section(String(localized: "Discover")) {
                         self.row(for: .explore)
+                        self.row(for: .shorts)
                     }
 
                     // Collection section

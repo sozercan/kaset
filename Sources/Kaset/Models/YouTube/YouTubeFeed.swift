@@ -5,7 +5,16 @@ import Foundation
 /// A page of the YouTube home (recommended) feed.
 struct YouTubeFeed {
     let videos: [YouTubeVideo]
+    /// Shorts found in the response, kept separate so the regular feed
+    /// grids stay uniform; surfaced on the dedicated Shorts page.
+    let shorts: [YouTubeVideo]
     let continuation: String?
+
+    init(videos: [YouTubeVideo], shorts: [YouTubeVideo] = [], continuation: String?) {
+        self.videos = videos
+        self.shorts = shorts
+        self.continuation = continuation
+    }
 
     static let empty = YouTubeFeed(videos: [], continuation: nil)
 }

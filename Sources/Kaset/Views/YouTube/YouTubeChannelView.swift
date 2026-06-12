@@ -5,7 +5,7 @@ struct YouTubeChannelView: View {
     @State private var viewModel: YouTubeChannelViewModel
 
     private static let columns = [
-        GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 16),
+        GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
     ]
 
     init(channelId: String, client: any YouTubeClientProtocol) {
