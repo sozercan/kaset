@@ -16,8 +16,9 @@ and [playback.md](playback.md).
 - **One audio source at a time.** `PlaybackArbiter` pauses music when a
   video starts and pauses video when music starts. Media keys route to
   whichever source played last.
-- **Toggling sources never stops playback** — the UI swaps, audio
-  continues. A docked video hands itself off to the floating window.
+- **Source switches preserve state.** Toggling to Music pauses a docked
+  video in place and keeps the YouTube navigation intact for restore;
+  music keeps playing while browsing YouTube until a video starts.
 
 ## Layer Map
 
@@ -84,6 +85,24 @@ Use `swift run api-explorer --youtube browse <id>` to inspect live
 responses — the renderer histogram in its output shows what a surface
 currently serves.
 
+## Player Bar
+
+The bottom Liquid Glass bar adapts to the active source. In YouTube mode
+(`YouTubePlayerBar`, visually identical to the music `PlayerBar`):
+
+- Previous/next skip between videos: back through session history,
+  forward through the watch page's related list (fetched lazily when
+  popped out). Skips while docked open the new video's watch view.
+- The center shows the video thumbnail, title, and channel · views, with
+  the same hover-to-seek behavior.
+- Actions: like/dislike, Watch Later, AirPlay (video picker), closed
+  captions menu (player tracks + Off), quality menu, full view, and
+  picture in picture (pop out / pop in; hidden in fullscreen).
+- No shuffle/repeat/lyrics/queue — those are music concepts.
+
+Every navigable YouTube view carries its own bar inset (pushed views
+don't inherit `safeAreaInset` — same rule as the music side).
+
 ## Playback
 
 Playback uses a second singleton WebView (`YouTubeWatchWebView`) that
@@ -103,13 +122,21 @@ page:
    per-frame while active. Defines `window.__kasetExtractVideo()` so
    `didFinish` can re-run it on cached loads.
 
+Captions and quality are driven through the `movie_player` API
+(`getOption('captions','tracklist')`, `setPlaybackQualityRange`), fetched
+with retries once playback starts; the caption overlay is whitelisted in
+the extraction CSS and pinned to the bottom. Audio is force-unmuted
+whenever Kaset's volume target is audible (YouTube persists its own mute
+state). A document-start blackout stylesheet keeps loads black until the
+extraction chain reveals the video.
+
 ### Surface Placement
 
 The extracted surface lives in exactly one place at a time, tracked by
 `YouTubePlayerService.surfaceLocation`:
 
-- `.inline` — docked in `YouTubeWatchView` (the watch page), with the
-  native `WatchControlsBar` (play/pause, scrubber, volume, pop-out)
+- `.inline` — docked in `YouTubeWatchView` (the watch page); playback is
+  controlled from the player bar
 - `.floating` — hosted by `YouTubeVideoWindowController`
 - `.none` — no playback
 
@@ -117,13 +144,43 @@ Handoff rules:
 
 - Opening a watch view auto-plays (or adopts the surface if its video is
   already playing, closing the floating window).
-- Navigating away (or toggling to Music) while **playing** pops the
-  surface out to the floating window; while **paused**, playback stops.
+- Navigating away within YouTube while **playing** pops the surface out
+  to the floating window; while **paused**, playback stops.
+- **Toggling to Music pauses the docked video in place** — no pop-out
+  appears, and toggling back restores the same watch view (the YouTube
+  drill-in path lives in `YouTubeViewModelStore`, which survives source
+  switches). A deliberately popped-out window keeps playing.
 - Closing the floating window stops playback.
+
+The pop-out window is aspect-locked to 16:9 (512×288 minimum), shows the
+full player bar and traffic lights as hover chrome over corner-to-corner
+video, and its green button enters fullscreen. Fullscreen entered from
+the inline watch view docks the video back inline when fullscreen exits.
 
 KasetApp observes `surfaceLocation` and opens/closes the floating window;
 `NSView` reparenting (`ensureInHierarchy`) moves the WebView between
 containers without interrupting playback.
+
+### Shorts
+
+The Shorts surface is a vertical snap-paging player: opening it
+autoplays the first short (9:16 surface docked in the page), trackpad
+scrolling pages between shorts, and each page autoplays as it settles.
+A transparent overlay forwards scroll events past the WKWebView (which
+would otherwise swallow them). Shorts are detected in feeds (reel
+endpoints, `/shorts/` URLs, portrait lockups, shorts shelves), stripped
+from the regular grids, and routed to this surface.
+
+### Watch Page
+
+Below the video, the layout is two-column: title/metadata/channel and
+the comments section down the left, the related rail down the right.
+Comments come from the watch page's `comment-item-section` continuation
+(entity-payload mutations joined to comment view models, with a legacy
+`commentRenderer` fallback): paged reading, posting via
+`comment/create_comment`, like/dislike toggles via
+`comment/perform_comment_action` (like/unlike/dislike/undislike action
+tokens), expandable reply threads, and author → channel navigation.
 
 ### Ads
 
@@ -146,9 +203,8 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
 ## Known Limitations / Future Work
 
 - No auto-advance to the next related video after `VIDEO_ENDED` (YouTube
-  autonav is disabled; Kaset shows the ended state).
-- Shorts (`shortsLockupViewModel`, `reelShelfRenderer`) are intentionally
-  skipped in feeds and search.
+  autonav is disabled; Kaset shows the ended state — the bar's next
+  button advances manually).
 - Initial like state is not parsed (actions are optimistic from
   `.none`); subscribe state is seeded from watch-next.
 - Watch-page DOM selectors (`#movie_player`, autonav toggle) can shift;
