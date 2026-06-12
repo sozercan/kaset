@@ -16,6 +16,13 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
+
+    /// YouTube video routing (optional; absent in music-only flows).
+    /// When the arbiter says the video source played last, play/pause/toggle
+    /// media keys control it instead of the music player. Guarded so music
+    /// behavior is identical when video routing is not configured/active.
+    private weak var youtubePlayerService: YouTubePlayerService?
+    private weak var playbackArbiter: PlaybackArbiter?
     private let settings = SettingsManager.shared
     private static let defaultSkipInterval: TimeInterval = 15
     private static let skipTargetCoalescingWindow: Duration = .seconds(1)
@@ -39,6 +46,23 @@ final class NowPlayingManager {
         self.logger.info("NowPlayingManager configured (remote commands only)")
 
         self.observeSettingsChanges()
+    }
+
+    /// Registers the YouTube video player for media-key routing.
+    /// Additive: without this call (or when video is inactive), all commands
+    /// route to the music player exactly as before.
+    func configureYouTubeRouting(
+        youtubePlayerService: YouTubePlayerService,
+        arbiter: PlaybackArbiter
+    ) {
+        self.youtubePlayerService = youtubePlayerService
+        self.playbackArbiter = arbiter
+        self.logger.info("NowPlayingManager: YouTube video routing configured")
+    }
+
+    /// Whether play/pause media keys should control the YouTube video player.
+    private var routesToYouTubeVideo: Bool {
+        self.playbackArbiter?.routesMediaKeysToVideo == true
     }
 
     private func observeSettingsChanges() {
@@ -90,27 +114,39 @@ final class NowPlayingManager {
 
         // Play command
         commandCenter.playCommand.isEnabled = true
-        commandCenter.playCommand.addTarget { _ in
+        commandCenter.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                await player.resume()
+                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                    youtube.resume()
+                } else {
+                    await player.resume()
+                }
             }
             return .success
         }
 
         // Pause command
         commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { _ in
+        commandCenter.pauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                await player.pause()
+                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                    youtube.pause()
+                } else {
+                    await player.pause()
+                }
             }
             return .success
         }
 
         // Toggle play/pause command
         commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { _ in
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                await player.playPause()
+                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                    youtube.playPause()
+                } else {
+                    await player.playPause()
+                }
             }
             return .success
         }

@@ -33,6 +33,8 @@ struct KasetApp: App {
     @State private var authService = AuthService()
     @State private var webKitManager = WebKitManager.shared
     @State private var playerService = PlayerService()
+    @State private var youtubePlayerService: YouTubePlayerService
+    @State private var playbackArbiter: PlaybackArbiter
     @State private var sharedClient: any YTMusicClientProtocol
     @State private var sharedYouTubeClient: any YouTubeClientProtocol
     @State private var notificationService: NotificationService?
@@ -103,9 +105,15 @@ struct KasetApp: App {
             realYouTubeClient
         }
 
+        // YouTube video playback service + the one-audio-source arbiter
+        let youtubePlayer = YouTubePlayerService(webKitManager: webkit)
+        let arbiter = PlaybackArbiter(playerService: player, youtubePlayerService: youtubePlayer)
+
         _authService = State(initialValue: auth)
         _webKitManager = State(initialValue: webkit)
         _playerService = State(initialValue: player)
+        _youtubePlayerService = State(initialValue: youtubePlayer)
+        _playbackArbiter = State(initialValue: arbiter)
         _sharedClient = State(initialValue: client)
         _sharedYouTubeClient = State(initialValue: youtubeClient)
         _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
@@ -152,6 +160,7 @@ struct KasetApp: App {
                 .environment(self.authService)
                 .environment(self.webKitManager)
                 .environment(self.playerService)
+                .environment(self.youtubePlayerService)
                 .environment(self.favoritesManager)
                 .environment(self.sidebarPinnedItemsManager)
                 .environment(self.likeStatusManager)
@@ -197,7 +206,26 @@ struct KasetApp: App {
                     // equalizer a chance to spin up.
                     if isPlaying {
                         self.equalizerService.retryStartIfEnabled()
+                        // One audio source at a time: music starting pauses video.
+                        self.playbackArbiter.musicDidStartPlaying()
                     }
+                }
+                .onChange(of: self.youtubePlayerService.surfaceLocation) { _, location in
+                    // The floating window hosts the video surface whenever it
+                    // is popped out (or the inline watch view went away).
+                    if location == .floating {
+                        YouTubeVideoWindowController.shared.show(
+                            youtubePlayerService: self.youtubePlayerService
+                        )
+                    } else {
+                        YouTubeVideoWindowController.shared.close()
+                    }
+                }
+                .task {
+                    NowPlayingManager.shared.configureYouTubeRouting(
+                        youtubePlayerService: self.youtubePlayerService,
+                        arbiter: self.playbackArbiter
+                    )
                 }
                 .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
                     if isVisible {

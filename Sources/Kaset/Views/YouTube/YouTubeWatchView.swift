@@ -2,14 +2,16 @@ import SwiftUI
 
 // MARK: - YouTubeWatchView
 
-/// Watch page for a YouTube video.
+/// Watch page for a YouTube video: the extracted video surface with native
+/// controls, metadata, and the related list.
 ///
-/// M2: metadata + related list with a placeholder surface; the extracted
-/// WebView video surface and native controls land with the playback
-/// milestone (M3), which docks into the placeholder area.
+/// The surface is the singleton `YouTubeWatchWebView`, docked here while
+/// this view owns it. Navigating away while playing hands the surface off
+/// to the floating window (`YouTubeVideoWindowController`).
 struct YouTubeWatchView: View {
     let video: YouTubeVideo
 
+    @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var viewModel: YouTubeWatchViewModel
 
     init(video: YouTubeVideo, client: any YouTubeClientProtocol) {
@@ -22,7 +24,7 @@ struct YouTubeWatchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                self.videoSurfacePlaceholder
+                self.videoSurface
 
                 self.metadataSection
 
@@ -36,27 +38,74 @@ struct YouTubeWatchView: View {
         }
         .navigationTitle(Text(self.video.title))
         .task {
+            self.startOrAdoptPlayback()
             await self.viewModel.load()
+        }
+        .onDisappear {
+            self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
         }
     }
 
-    // MARK: - Video Surface (placeholder until M3)
+    // MARK: - Video Surface
 
-    private var videoSurfacePlaceholder: some View {
-        Rectangle()
-            .fill(.black)
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .overlay {
-                VStack(spacing: 10) {
-                    Image(systemName: "play.circle")
-                        .font(.system(size: 44))
-                    Text("Video playback is coming soon.", comment: "Placeholder in the watch view before playback ships")
-                        .font(.callout)
-                }
-                .foregroundStyle(.white.opacity(0.7))
+    /// Whether this view currently presents the live playback surface.
+    private var presentsLiveSurface: Bool {
+        self.youtubePlayer.currentVideo?.videoId == self.video.videoId
+            && self.youtubePlayer.surfaceLocation == .inline
+    }
+
+    @ViewBuilder
+    private var videoSurface: some View {
+        if self.presentsLiveSurface {
+            VStack(spacing: 12) {
+                YouTubeWatchSurfaceView()
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .clipShape(.rect(cornerRadius: 12))
+                    .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+
+                WatchControlsBar()
             }
-            .clipShape(.rect(cornerRadius: 12))
+        } else {
+            Button {
+                self.startOrAdoptPlayback()
+            } label: {
+                CachedAsyncImage(
+                    url: self.video.thumbnailURL,
+                    targetSize: CGSize(width: 1280, height: 720)
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.black)
+                }
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .overlay {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .shadow(radius: 8)
+                }
+                .clipShape(.rect(cornerRadius: 12))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Play video"))
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+        }
+    }
+
+    /// Starts playback of this view's video, or adopts the surface if this
+    /// video is already playing (e.g. docking back from the floating window).
+    private func startOrAdoptPlayback() {
+        if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
+            if self.youtubePlayer.surfaceLocation == .floating {
+                self.youtubePlayer.dockInline()
+            }
+        } else {
+            self.youtubePlayer.play(video: self.video)
+        }
+        self.youtubePlayer.activeInlineVideoId = self.video.videoId
     }
 
     // MARK: - Metadata
