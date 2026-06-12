@@ -7,6 +7,8 @@ import SwiftUI
 ///
 /// Lives at the bottom of both sidebars, just above the profile section.
 struct SourceToggleView: View {
+    private static let brandAccent = PackageResourceLookup.brandAccent
+
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var settings = SettingsManager.shared
@@ -55,11 +57,11 @@ struct SourceToggleView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
         .background {
             if isSelected {
                 Capsule()
-                    .fill(.quaternary)
+                    .fill(Self.brandAccent)
                     .matchedGeometryEffect(id: "selectedSegment", in: self.segmentNamespace)
             }
         }

@@ -420,7 +420,10 @@ struct MainWindow: View {
     }
 
     private var supportsCommandBarUI: Bool {
+        // The command bar is a music/AI feature; it has no role in the
+        // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
+            && self.settings.appSource == .music
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
