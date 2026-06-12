@@ -100,6 +100,7 @@ struct YouTubePlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Previous video"))
 
             // Play/Pause
@@ -115,6 +116,7 @@ struct YouTubePlayerBar: View {
             .buttonStyle(.pressable)
             .compatGlassID("youtubePlayPause", in: self.playerNamespace)
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchPlayPause)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(
                 self.youtubePlayer.isPlaying
                     ? String(localized: "Pause")
@@ -133,6 +135,7 @@ struct YouTubePlayerBar: View {
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Next video"))
         }
     }
@@ -296,6 +299,7 @@ struct YouTubePlayerBar: View {
             .buttonStyle(.pressable)
             .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .dislike)
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchDislikeButton)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Dislike"))
 
             // Like
@@ -314,6 +318,7 @@ struct YouTubePlayerBar: View {
             .buttonStyle(.pressable)
             .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .like)
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchLikeButton)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Like"))
 
             // AirPlay
@@ -326,6 +331,7 @@ struct YouTubePlayerBar: View {
                     .foregroundStyle(.primary.opacity(0.85))
             }
             .buttonStyle(.pressable)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "AirPlay"))
 
             // Fullscreen (TV) — expands the pop-out window
@@ -347,6 +353,7 @@ struct YouTubePlayerBar: View {
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchFullscreen)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(String(localized: "Fullscreen"))
 
             // Picture in picture (pop out / pop in)
@@ -367,6 +374,7 @@ struct YouTubePlayerBar: View {
             }
             .buttonStyle(.pressable)
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchPictureInPicture)
+            .disabled(self.youtubePlayer.currentVideo == nil)
             .accessibilityLabel(
                 self.youtubePlayer.surfaceLocation == .floating
                     ? String(localized: "Pop video back into Kaset")
@@ -411,6 +419,22 @@ struct YouTubePlayerBar: View {
             return String(format: "%d:%02d:%02d", hours, mins, secs)
         }
         return String(format: "%d:%02d", mins, secs)
+    }
+}
+
+// MARK: - Per-View Inset
+
+extension View {
+    /// Attaches the YouTube player bar to the bottom of a navigable view.
+    ///
+    /// Applied to EVERY YouTube view (roots and pushed destinations) —
+    /// views pushed onto a `NavigationStack` do not inherit a parent's
+    /// `safeAreaInset`, the same rule the music side follows with
+    /// `PlayerBar` (see docs/architecture.md).
+    func youtubePlayerBarInset() -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            YouTubePlayerBar()
+        }
     }
 }
 

@@ -19,7 +19,10 @@ struct YouTubeContentView: View {
         Group {
             if let selection {
                 NavigationStack(path: self.$navigationPath) {
+                    // Each navigable view carries its own bar inset
+                    // (pushed views don't inherit a parent's safeAreaInset).
                     self.rootView(for: selection)
+                        .youtubePlayerBarInset()
                         .youtubeNavigationDestinations(client: self.store.client)
                 }
                 // Reset the drill-in stack when the sidebar selection changes.
@@ -27,19 +30,11 @@ struct YouTubeContentView: View {
             } else {
                 Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .youtubePlayerBarInset()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            // One Liquid Glass bar that adapts to the active player:
-            // the YouTube variant while a video is loaded, the music bar
-            // otherwise (music keeps playing while browsing YouTube).
-            if self.youtubePlayer.currentVideo != nil {
-                YouTubePlayerBar()
-            } else {
-                PlayerBar()
-            }
-        }
         .onChange(of: self.youtubePlayer.popInRequest) { _, request in
             self.handlePopInRequest(request)
         }
