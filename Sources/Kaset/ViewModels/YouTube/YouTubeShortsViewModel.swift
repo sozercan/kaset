@@ -14,6 +14,10 @@ final class YouTubeShortsViewModel {
     /// Shorts to display.
     private(set) var shorts: [YouTubeVideo] = []
 
+    /// Invalidates stale in-flight loads when a newer one starts
+    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
+    private var loadGeneration = 0
+
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -22,16 +26,22 @@ final class YouTubeShortsViewModel {
     }
 
     func load() async {
-        guard self.loadingState != .loading else { return }
-
+        self.loadGeneration += 1
+        let generation = self.loadGeneration
         self.loadingState = .loading
         do {
-            self.shorts = try await self.client.getShorts()
+            let shorts = try await self.client.getShorts()
+            guard generation == self.loadGeneration else { return }
+            self.shorts = shorts
             self.loadingState = .loaded
         } catch {
+            guard generation == self.loadGeneration else { return }
             // A cancelled load (view went away mid-flight) is not an
-            // error; the next .task run reloads.
-            if error is CancellationError { return }
+            // error; reset so the next task run reloads.
+            if error is CancellationError {
+                self.loadingState = .idle
+                return
+            }
             self.logger.error("Failed to load Shorts: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }

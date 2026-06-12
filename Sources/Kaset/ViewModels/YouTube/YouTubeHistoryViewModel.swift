@@ -18,6 +18,10 @@ final class YouTubeHistoryViewModel {
         self.continuation != nil
     }
 
+    /// Invalidates stale in-flight loads when a newer one starts
+    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
+    private var loadGeneration = 0
+
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -26,18 +30,23 @@ final class YouTubeHistoryViewModel {
     }
 
     func load() async {
-        guard self.loadingState != .loading else { return }
-
+        self.loadGeneration += 1
+        let generation = self.loadGeneration
         self.loadingState = .loading
         do {
             let feed = try await client.getHistory()
+            guard generation == self.loadGeneration else { return }
             self.videos = feed.videos
             self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
+            guard generation == self.loadGeneration else { return }
             // A cancelled load (view went away mid-flight) is not an
-            // error; the next .task run reloads.
-            if error is CancellationError { return }
+            // error; reset so the next task run reloads.
+            if error is CancellationError {
+                self.loadingState = .idle
+                return
+            }
             self.logger.error("Failed to load YouTube history: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
@@ -61,9 +70,11 @@ final class YouTubeHistoryViewModel {
             self.continuation = feed.continuation
             self.loadingState = .loaded
         } catch {
-            // A cancelled load (view went away mid-flight) is not an
-            // error; the next .task run reloads.
-            if error is CancellationError { return }
+            // A cancelled page load is not an error; allow retrying.
+            if error is CancellationError {
+                self.loadingState = .loaded
+                return
+            }
             self.logger.error("Failed to load more history: \(error.localizedDescription)")
             self.continuation = nil
             self.loadingState = .loaded

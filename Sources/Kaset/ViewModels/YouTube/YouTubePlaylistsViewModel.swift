@@ -11,6 +11,10 @@ final class YouTubePlaylistsViewModel {
     /// The user's playlists.
     private(set) var playlists: [YouTubePlaylist] = []
 
+    /// Invalidates stale in-flight loads when a newer one starts
+    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
+    private var loadGeneration = 0
+
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -19,16 +23,22 @@ final class YouTubePlaylistsViewModel {
     }
 
     func load() async {
-        guard self.loadingState != .loading else { return }
-
+        self.loadGeneration += 1
+        let generation = self.loadGeneration
         self.loadingState = .loading
         do {
-            self.playlists = try await self.client.getUserPlaylists()
+            let playlists = try await self.client.getUserPlaylists()
+            guard generation == self.loadGeneration else { return }
+            self.playlists = playlists
             self.loadingState = .loaded
         } catch {
+            guard generation == self.loadGeneration else { return }
             // A cancelled load (view went away mid-flight) is not an
-            // error; the next .task run reloads.
-            if error is CancellationError { return }
+            // error; reset so the next task run reloads.
+            if error is CancellationError {
+                self.loadingState = .idle
+                return
+            }
             self.logger.error("Failed to load YouTube playlists: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }

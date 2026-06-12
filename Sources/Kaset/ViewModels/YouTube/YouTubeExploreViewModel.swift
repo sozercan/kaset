@@ -28,22 +28,30 @@ final class YouTubeExploreViewModel {
         self.client = client
     }
 
-    func load() async {
-        guard self.loadingState != .loading else { return }
+    /// Invalidates stale in-flight loads when a newer one starts.
+    private var loadGeneration = 0
 
+    func load() async {
+        self.loadGeneration += 1
+        let generation = self.loadGeneration
         self.loadingState = .loading
         let destination = self.selectedDestination
         do {
             let feed = try await client.getDestinationFeed(destination)
-            // Ignore stale results if the user switched categories mid-flight.
-            guard destination == self.selectedDestination else { return }
+            // Ignore stale results (superseded load or switched category).
+            guard generation == self.loadGeneration,
+                  destination == self.selectedDestination else { return }
             self.videos = feed.videos
             self.loadingState = .loaded
         } catch {
+            guard generation == self.loadGeneration,
+                  destination == self.selectedDestination else { return }
             // A cancelled load (view went away mid-flight) is not an
-            // error; the next .task run reloads.
-            if error is CancellationError { return }
-            guard destination == self.selectedDestination else { return }
+            // error; reset so the next task run reloads.
+            if error is CancellationError {
+                self.loadingState = .idle
+                return
+            }
             self.logger.error("Failed to load destination feed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
