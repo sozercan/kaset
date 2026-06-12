@@ -19,6 +19,10 @@ final class YouTubeVideoWindowController {
     private var isClosing = false
     private let frameAutosaveKey = "KasetYouTubeVideoWindow"
 
+    /// When fullscreen was entered from the inline watch view, exiting it
+    /// docks the video back inline instead of leaving the small pop-out.
+    private var returnInlineOnExitFullscreen = false
+
     private init() {}
 
     /// Shows the floating window hosting the video surface.
@@ -88,10 +92,40 @@ final class YouTubeVideoWindowController {
             name: NSWindow.willCloseNotification,
             object: window
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowDidEnterFullScreen),
+            name: NSWindow.didEnterFullScreenNotification,
+            object: window
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowDidExitFullScreen),
+            name: NSWindow.didExitFullScreenNotification,
+            object: window
+        )
+    }
+
+    @objc private func windowDidEnterFullScreen(_: Notification) {
+        self.youtubePlayerService?.isWindowFullscreen = true
+    }
+
+    @objc private func windowDidExitFullScreen(_: Notification) {
+        self.youtubePlayerService?.isWindowFullscreen = false
+        if self.returnInlineOnExitFullscreen {
+            self.returnInlineOnExitFullscreen = false
+            self.youtubePlayerService?.requestPopIn()
+        }
     }
 
     /// Toggles fullscreen on the floating window.
-    func toggleFullscreen() {
+    /// - Parameter returnInlineOnExit: when true (fullscreen entered from
+    ///   the inline watch view), exiting fullscreen docks the video back
+    ///   into the app instead of leaving the pop-out window around.
+    func toggleFullscreen(returnInlineOnExit: Bool = false) {
+        if returnInlineOnExit, self.window?.styleMask.contains(.fullScreen) != true {
+            self.returnInlineOnExitFullscreen = true
+        }
         self.window?.toggleFullScreen(nil)
     }
 
@@ -134,6 +168,8 @@ final class YouTubeVideoWindowController {
     }
 
     private func performCleanup() {
+        self.youtubePlayerService?.isWindowFullscreen = false
+        self.returnInlineOnExitFullscreen = false
         self.window = nil
         self.hostingView = nil
         self.isClosing = false
@@ -175,19 +211,6 @@ private struct YouTubeVideoWindowContent: View {
                     YouTubePlayerBar()
                         .transition(.opacity)
                 }
-            }
-
-            if self.isHovering {
-                // Depth chip hugging the traffic lights (standard buttons
-                // sit at x 7–61, y 7–21 in the transparent title bar).
-                Capsule()
-                    .fill(.clear)
-                    .frame(width: 62, height: 21)
-                    .compatGlass(interactive: false, in: .capsule)
-                    .padding(.leading, 4)
-                    .padding(.top, 4)
-                    .transition(.opacity)
-                    .allowsHitTesting(false)
             }
         }
         .background(.black)

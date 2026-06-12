@@ -328,7 +328,7 @@ struct YouTubePlayerBar: View {
                     self.youtubePlayer.popOutToWindow()
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(250))
-                        YouTubeVideoWindowController.shared.toggleFullscreen()
+                        YouTubeVideoWindowController.shared.toggleFullscreen(returnInlineOnExit: true)
                     }
                 } else {
                     YouTubeVideoWindowController.shared.toggleFullscreen()
@@ -379,30 +379,33 @@ struct YouTubePlayerBar: View {
 
             self.qualityMenu
 
-            // Picture in picture (pop out / pop in)
-            Button {
-                HapticService.toggle()
-                if self.youtubePlayer.surfaceLocation == .floating {
-                    self.youtubePlayer.requestPopIn()
-                } else {
-                    self.youtubePlayer.popOutToWindow()
+            // Picture in picture (pop out / pop in) — hidden in fullscreen,
+            // where popping in/out makes no sense.
+            if !self.youtubePlayer.isWindowFullscreen {
+                Button {
+                    HapticService.toggle()
+                    if self.youtubePlayer.surfaceLocation == .floating {
+                        self.youtubePlayer.requestPopIn()
+                    } else {
+                        self.youtubePlayer.popOutToWindow()
+                    }
+                } label: {
+                    Image(systemName: self.youtubePlayer.surfaceLocation == .floating
+                        ? "pip.exit"
+                        : "pip.enter")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(self.youtubePlayer.surfaceLocation == .floating ? .red : .primary.opacity(0.85))
+                        .contentTransition(.symbolEffect(.replace))
                 }
-            } label: {
-                Image(systemName: self.youtubePlayer.surfaceLocation == .floating
-                    ? "pip.exit"
-                    : "pip.enter")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.youtubePlayer.surfaceLocation == .floating ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
+                .buttonStyle(.pressable)
+                .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchPictureInPicture)
+                .disabled(self.youtubePlayer.currentVideo == nil)
+                .accessibilityLabel(
+                    self.youtubePlayer.surfaceLocation == .floating
+                        ? String(localized: "Pop video back into Kaset")
+                        : String(localized: "Picture in Picture")
+                )
             }
-            .buttonStyle(.pressable)
-            .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchPictureInPicture)
-            .disabled(self.youtubePlayer.currentVideo == nil)
-            .accessibilityLabel(
-                self.youtubePlayer.surfaceLocation == .floating
-                    ? String(localized: "Pop video back into Kaset")
-                    : String(localized: "Picture in Picture")
-            )
         }
     }
 

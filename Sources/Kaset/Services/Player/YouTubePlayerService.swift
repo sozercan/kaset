@@ -104,6 +104,9 @@ final class YouTubePlayerService {
     /// Whether the current video was added to Watch Later this session.
     private(set) var isInWatchLater = false
 
+    /// Whether the pop-out window is in fullscreen (set by its controller).
+    var isWindowFullscreen = false
+
     /// Caption tracks available on the current watch page.
     private(set) var captionTracks: [YouTubeCaptionTrack] = []
 
