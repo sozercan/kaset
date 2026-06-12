@@ -294,6 +294,9 @@ final class YouTubeClient: YouTubeClientProtocol {
             "Origin": Self.origin,
             "Referer": Self.origin,
             "Content-Type": "application/json",
+            // Kaset's account model is primary + brand accounts: selection is
+            // expressed via context.user.onBehalfOfUser (brandIdProvider), not
+            // the authuser index — same contract as YTMusicClient.
             "X-Goog-AuthUser": "0",
             "X-Origin": Self.origin,
         ]

@@ -20,6 +20,7 @@ enum YouTubeItemParser {
             ?? item["gridVideoRenderer"] as? [String: Any]
             ?? item["compactVideoRenderer"] as? [String: Any]
             ?? item["videoCardRenderer"] as? [String: Any]
+            ?? item["playlistVideoRenderer"] as? [String: Any]
         {
             return self.video(fromVideoRenderer: renderer)
         }

@@ -41,6 +41,29 @@ struct YouTubeItemParserTests {
         #expect(video.isLive == false)
     }
 
+    @Test("Parses a legacy playlistVideoRenderer via the item dispatch")
+    func parsesPlaylistVideoRenderer() throws {
+        let item: [String: Any] = [
+            "playlistVideoRenderer": [
+                "videoId": "plv123",
+                "title": ["runs": [["text": "Playlist Video"]]],
+                "shortBylineText": [
+                    "runs": [[
+                        "text": "Some Channel",
+                        "navigationEndpoint": ["browseEndpoint": ["browseId": "UCplv"]],
+                    ]],
+                ],
+                "lengthText": ["simpleText": "4:56"],
+            ],
+        ]
+
+        let video = try #require(YouTubeItemParser.video(fromAnyItem: item))
+        #expect(video.videoId == "plv123")
+        #expect(video.title == "Playlist Video")
+        #expect(video.channelName == "Some Channel")
+        #expect(video.lengthText == "4:56")
+    }
+
     @Test("Rejects a videoRenderer without a videoId")
     func rejectsVideoRendererWithoutId() {
         let renderer: [String: Any] = [
