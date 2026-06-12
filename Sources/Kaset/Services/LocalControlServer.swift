@@ -609,7 +609,7 @@ extension LocalControlServer {
         case ("POST", "/volume"):
             self.volumeRoute(request)
         case ("POST", "/seek"):
-            Self.seekRoute(request)
+            self.seekRoute(request)
         case ("POST", "/toggle_shuffle"):
             .toggleShuffle
         case ("POST", "/cycle_repeat"):
@@ -617,7 +617,7 @@ extension LocalControlServer {
         case ("POST", "/toggle_mute"):
             .toggleMute
         case ("POST", "/sleep_timer"):
-            Self.sleepTimerRoute(request)
+            self.sleepTimerRoute(request)
         case ("GET", "/search"):
             .search
         case ("POST", "/play_index"):
@@ -656,7 +656,7 @@ extension LocalControlServer {
         let cancelQuery = request.queryItems["cancel"] ?? request.formItems["cancel"]
         let isCancel = cancelQuery?.lowercased() == "true"
         let durationQuery = request.queryItems["duration"] ?? request.queryItems["time"] ??
-                             request.formItems["duration"] ?? request.formItems["time"]
+            request.formItems["duration"] ?? request.formItems["time"]
         let duration = durationQuery.flatMap { Double($0) }
         return .sleepTimer(duration: duration, cancel: isCancel)
     }
@@ -1793,6 +1793,17 @@ extension LocalControlServer {
           </main>
 
           <script>
+            function getHighResArtwork(url) {
+              if (!url) return '';
+              if (url.includes('googleusercontent.com') || url.includes('ggpht.com')) {
+                return url.replace(/=w\d+-h\d+.*$/, '=w544-h544-l90-rj').replace(/=s\d+.*$/, '=w544-h544-l90-rj');
+              }
+              if (url.includes('i.ytimg.com/vi/') && url.includes('hqdefault.jpg')) {
+                return url.replace('hqdefault.jpg', 'maxresdefault.jpg');
+              }
+              return url;
+            }
+
             let deviceId = localStorage.getItem('kaset_device_id');
             if (!deviceId) {
               deviceId = 'device_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -2074,9 +2085,10 @@ extension LocalControlServer {
                   data.tracks.forEach(song => {
                     const item = document.createElement('div');
                     item.className = 'search-result-item';
-                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    const origArtworkUrl = song.artworkURL || '';
+                    const artworkUrl = getHighResArtwork(origArtworkUrl) || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
                     item.innerHTML = `
-                      <img src="${artworkUrl}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                      <img src="${artworkUrl}" onerror="this.onerror=null; ${origArtworkUrl ? `this.src='${origArtworkUrl}';` : ''}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
                       <div class="search-result-info" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
                         <div class="search-result-title">${song.title}</div>
                         <div class="search-result-artist">${song.artist}</div>
@@ -2175,13 +2187,14 @@ extension LocalControlServer {
                   data.results.forEach(song => {
                     const item = document.createElement('div');
                     item.className = 'search-result-item';
-                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    const origArtworkUrl = song.artworkURL || '';
+                    const artworkUrl = getHighResArtwork(origArtworkUrl) || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
                     
                     const isSong = song.type === 'song' || data.type === 'songs';
                     
                     if (isSong) {
                       item.innerHTML = `
-                        <img src="${artworkUrl}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
+                        <img src="${artworkUrl}" onerror="this.onerror=null; ${origArtworkUrl ? `this.src='${origArtworkUrl}';` : ''}" alt="Artwork" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
                         <div class="search-result-info" onclick="playTrack('${song.videoId}')" style="cursor:pointer;">
                           <div class="search-result-title">${song.title}</div>
                           <div class="search-result-artist">${song.artist}</div>
@@ -2198,7 +2211,7 @@ extension LocalControlServer {
                     } else {
                       const typeLabel = song.type === 'album' ? 'Album' : 'Playlist';
                       item.innerHTML = `
-                        <img src="${artworkUrl}" alt="Artwork" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" style="cursor:pointer;">
+                        <img src="${artworkUrl}" onerror="this.onerror=null; ${origArtworkUrl ? `this.src='${origArtworkUrl}';` : ''}" alt="Artwork" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" style="cursor:pointer;">
                         <div class="search-result-info" onclick="openPlaylistDetails('${song.id}', '${escapeJS(song.title)}')" style="cursor:pointer;">
                           <div class="search-result-title">${song.title}</div>
                           <div class="search-result-artist">${song.artist || typeLabel}</div>
@@ -2417,7 +2430,8 @@ extension LocalControlServer {
                 }
 
                 if (data.track && data.track.artworkURL) {
-                  document.getElementById('artwork-wrapper').innerHTML = '<img class="artwork-image" src="' + data.track.artworkURL + '" alt="Artwork">';
+                  const highResUrl = getHighResArtwork(data.track.artworkURL);
+                  document.getElementById('artwork-wrapper').innerHTML = '<img class="artwork-image" src="' + highResUrl + '" onerror="this.onerror=null; this.src=\'' + data.track.artworkURL + '\';" alt="Artwork">';
                 } else {
                   document.getElementById('artwork-wrapper').innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>';
                 }
@@ -2508,9 +2522,10 @@ extension LocalControlServer {
                     const isActive = idx === data.queueIndex;
                     const item = document.createElement('div');
                     item.className = 'queue-item' + (isActive ? ' active' : '');
-                    const artworkUrl = song.artworkURL || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+                    const origArtworkUrl = song.artworkURL || '';
+                    const artworkUrl = getHighResArtwork(origArtworkUrl) || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
                     item.innerHTML = `
-                      <img src="${artworkUrl}" alt="Artwork">
+                      <img src="${artworkUrl}" onerror="this.onerror=null; ${origArtworkUrl ? `this.src='${origArtworkUrl}';` : ''}" alt="Artwork">
                       <div class="queue-item-info">
                         <div class="queue-item-title${isActive ? ' active' : ''}">${song.title}</div>
                         <div class="queue-item-artist">${song.artist}</div>
