@@ -232,10 +232,9 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 16)
             // Same height as the avatar / name + subscriber-count block.
             .frame(height: 36)
-            .background(
-                self.viewModel.isSubscribed
-                    ? AnyShapeStyle(.quaternary.opacity(0.6))
-                    : AnyShapeStyle(Self.brandAccent),
+            .compatGlass(
+                interactive: true,
+                tint: self.viewModel.isSubscribed ? nil : Self.brandAccent,
                 in: Capsule()
             )
             .contentShape(Capsule())
@@ -360,10 +359,9 @@ struct YouTubeWatchView: View {
                 }
                 .frame(width: 30, height: 30)
                 .foregroundStyle(self.hasCommentDraft ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
-                .background(
-                    self.hasCommentDraft && self.viewModel.canComment
-                        ? AnyShapeStyle(Self.brandAccent)
-                        : AnyShapeStyle(.quaternary.opacity(0.5)),
+                .compatGlass(
+                    interactive: true,
+                    tint: self.hasCommentDraft && self.viewModel.canComment ? Self.brandAccent : nil,
                     in: Circle()
                 )
                 .contentShape(Circle())

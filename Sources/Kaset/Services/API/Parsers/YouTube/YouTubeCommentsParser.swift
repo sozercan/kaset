@@ -7,6 +7,14 @@ import Foundation
 /// mutations in `frameworkUpdates`; older ones inline `commentRenderer`s.
 /// Both are handled.
 enum YouTubeCommentsParser {
+    /// Like/dislike action tokens from a comment's toolbar surface payload.
+    private struct ToolbarSurface {
+        let like: String?
+        let unlike: String?
+        let dislike: String?
+        let undislike: String?
+    }
+
     static func parse(_ data: [String: Any]) -> YouTubeCommentsPage {
         var comments = Self.commentsFromEntityPayloads(data)
         if comments.isEmpty {
@@ -31,7 +39,7 @@ enum YouTubeCommentsParser {
         // from the comment view models in the continuation items.
         var commentsByKey: [String: [String: Any]] = [:]
         var orderedPayloads: [[String: Any]] = []
-        var surfacesByKey: [String: (like: String?, dislike: String?)] = [:]
+        var surfacesByKey: [String: ToolbarSurface] = [:]
 
         for mutation in mutations {
             guard let payload = mutation["payload"] as? [String: Any] else { continue }
@@ -46,9 +54,11 @@ enum YouTubeCommentsParser {
                let surface = payload["engagementToolbarSurfaceEntityPayload"] as? [String: Any]
                ?? payload["commentSurfaceEntityPayload"] as? [String: Any]
             {
-                surfacesByKey[key] = (
+                surfacesByKey[key] = ToolbarSurface(
                     like: Self.actionToken(of: surface["likeCommand"]),
-                    dislike: Self.actionToken(of: surface["dislikeCommand"])
+                    unlike: Self.actionToken(of: surface["unlikeCommand"]),
+                    dislike: Self.actionToken(of: surface["dislikeCommand"]),
+                    undislike: Self.actionToken(of: surface["undislikeCommand"])
                 )
             }
         }
@@ -70,7 +80,9 @@ enum YouTubeCommentsParser {
                    let surface = surfacesByKey[surfaceKey]
                 {
                     comment.likeActionToken = surface.like
+                    comment.unlikeActionToken = surface.unlike
                     comment.dislikeActionToken = surface.dislike
+                    comment.undislikeActionToken = surface.undislike
                 }
                 comment.repliesContinuation = entry.replies
                 return comment

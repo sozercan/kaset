@@ -119,37 +119,43 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Likes a comment (one-shot; YouTube's undo token isn't tracked).
+    /// Toggles a like on a comment (likes, or removes an existing like).
     func likeComment(_ comment: YouTubeComment) async {
-        guard let token = comment.likeActionToken,
-              !self.likedComments.contains(comment.id)
-        else {
+        let isLiked = self.likedComments.contains(comment.id)
+        guard let token = isLiked ? comment.unlikeActionToken : comment.likeActionToken else {
             return
         }
         do {
             try await self.client.performCommentAction(token)
-            self.likedComments.insert(comment.id)
-            self.dislikedComments.remove(comment.id)
+            if isLiked {
+                self.likedComments.remove(comment.id)
+            } else {
+                self.likedComments.insert(comment.id)
+                self.dislikedComments.remove(comment.id)
+            }
             HapticService.toggle()
         } catch {
-            self.logger.error("Failed to like comment: \(error.localizedDescription)")
+            self.logger.error("Failed to toggle comment like: \(error.localizedDescription)")
         }
     }
 
-    /// Dislikes a comment (one-shot).
+    /// Toggles a dislike on a comment (dislikes, or removes an existing one).
     func dislikeComment(_ comment: YouTubeComment) async {
-        guard let token = comment.dislikeActionToken,
-              !self.dislikedComments.contains(comment.id)
-        else {
+        let isDisliked = self.dislikedComments.contains(comment.id)
+        guard let token = isDisliked ? comment.undislikeActionToken : comment.dislikeActionToken else {
             return
         }
         do {
             try await self.client.performCommentAction(token)
-            self.dislikedComments.insert(comment.id)
-            self.likedComments.remove(comment.id)
+            if isDisliked {
+                self.dislikedComments.remove(comment.id)
+            } else {
+                self.dislikedComments.insert(comment.id)
+                self.likedComments.remove(comment.id)
+            }
             HapticService.toggle()
         } catch {
-            self.logger.error("Failed to dislike comment: \(error.localizedDescription)")
+            self.logger.error("Failed to toggle comment dislike: \(error.localizedDescription)")
         }
     }
 

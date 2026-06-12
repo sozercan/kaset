@@ -259,6 +259,11 @@ struct YouTubeCommentsParserTests {
                                             "performCommentActionEndpoint": ["action": "like-token"],
                                         ],
                                     ],
+                                    "unlikeCommand": [
+                                        "innertubeCommand": [
+                                            "performCommentActionEndpoint": ["action": "unlike-token"],
+                                        ],
+                                    ],
                                     "dislikeCommand": [
                                         "innertubeCommand": [
                                             "performCommentActionEndpoint": ["action": "dislike-token"],
@@ -310,6 +315,7 @@ struct YouTubeCommentsParserTests {
         #expect(comment.id == "c1")
         #expect(comment.authorChannelId == "UCauthor")
         #expect(comment.likeActionToken == "like-token")
+        #expect(comment.unlikeActionToken == "unlike-token")
         #expect(comment.dislikeActionToken == "dislike-token")
         #expect(comment.repliesContinuation == "replies-token")
     }

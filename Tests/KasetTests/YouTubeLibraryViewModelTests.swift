@@ -210,6 +210,32 @@ struct YouTubeWatchViewModelActionTests {
         #expect(client.postedComments.isEmpty)
     }
 
+    @Test("Comment like toggles on and off via like/unlike tokens")
+    func commentLikeToggles() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let comment = YouTubeComment(
+            id: "c1",
+            author: "@a",
+            authorAvatarURL: nil,
+            text: "Hi",
+            publishedText: nil,
+            likeCountText: nil,
+            likeActionToken: "like-token",
+            unlikeActionToken: "unlike-token"
+        )
+
+        await sut.likeComment(comment)
+        #expect(sut.likedComments.contains("c1"))
+
+        await sut.likeComment(comment)
+        #expect(!sut.likedComments.contains("c1"))
+        #expect(client.performedCommentActions == ["like-token", "unlike-token"])
+    }
+
     @Test("Subscribe toggle uses the watch-next channel and seeds from data")
     func subscribeToggle() async {
         let client = MockYouTubeClient()

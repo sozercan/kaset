@@ -154,8 +154,12 @@ struct YouTubeComment: Identifiable, Hashable {
     var authorChannelId: String?
     /// Action token for liking this comment.
     var likeActionToken: String?
+    /// Action token for removing a like.
+    var unlikeActionToken: String?
     /// Action token for disliking this comment.
     var dislikeActionToken: String?
+    /// Action token for removing a dislike.
+    var undislikeActionToken: String?
     /// Continuation token for this comment's reply thread.
     var repliesContinuation: String?
 
@@ -168,7 +172,9 @@ struct YouTubeComment: Identifiable, Hashable {
         likeCountText: String?,
         authorChannelId: String? = nil,
         likeActionToken: String? = nil,
+        unlikeActionToken: String? = nil,
         dislikeActionToken: String? = nil,
+        undislikeActionToken: String? = nil,
         repliesContinuation: String? = nil
     ) {
         self.id = id
@@ -179,7 +185,9 @@ struct YouTubeComment: Identifiable, Hashable {
         self.likeCountText = likeCountText
         self.authorChannelId = authorChannelId
         self.likeActionToken = likeActionToken
+        self.unlikeActionToken = unlikeActionToken
         self.dislikeActionToken = dislikeActionToken
+        self.undislikeActionToken = undislikeActionToken
         self.repliesContinuation = repliesContinuation
     }
 }
