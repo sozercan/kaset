@@ -140,9 +140,12 @@ Response parsing is extracted into specialized modules:
 | Parser | Purpose |
 |--------|---------|
 | `ParsingHelpers.swift` | Shared utilities (thumbnails, artists, duration) |
+| `ResponseTreeSearch.swift` | Recursive search helpers for nested YouTube Music response trees |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination, add-to-playlist menu options, create-playlist IDs, and ownership/delete affordances |
+| `LibraryContentParser.swift` | Library browse content, including playlists, followed artists, podcast shows, and uploaded-song virtual tile parsing |
+| `PlaylistEditability.swift` | Playlist ownership/delete affordance detection |
+| `PlaylistParser.swift` | Playlist details, queue tracks, pagination, add-to-playlist menu options, and create-playlist IDs |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |
 | `RadioQueueParser.swift` | Radio queue from "next" endpoint |
 | `SongMetadataParser.swift` | Full song metadata with feedback tokens |
