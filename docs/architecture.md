@@ -16,6 +16,7 @@ Sources/
       │   ├── API/      → YTMusicClient, Parsers/
       │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
+      │   ├── Library/  → Library identity and optimistic reconciliation modules
       │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
       │   ├── WebKit/   → WebKitManager (cookie persistence)
@@ -58,6 +59,10 @@ final class HomeViewModel {
 - **Source of Truth**: Services are `@MainActor @Observable` singletons
 - **Environment Injection**: Views access services via `@Environment`
 - **Cookie Persistence**: `WKWebsiteDataStore` with persistent identifier
+
+### Library State Reconciliation
+
+`LibraryViewModel` owns observable Library UI state, while `LibraryContentReconciler` owns optimistic add/remove reconciliation for eventually-consistent YouTube Music Library responses. This keeps pending mutation stabilization rules behind a small interface instead of spreading them across view models and action helpers.
 
 ## Key Services
 

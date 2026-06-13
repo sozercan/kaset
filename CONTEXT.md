@@ -11,3 +11,7 @@ The identity rules used to decide whether two Library items refer to the same sa
 ## Library Content Parsing
 
 The parser slice that turns YouTube Music Library browse responses into Kaset Library content. It owns Library renderer traversal and item classification before handing identity equivalence to Library Content Identity.
+
+## Library Content Reconciliation
+
+The rules that merge optimistic local Library mutations with eventually-consistent YouTube Music Library snapshots. Kaset keeps locally added items visible and locally removed items suppressed until backend responses stabilize.
