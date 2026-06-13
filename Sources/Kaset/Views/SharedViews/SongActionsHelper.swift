@@ -444,12 +444,12 @@ private enum PlaylistPlaybackHelper {
     }
 
     static func appendContinuations(_ context: ContinuationContext) async {
-        var nextContinuationToken = context.continuationToken
+        var nextContinuation = context.continuationToken
         var seenVideoIds = context.existingVideoIds
 
-        while let token = nextContinuationToken, !Task.isCancelled {
+        while let c = nextContinuation, !Task.isCancelled {
             do {
-                let response = try await context.client.getPlaylistContinuation(token: token)
+                let response = try await context.client.getPlaylistContinuation(token: c)
                 let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
                 guard !newTracks.isEmpty else { break }
 
@@ -462,7 +462,7 @@ private enum PlaylistPlaybackHelper {
                     context.playerService.appendToQueue(playableSongs)
                 }
 
-                nextContinuationToken = response.continuationToken
+                nextContinuation = response.continuationToken
             } catch {
                 DiagnosticsLogger.ui.debug("Stopped loading playlist continuations: \(error.localizedDescription)")
                 break
