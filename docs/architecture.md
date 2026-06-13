@@ -17,7 +17,7 @@ Sources/
       │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
       │   ├── Library/  → Library identity and optimistic reconciliation modules
-      │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
+      │   ├── Player/   → PlayerService, NowPlayingManager, queue metadata and album playback actions
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
       │   ├── WebKit/   → WebKitManager (cookie persistence)
       │   └── HapticService.swift → Force Touch trackpad haptic feedback
@@ -157,6 +157,11 @@ Response parsing is extracted into specialized modules:
 | `LyricsParser.swift` | Lyrics extraction |
 
 **Design**: Static enum-based parsers with pure functions for testability.
+
+
+### Queue Song Metadata and Album Playback
+
+`QueueSongMetadata` prepares song values before they enter the native queue, centralizing artist cleanup and fallback album/thumbnail rules. `AlbumPlaybackActions` owns album-specific fetch/queue/play workflows so SwiftUI action helpers do not duplicate album-track enrichment logic.
 
 ### PlayerService
 

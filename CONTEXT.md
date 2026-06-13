@@ -19,3 +19,11 @@ The rules that merge optimistic local Library mutations with eventually-consiste
 ## Library Mutation Orchestration
 
 The workflows that apply a user-requested Library change to YouTube Music, invalidate stale Library response caches, update visible Library state optimistically, and schedule reconciliation when backend snapshots lag behind the accepted mutation.
+
+## Queue Song Metadata
+
+The rules for preparing songs before they enter Kaset's native queue. This includes stripping generic YouTube Music album labels from artist metadata, applying fallback artist/album/thumbnail values for album-derived queue actions, and preserving playback metadata while rebuilding song values.
+
+## Album Playback Actions
+
+The workflows that fetch album tracks from YouTube Music playlist details, prepare them as queue-ready songs, and either insert them into the queue or replace playback with the album.

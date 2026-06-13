@@ -53,26 +53,6 @@ enum SongActionsHelper {
         }
     }
 
-    private static func cleanedArtistPreservingMetadata(_ artist: Artist) -> Artist? {
-        var cleanName = artist.name
-
-        if cleanName == "Album" {
-            return nil
-        }
-
-        if cleanName.hasPrefix("Album, ") {
-            cleanName = String(cleanName.dropFirst(7))
-        }
-
-        return Artist(
-            id: artist.id,
-            name: cleanName,
-            thumbnailURL: artist.thumbnailURL,
-            subtitle: artist.subtitle,
-            profileKind: artist.profileKind
-        )
-    }
-
     /// Likes a song via the API (does not play the song).
     static func likeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
@@ -353,50 +333,15 @@ enum SongActionsHelper {
         fallbackArtist: String? = nil,
         fallbackAlbum: Album? = nil
     ) {
-        guard !songs.isEmpty else { return }
+        let preparedSongs = QueueSongMetadata.songsForQueue(
+            songs,
+            fallbackArtist: fallbackArtist,
+            fallbackAlbum: fallbackAlbum
+        )
+        guard !preparedSongs.isEmpty else { return }
 
-        // Clean artists and use fallback when empty
-        let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
-
-            // Use fallback artist if artists are empty (and clean the fallback too)
-            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
-                // Clean the fallback string - it might have "Album, " prefix or be "Album"
-                var cleanFallback = fallback
-                if cleanFallback == "Album" {
-                    cleanFallback = "Unknown Artist"
-                } else if cleanFallback.hasPrefix("Album, ") {
-                    cleanFallback = String(cleanFallback.dropFirst(7))
-                }
-                // Also handle case where it's "Album, Artist" but we got it as a combined string
-                if cleanFallback.contains("Album,") {
-                    // Try to extract just the artist part after "Album,"
-                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
-                    if parts.count > 1 {
-                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                    }
-                }
-                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
-            }
-
-            // Use fallback album if song doesn't have album info
-            let finalAlbum = song.album ?? fallbackAlbum
-            // Use fallback thumbnail if song doesn't have one
-            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
-
-            return Song(
-                id: song.id,
-                title: song.title,
-                artists: cleanedArtists,
-                album: finalAlbum,
-                duration: song.duration,
-                thumbnailURL: finalThumbnail,
-                videoId: song.videoId
-            )
-        }
-
-        playerService.insertNextInQueue(cleanedSongs)
-        DiagnosticsLogger.ui.info("Added \(cleanedSongs.count) songs to play next")
+        playerService.insertNextInQueue(preparedSongs)
+        DiagnosticsLogger.ui.info("Added \(preparedSongs.count) songs to play next")
     }
 
     /// Adds multiple songs (e.g., from an album) to the end of the queue.
@@ -409,50 +354,15 @@ enum SongActionsHelper {
         fallbackArtist: String? = nil,
         fallbackAlbum: Album? = nil
     ) {
-        guard !songs.isEmpty else { return }
+        let preparedSongs = QueueSongMetadata.songsForQueue(
+            songs,
+            fallbackArtist: fallbackArtist,
+            fallbackAlbum: fallbackAlbum
+        )
+        guard !preparedSongs.isEmpty else { return }
 
-        // Clean artists and use fallback when empty
-        let cleanedSongs = songs.map { song in
-            var cleanedArtists = song.artists.compactMap(Self.cleanedArtistPreservingMetadata)
-
-            // Use fallback artist if artists are empty (and clean the fallback too)
-            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
-                // Clean the fallback string - it might have "Album, " prefix or be "Album"
-                var cleanFallback = fallback
-                if cleanFallback == "Album" {
-                    cleanFallback = "Unknown Artist"
-                } else if cleanFallback.hasPrefix("Album, ") {
-                    cleanFallback = String(cleanFallback.dropFirst(7))
-                }
-                // Also handle case where it's "Album, Artist" but we got it as a combined string
-                if cleanFallback.contains("Album,") {
-                    // Try to extract just the artist part after "Album,"
-                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
-                    if parts.count > 1 {
-                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                    }
-                }
-                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
-            }
-
-            // Use fallback album if song doesn't have album info
-            let finalAlbum = song.album ?? fallbackAlbum
-            // Use fallback thumbnail if song doesn't have one
-            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
-
-            return Song(
-                id: song.id,
-                title: song.title,
-                artists: cleanedArtists,
-                album: finalAlbum,
-                duration: song.duration,
-                thumbnailURL: finalThumbnail,
-                videoId: song.videoId
-            )
-        }
-
-        playerService.appendToQueue(cleanedSongs)
-        DiagnosticsLogger.ui.info("Added \(cleanedSongs.count) songs to end of queue")
+        playerService.appendToQueue(preparedSongs)
+        DiagnosticsLogger.ui.info("Added \(preparedSongs.count) songs to end of queue")
     }
 
     // MARK: - Album Queue Actions
@@ -463,50 +373,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) {
-        Task {
-            do {
-                // Fetch album tracks - albums are treated as playlists
-                let response = try await client.getPlaylist(id: album.id)
-                var songs = response.detail.tracks
-
-                guard !songs.isEmpty else { return }
-
-                // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
-
-                // Populate album and artist info for each song
-                songs = songs.map { song in
-                    // Use song artists if available and not empty, otherwise use cleaned album artists
-                    let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-
-                    // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
-
-                    // Create updated song with album info and proper artists
-                    return Song(
-                        id: song.id,
-                        title: song.title,
-                        artists: effectiveArtists,
-                        album: Album(
-                            id: album.id,
-                            title: album.title,
-                            artists: cleanAlbumArtists,
-                            thumbnailURL: album.thumbnailURL,
-                            year: nil,
-                            trackCount: album.trackCount
-                        ),
-                        duration: song.duration,
-                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
-                        videoId: song.videoId
-                    )
-                }
-
-                playerService.insertNextInQueue(songs)
-                DiagnosticsLogger.ui.info("Added album '\(album.title)' (\(songs.count) songs) to play next")
-            } catch {
-                DiagnosticsLogger.ui.error("Failed to add album to queue: \(error.localizedDescription)")
-            }
-        }
+        AlbumPlaybackActions.addAlbumToQueueNext(
+            album,
+            client: client,
+            playerService: playerService
+        )
     }
 
     /// Adds an album's songs to the end of the queue.
@@ -515,50 +386,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) {
-        Task {
-            do {
-                // Fetch album tracks - albums are treated as playlists
-                let response = try await client.getPlaylist(id: album.id)
-                var songs = response.detail.tracks
-
-                guard !songs.isEmpty else { return }
-
-                // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
-
-                // Populate album and artist info for each song
-                songs = songs.map { song in
-                    // Use song artists if available and not empty, otherwise use cleaned album artists
-                    let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-
-                    // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
-
-                    // Create updated song with album info and proper artists
-                    return Song(
-                        id: song.id,
-                        title: song.title,
-                        artists: effectiveArtists,
-                        album: Album(
-                            id: album.id,
-                            title: album.title,
-                            artists: cleanAlbumArtists,
-                            thumbnailURL: album.thumbnailURL,
-                            year: nil,
-                            trackCount: album.trackCount
-                        ),
-                        duration: song.duration,
-                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
-                        videoId: song.videoId
-                    )
-                }
-
-                playerService.appendToQueue(songs)
-                DiagnosticsLogger.ui.info("Added album '\(album.title)' (\(songs.count) songs) to end of queue")
-            } catch {
-                DiagnosticsLogger.ui.error("Failed to add album to queue: \(error.localizedDescription)")
-            }
-        }
+        AlbumPlaybackActions.addAlbumToQueueLast(
+            album,
+            client: client,
+            playerService: playerService
+        )
     }
 
     /// Plays an album immediately, replacing the current queue.
@@ -567,54 +399,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) {
-        Task {
-            do {
-                // Fetch album tracks - albums are treated as playlists
-                let response = try await client.getPlaylist(id: album.id)
-                var songs = response.detail.tracks
-
-                guard !songs.isEmpty else { return }
-
-                // Clean up album artists - filter out "Album" keyword and clean names
-                let cleanAlbumArtists = (album.artists ?? []).compactMap(Self.cleanedArtistPreservingMetadata)
-
-                // Populate album and artist info for each song
-                songs = songs.map { song in
-                    // Use song artists if available and not empty, otherwise use cleaned album artists
-                    let baseArtists = !song.artists.isEmpty ? song.artists : cleanAlbumArtists
-
-                    // Also clean song artists - filter "Album" keyword and clean names
-                    let effectiveArtists = baseArtists.compactMap(Self.cleanedArtistPreservingMetadata)
-
-                    // Create album object for the song
-                    let songAlbum = Album(
-                        id: album.id,
-                        title: album.title,
-                        artists: cleanAlbumArtists.isEmpty ? nil : cleanAlbumArtists,
-                        thumbnailURL: album.thumbnailURL,
-                        year: album.year,
-                        trackCount: songs.count
-                    )
-
-                    // Create updated song with album info and proper artists
-                    return Song(
-                        id: song.id,
-                        title: song.title,
-                        artists: effectiveArtists.isEmpty ? cleanAlbumArtists : effectiveArtists,
-                        album: songAlbum,
-                        duration: song.duration,
-                        thumbnailURL: song.thumbnailURL ?? album.thumbnailURL,
-                        videoId: song.videoId
-                    )
-                }
-
-                // Stop current playback and play the album
-                await playerService.playQueue(songs, startingAt: 0)
-                DiagnosticsLogger.ui.info("Playing album '\(album.title)' (\(songs.count) songs)")
-            } catch {
-                DiagnosticsLogger.ui.error("Failed to play album: \(error.localizedDescription)")
-            }
-        }
+        AlbumPlaybackActions.playAlbum(
+            album,
+            client: client,
+            playerService: playerService
+        )
     }
 }
 
