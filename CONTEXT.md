@@ -27,3 +27,7 @@ The rules for preparing songs before they enter Kaset's native queue. This inclu
 ## Album Playback Actions
 
 The workflows that fetch album tracks from YouTube Music playlist details, prepare them as queue-ready songs, and either insert them into the queue or replace playback with the album.
+
+## Playlist Playback Actions
+
+The workflows that turn playlist browse data into native playback queues. This includes radio playlist queue fallback, browse playability correction, playlist artwork fallback, continuation loading, duplicate filtering, and discarding continuations when the active queue has changed.

@@ -161,7 +161,7 @@ Response parsing is extracted into specialized modules:
 
 ### Queue Song Metadata and Album Playback
 
-`QueueSongMetadata` prepares song values before they enter the native queue, centralizing artist cleanup and fallback album/thumbnail rules. `AlbumPlaybackActions` owns album-specific fetch/queue/play workflows so SwiftUI action helpers do not duplicate album-track enrichment logic.
+`QueueSongMetadata` prepares song values before they enter the native queue, centralizing artist cleanup and fallback album/thumbnail rules. `AlbumPlaybackActions` owns album-specific fetch/queue/play workflows so SwiftUI action helpers do not duplicate album-track enrichment logic. `PlaylistPlaybackActions` owns playlist playback, radio queue fallback, playlist-artwork fallback, and continuation append/cancel behavior.
 
 ### PlayerService
 
