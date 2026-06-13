@@ -62,7 +62,7 @@ final class HomeViewModel {
 
 ### Library State Reconciliation
 
-`LibraryViewModel` owns observable Library UI state, while `LibraryContentReconciler` owns optimistic add/remove reconciliation for eventually-consistent YouTube Music Library responses. This keeps pending mutation stabilization rules behind a small interface instead of spreading them across view models and action helpers.
+`LibraryViewModel` owns observable Library UI state, while `LibraryContentReconciler` owns optimistic add/remove reconciliation for eventually-consistent YouTube Music Library responses. `LibraryMutationActions` owns mutation orchestration: calling YouTube Music, invalidating stale caches, applying optimistic state, and scheduling delayed reconciliation when backend snapshots lag. This keeps pending mutation stabilization rules behind small Library interfaces instead of spreading them across view models and action helpers.
 
 ## Key Services
 

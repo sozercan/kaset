@@ -7,9 +7,10 @@ import SwiftUI
 /// Helper for common song actions like liking, disliking, adding to library, and queue management.
 @MainActor
 enum SongActionsHelper {
-    static var artistLibraryReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
-
-    private static var artistLibraryReconciliationTasks: [String: Task<Void, Never>] = [:]
+    static var artistLibraryReconciliationRetryDelays: [Duration] {
+        get { LibraryMutationActions.artistReconciliationRetryDelays }
+        set { LibraryMutationActions.artistReconciliationRetryDelays = newValue }
+    }
 
     /// Whether a playlist card should expose direct playback.
     static func canQuickPlayPlaylist(_ playlist: Playlist) -> Bool {
@@ -72,113 +73,6 @@ enum SongActionsHelper {
         )
     }
 
-    private static func artistLibraryAliases(for artist: Artist, channelId: String) -> [String] {
-        var ids = Set([channelId, artist.id])
-        if let publicChannelId = artist.publicChannelId {
-            ids.insert(publicChannelId)
-        }
-        return Array(ids)
-    }
-
-    private static func preferredLibraryArtistId(for artist: Artist, channelId: String) -> String {
-        if artist.hasNavigableId {
-            return artist.id
-        }
-
-        return channelId
-    }
-
-    private static func scheduleArtistLibraryReconciliation(
-        _ artist: Artist,
-        channelId: String,
-        expectedInLibrary: Bool,
-        libraryViewModel: LibraryViewModel
-    ) {
-        let normalizedArtistId = Artist.publicChannelId(for: channelId) ?? channelId
-        self.artistLibraryReconciliationTasks[normalizedArtistId]?.cancel()
-
-        self.artistLibraryReconciliationTasks[normalizedArtistId] = Task { @MainActor in
-            defer { self.artistLibraryReconciliationTasks.removeValue(forKey: normalizedArtistId) }
-
-            for delay in self.artistLibraryReconciliationRetryDelays {
-                do {
-                    try await Task.sleep(for: delay)
-                } catch {
-                    return
-                }
-
-                guard !Task.isCancelled else { return }
-
-                self.invalidateLibraryResponseCaches()
-                await libraryViewModel.refresh()
-                self.invalidateLibraryResponseCaches()
-
-                let needsReconciliation = libraryViewModel.needsArtistLibraryReconciliation(
-                    artistIds: self.artistLibraryAliases(for: artist, channelId: channelId),
-                    expectedInLibrary: expectedInLibrary
-                )
-                let isInLibrary = self.isArtistInLibrary(
-                    artist,
-                    channelId: channelId,
-                    libraryViewModel: libraryViewModel
-                )
-                if !needsReconciliation, isInLibrary == expectedInLibrary {
-                    DiagnosticsLogger.api.debug(
-                        "Artist library reconciliation converged with backend state for \(artist.name, privacy: .public)"
-                    )
-                    return
-                }
-
-                DiagnosticsLogger.api.debug(
-                    "Artist library reconciliation is still waiting on backend propagation for \(artist.name, privacy: .public)"
-                )
-                if isInLibrary != expectedInLibrary {
-                    DiagnosticsLogger.api.debug(
-                        "Artist library reconciliation is reapplying optimistic state for \(artist.name, privacy: .public)"
-                    )
-                }
-
-                if expectedInLibrary {
-                    self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-                } else {
-                    self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-                }
-                libraryViewModel.markNeedsReloadOnActivation()
-            }
-        }
-    }
-
-    private static func addArtistToLibrary(
-        _ artist: Artist,
-        channelId: String,
-        libraryViewModel: LibraryViewModel
-    ) {
-        let libraryArtistId = self.preferredLibraryArtistId(for: artist, channelId: channelId)
-        libraryViewModel.addToLibrary(artist: artist, libraryArtistId: libraryArtistId)
-        for artistId in self.artistLibraryAliases(for: artist, channelId: channelId) {
-            libraryViewModel.addToLibrarySet(artistId: artistId)
-        }
-    }
-
-    private static func removeArtistFromLibrary(
-        _ artist: Artist,
-        channelId: String,
-        libraryViewModel: LibraryViewModel
-    ) {
-        for artistId in self.artistLibraryAliases(for: artist, channelId: channelId) {
-            libraryViewModel.removeFromLibrary(artistId: artistId)
-        }
-    }
-
-    private static func isArtistInLibrary(
-        _ artist: Artist,
-        channelId: String,
-        libraryViewModel: LibraryViewModel
-    ) -> Bool {
-        self.artistLibraryAliases(for: artist, channelId: channelId)
-            .contains(where: { libraryViewModel.isInLibrary(artistId: $0) })
-    }
-
     /// Likes a song via the API (does not play the song).
     static func likeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
@@ -227,17 +121,7 @@ enum SongActionsHelper {
         playlist: AddToPlaylistOption,
         client: any YTMusicClientProtocol
     ) async {
-        do {
-            try await client.addSongToPlaylist(
-                videoId: song.videoId,
-                playlistId: playlist.playlistId,
-                allowDuplicate: false
-            )
-            self.invalidateLibraryResponseCaches()
-            DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to add song to playlist: \(error.localizedDescription)")
-        }
+        await LibraryMutationActions.addSongToPlaylist(song, playlist: playlist, client: client)
     }
 
     /// Adds a playlist to the library.
@@ -246,26 +130,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async {
-        do {
-            try await client.subscribeToPlaylist(playlistId: playlist.id)
-            self.invalidateLibraryResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            if let libraryViewModel {
-                libraryViewModel.addToLibrary(playlist: playlist)
-                // Library browse responses can lag briefly behind a successful add.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
-                self.invalidateLibraryResponseCaches()
-
-                if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
-                    libraryViewModel.addToLibrary(playlist: playlist)
-                    self.invalidateLibraryResponseCaches()
-                }
-            }
-            DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
-        }
+        await LibraryMutationActions.addPlaylistToLibrary(
+            playlist,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Removes a playlist from the library.
@@ -274,20 +143,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async {
-        do {
-            try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            self.invalidateLibraryResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
-
-            // Library browse responses can lag briefly behind a successful removal.
-            try? await Task.sleep(for: .milliseconds(500))
-            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
-            self.invalidateLibraryResponseCaches()
-            DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
-        }
+        await LibraryMutationActions.removePlaylistFromLibrary(
+            playlist,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Plays a playlist immediately, replacing the current queue.
@@ -350,21 +210,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        do {
-            try await client.deletePlaylist(playlistId: playlist.id)
-            self.invalidateLibraryResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
-
-            // Library browse responses can lag briefly behind a successful deletion.
-            try? await Task.sleep(for: .milliseconds(500))
-            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
-            self.invalidateLibraryResponseCaches()
-            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
-            throw error
-        }
+        try await LibraryMutationActions.deletePlaylist(
+            playlist,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Shows a confirmation dialog before permanently deleting a playlist owned by the user.
@@ -425,23 +275,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        try await client.subscribeToPodcast(showId: show.id)
-        self.invalidateLibraryResponseCaches()
-        libraryViewModel?.markNeedsReloadOnActivation()
-        if let libraryViewModel {
-            libraryViewModel.addToLibrary(podcast: show)
-
-            // Library browse responses can lag briefly behind a successful subscribe.
-            try? await Task.sleep(for: .milliseconds(500))
-            await libraryViewModel.refresh()
-            self.invalidateLibraryResponseCaches()
-
-            if !libraryViewModel.isInLibrary(podcastId: show.id) {
-                libraryViewModel.addToLibrary(podcast: show)
-                self.invalidateLibraryResponseCaches()
-            }
-        }
-        DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
+        try await LibraryMutationActions.subscribeToPodcast(
+            show,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Unsubscribes from a podcast show (removes from library).
@@ -450,24 +288,11 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
-        try await client.unsubscribeFromPodcast(showId: show.id)
-        self.invalidateLibraryResponseCaches()
-        libraryViewModel?.markNeedsReloadOnActivation()
-        if let libraryViewModel {
-            libraryViewModel.removeFromLibrary(podcastId: show.id)
-
-            // Library browse responses can lag briefly behind a successful removal.
-            try? await Task.sleep(for: .milliseconds(500))
-            await libraryViewModel.refresh()
-            self.invalidateLibraryResponseCaches()
-
-            if libraryViewModel.isInLibrary(podcastId: show.id) {
-                libraryViewModel.removeFromLibrary(podcastId: show.id)
-                self.invalidateLibraryResponseCaches()
-            }
-        }
-        DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
+        try await LibraryMutationActions.unsubscribeFromPodcast(
+            show,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Subscribes to an artist (adds to library).
@@ -477,31 +302,12 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        if let libraryViewModel {
-            self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-            libraryViewModel.markNeedsReloadOnActivation()
-        }
-
-        do {
-            try await client.subscribeToArtist(channelId: channelId)
-            self.invalidateLibraryResponseCaches()
-            if let libraryViewModel {
-                self.scheduleArtistLibraryReconciliation(
-                    artist,
-                    channelId: channelId,
-                    expectedInLibrary: true,
-                    libraryViewModel: libraryViewModel
-                )
-            }
-            DiagnosticsLogger.api.info("Subscribed to artist: \(artist.name)")
-        } catch {
-            if let libraryViewModel {
-                self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-                libraryViewModel.markNeedsReloadOnActivation()
-            }
-            DiagnosticsLogger.api.error("Failed to subscribe to artist: \(error.localizedDescription)")
-            throw error
-        }
+        try await LibraryMutationActions.subscribeToArtist(
+            artist,
+            channelId: channelId,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     /// Unsubscribes from an artist (removes from library).
@@ -511,38 +317,16 @@ enum SongActionsHelper {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        if let libraryViewModel {
-            self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-            libraryViewModel.markNeedsReloadOnActivation()
-        }
-
-        do {
-            try await client.unsubscribeFromArtist(channelId: channelId)
-            self.invalidateLibraryResponseCaches()
-            if let libraryViewModel {
-                self.scheduleArtistLibraryReconciliation(
-                    artist,
-                    channelId: channelId,
-                    expectedInLibrary: false,
-                    libraryViewModel: libraryViewModel
-                )
-            }
-            DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
-        } catch {
-            if let libraryViewModel {
-                self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-                libraryViewModel.markNeedsReloadOnActivation()
-            }
-            DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")
-            throw error
-        }
+        try await LibraryMutationActions.unsubscribeFromArtist(
+            artist,
+            channelId: channelId,
+            client: client,
+            libraryViewModel: libraryViewModel
+        )
     }
 
     static func invalidateLibraryResponseCaches() {
-        // Library mutations can leave stale data in both the app-level cache and URL loading cache.
-        APICache.shared.invalidate(matching: "browse:")
-        APICache.shared.invalidate(matching: "playlist/get_add_to_playlist:")
-        URLCache.shared.removeAllCachedResponses()
+        LibraryMutationActions.invalidateResponseCaches()
     }
 
     // MARK: - Queue Actions

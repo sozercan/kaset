@@ -15,3 +15,7 @@ The parser slice that turns YouTube Music Library browse responses into Kaset Li
 ## Library Content Reconciliation
 
 The rules that merge optimistic local Library mutations with eventually-consistent YouTube Music Library snapshots. Kaset keeps locally added items visible and locally removed items suppressed until backend responses stabilize.
+
+## Library Mutation Orchestration
+
+The workflows that apply a user-requested Library change to YouTube Music, invalidate stale Library response caches, update visible Library state optimistically, and schedule reconciliation when backend snapshots lag behind the accepted mutation.
