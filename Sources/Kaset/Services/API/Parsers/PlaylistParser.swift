@@ -71,11 +71,11 @@ enum PlaylistParser {
     /// Merges library playlists using the dedicated endpoint as authoritative while retaining landing-only items.
     static func mergedLibraryPlaylists(dedicated dedicatedPlaylists: [Playlist], fallback fallbackPlaylists: [Playlist]) -> [Playlist] {
         var mergedPlaylists = dedicatedPlaylists
-        var seenPlaylistIds = Set(dedicatedPlaylists.map { Self.normalizedLibraryPlaylistId($0.id) })
+        var seenPlaylistKeys = Set(dedicatedPlaylists.map { LibraryContentIdentity.playlistKey(for: $0) })
 
         for playlist in fallbackPlaylists {
-            let normalizedPlaylistId = Self.normalizedLibraryPlaylistId(playlist.id)
-            guard seenPlaylistIds.insert(normalizedPlaylistId).inserted else { continue }
+            let playlistKey = LibraryContentIdentity.playlistKey(for: playlist)
+            guard seenPlaylistKeys.insert(playlistKey).inserted else { continue }
             mergedPlaylists.append(playlist)
         }
 
@@ -97,20 +97,7 @@ enum PlaylistParser {
             )
         }
 
-        let normalizedArtists = artists.map { artist in
-            if let publicChannelId = Artist.publicChannelId(for: artist.id) {
-                return Artist(
-                    id: publicChannelId,
-                    name: artist.name,
-                    thumbnailURL: artist.thumbnailURL,
-                    profileKind: artist.profileKind
-                )
-            }
-
-            return artist
-        }
-
-        return Self.deduplicatedArtists(normalizedArtists)
+        return LibraryContentIdentity.deduplicatedArtists(artists)
     }
 
     /// Parses the uploaded songs browse endpoint into a virtual playlist tile for Library.
@@ -130,27 +117,6 @@ enum PlaylistParser {
             author: Artist.inline(name: "Uploads", namespace: "library-upload"),
             canDelete: false
         )
-    }
-
-    private static func normalizedLibraryPlaylistId(_ playlistId: String) -> String {
-        if playlistId.hasPrefix("VL") {
-            return String(playlistId.dropFirst(2))
-        }
-
-        return playlistId
-    }
-
-    private static func deduplicatedArtists(_ artists: [Artist]) -> [Artist] {
-        var seenArtistIds: Set<String> = []
-        var deduplicatedArtists: [Artist] = []
-
-        for artist in artists {
-            let normalizedArtistId = Artist.publicChannelId(for: artist.id) ?? artist.id
-            guard seenArtistIds.insert(normalizedArtistId).inserted else { continue }
-            deduplicatedArtists.append(artist)
-        }
-
-        return deduplicatedArtists
     }
 
     private static func extractLibrarySections(from data: [String: Any]) -> [[String: Any]] {
