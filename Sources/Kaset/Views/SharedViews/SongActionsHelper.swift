@@ -34,6 +34,7 @@ enum SongActionsHelper {
                 return track
             }
 
+            let carried = track.feedbackTokens
             return Song(
                 id: track.id,
                 title: track.title,
@@ -47,7 +48,7 @@ enum SongActionsHelper {
                 musicVideoType: track.musicVideoType,
                 likeStatus: track.likeStatus,
                 isInLibrary: track.isInLibrary,
-                feedbackTokens: track.feedbackTokens,
+                feedbackTokens: carried,
                 isExplicit: track.isExplicit
             )
         }
@@ -422,7 +423,8 @@ private enum PlaylistPlaybackHelper {
 
     static func playableSongsWithPlaylistArtwork(_ songs: [Song], playlist: Playlist) -> [Song] {
         songs.filter(\.isPlayable).map { song in
-            Song(
+            let carried = song.feedbackTokens
+            return Song(
                 id: song.id,
                 title: song.title,
                 artists: song.artists,
@@ -435,7 +437,7 @@ private enum PlaylistPlaybackHelper {
                 musicVideoType: song.musicVideoType,
                 likeStatus: song.likeStatus,
                 isInLibrary: song.isInLibrary,
-                feedbackTokens: song.feedbackTokens,
+                feedbackTokens: carried,
                 isExplicit: song.isExplicit
             )
         }
