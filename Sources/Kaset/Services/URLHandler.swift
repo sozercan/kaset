@@ -31,6 +31,9 @@ enum URLHandler {
 
         /// An artist/channel to open.
         case artist(id: String)
+
+        /// A regular YouTube video to play (switches to the video source).
+        case youtubeVideo(videoId: String)
     }
 
     // MARK: - URL Parsing
@@ -49,6 +52,11 @@ enum URLHandler {
             return self.parseYouTubeMusicURL(url)
         }
 
+        // Handle regular YouTube web URLs (www.youtube.com, youtu.be)
+        if let youtubeContent = parseYouTubeVideoURL(url) {
+            return youtubeContent
+        }
+
         return nil
     }
 
@@ -56,6 +64,32 @@ enum URLHandler {
     private static func isYouTubeMusicURL(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return host == "music.youtube.com" || host == "www.music.youtube.com"
+    }
+
+    /// Parses regular YouTube video URLs:
+    /// `https://www.youtube.com/watch?v=xxx` and `https://youtu.be/xxx`.
+    private static func parseYouTubeVideoURL(_ url: URL) -> ParsedContent? {
+        guard let host = url.host?.lowercased() else { return nil }
+
+        if host == "youtu.be" {
+            let videoId = url.pathComponents.dropFirst().first ?? ""
+            return videoId.isEmpty ? nil : .youtubeVideo(videoId: videoId)
+        }
+
+        guard host == "youtube.com" || host == "www.youtube.com" || host == "m.youtube.com" else {
+            return nil
+        }
+
+        if url.path.lowercased() == "/watch" {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            if let videoId = Self.queryValue(for: "v", in: components?.queryItems ?? []),
+               !videoId.isEmpty
+            {
+                return .youtubeVideo(videoId: videoId)
+            }
+        }
+
+        return nil
     }
 
     /// Parses a kaset:// custom scheme URL.

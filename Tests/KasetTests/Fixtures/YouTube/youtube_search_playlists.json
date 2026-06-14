@@ -1,0 +1,1724 @@
+{
+  "targetId": "search-page",
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "hideBottomSeparator": true,
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "lockupViewModel": {
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "ＣＨＩＬＬ  ＤＲＩＶＥ 🚗 Lofi Beats To Focus To ~ 24/7 lofi hip hop radio [ Beats To Relax / Study To / Deep Focus ]"
+                          },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Mimi Lofi Chill",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@mimilofichill"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCq9J_CUURRfbP7vm4VN_3xg",
+                                                  "canonicalBaseUrl": "/@mimilofichill"
+                                                }
+                                              }
+                                            },
+                                            "length": 15
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 15
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "text": {
+                                        "content": "Playlist",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@mimilofichill"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCq9J_CUURRfbP7vm4VN_3xg",
+                                                  "canonicalBaseUrl": "/@mimilofichill"
+                                                }
+                                              }
+                                            },
+                                            "length": 8
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 8
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "isSpacerRow": true
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Ｎｉｇｈｔ Ｄｒｉｖｅ ~ lofi hip hop mix ~ beats to chill / drive to · 24:37:03",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=zW5wpJY1rgQ&list=PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                                  "videoId": "zW5wpJY1rgQ"
+                                                }
+                                              }
+                                            },
+                                            "length": 90
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Chill Drive ~ lofi hip hop mix ~ Lofi beats to chill / drive to · 24:00:04",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=utLZ8CH3JaQ&list=PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                                  "videoId": "utLZ8CH3JaQ"
+                                                }
+                                              }
+                                            },
+                                            "length": 75
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "collectionThumbnailViewModel": {
+                          "stackColor": {
+                            "lightTheme": 9530265,
+                            "darkTheme": 9402003
+                          },
+                          "primaryThumbnail": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/zW5wpJY1rgQ/hq720.jpg?sqp=-oaymwExCOgCEMoBSFryq4qpAyMIARUAAIhCGAHwAQH4Af4JgALQBYoCDAgAEAEYdCA6KH8wDw==&rs=AOn4CLB9CCfI8u7-s--UtJGvegDWxlUmxQ",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://i.ytimg.com/vi/zW5wpJY1rgQ/hq720.jpg?sqp=-oaymwExCNAFEJQDSFryq4qpAyMIARUAAIhCGAHwAQH4Af4JgALQBYoCDAgAEAEYdCA6KH8wDw==&rs=AOn4CLA8CaTgoT9Aw9-slDm-7FoElzpasA",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailOverlayBadgeViewModel": {
+                                    "thumbnailBadges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                          "icon": {
+                                            "sources": [
+                                              {
+                                                "clientResource": {
+                                                  "imageName": "PLAYLISTS"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "backgroundColor": {
+                                            "lightTheme": 3020595,
+                                            "darkTheme": 3020595
+                                          },
+                                          "text": "10 videos"
+                                        }
+                                      }
+                                    ],
+                                    "position": "THUMBNAIL_OVERLAY_BADGE_POSITION_BOTTOM_END"
+                                  }
+                                },
+                                {
+                                  "thumbnailHoverOverlayViewModel": {
+                                    "style": "THUMBNAIL_HOVER_OVERLAY_STYLE_COVER",
+                                    "icon": {
+                                      "sources": [
+                                        {
+                                          "clientResource": {
+                                            "imageName": "PLAY_ALL"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "text": {
+                                      "content": "Play all",
+                                      "styleRuns": [
+                                        {
+                                          "startIndex": 0,
+                                          "length": 8
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "backgroundColor": {
+                                "lightTheme": 5319001,
+                                "darkTheme": 5319001
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                      "rendererContext": {
+                        "commandContext": {
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=zW5wpJY1rgQ&list=PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                "videoId": "zW5wpJY1rgQ",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "itemPlayback": {
+                        "inlinePlayerData": {
+                          "onSelect": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=zW5wpJY1rgQ&list=PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                "videoId": "zW5wpJY1rgQ",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          },
+                          "onVisible": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=zW5wpJY1rgQ&list=PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv&pp=YAHIAQHwBAD4BACiBhUB15olE3Dh_nvn1K0a4Fe8xX-hfkQ%3D",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLXIclLvfETS0GFbNbRpwCgh1CGwO6hLrv",
+                                "videoId": "zW5wpJY1rgQ",
+                                "playerParams": "YAHIAQHwBAD4BACiBhUB15olE3Dh_nvn1K0a4Fe8xX-hfkQ%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "Chill Lofi Beats 🍃"
+                          },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "the bootleg boy",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@thebootlegboy"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UC0fiLCwTmAukotCXYnqfj0A",
+                                                  "canonicalBaseUrl": "/@thebootlegboy"
+                                                }
+                                              }
+                                            },
+                                            "length": 15
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 15
+                                          },
+                                          {
+                                            "startIndex": 15,
+                                            "styleRunExtensions": {
+                                              "styleRunColorMapExtension": {
+                                                "colorMap": [
+                                                  {
+                                                    "key": "USER_INTERFACE_THEME_DARK",
+                                                    "value": 4289374890
+                                                  },
+                                                  {
+                                                    "key": "USER_INTERFACE_THEME_LIGHT",
+                                                    "value": 4284506208
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "attachmentRuns": [
+                                          {
+                                            "alignment": "ALIGNMENT_VERTICAL_CENTER",
+                                            "length": 0,
+                                            "element": {
+                                              "type": {
+                                                "imageType": {
+                                                  "image": {
+                                                    "sources": [
+                                                      {
+                                                        "clientResource": {
+                                                          "imageName": "CHECK_CIRCLE_FILLED"
+                                                        },
+                                                        "width": 14,
+                                                        "height": 14
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "properties": {
+                                                "layoutProperties": {
+                                                  "width": {
+                                                    "value": 14,
+                                                    "unit": "DIMENSION_UNIT_POINT"
+                                                  },
+                                                  "margin": {
+                                                    "left": {
+                                                      "value": 4,
+                                                      "unit": "DIMENSION_UNIT_POINT"
+                                                    }
+                                                  },
+                                                  "height": {
+                                                    "value": 14,
+                                                    "unit": "DIMENSION_UNIT_POINT"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "startIndex": 15
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "text": {
+                                        "content": "Playlist",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@thebootlegboy"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UC0fiLCwTmAukotCXYnqfj0A",
+                                                  "canonicalBaseUrl": "/@thebootlegboy"
+                                                }
+                                              }
+                                            },
+                                            "length": 8
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 8
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "isSpacerRow": true
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Floating City 🍃 Chill Lofi Beats · 2:03:14",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=1oahTaVIQvk&list=PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                                  "videoId": "1oahTaVIQvk"
+                                                }
+                                              }
+                                            },
+                                            "length": 46
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Enchanted Forest 🍃 Chill Lofi Beats · 2:02:41",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=7YmNvCy30FU&list=PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                                  "videoId": "7YmNvCy30FU"
+                                                }
+                                              }
+                                            },
+                                            "length": 49
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "collectionThumbnailViewModel": {
+                          "stackColor": {
+                            "lightTheme": 7045785,
+                            "darkTheme": 7767443
+                          },
+                          "primaryThumbnail": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/1oahTaVIQvk/hq720.jpg?sqp=-oaymwEXCOgCEMoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLB1MOApWPFLu-yPFCYUvg8SZErL8A",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://i.ytimg.com/vi/1oahTaVIQvk/hq720.jpg?sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLACQ-dYrKTtvQD7zG3PqeaDmNOPnw",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailOverlayBadgeViewModel": {
+                                    "thumbnailBadges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                          "icon": {
+                                            "sources": [
+                                              {
+                                                "clientResource": {
+                                                  "imageName": "PLAYLISTS"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "backgroundColor": {
+                                            "lightTheme": 1976371,
+                                            "darkTheme": 1976371
+                                          },
+                                          "text": "43 videos"
+                                        }
+                                      }
+                                    ],
+                                    "position": "THUMBNAIL_OVERLAY_BADGE_POSITION_BOTTOM_END"
+                                  }
+                                },
+                                {
+                                  "thumbnailHoverOverlayViewModel": {
+                                    "style": "THUMBNAIL_HOVER_OVERLAY_STYLE_COVER",
+                                    "icon": {
+                                      "sources": [
+                                        {
+                                          "clientResource": {
+                                            "imageName": "PLAY_ALL"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "text": {
+                                      "content": "Play all",
+                                      "styleRuns": [
+                                        {
+                                          "startIndex": 0,
+                                          "length": 8
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "backgroundColor": {
+                                "lightTheme": 2964556,
+                                "darkTheme": 2964556
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                      "rendererContext": {
+                        "commandContext": {
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1oahTaVIQvk&list=PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                "videoId": "1oahTaVIQvk",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "itemPlayback": {
+                        "inlinePlayerData": {
+                          "onSelect": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1oahTaVIQvk&list=PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                "videoId": "1oahTaVIQvk",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          },
+                          "onVisible": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1oahTaVIQvk&list=PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe&pp=YAHIAQHwBAD4BACiBhUB15olEwaZ7Sa2VxYup_QhvTcXL8U%3D",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLOzDu-MXXLlj7croDcwz33c-a5rpNEBNe",
+                                "videoId": "1oahTaVIQvk",
+                                "playerParams": "YAHIAQHwBAD4BACiBhUB15olEwaZ7Sa2VxYup_QhvTcXL8U%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "1 Hour of Lofi Hip Hop"
+                          },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "the bootleg boy 2",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@thebootlegboy2"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCwkTfp14Sj7o6q9_8ADJpnA",
+                                                  "canonicalBaseUrl": "/@thebootlegboy2"
+                                                }
+                                              }
+                                            },
+                                            "length": 17
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 17
+                                          },
+                                          {
+                                            "startIndex": 17,
+                                            "styleRunExtensions": {
+                                              "styleRunColorMapExtension": {
+                                                "colorMap": [
+                                                  {
+                                                    "key": "USER_INTERFACE_THEME_LIGHT",
+                                                    "value": 4284506208
+                                                  },
+                                                  {
+                                                    "key": "USER_INTERFACE_THEME_DARK",
+                                                    "value": 4289374890
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "attachmentRuns": [
+                                          {
+                                            "alignment": "ALIGNMENT_VERTICAL_CENTER",
+                                            "length": 0,
+                                            "element": {
+                                              "type": {
+                                                "imageType": {
+                                                  "image": {
+                                                    "sources": [
+                                                      {
+                                                        "clientResource": {
+                                                          "imageName": "CHECK_CIRCLE_FILLED"
+                                                        },
+                                                        "width": 14,
+                                                        "height": 14
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "properties": {
+                                                "layoutProperties": {
+                                                  "width": {
+                                                    "value": 14,
+                                                    "unit": "DIMENSION_UNIT_POINT"
+                                                  },
+                                                  "margin": {
+                                                    "left": {
+                                                      "value": 4,
+                                                      "unit": "DIMENSION_UNIT_POINT"
+                                                    }
+                                                  },
+                                                  "height": {
+                                                    "value": 14,
+                                                    "unit": "DIMENSION_UNIT_POINT"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "startIndex": 17
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "text": {
+                                        "content": "Playlist",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@thebootlegboy2"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCwkTfp14Sj7o6q9_8ADJpnA",
+                                                  "canonicalBaseUrl": "/@thebootlegboy2"
+                                                }
+                                              }
+                                            },
+                                            "length": 8
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 8
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "isSpacerRow": true
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "ＡＵＴＵＭＮ　ＣＨＩＬＬ - [1 HOUR] · 1:00:02",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=1TVlO05Ugjw&list=PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                                  "videoId": "1TVlO05Ugjw"
+                                                }
+                                              }
+                                            },
+                                            "length": 58
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "ＣＨＩＬＬ　＆　ＤＲＩＶＥ - [1 HOUR] · 1:00:43",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=IrK3BNlHXic&list=PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                                  "videoId": "IrK3BNlHXic"
+                                                }
+                                              }
+                                            },
+                                            "length": 61
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "collectionThumbnailViewModel": {
+                          "stackColor": {
+                            "lightTheme": 10056299,
+                            "darkTheme": 9665398
+                          },
+                          "primaryThumbnail": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/1TVlO05Ugjw/hq720.jpg?sqp=-oaymwEXCOgCEMoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBzWQ6Qmb6rhJC2InqlSdVWAcC7RQ",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://i.ytimg.com/vi/1TVlO05Ugjw/hq720.jpg?sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLD21TbNM4alSYIuPb7svRS8e_47Ug",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailOverlayBadgeViewModel": {
+                                    "thumbnailBadges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                          "icon": {
+                                            "sources": [
+                                              {
+                                                "clientResource": {
+                                                  "imageName": "PLAYLISTS"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "backgroundColor": {
+                                            "lightTheme": 3349527,
+                                            "darkTheme": 3349527
+                                          },
+                                          "text": "75 videos"
+                                        }
+                                      }
+                                    ],
+                                    "position": "THUMBNAIL_OVERLAY_BADGE_POSITION_BOTTOM_END"
+                                  }
+                                },
+                                {
+                                  "thumbnailHoverOverlayViewModel": {
+                                    "style": "THUMBNAIL_HOVER_OVERLAY_STYLE_COVER",
+                                    "icon": {
+                                      "sources": [
+                                        {
+                                          "clientResource": {
+                                            "imageName": "PLAY_ALL"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "text": {
+                                      "content": "Play all",
+                                      "styleRuns": [
+                                        {
+                                          "startIndex": 0,
+                                          "length": 8
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "backgroundColor": {
+                                "lightTheme": 4991523,
+                                "darkTheme": 4991523
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                      "rendererContext": {
+                        "commandContext": {
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1TVlO05Ugjw&list=PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                "videoId": "1TVlO05Ugjw",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "itemPlayback": {
+                        "inlinePlayerData": {
+                          "onSelect": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1TVlO05Ugjw&list=PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                "videoId": "1TVlO05Ugjw",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          },
+                          "onVisible": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=1TVlO05Ugjw&list=PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ&pp=YAHIAQHwBAD4BACiBhUB15olE2F5I1E-bDbx5uSQUtsyFrs%3D",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLF3eNE6vR-4WsBf8qnJLqBywqX39QczxJ",
+                                "videoId": "1TVlO05Ugjw",
+                                "playerParams": "YAHIAQHwBAD4BACiBhUB15olE2F5I1E-bDbx5uSQUtsyFrs%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "90's Grunge But It's Lofi"
+                          },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Alien Cake Music",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@aliencakemusic"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCbyBw479UiqrVXvHkbABnww",
+                                                  "canonicalBaseUrl": "/@aliencakemusic"
+                                                }
+                                              }
+                                            },
+                                            "length": 16
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 16
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "text": {
+                                        "content": "Playlist",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@aliencakemusic"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCbyBw479UiqrVXvHkbABnww",
+                                                  "canonicalBaseUrl": "/@aliencakemusic"
+                                                }
+                                              }
+                                            },
+                                            "length": 8
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 8
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "isSpacerRow": true
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Everlong (Foo Fighters Lofi) - Plutonimous x Hugo Mars x Alien Cake Music 🦋🌠 · 3:55",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=NlLUC236Ufg&list=PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                                  "videoId": "NlLUC236Ufg"
+                                                }
+                                              }
+                                            },
+                                            "length": 90
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Where Is My Mind (Pixies Lofi) - EarthTing x Hugo Mars x Alien Cake Music 🌎 🌠 · 3:02",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=hMN_SUyC4EQ&list=PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                                  "videoId": "hMN_SUyC4EQ"
+                                                }
+                                              }
+                                            },
+                                            "length": 91
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "collectionThumbnailViewModel": {
+                          "stackColor": {
+                            "lightTheme": 7051669,
+                            "darkTheme": 7376010
+                          },
+                          "primaryThumbnail": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/NlLUC236Ufg/hq720.jpg?sqp=-oaymwExCOgCEMoBSFryq4qpAyMIARUAAIhCGAHwAQH4AdQGgALgA4oCDAgAEAEYOiBlKGIwDw==&rs=AOn4CLDf9ORRrHnhN1NjdcAlKCOeEzDW-w",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://i.ytimg.com/vi/NlLUC236Ufg/hq720.jpg?sqp=-oaymwExCNAFEJQDSFryq4qpAyMIARUAAIhCGAHwAQH4AdQGgALgA4oCDAgAEAEYOiBlKGIwDw==&rs=AOn4CLBE4iOQV7D3KBI2zKX7EFFJr5--qg",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailOverlayBadgeViewModel": {
+                                    "thumbnailBadges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                          "icon": {
+                                            "sources": [
+                                              {
+                                                "clientResource": {
+                                                  "imageName": "PLAYLISTS"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "backgroundColor": {
+                                            "lightTheme": 1451557,
+                                            "darkTheme": 1451557
+                                          },
+                                          "text": "124 videos"
+                                        }
+                                      }
+                                    ],
+                                    "position": "THUMBNAIL_OVERLAY_BADGE_POSITION_BOTTOM_END"
+                                  }
+                                },
+                                {
+                                  "thumbnailHoverOverlayViewModel": {
+                                    "style": "THUMBNAIL_HOVER_OVERLAY_STYLE_COVER",
+                                    "icon": {
+                                      "sources": [
+                                        {
+                                          "clientResource": {
+                                            "imageName": "PLAY_ALL"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "text": {
+                                      "content": "Play all",
+                                      "styleRuns": [
+                                        {
+                                          "startIndex": 0,
+                                          "length": 8
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "backgroundColor": {
+                                "lightTheme": 2375485,
+                                "darkTheme": 2375485
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                      "rendererContext": {
+                        "commandContext": {
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=NlLUC236Ufg&list=PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                "videoId": "NlLUC236Ufg",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "itemPlayback": {
+                        "inlinePlayerData": {
+                          "onSelect": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=NlLUC236Ufg&list=PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                "videoId": "NlLUC236Ufg",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          },
+                          "onVisible": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=NlLUC236Ufg&list=PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy&pp=YAHIAQHwBAD4BACiBhUB15olE875BtjUGEWY-b_5Y6uNrp0%3D",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLCnZsxXddm5W5wSYpaoML1rSXuwtiHAXy",
+                                "videoId": "NlLUC236Ufg",
+                                "playerParams": "YAHIAQHwBAD4BACiBhUB15olE875BtjUGEWY-b_5Y6uNrp0%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                "continuationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EvsHEgRsb2ZpGvIHRWdJUUEwZ1VnZ0VpVUV4WVNXTnNUSFptUlZSVE1FZEdZazVpVW5CM1EyZG9NVU5IZDA4MmFFeHlkb0lCSWxCTVQzcEVkUzFOV0ZoTWJHbzNZM0p2UkdOM2VqTXpZeTFoTlhKd1RrVkNUbVdDQVNKUVRFWXpaVTVGTm5aU0xUUlhjMEptT0hGdVNreHhRbmwzY1Znek9WRmplbmhLZ2dFaVVFeERibHB6ZUZoa1pHMDFWelYzVTFsd1lXOU5UREZ5VTFoMWQzUnBTRUZZZVlJQklsQk1UM3BFZFMxTldGaE1iR2RMVFVFelV6SkdXRmxmV0ZaNVJISjFhMk13YzJtQ0FTSlFURzgyYzA1aE1HWjRkMEpPUld4a1NGOVFRakF6YTNFeFowaDBTMlppUjJKamdnRWlVRXhwYzFWemVrVXdTRzVITkhRMlpreGtiRzUxUTFrdFVYcDBZbVZ2Y0RFM1o0SUJJbEJNYlhodE4zbEZUR1ZrZHkweE9VeHJkRmxKZGpGUGRGWm5hWE5xVEZodk9UQ0NBU0pRVEU5NlJIVXRUVmhZVEd4cWVXMXZNRzlZUld0VVUweExaalZVY1hoWkxVcE9nZ0VpVUV4c1FUTkdlWEZQVWpWSlgzQm9UamxUTjJSU1VESnRaMGxHUWpsWlNsSmthSUlCSWxCTVVITmFTRzlhTUhWMWIzSkxZVXQ1UlRZNVUyaDRkMEZxTkZneFIyOWhYMVdDQVNKUVRHWXRVMkl0V0V0SWMxWmxTa1ZsYldobVpqWmFkR1pvUTBweU1YSXlhMUJxZ2dFaVVFeHJZbDlqUlhVM09HTmlXVVJRVkU1SU5UUXhTVmw1YnpWR1duRkdOMWh0YUlJQklsQk1PV3hrTlROUGJGTkhZM05NYVZOMmJuWXljSGR6ZW1GeGFEVmpTVEl3TFRPQ0FTSlFUR2R2ZFU1T1ZFcHFhV2xuV1RSSVdqbENVWFZOVUdsdlQyMUthMTlpWVc1emdnRWlVRXd4VUV4bmFIcG5WMkY1ZFhNemQwZFVjRlZSVjNOdlFXVnVNR28yYldKNU1ZSUJJbEJNTFRZdGMyZHFhMFJzVkc1eWJFNUpaR3BRWm5ZelIzbHBSWFZ3YTA1amFUQ0NBU0pRVEZoSlkyeE1kbVpGVkZNelFXZERibHBuTkU0MlVYRklkVjlVTWpkWVMwbHhnZ0VpVUV4Q1ZHRnVkVU00VTB4bFdsVklORzFaV0VaMlVtSkVabmhVVFV0MlRreElTb0lCSWxCTVNYQkVRVzUwV25sb1VYRnpURFJvWkMwNVRFeFZhbmh6UkhkcFkwdFFMVW15QVFZS0JBZ1VFQUklM0QYgeDoGCILc2VhcmNoLWZlZWQ%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH"
+                  }
+                }
+              }
+            }
+          ],
+          "subMenu": {
+            "searchSubMenuRenderer": {}
+          },
+          "targetId": "search-feed"
+        }
+      }
+    }
+  },
+  "estimatedResults": "31010",
+  "header": {
+    "searchHeaderRenderer": {
+      "chipBar": {
+        "chipCloudRenderer": {
+          "chips": [
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": true,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "All"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EugFEgRsb2ZpGtwFRXFBRWtnR2NCRHFYQVJLUUFTaGhJSGx2ZFhSMVltVmZjMmh2Y25SelgyUmxabWx1YVhScGIyNGdPblI1Y0dVNmNpQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYM0J5WlcxcFpYSmxYM1pwWkdWdlgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa2dLRzRnZVc5MWRIVmlaVjltYkdGblgyaGhjMTlzYVhabFgzTjBjbVZoYlY5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcEtUZ0JZQnBLX3dJS0ZBb0ViRzltYWZJQkJRb0RRV3hzMkFJQnVBTmhDcVVCOGdFSUNnWlRhRzl5ZEhQQ0FwQUJLR0VnZVc5MWRIVmlaVjl6YUc5eWRITmZaR1ZtYVc1cGRHbHZiaUE2ZEhsd1pUcHlJQ2h1SUhsdmRYUjFZbVZmWm14aFoxOW9ZWE5mY0hKbGJXbGxjbVZmZG1sa1pXOWZiV1YwWVdSaGRHRTlNU0E2ZEhsd1pUcHlLU0FvYmlCNWIzVjBkV0psWDJac1lXZGZhR0Z6WDJ4cGRtVmZjM1J5WldGdFgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa3AtQUlCdUFNYUNoYnlBUXNLQ1ZWdWQyRjBZMmhsWk1vQ0FoZ0J1QU1jQ2hUeUFRa0tCMWRoZEdOb1pXVEtBZ0lZQXJnRFNnbzY4Z0VJQ2daV2FXUmxiM1BDQWhwNWIzVjBkV0psWDNacFpHVnZYM0JoWjJVZ09uUjVjR1U2Y3VnQ0FhZ0RBYmdEU01BREFjZ0RBZEFEQVFvYllBZnlBUk1LRVZKbFkyVnVkR3g1SUhWd2JHOWhaR1ZrdUFNSENqYnlBUVlLQkV4cGRtWENBaWQ1YjNWMGRXSmxYMnhwZG1WZlluSnZZV1JqWVhOMFgzTjBZWFIxY3owd0lEcDBlWEJsT25LNEF3UVlDM2dBkAEBGIHg6BgiC3NlYXJjaC1wYWdl",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Shorts"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EqwEEgRsb2ZpGqAERW80RGtnR0tBem9HR2dJWUFXQWNTdjhDQ2hRS0JHeHZabW55QVFVS0EwRnNiTmdDQWJnRFlRcWxBZklCQ0FvR1UyaHZjblJ6d2dLUUFTaGhJSGx2ZFhSMVltVmZjMmh2Y25SelgyUmxabWx1YVhScGIyNGdPblI1Y0dVNmNpQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYM0J5WlcxcFpYSmxYM1pwWkdWdlgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa2dLRzRnZVc5MWRIVmlaVjltYkdGblgyaGhjMTlzYVhabFgzTjBjbVZoYlY5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcEtmZ0NBYmdER2dvVzhnRUxDZ2xWYm5kaGRHTm9aV1RLQWdJWUFiZ0RIQW9VOGdFSkNnZFhZWFJqYUdWa3lnSUNHQUs0QTBvS092SUJDQW9HVm1sa1pXOXp3Z0lhZVc5MWRIVmlaVjkyYVdSbGIxOXdZV2RsSURwMGVYQmxPbkxvQWdHb0F3RzRBMGpBQXdISUF3SFFBd0VLRzJBSDhnRVRDaEZTWldObGJuUnNlU0IxY0d4dllXUmxaTGdEQndvMjhnRUdDZ1JNYVhabHdnSW5lVzkxZEhWaVpWOXNhWFpsWDJKeWIyRmtZMkZ6ZEY5emRHRjBkWE05TUNBNmRIbHdaVHB5dUFNRUdBdDRBQSUzRCUzRJABARiB4OgYIgtzZWFyY2gtcGFnZQ%3D%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Unwatched"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EqwEEgRsb2ZpGqAERW80RGtnR0tBem9HR2dJWUFtQktTdjhDQ2hRS0JHeHZabW55QVFVS0EwRnNiTmdDQWJnRFlRcWxBZklCQ0FvR1UyaHZjblJ6d2dLUUFTaGhJSGx2ZFhSMVltVmZjMmh2Y25SelgyUmxabWx1YVhScGIyNGdPblI1Y0dVNmNpQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYM0J5WlcxcFpYSmxYM1pwWkdWdlgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa2dLRzRnZVc5MWRIVmlaVjltYkdGblgyaGhjMTlzYVhabFgzTjBjbVZoYlY5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcEtmZ0NBYmdER2dvVzhnRUxDZ2xWYm5kaGRHTm9aV1RLQWdJWUFiZ0RIQW9VOGdFSkNnZFhZWFJqYUdWa3lnSUNHQUs0QTBvS092SUJDQW9HVm1sa1pXOXp3Z0lhZVc5MWRIVmlaVjkyYVdSbGIxOXdZV2RsSURwMGVYQmxPbkxvQWdHb0F3RzRBMGpBQXdISUF3SFFBd0VLRzJBSDhnRVRDaEZTWldObGJuUnNlU0IxY0d4dllXUmxaTGdEQndvMjhnRUdDZ1JNYVhabHdnSW5lVzkxZEhWaVpWOXNhWFpsWDJKeWIyRmtZMkZ6ZEY5emRHRjBkWE05TUNBNmRIbHdaVHB5dUFNRUdBdDRBQSUzRCUzRJABARiB4OgYIgtzZWFyY2gtcGFnZQ%3D%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Watched"
+                }
+              }
+            }
+          ],
+          "nextButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_RIGHT"
+              },
+              "accessibility": {
+                "label": "Next"
+              }
+            }
+          },
+          "previousButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_LEFT"
+              },
+              "accessibility": {
+                "label": "Previous"
+              }
+            }
+          }
+        }
+      },
+      "searchFilterButton": {
+        "buttonRenderer": {
+          "command": {
+            "openPopupAction": {
+              "popup": {
+                "searchFilterOptionsDialogRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Search filters"
+                      }
+                    ]
+                  },
+                  "groups": [
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Type"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Videos"
+                              },
+                              "tooltip": "Search for Videos",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=lofi&sp=EgIQAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "lofi",
+                                  "params": "EgIQAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Shorts"
+                              },
+                              "tooltip": "Search for Shorts",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=lofi&sp=EgIQCQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "lofi",
+                                  "params": "EgIQCQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Channels"
+                              },
+                              "tooltip": "Search for Channels",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=lofi&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "lofi",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_SELECTED",
+                              "label": {
+                                "simpleText": "Playlists"
+                              },
+                              "tooltip": "Remove Playlists filter",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=lofi",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "lofi"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Duration"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Under 3 minutes"
+                              },
+                              "tooltip": "Search for Under 3 minutes"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "3 - 20 minutes"
+                              },
+                              "tooltip": "Search for 3 - 20 minutes"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Over 20 minutes"
+                              },
+                              "tooltip": "Search for Over 20 minutes"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Upload date"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Today"
+                              },
+                              "tooltip": "Search for Today"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This week"
+                              },
+                              "tooltip": "Search for This week"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This month"
+                              },
+                              "tooltip": "Search for This month"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This year"
+                              },
+                              "tooltip": "Search for This year"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Features"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Live"
+                              },
+                              "tooltip": "Search for Live"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "4K"
+                              },
+                              "tooltip": "Search for 4K"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "HD"
+                              },
+                              "tooltip": "Search for HD"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Subtitles/CC"
+                              },
+                              "tooltip": "Search for Subtitles/CC"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "popupType": "DIALOG"
+            }
+          },
+          "style": "STYLE_TEXT",
+          "iconPosition": "BUTTON_ICON_POSITION_TYPE_RIGHT_OF_TEXT",
+          "size": "SIZE_DEFAULT",
+          "text": {
+            "runs": [
+              {
+                "text": "Filters"
+              }
+            ]
+          },
+          "isDisabled": false,
+          "tooltip": "Search filters",
+          "icon": {
+            "iconType": "TUNE"
+          },
+          "accessibilityData": {
+            "accessibilityData": {
+              "label": "Search filters"
+            }
+          }
+        }
+      }
+    }
+  }
+}

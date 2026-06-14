@@ -10,6 +10,7 @@ final class SettingsManager {
     // MARK: - Settings Keys
 
     enum Keys {
+        static let appSource = "settings.appSource"
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
@@ -175,6 +176,13 @@ final class SettingsManager {
     }
 
     // MARK: - Settings Properties
+
+    /// The active content source (YouTube Music or regular YouTube).
+    var appSource: AppSource {
+        didSet {
+            UserDefaults.standard.set(self.appSource.rawValue, forKey: Keys.appSource)
+        }
+    }
 
     /// Whether to show system notifications when the track changes.
     var showNowPlayingNotifications: Bool {
@@ -361,6 +369,14 @@ final class SettingsManager {
             self.contentLanguage = language
         } else {
             self.contentLanguage = .system
+        }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.appSource),
+           let source = AppSource(rawValue: rawValue)
+        {
+            self.appSource = source
+        } else {
+            self.appSource = .music
         }
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)
