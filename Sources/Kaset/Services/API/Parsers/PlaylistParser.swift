@@ -17,339 +17,32 @@ enum PlaylistParser {
         var duration: String?
     }
 
+    typealias LibraryArtistsSource = LibraryContentParser.LibraryArtistsSource
+    typealias LibraryContent = LibraryContentParser.LibraryContent
+
     /// Parses library playlists from browse response.
     static func parseLibraryPlaylists(_ data: [String: Any]) -> [Playlist] {
-        self.parseLibraryContent(data).playlists
-    }
-
-    /// Result type for library content parsing containing playlists, artists, and podcast shows.
-    enum LibraryArtistsSource {
-        case dedicated
-        case landingFallback
-    }
-
-    struct LibraryContent {
-        let playlists: [Playlist]
-        let artists: [Artist]
-        let podcastShows: [PodcastShow]
-        let uploadedSongsPlaylist: Playlist?
-        let artistsSource: LibraryArtistsSource
-
-        init(
-            playlists: [Playlist],
-            artists: [Artist],
-            podcastShows: [PodcastShow],
-            uploadedSongsPlaylist: Playlist? = nil,
-            artistsSource: LibraryArtistsSource = .dedicated
-        ) {
-            self.playlists = playlists
-            self.artists = artists
-            self.podcastShows = podcastShows
-            self.uploadedSongsPlaylist = uploadedSongsPlaylist
-            self.artistsSource = artistsSource
-        }
+        LibraryContentParser.parseLibraryPlaylists(data)
     }
 
     /// Parses library content from browse response, returning playlists, artists, and podcast shows.
     static func parseLibraryContent(_ data: [String: Any]) -> LibraryContent {
-        var playlists: [Playlist] = []
-        var artists: [Artist] = []
-        var podcastShows: [PodcastShow] = []
-
-        for sectionData in Self.extractLibrarySections(from: data) {
-            Self.appendLibraryItems(
-                from: sectionData,
-                playlists: &playlists,
-                artists: &artists,
-                podcastShows: &podcastShows
-            )
-        }
-
-        return LibraryContent(playlists: playlists, artists: artists, podcastShows: podcastShows)
+        LibraryContentParser.parseLibraryContent(data)
     }
 
     /// Merges library playlists using the dedicated endpoint as authoritative while retaining landing-only items.
     static func mergedLibraryPlaylists(dedicated dedicatedPlaylists: [Playlist], fallback fallbackPlaylists: [Playlist]) -> [Playlist] {
-        var mergedPlaylists = dedicatedPlaylists
-        var seenPlaylistIds = Set(dedicatedPlaylists.map { Self.normalizedLibraryPlaylistId($0.id) })
-
-        for playlist in fallbackPlaylists {
-            let normalizedPlaylistId = Self.normalizedLibraryPlaylistId(playlist.id)
-            guard seenPlaylistIds.insert(normalizedPlaylistId).inserted else { continue }
-            mergedPlaylists.append(playlist)
-        }
-
-        return mergedPlaylists
+        LibraryContentParser.mergedLibraryPlaylists(dedicated: dedicatedPlaylists, fallback: fallbackPlaylists)
     }
 
     /// Parses artists from the dedicated library artists browse response.
     static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
-        var artists: [Artist] = []
-        var ignoredPlaylists: [Playlist] = []
-        var ignoredPodcastShows: [PodcastShow] = []
-
-        for sectionData in Self.extractLibrarySections(from: data) {
-            Self.appendLibraryItems(
-                from: sectionData,
-                playlists: &ignoredPlaylists,
-                artists: &artists,
-                podcastShows: &ignoredPodcastShows
-            )
-        }
-
-        let normalizedArtists = artists.map { artist in
-            if let publicChannelId = Artist.publicChannelId(for: artist.id) {
-                return Artist(
-                    id: publicChannelId,
-                    name: artist.name,
-                    thumbnailURL: artist.thumbnailURL,
-                    profileKind: artist.profileKind
-                )
-            }
-
-            return artist
-        }
-
-        return Self.deduplicatedArtists(normalizedArtists)
+        LibraryContentParser.parseLibraryArtists(data)
     }
 
     /// Parses the uploaded songs browse endpoint into a virtual playlist tile for Library.
     static func parseUploadedSongsPlaylist(_ data: [String: Any]) -> Playlist? {
-        let detail = Self.parsePlaylistWithContinuation(data, playlistId: Playlist.uploadedSongsBrowseID).detail
-        guard !detail.tracks.isEmpty || (detail.trackCount ?? 0) > 0 else {
-            return nil
-        }
-
-        let title = detail.title == "Unknown Playlist" ? "Uploaded Songs" : detail.title
-        return Playlist(
-            id: Playlist.uploadedSongsBrowseID,
-            title: title,
-            description: nil,
-            thumbnailURL: detail.thumbnailURL ?? detail.tracks.first?.thumbnailURL,
-            trackCount: max(detail.trackCount ?? 0, detail.tracks.count),
-            author: Artist.inline(name: "Uploads", namespace: "library-upload"),
-            canDelete: false
-        )
-    }
-
-    private static func normalizedLibraryPlaylistId(_ playlistId: String) -> String {
-        if playlistId.hasPrefix("VL") {
-            return String(playlistId.dropFirst(2))
-        }
-
-        return playlistId
-    }
-
-    private static func deduplicatedArtists(_ artists: [Artist]) -> [Artist] {
-        var seenArtistIds: Set<String> = []
-        var deduplicatedArtists: [Artist] = []
-
-        for artist in artists {
-            let normalizedArtistId = Artist.publicChannelId(for: artist.id) ?? artist.id
-            guard seenArtistIds.insert(normalizedArtistId).inserted else { continue }
-            deduplicatedArtists.append(artist)
-        }
-
-        return deduplicatedArtists
-    }
-
-    private static func extractLibrarySections(from data: [String: Any]) -> [[String: Any]] {
-        guard let contents = data["contents"] as? [String: Any],
-              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
-              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
-              let firstTab = tabs.first,
-              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-              let tabContent = tabRenderer["content"] as? [String: Any],
-              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return []
-        }
-
-        return sectionContents
-    }
-
-    private static func appendLibraryItems(
-        from sectionData: [String: Any],
-        playlists: inout [Playlist],
-        artists: inout [Artist],
-        podcastShows: inout [PodcastShow]
-    ) {
-        // Try gridRenderer
-        if let gridRenderer = sectionData["gridRenderer"] as? [String: Any],
-           let items = gridRenderer["items"] as? [[String: Any]]
-        {
-            for itemData in items {
-                if let twoRowRenderer = itemData["musicTwoRowItemRenderer"] as? [String: Any] {
-                    self.parseLibraryItem(
-                        twoRowRenderer,
-                        playlists: &playlists,
-                        artists: &artists,
-                        podcastShows: &podcastShows
-                    )
-                }
-            }
-        }
-
-        // Try itemSectionRenderer > musicShelfRenderer
-        if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
-           let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
-        {
-            for itemContent in itemContents {
-                if let shelfRenderer = itemContent["musicShelfRenderer"] as? [String: Any],
-                   let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-                {
-                    for shelfItem in shelfContents {
-                        if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
-                            Self.parseLibraryItemFromResponsive(
-                                responsiveRenderer,
-                                playlists: &playlists,
-                                artists: &artists,
-                                podcastShows: &podcastShows
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Try musicShelfRenderer directly
-        if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-           let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-        {
-            for shelfItem in shelfContents {
-                if let responsiveRenderer = shelfItem["musicResponsiveListItemRenderer"] as? [String: Any] {
-                    Self.parseLibraryItemFromResponsive(
-                        responsiveRenderer,
-                        playlists: &playlists,
-                        artists: &artists,
-                        podcastShows: &podcastShows
-                    )
-                }
-            }
-        }
-    }
-
-    /// Parses a library item from twoRowRenderer, adding to the appropriate array.
-    private static func parseLibraryItem(
-        _ data: [String: Any],
-        playlists: inout [Playlist],
-        artists: inout [Artist],
-        podcastShows: inout [PodcastShow]
-    ) {
-        guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
-              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String
-        else {
-            self.logger.debug("parseLibraryItem: No browseId found")
-            return
-        }
-
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
-        let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown"
-        let subtitle = ParsingHelpers.extractSubtitle(from: data)
-
-        Self.logger.info("parseLibraryItem: browseId=\(browseId, privacy: .public), title=\(title, privacy: .public)")
-
-        if browseId.hasPrefix("MPSPP") {
-            // Podcast show
-            let show = PodcastShow(
-                id: browseId,
-                title: title,
-                author: subtitle,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                episodeCount: nil
-            )
-            podcastShows.append(show)
-            Self.logger.info("parseLibraryItem: Added podcast show: \(title)")
-        } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") || browseId.hasPrefix("RDCLAK") {
-            // Playlist (VL prefix for saved playlists, PL for playlist IDs, RDCLAK for radio playlists)
-            let playlist = Playlist(
-                id: browseId,
-                title: title,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                trackCount: nil,
-                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") },
-                canDelete: Self.canDeletePlaylist(from: data)
-            )
-            playlists.append(playlist)
-            Self.logger.info("parseLibraryItem: Added playlist: \(title)")
-        } else if Artist.isNavigableId(browseId) {
-            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
-            let artist = Artist(
-                id: browseId,
-                name: title,
-                thumbnailURL: thumbnailURL,
-                profileKind: Artist.profileKind(forPageType: pageType)
-            )
-            artists.append(artist)
-            Self.logger.info("parseLibraryItem: Added artist: \(title)")
-        }
-    }
-
-    /// Parses a library item from responsiveRenderer, adding to the appropriate array.
-    private static func parseLibraryItemFromResponsive(
-        _ data: [String: Any],
-        playlists: inout [Playlist],
-        artists: inout [Artist],
-        podcastShows: inout [PodcastShow]
-    ) {
-        guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
-              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String
-        else {
-            self.logger.debug("parseLibraryItemFromResponsive: No browseId found, keys: \(Array(data.keys))")
-            return
-        }
-
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
-        let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
-        let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(data)
-
-        Self.logger.info("parseLibraryItemFromResponsive: browseId=\(browseId), title=\(title)")
-
-        if browseId.hasPrefix("MPSPP") {
-            // Podcast show
-            let show = PodcastShow(
-                id: browseId,
-                title: title,
-                author: subtitle,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                episodeCount: nil
-            )
-            podcastShows.append(show)
-            Self.logger.info("parseLibraryItemFromResponsive: Added podcast show: \(title)")
-        } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
-            // Playlist
-            let playlist = Playlist(
-                id: browseId,
-                title: title,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                trackCount: nil,
-                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") },
-                canDelete: Self.canDeletePlaylist(from: data)
-            )
-            playlists.append(playlist)
-            Self.logger.info("parseLibraryItemFromResponsive: Added playlist: \(title)")
-        } else if Artist.isNavigableId(browseId) {
-            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
-            let artist = Artist(
-                id: browseId,
-                name: title,
-                thumbnailURL: thumbnailURL,
-                profileKind: Artist.profileKind(forPageType: pageType)
-            )
-            artists.append(artist)
-            Self.logger.info("parseLibraryItemFromResponsive: Added artist: \(title)")
-        } else {
-            Self.logger.info("parseLibraryItemFromResponsive: Skipping unknown prefix: \(browseId)")
-        }
+        LibraryContentParser.parseUploadedSongsPlaylist(data)
     }
 
     /// Parses playlist detail from browse response.
@@ -367,7 +60,7 @@ enum PlaylistParser {
             thumbnailURL: header.thumbnailURL,
             trackCount: trackCount,
             author: header.author,
-            canDelete: Self.canDeletePlaylist(from: data)
+            canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
 
         return PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
@@ -388,7 +81,7 @@ enum PlaylistParser {
             thumbnailURL: header.thumbnailURL,
             trackCount: trackCount,
             author: header.author,
-            canDelete: Self.canDeletePlaylist(from: data)
+            canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
 
         let detail = PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
@@ -1434,7 +1127,7 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             trackCount: nil,
             author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") },
-            canDelete: Self.canDeletePlaylist(from: data)
+            canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
     }
 
@@ -1458,7 +1151,7 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             trackCount: nil,
             author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") },
-            canDelete: Self.canDeletePlaylist(from: data)
+            canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
     }
 
@@ -1466,9 +1159,9 @@ enum PlaylistParser {
 
     /// Parses the response from `playlist/get_add_to_playlist`.
     static func parseAddToPlaylistMenu(_ data: [String: Any]) -> AddToPlaylistMenu {
-        let renderer = Self.findFirstDictionary(named: "addToPlaylistRenderer", in: data) ?? data
+        let renderer = ResponseTreeSearch.firstDictionary(named: "addToPlaylistRenderer", in: data) ?? data
         let title = Self.extractText(from: renderer["title"] as? [String: Any])
-        let canCreatePlaylist = Self.containsKey("createPlaylistEndpoint", in: renderer)
+        let canCreatePlaylist = ResponseTreeSearch.containsKey("createPlaylistEndpoint", in: renderer)
 
         var seenPlaylistIds = Set<String>()
         let options = Self.collectAddToPlaylistOptions(in: renderer).filter { option in
@@ -1717,60 +1410,6 @@ enum PlaylistParser {
         }
         return nil
     }
-
-    private static func findFirstDictionary(named key: String, in value: Any) -> [String: Any]? {
-        if let dictionary = value as? [String: Any] {
-            if let match = dictionary[key] as? [String: Any] {
-                return match
-            }
-            for child in dictionary.values {
-                if let match = Self.findFirstDictionary(named: key, in: child) {
-                    return match
-                }
-            }
-        } else if let array = value as? [Any] {
-            for child in array {
-                if let match = Self.findFirstDictionary(named: key, in: child) {
-                    return match
-                }
-            }
-        }
-        return nil
-    }
-
-    /// Returns true only when the response payload exposes commands that are available
-    /// for playlists the signed-in user can delete. Unknown ownership is treated as false.
-    private static func canDeletePlaylist(from value: Any) -> Bool {
-        self.containsKey("deletePlaylistEndpoint", in: value)
-            || self.containsKey("musicEditablePlaylistDetailHeaderRenderer", in: value)
-            || self.containsText("playlist/delete", in: value)
-    }
-
-    private static func containsKey(_ key: String, in value: Any) -> Bool {
-        if let dictionary = value as? [String: Any] {
-            if dictionary[key] != nil { return true }
-            return dictionary.values.contains { self.containsKey(key, in: $0) }
-        }
-        if let array = value as? [Any] {
-            return array.contains { Self.containsKey(key, in: $0) }
-        }
-        return false
-    }
-
-    private static func containsText(_ text: String, in value: Any) -> Bool {
-        if let string = value as? String {
-            return string.localizedCaseInsensitiveContains(text)
-        }
-        if let dictionary = value as? [String: Any] {
-            return dictionary.values.contains { Self.containsText(text, in: $0) }
-        }
-        if let array = value as? [Any] {
-            return array.contains { Self.containsText(text, in: $0) }
-        }
-        return false
-    }
-
-    // MARK: - Queue Response Parsing
 
     /// Parses tracks from a music/get_queue response.
     /// This endpoint returns ALL tracks for a playlist in a single request (no pagination needed).

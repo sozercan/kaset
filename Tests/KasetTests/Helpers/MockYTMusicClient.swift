@@ -5,13 +5,6 @@ import Foundation
 /// A mock implementation of YTMusicClientProtocol for testing.
 @MainActor
 final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this type_body_length
-    private static func normalizedPlaylistId(_ playlistId: String) -> String {
-        if playlistId.hasPrefix("VL") {
-            return String(playlistId.dropFirst(2))
-        }
-        return playlistId
-    }
-
     private static func playlistContinuationToken(playlistId: String, index: Int) -> String {
         "mock-playlist-continuation|\(playlistId)|\(index)"
     }
@@ -23,10 +16,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
               let index = Int(components[2])
         else { return nil }
         return (String(components[1]), index)
-    }
-
-    private static func normalizedArtistId(_ artistId: String) -> String {
-        Artist.publicChannelId(for: artistId) ?? artistId
     }
 
     // MARK: - Response Stubs
@@ -729,9 +718,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.subscribeToPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
 
-        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         if self.shouldAutoUpdatePlaylistLibraryOnMutation,
-           !self.libraryPlaylists.contains(where: { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId })
+           !self.libraryPlaylists.contains(where: { LibraryContentIdentity.playlistKey(for: $0.id) == playlistKey })
         {
             self.libraryPlaylists.insert(TestFixtures.makePlaylist(id: playlistId), at: 0)
         }
@@ -742,13 +731,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.deletePlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
 
-        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         if self.shouldAutoUpdatePlaylistLibraryOnMutation {
-            self.libraryPlaylists.removeAll { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }
+            self.libraryPlaylists.removeAll { LibraryContentIdentity.playlistKey(for: $0.id) == playlistKey }
         }
         self.playlistDetails = self.playlistDetails.filter { entry in
-            Self.normalizedPlaylistId(entry.key) != normalizedPlaylistId
-                && Self.normalizedPlaylistId(entry.value.id) != normalizedPlaylistId
+            LibraryContentIdentity.playlistKey(for: entry.key) != playlistKey
+                && LibraryContentIdentity.playlistKey(for: entry.value.id) != playlistKey
         }
     }
 
@@ -778,12 +767,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.addSongToPlaylistCalls.append(AddSongToPlaylistCall(videoId: videoId, playlistId: playlistId, allowDuplicate: allowDuplicate))
         if let error = shouldThrowError { throw error }
 
-        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         guard self.shouldAutoUpdatePlaylistLibraryOnMutation,
               let song = self.songResponses[videoId]
         else { return }
 
-        for (key, detail) in self.playlistDetails where Self.normalizedPlaylistId(key) == normalizedPlaylistId || Self.normalizedPlaylistId(detail.id) == normalizedPlaylistId {
+        for (key, detail) in self.playlistDetails where LibraryContentIdentity.playlistKey(for: key) == playlistKey || LibraryContentIdentity.playlistKey(for: detail.id) == playlistKey {
             if !detail.tracks.contains(where: { $0.videoId == videoId }) {
                 let playlist = Playlist(
                     id: detail.id,
@@ -807,9 +796,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.unsubscribeFromPlaylistIds.append(playlistId)
         if let error = shouldThrowError { throw error }
 
-        let normalizedPlaylistId = Self.normalizedPlaylistId(playlistId)
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         if self.shouldAutoUpdatePlaylistLibraryOnMutation {
-            self.libraryPlaylists.removeAll { Self.normalizedPlaylistId($0.id) == normalizedPlaylistId }
+            self.libraryPlaylists.removeAll { LibraryContentIdentity.playlistKey(for: $0.id) == playlistKey }
         }
     }
 
@@ -859,12 +848,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         if let error = shouldThrowError { throw error }
 
-        let normalizedChannelId = Self.normalizedArtistId(channelId)
+        let artistKey = LibraryContentIdentity.artistKey(for: channelId)
         let artist = self.artistDetails.values.first(where: { $0.channelId == channelId })?.artist
             ?? TestFixtures.makeArtist(id: "MPLA\(channelId)")
 
         if self.shouldAutoUpdateArtistLibraryOnMutation,
-           !self.libraryArtists.contains(where: { Self.normalizedArtistId($0.id) == normalizedChannelId })
+           !self.libraryArtists.contains(where: { LibraryContentIdentity.artistKey(for: $0.id) == artistKey })
         {
             self.libraryArtists.insert(artist, at: 0)
         }
@@ -878,9 +867,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         if let error = shouldThrowError { throw error }
 
-        let normalizedChannelId = Self.normalizedArtistId(channelId)
+        let artistKey = LibraryContentIdentity.artistKey(for: channelId)
         if self.shouldAutoUpdateArtistLibraryOnMutation {
-            self.libraryArtists.removeAll { Self.normalizedArtistId($0.id) == normalizedChannelId }
+            self.libraryArtists.removeAll { LibraryContentIdentity.artistKey(for: $0.id) == artistKey }
         }
     }
 
