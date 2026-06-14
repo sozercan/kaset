@@ -52,6 +52,15 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
         self.isPrimary ? "Personal" : "Brand"
     }
 
+    /// Account-scoped cache identity used only as input to cache-key hashing.
+    ///
+    /// Primary accounts all use `id == "primary"`, so include the handle/name
+    /// to keep personalized caches separate when a different signed-in Google
+    /// account is restored with the same primary brand state.
+    var cacheIdentity: String {
+        [self.id, self.handle ?? "", self.name].joined(separator: "\u{1F}")
+    }
+
     // MARK: - Initialization
 
     /// Creates a new UserAccount instance.

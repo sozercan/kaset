@@ -24,6 +24,13 @@ final class YouTubeClient: YouTubeClientProtocol {
     /// Provider for the current brand account ID (mirrors `YTMusicClient`).
     var brandIdProvider: (() -> String?)?
 
+    /// Provider for the current account identity used only to scope cache keys.
+    ///
+    /// `brandIdProvider` is nil for primary accounts, so personalized YouTube
+    /// caches also need the selected account identity to avoid reusing primary
+    /// account responses across sign-in/account changes.
+    var accountCacheIdentityProvider: (() -> String?)?
+
     /// YouTube API base URL.
     private static let baseURL = "https://www.youtube.com/youtubei/v1"
 
@@ -152,14 +159,14 @@ final class YouTubeClient: YouTubeClientProtocol {
             "commentText": text,
             "createCommentParams": createCommentParams,
         ]
-        _ = try await self.request("comment/create_comment", body: body)
+        _ = try await self.request("comment/create_comment", body: body, retry: false)
     }
 
     func performCommentAction(_ action: String) async throws {
         self.logger.info("Performing comment action")
 
         let body: [String: Any] = ["actions": [action]]
-        _ = try await self.request("comment/perform_comment_action", body: body)
+        _ = try await self.request("comment/perform_comment_action", body: body, retry: false)
     }
 
     // MARK: - Browse
@@ -268,7 +275,7 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.logger.info("Rating YouTube video")
 
         let body: [String: Any] = ["target": ["videoId": videoId]]
-        _ = try await self.request(rating.endpoint, body: body)
+        _ = try await self.request(rating.endpoint, body: body, retry: false)
         APICache.shared.invalidate(matching: Self.cachePrefix)
     }
 
@@ -277,7 +284,7 @@ final class YouTubeClient: YouTubeClientProtocol {
 
         let endpoint = subscribed ? "subscription/subscribe" : "subscription/unsubscribe"
         let body: [String: Any] = ["channelIds": [channelId]]
-        _ = try await self.request(endpoint, body: body)
+        _ = try await self.request(endpoint, body: body, retry: false)
         APICache.shared.invalidate(matching: Self.cachePrefix)
     }
 
@@ -300,7 +307,7 @@ final class YouTubeClient: YouTubeClientProtocol {
             "playlistId": "WL",
             "actions": actions,
         ]
-        _ = try await self.request("browse/edit_playlist", body: body)
+        _ = try await self.request("browse/edit_playlist", body: body, retry: false)
         APICache.shared.invalidate(matching: Self.cachePrefix)
     }
 
@@ -361,7 +368,7 @@ final class YouTubeClient: YouTubeClientProtocol {
                 "osVersion": "10_15_7",
                 "platform": "DESKTOP",
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "utcOffsetMinutes": -TimeZone.current.secondsFromGMT() / 60,
+                "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
             ],
             "user": userDict,
         ]
@@ -371,32 +378,53 @@ final class YouTubeClient: YouTubeClientProtocol {
     private func request(
         _ endpoint: String,
         body: [String: Any],
-        ttl: TimeInterval? = nil
+        ttl: TimeInterval? = nil,
+        retry: Bool = true
     ) async throws -> [String: Any] {
         var fullBody = body
         fullBody["context"] = self.buildContext()
 
         let brandId = self.brandIdProvider?() ?? ""
-        let cacheKey = APICache.stableCacheKey(
-            endpoint: Self.cachePrefix + endpoint,
-            body: fullBody,
-            brandId: brandId
-        )
-
-        if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
-            return cached
+        let accountScope = self.accountCacheIdentityProvider?()
+        let cacheKey: String? = if ttl != nil, let accountScope, !accountScope.isEmpty {
+            APICache.stableCacheKey(
+                endpoint: Self.cachePrefix + endpoint,
+                body: fullBody,
+                brandId: Self.cacheScope(accountIdentity: accountScope, brandId: brandId)
+            )
+        } else {
+            nil
         }
 
-        let json = try await RetryPolicy.default.execute { [self] in
+        // Validate the current auth session before returning any cached
+        // personalized YouTube response. If the account identity is not loaded
+        // yet, skip caching rather than falling back to a generic primary scope.
+        if let cacheKey {
+            _ = try await self.buildAuthHeaders()
+            if let cached = APICache.shared.get(key: cacheKey) {
+                self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
+                return cached
+            }
+        }
+
+        let json: [String: Any] = if retry {
+            try await RetryPolicy.default.execute { [self] in
+                try await self.performRequest(endpoint, fullBody: fullBody)
+            }
+        } else {
             try await self.performRequest(endpoint, fullBody: fullBody)
         }
 
-        if let ttl {
+        if let ttl, let cacheKey {
             APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
         }
 
         return json
+    }
+
+    private static func cacheScope(accountIdentity: String, brandId: String) -> String {
+        let brand = brandId.isEmpty ? "primary" : brandId
+        return "account=\(accountIdentity);brand=\(brand)"
     }
 
     /// Performs the actual network request.
@@ -476,6 +504,10 @@ final class YouTubeClient: YouTubeClientProtocol {
             }
 
             return .success(data)
+        } catch let error as CancellationError {
+            throw error
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
         } catch {
             return .networkError(error)
         }

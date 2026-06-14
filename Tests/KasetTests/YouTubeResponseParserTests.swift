@@ -314,9 +314,9 @@ struct YouTubeCommentsParserTests {
         let comment = try #require(page.comments.first)
         #expect(comment.id == "c1")
         #expect(comment.authorChannelId == "UCauthor")
-        #expect(comment.likeActionToken == "like-token")
-        #expect(comment.unlikeActionToken == "unlike-token")
-        #expect(comment.dislikeActionToken == "dislike-token")
+        #expect(comment.likeAction == "like-token")
+        #expect(comment.unlikeAction == "unlike-token")
+        #expect(comment.dislikeAction == "dislike-token")
         #expect(comment.repliesContinuation == "replies-token")
     }
 

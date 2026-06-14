@@ -153,13 +153,13 @@ struct YouTubeComment: Identifiable, Hashable {
     /// The author's channel (for navigation to their page).
     var authorChannelId: String?
     /// Action token for liking this comment.
-    var likeActionToken: String?
+    var likeAction: String?
     /// Action token for removing a like.
-    var unlikeActionToken: String?
+    var unlikeAction: String?
     /// Action token for disliking this comment.
-    var dislikeActionToken: String?
+    var dislikeAction: String?
     /// Action token for removing a dislike.
-    var undislikeActionToken: String?
+    var undislikeAction: String?
     /// Continuation token for this comment's reply thread.
     var repliesContinuation: String?
 
@@ -171,10 +171,10 @@ struct YouTubeComment: Identifiable, Hashable {
         publishedText: String?,
         likeCountText: String?,
         authorChannelId: String? = nil,
-        likeActionToken: String? = nil,
-        unlikeActionToken: String? = nil,
-        dislikeActionToken: String? = nil,
-        undislikeActionToken: String? = nil,
+        likeAction: String? = nil,
+        unlikeAction: String? = nil,
+        dislikeAction: String? = nil,
+        undislikeAction: String? = nil,
         repliesContinuation: String? = nil
     ) {
         self.id = id
@@ -184,10 +184,10 @@ struct YouTubeComment: Identifiable, Hashable {
         self.publishedText = publishedText
         self.likeCountText = likeCountText
         self.authorChannelId = authorChannelId
-        self.likeActionToken = likeActionToken
-        self.unlikeActionToken = unlikeActionToken
-        self.dislikeActionToken = dislikeActionToken
-        self.undislikeActionToken = undislikeActionToken
+        self.likeAction = likeAction
+        self.unlikeAction = unlikeAction
+        self.dislikeAction = dislikeAction
+        self.undislikeAction = undislikeAction
         self.repliesContinuation = repliesContinuation
     }
 }

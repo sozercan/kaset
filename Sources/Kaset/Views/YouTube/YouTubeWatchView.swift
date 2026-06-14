@@ -526,7 +526,7 @@ private struct CommentRow: View {
                         .foregroundStyle(self.isLiked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(self.comment.likeActionToken == nil)
+                    .disabled(self.comment.likeAction == nil)
                     .accessibilityLabel(String(localized: "Like comment"))
 
                     Button(action: self.onDislike) {
@@ -535,7 +535,7 @@ private struct CommentRow: View {
                             .foregroundStyle(self.isDisliked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(self.comment.dislikeActionToken == nil)
+                    .disabled(self.comment.dislikeAction == nil)
                     .accessibilityLabel(String(localized: "Dislike comment"))
                 }
                 .padding(.top, 2)

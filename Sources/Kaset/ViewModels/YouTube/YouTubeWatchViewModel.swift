@@ -122,11 +122,11 @@ final class YouTubeWatchViewModel {
     /// Toggles a like on a comment (likes, or removes an existing like).
     func likeComment(_ comment: YouTubeComment) async {
         let isLiked = self.likedComments.contains(comment.id)
-        guard let token = isLiked ? comment.unlikeActionToken : comment.likeActionToken else {
+        guard let action = isLiked ? comment.unlikeAction : comment.likeAction else {
             return
         }
         do {
-            try await self.client.performCommentAction(token)
+            try await self.client.performCommentAction(action)
             if isLiked {
                 self.likedComments.remove(comment.id)
             } else {
@@ -142,11 +142,11 @@ final class YouTubeWatchViewModel {
     /// Toggles a dislike on a comment (dislikes, or removes an existing one).
     func dislikeComment(_ comment: YouTubeComment) async {
         let isDisliked = self.dislikedComments.contains(comment.id)
-        guard let token = isDisliked ? comment.undislikeActionToken : comment.dislikeActionToken else {
+        guard let action = isDisliked ? comment.undislikeAction : comment.dislikeAction else {
             return
         }
         do {
-            try await self.client.performCommentAction(token)
+            try await self.client.performCommentAction(action)
             if isDisliked {
                 self.dislikedComments.remove(comment.id)
             } else {

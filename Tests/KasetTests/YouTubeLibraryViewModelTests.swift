@@ -224,8 +224,8 @@ struct YouTubeWatchViewModelActionTests {
             text: "Hi",
             publishedText: nil,
             likeCountText: nil,
-            likeActionToken: "like-token",
-            unlikeActionToken: "unlike-token"
+            likeAction: "like-token",
+            unlikeAction: "unlike-token"
         )
 
         await sut.likeComment(comment)

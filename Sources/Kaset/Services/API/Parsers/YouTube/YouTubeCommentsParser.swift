@@ -79,10 +79,10 @@ enum YouTubeCommentsParser {
                 if let surfaceKey = entry.vm["toolbarSurfaceKey"] as? String,
                    let surface = surfacesByKey[surfaceKey]
                 {
-                    comment.likeActionToken = surface.like
-                    comment.unlikeActionToken = surface.unlike
-                    comment.dislikeActionToken = surface.dislike
-                    comment.undislikeActionToken = surface.undislike
+                    comment.likeAction = surface.like
+                    comment.unlikeAction = surface.unlike
+                    comment.dislikeAction = surface.dislike
+                    comment.undislikeAction = surface.undislike
                 }
                 comment.repliesContinuation = entry.replies
                 return comment

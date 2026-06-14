@@ -356,7 +356,7 @@ final class YouTubePlayerService {
             if !tracks.isEmpty || attempt == 2 {
                 return
             }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .milliseconds(1500))
         }
     }
 

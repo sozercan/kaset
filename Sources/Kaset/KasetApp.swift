@@ -99,6 +99,9 @@ struct KasetApp: App {
         realYouTubeClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
+        realYouTubeClient.accountCacheIdentityProvider = { [weak account] in
+            account?.currentAccount?.cacheIdentity
+        }
         let youtubeClient: YouTubeClientProtocol = if UITestConfig.isUITestMode {
             MockUITestYouTubeClient()
         } else {
