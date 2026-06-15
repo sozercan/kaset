@@ -114,6 +114,30 @@ struct PlayerServiceQueueTests {
         #expect(!self.playerService.queueEntryIDs.contains(secondEntryID))
     }
 
+    @Test("Remove queue entries clamps current index after removing current entry")
+    func removeFromQueueEntryIDsClampsCurrentIndexAfterRemovingCurrentEntry() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(songs, startingAt: 2)
+        let entryIDs = self.playerService.queueEntryIDs
+
+        self.playerService.removeFromQueue(entryIDs: Set(entryIDs[1 ... 3]))
+
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0"])
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentQueueEntryID == entryIDs[0])
+    }
+
+    @Test("Remove songs by video ID clamps current index after removing current song")
+    func removeFromQueueVideoIDsClampsCurrentIndexAfterRemovingCurrentSong() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(songs, startingAt: 2)
+
+        self.playerService.removeFromQueue(videoIds: Set(["video-1", "video-2", "video-3"]))
+
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0"])
+        #expect(self.playerService.currentIndex == 0)
+    }
+
     @Test("Remove duplicate queue entries keeps first occurrence and realigns current track")
     func removeDuplicateQueueEntriesKeepsFirstOccurrence() async throws {
         let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")

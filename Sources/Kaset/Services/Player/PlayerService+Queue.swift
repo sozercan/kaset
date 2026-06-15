@@ -292,11 +292,13 @@ extension PlayerService {
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
+        let originalCurrentIndex = self.currentIndex
         var remainingEntries = self.queueEntries
         remainingEntries.remove(at: index)
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
             removedIndex: index
         )
 
@@ -319,6 +321,7 @@ extension PlayerService {
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
+        let originalCurrentIndex = self.currentIndex
         var remainingEntries = self.queueEntries
         for index in indicesToRemove {
             remainingEntries.remove(at: index)
@@ -326,6 +329,7 @@ extension PlayerService {
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
             removedIndices: indicesToRemove
         )
 
@@ -368,16 +372,19 @@ extension PlayerService {
 
     private func realignCurrentIndexAfterQueueMutation(
         currentEntryID: UUID?,
+        originalCurrentIndex: Int,
         removedIndex: Int
     ) {
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
             removedIndices: [removedIndex]
         )
     }
 
     private func realignCurrentIndexAfterQueueMutation(
         currentEntryID: UUID?,
+        originalCurrentIndex: Int,
         removedIndices: [Int]
     ) {
         if let currentEntryID,
@@ -387,12 +394,9 @@ extension PlayerService {
             return
         }
 
-        let removedBeforeCurrent = removedIndices.count(where: { $0 < self.currentIndex })
-        if removedBeforeCurrent > 0 {
-            self.currentIndex = max(0, self.currentIndex - removedBeforeCurrent)
-        } else if self.currentIndex >= self.queue.count {
-            self.currentIndex = max(0, self.queue.count - 1)
-        }
+        let removedBeforeCurrent = removedIndices.count(where: { $0 < originalCurrentIndex })
+        let adjustedIndex = max(0, originalCurrentIndex - removedBeforeCurrent)
+        self.currentIndex = min(adjustedIndex, max(0, self.queue.count - 1))
     }
 
     private func realignCurrentIndexAfterDuplicateRemoval(
@@ -424,17 +428,17 @@ extension PlayerService {
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
+        let originalCurrentIndex = self.currentIndex
+        let indicesToRemove = self.queueEntries.enumerated()
+            .filter { videoIds.contains($0.element.song.videoId) }
+            .map(\.offset)
         let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
         self.setQueue(entries: remainingEntries)
-
-        // Adjust currentIndex if needed
-        if let currentEntryID,
-           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
-        {
-            self.currentIndex = newIndex
-        } else if self.currentIndex >= self.queue.count {
-            self.currentIndex = max(0, self.queue.count - 1)
-        }
+        self.realignCurrentIndexAfterQueueMutation(
+            currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
+            removedIndices: indicesToRemove
+        )
 
         self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
         self.saveQueueForPersistence()
