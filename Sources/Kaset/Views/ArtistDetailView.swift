@@ -54,12 +54,15 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             VStack(alignment: .leading, spacing: 24) {
                 // Header
                 self.headerView(detail)
+                    .padding(.horizontal, DetailContentLayout.horizontalInset)
 
                 Divider()
+                    .padding(.horizontal, DetailContentLayout.horizontalInset)
 
-                // Songs section
+                // Songs section (vertical list — inset like other non-shelf content)
                 if !detail.songs.isEmpty {
                     self.songsSection()
+                        .padding(.horizontal, DetailContentLayout.horizontalInset)
                 }
 
                 // Latest episodes (includes live radio streams). Episodes are
@@ -111,10 +114,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             }
             .padding(.vertical, 24)
         }
-        // Inset resting content while the scroll view stays edge-to-edge so the
-        // accent backdrop (which ignores the safe area) refracts through the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
+        // The ScrollView stays edge-to-edge: non-scrolling content is inset via
+        // padding above, while horizontal shelves pass `contentInset` so their
+        // tracks reach the under-sidebar band and slide under the floating glass
+        // on macOS 26. The accent backdrop (ignores safe area) refracts through.
         .topFade(style: .contentMask)
     }
 
@@ -440,7 +443,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     ) -> some View {
         CarouselShelfSection(
             accessibilityLabel: title,
-            items: albums
+            items: albums,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: title, shelfKind: shelfKind)
         } itemContent: { album in
@@ -454,7 +458,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func playlistsSection(_ playlists: [Playlist], title: String) -> some View {
         CarouselShelfSection(
             accessibilityLabel: title,
-            items: playlists
+            items: playlists,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: title, shelfKind: .playlistsByArtist)
         } itemContent: { playlist in
@@ -468,7 +473,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func artistsSection(_ artists: [Artist], title: String) -> some View {
         CarouselShelfSection(
             accessibilityLabel: title,
-            items: artists
+            items: artists,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: title, shelfKind: .relatedArtists)
         } itemContent: { artist in
@@ -628,7 +634,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func episodesSection(_ episodes: [ArtistEpisode]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Latest episodes"),
-            items: episodes
+            items: episodes,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: "Latest episodes", shelfKind: .episodes)
         } itemContent: { episode in
@@ -699,7 +706,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func singlesSection(_ singles: [Album]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Singles & EPs"),
-            items: singles
+            items: singles,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: "Singles & EPs", shelfKind: .singles)
         } itemContent: { album in
@@ -715,7 +723,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func playlistsByArtistSection(_ playlists: [Playlist]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Playlists"),
-            items: playlists
+            items: playlists,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: "Playlists", shelfKind: .playlistsByArtist)
         } itemContent: { playlist in
@@ -753,7 +762,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func podcastsSection(_ podcasts: [PodcastShow]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Podcasts"),
-            items: podcasts
+            items: podcasts,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: "Podcasts", shelfKind: .podcasts)
         } itemContent: { show in
@@ -795,7 +805,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func relatedArtistsSection(_ artists: [Artist]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Fans might also like"),
-            items: artists
+            items: artists,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             self.sectionHeader(title: "Fans might also like", shelfKind: .relatedArtists)
         } itemContent: { artist in

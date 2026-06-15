@@ -49,6 +49,7 @@ struct YouTubeSubscriptionsView: View {
                     } description: {
                         Text("Videos from channels you subscribe to appear here.", comment: "Empty subscriptions feed description")
                     }
+                    .padding(.horizontal, DetailContentLayout.horizontalInset)
                 } else {
                     LazyVGrid(columns: Self.columns, spacing: 20) {
                         ForEach(self.viewModel.videos) { video in
@@ -66,18 +67,24 @@ struct YouTubeSubscriptionsView: View {
                                 }
                         }
                     }
+                    // Vertical grid: inset its resting content; the channel rail
+                    // above keeps its own edge-to-edge track so it slides under
+                    // the floating glass sidebar on macOS 26.
+                    .padding(.horizontal, DetailContentLayout.horizontalInset)
                 }
             }
             .padding(.vertical, 20)
         }
-        // Edge-to-edge with a resting inset so content extends under the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     private var channelRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
+                // Leading resting inset INSIDE the track so the rail reaches the
+                // detail-column edge and slides under the floating glass sidebar.
+                Spacer()
+                    .frame(width: DetailContentLayout.horizontalInset - 2)
+
                 ForEach(self.viewModel.channels) { channel in
                     NavigationLink(value: YouTubeRoute.channel(channelId: channel.channelId)) {
                         VStack(spacing: 6) {
@@ -110,8 +117,12 @@ struct YouTubeSubscriptionsView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(channel.name)
                 }
+
+                // Trailing resting inset.
+                Spacer()
+                    .frame(width: DetailContentLayout.horizontalInset - 2)
             }
-            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
         }
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscriptionsRail)
     }
