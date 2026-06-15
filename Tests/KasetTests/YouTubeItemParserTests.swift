@@ -193,6 +193,73 @@ struct YouTubeItemParserTests {
         #expect(playlist.firstVideoId == "first1")
     }
 
+    // MARK: - Watched progress
+
+    /// Builds a minimal video `lockupViewModel` whose bottom overlay optionally
+    /// carries a duration badge and/or a resume `progressBar`.
+    private func makeProgressLockup(
+        badgeText: String? = "32:23",
+        startPercent: Any? = nil
+    ) -> [String: Any] {
+        var bottomOverlay: [String: Any] = [:]
+        if let badgeText {
+            bottomOverlay["badges"] = [["thumbnailBadgeViewModel": ["text": badgeText]]]
+        }
+        if let startPercent {
+            bottomOverlay["progressBar"] = [
+                "thumbnailOverlayProgressBarViewModel": ["startPercent": startPercent],
+            ]
+        }
+        return [
+            "contentId": "progress123",
+            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+            "contentImage": [
+                "thumbnailViewModel": [
+                    "overlays": [["thumbnailBottomOverlayViewModel": bottomOverlay]],
+                ],
+            ],
+            "metadata": [
+                "lockupMetadataViewModel": ["title": ["content": "Progress Video"]],
+            ],
+        ]
+    }
+
+    @Test("Parses startPercent from a lockup progress overlay")
+    func parsesLockupWatchedPercent() throws {
+        let lockup = self.makeProgressLockup(startPercent: 77)
+        let video = try #require(YouTubeItemParser.video(fromLockup: lockup))
+        #expect(video.watchedPercent == 77)
+    }
+
+    @Test("Unwatched lockup has no progress and still parses its duration badge")
+    func unwatchedLockupHasNilProgress() throws {
+        let lockup = self.makeProgressLockup(startPercent: nil)
+        let video = try #require(YouTubeItemParser.video(fromLockup: lockup))
+        #expect(video.watchedPercent == nil)
+        // Reading the sibling progressBar key must not disturb badge parsing.
+        #expect(video.lengthText == "32:23")
+    }
+
+    @Test("Clamps and coerces an out-of-range Double startPercent")
+    func clampsLockupWatchedPercent() throws {
+        let lockup = self.makeProgressLockup(startPercent: 150.0)
+        let video = try #require(YouTubeItemParser.video(fromLockup: lockup))
+        #expect(video.watchedPercent == 100)
+    }
+
+    @Test("Parses percentDurationWatched from a legacy videoRenderer")
+    func parsesLegacyWatchedPercent() throws {
+        let renderer: [String: Any] = [
+            "videoId": "legacy123",
+            "title": ["runs": [["text": "Legacy Video"]]],
+            "thumbnailOverlays": [
+                ["thumbnailOverlayResumePlaybackRenderer": ["percentDurationWatched": 100]],
+            ],
+        ]
+        let video = try #require(YouTubeItemParser.video(fromVideoRenderer: renderer))
+        #expect(video.watchedPercent == 100)
+    }
+
     // MARK: - channelRenderer
 
     @Test("Parses a channelRenderer with swapped handle/subscriber fields")

@@ -70,7 +70,8 @@ enum YouTubeItemParser {
             publishedText: self.text(from: renderer["publishedTimeText"]),
             thumbnailURL: self.thumbnailURL(fromThumbnail: renderer["thumbnail"]),
             isLive: isLive,
-            isShort: self.isShort(navigationContainer: renderer["navigationEndpoint"])
+            isShort: self.isShort(navigationContainer: renderer["navigationEndpoint"]),
+            watchedPercent: self.watchedPercent(ofRenderer: renderer)
         )
     }
 
@@ -191,7 +192,8 @@ enum YouTubeItemParser {
             publishedText: publishedText,
             thumbnailURL: self.thumbnailURL(fromLockup: lockup),
             isLive: badgeText?.localizedCaseInsensitiveCompare("live") == .orderedSame,
-            isShort: isShort
+            isShort: isShort,
+            watchedPercent: self.watchedPercent(ofLockup: lockup)
         )
     }
 
@@ -379,6 +381,55 @@ enum YouTubeItemParser {
             }
         }
         return nil
+    }
+
+    // MARK: - Watched Progress
+
+    /// Resume-progress percent from a lockup's thumbnail overlay
+    /// (`progressBar`, a sibling of the `badges` key read by
+    /// `thumbnailBadgeText(of:)`). `nil` when the video is unwatched.
+    private static func watchedPercent(ofLockup lockup: [String: Any]) -> Int? {
+        let overlays = (
+            (lockup["contentImage"] as? [String: Any])?["thumbnailViewModel"] as? [String: Any]
+        )?["overlays"] as? [[String: Any]] ?? []
+
+        for overlay in overlays {
+            guard let bottom = overlay["thumbnailBottomOverlayViewModel"] as? [String: Any],
+                  let bar = bottom["progressBar"] as? [String: Any],
+                  let viewModel = bar["thumbnailOverlayProgressBarViewModel"] as? [String: Any]
+            else {
+                continue
+            }
+            if let percent = Self.percentValue(viewModel["startPercent"]) {
+                return percent
+            }
+        }
+        return nil
+    }
+
+    /// Resume-progress percent from a legacy `videoRenderer.thumbnailOverlays`
+    /// array (`thumbnailOverlayResumePlaybackRenderer.percentDurationWatched`).
+    private static func watchedPercent(ofRenderer renderer: [String: Any]) -> Int? {
+        guard let overlays = renderer["thumbnailOverlays"] as? [[String: Any]] else {
+            return nil
+        }
+
+        for overlay in overlays {
+            guard let resume = overlay["thumbnailOverlayResumePlaybackRenderer"] as? [String: Any]
+            else {
+                continue
+            }
+            if let percent = Self.percentValue(resume["percentDurationWatched"]) {
+                return percent
+            }
+        }
+        return nil
+    }
+
+    /// Coerces an InnerTube percent (Int or Double encoding) into a clamped 0…100 Int.
+    private static func percentValue(_ raw: Any?) -> Int? {
+        let value = (raw as? Int) ?? (raw as? Double).map(Int.init)
+        return value.map { min(max($0, 0), 100) }
     }
 
     // MARK: - Badges
