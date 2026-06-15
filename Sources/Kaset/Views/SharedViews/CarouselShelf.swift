@@ -65,14 +65,16 @@ struct CarouselShelf<Content: View>: View {
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
                 self.controlButton(for: .leading)
-                    .padding(.leading, 4)
+                    // Sit at the resting inset (not the column edge) so the
+                    // button clears the floating-sidebar band on macOS 26.
+                    .padding(.leading, self.contentInset + 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .overlay(alignment: Alignment(horizontal: .trailing, vertical: self.controlVerticalAlignment)) {
             if self.showsTrailingControl {
                 self.controlButton(for: .trailing)
-                    .padding(.trailing, 4)
+                    .padding(.trailing, self.contentInset + 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
