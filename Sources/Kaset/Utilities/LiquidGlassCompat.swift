@@ -32,17 +32,16 @@ extension View {
         self.modifier(CompatGlassProminentButtonModifier())
     }
 
-    /// Hide a sidebar `List`'s opaque scroll-content background so the
-    /// `NavigationSplitView` column's automatic Liquid Glass shows through
-    /// (macOS 26+). On the legacy macOS 15 path the opaque sidebar material is
-    /// preserved, since there is no column-level glass to reveal there.
+    /// Give the sidebar a translucent frosted appearance.
     ///
-    /// Gated on BOTH `usesLegacyMacOS15UI` AND `#available(macOS 26.0, *)`:
-    /// `usesLegacyMacOS15UI` is a debug toggle, not the OS version, so hiding
-    /// the list background on real macOS 15 hardware would expose the window
-    /// background instead of glass.
-    func compatHideSidebarListBackground() -> some View {
-        self.modifier(CompatHideSidebarListBackgroundModifier())
+    /// On macOS 26 the floating Liquid Glass sidebar is automatic, so this hides
+    /// the `List`'s opaque material to reveal it. On the legacy macOS 15 path it
+    /// instead hides the list background and lays an `.ultraThinMaterial` behind
+    /// the sidebar — the same material the player bar uses — so the panel reads
+    /// as a blurred, translucent surface (vibrant over the window) rather than a
+    /// flat opaque column.
+    func compatTranslucentSidebar() -> some View {
+        self.modifier(CompatTranslucentSidebarModifier())
     }
 }
 
@@ -147,22 +146,22 @@ struct CompatGlassContainer<Content: View>: View {
     }
 }
 
-// MARK: - CompatHideSidebarListBackgroundModifier
+// MARK: - CompatTranslucentSidebarModifier
 
-private struct CompatHideSidebarListBackgroundModifier: ViewModifier {
+private struct CompatTranslucentSidebarModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
-            // Reveal the NavigationSplitView column's system Liquid Glass by
-            // dropping the List's own opaque `.sidebar` material. The frosted
-            // column glass (not clear glass) keeps labels legible while detail
-            // content sliding underneath is faintly visible through it.
+            // macOS 26: reveal the system floating Liquid Glass.
             content.scrollContentBackground(.hidden)
         } else {
-            // Legacy macOS 15: keep the opaque sidebar material — there is no
-            // column-level glass to reveal.
+            // Legacy macOS 15: drop the opaque list material and lay an
+            // `.ultraThinMaterial` behind the sidebar so it reads as a blurred,
+            // translucent panel (the same material the player bar uses).
             content
+                .scrollContentBackground(.hidden)
+                .background(.ultraThinMaterial)
         }
     }
 }

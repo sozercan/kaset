@@ -53,10 +53,15 @@ Apple's Landmarks sample does.** Two coordinated changes:
 1. **Reveal the system sidebar glass (subtractive).** Make `List` the sidebar
    column root and hide its opaque scroll-content background via
    `.scrollContentBackground(.hidden)`, exposed through a gated compat shim
-   `compatHideSidebarListBackground()`. The footer rides the same glass via
+   `compatTranslucentSidebar()`. The footer rides the same glass via
    `.safeAreaInset(edge: .bottom)`. No explicit `.glassEffect()` is added — that
    would be glass-on-glass and darken the panel. Applied to both `Sidebar` and
-   `YouTubeSidebar`.
+   `YouTubeSidebar`. On the legacy macOS 15 path the same shim instead lays an
+   `.ultraThinMaterial` behind the sidebar so it still reads as a blurred,
+   translucent panel (the material the player bar uses) rather than a flat
+   opaque column. Note this material is vibrant over the *window* (desktop),
+   not the detail cards — true content-through under the sidebar is a macOS 26
+   behavior.
 
 2. **Route detail content under the sidebar.**
    - *Horizontal shelves* (`CarouselShelf`): run the scroll track edge-to-edge
@@ -78,13 +83,14 @@ inset consistent across all surfaces.
 
 ### Gating
 
-`compatHideSidebarListBackground()` is gated on **both**
-`!usesLegacyMacOS15UI` **and** `#available(macOS 26.0, *)`. The
-`usesLegacyMacOS15UI` flag is a debug toggle, not the OS version: gating on the
-flag alone would hide the list background on real macOS 15 hardware, where there
-is no column-level glass to reveal, exposing the window background instead. The
-`.contentMargins`/`Spacer` layout changes are macOS 14+ and produce the same
-resting layout on the legacy path (there is simply no glass to slide under).
+`compatTranslucentSidebar()` branches on **both** `!usesLegacyMacOS15UI`
+**and** `#available(macOS 26.0, *)`. The `usesLegacyMacOS15UI` flag is a debug
+toggle, not the OS version. On macOS 26 (non-legacy) it hides the list
+background to reveal the system Liquid Glass; otherwise (legacy flag, or real
+macOS 15 where the `#available` check is false at runtime) it falls back to an
+`.ultraThinMaterial` frosted panel. The `.contentMargins`/`Spacer` layout
+changes are macOS 14+ and produce the same resting layout on the legacy path
+(there is simply no glass to slide under).
 
 ## Consequences
 
@@ -92,8 +98,9 @@ resting layout on the legacy path (there is simply no glass to slide under).
   under it as Apple Music does. The show-through is a faint, blurred, tinted
   hint (not crisp transparency) — this is the intended native appearance and
   keeps sidebar labels legible.
-- The effect is macOS 26 only. The legacy macOS 15 path keeps the opaque sidebar
-  and the same resting content layout.
+- The effect is macOS 26 only. The legacy macOS 15 path keeps the same resting
+  content layout and renders the sidebar as a frosted `.ultraThinMaterial`
+  panel (translucent over the window, not the detail cards).
 - `CarouselShelf` lost its edge-fade mask, `fadeWidth`, `hoverBleed`, and the
   associated `maskColors`. The paging-control affordances are unchanged.
 - This refines the previous "glass is for navigation, not content" guidance:

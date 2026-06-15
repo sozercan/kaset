@@ -87,7 +87,7 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .compatHideSidebarListBackground()
+        .compatTranslucentSidebar()
         .accessibilityIdentifier(AccessibilityID.Sidebar.container)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             // Source toggle + profile section at bottom (shared with YouTubeSidebar)

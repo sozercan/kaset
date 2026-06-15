@@ -1141,9 +1141,10 @@ Clean, minimal sidebar with only functional navigation:
 - Only show items that have implemented functionality
 - Remove placeholder items (Artists, Albums, Songs, Liked Songs, etc.)
 - Use standard SwiftUI `List` with `.listStyle(.sidebar)` as the column root
-- On macOS 26, hide the list's opaque background
-  (`compatHideSidebarListBackground()`) so the floating Liquid Glass shows
-  through and detail content slides under it (ADR-0021)
+- Apply `compatTranslucentSidebar()`: on macOS 26 it hides the list's opaque
+  background so the floating Liquid Glass shows through and detail content
+  slides under it; on legacy macOS 15 it falls back to an `.ultraThinMaterial`
+  frosted panel (ADR-0021)
 
 ### Persistent UI Elements
 

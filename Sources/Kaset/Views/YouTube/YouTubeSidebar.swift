@@ -34,7 +34,7 @@ struct YouTubeSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .compatHideSidebarListBackground()
+        .compatTranslucentSidebar()
         .accessibilityIdentifier(AccessibilityID.YouTubeSidebar.container)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SidebarFooterView()
