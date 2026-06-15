@@ -95,11 +95,8 @@ struct Sidebar: View {
                 .accessibilityIdentifier(AccessibilityID.Sidebar.container)
             }
 
-            Divider()
-                .opacity(0.3)
-
-            // Profile section at bottom
-            SidebarProfileView()
+            // Source toggle + profile section at bottom (shared with YouTubeSidebar)
+            SidebarFooterView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
     }

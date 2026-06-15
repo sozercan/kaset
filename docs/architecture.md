@@ -16,7 +16,8 @@ Sources/
       │   ├── API/      → YTMusicClient, Parsers/
       │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
-      │   ├── Player/   → PlayerService, NowPlayingManager (media keys)
+      │   ├── Library/  → Library identity and optimistic reconciliation modules
+      │   ├── Player/   → PlayerService, NowPlayingManager, queue metadata and album playback actions
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
       │   ├── WebKit/   → WebKitManager (cookie persistence)
       │   └── HapticService.swift → Force Touch trackpad haptic feedback
@@ -58,6 +59,10 @@ final class HomeViewModel {
 - **Source of Truth**: Services are `@MainActor @Observable` singletons
 - **Environment Injection**: Views access services via `@Environment`
 - **Cookie Persistence**: `WKWebsiteDataStore` with persistent identifier
+
+### Library State Reconciliation
+
+`LibraryViewModel` owns observable Library UI state, while `LibraryContentReconciler` owns optimistic add/remove reconciliation for eventually-consistent YouTube Music Library responses. `LibraryMutationActions` owns mutation orchestration: calling YouTube Music, invalidating stale caches, applying optimistic state, and scheduling delayed reconciliation when backend snapshots lag. This keeps pending mutation stabilization rules behind small Library interfaces instead of spreading them across view models and action helpers.
 
 ## Key Services
 
@@ -140,15 +145,23 @@ Response parsing is extracted into specialized modules:
 | Parser | Purpose |
 |--------|---------|
 | `ParsingHelpers.swift` | Shared utilities (thumbnails, artists, duration) |
+| `ResponseTreeSearch.swift` | Recursive search helpers for nested YouTube Music response trees |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `PlaylistParser.swift` | Playlist details, library playlists, queue tracks, pagination, add-to-playlist menu options, create-playlist IDs, and ownership/delete affordances |
+| `LibraryContentParser.swift` | Library browse content, including playlists, followed artists, podcast shows, and uploaded-song virtual tile parsing |
+| `PlaylistEditability.swift` | Playlist ownership/delete affordance detection |
+| `PlaylistParser.swift` | Playlist details, queue tracks, pagination, add-to-playlist menu options, and create-playlist IDs |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |
 | `RadioQueueParser.swift` | Radio queue from "next" endpoint |
 | `SongMetadataParser.swift` | Full song metadata with feedback tokens |
 | `LyricsParser.swift` | Lyrics extraction |
 
 **Design**: Static enum-based parsers with pure functions for testability.
+
+
+### Queue Song Metadata and Album Playback
+
+`QueueSongMetadata` prepares song values before they enter the native queue, centralizing artist cleanup and fallback album/thumbnail rules. `AlbumPlaybackActions` owns album-specific fetch/queue/play workflows so SwiftUI action helpers do not duplicate album-track enrichment logic. `PlaylistPlaybackActions` owns playlist playback, radio queue fallback, playlist-artwork fallback, and continuation append/cancel behavior.
 
 ### PlayerService
 

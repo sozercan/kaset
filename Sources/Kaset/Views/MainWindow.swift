@@ -31,8 +31,20 @@ struct MainWindow: View {
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
+    /// Binding to the YouTube (video) experience's navigation selection.
+    @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
+
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
+
+    /// Shared YouTube (video) API client.
+    let youtubeClient: any YouTubeClientProtocol
+
+    /// App-wide settings; drives the active content source (music vs. video).
+    @State private var settings = SettingsManager.shared
+
+    /// View models for the YouTube experience (persist across source toggles).
+    @State private var youtubeStore: YouTubeViewModelStore
 
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
@@ -58,9 +70,17 @@ struct MainWindow: View {
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
-    init(navigationSelection: Binding<NavigationItem?>, client: any YTMusicClientProtocol) {
+    init(
+        navigationSelection: Binding<NavigationItem?>,
+        youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        client: any YTMusicClientProtocol,
+        youtubeClient: any YouTubeClientProtocol
+    ) {
         self._navigationSelection = navigationSelection
+        self._youtubeNavigationSelection = youtubeNavigationSelection
         self.client = client
+        self.youtubeClient = youtubeClient
+        _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
         _homeViewModel = State(initialValue: HomeViewModel(client: client))
         _exploreViewModel = State(initialValue: ExploreViewModel(client: client))
         _searchViewModel = State(initialValue: SearchViewModel(client: client))
@@ -236,6 +256,8 @@ struct MainWindow: View {
                 guard newAccountId != nil else { return }
 
                 self.historyViewModel?.reset()
+                // YouTube surfaces are account-scoped too.
+                self.youtubeStore.resetForAccountChange()
 
                 // Brand accounts can have a different region than the
                 // primary; re-probe in the background so the sidebar
@@ -336,18 +358,29 @@ struct MainWindow: View {
 
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
-            // Main navigation content
+            // Main navigation content — sidebar and detail swap with the active source.
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(
-                    selection: self.$navigationSelection,
-                    pinnedSelection: self.$selectedSidebarPinnedItem
-                )
+                if self.settings.appSource == .music {
+                    Sidebar(
+                        selection: self.$navigationSelection,
+                        pinnedSelection: self.$selectedSidebarPinnedItem
+                    )
+                } else {
+                    YouTubeSidebar(selection: self.$youtubeNavigationSelection)
+                }
             } detail: {
-                self.detailView(
-                    for: self.navigationSelection,
-                    pinnedItem: self.selectedSidebarPinnedItem,
-                    client: self.client
-                )
+                if self.settings.appSource == .music {
+                    self.detailView(
+                        for: self.navigationSelection,
+                        pinnedItem: self.selectedSidebarPinnedItem,
+                        client: self.client
+                    )
+                } else {
+                    YouTubeContentView(
+                        selection: self.youtubeNavigationSelection,
+                        store: self.youtubeStore
+                    )
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -387,7 +420,10 @@ struct MainWindow: View {
     }
 
     private var supportsCommandBarUI: Bool {
+        // The command bar is a music/AI feature; it has no role in the
+        // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
+            && self.settings.appSource == .music
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -715,12 +751,18 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
+    @Previewable @State var youtubeNavSelection: YouTubeNavigationItem? = .home
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
-    MainWindow(navigationSelection: $navSelection, client: ytMusicClient)
-        .environment(authService)
-        .environment(PlayerService())
-        .environment(WebKitManager.shared)
-        .environment(accountService)
+    MainWindow(
+        navigationSelection: $navSelection,
+        youtubeNavigationSelection: $youtubeNavSelection,
+        client: ytMusicClient,
+        youtubeClient: YouTubeClient(authService: authService)
+    )
+    .environment(authService)
+    .environment(PlayerService())
+    .environment(WebKitManager.shared)
+    .environment(accountService)
 }

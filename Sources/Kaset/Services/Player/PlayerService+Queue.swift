@@ -275,26 +275,150 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Removes songs from the queue by stable entry IDs.
-    /// - Parameter entryIDs: Set of queue entry IDs to remove.
-    func removeFromQueue(entryIDs: Set<UUID>) {
+    /// Whether the queue contains the same song more than once.
+    var queueHasDuplicateEntries: Bool {
+        var seenVideoIds = Set<String>()
+        for song in self.queue where !seenVideoIds.insert(song.videoId).inserted {
+            return true
+        }
+        return false
+    }
+
+    /// Removes the queue entry at the given index, leaving other occurrences of the same song intact.
+    /// - Parameter index: The queue index to remove.
+    func removeFromQueue(at index: Int) {
+        guard self.queueEntries.indices.contains(index) else { return }
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
-        let remainingEntries = self.queueEntries.filter { !entryIDs.contains($0.id) }
+        let originalCurrentIndex = self.currentIndex
+        var remainingEntries = self.queueEntries
+        remainingEntries.remove(at: index)
         self.setQueue(entries: remainingEntries)
+        self.realignCurrentIndexAfterQueueMutation(
+            currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
+            removedIndex: index
+        )
 
+        self.logger.info("Removed queue entry at index \(index); queue size \(previousCount) -> \(self.queue.count)")
+        self.saveQueueForPersistence()
+    }
+
+    /// Removes songs from the queue by stable entry IDs.
+    /// - Parameter entryIDs: Set of queue entry IDs to remove.
+    func removeFromQueue(entryIDs: Set<UUID>) {
+        guard !entryIDs.isEmpty else { return }
+        let indicesToRemove = self.queueEntries.enumerated()
+            .filter { entryIDs.contains($0.element.id) }
+            .map(\.offset)
+            .sorted(by: >)
+
+        guard !indicesToRemove.isEmpty else { return }
+
+        self.clearForwardSkipNavigationStack()
+        self.recordQueueStateForUndo()
+        let previousCount = self.queue.count
+        let currentEntryID = self.currentQueueEntryID
+        let originalCurrentIndex = self.currentIndex
+        var remainingEntries = self.queueEntries
+        for index in indicesToRemove {
+            remainingEntries.remove(at: index)
+        }
+        self.setQueue(entries: remainingEntries)
+        self.realignCurrentIndexAfterQueueMutation(
+            currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
+            removedIndices: indicesToRemove
+        )
+
+        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
+        self.saveQueueForPersistence()
+    }
+
+    /// Removes later duplicate songs from the queue, keeping the first occurrence of each video ID.
+    func removeDuplicateQueueEntries() {
+        guard self.queueHasDuplicateEntries else { return }
+
+        self.clearForwardSkipNavigationStack()
+        self.recordQueueStateForUndo()
+
+        let currentEntryID = self.currentQueueEntryID
+        var seenVideoIds = Set<String>()
+        var deduplicatedEntries: [QueueEntry] = []
+        var removedCount = 0
+
+        for entry in self.queueEntries {
+            if seenVideoIds.contains(entry.song.videoId) {
+                removedCount += 1
+                continue
+            }
+            seenVideoIds.insert(entry.song.videoId)
+            deduplicatedEntries.append(entry)
+        }
+
+        guard removedCount > 0 else { return }
+
+        let priorEntries = self.queueEntries
+        self.setQueue(entries: deduplicatedEntries)
+        self.realignCurrentIndexAfterDuplicateRemoval(
+            currentEntryID: currentEntryID,
+            priorEntries: priorEntries
+        )
+        self.logger.info("Removed \(removedCount) duplicate queue entries")
+        self.saveQueueForPersistence()
+    }
+
+    private func realignCurrentIndexAfterQueueMutation(
+        currentEntryID: UUID?,
+        originalCurrentIndex: Int,
+        removedIndex: Int
+    ) {
+        self.realignCurrentIndexAfterQueueMutation(
+            currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
+            removedIndices: [removedIndex]
+        )
+    }
+
+    private func realignCurrentIndexAfterQueueMutation(
+        currentEntryID: UUID?,
+        originalCurrentIndex: Int,
+        removedIndices: [Int]
+    ) {
         if let currentEntryID,
            let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
         {
             self.currentIndex = newIndex
-        } else if self.currentIndex >= self.queue.count {
-            self.currentIndex = max(0, self.queue.count - 1)
+            return
         }
 
-        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
-        self.saveQueueForPersistence()
+        let removedBeforeCurrent = removedIndices.count(where: { $0 < originalCurrentIndex })
+        let adjustedIndex = max(0, originalCurrentIndex - removedBeforeCurrent)
+        self.currentIndex = min(adjustedIndex, max(0, self.queue.count - 1))
+    }
+
+    private func realignCurrentIndexAfterDuplicateRemoval(
+        currentEntryID: UUID?,
+        priorEntries: [QueueEntry]
+    ) {
+        if let currentEntryID,
+           let keptIndex = self.queueEntries.firstIndex(where: { $0.id == currentEntryID })
+        {
+            self.currentIndex = keptIndex
+            return
+        }
+
+        if let currentEntryID,
+           let removedEntry = priorEntries.first(where: { $0.id == currentEntryID }),
+           let fallbackIndex = self.queueEntries.firstIndex(where: { $0.song.videoId == removedEntry.song.videoId })
+        {
+            self.currentIndex = fallbackIndex
+            return
+        }
+
+        self.currentIndex = min(self.currentIndex, max(0, self.queue.count - 1))
     }
 
     /// Removes songs from the queue by video ID.
@@ -304,17 +428,17 @@ extension PlayerService {
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
+        let originalCurrentIndex = self.currentIndex
+        let indicesToRemove = self.queueEntries.enumerated()
+            .filter { videoIds.contains($0.element.song.videoId) }
+            .map(\.offset)
         let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
         self.setQueue(entries: remainingEntries)
-
-        // Adjust currentIndex if needed
-        if let currentEntryID,
-           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
-        {
-            self.currentIndex = newIndex
-        } else if self.currentIndex >= self.queue.count {
-            self.currentIndex = max(0, self.queue.count - 1)
-        }
+        self.realignCurrentIndexAfterQueueMutation(
+            currentEntryID: currentEntryID,
+            originalCurrentIndex: originalCurrentIndex,
+            removedIndices: indicesToRemove
+        )
 
         self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
         self.saveQueueForPersistence()

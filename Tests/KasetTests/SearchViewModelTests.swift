@@ -14,6 +14,23 @@ struct SearchViewModelTests {
         self.viewModel = SearchViewModel(client: self.mockClient)
     }
 
+    private func waitForSuggestionFetch(
+        query: String,
+        timeout: Duration = .seconds(3)
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if self.mockClient.getSearchSuggestionsQueries.contains(query) {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        Issue.record("Timed out waiting for suggestion fetch for query: \(query)")
+    }
+
     @Test("Initial state is idle with empty query")
     func initialState() {
         #expect(self.viewModel.loadingState == .idle)
@@ -119,14 +136,14 @@ struct SearchViewModelTests {
     }
 
     @Test("Editing after submitted suggestion re-enables autocomplete")
-    func editingAfterSubmittedSuggestionReenablesAutocomplete() async throws {
+    func editingAfterSubmittedSuggestionReenablesAutocomplete() async {
         let suggestion = SearchSuggestion(query: "daft punk")
         self.mockClient.searchSuggestions = [SearchSuggestion(query: "daft punk random access memories")]
 
         self.viewModel.selectSuggestion(suggestion)
         self.viewModel.query = "daft punk r"
         self.viewModel.fetchSuggestions()
-        try await Task.sleep(for: .milliseconds(250))
+        await self.waitForSuggestionFetch(query: "daft punk r")
 
         #expect(self.mockClient.getSearchSuggestionsQueries == ["daft punk r"])
         #expect(self.viewModel.suggestions.count == 1)

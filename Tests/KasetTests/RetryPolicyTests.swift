@@ -153,4 +153,42 @@ struct RetryPolicyTests {
             Issue.record("Wrong error type: \(error)")
         }
     }
+
+    @Test("Execute does not retry CancellationError")
+    @MainActor
+    func executeDoesNotRetryCancellationError() async {
+        let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
+
+        var callCount = 0
+        do {
+            _ = try await policy.execute { () -> String in
+                callCount += 1
+                throw CancellationError()
+            }
+            Issue.record("Should have thrown")
+        } catch is CancellationError {
+            #expect(callCount == 1)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
+    }
+
+    @Test("Execute treats URLSession cancellation as cancellation")
+    @MainActor
+    func executeDoesNotRetryCancelledURLError() async {
+        let policy = RetryPolicy(maxAttempts: 3, baseDelay: 0.01, maxDelay: 0.1)
+
+        var callCount = 0
+        do {
+            _ = try await policy.execute { () -> String in
+                callCount += 1
+                throw URLError(.cancelled)
+            }
+            Issue.record("Should have thrown")
+        } catch is CancellationError {
+            #expect(callCount == 1)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
+    }
 }

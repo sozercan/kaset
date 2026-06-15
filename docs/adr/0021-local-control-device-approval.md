@@ -1,4 +1,4 @@
-# ADR-0020: Secure Local Control Device Approval & PIN Verification
+# ADR-0021: Secure Local Control Device Approval & PIN Verification
 
 ## Status
 Accepted
