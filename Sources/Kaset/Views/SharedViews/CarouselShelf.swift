@@ -40,14 +40,20 @@ struct CarouselShelf<Content: View>: View {
             // Apple's "Extending horizontal scrolling under a sidebar" pattern:
             // the ScrollView track must reach the leading/trailing edges so the
             // system auto-scrolls items UNDER the floating glass sidebar. The
-            // resting inset is therefore a leading Spacer INSIDE the content,
-            // never `.contentMargins`/`.padding` on the ScrollView (which would
-            // stop the track short of the sidebar and defeat the effect).
+            // resting insets are therefore Spacers INSIDE the content (leading
+            // and trailing), never `.contentMargins`/`.padding` on the
+            // ScrollView (which would stop the track short of the sidebar and
+            // defeat the effect).
             HStack(spacing: 0) {
                 if self.contentInset > 0 {
-                    Spacer(minLength: self.contentInset)
+                    Spacer()
+                        .frame(width: self.contentInset)
                 }
                 self.content()
+                if self.contentInset > 0 {
+                    Spacer()
+                        .frame(width: self.contentInset)
+                }
             }
         }
         .scrollPosition(self.$scrollPosition)
