@@ -31,6 +31,19 @@ extension View {
     func compatGlassProminentButton() -> some View {
         self.modifier(CompatGlassProminentButtonModifier())
     }
+
+    /// Hide a sidebar `List`'s opaque scroll-content background so the
+    /// `NavigationSplitView` column's automatic Liquid Glass shows through
+    /// (macOS 26+). On the legacy macOS 15 path the opaque sidebar material is
+    /// preserved, since there is no column-level glass to reveal there.
+    ///
+    /// Gated on BOTH `usesLegacyMacOS15UI` AND `#available(macOS 26.0, *)`:
+    /// `usesLegacyMacOS15UI` is a debug toggle, not the OS version, so hiding
+    /// the list background on real macOS 15 hardware would expose the window
+    /// background instead of glass.
+    func compatHideSidebarListBackground() -> some View {
+        self.modifier(CompatHideSidebarListBackgroundModifier())
+    }
 }
 
 // MARK: - CompatGlassModifier
@@ -130,6 +143,26 @@ struct CompatGlassContainer<Content: View>: View {
             GlassEffectContainer(spacing: self.spacing) { self.content() }
         } else {
             self.content()
+        }
+    }
+}
+
+// MARK: - CompatHideSidebarListBackgroundModifier
+
+private struct CompatHideSidebarListBackgroundModifier: ViewModifier {
+    @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
+
+    func body(content: Content) -> some View {
+        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+            // Reveal the NavigationSplitView column's system Liquid Glass by
+            // dropping the List's own opaque `.sidebar` material. The frosted
+            // column glass (not clear glass) keeps labels legible while detail
+            // content sliding underneath is faintly visible through it.
+            content.scrollContentBackground(.hidden)
+        } else {
+            // Legacy macOS 15: keep the opaque sidebar material — there is no
+            // column-level glass to reveal.
+            content
         }
     }
 }

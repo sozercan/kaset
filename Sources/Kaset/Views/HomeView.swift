@@ -58,15 +58,18 @@ struct HomeView: View {
             LazyVStack(alignment: .leading, spacing: 32) {
                 // Favorites section (hidden when empty)
                 if self.favoritesManager.isVisible {
-                    FavoritesSection(onNavigate: { destination in
-                        if let playlist = destination as? Playlist {
-                            self.navigationPath.append(playlist)
-                        } else if let artist = destination as? Artist {
-                            self.navigationPath.append(artist)
-                        } else if let podcastShow = destination as? PodcastShow {
-                            self.navigationPath.append(podcastShow)
-                        }
-                    })
+                    FavoritesSection(
+                        onNavigate: { destination in
+                            if let playlist = destination as? Playlist {
+                                self.navigationPath.append(playlist)
+                            } else if let artist = destination as? Artist {
+                                self.navigationPath.append(artist)
+                            } else if let podcastShow = destination as? PodcastShow {
+                                self.navigationPath.append(podcastShow)
+                            }
+                        },
+                        contentInset: DetailContentLayout.horizontalInset
+                    )
                     .staggeredAppearance(index: 0)
                 }
 
@@ -78,7 +81,10 @@ struct HomeView: View {
                         }
                 }
             }
-            .padding(.horizontal, 24)
+            // The ScrollView fills the detail column edge-to-edge so shelves
+            // scroll under the floating glass sidebar; each shelf restores a
+            // resting inset via `contentInset`. Only the vertical inset stays
+            // on the stack.
             .padding(.vertical, 20)
         }
     }
@@ -88,7 +94,8 @@ struct HomeView: View {
             accessibilityLabel: section.title,
             items: Array(section.items.enumerated()),
             id: \.element.id,
-            itemAlignment: .top
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             Text(section.title)
                 .font(.title2)

@@ -14,11 +14,17 @@ struct FavoritesSection: View {
     /// Binding to navigation path for navigation within the section.
     var onNavigate: ((any Hashable) -> Void)?
 
+    /// Resting horizontal inset for the shelf content, so items rest clear of
+    /// the floating glass sidebar while still scrolling underneath it.
+    /// Defaults to `0` (edge-to-edge) to preserve existing call sites.
+    var contentInset: CGFloat = 0
+
     var body: some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Favorites"),
             items: self.favoritesManager.items,
-            showsControls: self.draggedItem == nil
+            showsControls: self.draggedItem == nil,
+            contentInset: self.contentInset
         ) {
             Text("Favorites")
                 .font(.title2)

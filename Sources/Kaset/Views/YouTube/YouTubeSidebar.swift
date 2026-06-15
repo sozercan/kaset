@@ -11,34 +11,32 @@ struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
 
     var body: some View {
-        VStack(spacing: 0) {
-            CompatGlassContainer(spacing: 0) {
-                List(selection: self.listSelection) {
-                    // Main navigation
-                    Section {
-                        self.row(for: .search)
-                        self.row(for: .home)
-                        self.row(for: .subscriptions)
-                    }
-
-                    // Discover section
-                    Section(String(localized: "Discover")) {
-                        self.row(for: .explore)
-                        self.row(for: .shorts)
-                    }
-
-                    // Collection section
-                    Section(String(localized: "Collection")) {
-                        self.row(for: .likedVideos)
-                        self.row(for: .watchLater)
-                        self.row(for: .playlists)
-                        self.row(for: .history)
-                    }
-                }
-                .listStyle(.sidebar)
-                .accessibilityIdentifier(AccessibilityID.YouTubeSidebar.container)
+        List(selection: self.listSelection) {
+            // Main navigation
+            Section {
+                self.row(for: .search)
+                self.row(for: .home)
+                self.row(for: .subscriptions)
             }
 
+            // Discover section
+            Section(String(localized: "Discover")) {
+                self.row(for: .explore)
+                self.row(for: .shorts)
+            }
+
+            // Collection section
+            Section(String(localized: "Collection")) {
+                self.row(for: .likedVideos)
+                self.row(for: .watchLater)
+                self.row(for: .playlists)
+                self.row(for: .history)
+            }
+        }
+        .listStyle(.sidebar)
+        .compatHideSidebarListBackground()
+        .accessibilityIdentifier(AccessibilityID.YouTubeSidebar.container)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             SidebarFooterView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
