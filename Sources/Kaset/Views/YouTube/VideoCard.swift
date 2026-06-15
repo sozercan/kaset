@@ -98,8 +98,10 @@ struct VideoThumbnailView: View {
     }
 
     /// Thin red resume-progress bar pinned flush to the thumbnail's bottom edge.
-    /// Clipped by the parent's rounded corners; decorative (described via the
-    /// card's combined accessibility label).
+    /// Clipped by the parent's rounded corners. Exposed as its own labeled
+    /// accessibility element so consumers that combine children (the related
+    /// rail and list rows) announce the watched percent; `VideoCard` overrides
+    /// this with its own curated label, which already includes it.
     @ViewBuilder
     private func watchedProgressBar(percent: Int) -> some View {
         let fraction = CGFloat(min(max(percent, 0), 100)) / 100
@@ -111,7 +113,11 @@ struct VideoThumbnailView: View {
                 .scaleEffect(x: fraction, anchor: .leading)
         }
         .frame(height: 3)
-        .accessibilityHidden(true)
+        .accessibilityElement()
+        .accessibilityLabel(Text(
+            "Watched \(percent)%",
+            comment: "Accessibility label describing how much of a video has been watched"
+        ))
     }
 
     @ViewBuilder

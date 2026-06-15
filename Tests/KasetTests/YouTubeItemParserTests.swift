@@ -247,6 +247,13 @@ struct YouTubeItemParserTests {
         #expect(video.watchedPercent == 100)
     }
 
+    @Test("Treats a zero-percent progress overlay as unwatched")
+    func zeroPercentLockupIsUnwatched() throws {
+        let lockup = self.makeProgressLockup(startPercent: 0)
+        let video = try #require(YouTubeItemParser.video(fromLockup: lockup))
+        #expect(video.watchedPercent == nil)
+    }
+
     @Test("Parses percentDurationWatched from a legacy videoRenderer")
     func parsesLegacyWatchedPercent() throws {
         let renderer: [String: Any] = [

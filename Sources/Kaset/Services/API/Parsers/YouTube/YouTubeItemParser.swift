@@ -426,10 +426,15 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Coerces an InnerTube percent (Int or Double encoding) into a clamped 0…100 Int.
+    /// Coerces an InnerTube percent (Int or Double encoding) into a clamped
+    /// 1…100 Int. A non-positive percent means "no resume progress" (YouTube
+    /// emits this for unwatched/preview lockups), so it maps to `nil` and the
+    /// progress bar stays hidden.
     private static func percentValue(_ raw: Any?) -> Int? {
-        let value = (raw as? Int) ?? (raw as? Double).map(Int.init)
-        return value.map { min(max($0, 0), 100) }
+        guard let value = (raw as? Int) ?? (raw as? Double).map(Int.init) else {
+            return nil
+        }
+        return value > 0 ? min(value, 100) : nil
     }
 
     // MARK: - Badges
