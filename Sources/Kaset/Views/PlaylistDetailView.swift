@@ -129,8 +129,12 @@ struct PlaylistDetailView: View {
                     fallbackAlbum: fallbackAlbum
                 )
             }
-            .padding(24)
+            .padding(.vertical, 24)
         }
+        // Inset the resting content while the scroll view stays edge-to-edge so
+        // content extends under the floating glass sidebar; the accent backdrop
+        // (which ignores the safe area) refracts through it.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .topFade(style: .contentMask)
     }
 

@@ -67,8 +67,11 @@ struct YouTubeExploreView: View {
                     .buttonStyle(.interactiveCard)
                 }
             }
-            .padding(20)
+            .padding(.vertical, 20)
         }
+        // Edge-to-edge with a resting inset so the grid extends under the
+        // floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 }
 

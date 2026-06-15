@@ -66,7 +66,8 @@ struct MoodsAndGenresView: View {
                             self.sectionView(section)
                         }
                     }
-                    .padding(.horizontal, 24)
+                    // Edge-to-edge so shelves slide under the glass sidebar;
+                    // resting inset is restored per-shelf via contentInset.
                     .padding(.vertical, 20)
                 }
             }
@@ -78,7 +79,8 @@ struct MoodsAndGenresView: View {
             accessibilityLabel: section.title,
             items: Array(section.items.enumerated()),
             id: \.element.id,
-            itemAlignment: .top
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             Text(section.title)
                 .font(.title2)

@@ -109,8 +109,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     self.podcastsSection(detail.podcasts)
                 }
             }
-            .padding(24)
+            .padding(.vertical, 24)
         }
+        // Inset resting content while the scroll view stays edge-to-edge so the
+        // accent backdrop (which ignores the safe area) refracts through the
+        // floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .topFade(style: .contentMask)
     }
 

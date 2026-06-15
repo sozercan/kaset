@@ -73,7 +73,10 @@ struct YouTubePlaylistDetailView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(.vertical, 20)
         }
+        // Edge-to-edge with a resting inset so content extends under the
+        // floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 }
