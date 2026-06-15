@@ -79,48 +79,50 @@ struct YouTubeSubscriptionsView: View {
 
     private var channelRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                // Leading resting inset INSIDE the track so the rail reaches the
-                // detail-column edge and slides under the floating glass sidebar.
+            // Outer spacing:0 so the leading/trailing Spacers produce an exact
+            // resting inset (no extra HStack spacing inflation); the rail track
+            // stays edge-to-edge and slides under the floating glass sidebar.
+            HStack(spacing: 0) {
                 Spacer()
-                    .frame(width: DetailContentLayout.horizontalInset - 2)
+                    .frame(width: DetailContentLayout.horizontalInset)
 
-                ForEach(self.viewModel.channels) { channel in
-                    NavigationLink(value: YouTubeRoute.channel(channelId: channel.channelId)) {
-                        VStack(spacing: 6) {
-                            CachedAsyncImage(
-                                url: channel.thumbnailURL,
-                                targetSize: CGSize(width: 112, height: 112)
-                            ) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Circle()
-                                    .fill(.quaternary)
-                                    .overlay {
-                                        Image(systemName: "person.fill")
-                                            .foregroundStyle(.tertiary)
-                                    }
+                HStack(spacing: 16) {
+                    ForEach(self.viewModel.channels) { channel in
+                        NavigationLink(value: YouTubeRoute.channel(channelId: channel.channelId)) {
+                            VStack(spacing: 6) {
+                                CachedAsyncImage(
+                                    url: channel.thumbnailURL,
+                                    targetSize: CGSize(width: 112, height: 112)
+                                ) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Circle()
+                                        .fill(.quaternary)
+                                        .overlay {
+                                            Image(systemName: "person.fill")
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                }
+                                .frame(width: 56, height: 56)
+                                .clipShape(.circle)
+
+                                Text(channel.name)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                    .frame(width: 72)
                             }
-                            .frame(width: 56, height: 56)
-                            .clipShape(.circle)
-
-                            Text(channel.name)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .frame(width: 72)
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(channel.name)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(channel.name)
                 }
 
-                // Trailing resting inset.
                 Spacer()
-                    .frame(width: DetailContentLayout.horizontalInset - 2)
+                    .frame(width: DetailContentLayout.horizontalInset)
             }
             .padding(.vertical, 2)
         }

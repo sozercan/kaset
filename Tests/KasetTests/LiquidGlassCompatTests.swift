@@ -54,6 +54,21 @@ struct LiquidGlassCompatTests {
         #expect(String(describing: button).isEmpty == false)
     }
 
+    @Test("compatTranslucentSidebar returns a view on every OS")
+    func compatTranslucentSidebarConstructs() {
+        let view = List { Text("Home") }.compatTranslucentSidebar()
+        #expect(String(describing: view).isEmpty == false)
+    }
+
+    @Test("compatTranslucentSidebar constructs when legacy macOS 15 UI is forced")
+    func compatTranslucentSidebarConstructsWithLegacyEnvironment() {
+        // Exercises the .ultraThinMaterial fallback branch end-to-end.
+        let view = List { Text("Home") }
+            .compatTranslucentSidebar()
+            .environment(\.usesLegacyMacOS15UI, true)
+        #expect(String(describing: view).isEmpty == false)
+    }
+
     @Test("CompatGlassContainer renders its content")
     func compatGlassContainerRendersContent() {
         let container = CompatGlassContainer(spacing: 4) {

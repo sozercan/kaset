@@ -205,10 +205,12 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
     var body: some View {
         VStack(alignment: .leading, spacing: self.sectionSpacing) {
             self.header()
-                // Inset only the header so the title stays clear of the
-                // floating glass sidebar; the shelf below reaches edge-to-edge
-                // and insets its own resting content via `contentInset`.
-                .padding(.leading, self.contentInset)
+                // Inset the header on both edges so the title stays clear of the
+                // floating glass sidebar and any trailing header content (e.g. a
+                // "See all" link) keeps its margin. The shelf below reaches
+                // edge-to-edge and insets its own resting content via
+                // `contentInset`.
+                .padding(.horizontal, self.contentInset)
 
             CarouselShelf(
                 accessibilityLabel: self.accessibilityLabel,
