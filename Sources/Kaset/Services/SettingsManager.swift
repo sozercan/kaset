@@ -21,6 +21,9 @@ final class SettingsManager {
         static let scrobbleMinSeconds = "settings.scrobbleMinSeconds"
         static let mediaControlStyle = "settings.mediaControlStyle"
         static let playbackAudioQuality = "settings.playbackAudioQuality"
+        static let localControlServerEnabled = "settings.localControlServerEnabled"
+        static let localControlServerPort = "settings.localControlServerPort"
+        static let localControlServerAllowsLAN = "settings.localControlServerAllowsLAN"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
@@ -231,6 +234,30 @@ final class SettingsManager {
         }
     }
 
+    /// Whether Kaset exposes the local control HTTP API.
+    var localControlServerEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.localControlServerEnabled, forKey: Keys.localControlServerEnabled)
+        }
+    }
+
+    /// Port for the loopback-only local control HTTP API.
+    var localControlServerPort: Int {
+        didSet {
+            UserDefaults.standard.set(
+                Self.clampLocalControlServerPort(self.localControlServerPort),
+                forKey: Keys.localControlServerPort
+            )
+        }
+    }
+
+    /// Whether the local control HTTP API accepts connections from the local network.
+    var localControlServerAllowsLAN: Bool {
+        didSet {
+            UserDefaults.standard.set(self.localControlServerAllowsLAN, forKey: Keys.localControlServerAllowsLAN)
+        }
+    }
+
     /// Per-service enabled flags stored as a dictionary.
     private var enabledServices: [String: Bool] {
         didSet {
@@ -335,6 +362,11 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        self.localControlServerEnabled = UserDefaults.standard.object(forKey: Keys.localControlServerEnabled) as? Bool ?? false
+        self.localControlServerPort = Self.clampLocalControlServerPort(
+            UserDefaults.standard.object(forKey: Keys.localControlServerPort) as? Int ?? 26538
+        )
+        self.localControlServerAllowsLAN = UserDefaults.standard.object(forKey: Keys.localControlServerAllowsLAN) as? Bool ?? false
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif
@@ -405,5 +437,9 @@ final class SettingsManager {
     /// Returns the NavigationItem to use on app launch.
     var launchNavigationItem: NavigationItem {
         self.launchPage.navigationItem
+    }
+
+    private static func clampLocalControlServerPort(_ port: Int) -> Int {
+        min(max(port, 1024), 65535)
     }
 }

@@ -357,6 +357,12 @@ ${APP_LOCALIZATIONS_PLIST}
     <string>${BUILD_TIMESTAMP}</string>
     <key>KasetGitCommit</key>
     <string>${GIT_COMMIT}</string>
+    
+    <!-- Bonjour Services Advertisement -->
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_http._tcp</string>
+    </array>
 </dict>
 </plist>
 PLIST

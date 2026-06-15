@@ -65,6 +65,39 @@ struct SearchResponseParserTests {
         #expect(response.playlists.count == 1)
     }
 
+    @Test("Parse response with itemSectionRenderer contents")
+    func parseItemSectionRendererResults() {
+        let contents: [[String: Any]] = [
+            ["itemSectionRenderer": ["contents": self.makeSongItems(count: 2)]],
+            ["itemSectionRenderer": ["contents": [
+                ["musicShelfRenderer": ["contents": self.makeSongItems(count: 1)]],
+            ]]],
+            ["itemSectionRenderer": ["contents": self.makeAlbumItems(count: 1)]],
+        ]
+        let data: [String: Any] = [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": contents,
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let response = SearchResponseParser.parse(data)
+
+        #expect(response.songs.count == 3)
+        #expect(response.albums.count == 1)
+        #expect(response.artists.isEmpty)
+        #expect(response.playlists.isEmpty)
+    }
+
     @Test("Song has correct video ID")
     func songHasVideoId() {
         let data = self.makeSearchResponseData(songs: 1, albums: 0, artists: 0, playlists: 0)
