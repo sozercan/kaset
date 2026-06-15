@@ -1,0 +1,510 @@
+import Foundation
+import Observation
+
+// MARK: - YouTubeWatchPlaybackControlling
+
+/// Playback command surface backing `YouTubePlayerService`.
+/// The real implementation is `YouTubeWatchWebView`; tests inject a recorder.
+@MainActor
+protocol YouTubeWatchPlaybackControlling: AnyObject {
+    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService)
+    func loadVideo(videoId: String)
+    func playPause()
+    func play()
+    func pause()
+    func seek(to time: Double)
+    func setVolume(_ volume: Double)
+    func showAirPlayPicker()
+    func availableCaptionTracks() async -> [YouTubeCaptionTrack]
+    func currentCaptionLanguageCode() async -> String?
+    func setCaptionTrack(languageCode: String?)
+    func availableQualityLevels() async -> [String]
+    func currentQualityLevel() async -> String?
+    func setQualityLevel(_ level: String)
+    func tearDown()
+}
+
+// MARK: - YouTubeWatchWebView + YouTubeWatchPlaybackControlling
+
+extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
+    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService) {
+        _ = self.getWebView(webKitManager: webKitManager, playerService: playerService)
+    }
+}
+
+// MARK: - YouTubePlayerService
+
+/// Playback state and control for regular YouTube videos.
+///
+/// Parallel to `PlayerService` (music) — that service is untouched. The
+/// actual playback happens in `YouTubeWatchWebView`; this service owns the
+/// observable state, command surface, and the docked/floating placement of
+/// the extracted video surface.
+@MainActor
+@Observable
+final class YouTubePlayerService {
+    // MARK: - State
+
+    /// The video currently loaded for playback (nil when playback is closed).
+    private(set) var currentVideo: YouTubeVideo?
+
+    /// Whether the video is currently playing.
+    private(set) var isPlaying = false
+
+    /// Current position in seconds.
+    private(set) var progress: Double = 0
+
+    /// Video length in seconds.
+    private(set) var duration: Double = 0
+
+    /// Whether an ad is currently showing on the watch page.
+    private(set) var isShowingAd = false
+
+    /// Playback volume (0...1).
+    var volume: Double = 1.0 {
+        didSet {
+            guard oldValue != self.volume else { return }
+            self.playbackController.setVolume(self.volume)
+        }
+    }
+
+    /// Where the extracted video surface currently lives.
+    enum SurfaceLocation: Equatable {
+        case none
+        case inline
+        case floating
+    }
+
+    /// Current surface placement. KasetApp observes this to open/close the
+    /// floating window.
+    private(set) var surfaceLocation: SurfaceLocation = .none
+
+    /// The videoId of the WatchView that currently owns the inline surface.
+    var activeInlineVideoId: String?
+
+    /// The user's rating of the current video (optimistic; YouTube doesn't
+    /// expose the initial rating cheaply, so this tracks local actions).
+    private(set) var currentRating: YouTubeRating = .none
+
+    /// Set when the floating window asks to dock back into the app.
+    /// KasetApp brings the app to the video source; YouTubeContentView
+    /// opens/adopts the watch view and consumes the request.
+    private(set) var popInRequest: YouTubeVideo?
+
+    /// Up-next candidates for skip-forward (related videos from the watch page).
+    private(set) var upNext: [YouTubeVideo] = []
+
+    /// Videos played earlier this session, for skip-backward.
+    private var history: [YouTubeVideo] = []
+
+    /// Set when a skip changes the video while docked inline so
+    /// YouTubeContentView can open the new video's watch view.
+    private(set) var skipNavigationRequest: YouTubeVideo?
+
+    /// Whether the current video was added to Watch Later this session.
+    private(set) var isInWatchLater = false
+
+    /// Whether the pop-out window is in fullscreen (set by its controller).
+    var isWindowFullscreen = false
+
+    /// Caption tracks available on the current watch page.
+    private(set) var captionTracks: [YouTubeCaptionTrack] = []
+
+    /// Language code of the active caption track (nil = captions off).
+    private(set) var activeCaptionLanguageCode: String?
+
+    /// Quality levels available on the current watch page.
+    private(set) var qualityLevels: [String] = []
+
+    /// The player's current quality level.
+    private(set) var currentQuality: String?
+
+    /// The video whose playback options were last fetched.
+    private var playbackOptionsVideoId: String?
+
+    /// Client used by rating actions from the playback controls.
+    /// Set once by KasetApp; optional so unit tests don't need it.
+    @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
+
+    // MARK: - Hooks
+
+    /// Called right before video playback starts (PlaybackArbiter pauses music).
+    var playbackWillStart: (() -> Void)?
+
+    /// Called when the current video finishes (WatchView advances to related).
+    var onVideoEnded: ((String?) -> Void)?
+
+    // MARK: - Dependencies
+
+    private let webKitManager: WebKitManager
+    private let playbackController: any YouTubeWatchPlaybackControlling
+    private let logger = DiagnosticsLogger.player
+
+    init(
+        webKitManager: WebKitManager = .shared,
+        playbackController: (any YouTubeWatchPlaybackControlling)? = nil
+    ) {
+        self.webKitManager = webKitManager
+        self.playbackController = playbackController ?? YouTubeWatchWebView.shared
+    }
+
+    // MARK: - Commands
+
+    /// Starts playback of a video, docked inline.
+    func play(video: YouTubeVideo) {
+        self.logger.info("YouTubePlayer: play video")
+        self.playbackWillStart?()
+
+        if let current = self.currentVideo, current.videoId != video.videoId {
+            self.rememberInHistory(current)
+        }
+        self.upNext = []
+        self.currentVideo = video
+        self.resetPerVideoState()
+        self.surfaceLocation = .inline
+
+        // Create the WebView on demand; containers reparent it on appear.
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.loadVideo(videoId: video.videoId)
+    }
+
+    /// Toggles play/pause.
+    func playPause() {
+        if !self.isPlaying {
+            self.playbackWillStart?()
+        }
+        self.playbackController.playPause()
+    }
+
+    /// Resumes playback.
+    func resume() {
+        self.playbackWillStart?()
+        self.playbackController.play()
+    }
+
+    /// Pauses playback.
+    func pause() {
+        self.playbackController.pause()
+    }
+
+    /// Seeks to a position in seconds.
+    func seek(to time: Double) {
+        self.progress = time
+        self.playbackController.seek(to: time)
+    }
+
+    /// Stops playback entirely and releases the surface.
+    func stop() {
+        self.logger.info("YouTubePlayer: stop")
+        self.currentVideo = nil
+        self.isPlaying = false
+        self.progress = 0
+        self.duration = 0
+        self.isShowingAd = false
+        self.resetPerVideoState()
+        self.surfaceLocation = .none
+        self.activeInlineVideoId = nil
+        self.popInRequest = nil
+        self.upNext = []
+        self.history = []
+        self.skipNavigationRequest = nil
+        self.pauseInPlaceOnDisappear = false
+        self.playbackController.tearDown()
+    }
+
+    // MARK: - Surface Placement
+
+    /// Moves the surface to the floating video window.
+    func popOutToWindow() {
+        guard self.currentVideo != nil else { return }
+        self.logger.info("YouTubePlayer: pop out to floating window")
+        self.surfaceLocation = .floating
+    }
+
+    /// Docks the surface back into the inline watch view.
+    func dockInline() {
+        guard self.currentVideo != nil else { return }
+        self.logger.info("YouTubePlayer: dock inline")
+        self.surfaceLocation = .inline
+    }
+
+    /// The floating window asked to dock the video back into the app.
+    func requestPopIn() {
+        guard self.surfaceLocation == .floating, let video = self.currentVideo else { return }
+        self.popInRequest = video
+    }
+
+    /// Marks the pop-in request as handled.
+    func consumePopInRequest() {
+        self.popInRequest = nil
+    }
+
+    // MARK: - Skipping
+
+    /// Supplies up-next candidates (the watch page's related list).
+    func setUpNext(_ videos: [YouTubeVideo]) {
+        let currentId = self.currentVideo?.videoId
+        self.upNext = videos.filter { $0.videoId != currentId && !$0.isShort }
+    }
+
+    /// Skips to the next video (first up-next candidate; fetched lazily
+    /// when none are known, e.g. when playing in the floating window).
+    func skipForward() async {
+        guard let current = self.currentVideo else { return }
+
+        var target = self.upNext.first
+        if target == nil, let client = self.youtubeClient {
+            target = await (try? client.getWatchNext(videoId: current.videoId))?
+                .related.first { !$0.isShort }
+        }
+        guard let next = target else { return }
+        self.advance(to: next)
+    }
+
+    /// Skips back to the previously played video, or restarts the current
+    /// one when there is no history.
+    func skipBackward() {
+        if let previous = self.history.popLast() {
+            self.advance(to: previous, recordingHistory: false)
+        } else {
+            self.seek(to: 0)
+        }
+    }
+
+    /// Marks the skip navigation request as handled.
+    func consumeSkipNavigationRequest() {
+        self.skipNavigationRequest = nil
+    }
+
+    private func advance(to video: YouTubeVideo, recordingHistory: Bool = true) {
+        self.logger.info("YouTubePlayer: advancing to another video")
+        if recordingHistory, let current = self.currentVideo {
+            self.rememberInHistory(current)
+        }
+        self.upNext.removeAll { $0.videoId == video.videoId }
+
+        self.playbackWillStart?()
+        self.currentVideo = video
+        self.resetPerVideoState()
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.loadVideo(videoId: video.videoId)
+
+        // Keep the surface where it is; when docked inline the content view
+        // opens the new video's watch view.
+        if self.surfaceLocation == .inline {
+            self.skipNavigationRequest = video
+        }
+    }
+
+    private func rememberInHistory(_ video: YouTubeVideo) {
+        self.history.append(video)
+        if self.history.count > 50 {
+            self.history.removeFirst()
+        }
+    }
+
+    /// Clears state that is scoped to a single video.
+    private func resetPerVideoState() {
+        self.progress = 0
+        self.duration = 0
+        self.currentRating = .none
+        self.isInWatchLater = false
+        self.captionTracks = []
+        self.activeCaptionLanguageCode = nil
+        self.qualityLevels = []
+        self.currentQuality = nil
+        self.playbackOptionsVideoId = nil
+    }
+
+    // MARK: - Watch Later
+
+    /// Adds/removes the current video from Watch Later (optimistic with rollback).
+    func toggleWatchLater() async {
+        guard let video = self.currentVideo, let client = self.youtubeClient else { return }
+        let wasInWatchLater = self.isInWatchLater
+        self.isInWatchLater = !wasInWatchLater
+        do {
+            if wasInWatchLater {
+                try await client.removeFromWatchLater(videoId: video.videoId)
+            } else {
+                try await client.addToWatchLater(videoId: video.videoId)
+            }
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to edit Watch Later: \(error.localizedDescription)")
+            self.isInWatchLater = wasInWatchLater
+        }
+    }
+
+    // MARK: - Captions & Quality
+
+    /// Loads the caption tracks and quality levels the watch page offers.
+    /// Retries briefly — the captions module often isn't ready the moment
+    /// playback starts — and reads the player's actual caption state
+    /// (YouTube persists captions-on across sessions).
+    func refreshPlaybackOptions() async {
+        let videoId = self.currentVideo?.videoId
+        for attempt in 0 ..< 3 {
+            let tracks = await self.playbackController.availableCaptionTracks()
+            guard self.currentVideo?.videoId == videoId else { return }
+
+            self.captionTracks = tracks
+            self.qualityLevels = await self.playbackController.availableQualityLevels()
+            self.currentQuality = await self.playbackController.currentQualityLevel()
+            self.activeCaptionLanguageCode = await self.playbackController.currentCaptionLanguageCode()
+
+            if !tracks.isEmpty || attempt == 2 {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(1500))
+        }
+    }
+
+    /// Selects a caption track (nil turns captions off).
+    func selectCaptionTrack(languageCode: String?) {
+        self.activeCaptionLanguageCode = languageCode
+        self.playbackController.setCaptionTrack(languageCode: languageCode)
+        HapticService.toggle()
+    }
+
+    /// Selects a playback quality level.
+    func selectQuality(_ level: String) {
+        self.currentQuality = level
+        self.playbackController.setQualityLevel(level)
+        HapticService.toggle()
+    }
+
+    // MARK: - AirPlay
+
+    /// Shows the system AirPlay picker for the video element.
+    func showAirPlayPicker() {
+        self.playbackController.showAirPlayPicker()
+    }
+
+    // MARK: - Rating
+
+    /// Toggles a like on the current video (optimistic with rollback).
+    func toggleLike() async {
+        await self.setRating(self.currentRating == .like ? .none : .like)
+    }
+
+    /// Toggles a dislike on the current video (optimistic with rollback).
+    func toggleDislike() async {
+        await self.setRating(self.currentRating == .dislike ? .none : .dislike)
+    }
+
+    private func setRating(_ newRating: YouTubeRating) async {
+        guard let video = self.currentVideo, let client = self.youtubeClient else { return }
+        let previous = self.currentRating
+        self.currentRating = newRating
+        do {
+            try await client.rateVideo(videoId: video.videoId, rating: newRating)
+            HapticService.toggle()
+        } catch {
+            self.logger.error("Failed to rate video: \(error.localizedDescription)")
+            self.currentRating = previous
+        }
+    }
+
+    /// Set by the source toggle right before switching away from the video
+    /// source: the inline surface pauses in place (no pop-out window) and
+    /// the restored watch view re-adopts it when the user comes back.
+    private var pauseInPlaceOnDisappear = false
+
+    /// Prepares the inline surface for a switch to the music source:
+    /// pause in place, keep everything loaded for restore.
+    func prepareForSourceSwitch() {
+        guard self.surfaceLocation == .inline, self.currentVideo != nil else { return }
+        if self.isPlaying {
+            self.pause()
+        }
+        self.pauseInPlaceOnDisappear = true
+    }
+
+    /// A WatchView for `videoId` is disappearing. If it owns the inline
+    /// surface, hand off: keep playing in the floating window, stop if
+    /// paused — or, during a source switch, stay paused in place.
+    func inlineSurfaceWillDisappear(videoId: String) {
+        guard self.activeInlineVideoId == videoId else { return }
+        self.activeInlineVideoId = nil
+
+        guard self.currentVideo?.videoId == videoId, self.surfaceLocation == .inline else {
+            self.pauseInPlaceOnDisappear = false
+            return
+        }
+
+        if self.pauseInPlaceOnDisappear {
+            self.pauseInPlaceOnDisappear = false
+            // Surface stays .inline and paused; returning to the video
+            // source re-adopts it on the same watch view.
+            return
+        }
+
+        if self.isPlaying {
+            self.popOutToWindow()
+        } else {
+            self.stop()
+        }
+    }
+
+    // MARK: - Bridge Callbacks
+
+    /// A `STATE_UPDATE` payload from the watch page observer script.
+    struct PlaybackUpdate {
+        let isPlaying: Bool
+        let progress: Double
+        let duration: Double
+        var videoId: String?
+        var title: String?
+        var isAd = false
+    }
+
+    /// Applies a `STATE_UPDATE` from the watch page observer script.
+    func updatePlaybackState(_ update: PlaybackUpdate) {
+        // YouTube can start the next video on its own (SPA navigation);
+        // make sure music yields whenever video audio actually starts.
+        if update.isPlaying, !self.isPlaying {
+            self.playbackWillStart?()
+        }
+
+        self.isPlaying = update.isPlaying
+        self.progress = update.progress
+        self.duration = update.duration
+        self.isShowingAd = update.isAd
+
+        // Fetch captions/quality options once per video, after playback starts
+        // (the player APIs aren't ready before that).
+        if update.isPlaying,
+           let videoId = self.currentVideo?.videoId,
+           self.playbackOptionsVideoId != videoId
+        {
+            self.playbackOptionsVideoId = videoId
+            Task {
+                await self.refreshPlaybackOptions()
+            }
+        }
+
+        // Track SPA drift: if the page moved to a different video, follow it
+        // so the controls stay truthful.
+        if let videoId = update.videoId, let current = self.currentVideo,
+           videoId != current.videoId
+        {
+            self.logger.info("YouTubePlayer: page drifted to a different video, following")
+            self.resetPerVideoState()
+            self.currentVideo = YouTubeVideo(
+                videoId: videoId,
+                title: update.title ?? current.title,
+                channelName: current.channelName,
+                channelId: current.channelId
+            )
+            YouTubeWatchWebView.shared.currentVideoId = videoId
+        }
+    }
+
+    /// Handles natural video completion.
+    func handleVideoEnded(videoId: String?) {
+        self.logger.info("YouTubePlayer: video ended")
+        self.isPlaying = false
+        self.onVideoEnded?(videoId)
+    }
+}

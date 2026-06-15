@@ -264,6 +264,27 @@ struct UserAccountTests {
 
         #expect(brand.typeLabel == "Brand")
     }
+
+    @Test func cacheIdentityDistinguishesPrimaryAccounts() {
+        let first = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let second = UserAccount.from(
+            name: "Second User",
+            handle: "@second",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+
+        #expect(first.id == "primary")
+        #expect(second.id == "primary")
+        #expect(first.cacheIdentity != second.cacheIdentity)
+    }
 }
 
 // MARK: - MockUserAccountData
