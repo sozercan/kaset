@@ -55,3 +55,4 @@ What becomes easier or more difficult because of this change?
 | [0018](0018-artist-page-episodes.md) | Artist Page — Episodes, Singles, Playlists, Podcasts, Related Artists | Accepted |
 | [0019](0019-podcasts-availability.md) | Region-Aware Podcasts Tab Visibility | Implemented |
 | [0020](0020-youtube-source-toggle.md) | Native YouTube Client Behind a Source Toggle | Accepted |
+| [0021](0021-liquid-glass-sidebar-slide-under.md) | Liquid Glass Sidebar Slide-Under | Accepted |

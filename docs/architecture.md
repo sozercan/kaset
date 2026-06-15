@@ -880,7 +880,7 @@ The app uses Apple's **Liquid Glass** design language introduced in macOS 26 whe
 | Component | Glass Pattern |
 |-----------|---------------|
 | `PlayerBar` | `.glassEffect(.regular.interactive(), in: .capsule)` |
-| `Sidebar` | Wrapped in `GlassEffectContainer` |
+| `Sidebar` | `List(.sidebar)` with `.scrollContentBackground(.hidden)` (macOS 26) so the system Liquid Glass shows through; detail content slides under it (ADR-0021) |
 | `QueueView` / `LyricsView` | `.glassEffectTransition(.materialize)` |
 | Search field | `.glassEffect(.regular, in: .capsule)` |
 | Search suggestions | `.glassEffect(.regular, in: .rect(cornerRadius: 8))` |
@@ -891,7 +891,7 @@ The app uses Apple's **Liquid Glass** design language introduced in macOS 26 whe
 2. **Use `.glassEffectTransition(.materialize)`** for panels that appear/disappear
 3. **Use `@Namespace` + `.glassEffectID()`** for morphing between states
 4. **Avoid glass-on-glass** — don't apply `.buttonStyle(.glass)` to buttons already inside a glass container
-5. **Reserve glass for navigation/floating controls** — not for content areas
+5. **Reserve glass for navigation/floating controls** — don't apply a glass *material* to content. Content may, however, pass *beneath* the system-provided navigation glass: on macOS 26 detail content slides under the floating `NavigationSplitView` sidebar and refracts through it (see ADR-0021)
 
 ## Foundation Models (Apple Intelligence)
 
@@ -1140,7 +1140,10 @@ Clean, minimal sidebar with only functional navigation:
 **Design Principles**:
 - Only show items that have implemented functionality
 - Remove placeholder items (Artists, Albums, Songs, Liked Songs, etc.)
-- Use standard SwiftUI `List` with `.listStyle(.sidebar)`
+- Use standard SwiftUI `List` with `.listStyle(.sidebar)` as the column root
+- On macOS 26, hide the list's opaque background
+  (`compatHideSidebarListBackground()`) so the floating Liquid Glass shows
+  through and detail content slides under it (ADR-0021)
 
 ### Persistent UI Elements
 
