@@ -26,13 +26,20 @@ struct YouTubeHomeView: View {
                     }
                 }
             case .loaded, .loadingMore:
-                if self.viewModel.sections.isEmpty, self.viewModel.videos.isEmpty {
+                if self.viewModel.sections.isEmpty,
+                   self.viewModel.videos.isEmpty,
+                   !self.viewModel.hasMoreVideos
+                {
                     ContentUnavailableView {
                         Label(String(localized: "No recommendations yet"), systemImage: "play.rectangle")
                     } description: {
                         Text("Watch some videos to build your feed.", comment: "Empty YouTube home feed description")
                     }
                 } else {
+                    // Route to feedContent when there is anything to show OR more
+                    // pages remain — feedContent hosts the pagination sentinel,
+                    // which must mount so loadMore() can fetch the next page even
+                    // when the first render has no renderable rails/videos yet.
                     self.feedContent
                 }
             }
