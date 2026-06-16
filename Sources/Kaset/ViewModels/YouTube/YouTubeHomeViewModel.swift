@@ -52,16 +52,33 @@ final class YouTubeHomeViewModel {
             async let continueWatching = self.continueWatchingSection()
             let feed = try await client.getHomeFeed()
 
+            // Shelves and topics both read the now-cached home response for
+            // their chip/shelf data; their topic browses (slow) fan out from
+            // there. Shelves are a cache hit, so awaiting them before first
+            // paint is cheap and lets us de-duplicate the grid (below).
+            async let shelvesTask = self.shelfSections()
+            async let topics = self.topicSections()
+            let shelves = await shelvesTask
+
+            try Task.checkCancellation()
             guard generation == self.loadGeneration else { return }
+
+            // `YouTubeFeedParser.parse` collects shelf videos into `feed.videos`
+            // too, and the shelf rail surfaces them again — exclude shelf video
+            // IDs from the grid so a shelf video is not rendered twice (once in
+            // its rail, once under "For you").
+            let shelfVideoIDs = Set(shelves.flatMap { section in section.videos.map(\.videoId) })
+            let gridVideos = feed.videos.filter { !shelfVideoIDs.contains($0.videoId) }
+
             // Publish the recommendation grid immediately so first paint does
-            // not wait on the optional rails (topic chips fan out to several
+            // not wait on the optional topic rails (chips fan out to several
             // browse requests; a slow one must not block the grid). When the
             // grid is empty, the rails are the only content worth showing, so
             // keep the loading state until they resolve to avoid flashing the
             // empty placeholder.
-            self.videos = feed.videos
+            self.videos = gridVideos
             self.hasMoreVideos = self.client.hasMoreHomeFeed
-            let gridReady = !feed.videos.isEmpty
+            let gridReady = !gridVideos.isEmpty
             if gridReady {
                 // Publish the new grid with a cleared rail set so a reload (a
                 // `.task` restart after a prior load) never renders the previous
@@ -72,14 +89,11 @@ final class YouTubeHomeViewModel {
                 self.loadingState = .loaded
             }
 
-            async let shelves = self.shelfSections()
-            async let topics = self.topicSections()
-
             var sections: [YouTubeHomeSection] = []
             if let continueWatching = await continueWatching {
                 sections.append(continueWatching)
             }
-            await sections.append(contentsOf: shelves)
+            sections.append(contentsOf: shelves)
             await sections.append(contentsOf: topics)
 
             // The section helpers isolate per-rail failures by resolving to

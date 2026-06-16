@@ -46,7 +46,7 @@ additive.**
   `parseChips` and `parseHomeShelves`, preserve the chip/shelf titles the old
   flattening walk discarded. New client methods `getHomeChips` /
   `getHomeShelves` (cache hits on the same `FEwhat_to_watch` response) and
-  `getHomeTopicFeed(token:)` (reusing `parseContinuation`) expose them. The
+  `getHomeTopicFeed(continuation:)` (reusing `parseContinuation`) expose them. The
   selected "All" chip (no token) is skipped.
 - **New models** `YouTubeHomeSection { id, title, videos, kind }` and
   `YouTubeHomeChip` live alongside the unchanged flat `YouTubeFeed`. The view

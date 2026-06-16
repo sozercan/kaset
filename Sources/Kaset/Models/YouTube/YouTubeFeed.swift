@@ -36,8 +36,6 @@ struct YouTubeHomeSection: Identifiable {
         case shelf
         /// A personalized filter-chip topic feed (e.g. "Gaming").
         case topic
-        /// The flat recommendation grid ("For you").
-        case forYou
     }
 
     let id: String

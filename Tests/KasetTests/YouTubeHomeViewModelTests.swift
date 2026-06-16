@@ -154,6 +154,34 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.sections.map(\.title) == ["Continue Watching", "Breaking news", "Gaming", "Music"])
     }
 
+    @Test("Shelf videos are excluded from the For You grid (no double render)")
+    func shelfVideosExcludedFromGrid() async {
+        // The parser collects shelf videos into feed.videos too; the shelf rail
+        // surfaces them again. The grid must drop the shelf videos so they are
+        // not rendered twice (once in the rail, once under "For you").
+        let shelfVideo = MockYouTubeClient.makeVideo(videoId: "shelf-vid")
+        let gridOnly = MockYouTubeClient.makeVideo(videoId: "grid-only")
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: [shelfVideo, gridOnly], // shelf-vid appears in both feed.videos and the shelf
+            continuation: nil
+        )
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(
+                id: "shelf-1-Breaking news",
+                title: "Breaking news",
+                videos: [shelfVideo],
+                kind: .shelf
+            ),
+        ]
+
+        await self.sut.load()
+
+        // Grid keeps only the non-shelf video; the shelf rail still has it.
+        #expect(self.sut.videos.map(\.videoId) == ["grid-only"])
+        let shelf = self.sut.sections.first { $0.kind == .shelf }
+        #expect(shelf?.videos.map(\.videoId) == ["shelf-vid"])
+    }
+
     @Test("A failing topic fetch omits only that rail")
     func failingTopicOmitsOnlyThatRail() async {
         self.mockClient.homeChips = [
