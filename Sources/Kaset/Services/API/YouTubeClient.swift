@@ -105,6 +105,39 @@ final class YouTubeClient: YouTubeClientProtocol {
         return feed
     }
 
+    func getHomeChips() async throws -> [YouTubeHomeChip] {
+        // Chips ride along in the home feed response; the shared TTL means this
+        // is a cache hit right after the home grid loads (cf. getShorts()).
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEwhat_to_watch"],
+            ttl: APICache.TTL.home
+        )
+        let chips = YouTubeFeedParser.parseChips(data)
+        self.logger.info("YouTube home chips: \(chips.count) topics")
+        return chips
+    }
+
+    func getHomeShelves() async throws -> [YouTubeHomeSection] {
+        // Same cached home response; extracts the response's own titled shelves.
+        let data = try await self.request(
+            "browse",
+            body: ["browseId": "FEwhat_to_watch"],
+            ttl: APICache.TTL.home
+        )
+        let shelves = YouTubeFeedParser.parseHomeShelves(data)
+        self.logger.info("YouTube home shelves: \(shelves.count)")
+        return shelves
+    }
+
+    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed {
+        // A chip browse uses the same `browse` continuation wire shape as
+        // pagination, but returns a fresh topic-filtered grid (reload
+        // semantics) with its own trailing continuation token.
+        let data = try await self.request("browse", body: ["continuation": continuation])
+        return YouTubeFeedParser.parseContinuation(data)
+    }
+
     // MARK: - Search
 
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {

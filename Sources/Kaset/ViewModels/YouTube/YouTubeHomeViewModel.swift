@@ -8,11 +8,24 @@ final class YouTubeHomeViewModel {
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
+    /// Personalized side-scrolling sections shown above the recommendation
+    /// grid: Continue Watching, the home response's own titled shelves, then a
+    /// rail per personalized filter-chip topic. Empty until loaded.
+    private(set) var sections: [YouTubeHomeSection] = []
+
     /// Videos to display in the feed grid.
     private(set) var videos: [YouTubeVideo] = []
 
     /// Whether more feed pages are available.
     private(set) var hasMoreVideos = true
+
+    /// Resume-progress band for the Continue Watching rail: started but not
+    /// effectively finished. `nil`/0 = not started; ≥96 = finished.
+    private static let continueWatchingRange = 1 ... 95
+
+    /// Cap on Continue Watching items and on topic rails shown at first paint.
+    private static let continueWatchingCap = 20
+    private static let topicRailCap = 8
 
     /// Invalidates stale in-flight loads when a newer one starts
     /// (SwiftUI restarts .task during launch/layout churn; latest wins).
@@ -31,11 +44,57 @@ final class YouTubeHomeViewModel {
         let generation = self.loadGeneration
         self.loadingState = .loading
         do {
+            // Continue Watching reads history (a different endpoint), so start
+            // it concurrently with the home feed. Chips and shelves come from
+            // the SAME `FEwhat_to_watch` response, so await the home feed first
+            // to warm the cache, then read them as cache hits rather than
+            // racing three identical network requests.
+            async let continueWatching = self.continueWatchingSection()
             let feed = try await client.getHomeFeed()
+
             guard generation == self.loadGeneration else { return }
+            // Publish the recommendation grid immediately so first paint does
+            // not wait on the optional rails (topic chips fan out to several
+            // browse requests; a slow one must not block the grid). When the
+            // grid is empty, the rails are the only content worth showing, so
+            // keep the loading state until they resolve to avoid flashing the
+            // empty placeholder.
             self.videos = feed.videos
             self.hasMoreVideos = self.client.hasMoreHomeFeed
-            self.loadingState = .loaded
+            let gridReady = !feed.videos.isEmpty
+            if gridReady {
+                // Publish the new grid with a cleared rail set so a reload (a
+                // `.task` restart after a prior load) never renders the previous
+                // load's Continue Watching/topic rails above the fresh grid
+                // while the new rail fetches are still in flight. The new rails
+                // populate below once they resolve.
+                self.sections = []
+                self.loadingState = .loaded
+            }
+
+            async let shelves = self.shelfSections()
+            async let topics = self.topicSections()
+
+            var sections: [YouTubeHomeSection] = []
+            if let continueWatching = await continueWatching {
+                sections.append(continueWatching)
+            }
+            await sections.append(contentsOf: shelves)
+            await sections.append(contentsOf: topics)
+
+            // The section helpers isolate per-rail failures by resolving to
+            // empty rather than throwing — including when a cancelled `.task`
+            // makes their requests fail. Surface that cancellation here so a
+            // cancelled load aborts instead of publishing empty rails (or
+            // marking an empty grid `.loaded`) as if it had succeeded.
+            try Task.checkCancellation()
+            guard generation == self.loadGeneration else { return }
+            self.sections = sections
+            // Only flip the state here when the grid did not already publish it,
+            // so a concurrent loadMore()'s `.loadingMore` is not clobbered.
+            if !gridReady {
+                self.loadingState = .loaded
+            }
         } catch {
             guard generation == self.loadGeneration else { return }
             // A cancelled load (view went away mid-flight) is not an
@@ -53,6 +112,7 @@ final class YouTubeHomeViewModel {
     func refresh() async {
         self.loadingState = .idle
         self.videos = []
+        self.sections = []
         await self.load()
     }
 
@@ -80,6 +140,105 @@ final class YouTubeHomeViewModel {
             // Keep existing content; just stop paginating on error.
             self.loadingState = .loaded
             self.hasMoreVideos = false
+        }
+    }
+
+    // MARK: - Sections
+
+    /// Started-but-unfinished videos from watch history (deduped, capped).
+    private func continueWatchingSection() async -> YouTubeHomeSection? {
+        do {
+            let history = try await self.client.getHistory()
+            var seen = Set<String>()
+            let resumable = history.videos.filter { video in
+                guard let percent = video.watchedPercent,
+                      Self.continueWatchingRange.contains(percent),
+                      !video.isShort,
+                      !video.isLive
+                else {
+                    return false
+                }
+                return seen.insert(video.videoId).inserted
+            }
+            .prefix(Self.continueWatchingCap)
+
+            guard !resumable.isEmpty else { return nil }
+            return YouTubeHomeSection(
+                id: "continue-watching",
+                title: String(localized: "Continue Watching", comment: "YouTube home rail of partially-watched videos"),
+                videos: Array(resumable),
+                kind: .continueWatching
+            )
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("Continue Watching unavailable: \(error.localizedDescription)")
+            }
+            return nil
+        }
+    }
+
+    /// The home response's own titled shelves (e.g. "Breaking news").
+    private func shelfSections() async -> [YouTubeHomeSection] {
+        do {
+            return try await self.client.getHomeShelves()
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("Home shelves unavailable: \(error.localizedDescription)")
+            }
+            return []
+        }
+    }
+
+    /// One rail per personalized filter-chip topic, fetched concurrently and
+    /// returned in chip order. Empty topic feeds are dropped.
+    private func topicSections() async -> [YouTubeHomeSection] {
+        let chips: [YouTubeHomeChip]
+        do {
+            chips = try await Array(self.client.getHomeChips().prefix(Self.topicRailCap))
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("Home chips unavailable: \(error.localizedDescription)")
+            }
+            return []
+        }
+        guard !chips.isEmpty else { return [] }
+
+        // Fetch all topic feeds concurrently, preserving chip order via index.
+        let indexed = await withTaskGroup(of: (Int, YouTubeHomeSection?).self) { group in
+            for (index, chip) in chips.enumerated() {
+                group.addTask {
+                    await (index, self.topicSection(for: chip))
+                }
+            }
+            var collected: [(Int, YouTubeHomeSection?)] = []
+            for await result in group {
+                collected.append(result)
+            }
+            return collected
+        }
+
+        return indexed
+            .sorted { $0.0 < $1.0 }
+            .compactMap(\.1)
+    }
+
+    /// Browses a single chip token into a topic section, or `nil` on
+    /// failure / empty result.
+    private func topicSection(for chip: YouTubeHomeChip) async -> YouTubeHomeSection? {
+        do {
+            let feed = try await self.client.getHomeTopicFeed(continuation: chip.continuation)
+            guard !feed.videos.isEmpty else { return nil }
+            return YouTubeHomeSection(
+                id: "topic-\(chip.title)",
+                title: chip.title,
+                videos: feed.videos,
+                kind: .topic
+            )
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("Topic rail '\(chip.title)' unavailable: \(error.localizedDescription)")
+            }
+            return nil
         }
     }
 }

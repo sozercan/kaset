@@ -19,6 +19,49 @@ struct YouTubeFeed {
     static let empty = YouTubeFeed(videos: [], continuation: nil)
 }
 
+// MARK: - YouTubeHomeSection
+
+/// A titled, side-scrolling section on the YouTube (video) home surface.
+///
+/// Unlike `YouTubeFeed` (a flat recommendation page), this preserves a shelf
+/// title so the home can render YouTube-Music-style rails: Continue Watching,
+/// the home response's own titled shelves, and one rail per personalized
+/// filter-chip topic (Gaming, Music, AI, …).
+struct YouTubeHomeSection: Identifiable {
+    /// What produced this section, used for placement and empty-state rules.
+    enum Kind: Hashable {
+        /// Started-but-unfinished videos from watch history.
+        case continueWatching
+        /// A titled shelf the home response itself returned (e.g. "Breaking news").
+        case shelf
+        /// A personalized filter-chip topic feed (e.g. "Gaming").
+        case topic
+        /// The flat recommendation grid ("For you").
+        case forYou
+    }
+
+    let id: String
+    let title: String
+    let videos: [YouTubeVideo]
+    let kind: Kind
+}
+
+// MARK: - YouTubeHomeChip
+
+/// A personalized filter chip from the home feed's chip bar. Each chip's
+/// `continuation` browses (via the `browse` continuation endpoint) to a
+/// topic-filtered, personalized video feed used to build a home rail.
+struct YouTubeHomeChip: Identifiable {
+    /// Stable identity for SwiftUI; the topic title is unique within the bar.
+    var id: String {
+        self.title
+    }
+
+    let title: String
+    /// InnerTube continuation token that browses this chip's topic feed.
+    let continuation: String
+}
+
 // MARK: - YouTubeSearchResponse
 
 /// Results of a YouTube search, split by result kind.

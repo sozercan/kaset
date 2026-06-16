@@ -8,6 +8,12 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     var homeFeed = YouTubeFeed.empty
     var homeFeedContinuation: YouTubeFeed?
+    var homeChips: [YouTubeHomeChip] = []
+    var homeShelves: [YouTubeHomeSection] = []
+    /// Topic feeds keyed by chip continuation; `getHomeTopicFeed` returns the
+    /// match (or `.empty`). Set `homeTopicError` to make one continuation throw.
+    var homeTopicFeeds: [String: YouTubeFeed] = [:]
+    var homeTopicError: (continuation: String, error: Error)?
     var searchResponse = YouTubeSearchResponse.empty
     var searchContinuation: YouTubeSearchResponse?
     var watchNextData = WatchNextData.empty
@@ -41,6 +47,37 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         let continuation = self.homeFeedContinuation
         self.homeFeedContinuation = nil
         return continuation
+    }
+
+    private(set) var homeChipsCallCount = 0
+    private(set) var requestedTopicContinuations: [String] = []
+
+    func getHomeChips() async throws -> [YouTubeHomeChip] {
+        if let error { throw error }
+        self.homeChipsCallCount += 1
+        return self.homeChips
+    }
+
+    func getHomeShelves() async throws -> [YouTubeHomeSection] {
+        if let error { throw error }
+        return self.homeShelves
+    }
+
+    /// Awaited inside `getHomeTopicFeed` before it returns, so a test can hold
+    /// a topic rail open and observe that the home grid already rendered
+    /// without waiting on the rail. Receives the chip continuation.
+    var beforeTopicReturn: (@Sendable (String) async -> Void)?
+
+    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed {
+        if let error { throw error }
+        self.requestedTopicContinuations.append(continuation)
+        if let beforeTopicReturn {
+            await beforeTopicReturn(continuation)
+        }
+        if let homeTopicError, homeTopicError.continuation == continuation {
+            throw homeTopicError.error
+        }
+        return self.homeTopicFeeds[continuation] ?? .empty
     }
 
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
@@ -181,16 +218,22 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     nonisolated static func makeVideo(
         videoId: String = "test-video",
         title: String = "Test Video",
-        channelName: String = "Test Channel"
+        channelName: String = "Test Channel",
+        isLive: Bool = false,
+        isShort: Bool = false,
+        watchedPercent: Int? = nil
     ) -> YouTubeVideo {
         YouTubeVideo(
             videoId: videoId,
             title: title,
             channelName: channelName,
             channelId: "UCtest",
-            lengthText: "10:00",
+            lengthText: isLive ? nil : "10:00",
             viewCountText: "1K views",
-            publishedText: "1 day ago"
+            publishedText: "1 day ago",
+            isLive: isLive,
+            isShort: isShort,
+            watchedPercent: watchedPercent
         )
     }
 

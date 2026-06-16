@@ -52,6 +52,113 @@ enum YouTubeFeedParser {
         )
     }
 
+    // MARK: - Home Sections (Chips & Shelves)
+
+    /// Parses the home feed's personalized filter-chip bar into browsable
+    /// topic chips. The selected "All" chip (which has no continuation token)
+    /// is skipped so callers get only the topic rails.
+    ///
+    /// Path: `…richGridRenderer.header.feedFilterChipBarRenderer.contents[]`
+    /// `.chipCloudChipRenderer` → title via `text(from:)`, continuation at
+    /// `navigationEndpoint.continuationCommand.token`.
+    static func parseChips(_ data: [String: Any]) -> [YouTubeHomeChip] {
+        guard let chips = chipBarContents(data) else { return [] }
+
+        var result: [YouTubeHomeChip] = []
+        var seen = Set<String>()
+        for entry in chips {
+            guard let chip = entry["chipCloudChipRenderer"] as? [String: Any] else { continue }
+            // The default "All" chip is pre-selected and carries no token.
+            if chip["isSelected"] as? Bool == true { continue }
+            guard let title = YouTubeItemParser.text(from: chip["text"]),
+                  let continuation = (
+                      (chip["navigationEndpoint"] as? [String: Any])?["continuationCommand"]
+                          as? [String: Any]
+                  )?["token"] as? String,
+                  !continuation.isEmpty,
+                  seen.insert(title).inserted
+            else {
+                continue
+            }
+            result.append(YouTubeHomeChip(title: title, continuation: continuation))
+        }
+        return result
+    }
+
+    /// Parses the titled shelves the home response itself returns (e.g.
+    /// "Breaking news"), preserving each shelf's title and videos. Loose
+    /// recommendation items and Shorts shelves are ignored here (they belong
+    /// to the flat grid / Shorts surface respectively).
+    ///
+    /// Path: `…richGridRenderer.contents[].richSectionRenderer.content`
+    /// `.richShelfRenderer{ title, contents[] }`.
+    static func parseHomeShelves(_ data: [String: Any]) -> [YouTubeHomeSection] {
+        guard let contents = richGridContents(data) else { return [] }
+
+        var sections: [YouTubeHomeSection] = []
+        var index = 0
+        for entry in contents {
+            guard let section = entry["richSectionRenderer"] as? [String: Any],
+                  let content = section["content"] as? [String: Any],
+                  let shelf = content["richShelfRenderer"] as? [String: Any],
+                  let title = YouTubeItemParser.text(from: shelf["title"])
+            else {
+                continue
+            }
+
+            var videos: [YouTubeVideo] = []
+            var shorts: [YouTubeVideo] = []
+            var continuation: String?
+            Self.collect(in: shelf["contents"] as Any, videos: &videos, shorts: &shorts, continuation: &continuation)
+            let deduped = Self.deduplicate(videos)
+            guard !deduped.isEmpty else { continue }
+
+            index += 1
+            sections.append(YouTubeHomeSection(
+                id: "shelf-\(index)-\(title)",
+                title: title,
+                videos: deduped,
+                kind: .shelf
+            ))
+        }
+        return sections
+    }
+
+    /// `richGridRenderer.contents` from a home browse response, if present.
+    private static func richGridContents(_ data: [String: Any]) -> [[String: Any]]? {
+        self.richGridRenderer(data)?["contents"] as? [[String: Any]]
+    }
+
+    /// `feedFilterChipBarRenderer.contents` from a home browse response.
+    private static func chipBarContents(_ data: [String: Any]) -> [[String: Any]]? {
+        guard let header = richGridRenderer(data)?["header"] as? [String: Any],
+              let bar = header["feedFilterChipBarRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+        return bar["contents"] as? [[String: Any]]
+    }
+
+    /// Navigates to the home `richGridRenderer`
+    /// (`contents.twoColumnBrowseResultsRenderer.tabs[].tabRenderer.content`).
+    private static func richGridRenderer(_ data: [String: Any]) -> [String: Any]? {
+        let tabs = (
+            (data["contents"] as? [String: Any])?["twoColumnBrowseResultsRenderer"]
+                as? [String: Any]
+        )?["tabs"] as? [[String: Any]] ?? []
+
+        for tab in tabs {
+            guard let tabRenderer = tab["tabRenderer"] as? [String: Any],
+                  let content = tabRenderer["content"] as? [String: Any],
+                  let grid = content["richGridRenderer"] as? [String: Any]
+            else {
+                continue
+            }
+            return grid
+        }
+        return nil
+    }
+
     // MARK: - Collection
 
     /// Recursively collects regular videos and the first continuation token,

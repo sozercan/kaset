@@ -20,6 +20,18 @@ protocol YouTubeClientProtocol: Sendable {
     /// Whether more home feed pages are available.
     var hasMoreHomeFeed: Bool { get }
 
+    /// Fetches the personalized filter-chip topics from the home feed
+    /// (Gaming, Music, AI, …), each browsable into a topic-filtered rail.
+    func getHomeChips() async throws -> [YouTubeHomeChip]
+
+    /// Fetches the titled shelves the home response itself returns (e.g.
+    /// "Breaking news"), preserving each shelf's title and videos.
+    func getHomeShelves() async throws -> [YouTubeHomeSection]
+
+    /// Browses a home filter chip's continuation token into a personalized,
+    /// topic-filtered feed for a home rail.
+    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed
+
     // MARK: Search
 
     /// Searches YouTube with an optional result-kind filter.

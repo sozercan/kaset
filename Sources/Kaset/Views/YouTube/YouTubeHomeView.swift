@@ -26,14 +26,14 @@ struct YouTubeHomeView: View {
                     }
                 }
             case .loaded, .loadingMore:
-                if self.viewModel.videos.isEmpty {
+                if self.viewModel.sections.isEmpty, self.viewModel.videos.isEmpty {
                     ContentUnavailableView {
                         Label(String(localized: "No recommendations yet"), systemImage: "play.rectangle")
                     } description: {
                         Text("Watch some videos to build your feed.", comment: "Empty YouTube home feed description")
                     }
                 } else {
-                    self.feedGrid
+                    self.feedContent
                 }
             }
         }
@@ -44,8 +44,57 @@ struct YouTubeHomeView: View {
         }
     }
 
-    private var feedGrid: some View {
+    /// Personalized rails (Continue Watching, shelves, topics) stacked above
+    /// the "For you" recommendation grid. The ScrollView track stays
+    /// edge-to-edge so rails slide under the floating glass sidebar; each rail
+    /// and the grid restore their own resting inset.
+    private var feedContent: some View {
         ScrollView {
+            LazyVStack(alignment: .leading, spacing: 32) {
+                ForEach(self.viewModel.sections) { section in
+                    self.sectionRail(section)
+                }
+
+                if !self.viewModel.videos.isEmpty {
+                    self.forYouGrid
+                }
+            }
+            .padding(.vertical, 20)
+        }
+    }
+
+    /// A single horizontal rail of video cards with a title header.
+    private func sectionRail(_ section: YouTubeHomeSection) -> some View {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: section.videos,
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
+        ) {
+            Text(section.title)
+                .font(.title2)
+                .fontWeight(.semibold)
+        } itemContent: { video in
+            NavigationLink(value: YouTubeRoute.watch(video)) {
+                // VideoCard has no intrinsic width; pin it for the horizontal
+                // LazyHStack (matches the music video card width).
+                VideoCard(video: video)
+                    .frame(width: 284)
+            }
+            .buttonStyle(.interactiveCard)
+        }
+    }
+
+    /// The flat "For you" recommendation grid with infinite-scroll pagination.
+    private var forYouGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !self.viewModel.sections.isEmpty {
+                Text("For you", comment: "YouTube home recommendation grid heading")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, DetailContentLayout.horizontalInset)
+            }
+
             LazyVGrid(columns: Self.columns, spacing: 20) {
                 ForEach(self.viewModel.videos) { video in
                     NavigationLink(value: YouTubeRoute.watch(video)) {
@@ -63,11 +112,10 @@ struct YouTubeHomeView: View {
                         }
                 }
             }
-            .padding(.vertical, 20)
+            // Vertical grid insets its resting content; rails above keep their
+            // own edge-to-edge track so they slide under the glass sidebar.
+            .padding(.horizontal, DetailContentLayout.horizontalInset)
         }
-        // Edge-to-edge with a resting inset so the grid extends under the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     private var loadingGrid: some View {
