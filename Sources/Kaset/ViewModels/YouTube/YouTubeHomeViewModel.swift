@@ -32,6 +32,11 @@ final class YouTubeHomeViewModel {
     private static let continueWatchingCap = 20
     private static let topicRailCap = 8
 
+    /// Backstop on how many fully-filtered continuation pages `loadMore()` will
+    /// walk in one call before giving up, so a pathological feed (every page's
+    /// videos already shown) can't spin indefinitely.
+    private static let maxEmptyContinuationPages = 5
+
     /// Invalidates stale in-flight loads when a newer one starts
     /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
@@ -143,7 +148,17 @@ final class YouTubeHomeViewModel {
 
         self.loadingState = .loadingMore
         do {
-            if let feed = try await client.getHomeFeedContinuation() {
+            // A continuation page can filter to nothing (all its videos already
+            // appear in the grid or in a shelf rail) while more pages remain.
+            // The only pagination trigger is the grid's `ProgressView` sentinel,
+            // which won't re-fire if nothing was appended — so keep fetching
+            // until at least one new video lands or the feed is exhausted. The
+            // bound is a defensive backstop against a pathological feed.
+            for _ in 0 ..< Self.maxEmptyContinuationPages {
+                guard let feed = try await client.getHomeFeedContinuation() else {
+                    self.hasMoreVideos = false
+                    break
+                }
                 var existing = Set(self.videos.map(\.videoId))
                 // Skip videos already in the grid and any that belong to a
                 // titled shelf rail (consistent with the first page).
@@ -152,8 +167,11 @@ final class YouTubeHomeViewModel {
                 }
                 self.videos.append(contentsOf: newVideos)
                 self.hasMoreVideos = self.client.hasMoreHomeFeed
-            } else {
-                self.hasMoreVideos = false
+                // Stop once this page added something, or there is nothing left
+                // to try (a fully-filtered page with no further continuation).
+                if !newVideos.isEmpty || !self.hasMoreVideos {
+                    break
+                }
             }
             self.loadingState = .loaded
         } catch {

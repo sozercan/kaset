@@ -31,8 +31,19 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var lastSearchFilter: YouTubeSearchFilter?
 
     var hasMoreHomeFeed: Bool {
-        self.homeFeedContinuation != nil
+        // When a multi-page queue is configured it drives "has more"; otherwise
+        // fall back to the single-page `homeFeedContinuation`.
+        if !self.homeContinuationPages.isEmpty {
+            return true
+        }
+        return self.homeFeedContinuation != nil
     }
+
+    /// Optional queue of continuation pages, consumed front-to-back by
+    /// `getHomeFeedContinuation()`. Takes precedence over the single-page
+    /// `homeFeedContinuation` when non-empty. Lets tests exercise multi-page
+    /// pagination (e.g. a fully-filtered page followed by a page with videos).
+    var homeContinuationPages: [YouTubeFeed] = []
 
     // MARK: - YouTubeClientProtocol
 
@@ -44,6 +55,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
         if let error { throw error }
+        if !self.homeContinuationPages.isEmpty {
+            return self.homeContinuationPages.removeFirst()
+        }
         let continuation = self.homeFeedContinuation
         self.homeFeedContinuation = nil
         return continuation

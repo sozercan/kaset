@@ -209,6 +209,36 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.hasMoreVideos == false)
     }
 
+    @Test("loadMore walks past a fully-filtered continuation page")
+    func loadMoreSkipsFullyFilteredPage() async {
+        let shelfVideo = MockYouTubeClient.makeVideo(videoId: "shelf-vid")
+        // Grid starts non-empty so the sentinel exists.
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "grid-0")],
+            continuation: "more"
+        )
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "shelf-1", title: "Breaking news", videos: [shelfVideo], kind: .shelf),
+        ]
+        // Page A is entirely shelf videos (filters to nothing) but more remains;
+        // page B has a real video. A single loadMore() must reach page B rather
+        // than stalling on the empty page (the sentinel would not re-fire).
+        self.mockClient.homeContinuationPages = [
+            YouTubeFeed(videos: [shelfVideo], continuation: "still-more"),
+            YouTubeFeed(videos: [MockYouTubeClient.makeVideo(videoId: "pageB-vid")], continuation: nil),
+        ]
+
+        await self.sut.load()
+        #expect(self.sut.videos.map(\.videoId) == ["grid-0"])
+        #expect(self.sut.hasMoreVideos)
+
+        await self.sut.loadMore()
+
+        // Walked past the fully-filtered page A to surface page B's video.
+        #expect(self.sut.videos.map(\.videoId) == ["grid-0", "pageB-vid"])
+        #expect(self.sut.hasMoreVideos == false)
+    }
+
     @Test("A failing topic fetch omits only that rail")
     func failingTopicOmitsOnlyThatRail() async {
         self.mockClient.homeChips = [
