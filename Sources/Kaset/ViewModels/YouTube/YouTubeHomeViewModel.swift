@@ -19,6 +19,11 @@ final class YouTubeHomeViewModel {
     /// Whether more feed pages are available.
     private(set) var hasMoreVideos = true
 
+    /// Video IDs already surfaced in titled shelf rails, excluded from the flat
+    /// "For you" grid (including continuation pages) so a shelf video is never
+    /// rendered twice.
+    private var shelfVideoIDs: Set<String> = []
+
     /// Resume-progress band for the Continue Watching rail: started but not
     /// effectively finished. `nil`/0 = not started; ≥96 = finished.
     private static let continueWatchingRange = 1 ... 95
@@ -66,9 +71,10 @@ final class YouTubeHomeViewModel {
             // `YouTubeFeedParser.parse` collects shelf videos into `feed.videos`
             // too, and the shelf rail surfaces them again — exclude shelf video
             // IDs from the grid so a shelf video is not rendered twice (once in
-            // its rail, once under "For you").
-            let shelfVideoIDs = Set(shelves.flatMap { section in section.videos.map(\.videoId) })
-            let gridVideos = feed.videos.filter { !shelfVideoIDs.contains($0.videoId) }
+            // its rail, once under "For you"). Stored so continuation pages
+            // apply the same filter.
+            self.shelfVideoIDs = Set(shelves.flatMap { section in section.videos.map(\.videoId) })
+            let gridVideos = feed.videos.filter { !self.shelfVideoIDs.contains($0.videoId) }
 
             // Publish the recommendation grid immediately so first paint does
             // not wait on the optional topic rails (chips fan out to several
@@ -127,6 +133,7 @@ final class YouTubeHomeViewModel {
         self.loadingState = .idle
         self.videos = []
         self.sections = []
+        self.shelfVideoIDs = []
         await self.load()
     }
 
@@ -137,8 +144,13 @@ final class YouTubeHomeViewModel {
         self.loadingState = .loadingMore
         do {
             if let feed = try await client.getHomeFeedContinuation() {
-                let existing = Set(self.videos.map(\.videoId))
-                self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
+                var existing = Set(self.videos.map(\.videoId))
+                // Skip videos already in the grid and any that belong to a
+                // titled shelf rail (consistent with the first page).
+                let newVideos = feed.videos.filter { video in
+                    !self.shelfVideoIDs.contains(video.videoId) && existing.insert(video.videoId).inserted
+                }
+                self.videos.append(contentsOf: newVideos)
                 self.hasMoreVideos = self.client.hasMoreHomeFeed
             } else {
                 self.hasMoreVideos = false

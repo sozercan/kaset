@@ -182,6 +182,33 @@ struct YouTubeHomeViewModelTests {
         #expect(shelf?.videos.map(\.videoId) == ["shelf-vid"])
     }
 
+    @Test("Pagination stays reachable when shelves empty the first grid page")
+    func paginationReachableWithEmptyGrid() async {
+        // First page: every flat video also belongs to a shelf, so the grid is
+        // empty after dedup — but a continuation exists. hasMoreVideos must stay
+        // true so the view keeps the pagination sentinel and loadMore() works.
+        let shelfVideo = MockYouTubeClient.makeVideo(videoId: "shelf-vid")
+        self.mockClient.homeFeed = YouTubeFeed(videos: [shelfVideo], continuation: "page2")
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "shelf-1", title: "Breaking news", videos: [shelfVideo], kind: .shelf),
+        ]
+        // Page 2 brings a fresh grid-only video (plus a shelf dup to verify the
+        // shelf filter also applies to continuation pages).
+        self.mockClient.homeFeedContinuation = YouTubeFeed(
+            videos: [shelfVideo, MockYouTubeClient.makeVideo(videoId: "page2-vid")],
+            continuation: nil
+        )
+
+        await self.sut.load()
+        #expect(self.sut.videos.isEmpty) // first page fully filtered into the shelf
+        #expect(self.sut.hasMoreVideos) // continuation still reachable
+
+        await self.sut.loadMore()
+        // Page 2's non-shelf video appears; the shelf dup is filtered out.
+        #expect(self.sut.videos.map(\.videoId) == ["page2-vid"])
+        #expect(self.sut.hasMoreVideos == false)
+    }
+
     @Test("A failing topic fetch omits only that rail")
     func failingTopicOmitsOnlyThatRail() async {
         self.mockClient.homeChips = [

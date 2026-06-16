@@ -55,7 +55,12 @@ struct YouTubeHomeView: View {
                     self.sectionRail(section)
                 }
 
-                if !self.viewModel.videos.isEmpty {
+                // Render the grid whenever there are flat videos OR more pages
+                // to fetch. The pagination sentinel lives inside the grid, so
+                // gating the whole grid on a non-empty `videos` would strand the
+                // continuation when the first page's flat videos are all shelf
+                // videos (filtered out) but more pages remain.
+                if !self.viewModel.videos.isEmpty || self.viewModel.hasMoreVideos {
                     self.forYouGrid
                 }
             }
@@ -88,7 +93,10 @@ struct YouTubeHomeView: View {
     /// The flat "For you" recommendation grid with infinite-scroll pagination.
     private var forYouGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if !self.viewModel.sections.isEmpty {
+            // Show the heading only when there are rails above it AND grid
+            // videos to label; an empty grid (just the pagination sentinel)
+            // should not show a dangling "For you" title.
+            if !self.viewModel.sections.isEmpty, !self.viewModel.videos.isEmpty {
                 Text("For you", comment: "YouTube home recommendation grid heading")
                     .font(.title2)
                     .fontWeight(.semibold)
