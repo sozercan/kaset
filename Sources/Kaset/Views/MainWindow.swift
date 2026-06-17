@@ -130,6 +130,7 @@ struct MainWindow: View {
                     OnboardingView()
                 }
             }
+            .allowsHitTesting(!self.playerService.showNowPlayingLyrics)
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
@@ -190,6 +191,20 @@ struct MainWindow: View {
             // Error toast for account switching failures
             AccountErrorToast()
                 .padding(.top, 60)
+        }
+        .overlay {
+            if self.playerService.showNowPlayingLyrics {
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(.clear)
+                        .ignoresSafeArea()
+
+                    NowPlayingLyricsView(client: self.client)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .ignoresSafeArea()
+            }
         }
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {

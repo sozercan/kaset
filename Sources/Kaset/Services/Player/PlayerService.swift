@@ -176,6 +176,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Whether the full now-playing lyrics view is visible.
+    var showNowPlayingLyrics: Bool = false
+
     /// Display mode for the queue panel (popup vs side panel).
     var queueDisplayMode: QueueDisplayMode = .popup
 
