@@ -68,8 +68,13 @@ actor ImageCache {
             return cached
         }
 
-        // Check disk cache
-        if let diskImage = loadFromDisk(url: url, targetSize: targetSize) {
+        // Check disk cache off the actor so concurrent decodes (every visible
+        // card on first paint) run in parallel across cores instead of
+        // serializing here. loadFromDisk is nonisolated and reads only
+        // immutable state; only the memory-cache write below is back on-actor.
+        if let diskImage = await Task.detached(priority: .userInitiated, operation: { [self] in
+            self.loadFromDisk(url: url, targetSize: targetSize)
+        }).value {
             self.memoryCache.setObject(diskImage, forKey: url as NSURL)
             return diskImage
         }
@@ -210,23 +215,31 @@ actor ImageCache {
 
     // MARK: - Disk Cache Helpers
 
-    private func cacheKey(for url: URL) -> String {
+    // swiftformat:disable modifierOrder
+    nonisolated private func cacheKey(for url: URL) -> String {
         let data = Data(url.absoluteString.utf8)
         let hash = SHA256.hash(data: data)
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    private func diskCachePath(for url: URL) -> URL {
+    nonisolated private func diskCachePath(for url: URL) -> URL {
         self.diskCacheURL.appendingPathComponent(self.cacheKey(for: url))
     }
 
-    private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
+    /// Reads and decodes a cached image off the actor. `nonisolated` so warm
+    /// disk hits — `Data(contentsOf:)` plus the ImageIO downsample in
+    /// `createImage` — run concurrently across cores instead of serializing on
+    /// the `ImageCache` actor (every visible card used to queue its decode
+    /// behind the others). Touches only immutable state (`diskCacheURL`).
+    nonisolated private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
         let path = self.diskCachePath(for: url)
         guard let data = try? Data(contentsOf: path) else {
             return nil
         }
         return Self.createImage(from: data, targetSize: targetSize)
     }
+
+    // swiftformat:enable modifierOrder
 
     private func saveToDisk(url: URL, data: Data) {
         let path = self.diskCachePath(for: url)
