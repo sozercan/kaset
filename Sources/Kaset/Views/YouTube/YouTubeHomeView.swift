@@ -46,7 +46,13 @@ struct YouTubeHomeView: View {
         }
         .navigationTitle(Text("Home", comment: "YouTube home feed title"))
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.homeGrid)
-        .task {
+        // Key on the view-model identity, not a bare `.task`. On cold launch the
+        // account resolves after first paint and `resetForAccountChange()` swaps
+        // in a fresh view model; a bare `.task` would not re-fire for that
+        // property swap, leaving the new (idle) model stuck on the skeleton until
+        // a navigation changed the view identity. Re-keying reloads the new model
+        // immediately. (Same shape as YouTubeExploreView.)
+        .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
     }
@@ -55,11 +61,17 @@ struct YouTubeHomeView: View {
     /// the "For you" recommendation grid. The ScrollView track stays
     /// edge-to-edge so rails slide under the floating glass sidebar; each rail
     /// and the grid restore their own resting inset.
+    ///
+    /// The grid publishes first (fast cached feed) and the rails arrive a moment
+    /// later (slow topic/history browses). Animating on the rails' identities
+    /// makes them fade in and the grid ease down, so the late arrival reads as
+    /// intentional motion instead of an abrupt snap.
     private var feedContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
                 ForEach(self.viewModel.sections) { section in
                     self.sectionRail(section)
+                        .transition(.opacity)
                 }
 
                 // Render the grid whenever there are flat videos OR more pages
@@ -72,6 +84,10 @@ struct YouTubeHomeView: View {
                 }
             }
             .padding(.vertical, 20)
+            // Key on the rail identities (the array isn't Equatable). When the
+            // late rails land, this animates their insertion and the grid's
+            // downward shift in one smooth move.
+            .animation(AppAnimation.smooth, value: self.viewModel.sections.map(\.id))
         }
     }
 
@@ -131,6 +147,25 @@ struct YouTubeHomeView: View {
             // own edge-to-edge track so they slide under the glass sidebar.
             .padding(.horizontal, DetailContentLayout.horizontalInset)
         }
+        // Warm the first screenful of thumbnails as soon as the grid publishes
+        // so they decode ahead of scroll instead of popping in one-by-one. Keyed
+        // on the first batch's IDs so a fresh load re-warms; ImageCache.prefetch
+        // caps concurrency and skips already-cached URLs.
+        .task(id: self.firstThumbnailBatchKey) {
+            let urls = self.viewModel.videos.prefix(12).compactMap(\.thumbnailURL)
+            guard !urls.isEmpty else { return }
+            await ImageCache.shared.prefetch(
+                urls: Array(urls),
+                targetSize: CGSize(width: 320, height: 180)
+            )
+        }
+    }
+
+    /// Identity for the prefetch task: the first batch of grid video IDs. Drives
+    /// a re-warm when the grid's first page changes (a fresh load), not on every
+    /// pagination append.
+    private var firstThumbnailBatchKey: String {
+        self.viewModel.videos.prefix(12).map(\.videoId).joined(separator: ",")
     }
 
     private var loadingGrid: some View {

@@ -41,7 +41,10 @@ struct YouTubeShortsView: View {
             }
         }
         .navigationTitle(Text("Shorts", comment: "YouTube Shorts title"))
-        .task {
+        // Keyed on the view-model identity so a cold-launch account swap (which
+        // rebuilds the model) re-fires the load instead of leaving the fresh,
+        // idle model stuck. See YouTubeHomeView for the full rationale.
+        .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
             // Autoplay the first short on entry.
             if self.currentShortId == nil, let first = self.viewModel.shorts.first {
