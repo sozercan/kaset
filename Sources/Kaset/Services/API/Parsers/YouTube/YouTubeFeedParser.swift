@@ -54,6 +54,25 @@ enum YouTubeFeedParser {
 
     // MARK: - Home Sections (Chips & Shelves)
 
+    /// One deserialize + parse of the home `FEwhat_to_watch` response into all
+    /// three of its surfaces: the flat feed, the personalized chips, and the
+    /// titled shelves. The home response carries all three, so callers fetch and
+    /// walk it once here instead of three separate `parse`/`parseChips`/
+    /// `parseHomeShelves` passes over the same ~2 MB blob.
+    ///
+    /// `Data` in, value types out — safe to run off the main actor (the
+    /// intermediate `[String: Any]` never escapes this function).
+    static func parseHomeBundle(from data: Data) throws -> YouTubeHomeBundle {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw YTMusicError.parseError(message: "Response is not a JSON object")
+        }
+        return YouTubeHomeBundle(
+            feed: Self.parse(json),
+            chips: Self.parseChips(json),
+            shelves: Self.parseHomeShelves(json)
+        )
+    }
+
     /// Parses the home feed's personalized filter-chip bar into browsable
     /// topic chips. The selected "All" chip (which has no continuation token)
     /// is skipped so callers get only the topic rails.

@@ -14,6 +14,12 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches the recommended home feed (`FEwhat_to_watch`).
     func getHomeFeed() async throws -> YouTubeFeed
 
+    /// Fetches the home feed, its filter chips, and its titled shelves from a
+    /// single `FEwhat_to_watch` request, parsed off the main actor. Preferred
+    /// over calling `getHomeFeed`/`getHomeChips`/`getHomeShelves` separately:
+    /// the ~2 MB response is fetched and walked once instead of three times.
+    func getHomeBundle() async throws -> YouTubeHomeBundle
+
     /// Fetches the next page of the home feed, or `nil` when exhausted.
     func getHomeFeedContinuation() async throws -> YouTubeFeed?
 

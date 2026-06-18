@@ -12,6 +12,14 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
 
+    func getHomeBundle() async throws -> YouTubeHomeBundle {
+        try await YouTubeHomeBundle(
+            feed: self.getHomeFeed(),
+            chips: self.getHomeChips(),
+            shelves: self.getHomeShelves()
+        )
+    }
+
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
         nil
     }

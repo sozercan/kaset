@@ -30,6 +30,18 @@ struct APICacheTests {
         #expect(retrieved == nil)
     }
 
+    @Test("Raw data set and get round-trips")
+    func cacheDataSetAndGet() {
+        let bytes = Data("a 2MB-ish home response would go here".utf8)
+        self.cache.setData(key: "raw_key", data: bytes, ttl: 60)
+
+        #expect(self.cache.getData(key: "raw_key") == bytes)
+        // Missing key is nil, and a dict-typed entry is not mistaken for data.
+        #expect(self.cache.getData(key: "nonexistent_raw") == nil)
+        self.cache.set(key: "dict_key", data: ["k": 1], ttl: 60)
+        #expect(self.cache.getData(key: "dict_key") == nil)
+    }
+
     @Test("Cache invalidate all")
     func cacheInvalidateAll() {
         self.cache.set(key: "key1", data: ["a": 1], ttl: 60)

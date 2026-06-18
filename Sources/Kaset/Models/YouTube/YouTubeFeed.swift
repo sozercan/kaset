@@ -60,6 +60,18 @@ struct YouTubeHomeChip: Identifiable {
     let continuation: String
 }
 
+// MARK: - YouTubeHomeBundle
+
+/// The three surfaces carried by a single home `FEwhat_to_watch` response: the
+/// flat recommendation feed, the personalized filter chips, and the response's
+/// own titled shelves. Produced by one fetch + one parse pass so the ~2 MB blob
+/// is deserialized and walked once rather than three times.
+struct YouTubeHomeBundle {
+    let feed: YouTubeFeed
+    let chips: [YouTubeHomeChip]
+    let shelves: [YouTubeHomeSection]
+}
+
 // MARK: - YouTubeSearchResponse
 
 /// Results of a YouTube search, split by result kind.

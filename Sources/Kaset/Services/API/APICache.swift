@@ -87,6 +87,21 @@ final class APICache {
         self.cache[key] = CacheEntry(data: data, timestamp: now, ttl: ttl)
     }
 
+    /// Key under which raw `Data` payloads are boxed inside a `CacheEntry`, so
+    /// raw-bytes caching reuses the same TTL / LRU / eviction machinery as the
+    /// deserialized-dict cache instead of a parallel store.
+    private static let rawDataBoxKey = "__APICacheRawData__"
+
+    /// Gets cached raw bytes if available and not expired.
+    func getData(key: String) -> Data? {
+        self.get(key: key)?[Self.rawDataBoxKey] as? Data
+    }
+
+    /// Stores raw bytes in the cache with the specified TTL.
+    func setData(key: String, data: Data, ttl: TimeInterval) {
+        self.set(key: key, data: [Self.rawDataBoxKey: data], ttl: ttl)
+    }
+
     private static let logger = DiagnosticsLogger.api
 
     /// Generates a stable, deterministic cache key from endpoint, request body, and brand ID.
