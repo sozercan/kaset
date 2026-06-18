@@ -19,6 +19,17 @@ final class YouTubeVideoWindowController {
     private var isClosing = false
     private let frameAutosaveKey = "KasetYouTubeVideoWindow"
 
+    /// Floor for the video content area. Below roughly this size the macOS 26
+    /// `NSHostingView` safe-area corner-inset recompute can raise an uncaught
+    /// `NSException` during the display-cycle commit and abort the app, so the
+    /// resize guard never lets the content shrink past it.
+    private static let minContentSize = NSSize(width: 512, height: 288)
+
+    /// Enforces the 16:9 ratio and the `minContentSize` floor on every resize.
+    /// Strong reference because `NSWindow.delegate` is weak; kept for the
+    /// window's lifetime and torn down in `performCleanup`.
+    private var resizeGuard: YouTubeVideoWindowResizeGuard?
+
     /// When fullscreen was entered from the inline watch view, exiting it
     /// docks the video back inline instead of leaving the small pop-out.
     private var returnInlineOnExitFullscreen = false
@@ -60,12 +71,19 @@ final class YouTubeVideoWindowController {
         // fullScreenPrimary so the green traffic light enters fullscreen
         // (not just zoom).
         window.collectionBehavior = [.fullScreenPrimary]
-        // Lock resizing to the video's aspect ratio so the surface can't be
-        // misshapen (controls overlay inside the video, so content == video).
-        window.contentAspectRatio = NSSize(width: 16, height: 9)
-        // Generous floor: the full player bar needs the width, and very
-        // small WebView surfaces have crashed during live resizes.
-        window.contentMinSize = NSSize(width: 512, height: 288)
+        // Aspect + floor are enforced by the resize-guard delegate below, NOT
+        // by contentAspectRatio. With both contentAspectRatio and
+        // contentMinSize set, AppKit honors the aspect lock on the dragged axis
+        // during live resize and lets the OTHER axis slip below the floor; the
+        // resulting degenerate content rect makes the macOS 26 NSHostingView
+        // safe-area corner-inset update raise an uncaught NSException in the
+        // display-cycle commit (SIGABRT). A windowWillResize clamp is the single
+        // sizing authority, so the two constraints can't fight.
+        let resizeGuard = YouTubeVideoWindowResizeGuard(minContentSize: Self.minContentSize)
+        self.resizeGuard = resizeGuard
+        window.delegate = resizeGuard
+        // Harmless backstop now that nothing competes with it.
+        window.contentMinSize = Self.minContentSize
         window.backgroundColor = .black
         window.setFrameAutosaveName(self.frameAutosaveKey)
         window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.YouTubeContent.videoWindow)
@@ -73,13 +91,18 @@ final class YouTubeVideoWindowController {
         if !window.setFrameUsingName(self.frameAutosaveKey) {
             self.positionAtDefaultLocation(window: window)
         }
-        // Saved frames from earlier layouts may not be 16:9; the aspect lock
-        // only constrains user resizes, so normalize the content explicitly.
-        var contentSize = window.contentRect(forFrameRect: window.frame).size
-        contentSize.width = max(contentSize.width, 512)
-        let expectedHeight = contentSize.width * 9 / 16
-        if abs(contentSize.height - expectedHeight) > 1 || contentSize.width < 512 {
-            window.setContentSize(NSSize(width: contentSize.width, height: expectedHeight))
+        // A saved frame from an earlier layout may not be 16:9 (or may be below
+        // the floor); windowWillResize only fires for interactive resizes, so
+        // normalize the restored frame explicitly through the same clamp.
+        let currentContent = window.contentRect(forFrameRect: window.frame).size
+        let normalized = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: currentContent,
+            minContentSize: Self.minContentSize
+        )
+        if abs(currentContent.width - normalized.width) > 1
+            || abs(currentContent.height - normalized.height) > 1
+        {
+            window.setContentSize(normalized)
         }
 
         window.orderFront(nil)
@@ -170,6 +193,24 @@ final class YouTubeVideoWindowController {
     private func performCleanup() {
         self.youtubePlayerService?.isWindowFullscreen = false
         self.returnInlineOnExitFullscreen = false
+        // Remove the fullscreen observers registered in show() so they don't
+        // stack on the shared singleton across show/close cycles. (The willClose
+        // observer is removed on the close paths before cleanup runs.) Scoped to
+        // the window object, mirroring how show() registered them.
+        if let window = self.window {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.didEnterFullScreenNotification,
+                object: window
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.didExitFullScreenNotification,
+                object: window
+            )
+        }
+        self.window?.delegate = nil
+        self.resizeGuard = nil
         self.window = nil
         self.hostingView = nil
         self.isClosing = false
@@ -189,6 +230,60 @@ final class YouTubeVideoWindowController {
     }
 }
 
+// MARK: - YouTubeVideoWindowResizeGuard
+
+/// Window delegate that keeps the floating video window at 16:9 and never lets
+/// it shrink below a safe floor.
+///
+/// Replaces `NSWindow.contentAspectRatio` + `contentMinSize`: when both are
+/// set, AppKit reconciles the aspect lock on the dragged axis during a live
+/// resize and lets the other axis slip below the floor. The degenerate content
+/// rect then makes the macOS 26 `NSHostingView` safe-area corner-inset recompute
+/// raise an uncaught `NSException` inside the display-cycle commit, aborting the
+/// app. Clamping every proposed frame in `windowWillResize(_:to:)` — before the
+/// geometry is applied — keeps a single sizing authority, so nothing competes.
+@MainActor
+final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
+    private let minContentSize: NSSize
+
+    init(minContentSize: NSSize) {
+        self.minContentSize = minContentSize
+        super.init()
+    }
+
+    /// Floors a proposed content size and snaps it to 16:9. Pure function so
+    /// both interactive resizes and programmatic frame restores share it.
+    static func normalizedContentSize(for proposed: NSSize, minContentSize: NSSize) -> NSSize {
+        // Drive off width, then derive a 16:9 height; if that height would fall
+        // under the floor, drive off the floor height instead. Guarantees both
+        // axes stay at or above the floor.
+        let width = max(proposed.width, minContentSize.width)
+        var height = (width * 9 / 16).rounded()
+        if height < minContentSize.height {
+            height = minContentSize.height
+        }
+        return NSSize(width: width, height: height)
+    }
+
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        // Never reshape a fullscreen transition: the animation drives the window
+        // to screen size (far above the floor), and returning a width-derived
+        // 16:9 size would distort it. Only interactive/standard resizes need the
+        // clamp.
+        guard !sender.styleMask.contains(.fullScreen) else { return frameSize }
+        // frameSize is a FRAME size; convert to content, clamp, convert back so
+        // the titlebar inset is preserved.
+        let proposedFrame = NSRect(origin: .zero, size: frameSize)
+        let proposedContent = sender.contentRect(forFrameRect: proposedFrame).size
+        let clampedContent = Self.normalizedContentSize(
+            for: proposedContent,
+            minContentSize: self.minContentSize
+        )
+        let clampedFrame = sender.frameRect(forContentRect: NSRect(origin: .zero, size: clampedContent))
+        return clampedFrame.size
+    }
+}
+
 // MARK: - YouTubeVideoWindowContent
 
 /// Floating window content: corner-to-corner video with hover-revealed
@@ -199,6 +294,11 @@ private struct YouTubeVideoWindowContent: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     @State private var isHovering = false
+
+    /// Height of the top strip that moves the window. Generous enough to be
+    /// an easy grab target; the top of the video carries no YouTube controls
+    /// (the scrubber lives at the bottom), so it costs no native click area.
+    private static let dragStripHeight: CGFloat = 36
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -212,6 +312,28 @@ private struct YouTubeVideoWindowContent: View {
                         .transition(.opacity)
                 }
             }
+
+            // Top drag strip: the corner-to-corner WebView reports
+            // mouseDownCanMoveWindow == false and swallows mouseDown, so the
+            // window's isMovableByWindowBackground is dead everywhere the
+            // WebView covers — leaving only the hidden titlebar sliver to grab.
+            // This native strip sits above the WebView and moves the window
+            // explicitly via NSWindow.performDrag.
+            WindowDragHandle()
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.dragStripHeight)
+                .overlay(alignment: .top) {
+                    if self.isHovering {
+                        // Subtle grab affordance so the drag region is
+                        // discoverable without cluttering the chrome-free look.
+                        Capsule()
+                            .fill(.white.opacity(0.35))
+                            .frame(width: 36, height: 5)
+                            .padding(.top, 7)
+                            .transition(.opacity)
+                            .allowsHitTesting(false)
+                    }
+                }
         }
         .background(.black)
         .ignoresSafeArea()
@@ -220,6 +342,50 @@ private struct YouTubeVideoWindowContent: View {
                 self.isHovering = hovering
             }
             YouTubeVideoWindowController.shared.setWindowChromeVisible(hovering)
+        }
+    }
+}
+
+// MARK: - WindowDragHandle
+
+/// Transparent native strip that lets the user move the floating window by
+/// dragging along the top. The hosted WebView reports
+/// `mouseDownCanMoveWindow == false` and consumes `mouseDown`, defeating the
+/// window's `isMovableByWindowBackground` everywhere it covers; this strip sits
+/// above the WebView and drives the move explicitly through
+/// `NSWindow.performDrag(with:)`. Scoped to the floating window only — the
+/// shared `YouTubeWatchSurfaceView` is untouched.
+private struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context _: Context) -> NSView {
+        WindowDragNSView()
+    }
+
+    func updateNSView(_: NSView, context _: Context) {}
+}
+
+// MARK: - WindowDragNSView
+
+/// Backing view for `WindowDragHandle`.
+private final class WindowDragNSView: NSView {
+    /// Take `mouseDown` ourselves instead of letting AppKit's background-drag
+    /// heuristics intercept it, so the move is driven deterministically.
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
+
+    /// Drag even when the floating window is not key — it is ordered front
+    /// without stealing focus, so a first click must move it, not just activate.
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Preserve the standard titlebar gesture: double-click zooms (or
+        // miniaturizes, per System Settings) rather than starting a drag.
+        if event.clickCount == 2 {
+            self.window?.performZoom(nil)
+        } else {
+            self.window?.performDrag(with: event)
         }
     }
 }
