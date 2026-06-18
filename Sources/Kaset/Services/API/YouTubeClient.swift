@@ -101,7 +101,12 @@ final class YouTubeClient: YouTubeClientProtocol {
         // three separate getHomeFeed/getHomeChips/getHomeShelves calls that each
         // re-walked the same ~2 MB blob on the main thread.
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
-        if let cached = try await self.cachedHomeData(body: homeBody) {
+        // Capture the cache key for the CURRENT (authenticated) account scope up
+        // front, before any network await. If the user signs out mid-flight,
+        // recomputing it later would resolve to the account-unknown `pending`
+        // scope and store this user's bytes there — readable after a re-login.
+        let cacheKey = self.homeDataCacheKey(body: homeBody)
+        if let cacheKey, let cached = try await self.cachedHomeData(key: cacheKey) {
             let bundle = try await Self.parseHomeBundle(from: cached)
             try Task.checkCancellation()
             self.homeContinuation = bundle.feed.continuation
@@ -117,9 +122,12 @@ final class YouTubeClient: YouTubeClientProtocol {
         // The detached parse is not cancelled when the Home view model is
         // discarded (account switch). Don't mutate shared client state or
         // populate the cache after cancellation — the cache scope/providers may
-        // have already moved to the new account.
+        // have already moved to the new account. Re-validate the scope too: only
+        // write if the key still matches the current account.
         try Task.checkCancellation()
-        self.cacheHomeData(data, body: homeBody)
+        if let cacheKey, cacheKey == self.homeDataCacheKey(body: homeBody) {
+            APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
+        }
         self.homeContinuation = bundle.feed.continuation
         self.logger.info(
             "YouTube home bundle: \(bundle.feed.videos.count) videos, \(bundle.chips.count) chips, \(bundle.shelves.count) shelves"
@@ -554,22 +562,17 @@ final class YouTubeClient: YouTubeClientProtocol {
         return self.cacheKey(forEndpoint: Self.cachePrefix + "data:browse", body: fullBody, ttl: APICache.TTL.home)
     }
 
-    /// Returns cached raw home bytes if present, after validating the auth
-    /// session (a cleared/expired session must not serve private cached data).
-    private func cachedHomeData(body: [String: Any]) async throws -> Data? {
-        guard let cacheKey = self.homeDataCacheKey(body: body) else { return nil }
+    /// Returns cached raw home bytes for `key` if present, after validating the
+    /// auth session (a cleared/expired session must not serve private cached
+    /// data). `key` is captured by the caller before any network await so it
+    /// reflects the authenticated request scope, not a later signed-out one.
+    private func cachedHomeData(key: String) async throws -> Data? {
         _ = try await self.buildAuthHeaders()
-        if let cached = APICache.shared.getData(key: cacheKey) {
+        if let cached = APICache.shared.getData(key: key) {
             self.logger.debug("Cache hit (data) for \(Self.cachePrefix)browse")
             return cached
         }
         return nil
-    }
-
-    /// Caches raw home bytes (called only after a successful parse).
-    private func cacheHomeData(_ data: Data, body: [String: Any]) {
-        guard let cacheKey = self.homeDataCacheKey(body: body) else { return }
-        APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
     }
 
     /// Performs the actual network request.

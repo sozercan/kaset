@@ -199,7 +199,13 @@ final class YouTubeHomeViewModel {
             next.append(contentsOf: shelves)
             next.append(contentsOf: topicSlot.compactMap(\.self))
             self.sections = next
-            if !gridReady, self.loadingState != .loaded {
+            // Only clear the skeleton once there is actual content. The first
+            // group result is often history returning nil (no resumable watch
+            // history); flipping `.loaded` then — with topics still pending and
+            // `next` empty — would flash the "No recommendations" state. The
+            // genuinely-empty case is handled by the terminal `.loaded` in
+            // performLoad after all rail work finishes.
+            if !gridReady, !next.isEmpty, self.loadingState != .loaded {
                 self.loadingState = .loaded
             }
         }

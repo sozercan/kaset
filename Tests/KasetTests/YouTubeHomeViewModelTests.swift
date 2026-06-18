@@ -390,6 +390,41 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.sections.map(\.kind) == [.topic])
     }
 
+    @Test("Empty grid does not flash loaded before the topic rails arrive")
+    func emptyGridDoesNotFlashLoadedEarly() async {
+        // Regression: the first group result is often history returning nil (no
+        // resumable watch history). With an empty grid and no shelves, flipping
+        // `.loaded` on that empty first result would flash the "No
+        // recommendations" state before the topic rows arrive. The skeleton must
+        // stay until there is real content.
+        self.mockClient.homeFeed = .empty // empty grid, no shelves
+        self.mockClient.historyFeed = .empty // history resolves to nil (not resumable)
+        self.mockClient.homeChips = [YouTubeHomeChip(title: "Gaming", continuation: "tok-gaming")]
+        self.mockClient.homeTopicFeeds = [
+            "tok-gaming": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+        ]
+
+        // Hold the topic rail open so we can observe the pre-rail state.
+        let gate = AsyncGate()
+        self.mockClient.beforeTopicReturn = { _ in await gate.wait() }
+
+        async let loadDone: Void = self.sut.load()
+
+        // Wait until the topic fetch is in flight (history has resolved to nil).
+        while self.mockClient.requestedTopicContinuations.isEmpty {
+            await Task.yield()
+        }
+        // The empty history result must NOT have cleared the skeleton.
+        #expect(self.sut.loadingState != .loaded)
+        #expect(self.sut.sections.isEmpty)
+
+        // Release the rail; now content exists and the model loads.
+        await gate.open()
+        await loadDone
+        #expect(self.sut.loadingState == .loaded)
+        #expect(self.sut.sections.map(\.kind) == [.topic])
+    }
+
     @Test("The recommendation grid renders without waiting on slow topic rails")
     func gridRendersBeforeSlowRails() async {
         self.mockClient.homeFeed = YouTubeFeed(

@@ -45,6 +45,11 @@ struct YouTubeShortsView: View {
         // rebuilds the model) re-fires the load instead of leaving the fresh,
         // idle model stuck. See YouTubeHomeView for the full rationale.
         .task(id: ObjectIdentifier(self.viewModel)) {
+            // The view model is swapped on an account change; this @State is from
+            // the previous account. Reset it so the autoplay guard below selects
+            // the new model's first short instead of keeping a stale ID that is
+            // not in the new pager.
+            self.currentShortId = nil
             await self.viewModel.load()
             // Autoplay the first short on entry.
             if self.currentShortId == nil, let first = self.viewModel.shorts.first {
