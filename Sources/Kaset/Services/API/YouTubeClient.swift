@@ -96,12 +96,7 @@ final class YouTubeClient: YouTubeClientProtocol {
     func getHomeBundle() async throws -> YouTubeHomeBundle {
         self.logger.info("Fetching YouTube home bundle (feed + chips + shelves)")
 
-        // Shared raw `FEwhat_to_watch` bytes (cache-read validated + cache-write
-        // after parse). Shorts reads the same bytes so the two surfaces share one
-        // cached 2 MB response.
-        let data = try await self.homeResponseData()
-        let bundle = try await Self.parseHomeBundle(from: data)
-
+        let bundle = try await self.homeBundle()
         // The detached parse is not cancelled when the Home view model is
         // discarded (account switch). Don't mutate shared client state after
         // cancellation — the providers may already have moved to the new account.
@@ -113,41 +108,39 @@ final class YouTubeClient: YouTubeClientProtocol {
         return bundle
     }
 
-    /// The raw `FEwhat_to_watch` response bytes, served from cache (after auth
-    /// validation) or fetched. Cached only after the bytes are confirmed to be a
-    /// JSON object, under a single key shared by Home and Shorts so navigating
-    /// between them reuses the same 2 MB response.
-    private func homeResponseData() async throws -> Data {
+    /// Loads + parses the shared `FEwhat_to_watch` bundle. The 2 MB deserialize
+    /// + walk always runs OFF the main actor (`parseHomeBundle` on a detached
+    /// task), which also validates the payload — it throws on non-JSON — so the
+    /// raw bytes are cached only after a successful parse, with no main-actor
+    /// deserialize and no redundant second parse. Home and Shorts share this so
+    /// the response and its cache entry are reused.
+    private func homeBundle() async throws -> YouTubeHomeBundle {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
-        // Capture the cache key for the CURRENT (authenticated) account scope and
-        // the cache generation BEFORE any network await. If the user signs out
-        // mid-flight, recomputing the key later would resolve to the same
-        // account-unknown `pending` scope (a pending->pending transition the key
-        // comparison alone can't catch), so we also require the cache generation
-        // to be unchanged — `invalidateAll()` (account switch / sign-out /
-        // session expiry) bumps it and rejects the stale write.
+        // Capture the cache key (current authenticated scope) and the cache
+        // generation BEFORE any network await. A sign-out mid-flight keeps the
+        // `pending` key unchanged, so the generation (bumped by invalidateAll)
+        // is what rejects a stale write.
         let cacheKey = self.homeDataCacheKey(body: homeBody)
         let cacheGeneration = APICache.shared.generation
+
         if let cacheKey, let cached = try await self.cachedHomeData(key: cacheKey) {
-            return cached
+            return try await Self.parseHomeBundle(from: cached)
         }
 
         let data = try await self.requestData("browse", body: homeBody)
-        // Validate it parses BEFORE caching: a transient non-JSON 200 must not
-        // poison the 5-minute Home cache (retries/refresh would re-read the bad
-        // bytes and fail without re-fetching).
-        guard (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else {
-            throw YTMusicError.parseError(message: "Home response is not a JSON object")
-        }
-        // Only write if neither the scope key NOR the cache generation changed
-        // during the fetch — i.e. no account switch / sign-out happened.
+        // Parse off-main; this throws on a non-JSON 200, so we never cache bytes
+        // that don't parse.
+        let bundle = try await Self.parseHomeBundle(from: data)
+
+        // Cache only if no account switch / sign-out happened during the fetch
+        // (key AND generation unchanged).
         if let cacheKey,
            cacheKey == self.homeDataCacheKey(body: homeBody),
            cacheGeneration == APICache.shared.generation
         {
             APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
         }
-        return data
+        return bundle
     }
 
     /// Off-actor parse of the home bundle, kept on a detached task so the 2 MB
@@ -322,12 +315,11 @@ final class YouTubeClient: YouTubeClientProtocol {
     func getShorts() async throws -> [YouTubeVideo] {
         self.logger.info("Fetching YouTube Shorts")
 
-        // Shorts ride along in the home `FEwhat_to_watch` response. Read the same
-        // shared raw bytes as getHomeBundle so loading one warms the other (no
-        // second 2 MB fetch when navigating Home <-> Shorts).
-        let data = try await self.homeResponseData()
-        let parsed = try await Self.parseHomeBundle(from: data)
-        return parsed.feed.shorts
+        // Shorts ride along in the home `FEwhat_to_watch` response. Share the
+        // same loader as getHomeBundle so loading one warms the other (no second
+        // 2 MB fetch/parse when navigating Home <-> Shorts).
+        let bundle = try await self.homeBundle()
+        return bundle.feed.shorts
     }
 
     // MARK: - Subscriptions & Library
@@ -488,6 +480,11 @@ final class YouTubeClient: YouTubeClientProtocol {
         fullBody["context"] = self.buildContext()
 
         let cacheKey = self.cacheKey(forEndpoint: Self.cachePrefix + endpoint, body: fullBody, ttl: ttl)
+        // Captured before the network await so a sign-out / account switch during
+        // the request rejects a stale write (e.g. an in-flight getHistory or
+        // topic-rail call whose `pending` scope key is unchanged across a nil->nil
+        // sign-out). `invalidateAll()` bumps the generation.
+        let cacheGeneration = APICache.shared.generation
 
         // Validate the current auth session before serving any cached
         // personalized YouTube response: if the cookies/SAPISID were cleared or
@@ -509,7 +506,10 @@ final class YouTubeClient: YouTubeClientProtocol {
             try await self.performRequest(endpoint, fullBody: fullBody)
         }
 
-        if let ttl, let cacheKey {
+        // Only cache if no account switch / sign-out happened during the request
+        // (the cache generation is unchanged); otherwise this could write the
+        // previous account's private data under a still-`pending` scope.
+        if let ttl, let cacheKey, cacheGeneration == APICache.shared.generation {
             APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
         }
 
