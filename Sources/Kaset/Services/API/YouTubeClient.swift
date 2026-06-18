@@ -449,12 +449,16 @@ final class YouTubeClient: YouTubeClientProtocol {
 
         let cacheKey = self.cacheKey(forEndpoint: Self.cachePrefix + endpoint, body: fullBody, ttl: ttl)
 
-        // Check the cache BEFORE building auth headers: a warm hit should not
-        // pay the cookie-store / SAPISIDHASH cost (several WebKit cookie-store
-        // hops). Auth is still validated below before any network request.
-        if let cacheKey, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
-            return cached
+        // Validate the current auth session before serving any cached
+        // personalized YouTube response: if the cookies/SAPISID were cleared or
+        // the session expired while a cache entry is still warm, we must not keep
+        // rendering private cached data — fall through to reauth instead.
+        if let cacheKey {
+            _ = try await self.buildAuthHeaders()
+            if let cached = APICache.shared.get(key: cacheKey) {
+                self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
+                return cached
+            }
         }
 
         let json: [String: Any] = if retry {
@@ -519,9 +523,14 @@ final class YouTubeClient: YouTubeClientProtocol {
 
         let cacheKey = self.cacheKey(forEndpoint: Self.cachePrefix + "data:" + endpoint, body: fullBody, ttl: ttl)
 
-        if let cacheKey, let cached = APICache.shared.getData(key: cacheKey) {
-            self.logger.debug("Cache hit (data) for \(Self.cachePrefix)\(endpoint)")
-            return cached
+        // Validate the session before serving cached personalized data (see
+        // `request`); the home bundle is account-scoped private data.
+        if let cacheKey {
+            _ = try await self.buildAuthHeaders()
+            if let cached = APICache.shared.getData(key: cacheKey) {
+                self.logger.debug("Cache hit (data) for \(Self.cachePrefix)\(endpoint)")
+                return cached
+            }
         }
 
         let data: Data = if retry {

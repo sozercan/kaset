@@ -14,7 +14,7 @@ actor ImageCache {
     /// Maximum disk cache size in bytes (200MB).
     private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
-    private let memoryCache = NSCache<NSURL, NSImage>()
+    private let memoryCache = NSCache<NSString, NSImage>()
     private var inFlight: [URL: Task<NSImage?, Never>] = [:]
     private let fileManager = FileManager.default
     private let diskCacheURL: URL
@@ -63,8 +63,12 @@ actor ImageCache {
     ///   - targetSize: Optional target size for downsampling. If provided, the image will be
     ///                 downsampled to fit this size, significantly reducing memory usage.
     func image(for url: URL, targetSize: CGSize? = nil) async -> NSImage? {
-        // Check memory cache
-        if let cached = memoryCache.object(forKey: url as NSURL) {
+        // Memory cache is keyed by URL *and* target size: the same thumbnail is
+        // requested at different sizes (Home cards at 320×180, the watch
+        // placeholder at 1280×720). Keying by URL alone let the first small
+        // decode satisfy a later large request, leaving the large view blurry.
+        let memoryKey = Self.memoryKey(for: url, targetSize: targetSize)
+        if let cached = memoryCache.object(forKey: memoryKey) {
             return cached
         }
 
@@ -72,10 +76,12 @@ actor ImageCache {
         // card on first paint) run in parallel across cores instead of
         // serializing here. loadFromDisk is nonisolated and reads only
         // immutable state; only the memory-cache write below is back on-actor.
+        // Disk holds the raw bytes (URL-keyed) and re-decodes at the requested
+        // size, so different sizes share one download but get distinct decodes.
         if let diskImage = await Task.detached(priority: .userInitiated, operation: { [self] in
             self.loadFromDisk(url: url, targetSize: targetSize)
         }).value {
-            self.memoryCache.setObject(diskImage, forKey: url as NSURL)
+            self.memoryCache.setObject(diskImage, forKey: memoryKey)
             return diskImage
         }
 
@@ -91,7 +97,7 @@ actor ImageCache {
                 guard Self.isSuccessfulResponse(response) else { return nil }
                 guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
                 let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                self.memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
+                self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
                 self.saveToDisk(url: url, data: data)
                 return image
             } catch {
@@ -103,6 +109,13 @@ actor ImageCache {
         let result = await task.value
         self.inFlight.removeValue(forKey: url)
         return result
+    }
+
+    /// Memory-cache key combining the URL with the requested decode size, so
+    /// decodes at different sizes for the same URL do not evict one another.
+    private static func memoryKey(for url: URL, targetSize: CGSize?) -> NSString {
+        guard let targetSize else { return url.absoluteString as NSString }
+        return "\(url.absoluteString)@\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
     }
 
     private static func isSuccessfulResponse(_ response: URLResponse) -> Bool {
@@ -126,7 +139,7 @@ actor ImageCache {
                 guard !Task.isCancelled else { break }
 
                 // Skip if already in memory cache
-                if self.memoryCache.object(forKey: url as NSURL) != nil {
+                if self.memoryCache.object(forKey: Self.memoryKey(for: url, targetSize: targetSize)) != nil {
                     continue
                 }
 

@@ -36,6 +36,11 @@ final class YouTubeViewModelStore {
 
     /// Resets account-scoped state after an account switch.
     func resetForAccountChange() {
+        // Cancel the outgoing Home model's in-flight load before discarding it:
+        // its unstructured load task survives view teardown and would otherwise
+        // keep using the shared client after the cache scope moved to the new
+        // account (stale continuation / cache contamination).
+        self.home.cancelLoad()
         self.home = YouTubeHomeViewModel(client: self.client)
         self.search = YouTubeSearchViewModel(client: self.client)
         self.explore = YouTubeExploreViewModel(client: self.client)

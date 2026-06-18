@@ -68,15 +68,26 @@ final class YouTubeHomeViewModel {
             await existing.value
             return
         }
-        let task = Task { await self.performLoad() }
+        // Tag this run so only it clears the shared handle. Without the tag, a
+        // cancelled earlier run resuming after refresh() started a new one would
+        // null out the new run's handle (breaking single-flight: a concurrent
+        // load() would see nil and start a duplicate fetch).
+        self.loadGeneration += 1
+        let token = self.loadGeneration
+        let task = Task { await self.performLoad(token: token) }
         self.loadTask = task
         await task.value
     }
 
-    private func performLoad() async {
-        defer { self.loadTask = nil }
-        self.loadGeneration += 1
-        let generation = self.loadGeneration
+    private func performLoad(token: Int) async {
+        defer {
+            // Only clear the handle if it still points at THIS run. A stale run
+            // resuming late must not wipe a newer run's task.
+            if self.loadGeneration == token {
+                self.loadTask = nil
+            }
+        }
+        let generation = token
         self.loadingState = .loading
         do {
             // Continue Watching reads history (a different endpoint), so start
@@ -205,6 +216,17 @@ final class YouTubeHomeViewModel {
         self.sections = []
         self.shelfVideoIDs = []
         await self.load()
+    }
+
+    /// Cancels any in-flight load when this view model is being discarded (e.g.
+    /// an account switch replaces it). The load runs in an unstructured `Task`
+    /// that survives `.task` teardown, so without this the discarded model would
+    /// keep using the shared `YouTubeClient` after the cache scope and providers
+    /// moved to the new account — repopulating caches or clobbering
+    /// `homeContinuation` with stale, wrong-account responses.
+    func cancelLoad() {
+        self.loadTask?.cancel()
+        self.loadTask = nil
     }
 
     /// Loads the next feed page when the user nears the end of the grid.

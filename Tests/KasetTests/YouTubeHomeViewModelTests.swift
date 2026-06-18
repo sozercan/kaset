@@ -456,6 +456,48 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.sections.map(\.kind) == [.topic])
     }
 
+    @Test("A stale run resuming after refresh does not break single-flight")
+    func staleRunResumeKeepsSingleFlight() async {
+        // Regression for the unconditional `defer { loadTask = nil }`: when
+        // refresh() cancels run #1 and starts run #2, run #1 resuming (its
+        // network await throws on cancel) must NOT null run #2's handle. If it
+        // did, a later load() would see loadTask == nil and start a DUPLICATE
+        // getHomeBundle fetch. We assert exactly one extra fetch after the new
+        // run settles and a subsequent load() is a no-op.
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        self.mockClient.homeChips = [YouTubeHomeChip(title: "Gaming", continuation: "tok-gaming")]
+        self.mockClient.homeTopicFeeds = [
+            "tok-gaming": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+        ]
+
+        // Hold run #1's rail open so it is mid-flight when refresh() cancels it.
+        let gate = AsyncGate()
+        self.mockClient.beforeTopicReturn = { _ in await gate.wait() }
+        let first = Task { await self.sut.load() }
+        while self.mockClient.requestedTopicContinuations.isEmpty {
+            await Task.yield()
+        }
+
+        // refresh() cancels run #1 and runs #2 to completion (rail unblocked).
+        self.mockClient.beforeTopicReturn = nil
+        await self.sut.refresh()
+        let fetchesAfterRefresh = self.mockClient.homeFeedCallCount
+
+        // Release the abandoned run #1; its late `defer` must not clear run #2's
+        // handle (token-gated). loadingState is now `.loaded`.
+        await gate.open()
+        _ = await first.value
+
+        // A subsequent load() must be a no-op (state is .loaded) — no duplicate
+        // fetch slips through from a nulled handle.
+        await self.sut.load()
+        #expect(self.sut.loadingState == .loaded)
+        #expect(self.mockClient.homeFeedCallCount == fetchesAfterRefresh)
+    }
+
     @Test("A repeated load (task restart) preserves the rails without refetching")
     func repeatedLoadPreservesRails() async {
         // Regression: SwiftUI restarts `.task` whenever the Home view's identity

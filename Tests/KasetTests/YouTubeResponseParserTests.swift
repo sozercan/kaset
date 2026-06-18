@@ -207,6 +207,39 @@ struct YouTubeFeedParserTests {
 
         #expect(YouTubeFeedParser.parseHomeShelves(data).isEmpty)
     }
+
+    @Test("parseHomeBundle parses feed, chips, and shelves from one Data response")
+    func parsesHomeBundle() throws {
+        let response = self.makeHomeResponse(
+            chips: [
+                ChipFixture(title: "All", continuation: nil, selected: true),
+                ChipFixture(title: "Gaming", continuation: "tok-gaming", selected: false),
+            ],
+            shelves: [(title: "Breaking news", videoIds: ["n1", "n2"])]
+        )
+        let data = try JSONSerialization.data(withJSONObject: response)
+
+        let bundle = try YouTubeFeedParser.parseHomeBundle(from: data)
+
+        // Chips: the selected "All" chip is dropped.
+        #expect(bundle.chips.map(\.title) == ["Gaming"])
+        #expect(bundle.chips.map(\.continuation) == ["tok-gaming"])
+        // Shelves: the titled shelf with its videos.
+        #expect(bundle.shelves.map(\.title) == ["Breaking news"])
+        #expect(bundle.shelves.first?.videos.map(\.videoId) == ["n1", "n2"])
+        // Feed: the flat walk collects the shelf videos too (the view model
+        // dedupes them against the shelf rail).
+        #expect(bundle.feed.videos.map(\.videoId).sorted() == ["n1", "n2"])
+    }
+
+    @Test("parseHomeBundle throws when the bytes are not a JSON object")
+    func homeBundleThrowsOnNonJSON() {
+        let data = Data("not json".utf8)
+
+        #expect(throws: (any Error).self) {
+            _ = try YouTubeFeedParser.parseHomeBundle(from: data)
+        }
+    }
 }
 
 // MARK: - WatchNextParserTests
