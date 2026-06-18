@@ -150,12 +150,13 @@ final class YouTubeHomeViewModel {
                 generation: generation
             )
 
-            // Empty grid with no rails at all: flip `.loaded` so the
-            // "No recommendations" placeholder can show instead of a stuck
-            // skeleton. (`loadMore`'s `.loadingMore` is never active here.)
+            // Empty grid: flip the initial-load skeleton to `.loaded` so the
+            // "No recommendations" placeholder can show. Only from `.loading` —
+            // if `loadMore()` started a continuation (empty first page with
+            // `hasMoreVideos`), don't clobber its `.loadingMore`.
             try Task.checkCancellation()
             guard generation == self.loadGeneration else { return }
-            if !gridReady {
+            if !gridReady, self.loadingState == .loading {
                 self.loadingState = .loaded
             }
         } catch {
@@ -204,8 +205,11 @@ final class YouTubeHomeViewModel {
             // history); flipping `.loaded` then — with topics still pending and
             // `next` empty — would flash the "No recommendations" state. The
             // genuinely-empty case is handled by the terminal `.loaded` in
-            // performLoad after all rail work finishes.
-            if !gridReady, !next.isEmpty, self.loadingState != .loaded {
+            // performLoad after all rail work finishes. Only flip from the
+            // initial-load `.loading` skeleton; never clobber a concurrent
+            // `loadMore()`'s `.loadingMore` (that would let a second continuation
+            // start before the first finishes).
+            if !gridReady, !next.isEmpty, self.loadingState == .loading {
                 self.loadingState = .loaded
             }
         }

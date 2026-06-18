@@ -96,10 +96,28 @@ final class YouTubeClient: YouTubeClientProtocol {
     func getHomeBundle() async throws -> YouTubeHomeBundle {
         self.logger.info("Fetching YouTube home bundle (feed + chips + shelves)")
 
-        // One request for the raw response bytes, then one deserialize + parse
-        // pass off the main actor producing all three home surfaces. Replaces
-        // three separate getHomeFeed/getHomeChips/getHomeShelves calls that each
-        // re-walked the same ~2 MB blob on the main thread.
+        // Shared raw `FEwhat_to_watch` bytes (cache-read validated + cache-write
+        // after parse). Shorts reads the same bytes so the two surfaces share one
+        // cached 2 MB response.
+        let data = try await self.homeResponseData()
+        let bundle = try await Self.parseHomeBundle(from: data)
+
+        // The detached parse is not cancelled when the Home view model is
+        // discarded (account switch). Don't mutate shared client state after
+        // cancellation — the providers may already have moved to the new account.
+        try Task.checkCancellation()
+        self.homeContinuation = bundle.feed.continuation
+        self.logger.info(
+            "YouTube home bundle: \(bundle.feed.videos.count) videos, \(bundle.chips.count) chips, \(bundle.shelves.count) shelves"
+        )
+        return bundle
+    }
+
+    /// The raw `FEwhat_to_watch` response bytes, served from cache (after auth
+    /// validation) or fetched. Cached only after the bytes are confirmed to be a
+    /// JSON object, under a single key shared by Home and Shorts so navigating
+    /// between them reuses the same 2 MB response.
+    private func homeResponseData() async throws -> Data {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
         // Capture the cache key for the CURRENT (authenticated) account scope up
         // front, before any network await. If the user signs out mid-flight,
@@ -107,32 +125,22 @@ final class YouTubeClient: YouTubeClientProtocol {
         // scope and store this user's bytes there — readable after a re-login.
         let cacheKey = self.homeDataCacheKey(body: homeBody)
         if let cacheKey, let cached = try await self.cachedHomeData(key: cacheKey) {
-            let bundle = try await Self.parseHomeBundle(from: cached)
-            try Task.checkCancellation()
-            self.homeContinuation = bundle.feed.continuation
-            return bundle
+            return cached
         }
 
         let data = try await self.requestData("browse", body: homeBody)
-        // Parse BEFORE caching: a transient non-JSON 200 must not poison the
-        // 5-minute Home cache (retries/refresh would re-read the bad bytes and
-        // fail without re-fetching).
-        let bundle = try await Self.parseHomeBundle(from: data)
-
-        // The detached parse is not cancelled when the Home view model is
-        // discarded (account switch). Don't mutate shared client state or
-        // populate the cache after cancellation — the cache scope/providers may
-        // have already moved to the new account. Re-validate the scope too: only
-        // write if the key still matches the current account.
-        try Task.checkCancellation()
+        // Validate it parses BEFORE caching: a transient non-JSON 200 must not
+        // poison the 5-minute Home cache (retries/refresh would re-read the bad
+        // bytes and fail without re-fetching).
+        guard (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else {
+            throw YTMusicError.parseError(message: "Home response is not a JSON object")
+        }
+        // Re-validate the scope (a sign-out mid-flight changes the key); only
+        // write if it still matches the authenticated request.
         if let cacheKey, cacheKey == self.homeDataCacheKey(body: homeBody) {
             APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
         }
-        self.homeContinuation = bundle.feed.continuation
-        self.logger.info(
-            "YouTube home bundle: \(bundle.feed.videos.count) videos, \(bundle.chips.count) chips, \(bundle.shelves.count) shelves"
-        )
-        return bundle
+        return data
     }
 
     /// Off-actor parse of the home bundle, kept on a detached task so the 2 MB
@@ -307,14 +315,12 @@ final class YouTubeClient: YouTubeClientProtocol {
     func getShorts() async throws -> [YouTubeVideo] {
         self.logger.info("Fetching YouTube Shorts")
 
-        // Shorts ride along in the home feed response; the shared TTL means
-        // this is a cache hit right after the home grid loads.
-        let data = try await self.request(
-            "browse",
-            body: ["browseId": "FEwhat_to_watch"],
-            ttl: APICache.TTL.home
-        )
-        return YouTubeFeedParser.parse(data).shorts
+        // Shorts ride along in the home `FEwhat_to_watch` response. Read the same
+        // shared raw bytes as getHomeBundle so loading one warms the other (no
+        // second 2 MB fetch when navigating Home <-> Shorts).
+        let data = try await self.homeResponseData()
+        let parsed = try await Self.parseHomeBundle(from: data)
+        return parsed.feed.shorts
     }
 
     // MARK: - Subscriptions & Library

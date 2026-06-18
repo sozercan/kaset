@@ -253,10 +253,33 @@ final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
 
     /// Floors a proposed content size and snaps it to 16:9. Pure function so
     /// both interactive resizes and programmatic frame restores share it.
-    static func normalizedContentSize(for proposed: NSSize, minContentSize: NSSize) -> NSSize {
-        // Drive off width, then derive a 16:9 height; if that height would fall
-        // under the floor, drive off the floor height instead. Guarantees both
-        // axes stay at or above the floor.
+    ///
+    /// `current` lets the clamp follow whichever axis the user is dragging: a
+    /// vertical-edge drag changes height but not width, so deriving width from
+    /// the changed height keeps that drag responsive instead of snapping back.
+    /// Pass `nil` (the default) to always drive off width.
+    static func normalizedContentSize(
+        for proposed: NSSize,
+        minContentSize: NSSize,
+        current: NSSize? = nil
+    ) -> NSSize {
+        // Pick the driving axis: the one that changed more relative to `current`
+        // (width by default). Height-driven keeps vertical-edge drags working.
+        let heightDriven: Bool = if let current {
+            abs(proposed.height - current.height) > abs(proposed.width - current.width)
+        } else {
+            false
+        }
+
+        if heightDriven {
+            let height = max(proposed.height, minContentSize.height)
+            var width = (height * 16 / 9).rounded()
+            if width < minContentSize.width {
+                width = minContentSize.width
+            }
+            return NSSize(width: width, height: height)
+        }
+
         let width = max(proposed.width, minContentSize.width)
         var height = (width * 9 / 16).rounded()
         if height < minContentSize.height {
@@ -272,12 +295,15 @@ final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
         // clamp.
         guard !sender.styleMask.contains(.fullScreen) else { return frameSize }
         // frameSize is a FRAME size; convert to content, clamp, convert back so
-        // the titlebar inset is preserved.
+        // the titlebar inset is preserved. Pass the current content size so a
+        // vertical-edge drag (height changes, width doesn't) follows the height.
         let proposedFrame = NSRect(origin: .zero, size: frameSize)
         let proposedContent = sender.contentRect(forFrameRect: proposedFrame).size
+        let currentContent = sender.contentRect(forFrameRect: sender.frame).size
         let clampedContent = Self.normalizedContentSize(
             for: proposedContent,
-            minContentSize: self.minContentSize
+            minContentSize: self.minContentSize,
+            current: currentContent
         )
         let clampedFrame = sender.frameRect(forContentRect: NSRect(origin: .zero, size: clampedContent))
         return clampedFrame.size
@@ -380,10 +406,18 @@ private final class WindowDragNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Preserve the standard titlebar gesture: double-click zooms (or
-        // miniaturizes, per System Settings) rather than starting a drag.
+        // Preserve the standard titlebar gesture: a double-click performs the
+        // user's configured "double-click a window's title bar to" action
+        // (Zoom / Minimize / None); a single click starts the window drag.
         if event.clickCount == 2 {
-            self.window?.performZoom(nil)
+            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+            case "Minimize":
+                self.window?.miniaturize(nil)
+            case "None":
+                break
+            default: // "Maximize" (zoom) is the macOS default.
+                self.window?.performZoom(nil)
+            }
         } else {
             self.window?.performDrag(with: event)
         }
