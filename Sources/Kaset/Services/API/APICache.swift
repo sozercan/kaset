@@ -134,9 +134,17 @@ final class APICache {
         return "\(endpoint):\(hashString)"
     }
 
+    /// Monotonic counter bumped on every full invalidation (account switch,
+    /// sign-out, session expiry). Callers that fetch across an `await` can
+    /// capture it before the fetch and refuse to write a now-stale response —
+    /// e.g. bytes fetched for a user who signed out mid-flight, whose cache
+    /// scope key may be unchanged (the account-unknown `pending` scope).
+    private(set) var generation = 0
+
     /// Invalidates all cached entries.
     func invalidateAll() {
         self.cache.removeAll()
+        self.generation &+= 1
     }
 
     /// Invalidates entries matching the given prefix.

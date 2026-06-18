@@ -42,6 +42,18 @@ struct APICacheTests {
         #expect(self.cache.getData(key: "dict_key") == nil)
     }
 
+    @Test("invalidateAll bumps the generation counter")
+    func invalidateAllBumpsGeneration() {
+        // Callers capture the generation before an async fetch and refuse to
+        // write a stale response if it changed (account switch / sign-out /
+        // session expiry), even when the cache-scope key is unchanged.
+        let before = self.cache.generation
+        self.cache.invalidateAll()
+        #expect(self.cache.generation == before + 1)
+        self.cache.invalidateAll()
+        #expect(self.cache.generation == before + 2)
+    }
+
     @Test("Cache invalidate all")
     func cacheInvalidateAll() {
         self.cache.set(key: "key1", data: ["a": 1], ttl: 60)

@@ -119,11 +119,15 @@ final class YouTubeClient: YouTubeClientProtocol {
     /// between them reuses the same 2 MB response.
     private func homeResponseData() async throws -> Data {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
-        // Capture the cache key for the CURRENT (authenticated) account scope up
-        // front, before any network await. If the user signs out mid-flight,
-        // recomputing it later would resolve to the account-unknown `pending`
-        // scope and store this user's bytes there — readable after a re-login.
+        // Capture the cache key for the CURRENT (authenticated) account scope and
+        // the cache generation BEFORE any network await. If the user signs out
+        // mid-flight, recomputing the key later would resolve to the same
+        // account-unknown `pending` scope (a pending->pending transition the key
+        // comparison alone can't catch), so we also require the cache generation
+        // to be unchanged — `invalidateAll()` (account switch / sign-out /
+        // session expiry) bumps it and rejects the stale write.
         let cacheKey = self.homeDataCacheKey(body: homeBody)
+        let cacheGeneration = APICache.shared.generation
         if let cacheKey, let cached = try await self.cachedHomeData(key: cacheKey) {
             return cached
         }
@@ -135,9 +139,12 @@ final class YouTubeClient: YouTubeClientProtocol {
         guard (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else {
             throw YTMusicError.parseError(message: "Home response is not a JSON object")
         }
-        // Re-validate the scope (a sign-out mid-flight changes the key); only
-        // write if it still matches the authenticated request.
-        if let cacheKey, cacheKey == self.homeDataCacheKey(body: homeBody) {
+        // Only write if neither the scope key NOR the cache generation changed
+        // during the fetch — i.e. no account switch / sign-out happened.
+        if let cacheKey,
+           cacheKey == self.homeDataCacheKey(body: homeBody),
+           cacheGeneration == APICache.shared.generation
+        {
             APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
         }
         return data
