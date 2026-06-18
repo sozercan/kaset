@@ -166,25 +166,26 @@ struct YouTubeVideoWindowResizeGuardTests {
     func heightDrivenFollowsHeight() {
         // Current 800x450; user drags the bottom edge to make it taller. Width is
         // unchanged, height grew — the clamp must follow the height, not snap it
-        // back to the old width-derived value.
+        // back to the old width-derived value. width = round(700 * 16/9) = 1244.
         let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
             for: NSSize(width: 800, height: 700),
             minContentSize: self.floor,
             current: NSSize(width: 800, height: 450)
         )
         #expect(result.height == 700)
-        #expect(result.width == (700.0 * 16 / 9).rounded()) // 1244
-        #expect(result.width > 800) // followed the height, did not snap back
+        #expect(result.width == 1244) // followed the height, not snapped to 800
     }
 
     @Test("Horizontal-edge drag still follows the proposed width")
     func widthDrivenWithCurrent() {
+        // width unchanged-axis is the bigger delta, so drive off width:
+        // height = round(1000 * 9/16) = round(562.5) = 563.
         let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
             for: NSSize(width: 1000, height: 450),
             minContentSize: self.floor,
             current: NSSize(width: 800, height: 450)
         )
         #expect(result.width == 1000)
-        #expect(result.height == (1000.0 * 9 / 16).rounded()) // 563
+        #expect(result.height == 563)
     }
 }
