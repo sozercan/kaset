@@ -75,27 +75,29 @@ actor ImageCache {
             return cached
         }
 
-        // Check disk cache off the actor so concurrent decodes (every visible
-        // card on first paint) run in parallel across cores instead of
-        // serializing here. loadFromDisk is nonisolated and reads only
-        // immutable state; only the memory-cache write below is back on-actor.
-        // Disk holds the raw bytes (URL-keyed) and re-decodes at the requested
-        // size, so different sizes share one download but get distinct decodes.
-        if let diskImage = await Task.detached(priority: .userInitiated, operation: { [self] in
-            self.loadFromDisk(url: url, targetSize: targetSize)
-        }).value {
-            self.memoryCache.setObject(diskImage, forKey: memoryKey)
-            return diskImage
-        }
-
-        // Check if already fetching (keyed by URL + size, so a smaller in-flight
-        // decode is not returned to a larger request).
+        // Coalesce concurrent cold requests for the same URL+size BEFORE any
+        // suspension point. The disk read runs off the actor (so decodes
+        // parallelize across cores), but registering the in-flight task first
+        // means two callers — e.g. the first-screen prefetch and a visible card
+        // — share one disk read + at most one network download instead of
+        // racing past each other and both downloading.
         if let existing = inFlight[memoryKey] {
             return await existing.value
         }
 
-        // Fetch from network
-        let task = Task<NSImage?, Never> {
+        let task = Task<NSImage?, Never> { [self] in
+            // Disk holds the raw bytes (URL-keyed) and re-decodes at the
+            // requested size, so different sizes share one download but get
+            // distinct decodes. loadFromDisk is nonisolated (immutable state),
+            // run detached so the decode does not serialize on the actor.
+            if let diskImage = await Task.detached(priority: .userInitiated, operation: {
+                self.loadFromDisk(url: url, targetSize: targetSize)
+            }).value {
+                self.memoryCache.setObject(diskImage, forKey: memoryKey)
+                return diskImage
+            }
+
+            // Cold miss: download once, decode, and cache the raw bytes.
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 guard Self.isSuccessfulResponse(response) else { return nil }

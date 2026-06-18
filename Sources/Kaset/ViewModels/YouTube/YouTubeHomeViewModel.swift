@@ -171,9 +171,6 @@ final class YouTubeHomeViewModel {
         }
     }
 
-    /// Streams the topic rails into `sections` as each browse resolves.
-    ///
-    /// Measured: the fast rails finish ~350 ms after they start, but the old
     /// Streams the rails into `sections` as each resolves, as the single writer.
     ///
     /// Continue Watching (watch history, a separate and sometimes slow request)
