@@ -15,7 +15,10 @@ actor ImageCache {
     private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
     private let memoryCache = NSCache<NSString, NSImage>()
-    private var inFlight: [URL: Task<NSImage?, Never>] = [:]
+    /// Keyed by URL + target size (the memory-cache key), so an in-flight
+    /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
+    /// small downsampled image.
+    private var inFlight: [NSString: Task<NSImage?, Never>] = [:]
     private let fileManager = FileManager.default
     private let diskCacheURL: URL
 
@@ -85,8 +88,9 @@ actor ImageCache {
             return diskImage
         }
 
-        // Check if already fetching
-        if let existing = inFlight[url] {
+        // Check if already fetching (keyed by URL + size, so a smaller in-flight
+        // decode is not returned to a larger request).
+        if let existing = inFlight[memoryKey] {
             return await existing.value
         }
 
@@ -105,9 +109,9 @@ actor ImageCache {
             }
         }
 
-        self.inFlight[url] = task
+        self.inFlight[memoryKey] = task
         let result = await task.value
-        self.inFlight.removeValue(forKey: url)
+        self.inFlight.removeValue(forKey: memoryKey)
         return result
     }
 

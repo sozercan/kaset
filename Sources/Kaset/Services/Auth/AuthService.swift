@@ -99,6 +99,10 @@ final class AuthService: AuthServiceProtocol {
         self.logger.warning("Session expired, requiring re-authentication")
         self.state = .loggedOut
         self.needsReauth = true
+        // Drop cached personalized responses so a later login in the same
+        // session can't be served the previous user's data (incl. the
+        // account-unknown "pending" cache scope) before its TTL expires.
+        APICache.shared.invalidateAll()
     }
 
     /// Signs out the user by clearing all cookies and data.
@@ -106,6 +110,7 @@ final class AuthService: AuthServiceProtocol {
         self.logger.info("Signing out user")
 
         await self.webKitManager.clearAllData()
+        APICache.shared.invalidateAll()
 
         self.state = .loggedOut
         self.needsReauth = false

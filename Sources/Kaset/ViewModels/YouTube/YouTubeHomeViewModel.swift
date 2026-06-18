@@ -90,10 +90,6 @@ final class YouTubeHomeViewModel {
         let generation = token
         self.loadingState = .loading
         do {
-            // Continue Watching reads history (a different endpoint), so start
-            // it concurrently with the home bundle.
-            async let continueWatching = self.continueWatchingSection()
-
             // One request + one off-main parse yields the grid, the filter
             // chips, and the titled shelves together (they all live in the same
             // ~2 MB `FEwhat_to_watch` response). Replaces three separate
@@ -127,26 +123,32 @@ final class YouTubeHomeViewModel {
                 self.loadingState = .loaded
             }
 
-            // Continue Watching (history) and the shelves are ready now, so
-            // publish them with the grid instead of waiting on the topic rails.
-            var head: [YouTubeHomeSection] = []
-            if let cw = await continueWatching {
-                head.append(cw)
-            }
-            head.append(contentsOf: shelves)
-
-            try Task.checkCancellation()
-            guard generation == self.loadGeneration else { return }
-            if !head.isEmpty {
-                self.sections = head
+            // Publish the shelves immediately and start the topic rails now —
+            // do NOT block on the watch-history request (it can be slow/retrying
+            // and would otherwise delay the rails and keep an empty grid stuck on
+            // the skeleton). The Continue Watching rail is inserted at the front
+            // once history resolves.
+            if !shelves.isEmpty {
+                self.sections = shelves
                 if !gridReady {
                     self.loadingState = .loaded // any content clears the skeleton
                 }
             }
 
-            // Stream the topic rails in as each resolves (see streamTopicRails).
+            // Stream the rails in as each resolves; the streamer is the single
+            // writer of `sections` and prepends Continue Watching when its
+            // (concurrent) history fetch lands. See streamTopicRails.
             let chips = Array(bundle.chips.prefix(Self.topicRailCap))
-            await self.streamTopicRails(chips: chips, head: head, gridReady: gridReady, generation: generation)
+            await self.streamTopicRails(
+                chips: chips,
+                shelves: shelves,
+                continueWatching: { [weak self] in
+                    guard let self else { return nil }
+                    return await self.continueWatchingSection()
+                },
+                gridReady: gridReady,
+                generation: generation
+            )
 
             // Empty grid with no rails at all: flip `.loaded` so the
             // "No recommendations" placeholder can show instead of a stuck
@@ -172,35 +174,53 @@ final class YouTubeHomeViewModel {
     /// Streams the topic rails into `sections` as each browse resolves.
     ///
     /// Measured: the fast rails finish ~350 ms after they start, but the old
-    /// atomic publish waited for the slowest (~800 ms). Reveal each rail at its
-    /// chip-ordered slot the moment it lands — gaps fill in as earlier-index
-    /// rails arrive — so rows appear as soon as ANY rail resolves rather than
-    /// gating on the (possibly slow) first chip. The published array always
-    /// honors chip order; a later rail may slot in above an already-shown one,
-    /// but that is a small upward settle, not an ~800 ms blank wait.
+    /// Streams the rails into `sections` as each resolves, as the single writer.
+    ///
+    /// Continue Watching (watch history, a separate and sometimes slow request)
+    /// and the topic-chip browses all run concurrently here. Shelves are already
+    /// known; each rail is revealed at its ordered slot the moment it lands, so
+    /// rows appear as soon as ANY rail resolves rather than gating on the slowest
+    /// (or on history). Final order is always: Continue Watching, shelves, then
+    /// topic rails in chip order — a later rail may slot in above an
+    /// already-shown one (a small upward settle), never an ~800 ms blank wait.
     private func streamTopicRails(
         chips: [YouTubeHomeChip],
-        head: [YouTubeHomeSection],
+        shelves: [YouTubeHomeSection],
+        continueWatching: @escaping @Sendable () async -> YouTubeHomeSection?,
         gridReady: Bool,
         generation: Int
     ) async {
-        guard !chips.isEmpty else { return }
-        var slot = [YouTubeHomeSection?](repeating: nil, count: chips.count)
+        // One result channel for both rail kinds: the history rail (index -1,
+        // pinned to the front) and the topic rails (chip index >= 0).
+        var topicSlot = [YouTubeHomeSection?](repeating: nil, count: chips.count)
+        var continueWatchingRail: YouTubeHomeSection?
+
+        func publish() {
+            guard generation == self.loadGeneration else { return }
+            var next: [YouTubeHomeSection] = []
+            if let continueWatchingRail { next.append(continueWatchingRail) }
+            next.append(contentsOf: shelves)
+            next.append(contentsOf: topicSlot.compactMap(\.self))
+            self.sections = next
+            if !gridReady, self.loadingState != .loaded {
+                self.loadingState = .loaded
+            }
+        }
+
         await withTaskGroup(of: (Int, YouTubeHomeSection?).self) { group in
+            group.addTask { await (-1, continueWatching()) }
             for (index, chip) in chips.enumerated() {
                 group.addTask {
                     await (index, self.topicSection(for: chip))
                 }
             }
             for await (index, section) in group {
-                slot[index] = section
-                guard generation == self.loadGeneration else { continue }
-                // Publish every resolved rail in chip order (compacting the
-                // not-yet-resolved and dropped/empty slots).
-                self.sections = head + slot.compactMap(\.self)
-                if !gridReady, self.loadingState != .loaded {
-                    self.loadingState = .loaded
+                if index == -1 {
+                    continueWatchingRail = section
+                } else {
+                    topicSlot[index] = section
                 }
+                publish()
             }
         }
     }

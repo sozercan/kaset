@@ -100,20 +100,39 @@ final class YouTubeClient: YouTubeClientProtocol {
         // pass off the main actor producing all three home surfaces. Replaces
         // three separate getHomeFeed/getHomeChips/getHomeShelves calls that each
         // re-walked the same ~2 MB blob on the main thread.
-        let data = try await self.requestData(
-            "browse",
-            body: ["browseId": "FEwhat_to_watch"],
-            ttl: APICache.TTL.home
-        )
-        let bundle = try await Task.detached(priority: .userInitiated) {
-            try YouTubeFeedParser.parseHomeBundle(from: data)
-        }.value
+        let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
+        if let cached = try await self.cachedHomeData(body: homeBody) {
+            let bundle = try await Self.parseHomeBundle(from: cached)
+            try Task.checkCancellation()
+            self.homeContinuation = bundle.feed.continuation
+            return bundle
+        }
 
+        let data = try await self.requestData("browse", body: homeBody)
+        // Parse BEFORE caching: a transient non-JSON 200 must not poison the
+        // 5-minute Home cache (retries/refresh would re-read the bad bytes and
+        // fail without re-fetching).
+        let bundle = try await Self.parseHomeBundle(from: data)
+
+        // The detached parse is not cancelled when the Home view model is
+        // discarded (account switch). Don't mutate shared client state or
+        // populate the cache after cancellation — the cache scope/providers may
+        // have already moved to the new account.
+        try Task.checkCancellation()
+        self.cacheHomeData(data, body: homeBody)
         self.homeContinuation = bundle.feed.continuation
         self.logger.info(
             "YouTube home bundle: \(bundle.feed.videos.count) videos, \(bundle.chips.count) chips, \(bundle.shelves.count) shelves"
         )
         return bundle
+    }
+
+    /// Off-actor parse of the home bundle, kept on a detached task so the 2 MB
+    /// deserialize + walk does not block the main actor.
+    private static func parseHomeBundle(from data: Data) async throws -> YouTubeHomeBundle {
+        try await Task.detached(priority: .userInitiated) {
+            try YouTubeFeedParser.parseHomeBundle(from: data)
+        }.value
     }
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
@@ -508,44 +527,49 @@ final class YouTubeClient: YouTubeClientProtocol {
     }
 
     /// Like `request()`, but returns the raw response bytes instead of a
-    /// deserialized `[String: Any]`. Used for large responses (the ~2 MB home
-    /// feed) so the caller can deserialize and parse off the main actor. The
-    /// raw `Data` is cached (keyed identically) so a warm hit skips both the
-    /// network and the main-thread deserialize.
+    /// deserialized `[String: Any]`. Used for the ~2 MB home feed so the caller
+    /// can deserialize and parse off the main actor. Caching is the caller's
+    /// responsibility (it caches the bytes only after a successful parse, so a
+    /// transient non-JSON 200 can't poison the cache).
     private func requestData(
         _ endpoint: String,
         body: [String: Any],
-        ttl: TimeInterval? = nil,
         retry: Bool = true
     ) async throws -> Data {
         var fullBody = body
         fullBody["context"] = self.buildContext()
 
-        let cacheKey = self.cacheKey(forEndpoint: Self.cachePrefix + "data:" + endpoint, body: fullBody, ttl: ttl)
-
-        // Validate the session before serving cached personalized data (see
-        // `request`); the home bundle is account-scoped private data.
-        if let cacheKey {
-            _ = try await self.buildAuthHeaders()
-            if let cached = APICache.shared.getData(key: cacheKey) {
-                self.logger.debug("Cache hit (data) for \(Self.cachePrefix)\(endpoint)")
-                return cached
-            }
-        }
-
-        let data: Data = if retry {
-            try await RetryPolicy.default.execute { [self] in
+        if retry {
+            return try await RetryPolicy.default.execute { [self] in
                 try await self.performRequestData(endpoint, fullBody: fullBody)
             }
-        } else {
-            try await self.performRequestData(endpoint, fullBody: fullBody)
         }
+        return try await self.performRequestData(endpoint, fullBody: fullBody)
+    }
 
-        if let ttl, let cacheKey {
-            APICache.shared.setData(key: cacheKey, data: data, ttl: ttl)
+    /// Cache key for the raw home-bundle bytes.
+    private func homeDataCacheKey(body: [String: Any]) -> String? {
+        var fullBody = body
+        fullBody["context"] = self.buildContext()
+        return self.cacheKey(forEndpoint: Self.cachePrefix + "data:browse", body: fullBody, ttl: APICache.TTL.home)
+    }
+
+    /// Returns cached raw home bytes if present, after validating the auth
+    /// session (a cleared/expired session must not serve private cached data).
+    private func cachedHomeData(body: [String: Any]) async throws -> Data? {
+        guard let cacheKey = self.homeDataCacheKey(body: body) else { return nil }
+        _ = try await self.buildAuthHeaders()
+        if let cached = APICache.shared.getData(key: cacheKey) {
+            self.logger.debug("Cache hit (data) for \(Self.cachePrefix)browse")
+            return cached
         }
+        return nil
+    }
 
-        return data
+    /// Caches raw home bytes (called only after a successful parse).
+    private func cacheHomeData(_ data: Data, body: [String: Any]) {
+        guard let cacheKey = self.homeDataCacheKey(body: body) else { return }
+        APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
     }
 
     /// Performs the actual network request.

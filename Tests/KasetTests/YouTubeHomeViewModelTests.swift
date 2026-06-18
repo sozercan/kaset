@@ -154,6 +154,39 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.sections.map(\.title) == ["Continue Watching", "Breaking news", "Gaming", "Music"])
     }
 
+    @Test("Topic rails publish without waiting for a slow history fetch")
+    func railsDoNotWaitForHistory() async {
+        // Regression: Continue Watching reads watch history (a separate, possibly
+        // slow/retrying request). It must NOT gate the topic rails — otherwise a
+        // slow history call delays every row and, with an empty grid, keeps the
+        // skeleton up. The history rail slots in at the front once it resolves.
+        self.mockClient.historyFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
+            continuation: nil
+        )
+        self.mockClient.homeChips = [YouTubeHomeChip(title: "Gaming", continuation: "tok-gaming")]
+        self.mockClient.homeTopicFeeds = [
+            "tok-gaming": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+        ]
+
+        // Hold history open until the test releases it.
+        let historyGate = AsyncGate()
+        self.mockClient.beforeHistoryReturn = { await historyGate.wait() }
+
+        async let loadDone: Void = self.sut.load()
+
+        // The topic rail must appear while history is still blocked.
+        while !self.sut.sections.contains(where: { $0.kind == .topic }) {
+            await Task.yield()
+        }
+        #expect(self.sut.sections.map(\.kind) == [.topic]) // no Continue Watching yet
+
+        // Release history; it slots in at the front.
+        await historyGate.open()
+        await loadDone
+        #expect(self.sut.sections.map(\.kind) == [.continueWatching, .topic])
+    }
+
     @Test("Topic rails publish incrementally and still end in chip order")
     func railsPublishIncrementallyInOrder() async {
         // Perceived-latency fix: rails stream in as each browse resolves (a row

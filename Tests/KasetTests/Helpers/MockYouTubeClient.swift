@@ -210,8 +210,16 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.subscribedChannels
     }
 
+    /// Awaited inside `getHistory` before it returns, so a test can hold the
+    /// Continue Watching (history) request open and verify topic rails publish
+    /// without waiting for it.
+    var beforeHistoryReturn: (@Sendable () async -> Void)?
+
     func getHistory() async throws -> YouTubeFeed {
         if let error { throw error }
+        if let beforeHistoryReturn {
+            await beforeHistoryReturn()
+        }
         return self.historyFeed
     }
 
