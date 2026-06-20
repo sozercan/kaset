@@ -331,17 +331,40 @@ struct YouTubePlayerServiceTests {
         #expect(self.sut.watchActivityGeneration == 3)
         #expect(self.sut.watchConclusionGeneration == 2)
 
-        // A natural finish — advances BOTH.
+        // A natural finish on a video that accrued real progress — advances BOTH.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 58, duration: 60,
+            videoId: "c", title: nil, isAd: false
+        ))
         self.sut.handleVideoEnded(videoId: "c")
         #expect(self.sut.watchActivityGeneration == 4)
         #expect(self.sut.watchConclusionGeneration == 3)
 
-        // stop() must NOT reset either generation: Home still needs to know
-        // activity happened when the user returns after closing the player.
+        // Closing the player after a finish (progress still nonzero, currentVideo
+        // still set) must NOT re-signal the already-finished video as a fresh
+        // conclusion — neither generation advances, and stop() doesn't reset them.
         self.sut.stop()
         #expect(self.sut.currentVideo == nil)
         #expect(self.sut.watchActivityGeneration == 4)
         #expect(self.sut.watchConclusionGeneration == 3)
+    }
+
+    @Test("Closing the window right after a finish does not double-signal the conclusion")
+    func stopAfterFinishDoesNotDoubleSignal() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 119, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+        self.sut.handleVideoEnded(videoId: "a")
+        let activityAfterFinish = self.sut.watchActivityGeneration
+        let conclusionAfterFinish = self.sut.watchConclusionGeneration
+
+        // The user closes the floating window; progress is still 119 and
+        // currentVideo is still "a", but the finish already signalled.
+        self.sut.stop()
+        #expect(self.sut.watchActivityGeneration == activityAfterFinish)
+        #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish)
     }
 
     @Test("Stopping a video with accrued progress advances both generations")

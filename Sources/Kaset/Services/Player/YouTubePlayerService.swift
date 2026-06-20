@@ -76,6 +76,14 @@ final class YouTubePlayerService {
     /// by the time the user navigates back, progress has accrued.)
     private(set) var watchConclusionGeneration = 0
 
+    /// True once the current video has already signalled its conclusion (a
+    /// natural finish via `handleVideoEnded`). It prevents `stop()` — which often
+    /// follows a finish when the user closes the floating window — from
+    /// re-signalling the same already-finished video as a fresh partial-watch
+    /// conclusion (a double bump that would cancel/restart the refresh the finish
+    /// just scheduled). Reset whenever a new video becomes current.
+    private var currentWatchConcluded = false
+
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
@@ -212,6 +220,7 @@ final class YouTubePlayerService {
         self.upNext = []
         self.currentVideo = video
         self.watchActivityGeneration += 1 // a new watch began
+        self.currentWatchConcluded = false
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -252,8 +261,11 @@ final class YouTubePlayerService {
         // state in history, so signal it before clearing — this covers closing
         // the floating window (windowWillClose -> stop) and navigating away with
         // pop-out disabled (inlineSurfaceWillDisappear -> stop) after a partial
-        // watch, neither of which emits a skip or finish event.
-        if self.currentVideo != nil, self.progress > 0 {
+        // watch, neither of which emits a skip or finish event. Skip it when the
+        // video already signalled a finish (handleVideoEnded): a close right after
+        // a natural end must not re-signal the same finished video as a fresh
+        // partial-watch conclusion.
+        if self.currentVideo != nil, self.progress > 0, !self.currentWatchConcluded {
             self.watchActivityGeneration += 1
             self.watchConclusionGeneration += 1 // a partial watch concluded
         }
@@ -348,6 +360,7 @@ final class YouTubePlayerService {
         self.currentVideo = video
         self.watchActivityGeneration += 1 // a skip concludes the prior watch and begins a new one
         self.watchConclusionGeneration += 1
+        self.currentWatchConcluded = false
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -632,6 +645,7 @@ final class YouTubePlayerService {
             // signal it like an explicit skip.
             self.watchActivityGeneration += 1
             self.watchConclusionGeneration += 1
+            self.currentWatchConcluded = false // the drifted-to video is a fresh, unconcluded watch
             YouTubeWatchWebView.shared.currentVideoId = videoId
         }
     }
@@ -646,6 +660,7 @@ final class YouTubePlayerService {
         // user was already sitting on Home (no navigation fires).
         self.watchActivityGeneration += 1
         self.watchConclusionGeneration += 1
+        self.currentWatchConcluded = true // a later stop() must not re-signal this
         self.onVideoEnded?(videoId)
     }
 }
