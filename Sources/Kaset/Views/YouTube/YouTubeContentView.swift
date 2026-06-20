@@ -33,6 +33,17 @@ struct YouTubeContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Reconcile on (re)mount: switching to the Music source unmounts this
+        // view, so the observers below can't see a floating video that finishes
+        // or is closed while away. On switching back to YouTube with Home already
+        // selected and the path empty, neither `selection` nor the path changes
+        // and `YouTubeHomeView.load()` is a no-op — so without this, a conclusion
+        // missed during the Music detour would leave the rail stale. The
+        // view-model watermark makes this a no-op when nothing was missed.
+        .onAppear {
+            guard self.selection == .home, self.store.navigationPath.isEmpty else { return }
+            self.store.home.refreshContinueWatching(forGeneration: self.youtubePlayer.watchActivityGeneration)
+        }
         .onChange(of: self.youtubePlayer.popInRequest) { _, request in
             self.handlePopInRequest(request)
         }

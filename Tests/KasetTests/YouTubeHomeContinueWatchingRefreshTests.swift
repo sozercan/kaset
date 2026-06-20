@@ -181,7 +181,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
     }
 
     @Test("Refresh is gated on the watch-activity generation advancing")
-    func refreshGatesOnPlaybackCount() async {
+    func refreshGatesOnWatchActivityGeneration() async {
         self.makeRefreshDelaysInstant()
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
@@ -291,7 +291,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
     }
 
     @Test("A failed refresh does not advance the watermark, so a later return retries")
-    func failedRefreshLeavesPlaybackCountRetryable() async {
+    func failedRefreshLeavesWatermarkRetryable() async {
         self.makeRefreshDelaysInstant()
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
@@ -307,7 +307,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         await self.waitForCondition { self.mockClient.getHistoryForceRefreshCount == 2 }
 
         // The user returns again with the SAME generation. Because the failed
-        // refresh did not consume the count, this must fetch again (not skip), and
+        // refresh did not advance the watermark, this must fetch again (not skip), and
         // now it succeeds and updates the rail.
         self.mockClient.historyForceRefreshError = nil
         self.mockClient.historyFeed = YouTubeFeed(
@@ -323,7 +323,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
     }
 
     @Test("Cancelling the refresh mid-delay does not advance the watermark")
-    func cancelledRefreshLeavesPlaybackCountRetryable() async {
+    func cancelledRefreshLeavesWatermarkRetryable() async {
         // Non-zero delay so the refresh is cancellable while still sleeping.
         YouTubeHomeViewModel.continueWatchingRefreshDelay = .seconds(60)
         YouTubeHomeViewModel.continueWatchingRefreshRetryDelay = .zero
@@ -341,7 +341,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.mockClient.getHistoryForceRefreshCount == 0) // never reached the fetch
 
         // A later return with the SAME count must NOT be skipped: the cancelled
-        // attempt didn't consume the count. Use instant delays now so it lands.
+        // attempt didn't advance the watermark. Use instant delays now so it lands.
         YouTubeHomeViewModel.continueWatchingRefreshDelay = .zero
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 80)],
@@ -399,7 +399,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 65)
         #expect(self.mockClient.getHistoryForceRefreshCount == 1) // single updated fetch, no retry
 
-        // The pending count is consumed: a later return with the same count is a
+        // The pending generation is consumed: a later return with the same generation is a
         // no-op (no second forced fetch).
         self.sut.refreshContinueWatching(forGeneration: 1)
         await Task.yield()
