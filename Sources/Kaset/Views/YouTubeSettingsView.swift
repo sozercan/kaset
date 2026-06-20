@@ -27,6 +27,17 @@ struct YouTubeSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Toggle("Pop Out Video When Navigating Away", isOn: self.$settings.popOutVideoOnNavigateAway)
+                    .help("Keep a playing video in a floating window when you leave the page. When off, the video stops instead.")
+            } header: {
+                Text("Video Window")
+            } footer: {
+                Text("When off, navigating back from a playing video stops it instead of opening the floating player. The pop-out and full-view buttons still work.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

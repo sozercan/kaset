@@ -72,6 +72,27 @@ struct SettingsManagerTests {
         #expect(manager.rememberPlaybackSettings == false)
     }
 
+    @Test("Default popOutVideoOnNavigateAway is true")
+    func defaultPopOutVideoOnNavigateAway() {
+        let manager = SettingsManager.shared
+        #expect(manager.popOutVideoOnNavigateAway == true)
+    }
+
+    @Test("popOutVideoOnNavigateAway persists to UserDefaults")
+    func popOutVideoOnNavigateAwayPersists() {
+        let manager = SettingsManager.shared
+        let originalValue = manager.popOutVideoOnNavigateAway
+        defer {
+            manager.popOutVideoOnNavigateAway = originalValue
+        }
+
+        manager.popOutVideoOnNavigateAway = false
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == false)
+
+        manager.popOutVideoOnNavigateAway = true
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
+    }
+
     @Test("Disabling rememberPlaybackSettings clears persisted values")
     func disablingRememberPlaybackSettingsClearsValues() {
         let manager = SettingsManager.shared

@@ -96,7 +96,12 @@ struct YouTubePlayerServiceTests {
 
     init() {
         self.controller = MockYouTubeWatchPlaybackController()
-        self.sut = YouTubePlayerService(playbackController: self.controller)
+        // Pin the navigate-away pop-out gate ON so the existing pop-out
+        // assertions don't depend on the global SettingsManager.shared state.
+        self.sut = YouTubePlayerService(
+            playbackController: self.controller,
+            shouldPopOutOnNavigateAway: { true }
+        )
     }
 
     @Test("Initial state is empty")
@@ -205,6 +210,82 @@ struct YouTubePlayerServiceTests {
 
         #expect(self.sut.surfaceLocation == .inline)
         #expect(self.sut.activeInlineVideoId == "abc")
+    }
+
+    @Test("Pop-out disabled: inline disappearance while playing stops instead of floating")
+    func disappearWhilePlayingStopsWhenPopOutDisabled() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let sut = YouTubePlayerService(
+            playbackController: controller,
+            shouldPopOutOnNavigateAway: { false }
+        )
+        sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        sut.activeInlineVideoId = "abc"
+        sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 0, duration: 10,
+            videoId: "abc", title: nil, isAd: false
+        ))
+
+        sut.inlineSurfaceWillDisappear(videoId: "abc")
+
+        #expect(sut.surfaceLocation == .none)
+        #expect(sut.currentVideo == nil)
+        #expect(controller.tearDownCount == 1)
+    }
+
+    @Test("Pop-out disabled still yields to the one-shot source-switch suppression")
+    func sourceSwitchStillPausesInPlaceWhenPopOutDisabled() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let sut = YouTubePlayerService(
+            playbackController: controller,
+            shouldPopOutOnNavigateAway: { false }
+        )
+        sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        sut.activeInlineVideoId = "abc"
+        sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 5, duration: 60,
+            videoId: "abc", title: nil, isAd: false
+        ))
+
+        sut.prepareForSourceSwitch()
+        sut.inlineSurfaceWillDisappear(videoId: "abc")
+
+        // Suppression wins regardless of the setting: paused in place, not stopped.
+        #expect(controller.pauseCount == 1)
+        #expect(sut.surfaceLocation == .inline)
+        #expect(sut.currentVideo?.videoId == "abc")
+        #expect(controller.tearDownCount == 0)
+    }
+
+    @Test("Pop-out gate is read live, not captured at init")
+    func popOutGateReadLive() {
+        let controller = MockYouTubeWatchPlaybackController()
+        var popOutEnabled = false
+        let sut = YouTubePlayerService(
+            playbackController: controller,
+            shouldPopOutOnNavigateAway: { popOutEnabled }
+        )
+
+        // First navigate-away with the gate off: stops.
+        sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        sut.activeInlineVideoId = "abc"
+        sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 0, duration: 10,
+            videoId: "abc", title: nil, isAd: false
+        ))
+        sut.inlineSurfaceWillDisappear(videoId: "abc")
+        #expect(sut.surfaceLocation == .none)
+
+        // Flip the gate on; a fresh playback now pops out.
+        popOutEnabled = true
+        sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        sut.activeInlineVideoId = "abc"
+        sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 0, duration: 10,
+            videoId: "abc", title: nil, isAd: false
+        ))
+        sut.inlineSurfaceWillDisappear(videoId: "abc")
+        #expect(sut.surfaceLocation == .floating)
     }
 
     @Test("Video ended invokes the hook and clears isPlaying")

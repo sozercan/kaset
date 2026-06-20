@@ -156,12 +156,20 @@ final class YouTubePlayerService {
     private let playbackController: any YouTubeWatchPlaybackControlling
     private let logger = DiagnosticsLogger.player
 
+    /// Whether a playing video should pop out into the floating window when the
+    /// inline watch view disappears (navigate-away). Read live so the user's
+    /// setting takes effect mid-session; injected so tests stay deterministic
+    /// without touching global `UserDefaults`.
+    private let shouldPopOutOnNavigateAway: @MainActor () -> Bool
+
     init(
         webKitManager: WebKitManager = .shared,
-        playbackController: (any YouTubeWatchPlaybackControlling)? = nil
+        playbackController: (any YouTubeWatchPlaybackControlling)? = nil,
+        shouldPopOutOnNavigateAway: @escaping @MainActor () -> Bool = { SettingsManager.shared.popOutVideoOnNavigateAway }
     ) {
         self.webKitManager = webKitManager
         self.playbackController = playbackController ?? YouTubeWatchWebView.shared
+        self.shouldPopOutOnNavigateAway = shouldPopOutOnNavigateAway
     }
 
     // MARK: - Commands
@@ -505,9 +513,11 @@ final class YouTubePlayerService {
             return
         }
 
-        if self.isPlaying {
+        if self.isPlaying, self.shouldPopOutOnNavigateAway() {
             self.popOutToWindow()
         } else {
+            // Playing with pop-out disabled, or paused: stop instead of
+            // leaving a detached surface.
             self.stop()
         }
     }
