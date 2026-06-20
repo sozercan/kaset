@@ -24,6 +24,33 @@ struct YouTubeWatchView: View {
     }
 
     @State private var commentDraft = ""
+    @State private var settings = SettingsManager.shared
+
+    /// The ambient backdrop style to render: the user's chosen style, or `.off`
+    /// when they've disabled the feature in Settings → YouTube.
+    private var ambientStyle: AmbientBackdropStyle {
+        self.settings.resolvedAmbientStyle
+    }
+
+    /// 0…1 playback position, only while THIS view's video is the one playing,
+    /// for the `.live` storyboard crossfade. `nil` otherwise (guards NaN when
+    /// duration is still 0 at cold load).
+    private var ambientLiveFraction: Double? {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId,
+              self.youtubePlayer.duration > 0
+        else { return nil }
+        return min(max(self.youtubePlayer.progress / self.youtubePlayer.duration, 0), 1)
+    }
+
+    /// Storyboard spec for the fine-grained `.live` color, but only while THIS
+    /// view's video is the one playing — so a previous video's sheets never
+    /// tint a newly-opened watch page.
+    private var ambientStoryboardSpec: String? {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
+            return nil
+        }
+        return self.youtubePlayer.storyboardSpec
+    }
 
     var body: some View {
         ScrollView {
@@ -49,21 +76,64 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
+        // PROTOTYPE: full-bleed ambient color behind the page. `.ignoresSafeArea`
+        // (inside the modifier) lets it bleed under the bottom player-bar inset,
+        // so the bar's Liquid Glass capsule refracts the live color.
+        .ambientVideoBackdrop(
+            videoId: self.video.videoId,
+            thumbnailURL: self.video.thumbnailURL,
+            style: self.ambientStyle,
+            liveFraction: self.ambientLiveFraction,
+            storyboardSpec: self.ambientStoryboardSpec
+        )
         // The in-page metadata shows the title; keep the bar clean.
         .navigationTitle("")
-        .task {
-            self.startOrAdoptPlayback()
-            await self.viewModel.load()
-            // Feed the related list to the player so the bar's next/previous
-            // buttons can skip between videos.
-            if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
-                self.youtubePlayer.setUpNext(self.viewModel.data.related)
+        // Let the ambient reach under the nav bar, like the other accent pages.
+        .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        #if DEBUG
+            .toolbar {
+                self.ambientStylePicker
+            }
+        #endif
+            .task {
+                self.startOrAdoptPlayback()
+                await self.viewModel.load()
+                // Feed the related list to the player so the bar's next/previous
+                // buttons can skip between videos.
+                if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
+                    self.youtubePlayer.setUpNext(self.viewModel.data.related)
+                }
+            }
+            .onDisappear {
+                self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
+            }
+    }
+
+    // MARK: - Ambient Style Picker (PROTOTYPE)
+
+    #if DEBUG
+        /// DEBUG-only toolbar control to switch ambient styles live on-device.
+        /// Binds to the same `SettingsManager` value as the Settings → YouTube
+        /// tab, so there is a single source of truth. The whole property is
+        /// compiled out of release builds (an empty `@ToolbarContentBuilder`
+        /// body would otherwise be invalid).
+        @ToolbarContentBuilder
+        private var ambientStylePicker: some ToolbarContent {
+            ToolbarItem(placement: .automatic) {
+                Menu {
+                    Picker("Ambient", selection: self.$settings.ambientBackdropStyle) {
+                        ForEach(AmbientBackdropStyle.allCases) { style in
+                            Text(style.debugLabel).tag(style)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Image(systemName: "paintpalette")
+                }
+                .help("Ambient backdrop style (developer)")
             }
         }
-        .onDisappear {
-            self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
-        }
-    }
+    #endif
 
     // MARK: - Video Surface
 

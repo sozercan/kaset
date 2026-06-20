@@ -21,6 +21,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func availableQualityLevels() async -> [String]
     func currentQualityLevel() async -> String?
     func setQualityLevel(_ level: String)
+    func storyboardSpec(expectedVideoId: String?) async -> String?
     func tearDown()
 }
 
@@ -118,6 +119,21 @@ final class YouTubePlayerService {
 
     /// The player's current quality level.
     private(set) var currentQuality: String?
+
+    /// YouTube storyboard spec for the current video (drives the ambient
+    /// backdrop's fine-grained live color). `nil` until fetched / unavailable.
+    private(set) var storyboardSpec: String?
+
+    /// The video id `storyboardSpec` was fetched for, so the spec is keyed to
+    /// its video rather than relying on reset ordering — a different id forces a
+    /// refetch and prevents a previous video's spec from leaking forward.
+    private var storyboardSpecVideoId: String?
+
+    /// The video id whose storyboard fetch is currently running or has already
+    /// completed (even when it produced no spec). Makes `refreshStoryboardSpec`
+    /// self-guarding so a re-trigger for the same video can't spawn overlapping
+    /// retry loops or repeated WebView evaluations.
+    private var storyboardFetchVideoId: String?
 
     /// The video whose playback options were last fetched.
     private var playbackOptionsVideoId: String?
@@ -313,6 +329,9 @@ final class YouTubePlayerService {
         self.activeCaptionLanguageCode = nil
         self.qualityLevels = []
         self.currentQuality = nil
+        self.storyboardSpec = nil
+        self.storyboardSpecVideoId = nil
+        self.storyboardFetchVideoId = nil
         self.playbackOptionsVideoId = nil
     }
 
@@ -356,6 +375,37 @@ final class YouTubePlayerService {
             if !tracks.isEmpty || attempt == 2 {
                 return
             }
+            try? await Task.sleep(for: .milliseconds(1500))
+        }
+    }
+
+    /// Fetches the storyboard spec for the ambient backdrop, keyed to its video
+    /// so a previous video's spec never leaks forward. Kept separate from
+    /// `refreshPlaybackOptions` so this cosmetic-only data never delays caption
+    /// or quality loading. Retries briefly since the player response, like the
+    /// captions module, isn't ready the instant playback starts.
+    func refreshStoryboardSpec() async {
+        let videoId = self.currentVideo?.videoId
+        // Already fetched (or fetching) for this exact video — don't spawn an
+        // overlapping retry loop, even on a no-storyboard video that resolved
+        // to nil.
+        if self.storyboardFetchVideoId == videoId {
+            return
+        }
+        self.storyboardFetchVideoId = videoId
+        // Drop any spec from a previous video before awaiting the refetch.
+        self.storyboardSpec = nil
+        self.storyboardSpecVideoId = nil
+
+        for attempt in 0 ..< 3 {
+            let spec = await self.playbackController.storyboardSpec(expectedVideoId: videoId)
+            guard self.currentVideo?.videoId == videoId else { return }
+            if let spec {
+                self.storyboardSpec = spec
+                self.storyboardSpecVideoId = videoId
+                return
+            }
+            if attempt == 2 { return }
             try? await Task.sleep(for: .milliseconds(1500))
         }
     }
@@ -481,6 +531,13 @@ final class YouTubePlayerService {
             self.playbackOptionsVideoId = videoId
             Task {
                 await self.refreshPlaybackOptions()
+            }
+            // Storyboard color is only worth fetching when the ambient backdrop
+            // is on; runs independently so it never delays caption/quality load.
+            if SettingsManager.shared.ambientBackdropEnabled {
+                Task {
+                    await self.refreshStoryboardSpec()
+                }
             }
         }
 

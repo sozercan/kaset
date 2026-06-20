@@ -340,6 +340,18 @@ extension YouTubeWatchWebView {
         }
     }
 
+    /// Encodes a Swift string as a safe JavaScript string literal (including the
+    /// surrounding quotes) so arbitrary contents can't break out of the literal
+    /// when interpolated into an `evaluateJavaScript` payload.
+    static func jsStringLiteral(_ value: String) -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let json = String(data: data, encoding: .utf8)
+        else {
+            return "\"\""
+        }
+        return json
+    }
+
     /// Fetches the caption tracks the player offers.
     func availableCaptionTracks() async -> [YouTubeCaptionTrack] {
         let script = """
@@ -398,6 +410,49 @@ extension YouTubeWatchWebView {
             """
         }
         self.webView?.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// The storyboard spec string for the current video, read from the player
+    /// response. Drives the ambient backdrop's fine-grained live color.
+    ///
+    /// Only returns a spec when the player response's own `videoId` matches
+    /// `expectedVideoId` — `window.ytInitialPlayerResponse` is the page-load
+    /// global and can still describe the *previous* video after a YouTube SPA
+    /// auto-advance, which would tint the new page with the old video's colors.
+    func storyboardSpec(expectedVideoId: String?) async -> String? {
+        // JSON-encode the id into a safe JS string literal rather than raw
+        // string interpolation, so a quote/backslash/newline can't break out of
+        // the literal at the WKWebView trust boundary.
+        let expectedLiteral = Self.jsStringLiteral(expectedVideoId ?? "")
+        let script = """
+        (function() {
+            try {
+                var expected = \(expectedLiteral);
+                var response = null;
+                var player = document.getElementById('movie_player');
+                if (player && typeof player.getPlayerResponse === 'function') {
+                    response = player.getPlayerResponse();
+                }
+                if (!response || !response.storyboards) {
+                    response = window.ytInitialPlayerResponse;
+                }
+                if (!response || !response.storyboards) { return ''; }
+                // Reject a response that describes a different video than the
+                // one we're asking about (stale global after SPA navigation).
+                var details = response.videoDetails;
+                var responseId = details && details.videoId;
+                if (expected && responseId && responseId !== expected) { return ''; }
+                var sb = response.storyboards;
+                var renderer = sb.playerStoryboardSpecRenderer
+                    || sb.playerLiveStoryboardSpecRenderer;
+                return (renderer && renderer.spec) || '';
+            } catch (e) { return ''; }
+        })();
+        """
+        guard let spec = await self.evaluateForString(script), !spec.isEmpty else {
+            return nil
+        }
+        return spec
     }
 
     /// The language code of the player's active caption track (nil = off).

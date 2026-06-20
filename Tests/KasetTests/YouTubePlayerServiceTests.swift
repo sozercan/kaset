@@ -77,6 +77,10 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
         self.selectedQuality = level
     }
 
+    func storyboardSpec(expectedVideoId _: String?) async -> String? {
+        nil
+    }
+
     func tearDown() {
         self.tearDownCount += 1
     }
