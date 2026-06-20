@@ -7,7 +7,7 @@ import Testing
 /// Covers the post-watch Continue Watching rail refresh: returning to Home after
 /// watching a video rebuilds only that rail (a finished video drops out, a
 /// partially-watched one appears or updates its progress), gated on the player's
-/// playback count, cache-bypassed, and resilient to transient fetch failures.
+/// watch-activity generation, cache-bypassed, and resilient to transient fetch failures.
 @Suite("YouTubeHome Continue Watching refresh", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeHomeContinueWatchingRefreshTests {
@@ -72,7 +72,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             continuation: nil
         )
 
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.map(\.videoId) == ["other"]
         }
@@ -95,7 +95,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             continuation: nil
         )
 
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.contains { $0.kind == .continueWatching }
         }
@@ -123,7 +123,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 55)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 55
         }
@@ -167,7 +167,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             ],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             (self.sut.sections.first { $0.kind == .continueWatching }?.videos.count ?? 0) == 2
         }
@@ -180,7 +180,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.sut.sections.first { $0.kind == .topic }?.title == "Gaming")
     }
 
-    @Test("Refresh is gated on the playback count advancing")
+    @Test("Refresh is gated on the watch-activity generation advancing")
     func refreshGatesOnPlaybackCount() async {
         self.makeRefreshDelaysInstant()
         self.mockClient.historyFeed = YouTubeFeed(
@@ -189,12 +189,12 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         )
         await self.sut.load()
 
-        // No playback yet (count 0): nothing was watched, so no fetch.
-        self.sut.refreshContinueWatching(afterPlaybackCount: 0)
+        // No activity yet (generation 0): nothing was watched, so no fetch.
+        self.sut.refreshContinueWatching(forGeneration: 0)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
 
-        // First watch (count 1) updates the rail (a new resumable video appears),
+        // First watch (generation 1) updates the rail (a new resumable video appears),
         // so the rebuild sees a change on its first try and does not retry.
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [
@@ -203,21 +203,22 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             ],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             (self.sut.sections.first { $0.kind == .continueWatching }?.videos.count ?? 0) == 2
         }
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
 
-        // Returning again with no new playback (same count) does not re-fetch.
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        // Returning again with no new activity (same generation) does not re-fetch.
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
 
-        // A strictly higher count (e.g. a partial watch followed by a return,
-        // after an earlier count was already consumed) must still fire. This is
-        // the invariant the view's start-vs-progress observer split relies on:
-        // consuming one count never blocks a later, larger one.
+        // A strictly higher generation (e.g. a later partial watch, after an
+        // earlier generation was already reflected) must still fire. This is the
+        // invariant that makes the single set-only generation safe: reflecting
+        // one generation never blocks a later one — so a bare start followed by a
+        // partial watch always refreshes.
         self.mockClient.historyForceRefreshFeed = YouTubeFeed(
             videos: [
                 MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30),
@@ -225,12 +226,12 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             ],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 2)
+        self.sut.refreshContinueWatching(forGeneration: 2)
         await self.waitForCondition { self.mockClient.getHistoryForceRefreshCount == 2 }
         #expect(self.mockClient.getHistoryForceRefreshCount == 2)
     }
 
-    @Test("Re-watching the same video still refreshes when the playback count advances")
+    @Test("Re-watching the same video still refreshes when the generation advances")
     func refreshFiresOnSameVideoRewatch() async {
         self.makeRefreshDelaysInstant()
         self.mockClient.historyFeed = YouTubeFeed(
@@ -244,20 +245,20 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 55)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 55
         }
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
 
         // The user opens the SAME video again and finishes it. The videoId is
-        // unchanged, but the playback count advanced (2), so the rail must still
+        // unchanged, but the generation advanced (2), so the rail must still
         // refresh — and the now-finished video drops out.
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 100)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 2)
+        self.sut.refreshContinueWatching(forGeneration: 2)
         await self.waitForCondition {
             self.sut.sections.contains { $0.kind == .continueWatching } == false
         }
@@ -281,7 +282,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         self.mockClient.historyForceRefreshError = YTMusicError.networkError(
             underlying: URLError(.timedOut)
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         // Two forced attempts: the first fails, the retry fires and also fails.
         await self.waitForCondition { self.mockClient.getHistoryForceRefreshCount == 2 }
 
@@ -289,7 +290,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.sut.loadingState == .loaded) // no skeleton flash
     }
 
-    @Test("A failed refresh does not consume the playback count, so a later return retries")
+    @Test("A failed refresh does not advance the watermark, so a later return retries")
     func failedRefreshLeavesPlaybackCountRetryable() async {
         self.makeRefreshDelaysInstant()
         self.mockClient.historyFeed = YouTubeFeed(
@@ -302,10 +303,10 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         self.mockClient.historyForceRefreshError = YTMusicError.networkError(
             underlying: URLError(.timedOut)
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition { self.mockClient.getHistoryForceRefreshCount == 2 }
 
-        // The user returns again with the SAME playback count. Because the failed
+        // The user returns again with the SAME generation. Because the failed
         // refresh did not consume the count, this must fetch again (not skip), and
         // now it succeeds and updates the rail.
         self.mockClient.historyForceRefreshError = nil
@@ -313,7 +314,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 70)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 70
         }
@@ -321,7 +322,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.mockClient.getHistoryForceRefreshCount == 3) // 2 failed + 1 successful
     }
 
-    @Test("Cancelling the refresh mid-delay does not consume the playback count")
+    @Test("Cancelling the refresh mid-delay does not advance the watermark")
     func cancelledRefreshLeavesPlaybackCountRetryable() async {
         // Non-zero delay so the refresh is cancellable while still sleeping.
         YouTubeHomeViewModel.continueWatchingRefreshDelay = .seconds(60)
@@ -334,7 +335,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
         // Trigger a refresh, then cancel it (e.g. account switch / discard) while
         // it is still in its propagation delay — before any fetch happened.
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         self.sut.cancelLoad()
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0) // never reached the fetch
@@ -346,7 +347,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 80)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 80
         }
@@ -359,7 +360,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         self.makeRefreshDelaysInstant()
         // No load() yet — loadingState is .idle. The trigger is queued as
         // pending rather than fetching now (or being dropped).
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
         #expect(self.sut.sections.isEmpty)
@@ -384,7 +385,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
         // The user watched the video, then opened Home cold — the trigger fires
         // while Home is still idle, so it is queued as pending (no fetch yet).
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
 
         // Loading the feed must, on completion, consume the pending count and run
@@ -400,7 +401,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
         // The pending count is consumed: a later return with the same count is a
         // no-op (no second forced fetch).
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
     }
@@ -440,7 +441,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 80)],
             continuation: nil
         )
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await self.waitForCondition {
             self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 80
         }
@@ -476,7 +477,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
         // The trigger arrives mid-stream — it must defer (no forced fetch yet)
         // rather than race the streamer as a second writer to `sections`.
-        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        self.sut.refreshContinueWatching(forGeneration: 1)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
 

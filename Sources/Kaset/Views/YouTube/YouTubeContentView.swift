@@ -41,40 +41,37 @@ struct YouTubeContentView: View {
         }
         .onChange(of: self.selection) { _, newSelection in
             self.store.navigationPath = NavigationPath()
-            // Returning to Home via the sidebar is the other way back after
-            // watching (watch from any section, then pick Home). The path is
-            // already — or just reset to — empty, so the count-based trigger
-            // below won't fire; fire the same gated refresh here. It's a no-op
-            // when no new activity happened (count unchanged) or on cold launch
-            // (count 0), so this never double-fetches with the count trigger.
+            // Returning to Home via the sidebar is one way back after watching
+            // (watch from any section, then pick Home). The path is already — or
+            // just reset to — empty, so the depth trigger below won't fire; drive
+            // the same gated refresh here. The view-model watermark makes it a
+            // no-op when no newer watch activity occurred, so the three observers
+            // coalesce safely.
             if newSelection == .home {
-                self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
+                self.store.home.refreshContinueWatching(forGeneration: self.youtubePlayer.watchActivityGeneration)
             }
         }
         // Returning to the Home root by popping the drill-in stack (Back from a
         // video opened on Home) rebuilds the Continue Watching rail (a finished
         // video drops out; a partially-watched one appears). Home's reload is
         // keyed on view-model identity, so a navigation pop never re-runs it on
-        // its own. The player's monotonic `playbackActivityCount` gates the
-        // rebuild, so incidental returns from other drill-ins (where nothing was
-        // played) don't re-fetch history, while re-watching the same video still
-        // counts as new activity.
+        // its own. The view model gates on the player's monotonic
+        // `watchActivityGeneration` against its own watermark, so incidental
+        // returns (no new activity) don't re-fetch.
         .onChange(of: self.store.navigationPath.count) { oldDepth, newDepth in
             guard self.selection == .home, newDepth == 0, oldDepth > 0 else { return }
-            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
+            self.store.home.refreshContinueWatching(forGeneration: self.youtubePlayer.watchActivityGeneration)
         }
         // The user can also be sitting ON the Home root while a video plays in
         // the floating window (it pops out there when navigating away mid-play)
-        // and then skips or finishes — no selection/path change fires. Observe
-        // `playbackProgressEventCount`, which advances only on a skip or finish
-        // (NOT a bare start), so a video started from Home doesn't prematurely
-        // consume the activity gate and suppress a later partial-watch refresh.
-        // The gate value passed to the model stays `playbackActivityCount`.
-        // Gated to the Home root so it doesn't fetch while drilled in or on
-        // another section.
-        .onChange(of: self.youtubePlayer.playbackProgressEventCount) { _, _ in
+        // and then skips, finishes, drifts, or is closed — no selection/path
+        // change fires. Observe `watchActivityGeneration` directly: it advances
+        // on every watch-state change, and the view-model watermark prevents a
+        // bare start from suppressing a later partial-watch refresh. Gated to the
+        // Home root so it doesn't fetch while drilled in or on another section.
+        .onChange(of: self.youtubePlayer.watchActivityGeneration) { _, newGeneration in
             guard self.selection == .home, self.store.navigationPath.isEmpty else { return }
-            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
+            self.store.home.refreshContinueWatching(forGeneration: newGeneration)
         }
     }
 

@@ -304,35 +304,63 @@ struct YouTubePlayerServiceTests {
         #expect(endedVideoId == "abc")
     }
 
-    @Test("Playback activity count advances on play, skip, and end, and survives stop")
-    func playbackActivityCountTracksWatchActivity() async {
-        #expect(self.sut.playbackActivityCount == 0)
-        #expect(self.sut.playbackProgressEventCount == 0)
+    @Test("Watch-activity generation advances on every watch-state change and survives stop")
+    func watchActivityGenerationTracksEveryChange() async {
+        #expect(self.sut.watchActivityGeneration == 0)
 
-        // Starting a video advances the activity count, but NOT the
-        // progress-event count (a start has no accrued progress yet).
+        // Starting a video is a watch-state change.
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
-        #expect(self.sut.playbackActivityCount == 1)
-        #expect(self.sut.playbackProgressEventCount == 0)
+        #expect(self.sut.watchActivityGeneration == 1)
 
-        // Skipping to another video advances BOTH (it concludes the prior watch).
+        // Skipping to another video advances it (concludes one watch, begins another).
         self.sut.setUpNext([MockYouTubeClient.makeVideo(videoId: "b")])
         await self.sut.skipForward()
         #expect(self.sut.currentVideo?.videoId == "b")
-        #expect(self.sut.playbackActivityCount == 2)
-        #expect(self.sut.playbackProgressEventCount == 1)
+        #expect(self.sut.watchActivityGeneration == 2)
 
-        // A natural finish advances BOTH (the video crosses into "finished").
-        self.sut.handleVideoEnded(videoId: "b")
-        #expect(self.sut.playbackActivityCount == 3)
-        #expect(self.sut.playbackProgressEventCount == 2)
+        // SPA drift to a different video advances it (autoplay/next in the page).
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 5, duration: 60,
+            videoId: "c", title: "Drifted", isAd: false
+        ))
+        #expect(self.sut.currentVideo?.videoId == "c")
+        #expect(self.sut.watchActivityGeneration == 3)
 
-        // stop() must NOT reset either counter: Home still needs to know activity
+        // A natural finish advances it (the video crosses into "finished").
+        self.sut.handleVideoEnded(videoId: "c")
+        #expect(self.sut.watchActivityGeneration == 4)
+
+        // stop() must NOT reset the generation: Home still needs to know activity
         // happened when the user returns after closing the player.
         self.sut.stop()
         #expect(self.sut.currentVideo == nil)
-        #expect(self.sut.playbackActivityCount == 3)
-        #expect(self.sut.playbackProgressEventCount == 2)
+        #expect(self.sut.watchActivityGeneration == 4)
+    }
+
+    @Test("Stopping a video with accrued progress advances the watch-activity generation")
+    func stopWithProgressAdvancesGeneration() {
+        // Closing the floating window or navigating away with pop-out disabled
+        // both route through stop(); a partial watch must still signal Home.
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        #expect(self.sut.watchActivityGeneration == 1)
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 42, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+
+        self.sut.stop()
+        #expect(self.sut.watchActivityGeneration == 2) // progress > 0 → signalled
+    }
+
+    @Test("Stopping a video with no progress does not advance the generation")
+    func stopWithoutProgressDoesNotAdvance() {
+        // A video that never started playing (progress 0) has no resume state to
+        // reflect, so closing it shouldn't trigger a redundant rail refresh.
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        #expect(self.sut.watchActivityGeneration == 1)
+
+        self.sut.stop() // progress is still 0
+        #expect(self.sut.watchActivityGeneration == 1)
     }
 
     @Test("Volume changes forward to the playback controller")

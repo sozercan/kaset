@@ -55,20 +55,21 @@ final class YouTubeHomeViewModel {
     /// SwiftUI `.task` restarts coalesce onto one run instead of cancelling it.
     private var loadTask: Task<Void, Never>?
 
-    /// The player's `playbackActivityCount` the last time a Continue Watching
-    /// rebuild was triggered, so a return to Home with no new activity since is a
-    /// no-op. A count (not a videoId) so re-watching the SAME video still counts
-    /// as new — videoId alone can't tell a fresh re-watch from an idle return.
-    private var lastRefreshedPlaybackCount = 0
+    /// The player's `watchActivityGeneration` the last time Continue Watching
+    /// was successfully rebuilt. A return/observe with no newer generation is a
+    /// no-op. This is a VM-LOCAL watermark — the player's generation is never
+    /// "consumed"; this only advances after a confirmed rebuild, so a refresh
+    /// firing for one event can't suppress a refresh for a genuinely later one.
+    private var lastReflectedGeneration = 0
 
-    /// A post-watch playback count that arrived before Home could rebuild the
+    /// A watch-activity generation that arrived before Home could rebuild the
     /// rail in place (still loading, or the initial rail streamer is mid-flight
     /// and would clobber a separate refresh). `performLoad` consumes it once the
     /// feed has settled, forcing a cache-bypassed Continue Watching rebuild —
     /// otherwise a cold Home opened right after watching (with a warm `FEhistory`
     /// cache, e.g. from the History screen) would build the rail from stale
     /// pre-watch progress. Decouples the fix from `.task`/`.onChange` ordering.
-    private var pendingPlaybackCount: Int?
+    private var pendingGeneration: Int?
 
     /// True while `performLoad` is streaming the initial rails (Continue Watching
     /// + topics) into `sections`. The streamer is the sole writer of `sections`
@@ -217,12 +218,12 @@ final class YouTubeHomeViewModel {
             // rails (opened cold right after watching, or returned mid-stream).
             // The rail just built above may have come from a warm pre-watch
             // `FEhistory` cache, so run the scoped, cache-bypassed refresh now
-            // that the feed has settled. Consuming the pending count here (rather
-            // than in the view) makes the fix independent of whether `.task` or
-            // the selection/path `.onChange` fired first.
-            if let pending = self.pendingPlaybackCount {
-                self.pendingPlaybackCount = nil
-                self.refreshContinueWatching(afterPlaybackCount: pending)
+            // that the feed has settled. Consuming the pending generation here
+            // (rather than in the view) makes the fix independent of whether
+            // `.task` or the selection/path `.onChange` fired first.
+            if let pending = self.pendingGeneration {
+                self.pendingGeneration = nil
+                self.refreshContinueWatching(forGeneration: pending)
             }
         } catch {
             guard generation == self.loadGeneration else { return }
@@ -305,7 +306,7 @@ final class YouTubeHomeViewModel {
         self.loadTask = nil
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = nil
-        // Deliberately preserve `pendingPlaybackCount`: this is also the
+        // Deliberately preserve `pendingGeneration`: this is also the
         // error-retry path, and a post-watch trigger queued during a failed cold
         // load must survive the retry so the ensuing `performLoad` rebuilds
         // Continue Watching from fresh (not warm pre-watch) history. An account
@@ -328,7 +329,7 @@ final class YouTubeHomeViewModel {
         self.loadTask = nil
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = nil
-        self.pendingPlaybackCount = nil
+        self.pendingGeneration = nil
     }
 
     /// Loads the next feed page when the user nears the end of the grid.
@@ -429,30 +430,29 @@ final class YouTubeHomeViewModel {
         case failed
     }
 
-    /// Rebuilds only the Continue Watching rail after the user watches a video
-    /// and returns to Home, so a finished video drops out and a partially-watched
-    /// one appears — without the full `refresh()` that wipes the grid and flashes
-    /// the skeleton.
+    /// Rebuilds only the Continue Watching rail after watch activity occurs and
+    /// the user is (or returns) on Home, so a finished video drops out and a
+    /// partially-watched one appears — without the full `refresh()` that wipes
+    /// the grid and flashes the skeleton.
     ///
-    /// `playbackCount` is the player's monotonic `playbackActivityCount`; the
-    /// rebuild is a no-op when it hasn't advanced since the last rebuild, so
-    /// incidental returns to Home (opening then backing out of a channel, say)
-    /// don't re-fetch history, while re-watching the same video — which a videoId
-    /// alone could not distinguish from an idle return — still triggers one. The
-    /// work runs after a short delay (YouTube records watch progress server-side
-    /// via the embedded player, not Kaset) and bypasses the 2 min history cache,
-    /// retrying once if the first fetch shows no change or fails.
-    func refreshContinueWatching(afterPlaybackCount playbackCount: Int) {
-        // Only rebuild after at least one playback, for a genuinely new watch.
-        guard playbackCount > 0 else { return }
-        guard playbackCount != self.lastRefreshedPlaybackCount else { return }
+    /// `generation` is the player's monotonic `watchActivityGeneration`; the
+    /// rebuild is a no-op when it isn't ahead of the last reflected generation,
+    /// so incidental returns to Home (opening then backing out of a channel, say)
+    /// don't re-fetch history, while ANY new watch activity — re-watching the
+    /// same video, a skip, a finish, a drift — still triggers one. The work runs
+    /// after a short delay (YouTube records watch progress server-side via the
+    /// embedded player, not Kaset) and bypasses the 2 min history cache, retrying
+    /// once if the first fetch shows no change or fails.
+    func refreshContinueWatching(forGeneration generation: Int) {
+        // Only rebuild for activity strictly newer than what's already reflected.
+        guard generation > self.lastReflectedGeneration else { return }
 
         // Defer (park as pending) when the rail can't be safely rebuilt in place
         // yet, so the trigger is never dropped:
         //   - the initial load hasn't produced a rail (`idle`/`loading`/`error`)
         //   - the initial rail streamer is mid-flight and is the sole writer of
         //     `sections` (a concurrent rebuild would race it)
-        // `performLoad` drains the pending count once the feed settles. A
+        // `performLoad` drains the pending generation once the feed settles. A
         // populated `.loaded` or a `.loadingMore` (pagination over an existing
         // grid) is fine to rebuild in place — pagination only appends grid
         // videos and never writes the Continue Watching rail.
@@ -463,21 +463,22 @@ final class YouTubeHomeViewModel {
             false
         }
         guard canRebuildInPlace else {
-            self.pendingPlaybackCount = playbackCount
+            // Keep the highest pending generation if several arrive while loading.
+            self.pendingGeneration = max(self.pendingGeneration ?? 0, generation)
             return
         }
 
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = Task { [weak self] in
-            await self?.performContinueWatchingRefresh(targetCount: playbackCount)
+            await self?.performContinueWatchingRefresh(targetGeneration: generation)
         }
     }
 
-    private func performContinueWatchingRefresh(targetCount: Int) async {
+    private func performContinueWatchingRefresh(targetGeneration: Int) async {
         do {
             try await Task.sleep(for: Self.continueWatchingRefreshDelay)
         } catch {
-            return // cancelled before any work; leave the count unconsumed so a later return retries
+            return // cancelled before any work; leave the watermark so a later return retries
         }
 
         var outcome = await self.rebuildContinueWatchingRail()
@@ -494,13 +495,13 @@ final class YouTubeHomeViewModel {
             }
         }
 
-        // Record this playback as handled ONLY when the refresh actually reached
-        // the server (updated or unchanged) and was not cancelled. A cancellation
-        // (e.g. refresh()/account switch during the delay) or a hard failure
-        // leaves `lastRefreshedPlaybackCount` unchanged, so the next return to
-        // Home retries this same playback instead of silently skipping it.
+        // Advance the watermark ONLY when the refresh actually reached the server
+        // (updated or unchanged) and was not cancelled. A cancellation (e.g.
+        // refresh()/account switch during the delay) or a hard failure leaves it
+        // unchanged, so the next return to Home retries. `max` guards against a
+        // late-finishing earlier task lowering a watermark a newer task advanced.
         guard !Task.isCancelled, outcome == .updated || outcome == .unchanged else { return }
-        self.lastRefreshedPlaybackCount = targetCount
+        self.lastReflectedGeneration = max(self.lastReflectedGeneration, targetGeneration)
     }
 
     /// Fetches fresh history (cache-bypassed) and splices the resulting Continue

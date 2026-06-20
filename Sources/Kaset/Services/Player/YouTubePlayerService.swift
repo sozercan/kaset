@@ -49,25 +49,19 @@ final class YouTubePlayerService {
     /// The video currently loaded for playback (nil when playback is closed).
     private(set) var currentVideo: YouTubeVideo?
 
-    /// Monotonic count of playback-activity events that can change watch
-    /// history: a new video starting (`play`), a skip to another video
-    /// (`advance`), and a video finishing (`handleVideoEnded`). Home's
-    /// navigation-return paths read it to decide whether to rebuild Continue
-    /// Watching: a count that advanced since the last rebuild means new watch
-    /// activity to reflect, even when the videoId is unchanged (a re-watch) —
-    /// which the id alone can't tell from an idle return. Not reset by `stop()`,
-    /// so a return after a finished or closed video still carries the activity.
-    private(set) var playbackActivityCount = 0
-
-    /// Monotonic count of playback events that conclude a watch session with
-    /// accrued progress — a skip away (`advance`) or a finish
-    /// (`handleVideoEnded`). Deliberately EXCLUDES a bare `play` start (which has
-    /// no progress yet). The Home-root observer keys on this so a floating video
-    /// finishing/skipping while the user sits on Home refreshes the rail, without
-    /// a fresh start prematurely consuming the activity gate (which would suppress
-    /// a later partial-watch refresh). The gate value passed to the view model is
-    /// still `playbackActivityCount`; this only decides *when* that observer fires.
-    private(set) var playbackProgressEventCount = 0
+    /// Monotonic generation bumped by EVERY change to what/how-much was watched:
+    /// a video starting (`play`), a skip to another (`advance`), a finish
+    /// (`handleVideoEnded`), the page drifting to a different video
+    /// (`updatePlaybackState`), and `stop()` tearing down a video that had
+    /// accrued progress. It is a pure SIGNAL — set-only here, never consumed by
+    /// readers. Home keeps its OWN watermark of the last generation it reflected
+    /// and rebuilds Continue Watching whenever this is ahead of that watermark.
+    ///
+    /// Deliberately over-signals: a redundant rebuild is cheap and correct, while
+    /// a missed signal leaves the rail stale. This inverts the old fragile model
+    /// (multiple counters, eagerly consumed at the wrong moment) where every new
+    /// watch path needed a matching "remember to bump / don't consume early" fix.
+    private(set) var watchActivityGeneration = 0
 
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
@@ -204,7 +198,7 @@ final class YouTubePlayerService {
         }
         self.upNext = []
         self.currentVideo = video
-        self.playbackActivityCount += 1
+        self.watchActivityGeneration += 1 // a new watch began
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -241,6 +235,14 @@ final class YouTubePlayerService {
     /// Stops playback entirely and releases the surface.
     func stop() {
         self.logger.info("YouTubePlayer: stop")
+        // Closing/stopping a video that accrued progress changes its resume
+        // state in history, so signal it before clearing — this covers closing
+        // the floating window (windowWillClose -> stop) and navigating away with
+        // pop-out disabled (inlineSurfaceWillDisappear -> stop) after a partial
+        // watch, neither of which emits a skip or finish event.
+        if self.currentVideo != nil, self.progress > 0 {
+            self.watchActivityGeneration += 1
+        }
         self.currentVideo = nil
         self.isPlaying = false
         self.progress = 0
@@ -330,8 +332,7 @@ final class YouTubePlayerService {
 
         self.playbackWillStart?()
         self.currentVideo = video
-        self.playbackActivityCount += 1
-        self.playbackProgressEventCount += 1 // a skip concludes the prior watch
+        self.watchActivityGeneration += 1 // a skip concludes the prior watch and begins a new one
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -611,6 +612,10 @@ final class YouTubePlayerService {
                 channelName: current.channelName,
                 channelId: current.channelId
             )
+            // The page autoplayed/navigated to a new video (e.g. in the floating
+            // window) — the prior video concluded and a new watch began, so
+            // signal it like an explicit skip.
+            self.watchActivityGeneration += 1
             YouTubeWatchWebView.shared.currentVideoId = videoId
         }
     }
@@ -620,11 +625,10 @@ final class YouTubePlayerService {
         self.logger.info("YouTubePlayer: video ended")
         self.isPlaying = false
         // A finish changes watch history (the video crosses into "finished"), so
-        // advance both counters — this lets Home drop a just-finished video from
-        // Continue Watching even when the video ended in the floating window while
-        // the user was already sitting on Home (no navigation fires).
-        self.playbackActivityCount += 1
-        self.playbackProgressEventCount += 1
+        // signal it — this lets Home drop a just-finished video from Continue
+        // Watching even when the video ended in the floating window while the
+        // user was already sitting on Home (no navigation fires).
+        self.watchActivityGeneration += 1
         self.onVideoEnded?(videoId)
     }
 }
