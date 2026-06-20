@@ -118,14 +118,15 @@ final class YouTubeHomeViewModel {
 
     private func performLoad(token: Int) async {
         defer {
-            // Only clear the handle if it still points at THIS run. A stale run
-            // resuming late must not wipe a newer run's task.
+            // Only clear shared handles if they still point at THIS run. A stale
+            // run resuming late must not wipe a newer run's task OR clear the
+            // newer run's streaming guard (which would drop the guard while the
+            // newer streamer is still the sole writer of `sections`, reopening the
+            // refresh-vs-streamer race).
             if self.loadGeneration == token {
                 self.loadTask = nil
+                self.isStreamingInitialRails = false
             }
-            // Always clear the streaming flag, even on cancellation/error, so a
-            // later post-watch refresh isn't permanently parked as pending.
-            self.isStreamingInitialRails = false
         }
         let generation = token
         self.loadingState = .loading
@@ -180,7 +181,9 @@ final class YouTubeHomeViewModel {
             // (concurrent) history fetch lands. See streamTopicRails. Mark the
             // window so a concurrent post-watch refresh defers instead of racing
             // the streamer (which would otherwise overwrite a refreshed rail).
+            // Only the current generation may own the guard.
             let chips = Array(bundle.chips.prefix(Self.topicRailCap))
+            guard generation == self.loadGeneration else { return }
             self.isStreamingInitialRails = true
             await self.streamTopicRails(
                 chips: chips,
@@ -193,8 +196,12 @@ final class YouTubeHomeViewModel {
                 generation: generation
             )
             // Streaming is done — `sections` is now stable, so a deferred
-            // post-watch refresh can safely rebuild the rail in place.
-            self.isStreamingInitialRails = false
+            // post-watch refresh can safely rebuild the rail in place. Only clear
+            // the guard if this run still owns it (a newer load may have taken
+            // over while we were streaming); the defer is the backstop.
+            if generation == self.loadGeneration {
+                self.isStreamingInitialRails = false
+            }
 
             // Empty grid: flip the initial-load skeleton to `.loaded` so the
             // "No recommendations" placeholder can show. Only from `.loading` —

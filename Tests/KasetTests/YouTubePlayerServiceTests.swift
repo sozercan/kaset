@@ -222,26 +222,32 @@ struct YouTubePlayerServiceTests {
     @Test("Playback activity count advances on play, skip, and end, and survives stop")
     func playbackActivityCountTracksWatchActivity() async {
         #expect(self.sut.playbackActivityCount == 0)
+        #expect(self.sut.playbackProgressEventCount == 0)
 
-        // Starting a video counts.
+        // Starting a video advances the activity count, but NOT the
+        // progress-event count (a start has no accrued progress yet).
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
         #expect(self.sut.playbackActivityCount == 1)
+        #expect(self.sut.playbackProgressEventCount == 0)
 
-        // Skipping to another video counts (a distinct watch).
+        // Skipping to another video advances BOTH (it concludes the prior watch).
         self.sut.setUpNext([MockYouTubeClient.makeVideo(videoId: "b")])
         await self.sut.skipForward()
         #expect(self.sut.currentVideo?.videoId == "b")
         #expect(self.sut.playbackActivityCount == 2)
+        #expect(self.sut.playbackProgressEventCount == 1)
 
-        // A natural finish counts (the video crosses into "finished").
+        // A natural finish advances BOTH (the video crosses into "finished").
         self.sut.handleVideoEnded(videoId: "b")
         #expect(self.sut.playbackActivityCount == 3)
+        #expect(self.sut.playbackProgressEventCount == 2)
 
-        // stop() must NOT reset the counter: Home still needs to know activity
+        // stop() must NOT reset either counter: Home still needs to know activity
         // happened when the user returns after closing the player.
         self.sut.stop()
         #expect(self.sut.currentVideo == nil)
         #expect(self.sut.playbackActivityCount == 3)
+        #expect(self.sut.playbackProgressEventCount == 2)
     }
 
     @Test("Volume changes forward to the playback controller")

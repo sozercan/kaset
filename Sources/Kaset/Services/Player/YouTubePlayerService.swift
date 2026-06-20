@@ -50,14 +50,23 @@ final class YouTubePlayerService {
 
     /// Monotonic count of playback-activity events that can change watch
     /// history: a new video starting (`play`), a skip to another video
-    /// (`advance`), and a video finishing (`handleVideoEnded`). Home reads it
-    /// when the user returns (or while sitting on Home with a floating video) to
-    /// decide whether to rebuild Continue Watching: a count that advanced since
-    /// the last rebuild means new watch progress to reflect, even when the
-    /// videoId is unchanged (a re-watch) — which the id alone can't tell from an
-    /// idle return. Not reset by `stop()`, so a return after a finished or closed
-    /// video still carries the activity that just happened.
+    /// (`advance`), and a video finishing (`handleVideoEnded`). Home's
+    /// navigation-return paths read it to decide whether to rebuild Continue
+    /// Watching: a count that advanced since the last rebuild means new watch
+    /// activity to reflect, even when the videoId is unchanged (a re-watch) —
+    /// which the id alone can't tell from an idle return. Not reset by `stop()`,
+    /// so a return after a finished or closed video still carries the activity.
     private(set) var playbackActivityCount = 0
+
+    /// Monotonic count of playback events that conclude a watch session with
+    /// accrued progress — a skip away (`advance`) or a finish
+    /// (`handleVideoEnded`). Deliberately EXCLUDES a bare `play` start (which has
+    /// no progress yet). The Home-root observer keys on this so a floating video
+    /// finishing/skipping while the user sits on Home refreshes the rail, without
+    /// a fresh start prematurely consuming the activity gate (which would suppress
+    /// a later partial-watch refresh). The gate value passed to the view model is
+    /// still `playbackActivityCount`; this only decides *when* that observer fires.
+    private(set) var playbackProgressEventCount = 0
 
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
@@ -298,6 +307,7 @@ final class YouTubePlayerService {
         self.playbackWillStart?()
         self.currentVideo = video
         self.playbackActivityCount += 1
+        self.playbackProgressEventCount += 1 // a skip concludes the prior watch
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -519,10 +529,11 @@ final class YouTubePlayerService {
         self.logger.info("YouTubePlayer: video ended")
         self.isPlaying = false
         // A finish changes watch history (the video crosses into "finished"), so
-        // advance the activity counter — this lets Home drop a just-finished
-        // video from Continue Watching even when the video ended in the floating
-        // window while the user was already sitting on Home (no navigation fires).
+        // advance both counters — this lets Home drop a just-finished video from
+        // Continue Watching even when the video ended in the floating window while
+        // the user was already sitting on Home (no navigation fires).
         self.playbackActivityCount += 1
+        self.playbackProgressEventCount += 1
         self.onVideoEnded?(videoId)
     }
 }

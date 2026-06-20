@@ -65,13 +65,16 @@ struct YouTubeContentView: View {
         }
         // The user can also be sitting ON the Home root while a video plays in
         // the floating window (it pops out there when navigating away mid-play)
-        // and then skips or finishes — no selection/path change fires, but the
-        // activity counter advances. Observe it directly so Continue Watching
-        // still updates without requiring a navigation. Gated to the Home root so
-        // it doesn't fetch while the user is on another section or drilled in.
-        .onChange(of: self.youtubePlayer.playbackActivityCount) { _, newCount in
+        // and then skips or finishes — no selection/path change fires. Observe
+        // `playbackProgressEventCount`, which advances only on a skip or finish
+        // (NOT a bare start), so a video started from Home doesn't prematurely
+        // consume the activity gate and suppress a later partial-watch refresh.
+        // The gate value passed to the model stays `playbackActivityCount`.
+        // Gated to the Home root so it doesn't fetch while drilled in or on
+        // another section.
+        .onChange(of: self.youtubePlayer.playbackProgressEventCount) { _, _ in
             guard self.selection == .home, self.store.navigationPath.isEmpty else { return }
-            self.store.home.refreshContinueWatching(afterPlaybackCount: newCount)
+            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
         }
     }
 

@@ -213,6 +213,21 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         self.sut.refreshContinueWatching(afterPlaybackCount: 1)
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
+
+        // A strictly higher count (e.g. a partial watch followed by a return,
+        // after an earlier count was already consumed) must still fire. This is
+        // the invariant the view's start-vs-progress observer split relies on:
+        // consuming one count never blocks a later, larger one.
+        self.mockClient.historyForceRefreshFeed = YouTubeFeed(
+            videos: [
+                MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30),
+                MockYouTubeClient.makeVideo(videoId: "newly", watchedPercent: 70),
+            ],
+            continuation: nil
+        )
+        self.sut.refreshContinueWatching(afterPlaybackCount: 2)
+        await self.waitForCondition { self.mockClient.getHistoryForceRefreshCount == 2 }
+        #expect(self.mockClient.getHistoryForceRefreshCount == 2)
     }
 
     @Test("Re-watching the same video still refreshes when the playback count advances")
