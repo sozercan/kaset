@@ -342,7 +342,7 @@ final class YouTubeClient: YouTubeClientProtocol {
         return GuideParser.subscribedChannels(data)
     }
 
-    func getHistory(forceRefresh: Bool = false) async throws -> YouTubeFeed {
+    func getHistory(forceRefresh: Bool) async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube watch history\(forceRefresh ? " (forced)" : "")")
 
         let data = try await self.request(
