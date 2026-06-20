@@ -55,19 +55,27 @@ final class YouTubeHomeViewModel {
     /// SwiftUI `.task` restarts coalesce onto one run instead of cancelling it.
     private var loadTask: Task<Void, Never>?
 
-    /// The player's `playbackStartCount` the last time a Continue Watching
-    /// rebuild was triggered, so a return to Home with no new playback since is a
+    /// The player's `playbackActivityCount` the last time a Continue Watching
+    /// rebuild was triggered, so a return to Home with no new activity since is a
     /// no-op. A count (not a videoId) so re-watching the SAME video still counts
     /// as new — videoId alone can't tell a fresh re-watch from an idle return.
     private var lastRefreshedPlaybackCount = 0
 
-    /// A post-watch playback count that arrived before Home finished loading, so
-    /// the scoped refresh couldn't run yet. `performLoad` consumes it once the
-    /// feed is `.loaded`, forcing a cache-bypassed Continue Watching rebuild —
+    /// A post-watch playback count that arrived before Home could rebuild the
+    /// rail in place (still loading, or the initial rail streamer is mid-flight
+    /// and would clobber a separate refresh). `performLoad` consumes it once the
+    /// feed has settled, forcing a cache-bypassed Continue Watching rebuild —
     /// otherwise a cold Home opened right after watching (with a warm `FEhistory`
     /// cache, e.g. from the History screen) would build the rail from stale
     /// pre-watch progress. Decouples the fix from `.task`/`.onChange` ordering.
     private var pendingPlaybackCount: Int?
+
+    /// True while `performLoad` is streaming the initial rails (Continue Watching
+    /// + topics) into `sections`. The streamer is the sole writer of `sections`
+    /// during that window, so a concurrent post-watch refresh must defer (park as
+    /// pending) rather than race it as a second writer and risk being overwritten
+    /// by a late streamer publish.
+    private var isStreamingInitialRails = false
 
     /// The in-flight post-watch Continue Watching rebuild, cancelled/replaced
     /// when a newer watch supersedes it. Stored (unstructured) so it survives
@@ -115,6 +123,9 @@ final class YouTubeHomeViewModel {
             if self.loadGeneration == token {
                 self.loadTask = nil
             }
+            // Always clear the streaming flag, even on cancellation/error, so a
+            // later post-watch refresh isn't permanently parked as pending.
+            self.isStreamingInitialRails = false
         }
         let generation = token
         self.loadingState = .loading
@@ -166,8 +177,11 @@ final class YouTubeHomeViewModel {
 
             // Stream the rails in as each resolves; the streamer is the single
             // writer of `sections` and prepends Continue Watching when its
-            // (concurrent) history fetch lands. See streamTopicRails.
+            // (concurrent) history fetch lands. See streamTopicRails. Mark the
+            // window so a concurrent post-watch refresh defers instead of racing
+            // the streamer (which would otherwise overwrite a refreshed rail).
             let chips = Array(bundle.chips.prefix(Self.topicRailCap))
+            self.isStreamingInitialRails = true
             await self.streamTopicRails(
                 chips: chips,
                 shelves: shelves,
@@ -178,6 +192,9 @@ final class YouTubeHomeViewModel {
                 gridReady: gridReady,
                 generation: generation
             )
+            // Streaming is done — `sections` is now stable, so a deferred
+            // post-watch refresh can safely rebuild the rail in place.
+            self.isStreamingInitialRails = false
 
             // Empty grid: flip the initial-load skeleton to `.loaded` so the
             // "No recommendations" placeholder can show. Only from `.loading` —
@@ -189,13 +206,14 @@ final class YouTubeHomeViewModel {
                 self.loadingState = .loaded
             }
 
-            // A watch happened while Home was still loading (opened cold right
-            // after watching). The rail just built above may have come from a
-            // warm pre-watch `FEhistory` cache, so run the scoped, cache-bypassed
-            // refresh now that we're `.loaded`. Consuming the pending count here
-            // (rather than in the view) makes the fix independent of whether
-            // `.task` or the selection/path `.onChange` fired first.
-            if case .loaded = self.loadingState, let pending = self.pendingPlaybackCount {
+            // A watch happened while Home was still loading or streaming its
+            // rails (opened cold right after watching, or returned mid-stream).
+            // The rail just built above may have come from a warm pre-watch
+            // `FEhistory` cache, so run the scoped, cache-bypassed refresh now
+            // that the feed has settled. Consuming the pending count here (rather
+            // than in the view) makes the fix independent of whether `.task` or
+            // the selection/path `.onChange` fired first.
+            if let pending = self.pendingPlaybackCount {
                 self.pendingPlaybackCount = nil
                 self.refreshContinueWatching(afterPlaybackCount: pending)
             }
@@ -280,7 +298,11 @@ final class YouTubeHomeViewModel {
         self.loadTask = nil
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = nil
-        self.pendingPlaybackCount = nil
+        // Deliberately preserve `pendingPlaybackCount`: this is also the
+        // error-retry path, and a post-watch trigger queued during a failed cold
+        // load must survive the retry so the ensuing `performLoad` rebuilds
+        // Continue Watching from fresh (not warm pre-watch) history. An account
+        // switch clears it separately via `cancelLoad()`.
         self.loadingState = .idle
         self.videos = []
         self.sections = []
@@ -351,9 +373,11 @@ final class YouTubeHomeViewModel {
 
     /// Started-but-unfinished videos from watch history (deduped, capped), or
     /// `nil` on failure / when nothing is resumable. Used by the initial load,
-    /// where a failed history fetch should simply omit the rail.
-    private func continueWatchingSection(forceRefresh: Bool = false) async -> YouTubeHomeSection? {
-        try? await self.fetchContinueWatchingSection(forceRefresh: forceRefresh)
+    /// where a failed history fetch should simply omit the rail (the cached
+    /// path). The post-watch rebuild calls `fetchContinueWatchingSection`
+    /// directly so it can both force-refresh and distinguish failure from empty.
+    private func continueWatchingSection() async -> YouTubeHomeSection? {
+        try? await self.fetchContinueWatchingSection(forceRefresh: false)
     }
 
     /// Fetches watch history and builds the Continue Watching section, throwing
@@ -403,7 +427,7 @@ final class YouTubeHomeViewModel {
     /// one appears — without the full `refresh()` that wipes the grid and flashes
     /// the skeleton.
     ///
-    /// `playbackCount` is the player's monotonic `playbackStartCount`; the
+    /// `playbackCount` is the player's monotonic `playbackActivityCount`; the
     /// rebuild is a no-op when it hasn't advanced since the last rebuild, so
     /// incidental returns to Home (opening then backing out of a channel, say)
     /// don't re-fetch history, while re-watching the same video — which a videoId
@@ -416,12 +440,22 @@ final class YouTubeHomeViewModel {
         guard playbackCount > 0 else { return }
         guard playbackCount != self.lastRefreshedPlaybackCount else { return }
 
-        // Home not loaded yet (the user opened it cold right after watching).
-        // Don't drop the trigger — record it so `performLoad` forces a
-        // cache-bypassed rail rebuild on completion. Without this, the initial
-        // load could build Continue Watching from a warm, pre-watch `FEhistory`
-        // cache and show stale progress until the TTL expires.
-        guard case .loaded = self.loadingState else {
+        // Defer (park as pending) when the rail can't be safely rebuilt in place
+        // yet, so the trigger is never dropped:
+        //   - the initial load hasn't produced a rail (`idle`/`loading`/`error`)
+        //   - the initial rail streamer is mid-flight and is the sole writer of
+        //     `sections` (a concurrent rebuild would race it)
+        // `performLoad` drains the pending count once the feed settles. A
+        // populated `.loaded` or a `.loadingMore` (pagination over an existing
+        // grid) is fine to rebuild in place — pagination only appends grid
+        // videos and never writes the Continue Watching rail.
+        let canRebuildInPlace: Bool = switch self.loadingState {
+        case .loaded, .loadingMore:
+            !self.isStreamingInitialRails
+        case .idle, .loading, .error:
+            false
+        }
+        guard canRebuildInPlace else {
             self.pendingPlaybackCount = playbackCount
             return
         }
@@ -467,7 +501,14 @@ final class YouTubeHomeViewModel {
     /// topic rails untouched. On a fetch failure the existing rail is preserved.
     @discardableResult
     private func rebuildContinueWatchingRail() async -> RailRefreshOutcome {
-        guard case .loaded = self.loadingState else { return .unchanged }
+        // The grid/shelves must already be published (loaded, or paginating over
+        // an existing grid). Anything earlier means there's no rail to splice.
+        switch self.loadingState {
+        case .loaded, .loadingMore:
+            break
+        case .idle, .loading, .error:
+            return .unchanged
+        }
 
         let fresh: YouTubeHomeSection?
         do {

@@ -48,13 +48,16 @@ final class YouTubePlayerService {
     /// The video currently loaded for playback (nil when playback is closed).
     private(set) var currentVideo: YouTubeVideo?
 
-    /// Monotonic count of playback starts, bumped on every `play(video:)`. Home
-    /// reads it when the user returns to rebuild Continue Watching: it tells a
-    /// genuine new watch — including re-watching the SAME video, which a videoId
-    /// alone cannot distinguish — from an incidental return where nothing was
-    /// played. Not reset by `stop()`, so a return after a finished or closed
-    /// video still carries the watch that just happened.
-    private(set) var playbackStartCount = 0
+    /// Monotonic count of playback-activity events that can change watch
+    /// history: a new video starting (`play`), a skip to another video
+    /// (`advance`), and a video finishing (`handleVideoEnded`). Home reads it
+    /// when the user returns (or while sitting on Home with a floating video) to
+    /// decide whether to rebuild Continue Watching: a count that advanced since
+    /// the last rebuild means new watch progress to reflect, even when the
+    /// videoId is unchanged (a re-watch) — which the id alone can't tell from an
+    /// idle return. Not reset by `stop()`, so a return after a finished or closed
+    /// video still carries the activity that just happened.
+    private(set) var playbackActivityCount = 0
 
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
@@ -168,7 +171,7 @@ final class YouTubePlayerService {
         }
         self.upNext = []
         self.currentVideo = video
-        self.playbackStartCount += 1
+        self.playbackActivityCount += 1
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -294,6 +297,7 @@ final class YouTubePlayerService {
 
         self.playbackWillStart?()
         self.currentVideo = video
+        self.playbackActivityCount += 1
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -514,6 +518,11 @@ final class YouTubePlayerService {
     func handleVideoEnded(videoId: String?) {
         self.logger.info("YouTubePlayer: video ended")
         self.isPlaying = false
+        // A finish changes watch history (the video crosses into "finished"), so
+        // advance the activity counter — this lets Home drop a just-finished
+        // video from Continue Watching even when the video ended in the floating
+        // window while the user was already sitting on Home (no navigation fires).
+        self.playbackActivityCount += 1
         self.onVideoEnded?(videoId)
     }
 }

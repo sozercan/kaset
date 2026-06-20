@@ -45,23 +45,33 @@ struct YouTubeContentView: View {
             // watching (watch from any section, then pick Home). The path is
             // already — or just reset to — empty, so the count-based trigger
             // below won't fire; fire the same gated refresh here. It's a no-op
-            // when no new playback happened (count unchanged) or on cold launch
+            // when no new activity happened (count unchanged) or on cold launch
             // (count 0), so this never double-fetches with the count trigger.
             if newSelection == .home {
-                self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackStartCount)
+                self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
             }
         }
         // Returning to the Home root by popping the drill-in stack (Back from a
         // video opened on Home) rebuilds the Continue Watching rail (a finished
         // video drops out; a partially-watched one appears). Home's reload is
         // keyed on view-model identity, so a navigation pop never re-runs it on
-        // its own. The player's monotonic `playbackStartCount` gates the rebuild,
-        // so incidental returns from other drill-ins (where nothing was played)
-        // don't re-fetch history, while re-watching the same video still counts
-        // as a new watch.
+        // its own. The player's monotonic `playbackActivityCount` gates the
+        // rebuild, so incidental returns from other drill-ins (where nothing was
+        // played) don't re-fetch history, while re-watching the same video still
+        // counts as new activity.
         .onChange(of: self.store.navigationPath.count) { oldDepth, newDepth in
             guard self.selection == .home, newDepth == 0, oldDepth > 0 else { return }
-            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackStartCount)
+            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackActivityCount)
+        }
+        // The user can also be sitting ON the Home root while a video plays in
+        // the floating window (it pops out there when navigating away mid-play)
+        // and then skips or finishes — no selection/path change fires, but the
+        // activity counter advances. Observe it directly so Continue Watching
+        // still updates without requiring a navigation. Gated to the Home root so
+        // it doesn't fetch while the user is on another section or drilled in.
+        .onChange(of: self.youtubePlayer.playbackActivityCount) { _, newCount in
+            guard self.selection == .home, self.store.navigationPath.isEmpty else { return }
+            self.store.home.refreshContinueWatching(afterPlaybackCount: newCount)
         }
     }
 

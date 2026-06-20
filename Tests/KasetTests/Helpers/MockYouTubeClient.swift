@@ -66,8 +66,16 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         )
     }
 
+    /// Awaited inside `getHomeFeedContinuation` before it returns, so a test can
+    /// hold a pagination request open and assert behaviour while the model sits
+    /// in `.loadingMore`.
+    var beforeContinuationReturn: (@Sendable () async -> Void)?
+
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
         if let error { throw error }
+        if let beforeContinuationReturn {
+            await beforeContinuationReturn()
+        }
         if !self.homeContinuationPages.isEmpty {
             return self.homeContinuationPages.removeFirst()
         }

@@ -389,4 +389,115 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
     }
+
+    @Test("A refresh during pagination (.loadingMore) rebuilds the rail in place")
+    func refreshDuringLoadingMoreRunsInPlace() async {
+        self.makeRefreshDelaysInstant()
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        self.mockClient.historyFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
+            continuation: nil
+        )
+        // A continuation page is available so `loadMore()` can run. The mock
+        // reports "has more" from `homeFeedContinuation`, so set it before load.
+        self.mockClient.homeFeedContinuation = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 2),
+            continuation: nil
+        )
+        await self.sut.load()
+        #expect(self.sut.loadingState == .loaded)
+        #expect(self.sut.hasMoreVideos)
+
+        // Hold the pagination request open so the model sits in `.loadingMore`.
+        let gate = RefreshTestGate()
+        self.mockClient.beforeContinuationReturn = { await gate.wait() }
+        let paging = Task { await self.sut.loadMore() }
+        await self.waitForCondition { self.sut.loadingState == .loadingMore }
+        #expect(self.sut.loadingState == .loadingMore)
+
+        // A return-to-Home refresh during pagination must rebuild the rail in
+        // place (pagination only appends grid videos, never the rail) — not park
+        // as pending and get stranded until the next navigation.
+        self.mockClient.historyForceRefreshFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 80)],
+            continuation: nil
+        )
+        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        await self.waitForCondition {
+            self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 80
+        }
+        #expect(self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 80)
+        #expect(self.mockClient.getHistoryForceRefreshCount == 1)
+
+        await gate.open()
+        await paging.value
+    }
+
+    @Test("A refresh while the initial rails are streaming defers, then runs once settled")
+    func refreshDuringInitialStreamingDefers() async {
+        self.makeRefreshDelaysInstant()
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        // Hold the Continue Watching history fetch open so `performLoad` stays in
+        // its rail-streaming window when the refresh trigger arrives.
+        let gate = RefreshTestGate()
+        self.mockClient.beforeHistoryReturn = { await gate.wait() }
+        self.mockClient.historyFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
+            continuation: nil
+        )
+        self.mockClient.historyForceRefreshFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 90)],
+            continuation: nil
+        )
+
+        let loading = Task { await self.sut.load() }
+        await self.waitForCondition { self.sut.loadingState == .loaded } // grid published, still streaming
+
+        // The trigger arrives mid-stream — it must defer (no forced fetch yet)
+        // rather than race the streamer as a second writer to `sections`.
+        self.sut.refreshContinueWatching(afterPlaybackCount: 1)
+        await Task.yield()
+        #expect(self.mockClient.getHistoryForceRefreshCount == 0)
+
+        // Let streaming finish; `performLoad` then drains the pending count and
+        // runs the cache-bypassed refresh, landing the post-watch progress (90%).
+        await gate.open()
+        await loading.value
+        await self.waitForCondition {
+            self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 90
+        }
+        #expect(self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 90)
+        #expect(self.mockClient.getHistoryForceRefreshCount == 1)
+    }
+}
+
+// MARK: - RefreshTestGate
+
+/// A one-shot async gate: `wait()` suspends until `open()` is called. Local to
+/// this suite (the one in YouTubeHomeViewModelTests is file-private there).
+private actor RefreshTestGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if self.isOpen { return }
+        await withCheckedContinuation { continuation in
+            self.waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        self.isOpen = true
+        let pending = self.waiters
+        self.waiters.removeAll()
+        for continuation in pending {
+            continuation.resume()
+        }
+    }
 }
