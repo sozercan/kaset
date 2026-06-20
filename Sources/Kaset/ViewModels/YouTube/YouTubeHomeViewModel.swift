@@ -37,6 +37,16 @@ final class YouTubeHomeViewModel {
     /// videos already shown) can't spin indefinitely.
     private static let maxEmptyContinuationPages = 5
 
+    /// Delay before rebuilding Continue Watching after a video is watched, so
+    /// YouTube's server-side history (which the embedded player updates, not
+    /// Kaset) has a moment to record the new resume percent. Injectable so tests
+    /// don't wait. Mirrors `HistoryViewModel.playbackRefreshDelay`.
+    static var continueWatchingRefreshDelay: Duration = .seconds(3)
+
+    /// Retry delay when the first post-watch rebuild sees unchanged history
+    /// (server lag); a single retry catches the common case.
+    static var continueWatchingRefreshRetryDelay: Duration = .seconds(2)
+
     /// Invalidates stale in-flight loads when a newer one starts
     /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
@@ -44,6 +54,25 @@ final class YouTubeHomeViewModel {
     /// The single in-flight load, shared by concurrent `load()` callers so
     /// SwiftUI `.task` restarts coalesce onto one run instead of cancelling it.
     private var loadTask: Task<Void, Never>?
+
+    /// The player's `playbackStartCount` the last time a Continue Watching
+    /// rebuild was triggered, so a return to Home with no new playback since is a
+    /// no-op. A count (not a videoId) so re-watching the SAME video still counts
+    /// as new — videoId alone can't tell a fresh re-watch from an idle return.
+    private var lastRefreshedPlaybackCount = 0
+
+    /// A post-watch playback count that arrived before Home finished loading, so
+    /// the scoped refresh couldn't run yet. `performLoad` consumes it once the
+    /// feed is `.loaded`, forcing a cache-bypassed Continue Watching rebuild —
+    /// otherwise a cold Home opened right after watching (with a warm `FEhistory`
+    /// cache, e.g. from the History screen) would build the rail from stale
+    /// pre-watch progress. Decouples the fix from `.task`/`.onChange` ordering.
+    private var pendingPlaybackCount: Int?
+
+    /// The in-flight post-watch Continue Watching rebuild, cancelled/replaced
+    /// when a newer watch supersedes it. Stored (unstructured) so it survives
+    /// the triggering view's teardown.
+    private var continueWatchingRefreshTask: Task<Void, Never>?
 
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
@@ -159,6 +188,17 @@ final class YouTubeHomeViewModel {
             if !gridReady, self.loadingState == .loading {
                 self.loadingState = .loaded
             }
+
+            // A watch happened while Home was still loading (opened cold right
+            // after watching). The rail just built above may have come from a
+            // warm pre-watch `FEhistory` cache, so run the scoped, cache-bypassed
+            // refresh now that we're `.loaded`. Consuming the pending count here
+            // (rather than in the view) makes the fix independent of whether
+            // `.task` or the selection/path `.onChange` fired first.
+            if case .loaded = self.loadingState, let pending = self.pendingPlaybackCount {
+                self.pendingPlaybackCount = nil
+                self.refreshContinueWatching(afterPlaybackCount: pending)
+            }
         } catch {
             guard generation == self.loadGeneration else { return }
             // A cancelled load (e.g. refresh() cancelled the in-flight task) is
@@ -238,6 +278,9 @@ final class YouTubeHomeViewModel {
         // rather than awaiting the stale task.
         self.loadTask?.cancel()
         self.loadTask = nil
+        self.continueWatchingRefreshTask?.cancel()
+        self.continueWatchingRefreshTask = nil
+        self.pendingPlaybackCount = nil
         self.loadingState = .idle
         self.videos = []
         self.sections = []
@@ -254,6 +297,9 @@ final class YouTubeHomeViewModel {
     func cancelLoad() {
         self.loadTask?.cancel()
         self.loadTask = nil
+        self.continueWatchingRefreshTask?.cancel()
+        self.continueWatchingRefreshTask = nil
+        self.pendingPlaybackCount = nil
     }
 
     /// Loads the next feed page when the user nears the end of the grid.
@@ -303,37 +349,165 @@ final class YouTubeHomeViewModel {
 
     // MARK: - Sections
 
-    /// Started-but-unfinished videos from watch history (deduped, capped).
-    private func continueWatchingSection() async -> YouTubeHomeSection? {
-        do {
-            let history = try await self.client.getHistory()
-            var seen = Set<String>()
-            let resumable = history.videos.filter { video in
-                guard let percent = video.watchedPercent,
-                      Self.continueWatchingRange.contains(percent),
-                      !video.isShort,
-                      !video.isLive
-                else {
-                    return false
-                }
-                return seen.insert(video.videoId).inserted
-            }
-            .prefix(Self.continueWatchingCap)
+    /// Started-but-unfinished videos from watch history (deduped, capped), or
+    /// `nil` on failure / when nothing is resumable. Used by the initial load,
+    /// where a failed history fetch should simply omit the rail.
+    private func continueWatchingSection(forceRefresh: Bool = false) async -> YouTubeHomeSection? {
+        try? await self.fetchContinueWatchingSection(forceRefresh: forceRefresh)
+    }
 
-            guard !resumable.isEmpty else { return nil }
-            return YouTubeHomeSection(
-                id: "continue-watching",
-                title: String(localized: "Continue Watching", comment: "YouTube home rail of partially-watched videos"),
-                videos: Array(resumable),
-                kind: .continueWatching
-            )
-        } catch {
-            if !(error is CancellationError) {
-                self.logger.error("Continue Watching unavailable: \(error.localizedDescription)")
+    /// Fetches watch history and builds the Continue Watching section, throwing
+    /// on fetch failure and returning `nil` only when the (successful) response
+    /// has nothing resumable. The post-watch rebuild needs this distinction: a
+    /// transient failure must keep the existing rail, not clear it.
+    private func fetchContinueWatchingSection(forceRefresh: Bool) async throws -> YouTubeHomeSection? {
+        let history = try await self.client.getHistory(forceRefresh: forceRefresh)
+        var seen = Set<String>()
+        let resumable = history.videos.filter { video in
+            guard let percent = video.watchedPercent,
+                  Self.continueWatchingRange.contains(percent),
+                  !video.isShort,
+                  !video.isLive
+            else {
+                return false
             }
-            return nil
+            return seen.insert(video.videoId).inserted
+        }
+        .prefix(Self.continueWatchingCap)
+
+        guard !resumable.isEmpty else { return nil }
+        return YouTubeHomeSection(
+            id: "continue-watching",
+            title: String(localized: "Continue Watching", comment: "YouTube home rail of partially-watched videos"),
+            videos: Array(resumable),
+            kind: .continueWatching
+        )
+    }
+
+    // MARK: - Continue Watching Refresh
+
+    /// Outcome of one cache-bypassed Continue Watching rebuild attempt, so the
+    /// retry logic can tell "history changed" from "history was unchanged" from
+    /// "the fetch failed" — three cases that need different handling.
+    private enum RailRefreshOutcome {
+        /// Fresh history differed; the rail was updated.
+        case updated
+        /// Fresh history fetched successfully but matched what was shown.
+        case unchanged
+        /// The history fetch failed (network/auth/API); the rail was left as-is.
+        case failed
+    }
+
+    /// Rebuilds only the Continue Watching rail after the user watches a video
+    /// and returns to Home, so a finished video drops out and a partially-watched
+    /// one appears — without the full `refresh()` that wipes the grid and flashes
+    /// the skeleton.
+    ///
+    /// `playbackCount` is the player's monotonic `playbackStartCount`; the
+    /// rebuild is a no-op when it hasn't advanced since the last rebuild, so
+    /// incidental returns to Home (opening then backing out of a channel, say)
+    /// don't re-fetch history, while re-watching the same video — which a videoId
+    /// alone could not distinguish from an idle return — still triggers one. The
+    /// work runs after a short delay (YouTube records watch progress server-side
+    /// via the embedded player, not Kaset) and bypasses the 2 min history cache,
+    /// retrying once if the first fetch shows no change or fails.
+    func refreshContinueWatching(afterPlaybackCount playbackCount: Int) {
+        // Only rebuild after at least one playback, for a genuinely new watch.
+        guard playbackCount > 0 else { return }
+        guard playbackCount != self.lastRefreshedPlaybackCount else { return }
+
+        // Home not loaded yet (the user opened it cold right after watching).
+        // Don't drop the trigger — record it so `performLoad` forces a
+        // cache-bypassed rail rebuild on completion. Without this, the initial
+        // load could build Continue Watching from a warm, pre-watch `FEhistory`
+        // cache and show stale progress until the TTL expires.
+        guard case .loaded = self.loadingState else {
+            self.pendingPlaybackCount = playbackCount
+            return
+        }
+
+        self.continueWatchingRefreshTask?.cancel()
+        self.continueWatchingRefreshTask = Task { [weak self] in
+            await self?.performContinueWatchingRefresh(targetCount: playbackCount)
         }
     }
+
+    private func performContinueWatchingRefresh(targetCount: Int) async {
+        do {
+            try await Task.sleep(for: Self.continueWatchingRefreshDelay)
+        } catch {
+            return // cancelled before any work; leave the count unconsumed so a later return retries
+        }
+
+        var outcome = await self.rebuildContinueWatchingRail()
+        // An unchanged result may mean server-side history hasn't caught up yet,
+        // and a failure may be a transient blip — both warrant the single retry.
+        if !Task.isCancelled, outcome != .updated {
+            do {
+                try await Task.sleep(for: Self.continueWatchingRefreshRetryDelay)
+                if !Task.isCancelled {
+                    outcome = await self.rebuildContinueWatchingRail()
+                }
+            } catch {
+                // cancelled during the retry delay; fall through with the first outcome
+            }
+        }
+
+        // Record this playback as handled ONLY when the refresh actually reached
+        // the server (updated or unchanged) and was not cancelled. A cancellation
+        // (e.g. refresh()/account switch during the delay) or a hard failure
+        // leaves `lastRefreshedPlaybackCount` unchanged, so the next return to
+        // Home retries this same playback instead of silently skipping it.
+        guard !Task.isCancelled, outcome == .updated || outcome == .unchanged else { return }
+        self.lastRefreshedPlaybackCount = targetCount
+    }
+
+    /// Fetches fresh history (cache-bypassed) and splices the resulting Continue
+    /// Watching section into `sections` in place, leaving the grid, shelves, and
+    /// topic rails untouched. On a fetch failure the existing rail is preserved.
+    @discardableResult
+    private func rebuildContinueWatchingRail() async -> RailRefreshOutcome {
+        guard case .loaded = self.loadingState else { return .unchanged }
+
+        let fresh: YouTubeHomeSection?
+        do {
+            fresh = try await self.fetchContinueWatchingSection(forceRefresh: true)
+        } catch {
+            // A transient network/auth/API failure must NOT clear an existing
+            // rail; leave it untouched and let the caller retry.
+            if !(error is CancellationError) {
+                self.logger.error("Continue Watching refresh failed: \(error.localizedDescription)")
+            }
+            return .failed
+        }
+        guard !Task.isCancelled else { return .unchanged }
+
+        let existing = self.sections.first { $0.kind == .continueWatching }
+        // No change: same videos AND the same resume progress, in the same
+        // order (or still absent). Comparing the percent — not just the id — is
+        // load-bearing: the common case is the just-watched video staying in the
+        // rail with a higher `watchedPercent` (e.g. 30 → 55). An id-only check
+        // would treat that as unchanged and keep showing the stale progress bar.
+        if existing.map(Self.railIdentity) == fresh.map(Self.railIdentity) {
+            return .unchanged
+        }
+
+        var rebuilt = self.sections.filter { $0.kind != .continueWatching }
+        if let fresh {
+            rebuilt.insert(fresh, at: 0) // Continue Watching always leads.
+        }
+        self.sections = rebuilt
+        return .updated
+    }
+
+    /// Change-detection key for the Continue Watching rail: each video's id
+    /// paired with its resume percent, so a progress-only update still registers
+    /// as a change.
+    private static func railIdentity(_ section: YouTubeHomeSection) -> [String] {
+        section.videos.map { video in "\(video.videoId):\(video.watchedPercent ?? 0)" }
+    }
+
+    // MARK: - Topic Rails
 
     /// Browses a single chip token into a topic section, or `nil` on
     /// failure / empty result.

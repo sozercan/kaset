@@ -48,6 +48,14 @@ final class YouTubePlayerService {
     /// The video currently loaded for playback (nil when playback is closed).
     private(set) var currentVideo: YouTubeVideo?
 
+    /// Monotonic count of playback starts, bumped on every `play(video:)`. Home
+    /// reads it when the user returns to rebuild Continue Watching: it tells a
+    /// genuine new watch — including re-watching the SAME video, which a videoId
+    /// alone cannot distinguish — from an incidental return where nothing was
+    /// played. Not reset by `stop()`, so a return after a finished or closed
+    /// video still carries the watch that just happened.
+    private(set) var playbackStartCount = 0
+
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
@@ -160,6 +168,7 @@ final class YouTubePlayerService {
         }
         self.upNext = []
         self.currentVideo = video
+        self.playbackStartCount += 1
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 

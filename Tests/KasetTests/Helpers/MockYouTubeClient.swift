@@ -215,10 +215,36 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     /// without waiting for it.
     var beforeHistoryReturn: (@Sendable () async -> Void)?
 
-    func getHistory() async throws -> YouTubeFeed {
+    /// Number of `getHistory` calls and how many requested a forced refresh,
+    /// so tests can assert the Continue Watching rebuild bypasses the cache.
+    private(set) var getHistoryCallCount = 0
+    private(set) var getHistoryForceRefreshCount = 0
+
+    /// When set, `getHistory(forceRefresh: true)` throws this — without failing
+    /// the cached (initial-load) path — so a test can simulate a transient
+    /// failure of only the post-watch refresh.
+    var historyForceRefreshError: Error?
+
+    /// When set, `getHistory(forceRefresh: true)` returns this instead of
+    /// `historyFeed`, so a test can give the forced (post-watch) refresh
+    /// different data than the cached initial load — making the rebuild a
+    /// deterministic single `.updated` (no retry).
+    var historyForceRefreshFeed: YouTubeFeed?
+
+    func getHistory(forceRefresh: Bool) async throws -> YouTubeFeed {
         if let error { throw error }
+        self.getHistoryCallCount += 1
+        if forceRefresh {
+            self.getHistoryForceRefreshCount += 1
+            if let historyForceRefreshError {
+                throw historyForceRefreshError
+            }
+        }
         if let beforeHistoryReturn {
             await beforeHistoryReturn()
+        }
+        if forceRefresh, let historyForceRefreshFeed {
+            return historyForceRefreshFeed
         }
         return self.historyFeed
     }

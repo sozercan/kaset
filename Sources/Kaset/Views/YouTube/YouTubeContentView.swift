@@ -39,8 +39,29 @@ struct YouTubeContentView: View {
         .onChange(of: self.youtubePlayer.skipNavigationRequest) { _, request in
             self.handleSkipNavigationRequest(request)
         }
-        .onChange(of: self.selection) { _, _ in
+        .onChange(of: self.selection) { _, newSelection in
             self.store.navigationPath = NavigationPath()
+            // Returning to Home via the sidebar is the other way back after
+            // watching (watch from any section, then pick Home). The path is
+            // already — or just reset to — empty, so the count-based trigger
+            // below won't fire; fire the same gated refresh here. It's a no-op
+            // when no new playback happened (count unchanged) or on cold launch
+            // (count 0), so this never double-fetches with the count trigger.
+            if newSelection == .home {
+                self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackStartCount)
+            }
+        }
+        // Returning to the Home root by popping the drill-in stack (Back from a
+        // video opened on Home) rebuilds the Continue Watching rail (a finished
+        // video drops out; a partially-watched one appears). Home's reload is
+        // keyed on view-model identity, so a navigation pop never re-runs it on
+        // its own. The player's monotonic `playbackStartCount` gates the rebuild,
+        // so incidental returns from other drill-ins (where nothing was played)
+        // don't re-fetch history, while re-watching the same video still counts
+        // as a new watch.
+        .onChange(of: self.store.navigationPath.count) { oldDepth, newDepth in
+            guard self.selection == .home, newDepth == 0, oldDepth > 0 else { return }
+            self.store.home.refreshContinueWatching(afterPlaybackCount: self.youtubePlayer.playbackStartCount)
         }
     }
 

@@ -85,8 +85,11 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches the signed-in user's subscribed channels (from `guide`).
     func getSubscribedChannels() async throws -> [YouTubeChannel]
 
-    /// Fetches watch history (`FEhistory`).
-    func getHistory() async throws -> YouTubeFeed
+    /// Fetches watch history (`FEhistory`). Pass `forceRefresh: true` to bypass
+    /// the cached response — used to rebuild Continue Watching right after a
+    /// video is watched, where the warm 2 min entry would re-serve the
+    /// pre-watch resume percent.
+    func getHistory(forceRefresh: Bool) async throws -> YouTubeFeed
 
     /// Fetches the signed-in user's playlists.
     func getUserPlaylists() async throws -> [YouTubePlaylist]
@@ -104,4 +107,13 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Removes a video from Watch Later.
     func removeFromWatchLater(videoId: String) async throws
+}
+
+// MARK: - YouTubeClientProtocol Convenience
+
+extension YouTubeClientProtocol {
+    /// Fetches watch history using the cache (the default for normal loads).
+    func getHistory() async throws -> YouTubeFeed {
+        try await self.getHistory(forceRefresh: false)
+    }
 }

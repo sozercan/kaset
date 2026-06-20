@@ -342,13 +342,14 @@ final class YouTubeClient: YouTubeClientProtocol {
         return GuideParser.subscribedChannels(data)
     }
 
-    func getHistory() async throws -> YouTubeFeed {
-        self.logger.info("Fetching YouTube watch history")
+    func getHistory(forceRefresh: Bool = false) async throws -> YouTubeFeed {
+        self.logger.info("Fetching YouTube watch history\(forceRefresh ? " (forced)" : "")")
 
         let data = try await self.request(
             "browse",
             body: ["browseId": "FEhistory"],
-            ttl: APICache.TTL.search
+            ttl: APICache.TTL.search,
+            bypassCache: forceRefresh
         )
         return YouTubeFeedParser.parse(data)
     }
@@ -474,7 +475,8 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ endpoint: String,
         body: [String: Any],
         ttl: TimeInterval? = nil,
-        retry: Bool = true
+        retry: Bool = true,
+        bypassCache: Bool = false
     ) async throws -> [String: Any] {
         var fullBody = body
         fullBody["context"] = self.buildContext()
@@ -492,7 +494,12 @@ final class YouTubeClient: YouTubeClientProtocol {
         // rendering private cached data — fall through to reauth instead.
         if let cacheKey {
             _ = try await self.buildAuthHeaders()
-            if let cached = APICache.shared.get(key: cacheKey) {
+            // `bypassCache` forces a fresh network read even on a warm entry —
+            // used when refreshing watch history right after a video was watched,
+            // where the 2 min TTL entry would otherwise re-serve the pre-watch
+            // resume percent. The fresh response is still written below, so
+            // subsequent reads stay warm.
+            if !bypassCache, let cached = APICache.shared.get(key: cacheKey) {
                 self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
                 return cached
             }

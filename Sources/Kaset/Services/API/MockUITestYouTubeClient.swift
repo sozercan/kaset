@@ -161,7 +161,7 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         [Self.sampleChannel]
     }
 
-    func getHistory() async throws -> YouTubeFeed {
+    func getHistory(forceRefresh _: Bool) async throws -> YouTubeFeed {
         YouTubeFeed(videos: Self.sampleHistoryVideos, continuation: nil)
     }
 
