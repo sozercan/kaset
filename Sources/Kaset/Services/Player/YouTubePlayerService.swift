@@ -21,6 +21,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func availableQualityLevels() async -> [String]
     func currentQualityLevel() async -> String?
     func setQualityLevel(_ level: String)
+    func storyboardSpec(expectedVideoId: String?) async -> String?
     func tearDown()
 }
 
@@ -139,6 +140,21 @@ final class YouTubePlayerService {
     /// The player's current quality level.
     private(set) var currentQuality: String?
 
+    /// YouTube storyboard spec for the current video (drives the ambient
+    /// backdrop's fine-grained live color). `nil` until fetched / unavailable.
+    private(set) var storyboardSpec: String?
+
+    /// The video id whose storyboard spec has been *resolved* — either
+    /// successfully fetched, or confirmed absent after a full retry while real
+    /// content (not a preroll ad) was playing. Acts as a positive+negative cache
+    /// so a re-trigger for the same video is a no-op and storyboard-less videos
+    /// don't re-fetch on every playback update.
+    private var storyboardFetchVideoId: String?
+
+    /// The video id whose storyboard fetch loop is currently running, to avoid
+    /// spawning overlapping loops / repeated WebView evaluations for one video.
+    private var storyboardFetchInFlightVideoId: String?
+
     /// The video whose playback options were last fetched.
     private var playbackOptionsVideoId: String?
 
@@ -160,12 +176,20 @@ final class YouTubePlayerService {
     private let playbackController: any YouTubeWatchPlaybackControlling
     private let logger = DiagnosticsLogger.player
 
+    /// Whether a playing video should pop out into the floating window when the
+    /// inline watch view disappears (navigate-away). Read live so the user's
+    /// setting takes effect mid-session; injected so tests stay deterministic
+    /// without touching global `UserDefaults`.
+    private let shouldPopOutOnNavigateAway: @MainActor () -> Bool
+
     init(
         webKitManager: WebKitManager = .shared,
-        playbackController: (any YouTubeWatchPlaybackControlling)? = nil
+        playbackController: (any YouTubeWatchPlaybackControlling)? = nil,
+        shouldPopOutOnNavigateAway: @escaping @MainActor () -> Bool = { SettingsManager.shared.popOutVideoOnNavigateAway }
     ) {
         self.webKitManager = webKitManager
         self.playbackController = playbackController ?? YouTubeWatchWebView.shared
+        self.shouldPopOutOnNavigateAway = shouldPopOutOnNavigateAway
     }
 
     // MARK: - Commands
@@ -336,6 +360,9 @@ final class YouTubePlayerService {
         self.activeCaptionLanguageCode = nil
         self.qualityLevels = []
         self.currentQuality = nil
+        self.storyboardSpec = nil
+        self.storyboardFetchVideoId = nil
+        self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
     }
 
@@ -377,6 +404,52 @@ final class YouTubePlayerService {
             self.activeCaptionLanguageCode = await self.playbackController.currentCaptionLanguageCode()
 
             if !tracks.isEmpty || attempt == 2 {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(1500))
+        }
+    }
+
+    /// Fetches the storyboard spec for the ambient backdrop, keyed to its video
+    /// so a previous video's spec never leaks forward. Kept separate from
+    /// `refreshPlaybackOptions` so this cosmetic-only data never delays caption
+    /// or quality loading. Retries briefly since the player response, like the
+    /// captions module, isn't ready the instant playback starts.
+    func refreshStoryboardSpec() async {
+        let videoId = self.currentVideo?.videoId
+        // Already resolved this exact video (got a spec, or confirmed it has
+        // none after a full retry) — nothing to do. The trigger only calls this
+        // for real content, never during a preroll ad, so a resolved `nil` here
+        // is a genuine "no storyboard" and is safe to cache as a negative result
+        // instead of re-fetching on every 1 Hz playback update.
+        if self.storyboardFetchVideoId == videoId {
+            return
+        }
+        if self.storyboardFetchInFlightVideoId == videoId {
+            return
+        }
+        self.storyboardFetchInFlightVideoId = videoId
+        defer {
+            if self.storyboardFetchInFlightVideoId == videoId {
+                self.storyboardFetchInFlightVideoId = nil
+            }
+        }
+        // Drop any spec from a previous video before awaiting the refetch.
+        self.storyboardSpec = nil
+        self.storyboardFetchVideoId = nil
+
+        for attempt in 0 ..< 3 {
+            let spec = await self.playbackController.storyboardSpec(expectedVideoId: videoId)
+            guard self.currentVideo?.videoId == videoId else { return }
+            if let spec {
+                self.storyboardSpec = spec
+                self.storyboardFetchVideoId = videoId
+                return
+            }
+            if attempt == 2 {
+                // Retries exhausted on real content: cache the negative result
+                // so we don't loop forever on a storyboard-less video.
+                self.storyboardFetchVideoId = videoId
                 return
             }
             try? await Task.sleep(for: .milliseconds(1500))
@@ -463,9 +536,11 @@ final class YouTubePlayerService {
             return
         }
 
-        if self.isPlaying {
+        if self.isPlaying, self.shouldPopOutOnNavigateAway() {
             self.popOutToWindow()
         } else {
+            // Playing with pop-out disabled, or paused: stop instead of
+            // leaving a detached surface.
             self.stop()
         }
     }
@@ -504,6 +579,22 @@ final class YouTubePlayerService {
             self.playbackOptionsVideoId = videoId
             Task {
                 await self.refreshPlaybackOptions()
+            }
+        }
+
+        // Storyboard color drives the ambient backdrop, so only fetch it when
+        // the feature is on and real content (not a preroll ad) is playing.
+        // Not gated on the one-shot playback-options branch above, so it also
+        // fires when the user enables ambient mid-playback or when content
+        // starts after an ad. `refreshStoryboardSpec` is self-guarding, so
+        // calling it on each qualifying update is cheap.
+        if update.isPlaying,
+           !update.isAd,
+           self.currentVideo != nil,
+           SettingsManager.shared.ambientBackdropEnabled
+        {
+            Task {
+                await self.refreshStoryboardSpec()
             }
         }
 

@@ -307,6 +307,7 @@ Manages user preferences persisted via `UserDefaults`:
 | `hapticFeedbackEnabled` | `Bool` | `true` | Force Touch feedback |
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
+| `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |
 
 **LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
 

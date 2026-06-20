@@ -145,7 +145,12 @@ Handoff rules:
 - Opening a watch view auto-plays (or adopts the surface if its video is
   already playing, closing the floating window).
 - Navigating away within YouTube while **playing** pops the surface out
-  to the floating window; while **paused**, playback stops.
+  to the floating window; while **paused**, playback stops. The
+  playing-case pop-out is gated by the `popOutVideoOnNavigateAway` setting
+  (Settings → YouTube, default on); when disabled, navigating away **stops**
+  playback instead of opening the floating window. The setting gates only this
+  automatic hand-off — the player-bar PiP / Full-view buttons and the
+  `kaset://` URL scheme open the floating window regardless.
 - **Toggling to Music pauses the docked video in place** — no pop-out
   appears, and toggling back restores the same watch view (the YouTube
   drill-in path lives in `YouTubeViewModelStore`, which survives source

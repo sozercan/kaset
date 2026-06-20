@@ -642,6 +642,11 @@ struct SettingsView: View {
                     }
             }
 
+            YouTubeSettingsView()
+                .tabItem {
+                    Label("YouTube", systemImage: "play.rectangle.fill")
+                }
+
             ScrobblingSettingsView()
                 .environment(self.scrobblingCoordinator)
                 .tabItem {
