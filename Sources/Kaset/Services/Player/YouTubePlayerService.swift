@@ -124,16 +124,16 @@ final class YouTubePlayerService {
     /// backdrop's fine-grained live color). `nil` until fetched / unavailable.
     private(set) var storyboardSpec: String?
 
-    /// The video id `storyboardSpec` was fetched for, so the spec is keyed to
-    /// its video rather than relying on reset ordering — a different id forces a
-    /// refetch and prevents a previous video's spec from leaking forward.
-    private var storyboardSpecVideoId: String?
-
-    /// The video id whose storyboard fetch is currently running or has already
-    /// completed (even when it produced no spec). Makes `refreshStoryboardSpec`
-    /// self-guarding so a re-trigger for the same video can't spawn overlapping
-    /// retry loops or repeated WebView evaluations.
+    /// The video id whose storyboard spec has been *resolved* — either
+    /// successfully fetched, or confirmed absent after a full retry while real
+    /// content (not a preroll ad) was playing. Acts as a positive+negative cache
+    /// so a re-trigger for the same video is a no-op and storyboard-less videos
+    /// don't re-fetch on every playback update.
     private var storyboardFetchVideoId: String?
+
+    /// The video id whose storyboard fetch loop is currently running, to avoid
+    /// spawning overlapping loops / repeated WebView evaluations for one video.
+    private var storyboardFetchInFlightVideoId: String?
 
     /// The video whose playback options were last fetched.
     private var playbackOptionsVideoId: String?
@@ -330,8 +330,8 @@ final class YouTubePlayerService {
         self.qualityLevels = []
         self.currentQuality = nil
         self.storyboardSpec = nil
-        self.storyboardSpecVideoId = nil
         self.storyboardFetchVideoId = nil
+        self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
     }
 
@@ -386,26 +386,41 @@ final class YouTubePlayerService {
     /// captions module, isn't ready the instant playback starts.
     func refreshStoryboardSpec() async {
         let videoId = self.currentVideo?.videoId
-        // Already fetched (or fetching) for this exact video — don't spawn an
-        // overlapping retry loop, even on a no-storyboard video that resolved
-        // to nil.
+        // Already resolved this exact video (got a spec, or confirmed it has
+        // none after a full retry) — nothing to do. The trigger only calls this
+        // for real content, never during a preroll ad, so a resolved `nil` here
+        // is a genuine "no storyboard" and is safe to cache as a negative result
+        // instead of re-fetching on every 1 Hz playback update.
         if self.storyboardFetchVideoId == videoId {
             return
         }
-        self.storyboardFetchVideoId = videoId
+        if self.storyboardFetchInFlightVideoId == videoId {
+            return
+        }
+        self.storyboardFetchInFlightVideoId = videoId
+        defer {
+            if self.storyboardFetchInFlightVideoId == videoId {
+                self.storyboardFetchInFlightVideoId = nil
+            }
+        }
         // Drop any spec from a previous video before awaiting the refetch.
         self.storyboardSpec = nil
-        self.storyboardSpecVideoId = nil
+        self.storyboardFetchVideoId = nil
 
         for attempt in 0 ..< 3 {
             let spec = await self.playbackController.storyboardSpec(expectedVideoId: videoId)
             guard self.currentVideo?.videoId == videoId else { return }
             if let spec {
                 self.storyboardSpec = spec
-                self.storyboardSpecVideoId = videoId
+                self.storyboardFetchVideoId = videoId
                 return
             }
-            if attempt == 2 { return }
+            if attempt == 2 {
+                // Retries exhausted on real content: cache the negative result
+                // so we don't loop forever on a storyboard-less video.
+                self.storyboardFetchVideoId = videoId
+                return
+            }
             try? await Task.sleep(for: .milliseconds(1500))
         }
     }
@@ -532,12 +547,21 @@ final class YouTubePlayerService {
             Task {
                 await self.refreshPlaybackOptions()
             }
-            // Storyboard color is only worth fetching when the ambient backdrop
-            // is on; runs independently so it never delays caption/quality load.
-            if SettingsManager.shared.ambientBackdropEnabled {
-                Task {
-                    await self.refreshStoryboardSpec()
-                }
+        }
+
+        // Storyboard color drives the ambient backdrop, so only fetch it when
+        // the feature is on and real content (not a preroll ad) is playing.
+        // Not gated on the one-shot playback-options branch above, so it also
+        // fires when the user enables ambient mid-playback or when content
+        // starts after an ad. `refreshStoryboardSpec` is self-guarding, so
+        // calling it on each qualifying update is cheap.
+        if update.isPlaying,
+           !update.isAd,
+           self.currentVideo != nil,
+           SettingsManager.shared.ambientBackdropEnabled
+        {
+            Task {
+                await self.refreshStoryboardSpec()
             }
         }
 

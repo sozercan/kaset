@@ -82,7 +82,6 @@ struct AmbientVideoBackdrop: View {
     // MARK: Ambient composition
 
     /// Branch on Reduce Motion rather than pausing the `TimelineView`, mirroring
-    /// Branch on Reduce Motion rather than pausing the `TimelineView`, mirroring
     /// the repo's `PulseModifier` pattern. `.soft` is intentionally steady (no
     /// drift) so it reads as a calm version of the same glow.
     private var ambientContent: some View {
@@ -107,7 +106,10 @@ struct AmbientVideoBackdrop: View {
         let frames = self.renderFrames
         // `.soft` is the calm style: same colors, dimmer than the drifting glow.
         let intensity: Double = self.style == .soft ? 0.7 : 1.0
-        if frames.count <= 1 {
+        // Under Reduce Motion, collapse `.live` to a single static frame: the
+        // blobs already stop drifting (time: nil) and the colors must not
+        // cross-fade as playback advances either.
+        if frames.count <= 1 || self.reduceMotion {
             Self.aurora(
                 colors: frames.first ?? self.fallbackColors,
                 size: size,
