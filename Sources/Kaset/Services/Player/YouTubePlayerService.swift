@@ -63,6 +63,19 @@ final class YouTubePlayerService {
     /// watch path needed a matching "remember to bump / don't consume early" fix.
     private(set) var watchActivityGeneration = 0
 
+    /// Like `watchActivityGeneration` but bumped only when a watch CONCLUDES with
+    /// progress to reflect — a skip (`advance`), finish (`handleVideoEnded`),
+    /// drift (`updatePlaybackState`), or `stop()` of a video with accrued
+    /// progress — NOT on a bare `play` start. The Home-root observer (which fires
+    /// without any navigation, e.g. a floating video finishing while the user
+    /// sits on Home) keys on THIS so a bare start, which has no new resume state
+    /// yet, can't trigger a premature rebuild that advances the watermark and
+    /// then swallows the real progress. The value passed to the view model is
+    /// still `watchActivityGeneration`; this only decides *when* that observer
+    /// fires. (Navigation-return observers use `watchActivityGeneration` directly:
+    /// by the time the user navigates back, progress has accrued.)
+    private(set) var watchConclusionGeneration = 0
+
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
@@ -242,6 +255,7 @@ final class YouTubePlayerService {
         // watch, neither of which emits a skip or finish event.
         if self.currentVideo != nil, self.progress > 0 {
             self.watchActivityGeneration += 1
+            self.watchConclusionGeneration += 1 // a partial watch concluded
         }
         self.currentVideo = nil
         self.isPlaying = false
@@ -333,6 +347,7 @@ final class YouTubePlayerService {
         self.playbackWillStart?()
         self.currentVideo = video
         self.watchActivityGeneration += 1 // a skip concludes the prior watch and begins a new one
+        self.watchConclusionGeneration += 1
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -616,6 +631,7 @@ final class YouTubePlayerService {
             // window) — the prior video concluded and a new watch began, so
             // signal it like an explicit skip.
             self.watchActivityGeneration += 1
+            self.watchConclusionGeneration += 1
             YouTubeWatchWebView.shared.currentVideoId = videoId
         }
     }
@@ -629,6 +645,7 @@ final class YouTubePlayerService {
         // Watching even when the video ended in the floating window while the
         // user was already sitting on Home (no navigation fires).
         self.watchActivityGeneration += 1
+        self.watchConclusionGeneration += 1
         self.onVideoEnded?(videoId)
     }
 }

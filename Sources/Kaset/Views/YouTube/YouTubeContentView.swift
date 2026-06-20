@@ -65,13 +65,16 @@ struct YouTubeContentView: View {
         // The user can also be sitting ON the Home root while a video plays in
         // the floating window (it pops out there when navigating away mid-play)
         // and then skips, finishes, drifts, or is closed — no selection/path
-        // change fires. Observe `watchActivityGeneration` directly: it advances
-        // on every watch-state change, and the view-model watermark prevents a
-        // bare start from suppressing a later partial-watch refresh. Gated to the
-        // Home root so it doesn't fetch while drilled in or on another section.
-        .onChange(of: self.youtubePlayer.watchActivityGeneration) { _, newGeneration in
+        // change fires. Observe `watchConclusionGeneration`, which advances only
+        // when a watch CONCLUDES with progress (skip/finish/drift/stop), NOT on a
+        // bare start: a video merely starting while Home is visible has no new
+        // resume state, and refreshing then would advance the watermark and
+        // swallow the progress that accrues afterward. The value passed to the
+        // model stays `watchActivityGeneration` (the gate). Gated to the Home
+        // root so it doesn't fetch while drilled in or on another section.
+        .onChange(of: self.youtubePlayer.watchConclusionGeneration) { _, _ in
             guard self.selection == .home, self.store.navigationPath.isEmpty else { return }
-            self.store.home.refreshContinueWatching(forGeneration: newGeneration)
+            self.store.home.refreshContinueWatching(forGeneration: self.youtubePlayer.watchActivityGeneration)
         }
     }
 
