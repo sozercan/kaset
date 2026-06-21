@@ -7897,8 +7897,8 @@
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se connecter à YouTube"
+            "state" : "needs_review",
+            "value" : "Connecté à YouTube"
           }
         }
       }
