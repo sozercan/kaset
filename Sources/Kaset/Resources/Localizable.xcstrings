@@ -136,7 +136,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les réponses de l'IA suivent les paramètres de langue de votre système."
+            "value" : "À propos"
           }
         }
       }
@@ -170,7 +170,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "À propos"
+            "value" : "Accédez à vos playlists et morceaux aimés"
           }
         }
       }
@@ -204,7 +204,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accédez à vos playlists et morceaux aimés"
+            "value" : "Compte"
           }
         }
       }
@@ -238,7 +238,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compte"
+            "value" : "Ajouter aux favoris"
           }
         }
       }
@@ -272,7 +272,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajouter aux favoris"
+            "value" : "Ajouter à la bibliothèque"
           }
         }
       }
@@ -306,7 +306,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajouter à la bibliothèque"
+            "value" : "Ajouter à la file d'attente"
           }
         }
       }
@@ -340,7 +340,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajouter à la file d'attente"
+            "value" : "Ajouté à la bibliothèque"
           }
         }
       }
@@ -374,7 +374,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajouté à la bibliothèque"
+            "value" : "Les réponses de l'IA suivent les paramètres de langue de votre système."
           }
         }
       }
@@ -1417,7 +1417,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vérifier maintenant"
+            "value" : "Rechercher les mises à jour..."
           }
         }
       }
@@ -1451,7 +1451,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher les mises à jour..."
+            "value" : "Vérifier maintenant"
           }
         }
       }
@@ -1487,7 +1487,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisissez la langue de l'interface de l'application"
+            "value" : "Choisissez les boutons affichés dans le widget En lecture du Centre de contrôle"
           }
         }
       }
@@ -1521,7 +1521,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisissez les boutons affichés dans le widget En lecture du Centre de contrôle"
+            "value" : "Effacer"
           }
         }
       }
@@ -1555,7 +1555,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effacer"
+            "value" : "Effacer le contexte IA"
           }
         }
       }
@@ -1589,7 +1589,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effacer le contexte IA"
+            "value" : "Vider le cache"
           }
         }
       }
@@ -1623,7 +1623,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vider le cache"
+            "value" : "Effacer la saisie"
           }
         }
       }
@@ -1657,7 +1657,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effacer la saisie"
+            "value" : "Effacer la recherche"
           }
         }
       }
@@ -1691,7 +1691,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effacer la recherche"
+            "value" : "Nettoyage en cours..."
           }
         }
       }
@@ -1725,7 +1725,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nettoyage en cours..."
+            "value" : "Efface l'état de la session IA. Utilisez ceci si les réponses semblent incorrectes ou bloquées."
           }
         }
       }
@@ -1759,7 +1759,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Efface l'état de la session IA. Utilisez ceci si les réponses semblent incorrectes ou bloquées."
+            "value" : "Fermer"
           }
         }
       }
@@ -1793,7 +1793,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermer"
+            "value" : "Fermer le panneau latéral"
           }
         }
       }
@@ -1827,7 +1827,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermer le panneau latéral"
+            "value" : "Collection"
           }
         }
       }
@@ -1861,7 +1861,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Collection"
+            "value" : "Barre de commandes"
           }
         }
       }
@@ -1895,7 +1895,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Barre de commandes"
+            "value" : "Playlists de la communauté"
           }
         }
       }
@@ -1929,7 +1929,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Playlists de la communauté"
+            "value" : "Connecter"
           }
         }
       }
@@ -1963,7 +1963,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connecter"
+            "value" : "Connecté en tant que %@"
           }
         }
       }
@@ -1997,7 +1997,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connecté en tant que %@"
+            "value" : "Le contenu peut ne pas être disponible dans votre région."
           }
         }
       }
@@ -2031,7 +2031,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Langue du contenu"
+            "value" : "Continuer"
           }
         }
       }
@@ -2065,7 +2065,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le contenu peut ne pas être disponible dans votre région."
+            "value" : "Contrôlez la lecture avec votre clavier"
           }
         }
       }
@@ -2099,7 +2099,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continuer"
+            "value" : "Impossible de créer la session IA"
           }
         }
       }
@@ -2133,7 +2133,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contrôlez la lecture avec votre clavier"
+            "value" : "Impossible de rechercher de la musique"
           }
         }
       }
@@ -2167,7 +2167,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de créer la session IA"
+            "value" : "Créez ou enregistrez des playlists sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -2201,7 +2201,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de rechercher de la musique"
+            "value" : "Page par défaut au lancement"
           }
         }
       }
@@ -2235,7 +2235,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Créez ou enregistrez des playlists sur YouTube Music pour les voir ici."
+            "value" : "Déconnecter"
           }
         }
       }
@@ -2269,7 +2269,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Page par défaut au lancement"
+            "value" : "Découvrir"
           }
         }
       }
@@ -2303,7 +2303,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Déconnecter"
+            "value" : "Je n'aime pas"
           }
         }
       }
@@ -2337,7 +2337,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Découvrir"
+            "value" : "Non aimé"
           }
         }
       }
@@ -2371,7 +2371,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Je n'aime pas"
+            "value" : "Fermer"
           }
         }
       }
@@ -2405,7 +2405,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non aimé"
+            "value" : "Terminé"
           }
         }
       }
@@ -2439,7 +2439,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermer"
+            "value" : "Appuyez deux fois pour réessayer"
           }
         }
       }
@@ -2473,7 +2473,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terminé"
+            "value" : "Appuyez deux fois pour changer de compte"
           }
         }
       }
@@ -2511,7 +2511,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez deux fois pour réessayer"
+            "value" : "Téléchargement"
           }
         }
       }
@@ -2545,7 +2545,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez deux fois pour changer de compte"
+            "value" : "Glissez pour réorganiser"
           }
         }
       }
@@ -2583,7 +2583,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Téléchargement"
+            "value" : "Modifier"
           }
         }
       }
@@ -2621,7 +2621,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Glissez pour réorganiser"
+            "value" : "Activer les fonctionnalités IA"
           }
         }
       }
@@ -2655,7 +2655,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier"
+            "value" : "Activez Apple Intelligence dans les Réglages Système pour utiliser les fonctionnalités IA."
           }
         }
       }
@@ -2726,7 +2726,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activer les fonctionnalités IA"
+            "value" : "Activer les paroles synchronisées"
           }
         }
       }
@@ -2760,7 +2760,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activez Apple Intelligence dans les Réglages Système pour utiliser les fonctionnalités IA."
+            "value" : "Épisodes"
           }
         }
       }
@@ -2794,7 +2794,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activer les paroles synchronisées"
+            "value" : "Erreur : %@"
           }
         }
       }
@@ -2828,7 +2828,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Épisodes"
+            "value" : "Expliquer les paroles avec l'IA"
           }
         }
       }
@@ -2862,7 +2862,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erreur : %@"
+            "value" : "Explorer"
           }
         }
       }
@@ -2896,7 +2896,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Expliquer les paroles avec l'IA"
+            "value" : "Échec du chargement"
           }
         }
       }
@@ -2930,7 +2930,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Explorer"
+            "value" : "Échec du chargement des comptes"
           }
         }
       }
@@ -2964,7 +2964,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Échec du chargement"
+            "value" : "Échec du chargement des comptes. Veuillez réessayer."
           }
         }
       }
@@ -2998,7 +2998,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Échec du chargement des comptes"
+            "value" : "Échec du changement de compte. Veuillez réessayer."
           }
         }
       }
@@ -3032,7 +3032,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Échec du chargement des comptes. Veuillez réessayer."
+            "value" : "Favoris"
           }
         }
       }
@@ -3066,7 +3066,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Échec du changement de compte. Veuillez réessayer."
+            "value" : "Playlists en vedette"
           }
         }
       }
@@ -3102,7 +3102,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Favoris"
+            "value" : "Récupérer et afficher les paroles synchronisées en temps réel lorsqu'elles sont disponibles"
           }
         }
       }
@@ -3136,7 +3136,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Playlists en vedette"
+            "value" : "Trouvez des morceaux, albums, artistes et playlists"
           }
         }
       }
@@ -3170,7 +3170,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Récupérer et afficher les paroles synchronisées en temps réel lorsqu'elles sont disponibles"
+            "value" : "Suivez des artistes sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -3214,7 +3214,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trouvez des morceaux, albums, artistes et playlists"
+            "value" : "Général"
           }
         }
       }
@@ -3248,7 +3248,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suivez des artistes sur YouTube Music pour les voir ici."
+            "value" : "GitHub"
           }
         }
       }
@@ -3282,7 +3282,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Général"
+            "value" : "Aller à l'album"
           }
         }
       }
@@ -3316,7 +3316,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "GitHub"
+            "value" : "Aller à l'artiste"
           }
         }
       }
@@ -3350,7 +3350,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aller à l'album"
+            "value" : "Retour haptique"
           }
         }
       }
@@ -3384,7 +3384,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aller à l'artiste"
+            "value" : "Masqué"
           }
         }
       }
@@ -3418,7 +3418,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retour haptique"
+            "value" : "Masquer les paroles"
           }
         }
       }
@@ -3452,7 +3452,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Masqué"
+            "value" : "Masquer l'explication des paroles"
           }
         }
       }
@@ -3486,7 +3486,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Masquer les paroles"
+            "value" : "Highlights"
           }
         }
       }
@@ -3520,7 +3520,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Masquer l'explication des paroles"
+            "value" : "Accueil"
           }
         }
       }
@@ -3554,7 +3554,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Highlights"
+            "value" : "Cache d'images"
           }
         }
       }
@@ -3588,7 +3588,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accueil"
+            "value" : "Dans la bibliothèque"
           }
         }
       }
@@ -3734,7 +3734,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cache d'images"
+            "value" : "Intelligence"
           }
         }
       }
@@ -3770,7 +3770,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dans la bibliothèque"
+            "value" : "Continuer l'écoute même lorsque la fenêtre est fermée"
           }
         }
       }
@@ -3804,7 +3804,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Intelligence"
+            "value" : "Langue non prise en charge"
           }
         }
       }
@@ -3842,7 +3842,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continuer l'écoute même lorsque la fenêtre est fermée"
+            "value" : "Dernière utilisation"
           }
         }
       }
@@ -3876,7 +3876,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Langue non prise en charge"
+            "value" : "En savoir plus"
           }
         }
       }
@@ -3910,7 +3910,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dernière utilisation"
+            "value" : "Bibliothèque"
           }
         }
       }
@@ -3944,7 +3944,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En savoir plus"
+            "value" : "J'aime"
           }
         }
       }
@@ -3978,7 +3978,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bibliothèque"
+            "value" : "Aimé"
           }
         }
       }
@@ -4012,7 +4012,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "J'aime"
+            "value" : "Musique aimée"
           }
         }
       }
@@ -4048,7 +4048,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aimé"
+            "value" : "Charger plus"
           }
         }
       }
@@ -4082,7 +4082,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Musique aimée"
+            "value" : "Chargement de l'artiste..."
           }
         }
       }
@@ -4116,7 +4116,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Charger plus"
+            "value" : "Chargement des classements..."
           }
         }
       }
@@ -4150,7 +4150,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement de l'artiste..."
+            "value" : "Chargement du contenu à explorer..."
           }
         }
       }
@@ -4184,7 +4184,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des classements..."
+            "value" : "Chargement des morceaux aimés..."
           }
         }
       }
@@ -4219,7 +4219,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement du contenu à explorer..."
+            "value" : "Chargement des paroles..."
           }
         }
       }
@@ -4253,7 +4253,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des morceaux aimés..."
+            "value" : "Chargement des ambiances et genres..."
           }
         }
       }
@@ -4288,7 +4288,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des paroles..."
+            "value" : "Chargement..."
           }
         }
       }
@@ -4322,7 +4322,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des ambiances et genres..."
+            "value" : "Chargement des nouveautés..."
           }
         }
       }
@@ -4356,7 +4356,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement..."
+            "value" : "Chargement de la playlist..."
           }
         }
       }
@@ -4390,7 +4390,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des nouveautés..."
+            "value" : "Chargement des podcasts..."
           }
         }
       }
@@ -4424,7 +4424,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement de la playlist..."
+            "value" : "Chargement des morceaux..."
           }
         }
       }
@@ -4458,7 +4458,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des podcasts..."
+            "value" : "Chargement de votre bibliothèque..."
           }
         }
       }
@@ -4492,7 +4492,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement des morceaux..."
+            "value" : "Chargement..."
           }
         }
       }
@@ -4526,7 +4526,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement de votre bibliothèque..."
+            "value" : "Paroles"
           }
         }
       }
@@ -4560,7 +4560,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chargement..."
+            "value" : "Touches multimédia"
           }
         }
       }
@@ -4594,7 +4594,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paroles"
+            "value" : "Mix"
           }
         }
       }
@@ -4628,7 +4628,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Touches multimédia"
+            "value" : "Ambiances et genres"
           }
         }
       }
@@ -4662,7 +4662,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mix"
+            "value" : "Déplacer à la fin"
           }
         }
       }
@@ -4696,7 +4696,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ambiances et genres"
+            "value" : "Déplacer en haut"
           }
         }
       }
@@ -4730,7 +4730,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Déplacer à la fin"
+            "value" : "Couper le son"
           }
         }
       }
@@ -4764,7 +4764,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Déplacer en haut"
+            "value" : "Interface native"
           }
         }
       }
@@ -4798,7 +4798,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couper le son"
+            "value" : "Jamais vérifié"
           }
         }
       }
@@ -4832,7 +4832,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Interface native"
+            "value" : "Nouveautés"
           }
         }
       }
@@ -4866,7 +4866,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jamais vérifié"
+            "value" : "Suivant"
           }
         }
       }
@@ -4900,7 +4900,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nouveautés"
+            "value" : "Piste suivante"
           }
         }
       }
@@ -4934,7 +4934,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suivant"
+            "value" : "Aucun artiste pour le moment"
           }
         }
       }
@@ -4968,7 +4968,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Piste suivante"
+            "value" : "Aucune modification suggérée. La playlist est parfaite !"
           }
         }
       }
@@ -5002,7 +5002,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Piste suivante/précédente"
+            "value" : "Aucune connexion"
           }
         }
       }
@@ -5036,7 +5036,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune connexion"
+            "value" : "Aucun contenu disponible"
           }
         }
       }
@@ -5070,7 +5070,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun contenu disponible"
+            "value" : "Aucun morceau aimé pour le moment"
           }
         }
       }
@@ -5172,7 +5172,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune file d'attente"
+            "value" : "Aucune playlist pour le moment"
           }
         }
       }
@@ -5206,7 +5206,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun morceau en lecture"
+            "value" : "Aucun podcast pour le moment"
           }
         }
       }
@@ -5240,7 +5240,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun artiste pour le moment"
+            "value" : "Aucune file d'attente"
           }
         }
       }
@@ -5274,7 +5274,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune modification suggérée. La playlist est parfaite !"
+            "value" : "Aucun résultat trouvé"
           }
         }
       }
@@ -5308,7 +5308,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun morceau aimé pour le moment"
+            "value" : "Aucun morceau en lecture"
           }
         }
       }
@@ -5342,7 +5342,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune playlist pour le moment"
+            "value" : "Aucun morceau ou playlist trouvé dans cette catégorie."
           }
         }
       }
@@ -5376,7 +5376,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun podcast pour le moment"
+            "value" : "Non connecté"
           }
         }
       }
@@ -5410,7 +5410,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun résultat trouvé"
+            "value" : "Non marqué comme non aimé"
           }
         }
       }
@@ -5444,7 +5444,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun morceau ou playlist trouvé dans cette catégorie."
+            "value" : "Non activé"
           }
         }
       }
@@ -5478,7 +5478,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non activé"
+            "value" : "Non aimé"
           }
         }
       }
@@ -5512,7 +5512,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non pris en charge"
+            "value" : "Non connecté"
           }
         }
       }
@@ -5546,7 +5546,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non connecté"
+            "value" : "Non pris en charge"
           }
         }
       }
@@ -5581,7 +5581,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non marqué comme non aimé"
+            "value" : "Remarque : si les clés d'accès ne fonctionnent pas, utilisez « Essayer autrement » pour vous connecter avec un mot de passe."
           }
         }
       }
@@ -5617,7 +5617,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non aimé"
+            "value" : "Contrôles de lecture en cours"
           }
         }
       }
@@ -5651,7 +5651,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non connecté"
+            "value" : "Désactivé"
           }
         }
       }
@@ -5685,7 +5685,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remarque : si les clés d'accès ne fonctionnent pas, utilisez « Essayer autrement » pour vous connecter avec un mot de passe."
+            "value" : "OK"
           }
         }
       }
@@ -5719,7 +5719,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contrôles de lecture en cours"
+            "value" : "Activé"
           }
         }
       }
@@ -5753,7 +5753,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "OK"
+            "value" : "Un"
           }
         }
       }
@@ -5787,7 +5787,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Désactivé"
+            "value" : "Ouvrir la file d'attente dans le panneau latéral"
           }
         }
       }
@@ -5821,7 +5821,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activé"
+            "value" : "Ouvrez la barre de commandes pour contrôler la musique en langage naturel. Essayez « jouer quelque chose de chill » ou « ajouter du jazz à la file d'attente »."
           }
         }
       }
@@ -5855,7 +5855,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un"
+            "value" : "Pause"
           }
         }
       }
@@ -5890,7 +5890,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir la file d'attente dans le panneau latéral"
+            "value" : "Lecture"
           }
         }
       }
@@ -5925,7 +5925,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrez la barre de commandes pour contrôler la musique en langage naturel. Essayez « jouer quelque chose de chill » ou « ajouter du jazz à la file d'attente »."
+            "value" : "Lancez un morceau pour voir ses paroles ici."
           }
         }
       }
@@ -5959,7 +5959,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pause"
+            "value" : "Tout lire"
           }
         }
       }
@@ -5993,7 +5993,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lecture"
+            "value" : "Lire le plus récent"
           }
         }
       }
@@ -6027,7 +6027,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout lire"
+            "value" : "Lire ensuite"
           }
         }
       }
@@ -6061,7 +6061,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lire le plus récent"
+            "value" : "Lancez des morceaux depuis une playlist ou un album pour créer votre file d'attente."
           }
         }
       }
@@ -6095,7 +6095,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lire ensuite"
+            "value" : "Lecture"
           }
         }
       }
@@ -6129,7 +6129,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lancez un morceau pour voir ses paroles ici."
+            "value" : "Lu"
           }
         }
       }
@@ -6163,7 +6163,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lancez des morceaux depuis une playlist ou un album pour créer votre file d'attente."
+            "value" : "En lecture"
           }
         }
       }
@@ -6198,7 +6198,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lecture"
+            "value" : "Playlist"
           }
         }
       }
@@ -6232,7 +6232,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lu"
+            "value" : "Playlist introuvable"
           }
         }
       }
@@ -6266,7 +6266,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En lecture"
+            "value" : "Playlists"
           }
         }
       }
@@ -6300,7 +6300,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Playlist"
+            "value" : "Veuillez vérifier votre connexion Internet et réessayer."
           }
         }
       }
@@ -6334,7 +6334,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Playlist introuvable"
+            "value" : "Podcasts"
           }
         }
       }
@@ -6368,7 +6368,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Playlists"
+            "value" : "Appuyez sur Entrée pour rechercher"
           }
         }
       }
@@ -6402,7 +6402,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Veuillez vérifier votre connexion Internet et réessayer."
+            "value" : "Précédent"
           }
         }
       }
@@ -6436,7 +6436,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Podcasts"
+            "value" : "Piste précédente"
           }
         }
       }
@@ -6470,7 +6470,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur Entrée pour rechercher"
+            "value" : "Traitement en cours..."
           }
         }
       }
@@ -6504,7 +6504,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Précédent"
+            "value" : "Fournir un retour tactile pour les actions sur les trackpads Force Touch"
           }
         }
       }
@@ -6538,7 +6538,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Piste précédente"
+            "value" : "File d'attente"
           }
         }
       }
@@ -6572,7 +6572,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Traitement en cours..."
+            "value" : "Accès rapide"
           }
         }
       }
@@ -6606,7 +6606,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fournir un retour tactile pour les actions sur les trackpads Force Touch"
+            "value" : "Rétablir"
           }
         }
       }
@@ -6640,7 +6640,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "File d'attente"
+            "value" : "Affiner"
           }
         }
       }
@@ -6674,7 +6674,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accès rapide"
+            "value" : "Affiner la playlist"
           }
         }
       }
@@ -6708,7 +6708,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rétablir"
+            "value" : "Notes de version"
           }
         }
       }
@@ -6742,7 +6742,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Affiner"
+            "value" : "Mémoriser la lecture aléatoire et la répétition"
           }
         }
       }
@@ -6776,7 +6776,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Affiner la playlist"
+            "value" : "Retirer le je n'aime pas"
           }
         }
       }
@@ -6810,7 +6810,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notes de version"
+            "value" : "Retirer des favoris"
           }
         }
       }
@@ -6844,7 +6844,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mémoriser la lecture aléatoire et la répétition"
+            "value" : "Retirer de la file d'attente"
           }
         }
       }
@@ -6878,7 +6878,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retirer le je n'aime pas"
+            "value" : "Répéter"
           }
         }
       }
@@ -6912,7 +6912,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retirer des favoris"
+            "value" : "Tout répéter"
           }
         }
       }
@@ -6946,7 +6946,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retirer de la file d'attente"
+            "value" : "Répétition désactivée"
           }
         }
       }
@@ -6980,7 +6980,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Répéter"
+            "value" : "Répéter un seul"
           }
         }
       }
@@ -7015,7 +7015,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout répéter"
+            "value" : "Réessayer"
           }
         }
       }
@@ -7050,7 +7050,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Répétition désactivée"
+            "value" : "Enregistrez des playlists et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -7084,7 +7084,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Répéter un seul"
+            "value" : "Enregistrez des playlists, suivez des artistes et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -7118,7 +7118,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Réessayer"
+            "value" : "Conserver les réglages de lecture aléatoire et de répétition entre les redémarrages"
           }
         }
       }
@@ -7187,7 +7187,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enregistrez des playlists et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
+            "value" : "Scrobbling"
           }
         }
       }
@@ -7221,7 +7221,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enregistrez des playlists, suivez des artistes et abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
+            "value" : "Rechercher"
           }
         }
       }
@@ -7255,7 +7255,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conserver les réglages de lecture aléatoire et de répétition entre les redémarrages"
+            "value" : "Recherchez votre musique préférée"
           }
         }
       }
@@ -7289,7 +7289,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scrobbling"
+            "value" : "Rechercher des morceaux, albums, artistes..."
           }
         }
       }
@@ -7323,7 +7323,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher"
+            "value" : "Recherche en cours..."
           }
         }
       }
@@ -7357,7 +7357,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recherchez votre musique préférée"
+            "value" : "Tout voir"
           }
         }
       }
@@ -7392,7 +7392,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher des morceaux, albums, artistes..."
+            "value" : "Sélectionnez un élément dans la barre latérale"
           }
         }
       }
@@ -7430,7 +7430,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recherche en cours..."
+            "value" : "Partager"
           }
         }
       }
@@ -7464,7 +7464,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout voir"
+            "value" : "Tout afficher"
           }
         }
       }
@@ -7498,7 +7498,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sélectionnez un élément dans la barre latérale"
+            "value" : "Afficher les paroles"
           }
         }
       }
@@ -7532,7 +7532,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager"
+            "value" : "Afficher les notifications de lecture en cours"
           }
         }
       }
@@ -7566,7 +7566,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout afficher"
+            "value" : "Affichage"
           }
         }
       }
@@ -7600,7 +7600,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Afficher les paroles"
+            "value" : "Aléatoire"
           }
         }
       }
@@ -7634,7 +7634,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Afficher les notifications de lecture en cours"
+            "value" : "Aléatoire désactivé"
           }
         }
       }
@@ -7668,7 +7668,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Affichage"
+            "value" : "Aléatoire activé"
           }
         }
       }
@@ -7702,7 +7702,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aléatoire"
+            "value" : "Connectez-vous pour accéder à votre bibliothèque YouTube Music"
           }
         }
       }
@@ -7736,7 +7736,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aléatoire désactivé"
+            "value" : "Se connecter à YouTube Music"
           }
         }
       }
@@ -7770,7 +7770,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aléatoire activé"
+            "value" : "Se connecter avec Google"
           }
         }
       }
@@ -7872,7 +7872,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous pour accéder à votre bibliothèque YouTube Music"
+            "value" : "Mise à jour logicielle"
           }
         }
       }
@@ -7906,7 +7906,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se connecter avec Google"
+            "value" : "Morceaux"
           }
         }
       }
@@ -7941,7 +7941,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connecté à YouTube Music"
+            "value" : "Les morceaux que vous aimez apparaîtront ici"
           }
         }
       }
@@ -7975,7 +7975,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avancer/Reculer"
+            "value" : "Lancer la radio"
           }
         }
       }
@@ -8009,7 +8009,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mise à jour logicielle"
+            "value" : "S'abonner"
           }
         }
       }
@@ -8043,7 +8043,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Morceaux"
+            "value" : "S'abonner %@"
           }
         }
       }
@@ -8077,7 +8077,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les morceaux que vous aimez apparaîtront ici"
+            "value" : "Abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
           }
         }
       }
@@ -8111,7 +8111,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lancer la radio"
+            "value" : "Abonné"
           }
         }
       }
@@ -8145,7 +8145,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "S'abonner"
+            "value" : "Erreur d'abonnement"
           }
         }
       }
@@ -8179,7 +8179,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "S'abonner %@"
+            "value" : "Suppressions suggérées"
           }
         }
       }
@@ -8213,7 +8213,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abonnez-vous à des podcasts sur YouTube Music pour les voir ici."
+            "value" : "Changer de compte"
           }
         }
       }
@@ -8247,7 +8247,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abonné"
+            "value" : "Appuyez pour réessayer"
           }
         }
       }
@@ -8282,7 +8282,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erreur d'abonnement"
+            "value" : "Aucune parole n'est disponible pour ce morceau."
           }
         }
       }
@@ -8316,7 +8316,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suppressions suggérées"
+            "value" : "Ce Mac ne prend pas en charge Apple Intelligence. Un Mac avec puce Apple Silicon est requis."
           }
         }
       }
@@ -8350,7 +8350,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Changer de compte"
+            "value" : "Meilleurs morceaux"
           }
         }
       }
@@ -8384,7 +8384,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Par défaut du système"
+            "value" : "Réessayer"
           }
         }
       }
@@ -8418,7 +8418,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez pour réessayer"
+            "value" : "Essayez des commandes comme :"
           }
         }
       }
@@ -8452,7 +8452,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune parole n'est disponible pour ce morceau."
+            "value" : "Essayez de rechercher autre chose"
           }
         }
       }
@@ -8486,7 +8486,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce Mac ne prend pas en charge Apple Intelligence. Un Mac avec puce Apple Silicon est requis."
+            "value" : "Impossible de déterminer la disponibilité"
           }
         }
       }
@@ -8520,7 +8520,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Meilleurs morceaux"
+            "value" : "Impossible de charger l'artiste"
           }
         }
       }
@@ -8554,7 +8554,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Réessayer"
+            "value" : "Impossible de charger le contenu"
           }
         }
       }
@@ -8588,7 +8588,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Essayez des commandes comme :"
+            "value" : "Impossible de charger la playlist"
           }
         }
       }
@@ -8622,7 +8622,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Essayez de rechercher autre chose"
+            "value" : "Indisponible"
           }
         }
       }
@@ -8656,7 +8656,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de déterminer la disponibilité"
+            "value" : "Annuler"
           }
         }
       }
@@ -8690,7 +8690,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de charger l'artiste"
+            "value" : "Inconnu"
           }
         }
       }
@@ -8724,7 +8724,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de charger le contenu"
+            "value" : "Artiste inconnu"
           }
         }
       }
@@ -8758,7 +8758,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible de charger la playlist"
+            "value" : "Retirer le j'aime"
           }
         }
       }
@@ -8792,7 +8792,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Indisponible"
+            "value" : "Réactiver le son"
           }
         }
       }
@@ -8826,7 +8826,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Annuler"
+            "value" : "À suivre"
           }
         }
       }
@@ -8860,7 +8860,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Inconnu"
+            "value" : "Mises à jour"
           }
         }
       }
@@ -8894,7 +8894,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Artiste inconnu"
+            "value" : "Version"
           }
         }
       }
@@ -8928,7 +8928,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retirer le j'aime"
+            "value" : "Vidéo"
           }
         }
       }
@@ -8962,7 +8962,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Réactiver le son"
+            "value" : "Voir l'album"
           }
         }
       }
@@ -8996,7 +8996,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "À suivre"
+            "value" : "Voir l'artiste"
           }
         }
       }
@@ -9030,7 +9030,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mises à jour"
+            "value" : "Voir la playlist"
           }
         }
       }
@@ -9064,7 +9064,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Version"
+            "value" : "Voir le podcast"
           }
         }
       }
@@ -9098,7 +9098,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vidéo"
+            "value" : "Baisser le volume"
           }
         }
       }
@@ -9132,7 +9132,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voir l'album"
+            "value" : "Augmenter le volume"
           }
         }
       }
@@ -9166,7 +9166,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voir l'artiste"
+            "value" : "En attente d'autorisation…"
           }
         }
       }
@@ -9200,7 +9200,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voir la playlist"
+            "value" : "Bienvenue sur Kaset"
           }
         }
       }
@@ -9234,7 +9234,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voir le podcast"
+            "value" : "Que souhaitez-vous modifier ?"
           }
         }
       }
@@ -9268,7 +9268,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Baisser le volume"
+            "value" : "Que souhaitez-vous faire avec votre file d'attente ?"
           }
         }
       }
@@ -9302,7 +9302,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Augmenter le volume"
+            "value" : "Que souhaitez-vous faire ?"
           }
         }
       }
@@ -9336,7 +9336,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En attente d'autorisation…"
+            "value" : "Nouveautés de Kaset"
           }
         }
       }
@@ -9370,7 +9370,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bienvenue sur Kaset"
+            "value" : "Lorsque cette option est activée, vous pouvez utiliser des commandes en langage naturel, l'affinement de playlists par IA et les explications de paroles."
           }
         }
       }
@@ -9404,7 +9404,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Que souhaitez-vous modifier ?"
+            "value" : "Votre bibliothèque"
           }
         }
       }
@@ -9438,7 +9438,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Que souhaitez-vous faire avec votre file d'attente ?"
+            "value" : "Votre bibliothèque est vide"
           }
         }
       }
@@ -9472,7 +9472,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Que souhaitez-vous faire ?"
+            "value" : "Choisissez la langue de l'interface de l'application"
           }
         }
       }
@@ -9506,7 +9506,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nouveautés de Kaset"
+            "value" : "Langue du contenu"
           }
         }
       }
@@ -9540,7 +9540,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lorsque cette option est activée, vous pouvez utiliser des commandes en langage naturel, l'affinement de playlists par IA et les explications de paroles."
+            "value" : "Piste suivante/précédente"
           }
         }
       }
@@ -9574,7 +9574,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre bibliothèque"
+            "value" : "Avancer/Reculer"
           }
         }
       }
@@ -9608,7 +9608,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre bibliothèque est vide"
+            "value" : "Par défaut du système"
           }
         }
       }
