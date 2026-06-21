@@ -106,6 +106,27 @@ struct AppLocalizationTests {
         }
     }
 
+    /// Guards against a recurrence of the French column misalignment fixed in
+    /// this PR (introduced by #160, where the `fr` values were shifted onto the
+    /// wrong keys). Asserts representative keys map to their known-good French
+    /// values directly in the source catalog, so a future shift fails CI rather
+    /// than shipping silently — mirrors `indonesianSourceCatalogMapsAffectedStrings`.
+    @Test("French source catalog maps affected strings correctly")
+    func frenchSourceCatalogMapsAffectedStrings() throws {
+        let expectedValues = [
+            ("Account", "Compte"),
+            ("Content Language", "Langue du contenu"),
+            ("About", "À propos"),
+            ("Updates", "Mises à jour"),
+            ("Command Bar", "Barre de commandes"),
+            ("Lyrics", "Paroles"),
+        ]
+
+        for (key, expectedValue) in expectedValues {
+            #expect(try self.sourceCatalogValue(key: key, localeIdentifier: "fr") == expectedValue)
+        }
+    }
+
     @Test("French bundle localizes artist and subscribe strings")
     func frenchLocalizationWorks() throws {
         let frenchBundle = try #require(self.localizedBundle(for: "fr"))

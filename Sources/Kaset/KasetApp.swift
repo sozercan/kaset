@@ -657,8 +657,9 @@ struct SettingsView: View {
                 }
 
             // Conditionally rendered (Apple Intelligence is macOS 26+ and
-            // hidden in legacy UI mode). Placed late so its absence trims the
-            // tail of the tab strip rather than reflowing the stable tabs.
+            // hidden in legacy UI mode). Placed near the end so that when it is
+            // absent, only the trailing Extensions tab shifts — the stable core
+            // tabs (General…Scrobbling) keep their positions.
             if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
                 IntelligenceSettingsView()
                     .tabItem {
