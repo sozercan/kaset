@@ -11,6 +11,7 @@ struct PlayerBar: View {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
@@ -41,7 +42,7 @@ struct PlayerBar: View {
 
                 Spacer()
 
-                // Center section: Track info OR seek bar (on hover)
+                // Center section: Track info ⇄ full-width seek scrubber on hover
                 self.centerSection
 
                 Spacer()
@@ -50,7 +51,7 @@ struct PlayerBar: View {
                 self.volumeControl
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .frame(height: 52)
             .compatGlass(interactive: true, in: .capsule)
             .compatGlassID("playerBar", in: self.playerNamespace)
@@ -156,7 +157,7 @@ struct PlayerBar: View {
         .accessibilityHidden(true)
     }
 
-    // MARK: - Center Section (track info blurs, seek bar appears on hover)
+    // MARK: - Center Section (track info ⇄ full-width seek scrubber on hover)
 
     private var centerSection: some View {
         ZStack {
@@ -164,20 +165,27 @@ struct PlayerBar: View {
             if case let .error(message) = playerService.state {
                 self.errorView(message: message)
             } else {
-                // Track info (blurred when hovering and track is playing)
-                self.trackInfoView
-                    .blur(radius: self.showsSeekControls ? 8 : 0)
-                    .opacity(self.showsSeekControls ? 0 : 1)
+                // Track info — top-aligned so it lifts off the bottom progress line.
+                VStack(spacing: 0) {
+                    self.trackInfoView
+                    Spacer(minLength: 0)
+                }
+                .blur(radius: self.showsSeekControls ? 8 : 0)
+                .opacity(self.showsSeekControls ? 0 : 1)
 
+                // Thin idle progress line ⇄ full-width hover scrubber, filling the section.
                 if self.playerService.currentTrack != nil {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        self.seekInteractionLayer
-                    }
+                    self.seekOverlay
                 }
             }
         }
-        .frame(maxWidth: 400, minHeight: 36)
+        .frame(maxWidth: 540, minHeight: 38)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(self.hoverAnimation) {
+                self.isHoveringSeekBar = hovering
+            }
+        }
         .contextMenu {
             if let track = self.playerService.currentTrack {
                 self.currentSongContextMenu(for: track)
@@ -185,43 +193,107 @@ struct PlayerBar: View {
         }
     }
 
+    /// Whether the expanded scrubber (timestamps + thumb) is shown.
     private var showsSeekControls: Bool {
         self.isHoveringSeekBar && self.playerService.currentTrack != nil
+    }
+
+    /// Hover grow/shrink animation, honouring Reduce Motion.
+    private var hoverAnimation: Animation {
+        self.reduceMotion ? .easeInOut(duration: 0.12) : AppAnimation.snappy
     }
 
     private var isCompactLayout: Bool {
         self.playerBarWidth > 0 && self.playerBarWidth < Self.compactLayoutThreshold
     }
 
-    private var seekInteractionLayer: some View {
+    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
+    private var displayFraction: Double {
+        if self.isSeeking {
+            return min(max(0, self.seekValue), 1)
+        }
+        guard self.playerService.duration > 0 else { return 0 }
+        return min(max(0, self.playerService.progress / self.playerService.duration), 1)
+    }
+
+    // MARK: - Track Info View (thumbnail + title/artist)
+
+    private var trackInfoView: some View {
+        HStack(spacing: 8) {
+            // Thumbnail
+            if let track = self.playerService.currentTrack {
+                SongThumbnailView(song: track, size: 32, cornerRadius: 4)
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(.quaternary)
+                    .overlay {
+                        CassetteIcon(size: 18)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: 32, height: 32)
+            }
+
+            // Track info
+            if let track = self.playerService.currentTrack {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(track.title)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+
+                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 240, alignment: .leading)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    // MARK: - Seek Overlay (full-width: thin idle line ⇄ edge-to-edge hover scrubber)
+
+    private var seekOverlay: some View {
         ZStack {
             if self.playerService.isCurrentItemLive {
                 self.liveIndicatorView
                     .opacity(self.showsSeekControls ? 1 : 0)
                     .transition(.opacity)
+                    .allowsHitTesting(false)
             } else {
-                self.seekBarView
-                    .opacity(self.showsSeekControls ? 1 : 0)
-                    .allowsHitTesting(self.showsSeekControls)
+                // Full-width hover scrubber (elapsed · long bar · remaining).
+                AppleMusicScrubber(
+                    fraction: self.displayFraction,
+                    accent: Self.brandAccent,
+                    elapsedText: self.isSeeking
+                        ? self.formatTime(self.seekValue * self.playerService.duration)
+                        : self.formattedProgress,
+                    remainingText: self.isSeeking
+                        ? "-\(self.formatTime(max(0, self.playerService.duration - self.seekValue * self.playerService.duration)))"
+                        : self.formattedRemaining,
+                    isInteractive: self.showsSeekControls,
+                    onScrub: { fraction in
+                        self.isSeeking = true
+                        self.seekValue = fraction
+                    },
+                    onCommit: {
+                        self.performSeek()
+                    }
+                )
+                .opacity(self.showsSeekControls ? 1 : 0)
+                .allowsHitTesting(self.showsSeekControls)
 
-                self.compactProgressView
-                    .opacity(self.showsSeekControls ? 0 : 1)
+                // Thin idle progress line shown when not hovering.
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    IdleProgressLine(fraction: self.displayFraction)
+                }
+                .opacity(self.showsSeekControls ? 0 : 1)
+                .allowsHitTesting(false)
             }
         }
-        .frame(height: self.showsSeekControls ? 28 : 10, alignment: .bottom)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.isHoveringSeekBar = hovering
-            }
-        }
-    }
-
-    private var compactProgressView: some View {
-        Rectangle()
-            .fill(.clear)
-            .frame(height: 10)
-            .accessibilityHidden(true)
     }
 
     // MARK: - Current Song Context Menu
@@ -338,73 +410,7 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Track Info View
-
-    private var trackInfoView: some View {
-        HStack(spacing: 10) {
-            // Thumbnail
-            if let track = self.playerService.currentTrack {
-                SongThumbnailView(song: track, size: 36, cornerRadius: 4)
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.quaternary)
-                    .overlay {
-                        CassetteIcon(size: 20)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 36, height: 36)
-            }
-
-            // Track info
-            if let track = playerService.currentTrack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(track.title)
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-
-                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: 200, alignment: .leading)
-            }
-        }
-    }
-
-    // MARK: - Seek Bar View (replaces track info on hover)
-
-    private var seekBarView: some View {
-        HStack(spacing: 10) {
-            // Elapsed time - use cached formatted string when not seeking
-            Text(self.isSeeking ? self.formatTime(self.seekValue * self.playerService.duration) : self.formattedProgress)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .trailing)
-                .monospacedDigit()
-
-            // Seek slider
-            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
-                if editing {
-                    // User started dragging
-                    self.isSeeking = true
-                } else {
-                    // User finished dragging - perform seek
-                    self.performSeek()
-                }
-            }
-            .controlSize(.small)
-            .tint(Self.brandAccent)
-
-            // Remaining time - use cached formatted string when not seeking
-            Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .leading)
-                .monospacedDigit()
-        }
-    }
+    // MARK: - Seek
 
     /// Performs the actual seek operation after slider interaction ends.
     private func performSeek() {

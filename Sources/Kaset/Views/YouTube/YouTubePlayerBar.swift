@@ -17,6 +17,7 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
 
     @Environment(YouTubePlayerService.self) private var youtubePlayer
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
@@ -41,7 +42,7 @@ struct YouTubePlayerBar: View {
                 self.rightSection
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .frame(height: 52)
             .compatGlass(interactive: true, in: .capsule)
             .compatGlassID("youtubePlayerBar", in: self.playerNamespace)
@@ -140,30 +141,52 @@ struct YouTubePlayerBar: View {
         }
     }
 
-    // MARK: - Center Section (video info, seek bar on hover)
+    // MARK: - Center Section (video info ⇄ full-width seek scrubber on hover)
 
     private var centerSection: some View {
         ZStack {
-            self.videoInfoView
-                .blur(radius: self.showsSeekControls ? 8 : 0)
-                .opacity(self.showsSeekControls ? 0 : 1)
+            // Video info — top-aligned so it lifts off the bottom progress line.
+            VStack(spacing: 0) {
+                self.videoInfoView
+                Spacer(minLength: 0)
+            }
+            .blur(radius: self.showsSeekControls ? 8 : 0)
+            .opacity(self.showsSeekControls ? 0 : 1)
 
+            // Thin idle progress line ⇄ full-width hover scrubber.
             if self.youtubePlayer.currentVideo != nil {
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    self.seekInteractionLayer
-                }
+                self.seekOverlay
             }
         }
-        .frame(maxWidth: 400, minHeight: 36)
+        .frame(maxWidth: 540, minHeight: 38)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(self.hoverAnimation) {
+                self.isHoveringSeekBar = hovering
+            }
+        }
     }
 
     private var showsSeekControls: Bool {
         self.isHoveringSeekBar && self.youtubePlayer.currentVideo != nil
     }
 
+    /// Hover grow/shrink animation, honouring Reduce Motion.
+    private var hoverAnimation: Animation {
+        self.reduceMotion ? .easeInOut(duration: 0.12) : AppAnimation.snappy
+    }
+
+    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
+    private var displayFraction: Double {
+        if self.isSeeking {
+            return min(max(0, self.seekValue), 1)
+        }
+        guard self.youtubePlayer.duration > 0 else { return 0 }
+        return min(max(0, self.youtubePlayer.progress / self.youtubePlayer.duration), 1)
+    }
+
     private var videoInfoView: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             // 16:9 video thumbnail
             CachedAsyncImage(
                 url: self.youtubePlayer.currentVideo?.thumbnailURL,
@@ -177,83 +200,71 @@ struct YouTubePlayerBar: View {
                     .fill(.quaternary)
                     .overlay {
                         Image(systemName: "play.rectangle")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
             }
-            .frame(width: 64, height: 36)
+            .frame(width: 57, height: 32)
             .clipShape(.rect(cornerRadius: 4))
 
             if let video = self.youtubePlayer.currentVideo {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(video.title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
 
-                    let detail = [video.channelName, video.viewCountText]
-                        .compactMap(\.self)
-                        .joined(separator: " · ")
-                    if !detail.isEmpty {
-                        Text(detail)
+                    if let channelName = video.channelName, !channelName.isEmpty {
+                        Text(channelName)
                             .font(.system(size: 10))
                             .lineLimit(1)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(maxWidth: 200, alignment: .leading)
+                .frame(maxWidth: 240, alignment: .leading)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private var seekInteractionLayer: some View {
+    // MARK: - Seek Overlay (full-width: thin idle line ⇄ hover scrubber)
+
+    private var seekOverlay: some View {
         ZStack {
-            self.seekBarView
-                .opacity(self.showsSeekControls ? 1 : 0)
-                .allowsHitTesting(self.showsSeekControls)
-
-            Rectangle()
-                .fill(.clear)
-                .frame(height: 10)
-                .accessibilityHidden(true)
-                .opacity(self.showsSeekControls ? 0 : 1)
-        }
-        .frame(height: self.showsSeekControls ? 28 : 10, alignment: .bottom)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.isHoveringSeekBar = hovering
-            }
-        }
-    }
-
-    private var seekBarView: some View {
-        HStack(spacing: 10) {
-            Text(Self.formatTime(self.isSeeking
+            // Full-width hover scrubber (elapsed · long bar · remaining).
+            AppleMusicScrubber(
+                fraction: self.displayFraction,
+                accent: Self.brandAccent,
+                elapsedText: Self.formatTime(self.isSeeking
                     ? self.seekValue * self.youtubePlayer.duration
-                    : self.youtubePlayer.progress))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .trailing)
-                .monospacedDigit()
-
-            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
-                if editing {
+                    : self.youtubePlayer.progress),
+                remainingText: "-\(Self.formatTime(self.youtubePlayer.duration - (self.isSeeking ? self.seekValue * self.youtubePlayer.duration : self.youtubePlayer.progress)))",
+                isInteractive: self.showsSeekControls && self.canSeek,
+                onScrub: { fraction in
                     self.isSeeking = true
-                } else {
+                    self.seekValue = fraction
+                },
+                onCommit: {
                     self.performSeek()
                 }
-            }
-            .controlSize(.small)
-            .tint(Self.brandAccent)
-            .disabled(self.youtubePlayer.duration <= 0 || self.youtubePlayer.isShowingAd)
+            )
+            .opacity(self.showsSeekControls ? 1 : 0)
+            .allowsHitTesting(self.showsSeekControls && self.canSeek)
 
-            Text("-\(Self.formatTime(self.youtubePlayer.duration - (self.isSeeking ? self.seekValue * self.youtubePlayer.duration : self.youtubePlayer.progress)))")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .leading)
-                .monospacedDigit()
+            // Thin idle progress line shown when not hovering.
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                IdleProgressLine(fraction: self.displayFraction)
+            }
+            .opacity(self.showsSeekControls ? 0 : 1)
+            .allowsHitTesting(false)
         }
+    }
+
+    /// Seeking is unavailable during ads or before a duration is known.
+    private var canSeek: Bool {
+        self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd
     }
 
     private func performSeek() {
