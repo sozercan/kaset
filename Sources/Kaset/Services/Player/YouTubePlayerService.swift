@@ -260,14 +260,17 @@ final class YouTubePlayerService {
         // Closing/stopping a video that accrued progress changes its resume
         // state in history, so signal it before clearing — this covers closing
         // the floating window (windowWillClose -> stop) and navigating away with
-        // pop-out disabled (inlineSurfaceWillDisappear -> stop) after a partial
-        // watch, neither of which emits a skip or finish event. Skip it when the
-        // video already signalled a finish (handleVideoEnded): a close right after
-        // a natural end must not re-signal the same finished video as a fresh
-        // partial-watch conclusion.
-        if self.currentVideo != nil, self.progress > 0, !self.currentWatchConcluded {
-            self.watchActivityGeneration += 1
-            self.watchConclusionGeneration += 1 // a partial watch concluded
+        // Closing/stopping a video that accrued progress changes its resume
+        // state in history, so signal the conclusion before clearing — this
+        // covers closing the floating window (windowWillClose -> stop) and
+        // navigating away with pop-out disabled (inlineSurfaceWillDisappear ->
+        // stop) after a partial watch, neither of which emits a skip or finish
+        // event. `signalWatchConclusion` de-dupes, so a close right after a
+        // natural end (already signalled) does not re-signal the finished video.
+        if self.currentVideo != nil, self.progress > 0 {
+            if self.signalWatchConclusion() {
+                self.watchActivityGeneration += 1
+            }
         }
         self.currentVideo = nil
         self.isPlaying = false
@@ -358,8 +361,9 @@ final class YouTubePlayerService {
 
         self.playbackWillStart?()
         self.currentVideo = video
-        self.watchActivityGeneration += 1 // a skip concludes the prior watch and begins a new one
-        self.watchConclusionGeneration += 1
+        // A skip concludes the prior watch (deduped) and begins a new one.
+        self.signalWatchConclusion()
+        self.watchActivityGeneration += 1
         self.currentWatchConcluded = false
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
@@ -641,11 +645,13 @@ final class YouTubePlayerService {
                 channelId: current.channelId
             )
             // The page autoplayed/navigated to a new video (e.g. in the floating
-            // window) — the prior video concluded and a new watch began, so
-            // signal it like an explicit skip.
+            // window) — the prior video concluded and a new watch began. Signal
+            // the conclusion (unless it already finished, to avoid double-bumping
+            // a natural end that auto-advances), then mark the new video as a
+            // fresh, unconcluded watch.
+            self.signalWatchConclusion()
             self.watchActivityGeneration += 1
-            self.watchConclusionGeneration += 1
-            self.currentWatchConcluded = false // the drifted-to video is a fresh, unconcluded watch
+            self.currentWatchConcluded = false
             YouTubeWatchWebView.shared.currentVideoId = videoId
         }
     }
@@ -658,9 +664,27 @@ final class YouTubePlayerService {
         // signal it — this lets Home drop a just-finished video from Continue
         // Watching even when the video ended in the floating window while the
         // user was already sitting on Home (no navigation fires).
-        self.watchActivityGeneration += 1
-        self.watchConclusionGeneration += 1
-        self.currentWatchConcluded = true // a later stop() must not re-signal this
+        if self.signalWatchConclusion() {
+            self.watchActivityGeneration += 1
+        }
         self.onVideoEnded?(videoId)
+    }
+
+    /// Marks the CURRENT watch as concluded with resume state to reflect and
+    /// advances `watchConclusionGeneration` — de-duplicated, so a watch is only
+    /// signalled once no matter how many conclusion paths fire for it (a natural
+    /// finish followed by an auto-advance drift or a window close would otherwise
+    /// double-bump and make Home cancel/restart the refresh the first conclusion
+    /// scheduled). Does NOT touch `watchActivityGeneration`: callers bump that
+    /// once per watch-state transition (a skip/drift bumps it for the new watch;
+    /// a finish/stop bumps it here). Callers that begin a NEW watch (`advance`,
+    /// drift) clear `currentWatchConcluded` afterward so the next watch can
+    /// signal.
+    @discardableResult
+    private func signalWatchConclusion() -> Bool {
+        guard !self.currentWatchConcluded else { return false }
+        self.watchConclusionGeneration += 1
+        self.currentWatchConcluded = true
+        return true
     }
 }

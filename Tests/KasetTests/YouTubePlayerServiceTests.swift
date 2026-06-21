@@ -367,6 +367,34 @@ struct YouTubePlayerServiceTests {
         #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish)
     }
 
+    @Test("Auto-advance drift right after a finish does not double-signal the conclusion")
+    func driftAfterFinishDoesNotDoubleConclude() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 119, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+        self.sut.handleVideoEnded(videoId: "a")
+        let conclusionAfterFinish = self.sut.watchConclusionGeneration
+        let activityAfterFinish = self.sut.watchActivityGeneration
+
+        // The page auto-advances to the next video (playlist). The drift begins a
+        // NEW watch (activity advances) but must NOT re-conclude the already
+        // finished "a" (conclusion stays put).
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 0, duration: 200,
+            videoId: "b", title: "Next", isAd: false
+        ))
+        #expect(self.sut.currentVideo?.videoId == "b")
+        #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish) // no double-conclude
+        #expect(self.sut.watchActivityGeneration == activityAfterFinish + 1) // new watch began
+
+        // The new video then concludes (e.g. finishes) — that DOES signal, since
+        // it is a different, unconcluded watch.
+        self.sut.handleVideoEnded(videoId: "b")
+        #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish + 1)
+    }
+
     @Test("Stopping a video with accrued progress advances both generations")
     func stopWithProgressAdvancesGeneration() {
         // Closing the floating window or navigating away with pop-out disabled
