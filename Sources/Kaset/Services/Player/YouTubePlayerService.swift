@@ -258,9 +258,6 @@ final class YouTubePlayerService {
     func stop() {
         self.logger.info("YouTubePlayer: stop")
         // Closing/stopping a video that accrued progress changes its resume
-        // state in history, so signal it before clearing — this covers closing
-        // the floating window (windowWillClose -> stop) and navigating away with
-        // Closing/stopping a video that accrued progress changes its resume
         // state in history, so signal the conclusion before clearing — this
         // covers closing the floating window (windowWillClose -> stop) and
         // navigating away with pop-out disabled (inlineSurfaceWillDisappear ->
