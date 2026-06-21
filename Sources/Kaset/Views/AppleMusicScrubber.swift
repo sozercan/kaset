@@ -26,7 +26,6 @@ struct AppleMusicScrubber: View {
     /// Called when the drag ends, to commit the seek.
     let onCommit: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isFocused: Bool
 
     /// Fraction nudge per arrow-key press / accessibility adjustment.
@@ -51,12 +50,10 @@ struct AppleMusicScrubber: View {
             // Timestamps at the far edges.
             HStack(spacing: 8) {
                 Text(self.elapsedText)
-                    .frame(alignment: .leading)
 
                 Spacer(minLength: 8)
 
                 Text(self.remainingText)
-                    .frame(alignment: .trailing)
             }
             .font(.system(size: 11))
             .monospacedDigit()
