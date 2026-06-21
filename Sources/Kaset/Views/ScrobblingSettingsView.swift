@@ -9,8 +9,18 @@ struct ScrobblingSettingsView: View {
 
     var body: some View {
         Form {
-            ForEach(self.coordinator.services, id: \.serviceName) { service in
-                ScrobbleServiceRow(service: service)
+            if self.coordinator.services.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "No Scrobbling Services",
+                        systemImage: "music.note.list",
+                        description: Text("No scrobbling services are available to configure.")
+                    )
+                }
+            } else {
+                ForEach(self.coordinator.services, id: \.serviceName) { service in
+                    ScrobbleServiceRow(service: service)
+                }
             }
         }
         .formStyle(.grouped)

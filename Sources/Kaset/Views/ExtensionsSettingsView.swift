@@ -67,6 +67,10 @@ struct ExtensionsSettingsView: View {
 
                 // Footer section
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("About Extensions")
+                        .font(.headline)
+                        .padding(.bottom, 2)
+
                     Text("Extensions are loaded at launch via the native WebKit extension API. Changes take effect after restarting Kaset.")
                         .foregroundStyle(.secondary)
 
@@ -155,6 +159,7 @@ struct ExtensionsSettingsView: View {
             }
             .buttonStyle(.plain)
             .help("Remove extension")
+            .accessibilityLabel("Remove \(ext.name)")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 16)

@@ -635,16 +635,19 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
-            if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
-                IntelligenceSettingsView()
-                    .tabItem {
-                        Label("Intelligence", systemImage: "sparkles")
-                    }
-            }
+            MusicSettingsView()
+                .tabItem {
+                    Label("Music", systemImage: "music.note")
+                }
 
             YouTubeSettingsView()
                 .tabItem {
                     Label("YouTube", systemImage: "play.rectangle.fill")
+                }
+
+            EqualizerSettingsView()
+                .tabItem {
+                    Label("Equalizer", systemImage: "slider.vertical.3")
                 }
 
             ScrobblingSettingsView()
@@ -653,10 +656,15 @@ struct SettingsView: View {
                     Label("Scrobbling", systemImage: "music.note.list")
                 }
 
-            EqualizerSettingsView()
-                .tabItem {
-                    Label("Equalizer", systemImage: "slider.vertical.3")
-                }
+            // Conditionally rendered (Apple Intelligence is macOS 26+ and
+            // hidden in legacy UI mode). Placed late so its absence trims the
+            // tail of the tab strip rather than reflowing the stable tabs.
+            if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                IntelligenceSettingsView()
+                    .tabItem {
+                        Label("Intelligence", systemImage: "sparkles")
+                    }
+            }
 
             ExtensionsSettingsView()
                 .tabItem {

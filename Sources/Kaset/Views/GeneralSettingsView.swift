@@ -14,7 +14,7 @@ struct GeneralSettingsView: View {
         @Bindable var updater = self.updaterService
 
         Form {
-            // MARK: - General Section
+            // MARK: - Account Section
 
             Section {
                 // Account status
@@ -36,45 +36,16 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            } header: {
+                Text("Account")
+            }
 
-                // Now Playing Notifications
-                Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
+            // MARK: - Behavior Section
 
+            Section {
                 // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help("Provide tactile feedback for actions on Force Touch trackpads")
-
-                // Synced Lyrics
-                Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
-                    .help("Fetch and display real-time synced lyrics when available")
-
-                // Romanization
-                Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
-                    .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
-
-                // Remember Playback Settings
-                Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
-                    .help("Save shuffle and repeat settings across app restarts")
-
-                // Mini Player
-                Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
-                    .help("Keep the mini player visible above other windows")
-
-                // Playback Audio Quality
-                Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
-                    ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
-                        Text(quality.displayName).tag(quality)
-                    }
-                }
-                .help("Choose the preferred audio quality for YouTube Music playback")
-
-                // Now Playing Controls
-                Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
-                    ForEach(SettingsManager.MediaControlStyle.allCases) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-                .help("Choose which buttons appear in the Now Playing widget in Control Center")
 
                 // Default Launch Page
                 Picker("Default Page on Launch", selection: self.$settings.defaultLaunchPage) {
@@ -82,15 +53,27 @@ struct GeneralSettingsView: View {
                         Text(page.displayName).tag(page)
                     }
                 }
+            } header: {
+                Text("Behavior")
+            }
 
+            // MARK: - Language Section
+
+            Section {
                 // Content Language
                 Picker("Content Language", selection: self.$settings.contentLanguage) {
                     ForEach(SettingsManager.ContentLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
                     }
                 }
-                .help("Choose the language for the app interface")
+                .help("Choose the language for content and search results from YouTube Music")
+            } header: {
+                Text("Language")
+            }
 
+            // MARK: - Storage Section
+
+            Section {
                 // Image Cache
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -109,7 +92,7 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.vertical, 4)
             } header: {
-                Text("General")
+                Text("Storage")
             }
 
             #if DEBUG
@@ -190,7 +173,7 @@ struct GeneralSettingsView: View {
     // MARK: - Computed Properties
 
     private var accountStatusText: String {
-        self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube Music") : String(localized: "Not signed in")
+        self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube") : String(localized: "Not signed in")
     }
 
     private var appVersion: String {

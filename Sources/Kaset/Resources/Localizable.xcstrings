@@ -7809,36 +7809,36 @@
         }
       }
     },
-    "Signed in to YouTube Music": {
+    "Signed in to YouTube": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تم تسجيل الدخول إلى YouTube Music"
+            "value": "تم تسجيل الدخول إلى YouTube"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
-            "value": "YouTube Music'te oturum açık"
+            "state": "needs_review",
+            "value": "YouTube'da oturum açık"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "YouTube Music에 로그인됨"
+            "value": "YouTube에 로그인됨"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sudah masuk ke YouTube Music"
+            "value" : "Sudah masuk ke YouTube"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se connecter à YouTube Music"
+            "value" : "Se connecter à YouTube"
           }
         }
       }

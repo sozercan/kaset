@@ -23,8 +23,23 @@ struct IntelligenceSettingsView: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
+
+                // The only OS-level enable path — surfaced right under the
+                // availability status so a "Not Enabled" user can act on it.
+                Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
+                    HStack {
+                        Text("Apple Intelligence & Siri Settings")
+                        Spacer()
+                        Image(systemName: "arrow.up.forward.square")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text("Apple Intelligence")
+            } footer: {
+                Text("AI responses follow your system language settings.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
 
             Section {
@@ -34,12 +49,12 @@ struct IntelligenceSettingsView: View {
                 ))
                 .disabled(!self.isSystemAvailable)
 
-                Text("When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations. Basic command-bar controls still work without Apple Intelligence.")
+                Text("When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            // AI Features section with keyboard shortcut info
+            // Command-bar keyboard shortcut reference.
             Section {
                 HStack {
                     Image(systemName: "command")
@@ -63,7 +78,7 @@ struct IntelligenceSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } header: {
-                Text("Quick Access")
+                Text("Command Bar")
             }
 
             Section {
@@ -74,21 +89,6 @@ struct IntelligenceSettingsView: View {
                 Text("Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
-                    HStack {
-                        Text("Apple Intelligence & Siri Settings")
-                        Spacer()
-                        Image(systemName: "arrow.up.forward.square")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } footer: {
-                Text("AI responses follow your system language settings.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
         }
         .formStyle(.grouped)
