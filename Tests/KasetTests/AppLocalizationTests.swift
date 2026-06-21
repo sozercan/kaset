@@ -109,8 +109,9 @@ struct AppLocalizationTests {
     /// Guards against a recurrence of the French column misalignment fixed in
     /// this PR (introduced by #160, where the `fr` values were shifted onto the
     /// wrong keys). Asserts representative keys map to their known-good French
-    /// values directly in the source catalog, so a future shift fails CI rather
-    /// than shipping silently — mirrors `indonesianSourceCatalogMapsAffectedStrings`.
+    /// values both in the source catalog and via the runtime `.lproj` override
+    /// bundle, so a future shift fails CI rather than shipping silently —
+    /// mirrors `indonesianSourceCatalogMapsAffectedStrings`.
     @Test("French source catalog maps affected strings correctly")
     func frenchSourceCatalogMapsAffectedStrings() throws {
         let expectedValues = [
@@ -124,6 +125,22 @@ struct AppLocalizationTests {
 
         for (key, expectedValue) in expectedValues {
             #expect(try self.sourceCatalogValue(key: key, localeIdentifier: "fr") == expectedValue)
+            #expect(self.localizedValue(key: key, localeIdentifier: "fr") == expectedValue)
+        }
+    }
+
+    /// Verifies the renamed account-status key resolves through the runtime
+    /// `.lproj` override bundles (not just the catalog), since the per-language
+    /// `.lproj` files are the source the language override reads at runtime.
+    @Test("Renamed signed-in status resolves in lproj override bundles")
+    func renamedSignedInStatusResolvesInLprojBundles() {
+        let expected = [
+            ("fr", "Connecté à YouTube"),
+            ("ko", "YouTube에 로그인됨"),
+            ("id", "Sudah masuk ke YouTube"),
+        ]
+        for (locale, value) in expected {
+            #expect(self.localizedValue(key: "Signed in to YouTube", localeIdentifier: locale) == value)
         }
     }
 

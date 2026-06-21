@@ -465,7 +465,6 @@
 
 "Sign in with Google" = "Se connecter avec Google";
 
-"Signed in to YouTube Music" = "Connecté à YouTube Music";
 
 
 "Skip Forward/Backward" = "Avancer/Reculer";
@@ -564,3 +563,24 @@
 "Your Library" = "Votre bibliothèque";
 
 "Your library is empty" = "Votre bibliothèque est vide";
+
+/* Added by Settings reorganization (PR #313) */
+"Music" = "Musique";
+"Now Playing" = "En lecture";
+"Audio" = "Audio";
+"Behavior" = "Comportement";
+"Language" = "Langue";
+"Storage" = "Stockage";
+"Output" = "Sortie";
+"About Extensions" = "À propos des extensions";
+"No Scrobbling Services" = "Aucun service de scrobbling";
+"No scrobbling services are available to configure." = "Aucun service de scrobbling n'est disponible à configurer.";
+"Show a notification when a new track starts playing" = "Afficher une notification lorsqu'un nouveau morceau commence";
+"Choose the language for content and search results from YouTube Music" = "Choisissez la langue du contenu et des résultats de recherche de YouTube Music";
+"When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations." = "Une fois activé, Kaset peut ajouter une analyse de file d'attente plus riche, un affinage de playlist par IA et des explications de paroles.";
+"Signed in to YouTube" = "Connecté à YouTube";
+"Double-tap to switch to this account" = "Touchez deux fois pour passer à ce compte";
+"Selected" = "Sélectionné";
+"Last checked: %@" = "Dernière vérification : %@";
+"e.g., Remove slow songs, reorder by energy..." = "p. ex. Supprimer les morceaux lents, réorganiser par énergie...";
+"Profile" = "Profil";

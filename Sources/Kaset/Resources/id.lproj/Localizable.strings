@@ -456,7 +456,6 @@
 
 "Sign in with Google" = "Masuk dengan Google";
 
-"Signed in to YouTube Music" = "Sudah masuk ke YouTube Music";
 
 
 "Skip Forward/Backward" = "Lompat Maju/Mundur";
@@ -555,3 +554,29 @@
 "Your Library" = "Pustaka Anda";
 
 "Your library is empty" = "Pustaka Anda kosong";
+
+/* Added by Settings reorganization (PR #313) */
+"Music" = "Musik";
+"Now Playing" = "Sedang Diputar";
+"Audio" = "Audio";
+"Behavior" = "Perilaku";
+"Language" = "Bahasa";
+"Storage" = "Penyimpanan";
+"Output" = "Keluaran";
+"About Extensions" = "Tentang Ekstensi";
+"No Scrobbling Services" = "Tidak Ada Layanan Scrobble";
+"No scrobbling services are available to configure." = "Tidak ada layanan scrobble yang tersedia untuk dikonfigurasi.";
+"Show a notification when a new track starts playing" = "Tampilkan notifikasi saat trek baru mulai diputar";
+"Choose the language for content and search results from YouTube Music" = "Pilih bahasa untuk konten dan hasil pencarian dari YouTube Music";
+"When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations." = "Saat diaktifkan, Kaset dapat menambahkan analisis antrean yang lebih kaya, penyempurnaan playlist bertenaga AI, dan penjelasan lirik.";
+"Signed in to YouTube" = "Sudah masuk ke YouTube";
+"Double-tap to switch to this account" = "Ketuk dua kali untuk beralih ke akun ini";
+"Selected" = "Dipilih";
+"Last checked: %@" = "Terakhir diperiksa: %@";
+"e.g., Remove slow songs, reorder by energy..." = "mis. Hapus lagu lambat, urutkan ulang berdasarkan energi...";
+"Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics" = "Tampilkan teks romanisasi (romaji, pinyin, dll.) di bawah lirik non-Latin";
+"Profile" = "Profil";
+"%lld songs listened today" = "%lld lagu didengarkan hari ini";
+"History" = "Riwayat";
+"Listening History" = "Riwayat Mendengarkan";
+"Refresh" = "Segarkan";

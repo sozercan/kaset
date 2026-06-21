@@ -466,7 +466,6 @@
 
 "Sign in with Google" = "Google로 로그인";
 
-"Signed in to YouTube Music" = "YouTube Music에 로그인됨";
 
 
 "Skip Forward/Backward" = "앞으로/뒤로 건너뛰기";
@@ -565,3 +564,24 @@
 "Your Library" = "내 보관함";
 
 "Your library is empty" = "보관함이 비어 있습니다";
+
+/* Added by Settings reorganization (PR #313) */
+"Music" = "음악";
+"Now Playing" = "지금 재생 중";
+"Audio" = "오디오";
+"Behavior" = "동작";
+"Language" = "언어";
+"Storage" = "저장 공간";
+"Output" = "출력";
+"About Extensions" = "확장 프로그램 정보";
+"No Scrobbling Services" = "스크로블 서비스 없음";
+"No scrobbling services are available to configure." = "구성할 수 있는 스크로블 서비스가 없습니다.";
+"Show a notification when a new track starts playing" = "새 트랙이 재생되기 시작하면 알림 표시";
+"Choose the language for content and search results from YouTube Music" = "YouTube Music의 콘텐츠 및 검색 결과 언어를 선택하세요";
+"When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations." = "활성화하면 Kaset이 더 풍부한 대기열 분석, AI 기반 재생목록 개선, 가사 설명을 추가할 수 있습니다.";
+"Signed in to YouTube" = "YouTube에 로그인됨";
+"Double-tap to switch to this account" = "이 계정으로 전환하려면 두 번 탭하세요";
+"Selected" = "선택됨";
+"Last checked: %@" = "마지막 확인: %@";
+"e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
+"Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics" = "비라틴 가사 아래에 로마자 표기(로마지, 병음 등) 표시";
