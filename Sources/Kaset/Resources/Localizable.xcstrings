@@ -993,6 +993,18 @@
     },
     "Profile": {
       "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Profil"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Profil"
+          }
+        },
         "ar": {
           "stringUnit": {
             "state": "translated",
@@ -3177,6 +3189,30 @@
     },
     "Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics" : {
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "إظهار النص المُرمَّن (روماجي، بينين، إلخ) أسفل كلمات الأغاني غير اللاتينية"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Latin olmayan şarkı sözlerinin altında romanize metni (romaji, pinyin vb.) göster"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "비라틴 가사 아래에 로마자 표기(로마지, 병음 등) 표시"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tampilkan teks romanisasi (romaji, pinyin, dll.) di bawah lirik non-Latin"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3595,6 +3631,12 @@
     },
     "%lld songs listened today" : {
       "localizations" : {
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%lld lagu didengarkan hari ini"
+          }
+        },
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3623,6 +3665,12 @@
     },
     "Refresh" : {
       "localizations" : {
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Segarkan"
+          }
+        },
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3651,6 +3699,12 @@
     },
     "Listening History" : {
       "localizations" : {
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Riwayat Mendengarkan"
+          }
+        },
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3679,6 +3733,12 @@
     },
     "History" : {
       "localizations" : {
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Riwayat"
+          }
+        },
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
@@ -11802,6 +11862,142 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Une fois activé, Kaset peut ajouter une analyse de file d'attente plus riche, un affinage de playlist par IA et des explications de paroles."
+          }
+        }
+      }
+    },
+    "Double-tap to switch to this account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "انقر نقرًا مزدوجًا للتبديل إلى هذا الحساب"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bu hesaba geçmek için çift dokunun"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이 계정으로 전환하려면 두 번 탭하세요"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ketuk dua kali untuk beralih ke akun ini"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Touchez deux fois pour passer à ce compte"
+          }
+        }
+      }
+    },
+    "Selected" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "محدد"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Seçili"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "선택됨"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dipilih"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sélectionné"
+          }
+        }
+      }
+    },
+    "Last checked: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "آخر فحص: %@"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Son kontrol: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "마지막 확인: %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Terakhir diperiksa: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dernière vérification : %@"
+          }
+        }
+      }
+    },
+    "e.g., Remove slow songs, reorder by energy..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مثال: أزل الأغاني البطيئة، أعد الترتيب حسب الحيوية..."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "örn. Yavaş şarkıları kaldır, enerjiye göre yeniden sırala..."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "예: 느린 곡 제거, 에너지순으로 재정렬..."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "mis. Hapus lagu lambat, urutkan ulang berdasarkan energi..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "p. ex. Supprimer les morceaux lents, réorganiser par énergie..."
           }
         }
       }
