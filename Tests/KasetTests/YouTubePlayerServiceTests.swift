@@ -304,6 +304,51 @@ struct YouTubePlayerServiceTests {
         #expect(endedVideoId == "abc")
     }
 
+    @Test("A stale ended event for a no-longer-current video does not conclude the new watch")
+    func endedEventForStaleVideoIdIgnored() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        // The page drifts to "b" (now the current watch).
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 3, duration: 60,
+            videoId: "b", title: "B", isAd: false
+        ))
+        #expect(self.sut.currentVideo?.videoId == "b")
+        let conclusionBefore = self.sut.watchConclusionGeneration
+
+        // A late VIDEO_ENDED for the previous video "a" arrives — it must be
+        // ignored so it doesn't conclude (and dedupe) the current watch of "b".
+        self.sut.handleVideoEnded(videoId: "a")
+        #expect(self.sut.watchConclusionGeneration == conclusionBefore)
+
+        // The real end of "b" still concludes it.
+        self.sut.handleVideoEnded(videoId: "b")
+        #expect(self.sut.watchConclusionGeneration == conclusionBefore + 1)
+    }
+
+    @Test("An ended event while an ad is showing does not conclude the watch")
+    func endedEventDuringAdIgnored() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        // An ad is playing (last STATE_UPDATE set isShowingAd).
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 2, duration: 15,
+            videoId: "a", title: nil, isAd: true
+        ))
+        #expect(self.sut.isShowingAd)
+        let conclusionBefore = self.sut.watchConclusionGeneration
+
+        // The ad element fires VIDEO_ENDED — must NOT conclude the content watch.
+        self.sut.handleVideoEnded(videoId: "a")
+        #expect(self.sut.watchConclusionGeneration == conclusionBefore)
+
+        // Once the real content plays and ends, it concludes normally.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 100, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+        self.sut.handleVideoEnded(videoId: "a")
+        #expect(self.sut.watchConclusionGeneration == conclusionBefore + 1)
+    }
+
     @Test("Watch-activity generation advances on every watch-state change and survives stop")
     func watchActivityGenerationTracksEveryChange() async {
         #expect(self.sut.watchActivityGeneration == 0)
@@ -392,6 +437,29 @@ struct YouTubePlayerServiceTests {
         // The new video then concludes (e.g. finishes) — that DOES signal, since
         // it is a different, unconcluded watch.
         self.sut.handleVideoEnded(videoId: "b")
+        #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish + 1)
+    }
+
+    @Test("Replaying a finished video lets its later stop signal the new partial watch")
+    func replayAfterFinishReSignalsOnStop() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 119, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+        self.sut.handleVideoEnded(videoId: "a") // finished → concluded
+        let conclusionAfterFinish = self.sut.watchConclusionGeneration
+
+        // The user replays the SAME video (seek back / play again): it's playing
+        // with fresh progress, which clears the concluded flag.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 8, duration: 120,
+            videoId: "a", title: nil, isAd: false
+        ))
+
+        // Closing after the partial rewatch must signal again (not be deduped),
+        // so Home reflects the new resume position.
+        self.sut.stop()
         #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish + 1)
     }
 

@@ -83,6 +83,14 @@ final class YouTubeHomeViewModel {
     /// the triggering view's teardown.
     private var continueWatchingRefreshTask: Task<Void, Never>?
 
+    /// The target generation of `continueWatchingRefreshTask` while it is in
+    /// flight (e.g. sitting in its propagation delay), else `nil`. `refresh()`
+    /// folds this back into `pendingGeneration` before cancelling the task, so a
+    /// pull-to-refresh/error-retry that interrupts a still-delayed post-watch
+    /// rebuild doesn't lose it — the ensuing `performLoad` drains it and rebuilds
+    /// from fresh history instead of leaving the rail on pre-watch progress.
+    private var inFlightRefreshGeneration: Int?
+
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -304,6 +312,15 @@ final class YouTubeHomeViewModel {
         // rather than awaiting the stale task.
         self.loadTask?.cancel()
         self.loadTask = nil
+        // A still-delayed post-watch refresh is about to be cancelled; fold its
+        // target generation into `pendingGeneration` so the ensuing `performLoad`
+        // drains it and rebuilds from fresh history. Without this, a
+        // pull-to-refresh/error-retry that interrupts the propagation delay would
+        // lose the post-watch trigger and leave the rail on pre-watch progress.
+        if let inFlight = self.inFlightRefreshGeneration {
+            self.pendingGeneration = max(self.pendingGeneration ?? 0, inFlight)
+            self.inFlightRefreshGeneration = nil
+        }
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = nil
         // Deliberately preserve `pendingGeneration`: this is also the
@@ -330,6 +347,7 @@ final class YouTubeHomeViewModel {
         self.continueWatchingRefreshTask?.cancel()
         self.continueWatchingRefreshTask = nil
         self.pendingGeneration = nil
+        self.inFlightRefreshGeneration = nil
     }
 
     /// Loads the next feed page when the user nears the end of the grid.
@@ -469,12 +487,20 @@ final class YouTubeHomeViewModel {
         }
 
         self.continueWatchingRefreshTask?.cancel()
+        self.inFlightRefreshGeneration = generation
         self.continueWatchingRefreshTask = Task { [weak self] in
             await self?.performContinueWatchingRefresh(targetGeneration: generation)
         }
     }
 
     private func performContinueWatchingRefresh(targetGeneration: Int) async {
+        defer {
+            // Clear the in-flight marker only if it still points at THIS run, so a
+            // newer scheduled refresh (which overwrote it) keeps its marker.
+            if self.inFlightRefreshGeneration == targetGeneration {
+                self.inFlightRefreshGeneration = nil
+            }
+        }
         do {
             try await Task.sleep(for: Self.continueWatchingRefreshDelay)
         } catch {

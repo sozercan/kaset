@@ -491,6 +491,41 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 90)
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
     }
+
+    @Test("refresh() preserves a still-delayed post-watch refresh so the reload reflects it")
+    func refreshPreservesInFlightPostWatchRefresh() async {
+        // Non-zero delay so the post-watch refresh is still in its propagation
+        // delay (in flight) when refresh() interrupts it.
+        YouTubeHomeViewModel.continueWatchingRefreshDelay = .seconds(60)
+        YouTubeHomeViewModel.continueWatchingRefreshRetryDelay = .zero
+        self.mockClient.historyFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
+            continuation: nil
+        )
+        await self.sut.load()
+
+        // A post-watch refresh is scheduled (generation 1) but sits in its delay.
+        self.sut.refreshContinueWatching(forGeneration: 1)
+        await Task.yield()
+        #expect(self.mockClient.getHistoryForceRefreshCount == 0) // still delayed
+
+        // Fresh post-watch history; the reload's drained pending refresh must use
+        // the forced (cache-bypassed) path and reflect it.
+        YouTubeHomeViewModel.continueWatchingRefreshDelay = .zero
+        self.mockClient.historyForceRefreshFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 75)],
+            continuation: nil
+        )
+
+        // A pull-to-refresh / error-retry interrupts the still-delayed refresh.
+        // Its target generation must survive into the reload, which then drains it.
+        await self.sut.refresh()
+        await self.waitForCondition {
+            self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 75
+        }
+        #expect(self.sut.sections.first { $0.kind == .continueWatching }?.videos.first?.watchedPercent == 75)
+        #expect(self.mockClient.getHistoryForceRefreshCount == 1) // the preserved generation forced a refetch
+    }
 }
 
 // MARK: - RefreshTestGate

@@ -603,6 +603,21 @@ final class YouTubePlayerService {
         self.duration = update.duration
         self.isShowingAd = update.isAd
 
+        // A concluded video that is playing again (replayed via the player bar or
+        // a seek back after it finished) begins a fresh watch — clear the
+        // conclusion flag so its later stop/finish signals the new partial
+        // rewatch instead of being deduped. Only when it's the same current video
+        // still playing real content (drift to a different id is handled below
+        // and starts its own unconcluded watch).
+        if self.currentWatchConcluded,
+           update.isPlaying,
+           !update.isAd,
+           let videoId = update.videoId,
+           videoId == self.currentVideo?.videoId
+        {
+            self.currentWatchConcluded = false
+        }
+
         // Fetch captions/quality options once per video, after playback starts
         // (the player APIs aren't ready before that).
         if update.isPlaying,
@@ -659,6 +674,18 @@ final class YouTubePlayerService {
     /// Handles natural video completion.
     func handleVideoEnded(videoId: String?) {
         self.logger.info("YouTubePlayer: video ended")
+        // Ignore an ended event that is not for the CURRENT content watch:
+        //   - a late `VIDEO_ENDED` for the previous video arriving after a skip
+        //     or SPA drift already made another video current (stale id), and
+        //   - an ad's video element firing `VIDEO_ENDED` while an ad is showing.
+        // Either would wrongly mark the active watch concluded and dedupe its
+        // real conclusion. When the bridge supplies no id we fall back to the
+        // current video (the common floating-window finish).
+        let isStaleId = videoId != nil && videoId != self.currentVideo?.videoId
+        guard !isStaleId, !self.isShowingAd else {
+            self.logger.debug("YouTubePlayer: ignoring ended event (stale id or ad)")
+            return
+        }
         self.isPlaying = false
         // A finish changes watch history (the video crosses into "finished"), so
         // signal it — this lets Home drop a just-finished video from Continue
