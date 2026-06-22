@@ -310,6 +310,19 @@ enum MockUserAccountData {
         )
     }
 
+    /// Brand account that carries a server-issued signinURL, so a verified
+    /// session switch can be attempted in tests.
+    static var brandAccountWithSigninURL: UserAccount {
+        UserAccount.from(
+            name: "Brand Account",
+            handle: "@brandaccount",
+            brandId: "123456789012345678901",
+            thumbnailURL: URL(string: "https://example.com/brand-avatar.jpg"),
+            isSelected: false,
+            signinURL: URL(string: "https://www.youtube.com/signin?pageid=123456789012345678901&authuser=0&next=%2F")
+        )
+    }
+
     static var selectedBrandAccount: UserAccount {
         UserAccount.from(
             name: "Selected Brand",

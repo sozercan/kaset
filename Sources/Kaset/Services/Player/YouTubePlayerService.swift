@@ -9,6 +9,7 @@ import Observation
 protocol YouTubeWatchPlaybackControlling: AnyObject {
     func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService)
     func loadVideo(videoId: String)
+    func reloadVideo(videoId: String, resumeAt seconds: Double?)
     func playPause()
     func play()
     func pause()
@@ -227,6 +228,31 @@ final class YouTubePlayerService {
         // Create the WebView on demand; containers reparent it on appear.
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
+    }
+
+    /// Re-points the current video under the WebView session's current
+    /// (just-switched) delegated identity, preserving playback position.
+    ///
+    /// Watch history is recorded by the page's own stats pings, which inherit the
+    /// identity of the served document. After an account switch the in-flight
+    /// page is still the previous identity's document, so a full reload is needed
+    /// for continued watching to record to the new account.
+    func reloadCurrentVideoForIdentitySwitch() {
+        guard let currentVideo = self.currentVideo else {
+            self.logger.debug("Identity switch: no current video to re-point")
+            return
+        }
+        let resumeProgress = self.progress
+        self.logger.info("Identity switch: re-pointing current video under new session identity (resume at \(Int(resumeProgress))s)")
+
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        // Defer the seek to load completion: the new <video> element does not
+        // exist until the reloaded document finishes, so seeking now would be a
+        // no-op against the old/torn-down page.
+        self.playbackController.reloadVideo(
+            videoId: currentVideo.videoId,
+            resumeAt: resumeProgress > 0 ? resumeProgress : nil
+        )
     }
 
     /// Toggles play/pause.

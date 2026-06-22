@@ -8,6 +8,8 @@ import Testing
 @MainActor
 private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling {
     private(set) var loadedVideoIds: [String] = []
+    private(set) var reloadedVideoIds: [String] = []
+    private(set) var reloadResumeSeconds: [Double?] = []
     private(set) var playPauseCount = 0
     private(set) var playCount = 0
     private(set) var pauseCount = 0
@@ -22,6 +24,11 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
 
     func loadVideo(videoId: String) {
         self.loadedVideoIds.append(videoId)
+    }
+
+    func reloadVideo(videoId: String, resumeAt seconds: Double?) {
+        self.reloadedVideoIds.append(videoId)
+        self.reloadResumeSeconds.append(seconds)
     }
 
     func playPause() {
@@ -124,6 +131,24 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.prepareCount == 1)
         #expect(self.controller.loadedVideoIds == ["abc"])
         #expect(willStartCount == 1)
+    }
+
+    @Test("Identity-switch re-points the current video via a forced reload")
+    func reloadForIdentitySwitchRepointsCurrentVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        // A forced reload (not a plain loadVideo, which would no-op on same id).
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        // No progress yet → no resume seek requested.
+        #expect(self.controller.reloadResumeSeconds == [nil])
+    }
+
+    @Test("Identity-switch is a no-op when no video is playing")
+    func reloadForIdentitySwitchNoOpWhenIdle() {
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        #expect(self.controller.reloadedVideoIds.isEmpty)
     }
 
     @Test("State updates from the bridge are applied")

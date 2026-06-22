@@ -10,6 +10,9 @@ final class MockWebKitManager: WebKitManagerProtocol {
     var allCookies: [HTTPCookie] = []
     var sapisidValue: String?
 
+    /// When set, `switchSessionIdentity` throws this error instead of succeeding.
+    var switchSessionIdentityError: Error?
+
     // MARK: - Call Tracking
 
     private(set) var getAllCookiesCalled = false
@@ -24,6 +27,9 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var waitForInitialCookieRestoreCalled = false
     private(set) var waitForInitialCookieRestoreCallCount = 0
     private(set) var logAuthCookiesCalled = false
+    private(set) var switchSessionIdentityCalled = false
+    private(set) var switchSessionIdentityCallCount = 0
+    private(set) var switchSessionIdentityExpectedBrandIds: [String?] = []
     private(set) var callSequence: [String] = []
 
     // MARK: - Protocol Implementation
@@ -84,6 +90,16 @@ final class MockWebKitManager: WebKitManagerProtocol {
         // No-op in mock
     }
 
+    func switchSessionIdentity(to _: URL, expectedBrandId: String?) async throws {
+        self.switchSessionIdentityCalled = true
+        self.switchSessionIdentityCallCount += 1
+        self.switchSessionIdentityExpectedBrandIds.append(expectedBrandId)
+        self.callSequence.append("switchSessionIdentity")
+        if let error = self.switchSessionIdentityError {
+            throw error
+        }
+    }
+
     // MARK: - Helper Methods
 
     /// Resets all call tracking.
@@ -100,6 +116,10 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.waitForInitialCookieRestoreCalled = false
         self.waitForInitialCookieRestoreCallCount = 0
         self.logAuthCookiesCalled = false
+        self.switchSessionIdentityCalled = false
+        self.switchSessionIdentityCallCount = 0
+        self.switchSessionIdentityExpectedBrandIds = []
+        self.switchSessionIdentityError = nil
         self.callSequence = []
         self.allCookies = []
         self.sapisidValue = nil

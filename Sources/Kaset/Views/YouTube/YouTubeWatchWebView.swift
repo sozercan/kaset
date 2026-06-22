@@ -23,6 +23,12 @@ final class YouTubeWatchWebView {
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
 
+    /// Seek position (seconds) to apply once the next page finishes loading.
+    /// Used to resume a video at its prior position after a forced reload (e.g.
+    /// an account/session-identity switch), since the `<video>` element does not
+    /// exist until the new document loads. Cleared on apply.
+    var pendingSeek: Double?
+
     private init() {}
 
     /// Get or create the watch WebView.
@@ -70,15 +76,30 @@ final class YouTubeWatchWebView {
         webView.autoresizingMask = [.width, .height]
     }
 
-    /// Loads a watch page for the given video.
+    /// Loads a watch page for the given video, skipping if it is already current.
     func loadVideo(videoId: String) {
-        guard let webView else {
-            self.logger.error("YouTube watch loadVideo called but webView is nil")
-            return
-        }
-
         guard videoId != self.currentVideoId else {
             self.logger.debug("YouTube video \(videoId) already loaded, skipping")
+            return
+        }
+        self.load(videoId: videoId)
+    }
+
+    /// Forces a full reload of the given video even when it is already current,
+    /// optionally resuming at `resumeAt` seconds once the new page loads.
+    ///
+    /// Used after an account/session-identity switch: the page identity lives in
+    /// the served document, so the in-flight watch page must be re-fetched under
+    /// the new session for subsequent watch-history pings to attribute correctly.
+    func reloadVideo(videoId: String, resumeAt seconds: Double? = nil) {
+        self.logger.info("Force-reloading YouTube video under new session identity: \(videoId)")
+        self.pendingSeek = seconds
+        self.load(videoId: videoId)
+    }
+
+    private func load(videoId: String) {
+        guard let webView else {
+            self.logger.error("YouTube watch loadVideo called but webView is nil")
             return
         }
 
@@ -196,12 +217,18 @@ final class YouTubeWatchWebView {
             )
 
             let savedVolume = self.playerService.volume
+            // Apply a pending resume-seek now that the new <video> exists (e.g.
+            // after a session-identity-switch reload). Cleared once consumed.
+            let pendingSeek = YouTubeWatchWebView.shared.pendingSeek
+            YouTubeWatchWebView.shared.pendingSeek = nil
+            let seekScript = pendingSeek.map { "if (video) { video.currentTime = \($0); }" } ?? ""
             webView.evaluateJavaScript(
                 """
                 (function() {
                     window.__kasetTargetVolume = \(savedVolume);
                     const video = document.querySelector('video');
                     if (video) { video.volume = \(savedVolume); }
+                    \(seekScript)
                     if (window.__kasetExtractVideo) { window.__kasetExtractVideo(); }
                 })();
                 """,

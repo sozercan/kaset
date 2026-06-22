@@ -32,6 +32,12 @@ final class AccountService {
     private let ytMusicClient: any YTMusicClientProtocol
     private let authService: AuthService
 
+    /// WebKit session manager used to re-point the playback session's active
+    /// delegated identity on account switch. Optional so SwiftUI previews and
+    /// lightweight constructions can omit it; when nil, switching falls back to
+    /// local-state-only (history will not record to brand accounts).
+    private let webKitManager: (any WebKitManagerProtocol)?
+
     // MARK: - Published State
 
     /// All available accounts (primary + brand accounts).
@@ -69,6 +75,10 @@ final class AccountService {
     private let logger = DiagnosticsLogger.auth
     private let selectedBrandIdKey = "selectedBrandId"
 
+    /// Tracks the off-path restore-pin so it can be observed in tests and is not
+    /// orphaned. Replaced on each `fetchAccounts`.
+    private var brandSessionPinTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     /// Creates an AccountService with the required dependencies.
@@ -76,9 +86,16 @@ final class AccountService {
     /// - Parameters:
     ///   - ytMusicClient: Client for YouTube Music API calls.
     ///   - authService: Service for checking authentication state.
-    init(ytMusicClient: any YTMusicClientProtocol, authService: AuthService) {
+    ///   - webKitManager: WebKit session manager used to switch the playback
+    ///     session's active identity on account switch. Omit (nil) in previews.
+    init(
+        ytMusicClient: any YTMusicClientProtocol,
+        authService: AuthService,
+        webKitManager: (any WebKitManagerProtocol)? = nil
+    ) {
         self.ytMusicClient = ytMusicClient
         self.authService = authService
+        self.webKitManager = webKitManager
     }
 
     // MARK: - Public Methods
@@ -128,12 +145,53 @@ final class AccountService {
 
             let currentLabel = self.currentAccount?.brandId ?? "primary"
             self.logger.info("AccountService: Fetched \(self.accounts.count) accounts, current: \(self.currentAccount?.name ?? "none") (brandId=\(currentLabel))")
+
+            // Re-establish the WebView session identity for a restored brand
+            // account. Without this, a relaunch leaves native reads brand-aware
+            // while the playback session is still primary, so playback would
+            // record history to the primary account (the issue-#277 bug, on every
+            // cold launch). Run it OFF the fetch path (after isLoading clears) so
+            // a real ≤20s navigation never stalls launch or holds the account
+            // spinner; it is best-effort and surfaced via logs on failure.
+            self.scheduleRestoredBrandSessionPin()
         } catch {
             self.logger.error("AccountService: Failed to fetch accounts: \(error.localizedDescription)")
             self.lastError = error
             self.lastErrorWasFetch = true
             self.errorSequence += 1
         }
+    }
+
+    /// Schedules a best-effort WebView session pin for a restored brand account,
+    /// off the `fetchAccounts` path so it never blocks launch or holds
+    /// `isLoading`.
+    ///
+    /// No-op for the primary account (the default session identity) or when no
+    /// WebKit manager is injected. Verification failures are logged, not thrown.
+    private func scheduleRestoredBrandSessionPin() {
+        guard !UITestConfig.isUITestMode,
+              let webKitManager = self.webKitManager,
+              let account = self.currentAccount,
+              let brandId = account.brandId,
+              let signinURL = account.signinURL
+        else {
+            return
+        }
+
+        self.brandSessionPinTask?.cancel()
+        self.brandSessionPinTask = Task { [weak self] in
+            do {
+                try await webKitManager.switchSessionIdentity(to: signinURL, expectedBrandId: brandId)
+                self?.logger.info("AccountService: Restored brand session identity for \(account.name)")
+            } catch {
+                self?.logger.error("AccountService: Could not restore brand session identity: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Awaits the in-flight restored-brand-session pin, if any. Test hook.
+    func awaitRestoredBrandSessionPinForTesting() async {
+        await self.brandSessionPinTask?.value
     }
 
     /// Switches to a different account.
@@ -155,14 +213,31 @@ final class AccountService {
         }
 
         do {
-            // Note: API call to switch server-side identity is not implemented yet.
-            // Currently we only update local state. Server-side switching can be added
-            // when the selectActiveIdentity endpoint is explored and documented.
-
             if UITestConfig.isUITestMode,
                UITestConfig.environmentValue(for: UITestConfig.mockAccountSwitchFailKey) == "true"
             {
                 throw YTMusicError.apiError(message: "Mock account switch failure", code: nil)
+            }
+
+            // Re-point the playback session's active delegated identity BEFORE
+            // committing the new account. History is recorded by the playback
+            // WebView's own stats pings, which attribute to the identity baked
+            // into the served document (ytcfg.DATASYNC_ID). Navigating the
+            // server-issued signin URL switches that identity for the shared
+            // cookie session; verifying it here means a failed/unverified switch
+            // throws into the catch block below and reverts, rather than silently
+            // recording plays to the wrong account.
+            //
+            // Skipped in UI test mode (no real WebKit session) and when no
+            // webKitManager was injected (e.g. previews).
+            if !UITestConfig.isUITestMode, let webKitManager = self.webKitManager {
+                guard let signinURL = account.signinURL else {
+                    throw SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
+                }
+                try await webKitManager.switchSessionIdentity(
+                    to: signinURL,
+                    expectedBrandId: account.brandId
+                )
             }
 
             // Update local state

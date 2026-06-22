@@ -106,6 +106,37 @@ extension PlayerService {
         guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
         return SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
     }
+
+    /// Re-loads the currently playing track so it is served under the WebView
+    /// session's current (just-switched) delegated identity.
+    ///
+    /// History is recorded by the playback page's own stats pings, which inherit
+    /// the identity of the document that was loaded. After an account switch the
+    /// in-flight page is still the previous identity's document, so a full-page
+    /// reload is required for subsequent listening to record to the new account.
+    /// Playback position and play/pause intent are preserved across the reload
+    /// via the existing restored-session machinery.
+    func reloadCurrentTrackForIdentitySwitch() {
+        guard let currentTrack = self.currentTrack else {
+            self.logger.debug("Identity switch: no current track to re-point")
+            return
+        }
+
+        let resumeProgress = self.progress
+        let wasPlaying = self.isPlaying
+        self.logger.info("Identity switch: re-pointing current track under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
+
+        self.pendingRestoredSeek = resumeProgress
+        self.beginRestoredPlaybackLoad(autoResumeAfterSeek: wasPlaying)
+
+        // Force a full navigation even though the videoId is unchanged: the
+        // identity lives in the served document, so an in-place restart would
+        // keep recording to the previous account.
+        SingletonPlayerWebView.shared.loadVideo(
+            videoId: currentTrack.videoId,
+            strategy: .forceFullPageWhenSameVideoId
+        )
+    }
 }
 
 private extension PlayerService {

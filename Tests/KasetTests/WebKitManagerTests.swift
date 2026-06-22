@@ -102,4 +102,48 @@ struct WebKitManagerTests {
 
         #expect(resolvedURL == nil)
     }
+
+    // MARK: - DATASYNC_ID Identity Matching
+
+    @Test("Brand DATASYNC_ID matches when first half equals brand pageId")
+    func dataSyncIdMatchesBrand() {
+        // "<delegatedSessionId>||<userSessionId>" — delegated half is the brand.
+        let dataSyncId = "111111111111111111111||108880000000000000000"
+        #expect(WebKitManager.dataSyncId(dataSyncId, matches: "111111111111111111111") == true)
+    }
+
+    @Test("Brand DATASYNC_ID does not match a different brand pageId")
+    func dataSyncIdRejectsWrongBrand() {
+        let dataSyncId = "111111111111111111111||108880000000000000000"
+        #expect(WebKitManager.dataSyncId(dataSyncId, matches: "999999999999999999999") == false)
+    }
+
+    @Test("Primary DATASYNC_ID (empty delegated half) matches nil brand")
+    func dataSyncIdMatchesPrimary() {
+        // Primary is "<userSessionId>||" — empty delegated (first) half.
+        let dataSyncId = "108880000||"
+        #expect(WebKitManager.dataSyncId(dataSyncId, matches: nil) == true)
+    }
+
+    @Test("Primary DATASYNC_ID does not match a brand expectation")
+    func dataSyncIdPrimaryRejectsBrand() {
+        let dataSyncId = "108880000||"
+        #expect(WebKitManager.dataSyncId(dataSyncId, matches: "111111111111111111111") == false)
+    }
+
+    @Test("Brand DATASYNC_ID does not satisfy a primary (nil) expectation")
+    func dataSyncIdBrandRejectsPrimary() {
+        let dataSyncId = "111111111111111111111||108880000000000000000"
+        #expect(WebKitManager.dataSyncId(dataSyncId, matches: nil) == false)
+    }
+
+    @Test("Blank/unread DATASYNC_ID never falsely verifies as primary")
+    func dataSyncIdBlankIsNotPrimary() {
+        // The page JS returns "" (or a bare "||") before ytcfg populates; an
+        // unread page must NOT be treated as a verified primary session.
+        #expect(WebKitManager.dataSyncId("", matches: nil) == false)
+        #expect(WebKitManager.dataSyncId("||", matches: nil) == false)
+        #expect(WebKitManager.dataSyncId("", matches: "111111111111111111111") == false)
+        #expect(WebKitManager.dataSyncId("garbage-no-separator", matches: nil) == false)
+    }
 }
