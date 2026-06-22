@@ -40,6 +40,11 @@ extension SingletonPlayerWebView: MusicVideoQualitySource {
 /// transition — so the quality menu repopulates when the track changes while
 /// video mode stays open, and a slow/empty first probe can retry.
 extension PlayerService {
+    /// Delay between quality-discovery retries. Injectable (mirrors
+    /// `HistoryViewModel.playbackRefreshDelay`) so tests can set `.zero` and not
+    /// block on real wall-clock time.
+    static var videoQualityRetryDelay: Duration = .milliseconds(1500)
+
     /// Loads the resolution levels for the current video if they haven't been
     /// loaded yet. Idempotent: the per-video guard is set only **after** a
     /// successful fetch whose levels are confirmed to belong to the requested
@@ -52,6 +57,11 @@ extension PlayerService {
     func refreshVideoQualityOptionsIfNeeded() async {
         guard self.showVideo, let videoId = self.currentTrack?.videoId else { return }
         guard self.videoQualityOptionsVideoId != videoId else { return }
+
+        // We're about to probe a different video than whatever is currently
+        // displayed: drop the previous video's levels now so the menu doesn't
+        // show stale resolutions while the new page loads.
+        self.clearDisplayedQualityLevels()
 
         for attempt in 0 ..< 3 {
             // Confirm the player has actually navigated to the requested video
@@ -81,7 +91,7 @@ extension PlayerService {
             // Player not ready / still on the old page; wait and retry (guard
             // stays unset).
             if attempt < 2 {
-                try? await Task.sleep(for: .milliseconds(1500))
+                try? await Task.sleep(for: Self.videoQualityRetryDelay)
                 guard self.showVideo, self.currentTrack?.videoId == videoId else { return }
             }
         }
@@ -94,7 +104,16 @@ extension PlayerService {
         HapticService.toggle()
     }
 
-    /// Clears per-track quality state (called from ``resetTrackStatus()``).
+    /// Clears the currently displayed levels/selection without touching the
+    /// per-video fetch guard. Used when starting discovery for a new video so a
+    /// skip doesn't leave the previous video's resolutions on screen.
+    func clearDisplayedQualityLevels() {
+        self.videoQualityLevels = []
+        self.currentVideoQuality = nil
+    }
+
+    /// Fully clears per-track quality state, including the fetch guard.
+    /// Called when video playback stops or the active video changes.
     func resetVideoQualityOptions() {
         self.videoQualityLevels = []
         self.currentVideoQuality = nil

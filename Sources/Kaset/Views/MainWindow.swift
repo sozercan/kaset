@@ -241,11 +241,15 @@ struct MainWindow: View {
                 Task { await self.playerService.refreshVideoQualityOptionsIfNeeded() }
             } else {
                 VideoWindowController.shared.close()
+                // Video mode closed: fully clear quality state (incl. the fetch
+                // guard) so reopening re-probes the player.
+                self.playerService.resetVideoQualityOptions()
             }
         }
         .onChange(of: self.playerService.currentTrack?.videoId) { _, _ in
             // The track can change while video mode stays open; re-discover the
-            // new video's quality levels (resetTrackStatus cleared the old ones).
+            // new video's quality levels. refreshVideoQualityOptionsIfNeeded
+            // clears the previous video's displayed levels before probing.
             guard self.playerService.showVideo else { return }
             Task { await self.playerService.refreshVideoQualityOptionsIfNeeded() }
         }

@@ -13,6 +13,8 @@ struct VideoSupportTests {
     init() {
         UserDefaults.standard.removeObject(forKey: "playerVolume")
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
+        // Keep the quality-discovery retry path from blocking on real time.
+        PlayerService.videoQualityRetryDelay = .zero
         self.playerService = PlayerService()
     }
 
@@ -168,15 +170,17 @@ struct VideoSupportTests {
         #expect(self.playerService.videoQualityOptionsVideoId == nil)
     }
 
-    @Test("resetTrackStatus also clears video quality options")
-    func resetTrackStatusClearsVideoQuality() {
+    @Test("resetTrackStatus leaves video quality untouched (videoId-keyed instead)")
+    func resetTrackStatusKeepsVideoQuality() {
         self.playerService.videoQualityLevels = ["hd1080", "hd720"]
         self.playerService.currentVideoQuality = "hd1080"
 
+        // Quality clearing is intentionally decoupled from resetTrackStatus so a
+        // same-videoId metadata refresh doesn't blank the picker.
         self.playerService.resetTrackStatus()
 
-        #expect(self.playerService.videoQualityLevels.isEmpty)
-        #expect(self.playerService.currentVideoQuality == nil)
+        #expect(self.playerService.videoQualityLevels == ["hd1080", "hd720"])
+        #expect(self.playerService.currentVideoQuality == "hd1080")
     }
 
     @Test("YouTubeQuality.displayName maps the levels the music player reports")
@@ -237,11 +241,11 @@ struct VideoSupportTests {
 
         await self.playerService.refreshVideoQualityOptionsIfNeeded()
         #expect(self.playerService.videoQualityOptionsVideoId == "first")
+        #expect(self.playerService.videoQualityLevels == ["hd720", "auto"])
 
-        // Simulate the next song: resetTrackStatus clears state, track changes,
-        // and the player navigates to the new video.
-        self.playerService.resetTrackStatus()
-        #expect(self.playerService.videoQualityLevels.isEmpty)
+        // Simulate the next song: the track changes and the player navigates to
+        // the new video. Discovery itself clears the previous levels before
+        // fetching the new ones (resetTrackStatus no longer touches quality).
         source.levels = ["hd1080", "hd720", "auto"]
         source.loadedId = "second"
         self.playerService.currentTrack = self.makeVideoSong("second")
@@ -314,15 +318,10 @@ struct VideoSupportTests {
         let source = MockMusicVideoQualitySource()
         source.levels = ["hd720", "auto"]
         source.loadedId = "stale" // first probe: page still on the old video
+        source.loadedIdAfterCall = (call: 2, id: "target") // ready on 2nd probe
         self.playerService.videoQualitySource = source
         self.playerService.showVideo = true
         self.playerService.currentTrack = self.makeVideoSong("target")
-
-        // Flip the loaded id to the requested one after a beat, mid-retry.
-        Task {
-            try? await Task.sleep(for: .milliseconds(400))
-            source.loadedId = "target"
-        }
 
         await self.playerService.refreshVideoQualityOptionsIfNeeded()
 
@@ -343,6 +342,51 @@ struct VideoSupportTests {
         #expect(self.playerService.videoQualityLevels.isEmpty)
         #expect(source.availableCallCount == 0)
     }
+
+    @Test("Skipping clears the previous video's displayed levels immediately")
+    func skipClearsStaleDisplayedLevels() async {
+        // First video populated.
+        let source = MockMusicVideoQualitySource()
+        source.levels = ["hd1080", "hd720", "auto"]
+        source.loadedId = "first"
+        self.playerService.videoQualitySource = source
+        self.playerService.showVideo = true
+        self.playerService.currentTrack = self.makeVideoSong("first")
+        await self.playerService.refreshVideoQualityOptionsIfNeeded()
+        #expect(!self.playerService.videoQualityLevels.isEmpty)
+
+        // Skip: new track, but the page is still on the old video and not ready.
+        source.loadedId = "second" // pretend page navigated but reports no levels yet
+        source.levels = []
+        self.playerService.currentTrack = self.makeVideoSong("second")
+
+        await self.playerService.refreshVideoQualityOptionsIfNeeded()
+
+        // The old video's resolutions must not linger on screen while the new
+        // page loads — the menu should be empty, not showing stale options.
+        #expect(self.playerService.videoQualityLevels.isEmpty)
+        #expect(self.playerService.currentVideoQuality == nil)
+    }
+
+    @Test("Same-video resetTrackStatus does not clear quality levels")
+    func sameVideoResetKeepsQuality() async {
+        let source = MockMusicVideoQualitySource()
+        source.levels = ["hd720", "auto"]
+        source.loadedId = "abc"
+        self.playerService.videoQualitySource = source
+        self.playerService.showVideo = true
+        self.playerService.currentTrack = self.makeVideoSong("abc")
+        await self.playerService.refreshVideoQualityOptionsIfNeeded()
+        #expect(!self.playerService.videoQualityLevels.isEmpty)
+
+        // A same-video metadata refresh (title/artist glitch) calls
+        // resetTrackStatus; it must NOT blank the quality picker, since nothing
+        // would re-trigger discovery for the unchanged videoId.
+        self.playerService.resetTrackStatus()
+
+        #expect(self.playerService.videoQualityLevels == ["hd720", "auto"])
+        #expect(self.playerService.videoQualityOptionsVideoId == "abc")
+    }
 }
 
 // MARK: - MockMusicVideoQualitySource
@@ -361,6 +405,10 @@ private final class MockMusicVideoQualitySource: MusicVideoQualitySource {
     /// page, or to a different id to simulate the page lagging behind a skip.
     var loadedId: String?
 
+    /// When set, `loadedVideoId()` switches to `id` once it has been called at
+    /// least `call` times — simulating the page finishing navigation mid-retry.
+    var loadedIdAfterCall: (call: Int, id: String)?
+
     /// When set, `availableQualityLevels()` returns `[]` until this many calls
     /// have been made, then returns `levels` — simulating a player that becomes
     /// ready after a couple of probes.
@@ -368,6 +416,9 @@ private final class MockMusicVideoQualitySource: MusicVideoQualitySource {
 
     func loadedVideoId() async -> String? {
         self.loadedCallCount += 1
+        if let ready = self.loadedIdAfterCall, self.loadedCallCount >= ready.call {
+            return ready.id
+        }
         return self.loadedId
     }
 
