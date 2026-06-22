@@ -372,9 +372,15 @@ final class SingletonPlayerWebView {
             targetVolume: currentVolume
         )
 
-        // Stop current playback first, then load new video
+        // Stop current playback first, then load new video. For a forced
+        // full-page navigation (e.g. an identity-switch reload) skip pausing the
+        // OLD <video>: the navigation tears it down anyway, and the pause event
+        // would emit a stale STATE_UPDATE from the outgoing page that can be
+        // mis-reconciled against a restored session before the new document loads.
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
+        let skipPrenavPause = (strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId)
+        let prenavScript = skipPrenavPause ? "" : "document.querySelector('video')?.pause();"
+        webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
 
             // Keep the current page's target volume fresh until the new document

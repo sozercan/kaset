@@ -104,6 +104,10 @@ extension YouTubeWatchWebView {
             function applyPendingSeek(video) {
                 const target = window.__kasetPendingSeek;
                 if (typeof target !== 'number') { return; }
+                // Don't seek (or consume the pending value) on a preroll-ad video
+                // element — wait for the real content player, or the content would
+                // start from 0 after the ad.
+                if (isAdShowing()) { return; }
                 if (video.readyState < 1) { return; }
                 try {
                     video.currentTime = target;

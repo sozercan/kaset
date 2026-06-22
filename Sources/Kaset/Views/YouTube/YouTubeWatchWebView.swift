@@ -82,6 +82,10 @@ final class YouTubeWatchWebView {
             self.logger.debug("YouTube video \(videoId) already loaded, skipping")
             return
         }
+        // A normal (non-reload) load starts a fresh video: drop any pending
+        // resume-seek left over from an interrupted identity-switch reload, so it
+        // cannot be injected into a different video's document.
+        self.pendingSeek = nil
         self.load(videoId: videoId)
     }
 
@@ -99,7 +103,7 @@ final class YouTubeWatchWebView {
 
     private func load(videoId: String) {
         guard let webView else {
-            self.logger.error("YouTube watch loadVideo called but webView is nil")
+            self.logger.error("YouTube watch load called but webView is nil")
             return
         }
 

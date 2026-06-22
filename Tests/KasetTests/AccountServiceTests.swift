@@ -200,6 +200,43 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityURLs.last == primary.signinURL)
     }
 
+    @Test @MainActor func supersededSwitchAbandonsItsCommit() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brandA = MockUserAccountData.brandAccountWithSigninURL
+        let brandB = UserAccount.from(
+            name: "Brand B", handle: "@b", brandId: "222222222222222222222",
+            thumbnailURL: nil, isSelected: false,
+            signinURL: URL(string: "https://www.youtube.com/signin?pageid=222222222222222222222&authuser=0&next=%2F")
+        )
+        await Self.populateAccounts(services, accounts: [primary, brandA, brandB], selectedIndex: 0)
+
+        // Gate the FIRST switch (to A) so it is still verifying when B starts.
+        let releaseA = AsyncReleaseGate()
+        mockWebKit.switchSessionIdentityGate = { await releaseA.wait() }
+        async let firstSwitch: Void = services.account.switchAccount(to: brandA)
+        // Let the first switch reach the gate.
+        await Task.yield()
+
+        // Start the second switch (to B) ungated; it bumps the generation and
+        // commits B. Then release A — A must observe it was superseded and NOT
+        // overwrite currentAccount back to A.
+        mockWebKit.switchSessionIdentityGate = nil
+        try await services.account.switchAccount(to: brandB)
+        #expect(services.account.currentAccount?.id == brandB.id)
+
+        await releaseA.release()
+        try? await firstSwitch
+
+        // B remains the active account; the superseded A switch did not clobber it.
+        #expect(services.account.currentAccount?.id == brandB.id)
+    }
+
     @Test @MainActor func switchAccountWithoutSigninURLFailsSafely() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)

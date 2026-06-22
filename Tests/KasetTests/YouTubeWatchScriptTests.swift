@@ -53,4 +53,23 @@ struct YouTubeWatchScriptTests {
         #expect(script.contains("applyPendingSeek"))
         #expect(script.contains("readyState"))
     }
+
+    @Test("Observer skips the pending seek while an ad is showing")
+    func observerSkipsPendingSeekDuringAd() {
+        let script = YouTubeWatchWebView.observerScript
+        // applyPendingSeek must bail on isAdShowing() so a preroll-ad element
+        // doesn't consume the seek and leave content starting from 0.
+        #expect(script.contains("isAdShowing()"))
+    }
+
+    @Test("A normal loadVideo clears a stale pending seek from an interrupted reload")
+    @MainActor func normalLoadClearsStalePendingSeek() {
+        let webView = YouTubeWatchWebView.shared
+        webView.pendingSeek = 99
+        // loadVideo (the non-reload path) must drop the leftover seek so it can't
+        // be injected into a different video. (No webView attached in tests, so
+        // the load is a no-op beyond clearing the field.)
+        webView.loadVideo(videoId: "different-video")
+        #expect(webView.pendingSeek == nil)
+    }
 }

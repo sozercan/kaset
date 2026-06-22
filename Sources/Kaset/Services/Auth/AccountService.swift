@@ -95,6 +95,14 @@ final class AccountService {
     /// identity. Replaced on each `fetchAccounts`/`switchAccount`.
     private var sessionPinTask: Task<Void, Never>?
 
+    /// Monotonic generation for account-switch operations. A switch captures the
+    /// value at entry and re-checks it before committing; if a newer switch (or a
+    /// fetch-scheduled restore pin) has started in the meantime, the older one
+    /// aborts without committing or persisting, so two overlapping switches can
+    /// never leave `currentAccount`/`verifiedAccountId` disagreeing with the
+    /// last-launched navigation against the shared cookie store.
+    private var switchGeneration: Int = 0
+
     private func markIdentityVerified(_ accountId: String?) {
         self.verifiedAccountId = accountId
         self.verifiedIdentitySequence &+= 1
@@ -199,6 +207,10 @@ final class AccountService {
         // considers active (e.g. after logout/re-auth or an account-list refresh).
         self.sessionPinTask?.cancel()
         self.sessionPinTask = nil
+        // Supersede any in-flight manual switch: bumping the generation makes a
+        // concurrent switchAccount abort its commit (its navigation is cancelled
+        // below via the shared sessionPinTask, but it may already be past that).
+        self.switchGeneration &+= 1
 
         guard !UITestConfig.isUITestMode,
               let webKitManager = self.webKitManager,
@@ -252,6 +264,14 @@ final class AccountService {
         await self.sessionPinTask?.value
         self.sessionPinTask = nil
 
+        // Claim this switch's generation. If another switch (or a fetch-scheduled
+        // pin) starts while this one is awaiting its navigation, the generation
+        // moves on and this switch aborts its commit below rather than racing two
+        // navigations to a split-brain result. Synchronous sections are atomic on
+        // the main actor; only the awaits below can interleave.
+        self.switchGeneration &+= 1
+        let myGeneration = self.switchGeneration
+
         // Tracks whether the session-mutating navigation was actually started, so
         // the catch only rolls the session back when there is something to undo.
         var didStartSessionSwitch = false
@@ -289,6 +309,16 @@ final class AccountService {
                 )
             }
 
+            // If a newer switch/pin superseded this one while we were navigating,
+            // abort: the newer operation owns the session and the committed state.
+            // Do NOT roll back the session here — the survivor is mid-flight and
+            // will establish the correct identity.
+            guard myGeneration == self.switchGeneration else {
+                self.logger.info("AccountService: Switch to \(account.name) superseded; abandoning commit")
+                self.isLoading = false
+                return
+            }
+
             // Update local state
             self.currentAccount = account
 
@@ -310,6 +340,15 @@ final class AccountService {
             self.logger.info("AccountService: Successfully switched to account: \(account.name)")
         } catch {
             self.logger.error("AccountService: Failed to switch account: \(error.localizedDescription)")
+
+            // If a newer switch/pin superseded this one, do not touch shared state
+            // on the failure path either — the survivor owns currentAccount and the
+            // session. Surface nothing; the newer operation drives the outcome.
+            guard myGeneration == self.switchGeneration else {
+                self.logger.info("AccountService: Failed switch to \(account.name) was superseded; not reverting")
+                throw error
+            }
+
             self.currentAccount = previousAccount
             SongLikeStatusManager.shared.setActiveAccountID(previousAccount?.id)
 
@@ -330,7 +369,11 @@ final class AccountService {
                         to: previousSigninURL,
                         expectedBrandId: previous.brandId
                     )
-                    self.markIdentityVerified(previous.id)
+                    // Only claim the verified identity if nothing superseded us
+                    // during the rollback navigation.
+                    if myGeneration == self.switchGeneration {
+                        self.markIdentityVerified(previous.id)
+                    }
                 } catch {
                     self.logger.error("AccountService: Session rollback failed; session may remain on attempted identity: \(error.localizedDescription)")
                 }
@@ -339,8 +382,24 @@ final class AccountService {
             self.lastError = error
             self.lastErrorWasFetch = false
             self.errorSequence += 1
+
+            // The cached signinURL may be single-use/expired (see ADR-0023). If
+            // the switch actually attempted a navigation, refresh the account list
+            // in the background so a retry uses a fresh signinURL instead of
+            // reusing the stale one. Best-effort; does not affect the thrown error.
+            if didStartSessionSwitch {
+                Task { [weak self] in await self?.refreshAccountsAfterSwitchFailure() }
+            }
+
             throw error
         }
+    }
+
+    /// Re-fetches the account list after a failed switch so a retry has fresh
+    /// signin URLs. Guarded so it does not run while another operation is active.
+    private func refreshAccountsAfterSwitchFailure() async {
+        guard !self.isLoading else { return }
+        await self.fetchAccounts()
     }
 
     /// Clears all account data.
