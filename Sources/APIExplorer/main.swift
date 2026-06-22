@@ -1817,6 +1817,11 @@ func showHelp() {
           auth                           Check authentication status
           accounts                       Discover available accounts (via authuser)
           brandaccounts                  List all brand accounts with their IDs
+          ytcfg [url]                    Probe a page's ytcfg identity (DATASYNC_ID/SESSION_INDEX)
+          signin-probe <brandId> [N] [next]
+                                         Read-only: follow a synthesized brand /signin and report
+                                         whether the session identity flips (issue #277)
+          signin-probe-real [next]       Read-only: follow the server-issued brand signin URL
           help                           Show this help message
 
         Options:

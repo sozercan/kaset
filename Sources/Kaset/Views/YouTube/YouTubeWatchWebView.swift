@@ -109,7 +109,8 @@ final class YouTubeWatchWebView {
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
         self.installUserScripts(
             on: webView.configuration.userContentController,
-            targetVolume: targetVolume
+            targetVolume: targetVolume,
+            pendingSeek: self.pendingSeek
         )
 
         guard let url = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return }
@@ -134,12 +135,13 @@ final class YouTubeWatchWebView {
 
     private func installUserScripts(
         on contentController: WKUserContentController,
-        targetVolume: Double
+        targetVolume: Double,
+        pendingSeek: Double? = nil
     ) {
         contentController.removeAllUserScripts()
 
         let bootstrap = WKUserScript(
-            source: Self.pageBootstrapScript(targetVolume: targetVolume),
+            source: Self.pageBootstrapScript(targetVolume: targetVolume, pendingSeek: pendingSeek),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -169,9 +171,19 @@ final class YouTubeWatchWebView {
     }
 
     /// Document-start state handed to each new watch page.
-    nonisolated static func pageBootstrapScript(targetVolume: Double) -> String {
+    ///
+    /// `pendingSeek`, when present, is a resume position (seconds) applied by the
+    /// observer once the `<video>` element exists and is seekable (see
+    /// `applyPendingSeek` in the observer script). Injected at document start so
+    /// it is in place before the player boots, and naturally scoped to this one
+    /// navigation.
+    nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
         let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
-        return "window.__kasetTargetVolume = \(clamped);"
+        var script = "window.__kasetTargetVolume = \(clamped);"
+        if let pendingSeek, pendingSeek.isFinite, pendingSeek > 0 {
+            script += " window.__kasetPendingSeek = \(pendingSeek);"
+        }
+        return script
     }
 
     // MARK: - Coordinator
@@ -216,19 +228,20 @@ final class YouTubeWatchWebView {
                 "YouTube watch WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )
 
-            let savedVolume = self.playerService.volume
-            // Apply a pending resume-seek now that the new <video> exists (e.g.
-            // after a session-identity-switch reload). Cleared once consumed.
-            let pendingSeek = YouTubeWatchWebView.shared.pendingSeek
+            // The resume-seek for an identity-switch reload is applied by the
+            // observer's applyPendingSeek (gated on the <video> existing and being
+            // seekable), not here: at didFinish the element often does not exist
+            // yet, so a one-shot seek would be lost. Clear the Swift-side copy now
+            // that the per-load bootstrap has carried the value into the page.
             YouTubeWatchWebView.shared.pendingSeek = nil
-            let seekScript = pendingSeek.map { "if (video) { video.currentTime = \($0); }" } ?? ""
+
+            let savedVolume = self.playerService.volume
             webView.evaluateJavaScript(
                 """
                 (function() {
                     window.__kasetTargetVolume = \(savedVolume);
                     const video = document.querySelector('video');
                     if (video) { video.volume = \(savedVolume); }
-                    \(seekScript)
                     if (window.__kasetExtractVideo) { window.__kasetExtractVideo(); }
                 })();
                 """,

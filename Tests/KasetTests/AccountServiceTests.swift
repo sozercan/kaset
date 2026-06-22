@@ -127,6 +127,79 @@ struct AccountServiceTests {
         #expect(services.account.currentBrandId == nil)
     }
 
+    @Test @MainActor func failedSwitchRollsSessionBackToPreviousIdentity() async throws {
+        // Previous account is a brand WITH a signinURL so a rollback is possible.
+        let previous = MockUserAccountData.brandAccountWithSigninURL
+        let target = UserAccount.from(
+            name: "Other Brand", handle: "@other", brandId: "222222222222222222222",
+            thumbnailURL: nil, isSelected: false,
+            signinURL: URL(string: "https://www.youtube.com/signin?pageid=222222222222222222222&authuser=0&next=%2F")
+        )
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        await Self.populateAccounts(services, accounts: [previous, target], selectedIndex: 0)
+        #expect(services.account.currentAccount?.id == previous.id)
+
+        // Forward switch verification fails; rollback (2nd call) succeeds.
+        mockWebKit.switchSessionIdentityErrorQueue = [SessionSwitchError.identityNotApplied(expectedBrandId: target.brandId), nil]
+
+        await #expect(throws: SessionSwitchError.self) {
+            try await services.account.switchAccount(to: target)
+        }
+
+        // Native reverts AND the session is re-pinned to the previous identity.
+        #expect(services.account.currentAccount?.id == previous.id)
+        #expect(mockWebKit.switchSessionIdentityCallCount == 2)
+        #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [target.brandId, previous.brandId])
+        #expect(mockWebKit.switchSessionIdentityURLs.last == previous.signinURL)
+    }
+
+    @Test @MainActor func preSwitchFailureDoesNotRollBackSession() async throws {
+        // A target lacking signinURL throws BEFORE any session navigation, so no
+        // rollback should run (the session was never touched).
+        let previous = MockUserAccountData.brandAccountWithSigninURL
+        let target = MockUserAccountData.brandAccount // no signinURL
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        await Self.populateAccounts(services, accounts: [previous, target], selectedIndex: 0)
+
+        await #expect(throws: SessionSwitchError.self) {
+            try await services.account.switchAccount(to: target)
+        }
+        #expect(mockWebKit.switchSessionIdentityCallCount == 0)
+        #expect(services.account.currentAccount?.id == previous.id)
+    }
+
+    @Test @MainActor func manualSwitchCancelsInFlightLaunchPinAndWinsLast() async throws {
+        let mockWebKit = MockWebKitManager()
+        // Hold the launch pin in flight until released, so it overlaps the switch.
+        let released = AsyncReleaseGate()
+        mockWebKit.switchSessionIdentityGate = { await released.wait() }
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: false,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        // Cold-launch restore of the brand → schedules the gated launch pin.
+        UserDefaults.standard.set(brand.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+        services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary, brand])
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+
+        // Now switch to primary while the launch pin is still gated. switchAccount
+        // must cancel+await the pin (which returns via CancellationError) and then
+        // run its own switch — so the LAST recorded URL is the primary's.
+        mockWebKit.switchSessionIdentityGate = nil // the switch's own call runs ungated
+        try await services.account.switchAccount(to: primary)
+        await released.release()
+
+        #expect(services.account.currentAccount?.id == primary.id)
+        #expect(mockWebKit.switchSessionIdentityURLs.last == primary.signinURL)
+    }
+
     @Test @MainActor func switchAccountWithoutSigninURLFailsSafely() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
@@ -399,4 +472,29 @@ private struct TestServices {
     let account: AccountService
     let client: MockYTMusicClient
     let auth: AuthService
+}
+
+// MARK: - AsyncReleaseGate
+
+/// A one-shot async gate: callers `await wait()` until `release()` is called.
+/// Used to hold a mocked session pin "in flight" while a concurrent switch runs.
+private actor AsyncReleaseGate {
+    private var released = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if self.released { return }
+        await withCheckedContinuation { continuation in
+            self.waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        self.released = true
+        let pending = self.waiters
+        self.waiters = []
+        for continuation in pending {
+            continuation.resume()
+        }
+    }
 }

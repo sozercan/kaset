@@ -594,8 +594,14 @@ extension WebKitManager {
             webView.stopLoading()
         }
 
+        // Bail before mutating the shared cookie session if already cancelled
+        // (e.g. a stale launch pin superseded by a newer switch).
+        try Task.checkCancellation()
+
         do {
             try await driver.load(signinURL, in: webView, timeout: .seconds(20))
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as SessionSwitchError {
             throw error
         } catch {
@@ -603,6 +609,10 @@ extension WebKitManager {
         }
 
         // The page's ytcfg may be emitted slightly after didFinish; poll briefly.
+        // Note: the navigation above is the session MUTATION; this poll is
+        // read-only verification. Correctness across concurrent pins relies on
+        // ordering (the surviving navigation runs last), not on cancellation —
+        // stopLoading() cannot revert cookies already set mid-redirect.
         for attempt in 0 ..< 5 {
             if let dataSyncId = try? await Self.readDataSyncId(from: webView),
                Self.dataSyncId(dataSyncId, matches: expectedBrandId)
@@ -611,7 +621,8 @@ extension WebKitManager {
                 return
             }
             if attempt < 4 {
-                try? await Task.sleep(for: .milliseconds(400))
+                // Use a throwing sleep so cancellation breaks the poll loop.
+                try await Task.sleep(for: .milliseconds(400))
             }
         }
 
@@ -678,14 +689,28 @@ private final class SessionSwitchNavigationDriver: NSObject, WKNavigationDelegat
     private var timeoutTask: Task<Void, Never>?
 
     func load(_ url: URL, in webView: WKWebView, timeout: Duration) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            self.continuation = continuation
-            self.timeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: timeout)
-                guard let self, !self.finished else { return }
-                self.complete(with: .failure(SessionSwitchError.timedOut))
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                // The enclosing Task may have been cancelled between the call and
+                // this body running; bail out immediately if so.
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                self.continuation = continuation
+                self.timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: timeout)
+                    guard let self, !self.finished else { return }
+                    self.complete(with: .failure(SessionSwitchError.timedOut))
+                }
+                webView.load(URLRequest(url: url))
             }
-            webView.load(URLRequest(url: url))
+        } onCancel: {
+            // Cooperative cancellation: resolve promptly with CancellationError so
+            // a stale pin does not block a newer switch for the full navigation.
+            Task { @MainActor [weak self] in
+                self?.complete(with: .failure(CancellationError()))
+            }
         }
     }
 

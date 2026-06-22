@@ -13,6 +13,17 @@ final class MockWebKitManager: WebKitManagerProtocol {
     /// When set, `switchSessionIdentity` throws this error instead of succeeding.
     var switchSessionIdentityError: Error?
 
+    /// Per-call scripted outcomes (front of queue first); `nil` = succeed. Takes
+    /// precedence over `switchSessionIdentityError` while non-empty.
+    var switchSessionIdentityErrorQueue: [Error?] = []
+
+    /// Optional async gate awaited inside `switchSessionIdentity` so a test can
+    /// hold a pin "in flight" to exercise cancel/await ordering.
+    var switchSessionIdentityGate: (@Sendable () async -> Void)?
+
+    /// URLs passed to `switchSessionIdentity`, in call order.
+    private(set) var switchSessionIdentityURLs: [URL] = []
+
     // MARK: - Call Tracking
 
     private(set) var getAllCookiesCalled = false
@@ -90,12 +101,27 @@ final class MockWebKitManager: WebKitManagerProtocol {
         // No-op in mock
     }
 
-    func switchSessionIdentity(to _: URL, expectedBrandId: String?) async throws {
+    func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws {
         self.switchSessionIdentityCalled = true
         self.switchSessionIdentityCallCount += 1
         self.switchSessionIdentityExpectedBrandIds.append(expectedBrandId)
+        self.switchSessionIdentityURLs.append(signinURL)
         self.callSequence.append("switchSessionIdentity")
-        if let error = self.switchSessionIdentityError {
+
+        // Optional gate: lets a test hold a "pin" in flight (e.g. a cold-launch
+        // restore) to exercise cancel/await ordering. Honors cooperative
+        // cancellation so the production cancel+await returns promptly.
+        if let gate = self.switchSessionIdentityGate {
+            await gate()
+            try Task.checkCancellation()
+        }
+
+        // Per-call failure scripting (front of queue), else the sticky error.
+        if !self.switchSessionIdentityErrorQueue.isEmpty {
+            if let scripted = self.switchSessionIdentityErrorQueue.removeFirst() {
+                throw scripted
+            }
+        } else if let error = self.switchSessionIdentityError {
             throw error
         }
     }
@@ -120,6 +146,9 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.switchSessionIdentityCallCount = 0
         self.switchSessionIdentityExpectedBrandIds = []
         self.switchSessionIdentityError = nil
+        self.switchSessionIdentityErrorQueue = []
+        self.switchSessionIdentityGate = nil
+        self.switchSessionIdentityURLs = []
         self.callSequence = []
         self.allCookies = []
         self.sapisidValue = nil

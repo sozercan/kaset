@@ -256,19 +256,6 @@ struct MainWindow: View {
 
                 guard newAccountId != nil else { return }
 
-                // The session identity was switched (and verified) inside
-                // AccountService.switchAccount before currentAccount changed. Any
-                // track still loaded in the player is the previous identity's
-                // document, so re-point it under the new identity — otherwise
-                // continued listening keeps recording to the old account. The
-                // shared cookie session re-points both music and video WebViews.
-                if self.playerService.currentTrack != nil {
-                    self.playerService.reloadCurrentTrackForIdentitySwitch()
-                }
-                if self.youtubePlayerService.currentVideo != nil {
-                    self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
-                }
-
                 self.historyViewModel?.reset()
                 // YouTube surfaces are account-scoped too.
                 self.youtubeStore.resetForAccountChange()
@@ -298,6 +285,23 @@ struct MainWindow: View {
                         }
                     }
                 }
+            }
+        }
+        .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
+            // Re-point in-flight playback ONLY once the new session identity is
+            // verified (DATASYNC_ID confirmed). Driving this off the verified
+            // signal — rather than `currentAccount?.id` — avoids reloading the
+            // player under an unverified/primary identity on cold-launch brand
+            // restore, where `currentAccount` is set before its session pin lands.
+            // History is recorded by the playback WebViews' own stats pings, so a
+            // track/video still loaded under the previous identity must reload to
+            // record to the new account. The shared cookie session covers both.
+            guard self.accountService.verifiedAccountId != nil else { return }
+            if self.playerService.currentTrack != nil {
+                self.playerService.reloadCurrentTrackForIdentitySwitch()
+            }
+            if self.youtubePlayerService.currentVideo != nil {
+                self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
             }
         }
         .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
