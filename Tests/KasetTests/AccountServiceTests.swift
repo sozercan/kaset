@@ -476,24 +476,41 @@ private struct TestServices {
 
 // MARK: - AsyncReleaseGate
 
-/// A one-shot async gate: callers `await wait()` until `release()` is called.
+/// A one-shot async gate: callers `await wait()` until `release()` is called or
+/// the awaiting task is cancelled. Cancellation-aware so a gated mock pin that
+/// `switchAccount` cancels+awaits resumes promptly instead of hanging the test.
 /// Used to hold a mocked session pin "in flight" while a concurrent switch runs.
 private actor AsyncReleaseGate {
     private var released = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
 
     func wait() async {
         if self.released { return }
-        await withCheckedContinuation { continuation in
-            self.waiters.append(continuation)
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if self.released || Task.isCancelled {
+                    continuation.resume()
+                } else {
+                    self.waiters[id] = continuation
+                }
+            }
+        } onCancel: {
+            Task { await self.resumeWaiter(id) }
+        }
+    }
+
+    private func resumeWaiter(_ id: UUID) {
+        if let continuation = self.waiters.removeValue(forKey: id) {
+            continuation.resume()
         }
     }
 
     func release() {
         self.released = true
         let pending = self.waiters
-        self.waiters = []
-        for continuation in pending {
+        self.waiters = [:]
+        for continuation in pending.values {
             continuation.resume()
         }
     }

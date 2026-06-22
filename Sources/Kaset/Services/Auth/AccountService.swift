@@ -192,6 +192,14 @@ final class AccountService {
     /// so observers re-point playback only once the brand session is confirmed.
     /// Verification failures are logged, not thrown.
     private func scheduleRestoredBrandSessionPin() {
+        // Cancel any in-flight pin FIRST, before the guard: a later fetch that
+        // resolves to primary / a brand without a signinURL / a removed account
+        // must not leave an older brand pin running, or it could still verify and
+        // bump `verifiedIdentitySequence` for an account the app no longer
+        // considers active (e.g. after logout/re-auth or an account-list refresh).
+        self.sessionPinTask?.cancel()
+        self.sessionPinTask = nil
+
         guard !UITestConfig.isUITestMode,
               let webKitManager = self.webKitManager,
               let account = self.currentAccount,
@@ -201,7 +209,6 @@ final class AccountService {
             return
         }
 
-        self.sessionPinTask?.cancel()
         self.sessionPinTask = Task { [weak self] in
             guard !Task.isCancelled else { return }
             do {

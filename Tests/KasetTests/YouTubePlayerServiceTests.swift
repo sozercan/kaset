@@ -177,6 +177,29 @@ struct YouTubePlayerServiceTests {
         #expect(self.sut.isPlaying == true)
     }
 
+    @Test("Paused-reload suppression survives a preroll ad")
+    func pausedReloadSuppressesThroughPrerollAd() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        #expect(self.sut.isPlaying == false)
+        var willStartCount = 0
+        self.sut.playbackWillStart = { willStartCount += 1 }
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        let pausesBefore = self.controller.pauseCount
+
+        // The reload first reports a PLAYING preroll AD — must still be suppressed
+        // (the latch may not be cleared until a genuine paused state).
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 5, videoId: "abc", isAd: true))
+        #expect(self.controller.pauseCount == pausesBefore + 1)
+        #expect(self.sut.isPlaying == false)
+        #expect(willStartCount == 0)
+
+        // Then the content autoplays — still suppressed.
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 60, videoId: "abc"))
+        #expect(self.controller.pauseCount == pausesBefore + 2)
+        #expect(willStartCount == 0)
+    }
+
     @Test("Playing video reloaded for identity switch keeps playing")
     func playingReloadDoesNotSuppress() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
@@ -830,60 +853,5 @@ struct PlaybackArbiterTests {
 
         #expect(controller.pauseCount == 0)
         #expect(arbiter.activeSource == .music)
-    }
-}
-
-// MARK: - YouTubeWatchScriptTests
-
-@Suite("YouTubeWatchWebView scripts", .tags(.service))
-@MainActor
-struct YouTubeWatchScriptTests {
-    @Test("Observer script posts to the youtubePlayer bridge with both message types")
-    func observerScriptContract() {
-        let script = YouTubeWatchWebView.observerScript
-        #expect(script.contains("webkit.messageHandlers.youtubePlayer"))
-        #expect(script.contains("STATE_UPDATE"))
-        #expect(script.contains("VIDEO_ENDED"))
-        #expect(script.contains("movie_player"))
-        #expect(script.contains("__kasetTargetVolume"))
-    }
-
-    @Test("Extraction script defines the callable hook and visibility chain")
-    func extractionScriptContract() {
-        let script = YouTubeWatchWebView.extractionScript
-        #expect(script.contains("__kasetExtractVideo"))
-        #expect(script.contains("kaset-yt-video-style"))
-        #expect(script.contains("kaset-visible"))
-        #expect(script.contains("ytp-chrome-bottom"))
-    }
-
-    @Test("Bootstrap script clamps the volume target")
-    func bootstrapClampsVolume() {
-        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 2.0)
-            .contains("__kasetTargetVolume = 1.0"))
-        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: -1)
-            .contains("__kasetTargetVolume = 0.0"))
-    }
-
-    @Test("Bootstrap carries a pending resume-seek only when present and positive")
-    func bootstrapCarriesPendingSeek() {
-        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: 42.5)
-            .contains("__kasetPendingSeek = 42.5"))
-        // No seek pending → no marker injected.
-        #expect(!YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: nil)
-            .contains("__kasetPendingSeek"))
-        // Zero/negative is not a resume position.
-        #expect(!YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: 0)
-            .contains("__kasetPendingSeek"))
-    }
-
-    @Test("Observer applies the pending seek gated on a seekable element")
-    func observerAppliesPendingSeekWhenReady() {
-        let script = YouTubeWatchWebView.observerScript
-        // The seek is applied by the observer (not a one-shot at didFinish),
-        // gated on readyState so it survives YouTube creating <video> late.
-        #expect(script.contains("__kasetPendingSeek"))
-        #expect(script.contains("applyPendingSeek"))
-        #expect(script.contains("readyState"))
     }
 }

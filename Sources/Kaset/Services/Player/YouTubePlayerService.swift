@@ -641,18 +641,21 @@ final class YouTubePlayerService {
         // page autoplays a video the user had paused, re-pause it (reactively,
         // since a one-shot pause at didFinish loses the race to the player's own
         // async playVideo()). Latch is keyed to the reloaded videoId and cleared
-        // once the page settles into a paused state, or on a user resume.
+        // only once the page genuinely reports a paused state, or on a user
+        // resume. A preroll ad counts as playing here too — otherwise the ad
+        // (and the content after it) would autoplay through the switch.
         if let suppressedId = self.suppressAutoplayForPausedReloadVideoId,
            suppressedId == (update.videoId ?? self.currentVideo?.videoId)
         {
-            if update.isPlaying, !update.isAd {
+            if update.isPlaying {
                 self.playbackController.pause()
                 self.isPlaying = false
                 self.progress = update.progress
                 self.duration = update.duration
+                self.isShowingAd = update.isAd
                 return
             }
-            // The page reported paused (or an ad) for the suppressed video — the
+            // The page settled into a paused state for the suppressed video — the
             // intent is satisfied; stop suppressing and process normally.
             self.suppressAutoplayForPausedReloadVideoId = nil
         }

@@ -122,6 +122,23 @@ extension PlayerService {
             return
         }
 
+        // Skip if a restored session is still deferred (cold launch, paused, not
+        // yet loaded into the WebView). There is no previous-identity document to
+        // re-point, and force-navigating here would clear the explicit-resume gate
+        // and load the playback page (and its history stats) before the user
+        // chooses to resume. The eventual user-initiated load already uses the
+        // now-verified session identity.
+        if self.isPendingRestoredLoadDeferred {
+            self.logger.debug("Identity switch: restored session still deferred; skipping re-point")
+            return
+        }
+        // If the current track was never actually loaded into the WebView, there
+        // is likewise nothing to re-point under the old identity.
+        if SingletonPlayerWebView.shared.currentVideoId != currentTrack.videoId {
+            self.logger.debug("Identity switch: current track not loaded in WebView; skipping re-point")
+            return
+        }
+
         let resumeProgress = self.progress
         let wasPlaying = self.isPlaying
         self.logger.info("Identity switch: re-pointing current track under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
