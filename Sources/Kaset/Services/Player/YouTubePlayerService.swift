@@ -98,6 +98,12 @@ final class YouTubePlayerService {
     /// Current position in seconds.
     private(set) var progress: Double = 0
 
+    /// Last observed playback position from genuine CONTENT (not an ad). Used as
+    /// the resume target for an identity-switch reload so a switch during a
+    /// preroll/midroll ad doesn't resume the content near 0 (the ad element's
+    /// time).
+    private var lastNonAdContentProgress: Double = 0
+
     /// Video length in seconds.
     private(set) var duration: Double = 0
 
@@ -249,7 +255,10 @@ final class YouTubePlayerService {
             self.logger.debug("Identity switch: no current video to re-point")
             return
         }
-        let resumeProgress = self.progress
+        // Resume at the last real CONTENT position. During an ad, self.progress
+        // tracks the ad element's time, so prefer the remembered content progress
+        // to avoid resuming the content near 0 after a switch mid-ad.
+        let resumeProgress = self.isShowingAd ? self.lastNonAdContentProgress : self.progress
         let wasPlaying = self.isPlaying
         self.logger.info("Identity switch: re-pointing current video under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
 
@@ -442,6 +451,7 @@ final class YouTubePlayerService {
         // A genuinely new video starts under the user's own intent; never inherit
         // a paused-reload autoplay-suppression latch from a prior video.
         self.suppressAutoplayForPausedReloadVideoId = nil
+        self.lastNonAdContentProgress = 0
     }
 
     // MARK: - Watch Later
@@ -670,6 +680,12 @@ final class YouTubePlayerService {
         self.progress = update.progress
         self.duration = update.duration
         self.isShowingAd = update.isAd
+
+        // Remember the last real content position (ignoring ad playback) so an
+        // identity-switch reload during an ad resumes the content, not the ad.
+        if !update.isAd {
+            self.lastNonAdContentProgress = update.progress
+        }
 
         // A concluded video that is playing again (replayed via the player bar or
         // a seek back after it finished) begins a fresh watch — clear the

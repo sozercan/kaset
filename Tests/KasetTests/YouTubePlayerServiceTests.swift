@@ -151,6 +151,20 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.reloadedVideoIds.isEmpty)
     }
 
+    @Test("Identity-switch during an ad resumes the content, not the ad position")
+    func reloadDuringAdUsesContentProgress() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        // Content reaches 600s...
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 600, duration: 1200, videoId: "abc"))
+        // ...then a midroll ad starts, dragging self.progress down to the ad time.
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 8, duration: 30, videoId: "abc", isAd: true))
+        #expect(self.sut.progress == 8)
+
+        // A switch mid-ad must resume at the last CONTENT position (600), not 8.
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        #expect(self.controller.reloadResumeSeconds.last == .some(600))
+    }
+
     @Test("Paused video reloaded for identity switch does not autoplay")
     func pausedReloadSuppressesAutoplay() {
         // Arrange: a video that is currently PAUSED (no isPlaying state fed).

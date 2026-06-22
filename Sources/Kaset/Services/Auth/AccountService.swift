@@ -207,10 +207,13 @@ final class AccountService {
         // considers active (e.g. after logout/re-auth or an account-list refresh).
         self.sessionPinTask?.cancel()
         self.sessionPinTask = nil
-        // Supersede any in-flight manual switch: bumping the generation makes a
-        // concurrent switchAccount abort its commit (its navigation is cancelled
-        // below via the shared sessionPinTask, but it may already be past that).
-        self.switchGeneration &+= 1
+        // NOTE: do NOT bump switchGeneration here. A passive fetch/launch restore
+        // must not supersede an in-flight *manual* switch: doing so would make the
+        // switch abandon its commit (and skip rollback) after its /signin already
+        // mutated the shared cookies, leaving the session on the attempted account
+        // while currentAccount reflects the fetch — a split-brain. A manual switch
+        // intentionally wins over a passive fetch; the fetch only cancels a prior
+        // (also-passive) pin via the cancel above.
 
         guard !UITestConfig.isUITestMode,
               let webKitManager = self.webKitManager,
@@ -408,8 +411,17 @@ final class AccountService {
     func clearAccounts() {
         self.logger.info("AccountService: Clearing accounts data")
 
+        // Invalidate any in-flight session mutation: cancel the pin and bump the
+        // generation so a switch currently awaiting verification abandons its
+        // commit instead of repopulating currentAccount/UserDefaults and leaving
+        // the (now-cleared) WebKit session re-pinned to the old account.
+        self.sessionPinTask?.cancel()
+        self.sessionPinTask = nil
+        self.switchGeneration &+= 1
+
         self.accounts = []
         self.currentAccount = nil
+        self.verifiedAccountId = nil
         UserDefaults.standard.removeObject(forKey: self.selectedBrandIdKey)
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)

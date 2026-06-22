@@ -76,6 +76,17 @@ and gate the switch on a verified `ytcfg.DATASYNC_ID` read.**
   cookie-level pin must be kept reconciled (no split-brain).
 - The `signinURL` is credential-bearing and may be single-use/short-lived;
   on failure we re-fetch `accounts_list` for a fresh URL.
+- **Cold-launch window (known limitation).** A restored brand account is
+  exposed as `currentAccount` immediately on launch, while its session pin
+  verifies in the background (deliberately off the launch path so a ≤20s
+  navigation never stalls startup). If the user starts playback in that
+  brief window, the first stats pings can attribute to the primary account
+  until the pin lands; the `verifiedIdentitySequence` reload then re-points
+  the in-flight track so subsequent listening records to the brand. We
+  accept this small residual rather than block all playback on launch for
+  up to 20s (which would be a worse, universal UX regression). The window
+  is bounded by the pin's verification, and the common case (switching
+  accounts in an already-running app) is fully gated.
 - DRM/EME is keyed by origin+data store (identity-independent), so
   decryption is unaffected; the forced reload tears down and rebuilds the
   media element, with position/play-state resumed via the existing

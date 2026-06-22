@@ -237,6 +237,62 @@ struct AccountServiceTests {
         #expect(services.account.currentAccount?.id == brandB.id)
     }
 
+    @Test @MainActor func logoutAbandonsInFlightSwitch() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
+
+        // Gate the switch so it is still verifying when logout fires.
+        let release = AsyncReleaseGate()
+        mockWebKit.switchSessionIdentityGate = { await release.wait() }
+        async let switching: Void = services.account.switchAccount(to: brand)
+        await Task.yield()
+
+        // Logout while the switch is in flight: it must invalidate the switch so
+        // the brand is never committed after the account data is cleared.
+        services.account.clearAccounts()
+        await release.release()
+        try? await switching
+
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.accounts.isEmpty)
+    }
+
+    @Test @MainActor func passiveFetchDoesNotAbandonInFlightSwitch() async throws {
+        // Regression guard: a background fetch (e.g. account-list refresh) must
+        // NOT supersede a user's manual switch — the switch should still commit.
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
+
+        let release = AsyncReleaseGate()
+        mockWebKit.switchSessionIdentityGate = { await release.wait() }
+        async let switching: Void = services.account.switchAccount(to: brand)
+        await Task.yield()
+
+        // A passive fetch resolving to primary used to bump the generation and
+        // make the switch abandon; it must not.
+        services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary, brand])
+        await services.account.fetchAccounts()
+        mockWebKit.switchSessionIdentityGate = nil
+        await release.release()
+        try await switching
+
+        #expect(services.account.currentAccount?.id == brand.id)
+    }
+
     @Test @MainActor func switchAccountWithoutSigninURLFailsSafely() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
