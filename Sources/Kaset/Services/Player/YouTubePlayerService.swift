@@ -88,6 +88,11 @@ final class YouTubePlayerService {
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
+    /// Whether the current watch page has reported at least one playback state.
+    /// Before this flips true, `isPlaying == false` means loading/unknown rather
+    /// than a deliberate paused state.
+    private var hasObservedPlaybackState = false
+
     /// A paused video does not need an immediate identity-switch reload, because
     /// there is no active playback to re-attribute. Defer the reload until the
     /// user explicitly resumes so loading YouTube's autoplaying watch page cannot
@@ -235,6 +240,7 @@ final class YouTubePlayerService {
         self.currentVideo = video
         self.watchActivityGeneration += 1 // a new watch began
         self.currentWatchConcluded = false
+        self.hasObservedPlaybackState = false
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -266,7 +272,7 @@ final class YouTubePlayerService {
         let wasPlaying = self.isPlaying
         self.logger.info("Identity switch: re-pointing current video under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
 
-        if !wasPlaying {
+        if !wasPlaying, self.hasObservedPlaybackState {
             // Do not load an autoplaying watch page while the user is paused. The
             // current paused document is inert; reload under the new identity only
             // when the user explicitly resumes.
@@ -352,6 +358,7 @@ final class YouTubePlayerService {
         }
         self.currentVideo = nil
         self.isPlaying = false
+        self.hasObservedPlaybackState = false
         self.progress = 0
         self.duration = 0
         self.isShowingAd = false
@@ -443,6 +450,7 @@ final class YouTubePlayerService {
         self.signalWatchConclusion()
         self.watchActivityGeneration += 1
         self.currentWatchConcluded = false
+        self.hasObservedPlaybackState = false
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -675,6 +683,7 @@ final class YouTubePlayerService {
 
     /// Applies a `STATE_UPDATE` from the watch page observer script.
     func updatePlaybackState(_ update: PlaybackUpdate) {
+        self.hasObservedPlaybackState = true
         if let pendingId = self.pendingPausedIdentityReloadVideoId,
            pendingId == (update.videoId ?? self.currentVideo?.videoId),
            update.isPlaying

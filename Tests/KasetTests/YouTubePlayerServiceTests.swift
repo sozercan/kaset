@@ -206,6 +206,7 @@ struct YouTubePlayerServiceTests {
     @Test("Deferred paused identity reload survives observer updates before resume")
     func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
@@ -223,29 +224,27 @@ struct YouTubePlayerServiceTests {
         #expect(willStartCount == 1)
     }
 
-    @Test("Deferred identity reload applies when a loading video starts")
-    func deferredIdentityReloadAppliesWhenLoadingVideoStarts() {
+    @Test("Loading video identity reload happens immediately")
+    func loadingIdentityReloadHappensImmediately() {
         // A just-requested video has not reported playing yet, so isPlaying is
         // false but it is not a user-paused watch. If identity verification lands
-        // in that loading window, the first playing bridge update must trigger the
-        // reload under the new identity rather than continuing under the old page.
+        // in that loading window, the reload must happen immediately before the
+        // old-identity page can start and emit watch-history pings.
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
         self.sut.reloadCurrentVideoForIdentitySwitch()
-        #expect(self.controller.reloadedVideoIds.isEmpty)
-
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 2, duration: 60, videoId: "abc"))
 
         #expect(self.controller.reloadedVideoIds == ["abc"])
-        #expect(self.controller.reloadResumeSeconds == [2])
-        #expect(willStartCount == 1)
+        #expect(self.controller.reloadResumeSeconds == [nil])
+        #expect(willStartCount == 0)
     }
 
     @Test("Deferred paused identity reload is cleared by a new video")
     func deferredPausedReloadClearsOnNewVideo() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
         self.sut.reloadCurrentVideoForIdentitySwitch()
 
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "def"))

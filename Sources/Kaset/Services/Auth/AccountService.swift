@@ -258,6 +258,7 @@ final class AccountService {
         // bump `verifiedIdentitySequence` for an account the app no longer
         // considers active (e.g. after logout/re-auth or an account-list refresh).
         let priorPinTask = self.sessionPinTask
+        let priorNavigation = self.activeSwitchNavigation
         priorPinTask?.cancel()
         self.sessionPinTask = nil
         // NOTE: do NOT bump switchGeneration here. A passive fetch/launch restore
@@ -272,11 +273,10 @@ final class AccountService {
             self.sessionPinGeneration &+= 1
             return
         }
-        guard self.activeSwitchNavigation == nil else {
-            self.logger.info("AccountService: Skipping restored session pin while a session navigation is in flight")
-            self.sessionPinGeneration &+= 1
-            self.activeSwitchNavigation?.cancel()
-            return
+        if let priorNavigation {
+            self.logger.info("AccountService: Cancelling previous restored session navigation before scheduling a new pin")
+            priorNavigation.cancel()
+            self.activeSwitchNavigation = nil
         }
 
         guard !UITestConfig.isUITestMode,
@@ -290,13 +290,14 @@ final class AccountService {
             self.sessionPinGeneration &+= 1
             let pinGeneration = self.sessionPinGeneration
             let error = SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
-            self.sessionPinTask = Task { [weak self, priorPinTask] in
+            self.sessionPinTask = Task { [weak self, priorPinTask, priorNavigation] in
                 defer {
                     if let self, self.sessionPinGeneration == pinGeneration {
                         self.sessionPinTask = nil
                     }
                 }
                 await priorPinTask?.value
+                _ = try? await priorNavigation?.value
                 guard !Task.isCancelled,
                       let self,
                       self.sessionPinGeneration == pinGeneration
@@ -316,13 +317,14 @@ final class AccountService {
         self.sessionPinGeneration &+= 1
         let pinGeneration = self.sessionPinGeneration
 
-        self.sessionPinTask = Task { [weak self, priorPinTask] in
+        self.sessionPinTask = Task { [weak self, priorPinTask, priorNavigation] in
             defer {
                 if let self, self.sessionPinGeneration == pinGeneration {
                     self.sessionPinTask = nil
                 }
             }
             await priorPinTask?.value
+            _ = try? await priorNavigation?.value
             guard !Task.isCancelled else { return }
             do {
                 try await webKitManager.switchSessionIdentity(to: signinURL, expectedBrandId: expectedBrandId)
@@ -538,9 +540,6 @@ final class AccountService {
             // Skipped in UI test mode (no real WebKit session) and when no
             // webKitManager was injected (e.g. previews).
             if !UITestConfig.isUITestMode, let webKitManager = self.webKitManager {
-                if let previous = rollbackAccount, previous.signinURL == nil {
-                    throw SessionSwitchError.identityNotApplied(expectedBrandId: previous.brandId)
-                }
                 guard let signinURL = account.signinURL else {
                     throw SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
                 }
