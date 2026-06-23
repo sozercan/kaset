@@ -100,7 +100,10 @@ struct AccountServiceTests {
     @Test @MainActor func sameAccountWithoutSigninURLIsNoOpEvenWhenUnverified() async throws {
         let services = Self.createService(webKitManager: MockWebKitManager())
 
-        let primaryAccount = MockUserAccountData.primaryAccount
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         await Self.populateAccounts(services, accounts: [primaryAccount])
 
         try await services.account.switchAccount(to: primaryAccount)
@@ -112,23 +115,25 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
 
-        let primaryAccount = MockUserAccountData.primaryAccount
-        let brandAccount = MockUserAccountData.brandAccountWithSigninURL
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         mockWebKit.switchSessionIdentityErrorQueue = [
-            SessionSwitchError.identityNotApplied(expectedBrandId: brandAccount.brandId),
+            SessionSwitchError.identityNotApplied(expectedBrandId: nil),
             nil,
         ]
-        await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount], selectedIndex: 1)
+        await Self.populateAccounts(services, accounts: [primaryAccount])
         await services.account.awaitRestoredBrandSessionPinForTesting()
 
-        #expect(services.account.currentAccount?.id == brandAccount.id)
+        #expect(services.account.currentAccount?.id == primaryAccount.id)
         #expect(services.account.verifiedAccountId == nil)
 
-        try await services.account.switchAccount(to: brandAccount)
+        try await services.account.switchAccount(to: primaryAccount)
 
         #expect(mockWebKit.switchSessionIdentityCallCount == 2)
-        #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [brandAccount.brandId])
-        #expect(services.account.verifiedAccountId == brandAccount.id)
+        #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [nil])
+        #expect(services.account.verifiedAccountId == primaryAccount.id)
     }
 
     // MARK: - Session-Switch Gating Tests
@@ -587,6 +592,36 @@ struct AccountServiceTests {
         #expect(services.account.currentAccount?.id == brandAccount.id)
         #expect(mockWebKit.switchSessionIdentityCalled == true)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
+    }
+
+    @Test @MainActor func failedRestoredBrandSessionPinFallsBackToPrimary() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brandAccount = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brandAccount.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        mockWebKit.switchSessionIdentityErrorQueue = [
+            SessionSwitchError.identityNotApplied(expectedBrandId: brandAccount.brandId),
+            nil,
+        ]
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "test@gmail.com",
+            accounts: [primaryAccount, brandAccount]
+        )
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+        await services.account.awaitRestoredBrandSessionPinForTesting()
+
+        #expect(services.account.currentAccount?.id == primaryAccount.id)
+        #expect(services.account.verifiedAccountId == primaryAccount.id)
+        #expect(services.account.lastError != nil)
+        #expect(SongLikeStatusManager.shared.activeAccountID == primaryAccount.id)
     }
 
     @Test @MainActor func switchBackToPrimaryVerifiesSessionWithWebKit() async throws {

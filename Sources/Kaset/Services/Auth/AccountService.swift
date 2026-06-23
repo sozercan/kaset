@@ -277,6 +277,10 @@ final class AccountService {
         else {
             return
         }
+        guard self.verifiedAccountId != account.id else {
+            self.logger.debug("AccountService: Restored session identity already verified for \(account.name)")
+            return
+        }
         let expectedBrandId = account.brandId
         let accountId = account.id
         let switchGenerationAtPinStart = self.switchGeneration
@@ -307,9 +311,45 @@ final class AccountService {
             } catch is CancellationError {
                 // Superseded by a newer switch; the survivor owns the session.
             } catch {
-                self?.logger.error("AccountService: Could not restore session identity: \(error.localizedDescription)")
+                guard !Task.isCancelled,
+                      let self,
+                      self.sessionPinGeneration == pinGeneration
+                else { return }
+                await self.handleRestoredSessionPinFailure(for: account, error: error, pinGeneration: pinGeneration)
             }
         }
+    }
+
+    private func handleRestoredSessionPinFailure(for account: UserAccount, error: Error, pinGeneration: Int) async {
+        self.logger.error("AccountService: Could not restore session identity: \(error.localizedDescription)")
+        self.lastError = error
+        self.lastErrorWasFetch = false
+        self.errorSequence += 1
+
+        guard account.brandId != nil, self.currentAccount?.id == account.id else { return }
+        let fallback = self.accounts.first(where: { $0.isPrimary }) ?? self.accounts.first
+        guard let webKitManager = self.webKitManager,
+              let fallback,
+              fallback.id != account.id,
+              let fallbackSigninURL = fallback.signinURL
+        else { return }
+
+        do {
+            try await self.runTrackedSessionSwitch(
+                with: webKitManager,
+                to: fallbackSigninURL,
+                expectedBrandId: fallback.brandId
+            )
+        } catch {
+            self.logger.error("AccountService: Could not restore fallback session identity: \(error.localizedDescription)")
+            return
+        }
+        guard self.sessionPinGeneration == pinGeneration else { return }
+
+        self.currentAccount = fallback
+        SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
+        UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
+        self.markIdentityVerified(fallback.id)
     }
 
     /// Awaits the in-flight session pin (launch restore or switch), if any.
@@ -344,6 +384,22 @@ final class AccountService {
     /// - Throws: An error if the switch fails.
     func switchAccount(to account: UserAccount) async throws {
         let isSameAccount = account.id == self.currentAccount?.id
+        if isSameAccount,
+           account.signinURL == nil,
+           self.sessionPinTask != nil || self.activeSwitchNavigation != nil
+        {
+            self.logger.info("AccountService: Cancelling pending session mutation for same-account no-op")
+            self.switchGeneration &+= 1
+            let pinTask = self.sessionPinTask
+            let navigationTask = self.activeSwitchNavigation
+            self.sessionPinTask = nil
+            self.activeSwitchNavigation = nil
+            pinTask?.cancel()
+            navigationTask?.cancel()
+            await pinTask?.value
+            _ = try? await navigationTask?.value
+            return
+        }
         guard !isSameAccount || (account.signinURL != nil && self.verifiedAccountId != account.id && self.webKitManager != nil) else {
             self.logger.debug("AccountService: Already using account \(account.name)")
             return
