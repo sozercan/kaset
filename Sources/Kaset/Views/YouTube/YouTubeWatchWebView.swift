@@ -107,6 +107,10 @@ final class YouTubeWatchWebView {
         self.load(videoId: videoId)
     }
 
+    func cancelPendingLoad() {
+        self.loadGeneration += 1
+    }
+
     private func load(videoId: String) {
         guard let webView else {
             self.logger.error("YouTube watch load called but webView is nil")
