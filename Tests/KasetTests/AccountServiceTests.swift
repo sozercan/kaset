@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 // AccountServiceTests.swift
 // KasetTests
 //
@@ -62,7 +63,10 @@ struct AccountServiceTests {
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
         let services = Self.createService()
 
-        let primaryAccount = MockUserAccountData.primaryAccount
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         let brandAccount = MockUserAccountData.brandAccount
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
@@ -80,7 +84,10 @@ struct AccountServiceTests {
     @Test @MainActor func switchAccountToSameAccountIsNoOp() async throws {
         let services = Self.createService()
 
-        let primaryAccount = MockUserAccountData.primaryAccount
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         await Self.populateAccounts(services, accounts: [primaryAccount])
 
         // Attempt to switch to the same account
@@ -130,7 +137,10 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
 
-        let primaryAccount = MockUserAccountData.primaryAccount
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         let brandAccount = MockUserAccountData.brandAccountWithSigninURL
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 

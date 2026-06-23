@@ -258,7 +258,11 @@ final class YouTubePlayerService {
         // Resume at the last real CONTENT position. During an ad, self.progress
         // tracks the ad element's time, so prefer the remembered content progress
         // to avoid resuming the content near 0 after a switch mid-ad.
-        let resumeProgress = self.isShowingAd ? self.lastNonAdContentProgress : self.progress
+        let resumeProgress = if self.currentWatchConcluded {
+            0.0
+        } else {
+            self.isShowingAd ? self.lastNonAdContentProgress : self.progress
+        }
         let wasPlaying = self.isPlaying
         self.logger.info("Identity switch: re-pointing current video under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
 
@@ -267,7 +271,7 @@ final class YouTubePlayerService {
             // current paused document is inert; reload under the new identity only
             // when the user explicitly resumes.
             self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
-            self.pendingPausedIdentityReloadResumeAt = resumeProgress > 0 ? resumeProgress : nil
+            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (resumeProgress > 0 ? resumeProgress : nil)
             return
         }
 
@@ -753,6 +757,7 @@ final class YouTubePlayerService {
            videoId != current.videoId
         {
             self.logger.info("YouTubePlayer: page drifted to a different video, following")
+            let shouldRepointDriftedVideo = self.pendingPausedIdentityReloadVideoId != nil
             self.resetPerVideoState()
             self.currentVideo = YouTubeVideo(
                 videoId: videoId,
@@ -769,6 +774,9 @@ final class YouTubePlayerService {
             self.watchActivityGeneration += 1
             self.currentWatchConcluded = false
             YouTubeWatchWebView.shared.currentVideoId = videoId
+            if shouldRepointDriftedVideo {
+                self.reloadCurrentVideoForIdentitySwitch()
+            }
         }
     }
 

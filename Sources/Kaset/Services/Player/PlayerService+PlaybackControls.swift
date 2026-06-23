@@ -276,7 +276,9 @@ extension PlayerService {
         }
 
         self.clearRestoredPlaybackSessionState()
-        self.state = .paused
+        if self.state != .ended {
+            self.state = .paused
+        }
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.pause()
         } else {

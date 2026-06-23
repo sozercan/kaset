@@ -337,6 +337,7 @@ final class AccountService {
         _ = try? await navigationTask?.value
     }
 
+    // swiftlint:disable function_body_length cyclomatic_complexity
     /// Switches to a different account.
     ///
     /// - Parameter account: The account to switch to.
@@ -352,6 +353,7 @@ final class AccountService {
         }
 
         let previousAccount = self.currentAccount
+        var rollbackAccount = previousAccount
         self.logger.info("AccountService: Switching to account: \(account.name)")
         self.isLoading = true
         self.manualSwitchInFlightCount += 1
@@ -395,6 +397,19 @@ final class AccountService {
             return
         }
 
+        if !UITestConfig.isUITestMode,
+           self.webKitManager != nil,
+           let previous = rollbackAccount,
+           previous.signinURL == nil
+        {
+            rollbackAccount = await self.refreshAccountForRollback(matching: previous) ?? previous
+            guard myGeneration == self.switchGeneration else {
+                self.logger.info("AccountService: Switch to \(account.name) superseded while refreshing rollback token; abandoning")
+                self.isLoading = false
+                return
+            }
+        }
+
         // Tracks whether the session-mutating navigation was actually started, so
         // the catch only rolls the session back when there is something to undo.
         var didStartSessionSwitch = false
@@ -422,6 +437,9 @@ final class AccountService {
             // Skipped in UI test mode (no real WebKit session) and when no
             // webKitManager was injected (e.g. previews).
             if !UITestConfig.isUITestMode, let webKitManager = self.webKitManager {
+                if let previous = rollbackAccount, previous.signinURL == nil {
+                    throw SessionSwitchError.identityNotApplied(expectedBrandId: previous.brandId)
+                }
                 guard let signinURL = account.signinURL else {
                     throw SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
                 }
@@ -484,7 +502,7 @@ final class AccountService {
 
             let restoredPreviousAccount = await self.rollbackSessionAfterFailedSwitch(
                 didStartSessionSwitch: didStartSessionSwitch || cancelledPriorSessionMutation,
-                previousAccount: previousAccount,
+                previousAccount: rollbackAccount,
                 generation: myGeneration
             )
             guard myGeneration == self.switchGeneration else {
@@ -510,6 +528,8 @@ final class AccountService {
             throw error
         }
     }
+
+    // swiftlint:enable function_body_length cyclomatic_complexity
 
     /// Re-fetches the account list after a failed switch so a retry has fresh
     /// signin URLs. Guarded so it does not run while another operation is active.

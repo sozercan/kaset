@@ -140,12 +140,12 @@ extension PlayerService {
             return
         }
 
-        let resumeProgress = self.progress
+        let resumeProgress = self.state == .ended ? 0 : self.progress
         let wasPlaying = self.isPlaying
         let shouldAutoResumeAfterReload = wasPlaying || self.state == .loading
         self.logger.info("Identity switch: re-pointing current track under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
 
-        self.pendingRestoredSeek = resumeProgress
+        self.pendingRestoredSeek = self.state == .ended ? nil : resumeProgress
         if !shouldAutoResumeAfterReload {
             self.pendingPlayVideoId = currentTrack.videoId
             self.isPendingRestoredLoadDeferred = true
