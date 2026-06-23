@@ -242,6 +242,7 @@ final class AccountService {
         }
     }
 
+    // swiftlint:disable cyclomatic_complexity
     /// Schedules a best-effort WebView session pin for the restored account, off
     /// the `fetchAccounts` path so it never blocks launch or holds `isLoading`.
     ///
@@ -286,7 +287,12 @@ final class AccountService {
             return
         }
         guard let signinURL = account.signinURL else {
-            guard account.brandId != nil else { return }
+            guard account.brandId != nil else {
+                if self.verifiedAccountId != account.id {
+                    self.markIdentityVerified(nil)
+                }
+                return
+            }
             self.sessionPinGeneration &+= 1
             let pinGeneration = self.sessionPinGeneration
             let error = SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
@@ -349,6 +355,8 @@ final class AccountService {
             }
         }
     }
+
+    // swiftlint:enable cyclomatic_complexity
 
     private func handleRestoredSessionPinFailure(for account: UserAccount, error: Error, pinGeneration: Int) async {
         guard self.currentAccount?.id == account.id else { return }

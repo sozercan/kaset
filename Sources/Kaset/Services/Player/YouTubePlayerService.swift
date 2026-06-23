@@ -100,6 +100,7 @@ final class YouTubePlayerService {
     /// create watch activity for content the user left paused.
     private var pendingPausedIdentityReloadVideoId: String?
     private var pendingPausedIdentityReloadResumeAt: Double?
+    private var userUpdatedPendingPausedIdentityReloadSeek = false
     private var isIdentityReloadInFlight = false
 
     /// Current position in seconds.
@@ -280,6 +281,7 @@ final class YouTubePlayerService {
             // when the user explicitly resumes.
             self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
             self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (resumeProgress > 0 ? resumeProgress : nil)
+            self.userUpdatedPendingPausedIdentityReloadSeek = false
             return
         }
 
@@ -324,6 +326,7 @@ final class YouTubePlayerService {
         let resumeAt = self.pendingPausedIdentityReloadResumeAt
         self.pendingPausedIdentityReloadVideoId = nil
         self.pendingPausedIdentityReloadResumeAt = nil
+        self.userUpdatedPendingPausedIdentityReloadSeek = false
         self.playbackWillStart?()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
@@ -341,7 +344,9 @@ final class YouTubePlayerService {
     private func deferInFlightIdentityReloadIfNeeded() {
         if self.isIdentityReloadInFlight, let currentVideo = self.currentVideo {
             self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
-            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (self.progress > 0 ? self.progress : nil)
+            let resumeProgress = self.isShowingAd ? self.lastNonAdContentProgress : self.progress
+            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (resumeProgress > 0 ? resumeProgress : nil)
+            self.userUpdatedPendingPausedIdentityReloadSeek = false
             self.isIdentityReloadInFlight = false
         }
         self.isPlaying = false
@@ -352,6 +357,7 @@ final class YouTubePlayerService {
         self.progress = time
         if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
             self.pendingPausedIdentityReloadResumeAt = time > 0 ? time : nil
+            self.userUpdatedPendingPausedIdentityReloadSeek = true
         }
         self.playbackController.seek(to: time)
     }
@@ -502,6 +508,7 @@ final class YouTubePlayerService {
         // a deferred identity-reload latch from a prior video.
         self.pendingPausedIdentityReloadVideoId = nil
         self.pendingPausedIdentityReloadResumeAt = nil
+        self.userUpdatedPendingPausedIdentityReloadSeek = false
         self.lastNonAdContentProgress = 0
     }
 
@@ -716,7 +723,9 @@ final class YouTubePlayerService {
            pendingId == (update.videoId ?? self.currentVideo?.videoId),
            !update.isPlaying
         {
-            self.pendingPausedIdentityReloadResumeAt = self.deferredIdentityReloadResumeProgress(for: update)
+            if !self.userUpdatedPendingPausedIdentityReloadSeek {
+                self.pendingPausedIdentityReloadResumeAt = self.deferredIdentityReloadResumeProgress(for: update)
+            }
         }
 
         // YouTube can start the next video on its own (SPA navigation);
