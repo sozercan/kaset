@@ -274,9 +274,12 @@ final class AccountService {
 
         guard !UITestConfig.isUITestMode,
               let webKitManager = self.webKitManager,
-              let account = self.currentAccount,
-              let signinURL = account.signinURL
+              let account = self.currentAccount
         else {
+            return
+        }
+        guard let signinURL = account.signinURL else {
+            self.handleUnpinnableRestoredAccount(account)
             return
         }
         guard self.verifiedAccountId != account.id else {
@@ -320,6 +323,23 @@ final class AccountService {
                 await self.handleRestoredSessionPinFailure(for: account, error: error, pinGeneration: pinGeneration)
             }
         }
+    }
+
+    private func handleUnpinnableRestoredAccount(_ account: UserAccount) {
+        guard account.brandId != nil, self.currentAccount?.id == account.id else { return }
+        let error = SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
+        self.logger.error("AccountService: Restored account lacks a valid signin URL")
+        self.lastError = error
+        self.lastErrorWasFetch = false
+        self.errorSequence += 1
+
+        let fallback = self.accounts.first(where: { $0.isPrimary }) ?? self.accounts.first
+        guard let fallback, fallback.id != account.id else { return }
+        self.ytMusicClient.resetSessionStateForAccountSwitch()
+        self.currentAccount = fallback
+        SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
+        UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
+        self.markIdentityVerified(nil)
     }
 
     private func handleRestoredSessionPinFailure(for account: UserAccount, error: Error, pinGeneration: Int) async {

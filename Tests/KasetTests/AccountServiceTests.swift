@@ -624,6 +624,27 @@ struct AccountServiceTests {
         #expect(SongLikeStatusManager.shared.activeAccountID == primaryAccount.id)
     }
 
+    @Test @MainActor func restoredBrandWithoutSigninURLFallsBackToPrimary() async {
+        let services = Self.createService(webKitManager: MockWebKitManager())
+
+        let primaryAccount = MockUserAccountData.primaryAccount
+        let brandAccount = MockUserAccountData.brandAccount
+        UserDefaults.standard.set(brandAccount.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "test@gmail.com",
+            accounts: [primaryAccount, brandAccount]
+        )
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentAccount?.id == primaryAccount.id)
+        #expect(services.account.verifiedAccountId == nil)
+        #expect(services.account.lastError != nil)
+        #expect(SongLikeStatusManager.shared.activeAccountID == primaryAccount.id)
+    }
+
     @Test @MainActor func switchBackToPrimaryVerifiesSessionWithWebKit() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
