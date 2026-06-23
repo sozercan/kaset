@@ -267,8 +267,13 @@ final class AccountService {
         // while currentAccount reflects the fetch — a split-brain. A manual switch
         // intentionally wins over a passive fetch; the fetch only cancels a prior
         // (also-passive) pin via the cancel above.
-        guard self.manualSwitchInFlightCount == 0, self.activeSwitchNavigation == nil else {
+        guard self.manualSwitchInFlightCount == 0 else {
             self.logger.info("AccountService: Skipping restored session pin while a manual switch is in flight")
+            self.sessionPinGeneration &+= 1
+            return
+        }
+        guard self.activeSwitchNavigation == nil else {
+            self.logger.info("AccountService: Skipping restored session pin while a session navigation is in flight")
             self.sessionPinGeneration &+= 1
             self.activeSwitchNavigation?.cancel()
             return
@@ -413,6 +418,7 @@ final class AccountService {
         if isSameAccount, hadInFlightSessionMutation {
             self.logger.info("AccountService: Cancelling pending session mutation for same-account no-op")
             self.switchGeneration &+= 1
+            let cancelGeneration = self.switchGeneration
             let pinTask = self.sessionPinTask
             let navigationTask = self.activeSwitchNavigation
             self.sessionPinTask = nil
@@ -421,12 +427,18 @@ final class AccountService {
             navigationTask?.cancel()
             await pinTask?.value
             _ = try? await navigationTask?.value
+            guard cancelGeneration == self.switchGeneration,
+                  self.currentAccount?.id == account.id
+            else { return }
 
             if account.signinURL == nil,
                let refreshedAccount = await self.refreshAccountForRollback(matching: account)
             {
                 account = refreshedAccount
             }
+            guard cancelGeneration == self.switchGeneration,
+                  self.currentAccount?.id == account.id
+            else { return }
             guard account.signinURL != nil else { return }
             self.markIdentityVerified(nil)
         }
