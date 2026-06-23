@@ -100,6 +100,7 @@ final class YouTubePlayerService {
     /// create watch activity for content the user left paused.
     private var pendingPausedIdentityReloadVideoId: String?
     private var pendingPausedIdentityReloadResumeAt: Double?
+    private var isIdentityReloadInFlight = false
 
     /// Current position in seconds.
     private(set) var progress: Double = 0
@@ -290,6 +291,7 @@ final class YouTubePlayerService {
             videoId: currentVideo.videoId,
             resumeAt: resumeProgress > 0 ? resumeProgress : nil
         )
+        self.isIdentityReloadInFlight = true
     }
 
     /// Toggles play/pause.
@@ -325,11 +327,17 @@ final class YouTubePlayerService {
         self.playbackWillStart?()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
+        self.isIdentityReloadInFlight = true
         return true
     }
 
     /// Pauses playback.
     func pause() {
+        if self.isIdentityReloadInFlight, let currentVideo = self.currentVideo {
+            self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
+            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (self.progress > 0 ? self.progress : nil)
+            self.isIdentityReloadInFlight = false
+        }
         self.isPlaying = false
         self.playbackController.cancelPendingLoad()
         self.playbackController.pause()
@@ -686,6 +694,7 @@ final class YouTubePlayerService {
 
     /// Applies a `STATE_UPDATE` from the watch page observer script.
     func updatePlaybackState(_ update: PlaybackUpdate) {
+        self.isIdentityReloadInFlight = false
         self.hasObservedPlaybackState = true
         if let pendingId = self.pendingPausedIdentityReloadVideoId,
            pendingId == (update.videoId ?? self.currentVideo?.videoId),

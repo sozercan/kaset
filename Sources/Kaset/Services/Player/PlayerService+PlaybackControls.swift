@@ -275,6 +275,19 @@ extension PlayerService {
             return
         }
 
+        if self.isRestoringPlaybackSession {
+            self.isPendingRestoredLoadDeferred = true
+            self.shouldAutoResumeAfterRestoredLoad = false
+            self.shouldForcePendingRestoredLoad = true
+            self.state = .paused
+            if self.pendingPlayVideoId != nil {
+                SingletonPlayerWebView.shared.pause()
+            } else {
+                await self.evaluatePlayerCommand("pause")
+            }
+            return
+        }
+
         self.clearRestoredPlaybackSessionState()
         if self.state != .ended {
             self.state = .paused

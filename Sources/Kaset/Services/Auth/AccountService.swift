@@ -362,6 +362,7 @@ final class AccountService {
         guard let fallback, fallback.id != account.id
         else { return }
 
+        var didVerifyFallback = false
         if let webKitManager = self.webKitManager, let fallbackSigninURL = fallback.signinURL {
             do {
                 try await self.runTrackedSessionSwitch(
@@ -369,9 +370,9 @@ final class AccountService {
                     to: fallbackSigninURL,
                     expectedBrandId: fallback.brandId
                 )
+                didVerifyFallback = true
             } catch {
                 self.logger.error("AccountService: Could not restore fallback session identity: \(error.localizedDescription)")
-                return
             }
         }
         guard self.sessionPinGeneration == pinGeneration else { return }
@@ -380,7 +381,7 @@ final class AccountService {
         self.currentAccount = fallback
         SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
         UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
-        self.markIdentityVerified(fallback.signinURL == nil ? nil : fallback.id)
+        self.markIdentityVerified(didVerifyFallback ? fallback.id : nil)
     }
 
     /// Awaits the in-flight session pin (launch restore or switch), if any.
