@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Kaset
@@ -90,6 +91,17 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
 
     func tearDown() {
         self.tearDownCount += 1
+    }
+}
+
+// MARK: - BooleanBox
+
+@MainActor
+private final class BooleanBox {
+    var value: Bool
+
+    init(_ value: Bool) {
+        self.value = value
     }
 }
 
@@ -393,10 +405,10 @@ struct YouTubePlayerServiceTests {
     @Test("Pop-out gate is read live, not captured at init")
     func popOutGateReadLive() {
         let controller = MockYouTubeWatchPlaybackController()
-        var popOutEnabled = false
+        let popOutEnabled = BooleanBox(false)
         let sut = YouTubePlayerService(
             playbackController: controller,
-            shouldPopOutOnNavigateAway: { popOutEnabled }
+            shouldPopOutOnNavigateAway: { popOutEnabled.value }
         )
 
         // First navigate-away with the gate off: stops.
@@ -410,7 +422,7 @@ struct YouTubePlayerServiceTests {
         #expect(sut.surfaceLocation == .none)
 
         // Flip the gate on; a fresh playback now pops out.
-        popOutEnabled = true
+        popOutEnabled.value = true
         sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         sut.activeInlineVideoId = "abc"
         sut.updatePlaybackState(.init(
