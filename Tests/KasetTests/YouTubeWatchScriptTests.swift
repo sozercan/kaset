@@ -63,7 +63,7 @@ struct YouTubeWatchScriptTests {
     }
 
     @Test("A normal loadVideo clears a stale pending seek from an interrupted reload")
-    @MainActor func normalLoadClearsStalePendingSeek() {
+    func normalLoadClearsStalePendingSeek() {
         let webView = YouTubeWatchWebView.shared
         webView.pendingSeek = 99
         // loadVideo (the non-reload path) must drop the leftover seek so it can't

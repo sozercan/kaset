@@ -269,6 +269,8 @@ final class AccountService {
         // (also-passive) pin via the cancel above.
         guard self.manualSwitchInFlightCount == 0, self.activeSwitchNavigation == nil else {
             self.logger.info("AccountService: Skipping restored session pin while a manual switch is in flight")
+            self.sessionPinGeneration &+= 1
+            self.activeSwitchNavigation?.cancel()
             return
         }
 
