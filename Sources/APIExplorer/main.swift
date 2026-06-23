@@ -2027,7 +2027,7 @@ func runMain() async {
         // account the resulting session is acting as. DATASYNC_ID has the
         // canonical "<delegatedSessionId>||<userSessionId>" shape — a brand
         // session shows the brand pageId in the first half; primary shows an
-        // empty first half. This is how we confirm whether a session-identity
+        // empty second half. This is how we confirm whether a session-identity
         // switch (e.g. navigating signin?pageid=<brandId>) actually re-points
         // playback (and therefore history recording) to the brand.
         let pageArg: String? = filteredArgs.count >= 2 ? filteredArgs[1] : nil

@@ -309,6 +309,7 @@ extension PlayerService {
             if SingletonPlayerWebView.shared.webView != nil {
                 let strategy: SingletonPlayerWebView.VideoLoadStrategy = self.shouldForcePendingRestoredLoad ? .forceFullPageWhenSameVideoId : .standard
                 SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId, strategy: strategy)
+                self.shouldForcePendingRestoredLoad = false
             }
             return
         }
