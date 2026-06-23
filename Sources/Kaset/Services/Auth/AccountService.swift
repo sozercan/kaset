@@ -330,21 +330,20 @@ final class AccountService {
 
         guard account.brandId != nil, self.currentAccount?.id == account.id else { return }
         let fallback = self.accounts.first(where: { $0.isPrimary }) ?? self.accounts.first
-        guard let webKitManager = self.webKitManager,
-              let fallback,
-              fallback.id != account.id,
-              let fallbackSigninURL = fallback.signinURL
+        guard let fallback, fallback.id != account.id
         else { return }
 
-        do {
-            try await self.runTrackedSessionSwitch(
-                with: webKitManager,
-                to: fallbackSigninURL,
-                expectedBrandId: fallback.brandId
-            )
-        } catch {
-            self.logger.error("AccountService: Could not restore fallback session identity: \(error.localizedDescription)")
-            return
+        if let webKitManager = self.webKitManager, let fallbackSigninURL = fallback.signinURL {
+            do {
+                try await self.runTrackedSessionSwitch(
+                    with: webKitManager,
+                    to: fallbackSigninURL,
+                    expectedBrandId: fallback.brandId
+                )
+            } catch {
+                self.logger.error("AccountService: Could not restore fallback session identity: \(error.localizedDescription)")
+                return
+            }
         }
         guard self.sessionPinGeneration == pinGeneration else { return }
 
@@ -352,7 +351,7 @@ final class AccountService {
         self.currentAccount = fallback
         SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
         UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
-        self.markIdentityVerified(fallback.id)
+        self.markIdentityVerified(fallback.signinURL == nil ? nil : fallback.id)
     }
 
     /// Awaits the in-flight session pin (launch restore or switch), if any.
@@ -386,11 +385,10 @@ final class AccountService {
     /// - Parameter account: The account to switch to.
     /// - Throws: An error if the switch fails.
     func switchAccount(to account: UserAccount) async throws {
+        var account = account
         let isSameAccount = account.id == self.currentAccount?.id
-        if isSameAccount,
-           account.signinURL == nil,
-           self.sessionPinTask != nil || self.activeSwitchNavigation != nil
-        {
+        let hadInFlightSessionMutation = self.sessionPinTask != nil || self.activeSwitchNavigation != nil
+        if isSameAccount, hadInFlightSessionMutation {
             self.logger.info("AccountService: Cancelling pending session mutation for same-account no-op")
             self.switchGeneration &+= 1
             let pinTask = self.sessionPinTask
@@ -401,7 +399,14 @@ final class AccountService {
             navigationTask?.cancel()
             await pinTask?.value
             _ = try? await navigationTask?.value
-            return
+
+            if account.signinURL == nil,
+               let refreshedAccount = await self.refreshAccountForRollback(matching: account)
+            {
+                account = refreshedAccount
+            }
+            guard account.signinURL != nil else { return }
+            self.markIdentityVerified(nil)
         }
         guard !isSameAccount || (account.signinURL != nil && self.verifiedAccountId != account.id && self.webKitManager != nil) else {
             self.logger.debug("AccountService: Already using account \(account.name)")
@@ -449,8 +454,10 @@ final class AccountService {
             self.isLoading = false
             return
         }
-        self.activeSwitchNavigation = nil
         _ = try? await priorNavigation?.value
+        if let priorNavigation, self.activeSwitchNavigation == priorNavigation {
+            self.activeSwitchNavigation = nil
+        }
         guard myGeneration == self.switchGeneration else {
             self.logger.info("AccountService: Switch to \(account.name) superseded while awaiting prior navigation; abandoning")
             self.isLoading = false

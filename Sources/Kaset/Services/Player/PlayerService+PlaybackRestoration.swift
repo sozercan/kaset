@@ -150,7 +150,9 @@ extension PlayerService {
             self.pendingPlayVideoId = currentTrack.videoId
             self.isPendingRestoredLoadDeferred = true
             self.shouldForcePendingRestoredLoad = true
-            self.state = .paused
+            if self.state != .ended {
+                self.state = .paused
+            }
             return
         }
         self.beginRestoredPlaybackLoad(autoResumeAfterSeek: shouldAutoResumeAfterReload)
