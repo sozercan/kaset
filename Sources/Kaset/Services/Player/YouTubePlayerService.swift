@@ -290,6 +290,8 @@ final class YouTubePlayerService {
         if !self.isPlaying {
             if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
             self.playbackWillStart?()
+        } else {
+            self.isPlaying = false
         }
         self.playbackController.playPause()
     }
@@ -320,6 +322,7 @@ final class YouTubePlayerService {
 
     /// Pauses playback.
     func pause() {
+        self.isPlaying = false
         self.playbackController.pause()
     }
 

@@ -231,7 +231,9 @@ final class AccountService {
             // attribution on different identities. Run it OFF the fetch path (after
             // isLoading clears) so a real ≤20s navigation never stalls launch or
             // holds the account spinner; it is best-effort and surfaced via logs.
-            self.scheduleRestoredSessionPin()
+            if self.verifiedAccountId != self.currentAccount?.id {
+                self.scheduleRestoredSessionPin()
+            }
         } catch {
             self.logger.error("AccountService: Failed to fetch accounts: \(error.localizedDescription)")
             self.lastError = error
@@ -346,6 +348,7 @@ final class AccountService {
         }
         guard self.sessionPinGeneration == pinGeneration else { return }
 
+        self.ytMusicClient.resetSessionStateForAccountSwitch()
         self.currentAccount = fallback
         SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
         UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
@@ -354,7 +357,7 @@ final class AccountService {
 
     /// Awaits the in-flight session pin (launch restore or switch), if any.
     /// Test hook.
-    func awaitRestoredBrandSessionPinForTesting() async {
+    func awaitRestoredSessionPinForTesting() async {
         await self.sessionPinTask?.value
     }
 
@@ -435,17 +438,18 @@ final class AccountService {
         if self.sessionPinTask != nil || self.activeSwitchNavigation != nil {
             cancelledPriorSessionMutation = true
         }
-        self.sessionPinTask?.cancel()
-        await self.sessionPinTask?.value
+        let priorPinTask = self.sessionPinTask
+        let priorNavigation = self.activeSwitchNavigation
+        priorPinTask?.cancel()
+        priorNavigation?.cancel()
+        await priorPinTask?.value
         self.sessionPinTask = nil
         guard myGeneration == self.switchGeneration else {
             self.logger.info("AccountService: Switch to \(account.name) superseded before navigation; abandoning")
             self.isLoading = false
             return
         }
-        let priorNavigation = self.activeSwitchNavigation
         self.activeSwitchNavigation = nil
-        priorNavigation?.cancel()
         _ = try? await priorNavigation?.value
         guard myGeneration == self.switchGeneration else {
             self.logger.info("AccountService: Switch to \(account.name) superseded while awaiting prior navigation; abandoning")

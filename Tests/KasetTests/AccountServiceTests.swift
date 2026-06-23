@@ -124,7 +124,7 @@ struct AccountServiceTests {
             nil,
         ]
         await Self.populateAccounts(services, accounts: [primaryAccount])
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == primaryAccount.id)
         #expect(services.account.verifiedAccountId == nil)
@@ -213,7 +213,7 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
         await Self.populateAccounts(services, accounts: [previous, target], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         #expect(services.account.verifiedAccountId == previous.id)
 
         mockWebKit.reset()
@@ -251,7 +251,7 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
         await Self.populateAccounts(services, accounts: [stalePrevious, target], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [freshPrevious, target])
         mockWebKit.switchSessionIdentityErrorQueue = [
@@ -278,7 +278,7 @@ struct AccountServiceTests {
         )
         let brand = MockUserAccountData.brandAccountWithSigninURL
         await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
 
         let gate = AsyncReleaseGate()
@@ -315,7 +315,7 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
         await Self.populateAccounts(services, accounts: [previous, target, newer], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
 
         let rollbackGate = AsyncReleaseGate()
@@ -365,7 +365,7 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
         await Self.populateAccounts(services, accounts: [previous, target], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
 
         await #expect(throws: SessionSwitchError.self) {
@@ -516,7 +516,7 @@ struct AccountServiceTests {
             signinURL: URL(string: "https://www.youtube.com/signin?pageid=222222222222222222222&authuser=0&next=%2F")
         )
         await Self.populateAccounts(services, accounts: [brandA, brandB], selectedIndex: 0)
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
         UserDefaults.standard.set(brandA.id, forKey: "selectedBrandId")
         defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
@@ -545,7 +545,7 @@ struct AccountServiceTests {
         await switchGate.release()
         try await switching
         await stalePinGate.release()
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == brandB.id)
         #expect(services.account.verifiedAccountId == brandB.id)
@@ -585,7 +585,7 @@ struct AccountServiceTests {
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
         // The pin runs off the fetch path; await it deterministically.
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         // The restored brand account must re-pin the WebView session so playback
         // records to the brand, not the primary, after a cold launch.
@@ -616,7 +616,7 @@ struct AccountServiceTests {
         )
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == primaryAccount.id)
         #expect(services.account.verifiedAccountId == primaryAccount.id)
@@ -680,7 +680,7 @@ struct AccountServiceTests {
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary])
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == "primary")
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [nil])
@@ -704,7 +704,7 @@ struct AccountServiceTests {
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary])
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
-        await services.account.awaitRestoredBrandSessionPinForTesting()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == "primary")
         #expect(mockWebKit.switchSessionIdentityCalled == true)

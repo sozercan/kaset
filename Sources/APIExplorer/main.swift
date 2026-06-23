@@ -1158,7 +1158,7 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
     print("================================================================\n")
 
     guard let nextURL = URL(string: nextURLString) else {
-        print("❌ Invalid next URL: \(nextURLString)")
+        print("❌ Invalid next URL: [redacted]")
         return
     }
     guard isAllowedYtcfgProbeURL(nextURL) else {
@@ -1246,7 +1246,7 @@ func probeSigninSwitchReal(nextURLString: String) async {
     print("======================================================================\n")
 
     guard let nextURL = URL(string: nextURLString) else {
-        print("❌ Invalid next URL: \(nextURLString)")
+        print("❌ Invalid next URL: [redacted]")
         return
     }
     guard isAllowedYtcfgProbeURL(nextURL) else {
@@ -1390,7 +1390,7 @@ func extractBrandSigninURL(from data: [String: Any]) -> (String?, String?) {
 func probeYtcfg(pageURLString: String?, verbose: Bool) async {
     let target = pageURLString ?? "\(activeOrigin)/"
     guard let url = URL(string: target) else {
-        print("❌ Invalid URL: \(target)")
+        print("❌ Invalid URL: [redacted]")
         return
     }
     guard isAllowedYtcfgProbeURL(url) else {
