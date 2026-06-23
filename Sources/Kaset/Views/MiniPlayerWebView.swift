@@ -388,7 +388,7 @@ final class SingletonPlayerWebView {
             webView.load(URLRequest(url: urlToLoad))
             return
         }
-        let prenavScript = skipPrenavPause ? "" : "document.querySelector('video')?.pause();"
+        let prenavScript = "document.querySelector('video')?.pause();"
         webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
             guard self.loadGeneration == generation, self.currentVideoId == videoId else { return }

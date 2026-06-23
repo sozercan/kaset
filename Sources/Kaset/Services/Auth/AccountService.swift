@@ -423,6 +423,9 @@ final class AccountService {
             let cancelGeneration = self.switchGeneration
             let pinTask = self.sessionPinTask
             let navigationTask = self.activeSwitchNavigation
+            if pinTask != nil {
+                self.sessionPinGeneration &+= 1
+            }
             self.sessionPinTask = nil
             self.activeSwitchNavigation = nil
             pinTask?.cancel()
@@ -481,6 +484,9 @@ final class AccountService {
         }
         let priorPinTask = self.sessionPinTask
         let priorNavigation = self.activeSwitchNavigation
+        if priorPinTask != nil {
+            self.sessionPinGeneration &+= 1
+        }
         priorPinTask?.cancel()
         priorNavigation?.cancel()
         await priorPinTask?.value
