@@ -1180,7 +1180,7 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
         return
     }
     print("Switch endpoint: \(activeOrigin)/signin?...&pageid=\(brandId)&authuser=\(authUserIndex)")
-    print("next: \(nextURL.absoluteString)\n")
+    print("next: \((nextURL.host.map { $0 + nextURL.path }) ?? nextURL.path)\(nextURL.query != nil ? " [query redacted]" : "")\n")
 
     // Ephemeral session: cookies live only in memory for this probe and are
     // discarded on exit; the app's Keychain/cookies.dat are never written.
@@ -1289,7 +1289,7 @@ func probeSigninSwitchReal(nextURLString: String) async {
     }
     print("Using server-issued /signin (params: \(items.map(\.name).sorted().joined(separator: ", ")))")
     print("brand pageId: \(brand)")
-    print("next: \(nextURL.absoluteString)\n")
+    print("next: \((nextURL.host.map { $0 + nextURL.path }) ?? nextURL.path)\(nextURL.query != nil ? " [query redacted]" : "")\n")
 
     let config = URLSessionConfiguration.ephemeral
     let store = HTTPCookieStorage()
@@ -1388,7 +1388,11 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
 
     print("🔬 ytcfg identity probe")
     print("=======================\n")
-    print("GET \(url.absoluteString)")
+    // Print only host+path, never the query string: a probed /signin (or other
+    // auth-bearing) URL can carry credential-bearing query items, and the repo's
+    // no-secrets rule forbids writing those to terminal logs.
+    let safeTarget = (url.host.map { $0 + url.path }) ?? url.path
+    print("GET \(safeTarget)\(url.query != nil ? " [query redacted]" : "")")
     if let brandId = globalBrandAccountId {
         print("(brand override active: X-Goog-PageId / onBehalfOfUser = \(brandId))")
     }

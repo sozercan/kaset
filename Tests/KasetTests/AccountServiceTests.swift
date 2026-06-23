@@ -376,6 +376,30 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCalled == false)
     }
 
+    @Test @MainActor func restoredBrandVanishedRePinsPrimary() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        // Saved a brand that is NO LONGER in the returned accounts list; fetch
+        // falls back to primary. The shared session may still be brand-delegated,
+        // so primary must be re-pinned (expectedBrandId nil).
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        UserDefaults.standard.set("999999999999999999999", forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary])
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+        await services.account.awaitRestoredBrandSessionPinForTesting()
+
+        #expect(services.account.currentAccount?.id == "primary")
+        #expect(mockWebKit.switchSessionIdentityCalled == true)
+        #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [nil])
+    }
+
     @Test @MainActor func switchAccountUpdatesBrandId() async throws {
         let services = Self.createService()
 

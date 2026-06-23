@@ -29,6 +29,12 @@ final class YouTubeWatchWebView {
     /// exist until the new document loads. Cleared on apply.
     var pendingSeek: Double?
 
+    /// Monotonic counter for `load(videoId:)` calls. The pre-navigation pause is
+    /// async, so a newer load can be requested before an older one's callback
+    /// issues `webView.load`. The callback captures the generation and bails if
+    /// superseded, so a stale reload can't navigate over a newer selection.
+    private var loadGeneration = 0
+
     private init() {}
 
     /// Get or create the watch WebView.
@@ -110,6 +116,9 @@ final class YouTubeWatchWebView {
         self.logger.info("Loading YouTube video: \(videoId) (was: \(self.currentVideoId ?? "none"))")
         self.currentVideoId = videoId
 
+        self.loadGeneration += 1
+        let myLoadGeneration = self.loadGeneration
+
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
         self.installUserScripts(
             on: webView.configuration.userContentController,
@@ -120,6 +129,13 @@ final class YouTubeWatchWebView {
         guard let url = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return }
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
+            // Bail if a newer load was requested while the pause callback was
+            // pending — otherwise this stale URL would navigate over the newer
+            // selection and the observer would follow the wrong video.
+            guard myLoadGeneration == self.loadGeneration else {
+                self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
+                return
+            }
             webView.evaluateJavaScript("window.__kasetTargetVolume = \(targetVolume);", completionHandler: nil)
             webView.load(URLRequest(url: url))
         }
