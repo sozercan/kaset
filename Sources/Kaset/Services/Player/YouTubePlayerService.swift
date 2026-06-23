@@ -244,6 +244,7 @@ final class YouTubePlayerService {
         self.watchActivityGeneration += 1 // a new watch began
         self.currentWatchConcluded = false
         self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -380,6 +381,7 @@ final class YouTubePlayerService {
         self.currentVideo = nil
         self.isPlaying = false
         self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.progress = 0
         self.duration = 0
         self.isShowingAd = false
@@ -472,6 +474,7 @@ final class YouTubePlayerService {
         self.watchActivityGeneration += 1
         self.currentWatchConcluded = false
         self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -705,7 +708,6 @@ final class YouTubePlayerService {
 
     /// Applies a `STATE_UPDATE` from the watch page observer script.
     func updatePlaybackState(_ update: PlaybackUpdate) {
-        self.isIdentityReloadInFlight = false
         self.hasObservedPlaybackState = true
         if let pendingId = self.pendingPausedIdentityReloadVideoId,
            pendingId == (update.videoId ?? self.currentVideo?.videoId),

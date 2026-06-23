@@ -97,7 +97,7 @@ struct AccountServiceTests {
         #expect(services.account.currentAccount == primaryAccount)
     }
 
-    @Test @MainActor func sameAccountWithoutSigninURLIsNoOpEvenWhenUnverified() async throws {
+    @Test @MainActor func sameAccountWithSigninURLRemainsSelected() async throws {
         let services = Self.createService(webKitManager: MockWebKitManager())
 
         let primaryAccount = UserAccount.from(
