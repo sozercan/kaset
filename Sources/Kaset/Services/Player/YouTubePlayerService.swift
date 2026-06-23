@@ -300,7 +300,7 @@ final class YouTubePlayerService {
             if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
             self.playbackWillStart?()
         } else {
-            self.isPlaying = false
+            self.deferInFlightIdentityReloadIfNeeded()
             self.playbackController.cancelPendingLoad()
         }
         self.playbackController.playPause()
@@ -333,14 +333,18 @@ final class YouTubePlayerService {
 
     /// Pauses playback.
     func pause() {
+        self.deferInFlightIdentityReloadIfNeeded()
+        self.playbackController.cancelPendingLoad()
+        self.playbackController.pause()
+    }
+
+    private func deferInFlightIdentityReloadIfNeeded() {
         if self.isIdentityReloadInFlight, let currentVideo = self.currentVideo {
             self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
             self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (self.progress > 0 ? self.progress : nil)
             self.isIdentityReloadInFlight = false
         }
         self.isPlaying = false
-        self.playbackController.cancelPendingLoad()
-        self.playbackController.pause()
     }
 
     /// Seeks to a position in seconds.
