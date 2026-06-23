@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import os
 import SwiftUI
 import WebKit
@@ -382,6 +383,11 @@ final class SingletonPlayerWebView {
         // mis-reconciled against a restored session before the new document loads.
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
         let skipPrenavPause = (strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId)
+        if skipPrenavPause {
+            webView.evaluateJavaScript("window.__kasetTargetVolume = \(currentVolume);", completionHandler: nil)
+            webView.load(URLRequest(url: urlToLoad))
+            return
+        }
         let prenavScript = skipPrenavPause ? "" : "document.querySelector('video')?.pause();"
         webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }

@@ -18,6 +18,7 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     private(set) var volumes: [Double] = []
     private(set) var tearDownCount = 0
     private(set) var prepareCount = 0
+    private(set) var cancelPendingLoadCount = 0
 
     func prepare(webKitManager _: WebKitManager, playerService _: YouTubePlayerService) {
         self.prepareCount += 1
@@ -30,6 +31,10 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     func reloadVideo(videoId: String, resumeAt seconds: Double?) {
         self.reloadedVideoIds.append(videoId)
         self.reloadResumeSeconds.append(seconds)
+    }
+
+    func cancelPendingLoad() {
+        self.cancelPendingLoadCount += 1
     }
 
     func playPause() {

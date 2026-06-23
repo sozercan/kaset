@@ -10,6 +10,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService)
     func loadVideo(videoId: String)
     func reloadVideo(videoId: String, resumeAt seconds: Double?)
+    func cancelPendingLoad()
     func playPause()
     func play()
     func pause()
@@ -298,6 +299,7 @@ final class YouTubePlayerService {
             self.playbackWillStart?()
         } else {
             self.isPlaying = false
+            self.playbackController.cancelPendingLoad()
         }
         self.playbackController.playPause()
     }
@@ -329,6 +331,7 @@ final class YouTubePlayerService {
     /// Pauses playback.
     func pause() {
         self.isPlaying = false
+        self.playbackController.cancelPendingLoad()
         self.playbackController.pause()
     }
 
