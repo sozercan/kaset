@@ -132,7 +132,9 @@ final class YouTubeWatchWebView {
             // Bail if a newer load was requested while the pause callback was
             // pending — otherwise this stale URL would navigate over the newer
             // selection and the observer would follow the wrong video.
-            guard myLoadGeneration == self.loadGeneration else {
+            guard myLoadGeneration == self.loadGeneration,
+                  self.currentVideoId == videoId
+            else {
                 self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
                 return
             }
@@ -145,6 +147,7 @@ final class YouTubeWatchWebView {
     func tearDown() {
         guard let webView else { return }
         self.logger.info("Tearing down YouTube watch WebView")
+        self.loadGeneration += 1
         self.currentVideoId = nil
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
         webView.loadHTMLString("", baseURL: nil)

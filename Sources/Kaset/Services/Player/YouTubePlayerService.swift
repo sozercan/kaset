@@ -88,19 +88,6 @@ final class YouTubePlayerService {
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
-    /// When set, the watch page for this videoId was reloaded for a session
-    /// identity switch while paused; suppress the watch page's autoplay until a
-    /// paused state is observed *after* at least one autoplay attempt was actually
-    /// suppressed (or the user resumes). Mirrors the music side's paused-restore
-    /// latch. Cleared on post-suppression pause for the id, on a user-initiated
-    /// resume, or on per-video reset.
-    private var suppressAutoplayForPausedReloadVideoId: String?
-
-    /// Tracks whether the paused-reload latch has actually re-paused an autoplay
-    /// attempt. Initial observer updates can report paused before YouTube's async
-    /// autoplay starts; those must not disarm the latch.
-    private var didSuppressAutoplayForPausedReload = false
-
     /// A paused video does not need an immediate identity-switch reload, because
     /// there is no active playback to re-attribute. Defer the reload until the
     /// user explicitly resumes so loading YouTube's autoplaying watch page cannot
@@ -281,13 +268,8 @@ final class YouTubePlayerService {
             // when the user explicitly resumes.
             self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
             self.pendingPausedIdentityReloadResumeAt = resumeProgress > 0 ? resumeProgress : nil
-            self.suppressAutoplayForPausedReloadVideoId = nil
-            self.didSuppressAutoplayForPausedReload = false
             return
         }
-
-        self.suppressAutoplayForPausedReloadVideoId = nil
-        self.didSuppressAutoplayForPausedReload = false
 
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         // Defer the seek to load completion: the new <video> element does not
@@ -303,9 +285,6 @@ final class YouTubePlayerService {
     func playPause() {
         if !self.isPlaying {
             if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
-            // A deliberate user play cancels autoplay suppression from a reload.
-            self.suppressAutoplayForPausedReloadVideoId = nil
-            self.didSuppressAutoplayForPausedReload = false
             self.playbackWillStart?()
         }
         self.playbackController.playPause()
@@ -314,9 +293,6 @@ final class YouTubePlayerService {
     /// Resumes playback.
     func resume() {
         if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
-        // A deliberate user resume cancels autoplay suppression from a reload.
-        self.suppressAutoplayForPausedReloadVideoId = nil
-        self.didSuppressAutoplayForPausedReload = false
         self.playbackWillStart?()
         self.playbackController.play()
     }
@@ -332,8 +308,6 @@ final class YouTubePlayerService {
         let resumeAt = self.pendingPausedIdentityReloadResumeAt
         self.pendingPausedIdentityReloadVideoId = nil
         self.pendingPausedIdentityReloadResumeAt = nil
-        self.suppressAutoplayForPausedReloadVideoId = nil
-        self.didSuppressAutoplayForPausedReload = false
         self.playbackWillStart?()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
@@ -495,9 +469,7 @@ final class YouTubePlayerService {
         self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
         // A genuinely new video starts under the user's own intent; never inherit
-        // a paused-reload autoplay-suppression latch from a prior video.
-        self.suppressAutoplayForPausedReloadVideoId = nil
-        self.didSuppressAutoplayForPausedReload = false
+        // a deferred identity-reload latch from a prior video.
         self.pendingPausedIdentityReloadVideoId = nil
         self.pendingPausedIdentityReloadResumeAt = nil
         self.lastNonAdContentProgress = 0
@@ -700,8 +672,10 @@ final class YouTubePlayerService {
            pendingId == (update.videoId ?? self.currentVideo?.videoId),
            update.isPlaying
         {
-            if self.pendingPausedIdentityReloadResumeAt == nil, update.progress > 0 {
-                self.pendingPausedIdentityReloadResumeAt = update.progress
+            if self.pendingPausedIdentityReloadResumeAt == nil,
+               let resumeProgress = self.deferredIdentityReloadResumeProgress(for: update)
+            {
+                self.pendingPausedIdentityReloadResumeAt = resumeProgress
             }
             _ = self.reloadPendingPausedIdentitySwitchForUserResume()
             return
@@ -710,36 +684,7 @@ final class YouTubePlayerService {
            pendingId == (update.videoId ?? self.currentVideo?.videoId),
            !update.isPlaying
         {
-            self.pendingPausedIdentityReloadResumeAt = update.progress > 0 ? update.progress : nil
-        }
-
-        // Autoplay suppression for a paused identity-switch reload: if the watch
-        // page autoplays a video the user had paused, re-pause it (reactively,
-        // since a one-shot pause at didFinish loses the race to the player's own
-        // async playVideo()). Latch is keyed to the reloaded videoId and cleared
-        // only once the page genuinely reports a paused state, or on a user
-        // resume. A preroll ad counts as playing here too — otherwise the ad
-        // (and the content after it) would autoplay through the switch.
-        if let suppressedId = self.suppressAutoplayForPausedReloadVideoId,
-           suppressedId == (update.videoId ?? self.currentVideo?.videoId)
-        {
-            if update.isPlaying {
-                self.playbackController.pause()
-                self.isPlaying = false
-                self.progress = update.progress
-                self.duration = update.duration
-                self.isShowingAd = update.isAd
-                self.didSuppressAutoplayForPausedReload = true
-                return
-            }
-            if self.didSuppressAutoplayForPausedReload {
-                // The page settled into a paused state after we actually suppressed
-                // autoplay — the intent is satisfied; stop suppressing and process
-                // normally. Initial paused observer updates before YouTube's async
-                // autoplay starts intentionally keep the latch armed.
-                self.suppressAutoplayForPausedReloadVideoId = nil
-                self.didSuppressAutoplayForPausedReload = false
-            }
+            self.pendingPausedIdentityReloadResumeAt = self.deferredIdentityReloadResumeProgress(for: update)
         }
 
         // YouTube can start the next video on its own (SPA navigation);
@@ -825,6 +770,13 @@ final class YouTubePlayerService {
             self.currentWatchConcluded = false
             YouTubeWatchWebView.shared.currentVideoId = videoId
         }
+    }
+
+    private func deferredIdentityReloadResumeProgress(for update: PlaybackUpdate) -> Double? {
+        if update.isAd {
+            return self.lastNonAdContentProgress > 0 ? self.lastNonAdContentProgress : nil
+        }
+        return update.progress > 0 ? update.progress : nil
     }
 
     /// Handles natural video completion.

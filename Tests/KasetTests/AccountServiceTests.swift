@@ -90,6 +90,17 @@ struct AccountServiceTests {
         #expect(services.account.currentAccount == primaryAccount)
     }
 
+    @Test @MainActor func sameAccountWithoutSigninURLIsNoOpEvenWhenUnverified() async throws {
+        let services = Self.createService(webKitManager: MockWebKitManager())
+
+        let primaryAccount = MockUserAccountData.primaryAccount
+        await Self.populateAccounts(services, accounts: [primaryAccount])
+
+        try await services.account.switchAccount(to: primaryAccount)
+
+        #expect(services.account.currentAccount == primaryAccount)
+    }
+
     @Test @MainActor func sameAccountSwitchRetriesUnverifiedSessionIdentity() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)

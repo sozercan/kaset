@@ -118,6 +118,11 @@ final class AccountService {
     /// switches can finish after a newer switch has already started.
     private var manualSwitchInFlightCount = 0
 
+    /// Bumped when account data/session mutations are invalidated (notably sign-out)
+    /// so an older `fetchAccounts()` continuation cannot commit stale accounts or
+    /// start a fresh session pin after cookies are being cleared.
+    private var accountDataGeneration = 0
+
     private func markIdentityVerified(_ accountId: String?) {
         self.verifiedAccountId = accountId
         self.verifiedIdentitySequence &+= 1
@@ -181,6 +186,7 @@ final class AccountService {
 
         self.logger.info("AccountService: Fetching accounts list")
         self.isLoading = true
+        let fetchGeneration = self.accountDataGeneration
 
         defer {
             self.isLoading = false
@@ -188,6 +194,12 @@ final class AccountService {
 
         do {
             let response = try await self.ytMusicClient.fetchAccountsList()
+            guard fetchGeneration == self.accountDataGeneration,
+                  self.authService.state.isLoggedIn
+            else {
+                self.logger.info("AccountService: Ignoring stale account fetch after auth/account state changed")
+                return
+            }
             self.accounts = response.accounts
 
             // Restore previously selected account if stored
@@ -310,6 +322,7 @@ final class AccountService {
     /// clears cookies/data. This prevents an in-flight hidden `/signin` navigation
     /// from writing cookies back into the shared data store after sign-out cleanup.
     func prepareForSignOut() async {
+        self.accountDataGeneration &+= 1
         self.switchGeneration &+= 1
 
         let pinTask = self.sessionPinTask
@@ -330,7 +343,7 @@ final class AccountService {
     /// - Throws: An error if the switch fails.
     func switchAccount(to account: UserAccount) async throws {
         let isSameAccount = account.id == self.currentAccount?.id
-        guard !isSameAccount || (self.verifiedAccountId != account.id && self.webKitManager != nil) else {
+        guard !isSameAccount || (account.signinURL != nil && self.verifiedAccountId != account.id && self.webKitManager != nil) else {
             self.logger.debug("AccountService: Already using account \(account.name)")
             return
         }
@@ -568,6 +581,7 @@ final class AccountService {
     /// Should be called when the user logs out to reset state.
     func clearAccounts() {
         self.logger.info("AccountService: Clearing accounts data")
+        self.accountDataGeneration &+= 1
 
         // Invalidate any in-flight session mutation: cancel the pin and the
         // active switch navigation, and bump the generation so a switch currently
