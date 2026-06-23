@@ -162,7 +162,10 @@ struct AccountServiceTests {
         mockWebKit.switchSessionIdentityError = SessionSwitchError.identityNotApplied(expectedBrandId: "x")
         let services = Self.createService(webKitManager: mockWebKit)
 
-        let primaryAccount = MockUserAccountData.primaryAccount
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
         let brandAccount = MockUserAccountData.brandAccountWithSigninURL
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
         #expect(services.account.currentAccount == primaryAccount)
