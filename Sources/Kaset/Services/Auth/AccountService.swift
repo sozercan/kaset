@@ -94,6 +94,7 @@ final class AccountService {
     /// against the shared cookie store cannot leave the session on a stale
     /// identity. Replaced on each `fetchAccounts`/`switchAccount`.
     private var sessionPinTask: Task<Void, Never>?
+    private var sessionPinGeneration = 0
 
     /// The in-flight manual-switch navigation, tracked separately so a newer
     /// switch (or logout) can CANCEL it — not merely gate its commit. Without
@@ -109,9 +110,41 @@ final class AccountService {
     /// last-launched navigation against the shared cookie store.
     private var switchGeneration: Int = 0
 
+    /// Number of user-initiated account switches currently owning (or waiting to
+    /// own) the shared WebKit session. Passive account-list refreshes must not
+    /// start restore pins while this is non-zero, or they can race a switch and
+    /// re-point cookies to a stale account. A count, rather than a Bool, is used
+    /// because `switchAccount` is reentrant on the main actor and superseded
+    /// switches can finish after a newer switch has already started.
+    private var manualSwitchInFlightCount = 0
+
     private func markIdentityVerified(_ accountId: String?) {
         self.verifiedAccountId = accountId
         self.verifiedIdentitySequence &+= 1
+    }
+
+    private func runTrackedSessionSwitch(
+        with webKitManager: any WebKitManagerProtocol,
+        to signinURL: URL,
+        expectedBrandId: String?
+    ) async throws {
+        let navigation = Task { @MainActor in
+            try await webKitManager.switchSessionIdentity(
+                to: signinURL,
+                expectedBrandId: expectedBrandId
+            )
+        }
+        self.activeSwitchNavigation = navigation
+        // Only clear the handle if it is still OURS: a newer switch may have
+        // replaced it while we were suspended, and clearing it then would make
+        // the newer navigation uncancellable. (`Task` conforms to
+        // `Equatable`/`Hashable` by identity, so `==` compares handles.)
+        defer {
+            if self.activeSwitchNavigation == navigation {
+                self.activeSwitchNavigation = nil
+            }
+        }
+        try await navigation.value
     }
 
     // MARK: - Initialization
@@ -158,7 +191,6 @@ final class AccountService {
             self.accounts = response.accounts
 
             // Restore previously selected account if stored
-            var restoredBrandVanished = false
             if let savedBrandId = UserDefaults.standard.string(forKey: self.selectedBrandIdKey) {
                 self.logger.debug("AccountService: Found saved brand ID: \(savedBrandId)")
 
@@ -170,10 +202,6 @@ final class AccountService {
                     // Saved account no longer available, use API-selected
                     self.currentAccount = response.selectedAccount ?? self.accounts.first
                     self.logger.debug("AccountService: Saved account not found, using API-selected")
-                    // The shared WebKit session may still be delegated to the now-
-                    // removed brand; if we fell back to primary, the session must be
-                    // re-pinned to primary rather than left brand-delegated.
-                    restoredBrandVanished = (savedBrandId != "primary")
                 }
             } else {
                 // Default to the currently selected account from API response
@@ -186,14 +214,12 @@ final class AccountService {
             let currentLabel = self.currentAccount?.brandId ?? "primary"
             self.logger.info("AccountService: Fetched \(self.accounts.count) accounts, current: \(self.currentAccount?.name ?? "none") (brandId=\(currentLabel))")
 
-            // Re-establish the WebView session identity for a restored brand
-            // account. Without this, a relaunch leaves native reads brand-aware
-            // while the playback session is still primary, so playback would
-            // record history to the primary account (the issue-#277 bug, on every
-            // cold launch). Run it OFF the fetch path (after isLoading clears) so
-            // a real ≤20s navigation never stalls launch or holds the account
-            // spinner; it is best-effort and surfaced via logs on failure.
-            self.scheduleRestoredSessionPin(forcePrimaryRepin: restoredBrandVanished)
+            // Re-establish the WebView session identity for the restored account.
+            // Without this, a relaunch can leave native reads and playback history
+            // attribution on different identities. Run it OFF the fetch path (after
+            // isLoading clears) so a real ≤20s navigation never stalls launch or
+            // holds the account spinner; it is best-effort and surfaced via logs.
+            self.scheduleRestoredSessionPin()
         } catch {
             self.logger.error("AccountService: Failed to fetch accounts: \(error.localizedDescription)")
             self.lastError = error
@@ -205,19 +231,20 @@ final class AccountService {
     /// Schedules a best-effort WebView session pin for the restored account, off
     /// the `fetchAccounts` path so it never blocks launch or holds `isLoading`.
     ///
-    /// Normally a no-op for the primary account (the default session identity).
-    /// When `forcePrimaryRepin` is true — i.e. a saved brand vanished and we fell
-    /// back to primary — the shared session may still be delegated to the removed
-    /// brand, so primary is explicitly re-pinned (verified with `expectedBrandId:
-    /// nil`) provided it exposes a `signinURL`. No-op when no WebKit manager is
-    /// injected. On success it bumps `verifiedIdentitySequence`. Failures logged.
-    private func scheduleRestoredSessionPin(forcePrimaryRepin: Bool = false) {
+    /// Pins any restored account that exposes a `signinURL`, including primary.
+    /// Primary usually is the default identity, but the shared session can be left
+    /// brand-delegated after a crash or failed rollback, so a primary restore must
+    /// also verify/re-pin when the server supplies a switch URL. No-op when no
+    /// WebKit manager/signin URL is injected. On success it bumps
+    /// `verifiedIdentitySequence`. Failures logged.
+    private func scheduleRestoredSessionPin() {
         // Cancel any in-flight pin FIRST, before the guard: a later fetch that
         // resolves to primary / a brand without a signinURL / a removed account
         // must not leave an older brand pin running, or it could still verify and
         // bump `verifiedIdentitySequence` for an account the app no longer
         // considers active (e.g. after logout/re-auth or an account-list refresh).
-        self.sessionPinTask?.cancel()
+        let priorPinTask = self.sessionPinTask
+        priorPinTask?.cancel()
         self.sessionPinTask = nil
         // NOTE: do NOT bump switchGeneration here. A passive fetch/launch restore
         // must not supersede an in-flight *manual* switch: doing so would make the
@@ -226,6 +253,10 @@ final class AccountService {
         // while currentAccount reflects the fetch — a split-brain. A manual switch
         // intentionally wins over a passive fetch; the fetch only cancels a prior
         // (also-passive) pin via the cancel above.
+        guard self.manualSwitchInFlightCount == 0, self.activeSwitchNavigation == nil else {
+            self.logger.info("AccountService: Skipping restored session pin while a manual switch is in flight")
+            return
+        }
 
         guard !UITestConfig.isUITestMode,
               let webKitManager = self.webKitManager,
@@ -234,18 +265,31 @@ final class AccountService {
         else {
             return
         }
-        // Pin a brand always; pin primary only on the brand-vanished fallback
-        // (otherwise a normal primary launch needn't touch the session).
-        guard account.brandId != nil || forcePrimaryRepin else {
-            return
-        }
         let expectedBrandId = account.brandId
+        let accountId = account.id
+        let switchGenerationAtPinStart = self.switchGeneration
 
-        self.sessionPinTask = Task { [weak self] in
+        self.sessionPinGeneration &+= 1
+        let pinGeneration = self.sessionPinGeneration
+
+        self.sessionPinTask = Task { [weak self, priorPinTask] in
+            defer {
+                if let self, self.sessionPinGeneration == pinGeneration {
+                    self.sessionPinTask = nil
+                }
+            }
+            await priorPinTask?.value
             guard !Task.isCancelled else { return }
             do {
                 try await webKitManager.switchSessionIdentity(to: signinURL, expectedBrandId: expectedBrandId)
                 guard let self, !Task.isCancelled else { return }
+                guard self.currentAccount?.id == accountId,
+                      self.switchGeneration == switchGenerationAtPinStart,
+                      self.activeSwitchNavigation == nil
+                else {
+                    self.logger.info("AccountService: Restored session identity for \(account.name) was superseded; not marking verified")
+                    return
+                }
                 self.logger.info("AccountService: Restored session identity for \(account.name)")
                 self.markIdentityVerified(account.id)
             } catch is CancellationError {
@@ -262,19 +306,45 @@ final class AccountService {
         await self.sessionPinTask?.value
     }
 
+    /// Cancels and awaits any WebView session-identity mutation before the caller
+    /// clears cookies/data. This prevents an in-flight hidden `/signin` navigation
+    /// from writing cookies back into the shared data store after sign-out cleanup.
+    func prepareForSignOut() async {
+        self.switchGeneration &+= 1
+
+        let pinTask = self.sessionPinTask
+        let navigationTask = self.activeSwitchNavigation
+        self.sessionPinTask = nil
+        self.activeSwitchNavigation = nil
+
+        pinTask?.cancel()
+        navigationTask?.cancel()
+
+        await pinTask?.value
+        _ = try? await navigationTask?.value
+    }
+
     /// Switches to a different account.
     ///
     /// - Parameter account: The account to switch to.
     /// - Throws: An error if the switch fails.
     func switchAccount(to account: UserAccount) async throws {
-        guard account != self.currentAccount else {
+        let isSameAccount = account.id == self.currentAccount?.id
+        guard !isSameAccount || (self.verifiedAccountId != account.id && self.webKitManager != nil) else {
             self.logger.debug("AccountService: Already using account \(account.name)")
             return
+        }
+        if isSameAccount {
+            self.logger.info("AccountService: Retrying unverified session identity for account: \(account.name)")
         }
 
         let previousAccount = self.currentAccount
         self.logger.info("AccountService: Switching to account: \(account.name)")
         self.isLoading = true
+        self.manualSwitchInFlightCount += 1
+        defer {
+            self.manualSwitchInFlightCount -= 1
+        }
 
         // Claim this switch's generation FIRST, before any await. A prior switch
         // suspended on its navigation will then observe the bumped generation when
@@ -283,6 +353,7 @@ final class AccountService {
         // awaits below can interleave.
         self.switchGeneration &+= 1
         let myGeneration = self.switchGeneration
+        var cancelledPriorSessionMutation = false
 
         // Now cancel and await any in-flight session mutation (a cold-launch brand
         // restore pin AND/OR a prior manual switch's navigation) so neither can
@@ -290,13 +361,26 @@ final class AccountService {
         // identity. `switchSessionIdentity` is cooperatively cancellable, so this
         // returns promptly. (Generation already bumped, so the awaited prior
         // switch is guaranteed to abandon its own commit.)
+        if self.sessionPinTask != nil || self.activeSwitchNavigation != nil {
+            cancelledPriorSessionMutation = true
+        }
         self.sessionPinTask?.cancel()
         await self.sessionPinTask?.value
         self.sessionPinTask = nil
+        guard myGeneration == self.switchGeneration else {
+            self.logger.info("AccountService: Switch to \(account.name) superseded before navigation; abandoning")
+            self.isLoading = false
+            return
+        }
         let priorNavigation = self.activeSwitchNavigation
         self.activeSwitchNavigation = nil
         priorNavigation?.cancel()
         _ = try? await priorNavigation?.value
+        guard myGeneration == self.switchGeneration else {
+            self.logger.info("AccountService: Switch to \(account.name) superseded while awaiting prior navigation; abandoning")
+            self.isLoading = false
+            return
+        }
 
         // Tracks whether the session-mutating navigation was actually started, so
         // the catch only rolls the session back when there is something to undo.
@@ -329,28 +413,20 @@ final class AccountService {
                     throw SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
                 }
                 didStartSessionSwitch = true
+                // Once a session-mutating navigation starts, the previously
+                // verified identity is no longer trustworthy until the target
+                // switch (or a rollback) verifies its landing identity.
+                self.markIdentityVerified(nil)
                 // Run the navigation as a cancellable tracked task so a newer
                 // switch (or logout) cancels THIS navigation, not just gates its
                 // commit. Otherwise two quick switches would run two concurrent
                 // /signin WebViews and whichever landed last would win the shared
                 // cookie store even though commits are generation-gated.
-                let navigation = Task { @MainActor in
-                    try await webKitManager.switchSessionIdentity(
-                        to: signinURL,
-                        expectedBrandId: account.brandId
-                    )
-                }
-                self.activeSwitchNavigation = navigation
-                // Only clear the handle if it is still OURS: a newer switch may
-                // have replaced it while we were suspended, and clearing it then
-                // would make the newer navigation uncancellable. (`Task` conforms
-                // to `Equatable`/`Hashable` by identity, so `==` compares handles.)
-                defer {
-                    if self.activeSwitchNavigation == navigation {
-                        self.activeSwitchNavigation = nil
-                    }
-                }
-                try await navigation.value
+                try await self.runTrackedSessionSwitch(
+                    with: webKitManager,
+                    to: signinURL,
+                    expectedBrandId: account.brandId
+                )
             }
 
             // If a newer switch/pin superseded this one while we were navigating,
@@ -393,35 +469,18 @@ final class AccountService {
                 throw error
             }
 
-            self.currentAccount = previousAccount
-            SongLikeStatusManager.shared.setActiveAccountID(previousAccount?.id)
-
-            // If the /signin navigation already mutated the shared cookie session
-            // before verification failed, the session may be left on the attempted
-            // identity while native state says `previousAccount`. Best-effort
-            // re-pin the previous identity so playback records to the account the
-            // app believes is active. Skipped for throws that occurred before the
-            // navigation (UI-test mock, missing signinURL).
-            if didStartSessionSwitch,
-               !UITestConfig.isUITestMode,
-               let webKitManager = self.webKitManager,
-               let previous = previousAccount,
-               let previousSigninURL = previous.signinURL
-            {
-                do {
-                    try await webKitManager.switchSessionIdentity(
-                        to: previousSigninURL,
-                        expectedBrandId: previous.brandId
-                    )
-                    // Only claim the verified identity if nothing superseded us
-                    // during the rollback navigation.
-                    if myGeneration == self.switchGeneration {
-                        self.markIdentityVerified(previous.id)
-                    }
-                } catch {
-                    self.logger.error("AccountService: Session rollback failed; session may remain on attempted identity: \(error.localizedDescription)")
-                }
+            let restoredPreviousAccount = await self.rollbackSessionAfterFailedSwitch(
+                didStartSessionSwitch: didStartSessionSwitch || cancelledPriorSessionMutation,
+                previousAccount: previousAccount,
+                generation: myGeneration
+            )
+            guard myGeneration == self.switchGeneration else {
+                self.logger.info("AccountService: Failed switch to \(account.name) was superseded during rollback; not surfacing failure")
+                throw error
             }
+
+            self.currentAccount = restoredPreviousAccount
+            SongLikeStatusManager.shared.setActiveAccountID(restoredPreviousAccount?.id)
 
             self.lastError = error
             self.lastErrorWasFetch = false
@@ -444,6 +503,64 @@ final class AccountService {
     private func refreshAccountsAfterSwitchFailure() async {
         guard !self.isLoading else { return }
         await self.fetchAccounts()
+    }
+
+    private func rollbackSessionAfterFailedSwitch(
+        didStartSessionSwitch: Bool,
+        previousAccount: UserAccount?,
+        generation: Int
+    ) async -> UserAccount? {
+        var restoredPreviousAccount = previousAccount
+        if didStartSessionSwitch,
+           !UITestConfig.isUITestMode,
+           let previous = previousAccount,
+           let freshPrevious = await self.refreshAccountForRollback(matching: previous)
+        {
+            restoredPreviousAccount = freshPrevious
+        }
+        guard generation == self.switchGeneration else {
+            return restoredPreviousAccount
+        }
+
+        // If the /signin navigation already mutated the shared cookie session
+        // before verification failed, the session may be left on the attempted
+        // identity while native state says `previousAccount`. Best-effort re-pin
+        // the previous identity with a fresh token when available.
+        guard didStartSessionSwitch,
+              !UITestConfig.isUITestMode,
+              let webKitManager = self.webKitManager,
+              let previous = restoredPreviousAccount,
+              let previousSigninURL = previous.signinURL
+        else {
+            return restoredPreviousAccount
+        }
+
+        do {
+            try await self.runTrackedSessionSwitch(
+                with: webKitManager,
+                to: previousSigninURL,
+                expectedBrandId: previous.brandId
+            )
+            if generation == self.switchGeneration {
+                self.markIdentityVerified(previous.id)
+            }
+        } catch is CancellationError {
+            // Superseded by a newer switch/logout, which owns the next session
+            // mutation and native account state.
+        } catch {
+            self.logger.error("AccountService: Session rollback failed; session may remain on attempted identity: \(error.localizedDescription)")
+        }
+        return restoredPreviousAccount
+    }
+
+    private func refreshAccountForRollback(matching account: UserAccount) async -> UserAccount? {
+        do {
+            let response = try await self.ytMusicClient.fetchAccountsList()
+            return response.accounts.first { $0.id == account.id }
+        } catch {
+            self.logger.error("AccountService: Could not refresh rollback account token: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     /// Clears all account data.

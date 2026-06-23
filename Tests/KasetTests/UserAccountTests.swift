@@ -126,8 +126,8 @@ struct UserAccountTests {
             isSelected: false
         )
 
-        // Accounts with different isSelected should NOT be equal
-        #expect(account1 != account2)
+        // Selection is UI state; account identity remains the same.
+        #expect(account1 == account2)
     }
 
     @Test func accountEqualityDifferentNames() {

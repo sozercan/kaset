@@ -175,15 +175,22 @@ enum AccountsListParser {
     /// resolved against the YouTube origin. Also handles protocol-relative and
     /// already-absolute forms defensively.
     static func resolveSigninURL(_ urlString: String, origin: String = "https://www.youtube.com") -> URL? {
-        if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
-            return URL(string: urlString)
+        let resolvedURL: URL? = if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+            URL(string: urlString)
+        } else if urlString.hasPrefix("//") {
+            URL(string: "https:" + urlString)
+        } else if urlString.hasPrefix("/") {
+            URL(string: urlString, relativeTo: URL(string: origin))?.absoluteURL
+        } else {
+            URL(string: urlString)
         }
-        if urlString.hasPrefix("//") {
-            return URL(string: "https:" + urlString)
-        }
-        if urlString.hasPrefix("/") {
-            return URL(string: urlString, relativeTo: URL(string: origin))?.absoluteURL
-        }
-        return URL(string: urlString)
+        guard let resolvedURL, Self.isAllowedSigninURL(resolvedURL) else { return nil }
+        return resolvedURL
+    }
+
+    static func isAllowedSigninURL(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" &&
+            url.host?.lowercased() == "www.youtube.com" &&
+            url.path == "/signin"
     }
 }

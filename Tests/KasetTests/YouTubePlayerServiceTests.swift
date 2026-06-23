@@ -136,6 +136,7 @@ struct YouTubePlayerServiceTests {
     @Test("Identity-switch re-points the current video via a forced reload")
     func reloadForIdentitySwitchRepointsCurrentVideo() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 60, videoId: "abc"))
 
         self.sut.reloadCurrentVideoForIdentitySwitch()
 
@@ -165,53 +166,81 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.reloadResumeSeconds.last == .some(600))
     }
 
-    @Test("Paused video reloaded for identity switch does not autoplay")
-    func pausedReloadSuppressesAutoplay() {
-        // Arrange: a video that is currently PAUSED (no isPlaying state fed).
+    @Test("Paused video identity reload is deferred until resume")
+    func pausedReloadDefersUntilResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 12, duration: 60, videoId: "abc"))
         #expect(self.sut.isPlaying == false)
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
-        // Reload for an identity switch while paused → arms autoplay suppression.
         self.sut.reloadCurrentVideoForIdentitySwitch()
-        let pausesBefore = self.controller.pauseCount
 
-        // The reloaded watch page autoplays → observer reports playing.
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 3, duration: 60, videoId: "abc"))
-
-        // Suppressed: re-paused, not treated as a play start, music not displaced.
-        #expect(self.controller.pauseCount == pausesBefore + 1)
+        // No autoplaying watch page is loaded while the user left the video paused.
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(self.controller.pauseCount == 0)
         #expect(self.sut.isPlaying == false)
         #expect(willStartCount == 0)
 
-        // Once the page settles paused, the latch clears and normal play resumes.
-        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 4, duration: 60, videoId: "abc"))
-        #expect(self.sut.isPlaying == true)
+        self.sut.seek(to: 34)
+        // User intent to resume performs the identity reload at the saved position.
+        self.sut.resume()
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.reloadResumeSeconds == [34])
+        #expect(self.controller.playCount == 0)
+        #expect(willStartCount == 1)
     }
 
-    @Test("Paused-reload suppression survives a preroll ad")
-    func pausedReloadSuppressesThroughPrerollAd() {
+    @Test("Deferred paused identity reload survives observer updates before resume")
+    func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
-        #expect(self.sut.isPlaying == false)
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
         self.sut.reloadCurrentVideoForIdentitySwitch()
-        let pausesBefore = self.controller.pauseCount
 
-        // The reload first reports a PLAYING preroll AD — must still be suppressed
-        // (the latch may not be cleared until a genuine paused state).
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 5, videoId: "abc", isAd: true))
-        #expect(self.controller.pauseCount == pausesBefore + 1)
-        #expect(self.sut.isPlaying == false)
+        // Stray observer updates from the old paused page do not consume the
+        // deferred identity reload. The reload still happens on explicit resume.
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        #expect(self.controller.reloadedVideoIds.isEmpty)
         #expect(willStartCount == 0)
 
-        // Then the content autoplays — still suppressed.
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 60, videoId: "abc"))
-        #expect(self.controller.pauseCount == pausesBefore + 2)
-        #expect(willStartCount == 0)
+        self.sut.playPause()
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.playPauseCount == 0)
+        #expect(willStartCount == 1)
+    }
+
+    @Test("Deferred identity reload applies when a loading video starts")
+    func deferredIdentityReloadAppliesWhenLoadingVideoStarts() {
+        // A just-requested video has not reported playing yet, so isPlaying is
+        // false but it is not a user-paused watch. If identity verification lands
+        // in that loading window, the first playing bridge update must trigger the
+        // reload under the new identity rather than continuing under the old page.
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        var willStartCount = 0
+        self.sut.playbackWillStart = { willStartCount += 1 }
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 2, duration: 60, videoId: "abc"))
+
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.reloadResumeSeconds == [2])
+        #expect(willStartCount == 1)
+    }
+
+    @Test("Deferred paused identity reload is cleared by a new video")
+    func deferredPausedReloadClearsOnNewVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "def"))
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(self.controller.loadedVideoIds == ["abc", "def"])
     }
 
     @Test("Playing video reloaded for identity switch keeps playing")

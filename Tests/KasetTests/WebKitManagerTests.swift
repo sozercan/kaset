@@ -29,6 +29,18 @@ struct WebKitManagerTests {
         #expect(configuration.websiteDataStore === self.webKitManager.dataStore)
     }
 
+    @Test("Session switch WebView configuration excludes extensions")
+    func createSessionSwitchWebViewConfiguration() {
+        let configuration = self.webKitManager.createSessionSwitchWebViewConfiguration()
+        #expect(configuration.websiteDataStore === self.webKitManager.dataStore)
+
+        #if compiler(>=5.9)
+            if #available(macOS 14.0, *) {
+                #expect(configuration.webExtensionController == nil)
+            }
+        #endif
+    }
+
     @Test("Origin constant")
     func originConstant() {
         #expect(WebKitManager.origin == "https://music.youtube.com")

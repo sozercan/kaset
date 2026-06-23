@@ -86,6 +86,7 @@ extension PlayerService {
     func clearRestoredPlaybackSessionState() {
         self.pendingRestoredSeek = nil
         self.isPendingRestoredLoadDeferred = false
+        self.shouldForcePendingRestoredLoad = false
         self.isRestoringPlaybackSession = false
         self.shouldAutoResumeAfterRestoredLoad = false
     }
@@ -104,7 +105,7 @@ extension PlayerService {
     /// Whether the pending track must be loaded into the WebView before playback can resume.
     var shouldLoadPendingVideoBeforePlayback: Bool {
         guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
-        return SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
+        return self.shouldForcePendingRestoredLoad || SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
     }
 
     /// Re-loads the currently playing track so it is served under the WebView
@@ -141,10 +142,18 @@ extension PlayerService {
 
         let resumeProgress = self.progress
         let wasPlaying = self.isPlaying
+        let shouldAutoResumeAfterReload = wasPlaying || self.state == .loading
         self.logger.info("Identity switch: re-pointing current track under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
 
         self.pendingRestoredSeek = resumeProgress
-        self.beginRestoredPlaybackLoad(autoResumeAfterSeek: wasPlaying)
+        if !shouldAutoResumeAfterReload {
+            self.pendingPlayVideoId = currentTrack.videoId
+            self.isPendingRestoredLoadDeferred = true
+            self.shouldForcePendingRestoredLoad = true
+            self.state = .paused
+            return
+        }
+        self.beginRestoredPlaybackLoad(autoResumeAfterSeek: shouldAutoResumeAfterReload)
 
         // Force a full navigation even though the videoId is unchanged: the
         // identity lives in the served document, so an in-place restart would

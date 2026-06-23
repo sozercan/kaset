@@ -235,6 +235,16 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return configuration
     }
 
+    /// Creates the minimal WebView configuration used for hidden account-switch
+    /// navigations. It deliberately shares only the website data store (cookies)
+    /// and does not attach the app's `WKWebExtensionController`, so enabled
+    /// extensions/content scripts cannot observe credential-bearing signin URLs.
+    func createSessionSwitchWebViewConfiguration() -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = self.dataStore
+        return configuration
+    }
+
     /// Metadata required to present an extension-owned page in a dedicated web view.
     struct ExtensionPage: Identifiable {
         let id: String
@@ -580,8 +590,11 @@ extension WebKitManager {
     ///   - expectedBrandId: The brand pageId to verify, or `nil` for the primary.
     func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws {
         self.logger.info("Switching session identity (expecting \(expectedBrandId ?? "primary"))")
+        guard AccountsListParser.isAllowedSigninURL(signinURL) else {
+            throw SessionSwitchError.navigationFailed(underlying: "Refusing non-YouTube signin URL")
+        }
 
-        let configuration = self.createWebViewConfiguration()
+        let configuration = self.createSessionSwitchWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = Self.userAgent
 

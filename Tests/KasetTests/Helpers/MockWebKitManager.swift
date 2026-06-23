@@ -21,6 +21,10 @@ final class MockWebKitManager: WebKitManagerProtocol {
     /// hold a pin "in flight" to exercise cancel/await ordering.
     var switchSessionIdentityGate: (@Sendable () async -> Void)?
 
+    /// Per-call gates (front of queue first); `nil` = no gate for that call.
+    /// Takes precedence over `switchSessionIdentityGate` while non-empty.
+    var switchSessionIdentityGateQueue: [(@Sendable () async -> Void)?] = []
+
     /// URLs passed to `switchSessionIdentity`, in call order.
     private(set) var switchSessionIdentityURLs: [URL] = []
 
@@ -41,6 +45,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var switchSessionIdentityCalled = false
     private(set) var switchSessionIdentityCallCount = 0
     private(set) var switchSessionIdentityExpectedBrandIds: [String?] = []
+    private(set) var switchSessionIdentityCompletedBrandIds: [String?] = []
     private(set) var callSequence: [String] = []
 
     // MARK: - Protocol Implementation
@@ -111,7 +116,12 @@ final class MockWebKitManager: WebKitManagerProtocol {
         // Optional gate: lets a test hold a "pin" in flight (e.g. a cold-launch
         // restore) to exercise cancel/await ordering. Honors cooperative
         // cancellation so the production cancel+await returns promptly.
-        if let gate = self.switchSessionIdentityGate {
+        let gate = if !self.switchSessionIdentityGateQueue.isEmpty {
+            self.switchSessionIdentityGateQueue.removeFirst()
+        } else {
+            self.switchSessionIdentityGate
+        }
+        if let gate {
             await gate()
             try Task.checkCancellation()
         }
@@ -124,6 +134,8 @@ final class MockWebKitManager: WebKitManagerProtocol {
         } else if let error = self.switchSessionIdentityError {
             throw error
         }
+
+        self.switchSessionIdentityCompletedBrandIds.append(expectedBrandId)
     }
 
     // MARK: - Helper Methods
@@ -145,9 +157,11 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.switchSessionIdentityCalled = false
         self.switchSessionIdentityCallCount = 0
         self.switchSessionIdentityExpectedBrandIds = []
+        self.switchSessionIdentityCompletedBrandIds = []
         self.switchSessionIdentityError = nil
         self.switchSessionIdentityErrorQueue = []
         self.switchSessionIdentityGate = nil
+        self.switchSessionIdentityGateQueue = []
         self.switchSessionIdentityURLs = []
         self.callSequence = []
         self.allCookies = []

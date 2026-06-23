@@ -197,6 +197,21 @@ struct AccountsListParserTests {
         #expect(url?.absoluteString == "https://www.youtube.com/signin?pageid=123")
     }
 
+    @Test func rejectsInsecureSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("http://www.youtube.com/signin?pageid=123")
+        #expect(url == nil)
+    }
+
+    @Test func rejectsNonYouTubeSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("https://example.com/signin?pageid=123")
+        #expect(url == nil)
+    }
+
+    @Test func rejectsNonSigninYouTubeURL() {
+        let url = AccountsListParser.resolveSigninURL("https://www.youtube.com/watch?v=abc")
+        #expect(url == nil)
+    }
+
     @Test func parsesBrandAccountSigninURLFromResponse() {
         let json = MockAccountsListData.brandWithSigninURL
         let result = AccountsListParser.parse(json)

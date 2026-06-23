@@ -3,6 +3,7 @@ import SwiftUI
 /// Settings view for general app preferences.
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
+    @Environment(AccountService.self) private var accountService
     @State private var settings = SettingsManager.shared
     @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
@@ -30,6 +31,7 @@ struct GeneralSettingsView: View {
                     if self.authService.state.isLoggedIn {
                         Button("Sign Out") {
                             Task {
+                                await self.accountService.prepareForSignOut()
                                 await self.authService.signOut()
                             }
                         }

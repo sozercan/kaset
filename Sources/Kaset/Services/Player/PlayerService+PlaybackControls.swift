@@ -304,7 +304,8 @@ extension PlayerService {
             self.showMiniPlayer = false
             self.state = .loading
             if SingletonPlayerWebView.shared.webView != nil {
-                SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId)
+                let strategy: SingletonPlayerWebView.VideoLoadStrategy = self.shouldForcePendingRestoredLoad ? .forceFullPageWhenSameVideoId : .standard
+                SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId, strategy: strategy)
             }
             return
         }

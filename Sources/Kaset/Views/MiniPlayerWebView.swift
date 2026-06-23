@@ -225,6 +225,7 @@ final class SingletonPlayerWebView {
     var currentVideoId: String?
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
+    private var loadGeneration = 0
 
     /// Current display mode for the WebView.
     enum DisplayMode {
@@ -360,6 +361,8 @@ final class SingletonPlayerWebView {
 
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
+        self.loadGeneration &+= 1
+        let generation = self.loadGeneration
 
         // Get current volume from PlayerService via coordinator
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
@@ -382,6 +385,7 @@ final class SingletonPlayerWebView {
         let prenavScript = skipPrenavPause ? "" : "document.querySelector('video')?.pause();"
         webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
+            guard self.loadGeneration == generation, self.currentVideoId == videoId else { return }
 
             // Keep the current page's target volume fresh until the new document
             // finishes loading and gets the same value from didFinish.

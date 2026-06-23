@@ -1157,12 +1157,16 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
     print("🔀 signin session-switch pre-check (read-only, ephemeral session)")
     print("================================================================\n")
 
-    guard let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty else {
-        print("❌ No app cookies found. Sign in to Kaset first.")
-        return
-    }
     guard let nextURL = URL(string: nextURLString) else {
         print("❌ Invalid next URL: \(nextURLString)")
+        return
+    }
+    guard isAllowedYtcfgProbeURL(nextURL) else {
+        print("❌ signin probe next URL must be an HTTPS YouTube page (music.youtube.com or www.youtube.com).")
+        return
+    }
+    guard let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty else {
+        print("❌ No app cookies found. Sign in to Kaset first.")
         return
     }
 
@@ -1241,12 +1245,16 @@ func probeSigninSwitchReal(nextURLString: String) async {
     print("🔀 signin session-switch pre-check — REAL server-issued URL (read-only)")
     print("======================================================================\n")
 
-    guard let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty else {
-        print("❌ No app cookies found. Sign in to Kaset first.")
-        return
-    }
     guard let nextURL = URL(string: nextURLString) else {
         print("❌ Invalid next URL: \(nextURLString)")
+        return
+    }
+    guard isAllowedYtcfgProbeURL(nextURL) else {
+        print("❌ signin probe next URL must be an HTTPS YouTube page (music.youtube.com or www.youtube.com).")
+        return
+    }
+    guard let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty else {
+        print("❌ No app cookies found. Sign in to Kaset first.")
         return
     }
 
@@ -1374,7 +1382,7 @@ func extractBrandSigninURL(from data: [String: Any]) -> (String?, String?) {
     return (foundSignin, foundPageId)
 }
 
-/// Read-only identity probe. Fetches an authenticated page (with the app's
+/// Read-only identity probe. Fetches an HTTPS YouTube page (with the app's
 /// cookies) and reports the session-identity markers embedded in its ytcfg:
 /// `DATASYNC_ID` ("<delegatedSessionId>||<userSessionId>"), the derived
 /// delegated session id, and `SESSION_INDEX`. Used to verify which account a
@@ -1383,6 +1391,10 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
     let target = pageURLString ?? "\(activeOrigin)/"
     guard let url = URL(string: target) else {
         print("❌ Invalid URL: \(target)")
+        return
+    }
+    guard isAllowedYtcfgProbeURL(url) else {
+        print("❌ ytcfg probe URL must be an HTTPS YouTube page (music.youtube.com or www.youtube.com).")
         return
     }
 
@@ -1398,19 +1410,28 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
     }
     print("")
 
+    let config = URLSessionConfiguration.ephemeral
+    if let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty {
+        let store = HTTPCookieStorage()
+        for cookie in cookies {
+            store.setCookie(cookie)
+        }
+        config.httpCookieStorage = store
+        config.httpShouldSetCookies = true
+        config.httpCookieAcceptPolicy = .always
+    } else {
+        print("⚠️  No app cookies found — probing as a signed-out session.\n")
+    }
+    let session = URLSession(configuration: config)
+
     var request = URLRequest(url: url)
     request.setValue(
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
         forHTTPHeaderField: "User-Agent"
     )
-    if let cookies = loadCookiesFromAppBackup(), let cookieHeader = buildCookieHeader(from: cookies) {
-        request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
-    } else {
-        print("⚠️  No app cookies found — probing as a signed-out session.\n")
-    }
 
     do {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard let html = String(data: data, encoding: .utf8) else {
             print("❌ HTTP \(status) — could not decode page body")
@@ -1458,6 +1479,15 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
     } catch {
         print("❌ Error: \(error.localizedDescription)")
     }
+}
+
+func isAllowedYtcfgProbeURL(_ url: URL) -> Bool {
+    guard url.scheme?.lowercased() == "https",
+          let host = url.host?.lowercased()
+    else {
+        return false
+    }
+    return host == "music.youtube.com" || host == "www.youtube.com"
 }
 
 /// Discovers all brand accounts using the account/accounts_list endpoint
@@ -1821,7 +1851,8 @@ func showHelp() {
           auth                           Check authentication status
           accounts                       Discover available accounts (via authuser)
           brandaccounts                  List all brand accounts with their IDs
-          ytcfg [url]                    Probe a page's ytcfg identity (DATASYNC_ID/SESSION_INDEX)
+          ytcfg [url]                    Probe an HTTPS YouTube page's ytcfg identity
+                                         (DATASYNC_ID/SESSION_INDEX)
           signin-probe <brandId> [N] [next]
                                          Read-only: follow a synthesized brand /signin and report
                                          whether the session identity flips (issue #277)

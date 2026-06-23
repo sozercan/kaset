@@ -136,4 +136,15 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
             signinURL: signinURL
         )
     }
+
+    public static func == (lhs: UserAccount, rhs: UserAccount) -> Bool {
+        lhs.id == rhs.id && lhs.name == rhs.name && lhs.handle == rhs.handle && lhs.brandId == rhs.brandId
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+        hasher.combine(self.name)
+        hasher.combine(self.handle)
+        hasher.combine(self.brandId)
+    }
 }
