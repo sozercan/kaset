@@ -109,6 +109,7 @@ final class YouTubeWatchWebView {
 
     func cancelPendingLoad() {
         self.loadGeneration += 1
+        self.webView?.stopLoading()
     }
 
     private func load(videoId: String) {
