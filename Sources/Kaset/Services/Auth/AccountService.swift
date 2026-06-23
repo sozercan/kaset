@@ -279,7 +279,23 @@ final class AccountService {
             return
         }
         guard let signinURL = account.signinURL else {
-            self.handleUnpinnableRestoredAccount(account)
+            guard account.brandId != nil else { return }
+            self.sessionPinGeneration &+= 1
+            let pinGeneration = self.sessionPinGeneration
+            let error = SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
+            self.sessionPinTask = Task { [weak self, priorPinTask] in
+                defer {
+                    if let self, self.sessionPinGeneration == pinGeneration {
+                        self.sessionPinTask = nil
+                    }
+                }
+                await priorPinTask?.value
+                guard !Task.isCancelled,
+                      let self,
+                      self.sessionPinGeneration == pinGeneration
+                else { return }
+                await self.handleRestoredSessionPinFailure(for: account, error: error, pinGeneration: pinGeneration)
+            }
             return
         }
         guard self.verifiedAccountId != account.id else {
@@ -325,30 +341,14 @@ final class AccountService {
         }
     }
 
-    private func handleUnpinnableRestoredAccount(_ account: UserAccount) {
-        guard account.brandId != nil, self.currentAccount?.id == account.id else { return }
-        let error = SessionSwitchError.identityNotApplied(expectedBrandId: account.brandId)
-        self.logger.error("AccountService: Restored account lacks a valid signin URL")
-        self.lastError = error
-        self.lastErrorWasFetch = false
-        self.errorSequence += 1
-
-        let fallback = self.accounts.first(where: { $0.isPrimary }) ?? self.accounts.first
-        guard let fallback, fallback.id != account.id else { return }
-        self.ytMusicClient.resetSessionStateForAccountSwitch()
-        self.currentAccount = fallback
-        SongLikeStatusManager.shared.setActiveAccountID(fallback.id)
-        UserDefaults.standard.set(fallback.id, forKey: self.selectedBrandIdKey)
-        self.markIdentityVerified(nil)
-    }
-
     private func handleRestoredSessionPinFailure(for account: UserAccount, error: Error, pinGeneration: Int) async {
+        guard self.currentAccount?.id == account.id else { return }
         self.logger.error("AccountService: Could not restore session identity: \(error.localizedDescription)")
         self.lastError = error
         self.lastErrorWasFetch = false
         self.errorSequence += 1
+        guard account.brandId != nil else { return }
 
-        guard account.brandId != nil, self.currentAccount?.id == account.id else { return }
         let fallback = self.accounts.first(where: { $0.isPrimary }) ?? self.accounts.first
         guard let fallback, fallback.id != account.id
         else { return }
@@ -689,6 +689,7 @@ final class AccountService {
     func clearAccounts() {
         self.logger.info("AccountService: Clearing accounts data")
         self.accountDataGeneration &+= 1
+        self.sessionPinGeneration &+= 1
 
         // Invalidate any in-flight session mutation: cancel the pin and the
         // active switch navigation, and bump the generation so a switch currently

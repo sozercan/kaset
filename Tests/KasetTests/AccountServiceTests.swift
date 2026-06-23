@@ -641,6 +641,7 @@ struct AccountServiceTests {
         )
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
+        await services.account.awaitRestoredSessionPinForTesting()
 
         #expect(services.account.currentAccount?.id == primaryAccount.id)
         #expect(services.account.verifiedAccountId == nil)
@@ -709,6 +710,26 @@ struct AccountServiceTests {
         #expect(services.account.currentAccount?.id == "primary")
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [nil])
         #expect(services.account.verifiedAccountId == "primary")
+    }
+
+    @Test @MainActor func failedRestoredPrimarySessionPinSurfacesError() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        mockWebKit.switchSessionIdentityError = SessionSwitchError.identityNotApplied(expectedBrandId: nil)
+
+        services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary])
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+        await services.account.awaitRestoredSessionPinForTesting()
+
+        #expect(services.account.currentAccount?.id == "primary")
+        #expect(services.account.verifiedAccountId == nil)
+        #expect(services.account.lastError != nil)
     }
 
     @Test @MainActor func restoredBrandVanishedRePinsPrimary() async {
