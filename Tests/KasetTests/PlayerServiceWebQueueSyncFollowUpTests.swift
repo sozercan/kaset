@@ -352,4 +352,26 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingPlayVideoId == "v1")
         #expect(self.playerService.pendingRestoredSeek == 180)
     }
+
+    @Test("Identity-switch reload is skipped while a restored session is deferred")
+    func identitySwitchReloadSkippedWhenDeferred() {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+
+        // A verified-identity signal must NOT force-load a deferred restored
+        // session (which would clear the explicit-resume gate and load the
+        // playback page + stats before the user resumes).
+        self.playerService.reloadCurrentTrackForIdentitySwitch()
+
+        #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+        #expect(self.playerService.state == .paused)
+    }
 }

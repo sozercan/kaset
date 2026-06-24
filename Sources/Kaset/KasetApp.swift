@@ -87,7 +87,7 @@ struct KasetApp: App {
         PlayerService.shared = player
 
         // Create account service
-        let account = AccountService(ytMusicClient: client, authService: auth)
+        let account = AccountService(ytMusicClient: client, authService: auth, webKitManager: webkit)
 
         // Wire up brand account provider so API requests use the correct account
         realClient.brandIdProvider = { [weak account] in
@@ -269,6 +269,7 @@ struct KasetApp: App {
             SettingsView()
                 .environment(\.locale, self.settings.contentLanguage.locale)
                 .environment(self.authService)
+                .environment(self.accountService)
                 .environment(self.updaterService)
                 .environment(self.scrobblingCoordinator)
                 .environment(self.equalizerService)

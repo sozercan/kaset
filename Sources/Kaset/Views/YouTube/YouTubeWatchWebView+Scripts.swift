@@ -52,6 +52,7 @@ extension YouTubeWatchWebView {
                 try {
                     const video = videoEl();
                     if (!video) { return; }
+                    applyPendingSeek(video);
                     const videoId = currentVideoId();
                     if (videoId !== '') { lastVideoId = videoId; }
                     bridge.postMessage({
@@ -94,6 +95,33 @@ extension YouTubeWatchWebView {
                 }
             }
 
+            // Apply a pending resume-seek from a session-identity-switch reload.
+            // The <video> is created by the player JS after navigation and may
+            // not be seekable immediately, so this is called from both attach()
+            // and the 1s sendUpdate tick and retries until metadata is ready.
+            // Scoped to this document: window.__kasetPendingSeek is re-injected
+            // per page load, so it cannot leak into a later video.
+            function applyPendingSeek(video) {
+                const target = window.__kasetPendingSeek;
+                if (typeof target !== 'number') { return; }
+                // Don't seek (or consume the pending value) on a preroll-ad video
+                // element — wait for the real content player, or the content would
+                // start from 0 after the ad.
+                if (isAdShowing()) { return; }
+                if (video.readyState < 1) { return; }
+                try {
+                    video.currentTime = target;
+                    // Re-assert once if the player clobbers currentTime back near 0.
+                    setTimeout(function() {
+                        if (typeof window.__kasetPendingSeek === 'number' &&
+                            Math.abs(video.currentTime - target) > 1.5) {
+                            try { video.currentTime = target; } catch (e) {}
+                        }
+                        window.__kasetPendingSeek = null;
+                    }, 400);
+                } catch (e) {}
+            }
+
             function disableAutonav() {
                 try {
                     const toggle = document.querySelector('.ytp-autonav-toggle-button');
@@ -120,6 +148,7 @@ extension YouTubeWatchWebView {
 
                 disableAutonav();
                 enforceVolume(video);
+                applyPendingSeek(video);
                 sendUpdate();
             }
 

@@ -151,6 +151,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether a restored session is waiting for an explicit user-triggered load.
     var isPendingRestoredLoadDeferred: Bool = false
 
+    /// Whether the deferred restored load must force a full page navigation even
+    /// when the same video ID is already present in the WebView.
+    var shouldForcePendingRestoredLoad: Bool = false
+
     /// Whether launch-time session restoration is still reconciling with the player observer.
     var isRestoringPlaybackSession: Bool = false
 

@@ -23,6 +23,18 @@ final class YouTubeWatchWebView {
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
 
+    /// Seek position (seconds) to apply once the next page finishes loading.
+    /// Used to resume a video at its prior position after a forced reload (e.g.
+    /// an account/session-identity switch), since the `<video>` element does not
+    /// exist until the new document loads. Cleared on apply.
+    var pendingSeek: Double?
+
+    /// Monotonic counter for `load(videoId:)` calls. The pre-navigation pause is
+    /// async, so a newer load can be requested before an older one's callback
+    /// issues `webView.load`. The callback captures the generation and bails if
+    /// superseded, so a stale reload can't navigate over a newer selection.
+    private var loadGeneration = 0
+
     private init() {}
 
     /// Get or create the watch WebView.
@@ -70,30 +82,67 @@ final class YouTubeWatchWebView {
         webView.autoresizingMask = [.width, .height]
     }
 
-    /// Loads a watch page for the given video.
+    /// Loads a watch page for the given video, skipping if it is already current.
     func loadVideo(videoId: String) {
-        guard let webView else {
-            self.logger.error("YouTube watch loadVideo called but webView is nil")
-            return
-        }
-
         guard videoId != self.currentVideoId else {
             self.logger.debug("YouTube video \(videoId) already loaded, skipping")
+            return
+        }
+        // A normal (non-reload) load starts a fresh video: drop any pending
+        // resume-seek left over from an interrupted identity-switch reload, so it
+        // cannot be injected into a different video's document.
+        self.pendingSeek = nil
+        self.load(videoId: videoId)
+    }
+
+    /// Forces a full reload of the given video even when it is already current,
+    /// optionally resuming at `resumeAt` seconds once the new page loads.
+    ///
+    /// Used after an account/session-identity switch: the page identity lives in
+    /// the served document, so the in-flight watch page must be re-fetched under
+    /// the new session for subsequent watch-history pings to attribute correctly.
+    func reloadVideo(videoId: String, resumeAt seconds: Double? = nil) {
+        self.logger.info("Force-reloading YouTube video under new session identity: \(videoId)")
+        self.pendingSeek = seconds
+        self.load(videoId: videoId)
+    }
+
+    func cancelPendingLoad() {
+        self.loadGeneration += 1
+        self.webView?.stopLoading()
+    }
+
+    private func load(videoId: String) {
+        guard let webView else {
+            self.logger.error("YouTube watch load called but webView is nil")
             return
         }
 
         self.logger.info("Loading YouTube video: \(videoId) (was: \(self.currentVideoId ?? "none"))")
         self.currentVideoId = videoId
 
+        self.loadGeneration += 1
+        let myLoadGeneration = self.loadGeneration
+
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
         self.installUserScripts(
             on: webView.configuration.userContentController,
-            targetVolume: targetVolume
+            targetVolume: targetVolume,
+            pendingSeek: self.pendingSeek
         )
 
         guard let url = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return }
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
+            // Bail if a newer load was requested while the pause callback was
+            // pending — otherwise this stale URL would navigate over the newer
+            // selection and the observer would follow the wrong video.
+            guard myLoadGeneration == self.loadGeneration,
+                  self.currentVideoId == videoId
+            else {
+                self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
+                return
+            }
             webView.evaluateJavaScript("window.__kasetTargetVolume = \(targetVolume);", completionHandler: nil)
             webView.load(URLRequest(url: url))
         }
@@ -103,6 +152,7 @@ final class YouTubeWatchWebView {
     func tearDown() {
         guard let webView else { return }
         self.logger.info("Tearing down YouTube watch WebView")
+        self.loadGeneration += 1
         self.currentVideoId = nil
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
         webView.loadHTMLString("", baseURL: nil)
@@ -113,12 +163,13 @@ final class YouTubeWatchWebView {
 
     private func installUserScripts(
         on contentController: WKUserContentController,
-        targetVolume: Double
+        targetVolume: Double,
+        pendingSeek: Double? = nil
     ) {
         contentController.removeAllUserScripts()
 
         let bootstrap = WKUserScript(
-            source: Self.pageBootstrapScript(targetVolume: targetVolume),
+            source: Self.pageBootstrapScript(targetVolume: targetVolume, pendingSeek: pendingSeek),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -148,9 +199,19 @@ final class YouTubeWatchWebView {
     }
 
     /// Document-start state handed to each new watch page.
-    nonisolated static func pageBootstrapScript(targetVolume: Double) -> String {
+    ///
+    /// `pendingSeek`, when present, is a resume position (seconds) applied by the
+    /// observer once the `<video>` element exists and is seekable (see
+    /// `applyPendingSeek` in the observer script). Injected at document start so
+    /// it is in place before the player boots, and naturally scoped to this one
+    /// navigation.
+    nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
         let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
-        return "window.__kasetTargetVolume = \(clamped);"
+        var script = "window.__kasetTargetVolume = \(clamped);"
+        if let pendingSeek, pendingSeek.isFinite, pendingSeek > 0 {
+            script += " window.__kasetPendingSeek = \(pendingSeek);"
+        }
+        return script
     }
 
     // MARK: - Coordinator
@@ -194,6 +255,13 @@ final class YouTubeWatchWebView {
             DiagnosticsLogger.player.info(
                 "YouTube watch WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )
+
+            // The resume-seek for an identity-switch reload is applied by the
+            // observer's applyPendingSeek (gated on the <video> existing and being
+            // seekable), not here: at didFinish the element often does not exist
+            // yet, so a one-shot seek would be lost. Clear the Swift-side copy now
+            // that the per-load bootstrap has carried the value into the page.
+            YouTubeWatchWebView.shared.pendingSeek = nil
 
             let savedVolume = self.playerService.volume
             webView.evaluateJavaScript(

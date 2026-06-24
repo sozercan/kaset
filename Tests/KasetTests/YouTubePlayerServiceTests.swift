@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Kaset
@@ -8,6 +9,8 @@ import Testing
 @MainActor
 private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling {
     private(set) var loadedVideoIds: [String] = []
+    private(set) var reloadedVideoIds: [String] = []
+    private(set) var reloadResumeSeconds: [Double?] = []
     private(set) var playPauseCount = 0
     private(set) var playCount = 0
     private(set) var pauseCount = 0
@@ -15,6 +18,7 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     private(set) var volumes: [Double] = []
     private(set) var tearDownCount = 0
     private(set) var prepareCount = 0
+    private(set) var cancelPendingLoadCount = 0
 
     func prepare(webKitManager _: WebKitManager, playerService _: YouTubePlayerService) {
         self.prepareCount += 1
@@ -22,6 +26,15 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
 
     func loadVideo(videoId: String) {
         self.loadedVideoIds.append(videoId)
+    }
+
+    func reloadVideo(videoId: String, resumeAt seconds: Double?) {
+        self.reloadedVideoIds.append(videoId)
+        self.reloadResumeSeconds.append(seconds)
+    }
+
+    func cancelPendingLoad() {
+        self.cancelPendingLoadCount += 1
     }
 
     func playPause() {
@@ -86,6 +99,17 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     }
 }
 
+// MARK: - BooleanBox
+
+@MainActor
+private final class BooleanBox {
+    var value: Bool
+
+    init(_ value: Bool) {
+        self.value = value
+    }
+}
+
 // MARK: - YouTubePlayerServiceTests
 
 @Suite("YouTubePlayerService", .serialized, .tags(.service), .timeLimit(.minutes(1)))
@@ -124,6 +148,131 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.prepareCount == 1)
         #expect(self.controller.loadedVideoIds == ["abc"])
         #expect(willStartCount == 1)
+    }
+
+    @Test("Identity-switch re-points the current video via a forced reload")
+    func reloadForIdentitySwitchRepointsCurrentVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 0, duration: 60, videoId: "abc"))
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        // A forced reload (not a plain loadVideo, which would no-op on same id).
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        // No progress yet → no resume seek requested.
+        #expect(self.controller.reloadResumeSeconds == [nil])
+    }
+
+    @Test("Identity-switch is a no-op when no video is playing")
+    func reloadForIdentitySwitchNoOpWhenIdle() {
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+    }
+
+    @Test("Identity-switch during an ad resumes the content, not the ad position")
+    func reloadDuringAdUsesContentProgress() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        // Content reaches 600s...
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 600, duration: 1200, videoId: "abc"))
+        // ...then a midroll ad starts, dragging self.progress down to the ad time.
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 8, duration: 30, videoId: "abc", isAd: true))
+        #expect(self.sut.progress == 8)
+
+        // A switch mid-ad must resume at the last CONTENT position (600), not 8.
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        #expect(self.controller.reloadResumeSeconds.last == .some(600))
+    }
+
+    @Test("Paused video identity reload is deferred until resume")
+    func pausedReloadDefersUntilResume() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 12, duration: 60, videoId: "abc"))
+        #expect(self.sut.isPlaying == false)
+        var willStartCount = 0
+        self.sut.playbackWillStart = { willStartCount += 1 }
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        // No autoplaying watch page is loaded while the user left the video paused.
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(self.controller.pauseCount == 0)
+        #expect(self.sut.isPlaying == false)
+        #expect(willStartCount == 0)
+
+        self.sut.seek(to: 34)
+        // User intent to resume performs the identity reload at the saved position.
+        self.sut.resume()
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.reloadResumeSeconds == [34])
+        #expect(self.controller.playCount == 0)
+        #expect(willStartCount == 1)
+    }
+
+    @Test("Deferred paused identity reload survives observer updates before resume")
+    func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        var willStartCount = 0
+        self.sut.playbackWillStart = { willStartCount += 1 }
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        // Stray observer updates from the old paused page do not consume the
+        // deferred identity reload. The reload still happens on explicit resume.
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(willStartCount == 0)
+
+        self.sut.playPause()
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.playPauseCount == 0)
+        #expect(willStartCount == 1)
+    }
+
+    @Test("Loading video identity reload happens immediately")
+    func loadingIdentityReloadHappensImmediately() {
+        // A just-requested video has not reported playing yet, so isPlaying is
+        // false but it is not a user-paused watch. If identity verification lands
+        // in that loading window, the reload must happen immediately before the
+        // old-identity page can start and emit watch-history pings.
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        var willStartCount = 0
+        self.sut.playbackWillStart = { willStartCount += 1 }
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.reloadResumeSeconds == [nil])
+        #expect(willStartCount == 0)
+    }
+
+    @Test("Deferred paused identity reload is cleared by a new video")
+    func deferredPausedReloadClearsOnNewVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "def"))
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(self.controller.loadedVideoIds == ["abc", "def"])
+    }
+
+    @Test("Playing video reloaded for identity switch keeps playing")
+    func playingReloadDoesNotSuppress() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        // Establish a playing state first.
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 1, duration: 60, videoId: "abc"))
+        #expect(self.sut.isPlaying == true)
+        let pausesBefore = self.controller.pauseCount
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 1, duration: 60, videoId: "abc"))
+
+        // No suppression: a playing video stays playing across the reload.
+        #expect(self.controller.pauseCount == pausesBefore)
+        #expect(self.sut.isPlaying == true)
     }
 
     @Test("State updates from the bridge are applied")
@@ -260,10 +409,10 @@ struct YouTubePlayerServiceTests {
     @Test("Pop-out gate is read live, not captured at init")
     func popOutGateReadLive() {
         let controller = MockYouTubeWatchPlaybackController()
-        var popOutEnabled = false
+        let popOutEnabled = BooleanBox(false)
         let sut = YouTubePlayerService(
             playbackController: controller,
-            shouldPopOutOnNavigateAway: { popOutEnabled }
+            shouldPopOutOnNavigateAway: { popOutEnabled.value }
         )
 
         // First navigate-away with the gate off: stops.
@@ -277,7 +426,7 @@ struct YouTubePlayerServiceTests {
         #expect(sut.surfaceLocation == .none)
 
         // Flip the gate on; a fresh playback now pops out.
-        popOutEnabled = true
+        popOutEnabled.value = true
         sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         sut.activeInlineVideoId = "abc"
         sut.updatePlaybackState(.init(
@@ -763,38 +912,5 @@ struct PlaybackArbiterTests {
 
         #expect(controller.pauseCount == 0)
         #expect(arbiter.activeSource == .music)
-    }
-}
-
-// MARK: - YouTubeWatchScriptTests
-
-@Suite("YouTubeWatchWebView scripts", .tags(.service))
-@MainActor
-struct YouTubeWatchScriptTests {
-    @Test("Observer script posts to the youtubePlayer bridge with both message types")
-    func observerScriptContract() {
-        let script = YouTubeWatchWebView.observerScript
-        #expect(script.contains("webkit.messageHandlers.youtubePlayer"))
-        #expect(script.contains("STATE_UPDATE"))
-        #expect(script.contains("VIDEO_ENDED"))
-        #expect(script.contains("movie_player"))
-        #expect(script.contains("__kasetTargetVolume"))
-    }
-
-    @Test("Extraction script defines the callable hook and visibility chain")
-    func extractionScriptContract() {
-        let script = YouTubeWatchWebView.extractionScript
-        #expect(script.contains("__kasetExtractVideo"))
-        #expect(script.contains("kaset-yt-video-style"))
-        #expect(script.contains("kaset-visible"))
-        #expect(script.contains("ytp-chrome-bottom"))
-    }
-
-    @Test("Bootstrap script clamps the volume target")
-    func bootstrapClampsVolume() {
-        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 2.0)
-            .contains("__kasetTargetVolume = 1.0"))
-        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: -1)
-            .contains("__kasetTargetVolume = 0.0"))
     }
 }

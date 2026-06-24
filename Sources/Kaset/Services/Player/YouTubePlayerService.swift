@@ -9,6 +9,8 @@ import Observation
 protocol YouTubeWatchPlaybackControlling: AnyObject {
     func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService)
     func loadVideo(videoId: String)
+    func reloadVideo(videoId: String, resumeAt seconds: Double?)
+    func cancelPendingLoad()
     func playPause()
     func play()
     func pause()
@@ -87,8 +89,28 @@ final class YouTubePlayerService {
     /// Whether the video is currently playing.
     private(set) var isPlaying = false
 
+    /// Whether the current watch page has reported at least one playback state.
+    /// Before this flips true, `isPlaying == false` means loading/unknown rather
+    /// than a deliberate paused state.
+    private var hasObservedPlaybackState = false
+
+    /// A paused video does not need an immediate identity-switch reload, because
+    /// there is no active playback to re-attribute. Defer the reload until the
+    /// user explicitly resumes so loading YouTube's autoplaying watch page cannot
+    /// create watch activity for content the user left paused.
+    private var pendingPausedIdentityReloadVideoId: String?
+    private var pendingPausedIdentityReloadResumeAt: Double?
+    private var userUpdatedPendingPausedIdentityReloadSeek = false
+    private var isIdentityReloadInFlight = false
+
     /// Current position in seconds.
     private(set) var progress: Double = 0
+
+    /// Last observed playback position from genuine CONTENT (not an ad). Used as
+    /// the resume target for an identity-switch reload so a switch during a
+    /// preroll/midroll ad doesn't resume the content near 0 (the ad element's
+    /// time).
+    private var lastNonAdContentProgress: Double = 0
 
     /// Video length in seconds.
     private(set) var duration: Double = 0
@@ -221,6 +243,8 @@ final class YouTubePlayerService {
         self.currentVideo = video
         self.watchActivityGeneration += 1 // a new watch began
         self.currentWatchConcluded = false
+        self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
         self.surfaceLocation = .inline
 
@@ -229,28 +253,113 @@ final class YouTubePlayerService {
         self.playbackController.loadVideo(videoId: video.videoId)
     }
 
+    /// Re-points the current video under the WebView session's current
+    /// (just-switched) delegated identity, preserving playback position.
+    ///
+    /// Watch history is recorded by the page's own stats pings, which inherit the
+    /// identity of the served document. After an account switch the in-flight
+    /// page is still the previous identity's document, so a full reload is needed
+    /// for continued watching to record to the new account.
+    func reloadCurrentVideoForIdentitySwitch() {
+        guard let currentVideo = self.currentVideo else {
+            self.logger.debug("Identity switch: no current video to re-point")
+            return
+        }
+        // Resume at the last real CONTENT position. During an ad, self.progress
+        // tracks the ad element's time, so prefer the remembered content progress
+        // to avoid resuming the content near 0 after a switch mid-ad.
+        let resumeProgress = if self.currentWatchConcluded {
+            0.0
+        } else {
+            self.isShowingAd ? self.lastNonAdContentProgress : self.progress
+        }
+        let wasPlaying = self.isPlaying
+        self.logger.info("Identity switch: re-pointing current video under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
+
+        if !wasPlaying, self.hasObservedPlaybackState {
+            // Do not load an autoplaying watch page while the user is paused. The
+            // current paused document is inert; reload under the new identity only
+            // when the user explicitly resumes.
+            self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
+            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (resumeProgress > 0 ? resumeProgress : nil)
+            self.userUpdatedPendingPausedIdentityReloadSeek = false
+            return
+        }
+
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        // Defer the seek to load completion: the new <video> element does not
+        // exist until the reloaded document finishes, so seeking now would be a
+        // no-op against the old/torn-down page.
+        self.playbackController.reloadVideo(
+            videoId: currentVideo.videoId,
+            resumeAt: resumeProgress > 0 ? resumeProgress : nil
+        )
+        self.isIdentityReloadInFlight = true
+    }
+
     /// Toggles play/pause.
     func playPause() {
         if !self.isPlaying {
+            if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
             self.playbackWillStart?()
+        } else {
+            self.deferInFlightIdentityReloadIfNeeded()
+            self.playbackController.cancelPendingLoad()
         }
         self.playbackController.playPause()
     }
 
     /// Resumes playback.
     func resume() {
+        if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
         self.playbackWillStart?()
         self.playbackController.play()
     }
 
+    @discardableResult
+    private func reloadPendingPausedIdentitySwitchForUserResume() -> Bool {
+        guard let currentVideo = self.currentVideo,
+              self.pendingPausedIdentityReloadVideoId == currentVideo.videoId
+        else {
+            return false
+        }
+
+        let resumeAt = self.pendingPausedIdentityReloadResumeAt
+        self.pendingPausedIdentityReloadVideoId = nil
+        self.pendingPausedIdentityReloadResumeAt = nil
+        self.userUpdatedPendingPausedIdentityReloadSeek = false
+        self.playbackWillStart?()
+        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
+        self.isIdentityReloadInFlight = true
+        return true
+    }
+
     /// Pauses playback.
     func pause() {
+        self.deferInFlightIdentityReloadIfNeeded()
+        self.playbackController.cancelPendingLoad()
         self.playbackController.pause()
+    }
+
+    private func deferInFlightIdentityReloadIfNeeded() {
+        if self.isIdentityReloadInFlight, let currentVideo = self.currentVideo {
+            self.pendingPausedIdentityReloadVideoId = currentVideo.videoId
+            let resumeProgress = self.isShowingAd ? self.lastNonAdContentProgress : self.progress
+            self.pendingPausedIdentityReloadResumeAt = self.currentWatchConcluded ? nil : (resumeProgress > 0 ? resumeProgress : nil)
+            self.userUpdatedPendingPausedIdentityReloadSeek = false
+            self.isIdentityReloadInFlight = false
+        }
+        self.isPlaying = false
     }
 
     /// Seeks to a position in seconds.
     func seek(to time: Double) {
         self.progress = time
+        if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
+            self.pendingPausedIdentityReloadResumeAt = time > 0 ? time : nil
+            self.userUpdatedPendingPausedIdentityReloadSeek = true
+        }
         self.playbackController.seek(to: time)
     }
 
@@ -271,6 +380,8 @@ final class YouTubePlayerService {
         }
         self.currentVideo = nil
         self.isPlaying = false
+        self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.progress = 0
         self.duration = 0
         self.isShowingAd = false
@@ -362,6 +473,8 @@ final class YouTubePlayerService {
         self.signalWatchConclusion()
         self.watchActivityGeneration += 1
         self.currentWatchConcluded = false
+        self.hasObservedPlaybackState = false
+        self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
@@ -394,6 +507,12 @@ final class YouTubePlayerService {
         self.storyboardFetchVideoId = nil
         self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
+        // A genuinely new video starts under the user's own intent; never inherit
+        // a deferred identity-reload latch from a prior video.
+        self.pendingPausedIdentityReloadVideoId = nil
+        self.pendingPausedIdentityReloadResumeAt = nil
+        self.userUpdatedPendingPausedIdentityReloadSeek = false
+        self.lastNonAdContentProgress = 0
     }
 
     // MARK: - Watch Later
@@ -589,6 +708,28 @@ final class YouTubePlayerService {
 
     /// Applies a `STATE_UPDATE` from the watch page observer script.
     func updatePlaybackState(_ update: PlaybackUpdate) {
+        self.hasObservedPlaybackState = true
+        if let pendingId = self.pendingPausedIdentityReloadVideoId,
+           pendingId == (update.videoId ?? self.currentVideo?.videoId),
+           update.isPlaying
+        {
+            if self.pendingPausedIdentityReloadResumeAt == nil,
+               let resumeProgress = self.deferredIdentityReloadResumeProgress(for: update)
+            {
+                self.pendingPausedIdentityReloadResumeAt = resumeProgress
+            }
+            _ = self.reloadPendingPausedIdentitySwitchForUserResume()
+            return
+        }
+        if let pendingId = self.pendingPausedIdentityReloadVideoId,
+           pendingId == (update.videoId ?? self.currentVideo?.videoId),
+           !update.isPlaying
+        {
+            if !self.userUpdatedPendingPausedIdentityReloadSeek {
+                self.pendingPausedIdentityReloadResumeAt = self.deferredIdentityReloadResumeProgress(for: update)
+            }
+        }
+
         // YouTube can start the next video on its own (SPA navigation);
         // make sure music yields whenever video audio actually starts.
         if update.isPlaying, !self.isPlaying {
@@ -599,6 +740,12 @@ final class YouTubePlayerService {
         self.progress = update.progress
         self.duration = update.duration
         self.isShowingAd = update.isAd
+
+        // Remember the last real content position (ignoring ad playback) so an
+        // identity-switch reload during an ad resumes the content, not the ad.
+        if !update.isAd {
+            self.lastNonAdContentProgress = update.progress
+        }
 
         // A concluded video that is playing again (replayed via the player bar or
         // a seek back after it finished) begins a fresh watch — clear the
@@ -649,6 +796,7 @@ final class YouTubePlayerService {
            videoId != current.videoId
         {
             self.logger.info("YouTubePlayer: page drifted to a different video, following")
+            let shouldRepointDriftedVideo = self.pendingPausedIdentityReloadVideoId != nil
             self.resetPerVideoState()
             self.currentVideo = YouTubeVideo(
                 videoId: videoId,
@@ -665,7 +813,17 @@ final class YouTubePlayerService {
             self.watchActivityGeneration += 1
             self.currentWatchConcluded = false
             YouTubeWatchWebView.shared.currentVideoId = videoId
+            if shouldRepointDriftedVideo {
+                self.reloadCurrentVideoForIdentitySwitch()
+            }
         }
+    }
+
+    private func deferredIdentityReloadResumeProgress(for update: PlaybackUpdate) -> Double? {
+        if update.isAd {
+            return self.lastNonAdContentProgress > 0 ? self.lastNonAdContentProgress : nil
+        }
+        return update.progress > 0 ? update.progress : nil
     }
 
     /// Handles natural video completion.

@@ -19,6 +19,7 @@ struct MainWindow: View {
 
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
+    @Environment(YouTubePlayerService.self) private var youtubePlayerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
@@ -284,6 +285,23 @@ struct MainWindow: View {
                         }
                     }
                 }
+            }
+        }
+        .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
+            // Re-point in-flight playback ONLY once the new session identity is
+            // verified (DATASYNC_ID confirmed). Driving this off the verified
+            // signal — rather than `currentAccount?.id` — avoids reloading the
+            // player under an unverified/primary identity on cold-launch brand
+            // restore, where `currentAccount` is set before its session pin lands.
+            // History is recorded by the playback WebViews' own stats pings, so a
+            // track/video still loaded under the previous identity must reload to
+            // record to the new account. The shared cookie session covers both.
+            guard self.accountService.verifiedAccountId != nil else { return }
+            if self.playerService.currentTrack != nil {
+                self.playerService.reloadCurrentTrackForIdentitySwitch()
+            }
+            if self.youtubePlayerService.currentVideo != nil {
+                self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
             }
         }
         .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in

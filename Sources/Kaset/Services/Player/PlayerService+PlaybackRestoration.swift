@@ -86,6 +86,7 @@ extension PlayerService {
     func clearRestoredPlaybackSessionState() {
         self.pendingRestoredSeek = nil
         self.isPendingRestoredLoadDeferred = false
+        self.shouldForcePendingRestoredLoad = false
         self.isRestoringPlaybackSession = false
         self.shouldAutoResumeAfterRestoredLoad = false
     }
@@ -104,7 +105,65 @@ extension PlayerService {
     /// Whether the pending track must be loaded into the WebView before playback can resume.
     var shouldLoadPendingVideoBeforePlayback: Bool {
         guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
-        return SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
+        return self.shouldForcePendingRestoredLoad || SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
+    }
+
+    /// Re-loads the currently playing track so it is served under the WebView
+    /// session's current (just-switched) delegated identity.
+    ///
+    /// History is recorded by the playback page's own stats pings, which inherit
+    /// the identity of the document that was loaded. After an account switch the
+    /// in-flight page is still the previous identity's document, so a full-page
+    /// reload is required for subsequent listening to record to the new account.
+    /// Playback position and play/pause intent are preserved across the reload
+    /// via the existing restored-session machinery.
+    func reloadCurrentTrackForIdentitySwitch() {
+        guard let currentTrack = self.currentTrack else {
+            self.logger.debug("Identity switch: no current track to re-point")
+            return
+        }
+
+        // Skip if a restored session is still deferred (cold launch, paused, not
+        // yet loaded into the WebView). There is no previous-identity document to
+        // re-point, and force-navigating here would clear the explicit-resume gate
+        // and load the playback page (and its history stats) before the user
+        // chooses to resume. The eventual user-initiated load already uses the
+        // now-verified session identity.
+        if self.isPendingRestoredLoadDeferred {
+            self.logger.debug("Identity switch: restored session still deferred; skipping re-point")
+            return
+        }
+        // If the current track was never actually loaded into the WebView, there
+        // is likewise nothing to re-point under the old identity.
+        if SingletonPlayerWebView.shared.currentVideoId != currentTrack.videoId {
+            self.logger.debug("Identity switch: current track not loaded in WebView; skipping re-point")
+            return
+        }
+
+        let resumeProgress = self.state == .ended ? 0 : self.progress
+        let wasPlaying = self.isPlaying
+        let shouldAutoResumeAfterReload = wasPlaying || self.state == .loading
+        self.logger.info("Identity switch: re-pointing current track under new session identity (resume at \(Int(resumeProgress))s, wasPlaying=\(wasPlaying))")
+
+        self.pendingRestoredSeek = self.state == .ended ? nil : resumeProgress
+        if !shouldAutoResumeAfterReload {
+            self.pendingPlayVideoId = currentTrack.videoId
+            self.isPendingRestoredLoadDeferred = true
+            self.shouldForcePendingRestoredLoad = true
+            if self.state != .ended {
+                self.state = .paused
+            }
+            return
+        }
+        self.beginRestoredPlaybackLoad(autoResumeAfterSeek: shouldAutoResumeAfterReload)
+
+        // Force a full navigation even though the videoId is unchanged: the
+        // identity lives in the served document, so an in-place restart would
+        // keep recording to the previous account.
+        SingletonPlayerWebView.shared.loadVideo(
+            videoId: currentTrack.videoId,
+            strategy: .forceFullPageWhenSameVideoId
+        )
     }
 }
 
