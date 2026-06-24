@@ -192,6 +192,7 @@ struct MainWindow: View {
             AccountErrorToast()
                 .padding(.top, 60)
         }
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
                 self.presentCommandBarIfAvailable()
@@ -413,7 +414,7 @@ struct MainWindow: View {
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
             if self.supportsCommandBarUI {
                 ToolbarItem(placement: .primaryAction) {
@@ -598,7 +599,7 @@ struct MainWindow: View {
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
         }
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
