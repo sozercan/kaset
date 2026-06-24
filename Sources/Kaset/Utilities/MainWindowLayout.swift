@@ -69,6 +69,8 @@ enum MainWindowLayout {
         // Keep the titlebar/top edge anchored when expanding a stale restored
         // frame, so the window does not jump downward on launch/reopen.
         clampedFrame.origin.y = currentFrame.maxY - clampedFrameSize.height
-        window.setFrame(clampedFrame, display: true)
+
+        let constrainedFrame = window.constrainFrameRect(clampedFrame, to: window.screen)
+        window.setFrame(constrainedFrame, display: true)
     }
 }
