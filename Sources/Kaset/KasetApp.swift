@@ -381,6 +381,18 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut("l", modifiers: .command)
+
+                Divider()
+
+                // Full Screen Video - ⌃⌘F. Installed as a menu command (not just
+                // a button inside the floating video window) so it works while
+                // the main window stays key — the video window is shown with
+                // orderFront(nil) and is intentionally not the key window.
+                Button("Full Screen Video") {
+                    VideoWindowController.shared.toggleFullscreen()
+                }
+                .keyboardShortcut("f", modifiers: [.control, .command])
+                .disabled(!self.playerService.showVideo)
             }
 
             // Navigation commands - replace default sidebar toggle

@@ -7,12 +7,48 @@ import WebKit
 struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
 
+    @State private var isHovering = false
+
     var body: some View {
         // The Window controls the aspect ratio and min size;
         // using .fit here can cause the webview to shrink/be letterboxed incorrectly during fast resize.
         VideoWebViewContainer()
             .background(.black)
+            // Standard macOS video idiom: double-click toggles fullscreen.
+            .onTapGesture(count: 2) {
+                VideoWindowController.shared.toggleFullscreen()
+            }
+            .overlay(alignment: .topTrailing) {
+                self.fullscreenButton
+                    .padding(12)
+                    .opacity(self.isHovering ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.15), value: self.isHovering)
+            }
+            .onHover { hovering in
+                self.isHovering = hovering
+            }
             .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
+    }
+
+    /// Hover-revealed control that enters/exits macOS fullscreen. Mirrors the
+    /// "Full view" affordance on the YouTube side; the green traffic-light
+    /// button and ⌃⌘F do the same thing thanks to `.fullScreenPrimary`.
+    private var fullscreenButton: some View {
+        Button {
+            VideoWindowController.shared.toggleFullscreen()
+        } label: {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(8)
+                .background(.black.opacity(0.55), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .help(String(localized: "Enter Full Screen"))
+        .accessibilityLabel(String(localized: "Toggle full screen video"))
+        // Note: the ⌃⌘F key equivalent lives on the app's Playback menu
+        // (KasetApp), not here — this window is shown non-key (orderFront), so a
+        // shortcut attached to this button would not fire until it gained focus.
     }
 }
 

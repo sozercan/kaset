@@ -1,4 +1,3 @@
-// swiftlint:disable file_length
 import os
 import SwiftUI
 import WebKit
@@ -300,14 +299,9 @@ final class SingletonPlayerWebView {
 
     /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
-        guard let webView, webView.superview !== container else { return }
-        webView.removeFromSuperview()
-        container.addSubview(webView)
-
-        // Use autoresizing to match container size (consistent with waitForValidBoundsAndInject)
-        webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.frame = container.bounds
-        webView.autoresizingMask = [.width, .height]
+        // Reparent (no-op when already hosted here) using autoresizing to match
+        // the container size, consistent with waitForValidBoundsAndInject.
+        self.webView?.reparent(into: container)
 
         // Note: Don't re-inject CSS here if we're already in video mode.
         // Re-injecting causes the YouTube UI to briefly flicker back in because it
@@ -413,15 +407,9 @@ final class SingletonPlayerWebView {
         isRestoringPlaybackSession: Bool,
         targetVolume: Double
     ) -> String {
-        let clampedVolume = if targetVolume.isFinite {
-            min(max(targetVolume, 0), 1)
-        } else {
-            1.0
-        }
-
-        return """
-            \(Self.autoplayIntentScript(isRestoringPlaybackSession: isRestoringPlaybackSession))
-            window.__kasetTargetVolume = \(clampedVolume);
+        """
+        \(self.autoplayIntentScript(isRestoringPlaybackSession: isRestoringPlaybackSession))
+        \(WebPlayerScripts.targetVolumeBootstrap(targetVolume))
         """
     }
 
@@ -885,21 +873,12 @@ final class SingletonPlayerWebView {
             // WebView content process crashed - attempt recovery
             DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
 
-            // Get the current video ID before reloading
-            let currentVideoId = SingletonPlayerWebView.shared.currentVideoId
-
-            // Reload the WebView
-            webView.reload()
-
-            // If we had a video playing, reload it after a brief delay
-            if let videoId = currentVideoId {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
-                    // Reset currentVideoId to force reload
-                    SingletonPlayerWebView.shared.currentVideoId = nil
-                    SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
-                }
-            }
+            WebPlayerScripts.recoverFromContentProcessTermination(
+                webView: webView,
+                lastVideoId: SingletonPlayerWebView.shared.currentVideoId,
+                clearTrackedVideoId: { SingletonPlayerWebView.shared.currentVideoId = nil },
+                reloadVideo: { SingletonPlayerWebView.shared.loadVideo(videoId: $0) }
+            )
         }
     }
 }

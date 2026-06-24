@@ -201,6 +201,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// the detection can be unreliable when video mode CSS is active.
     var showVideo: Bool = false
 
+    /// Resolution levels the current video offers (e.g. ["hd720", "large", …]).
+    /// Empty until video mode is active and the stream has buffered enough for
+    /// the player to report them. Populated by ``refreshVideoQualityOptionsIfNeeded()``.
+    var videoQualityLevels: [String] = []
+
+    /// The player's current resolution level (nil when unknown/audio-only).
+    var currentVideoQuality: String?
+
+    /// The videoId whose quality options were last fetched (so we fetch once).
+    var videoQualityOptionsVideoId: String?
+
+    /// Async quality-control surface for video mode. Defaults to the playback
+    /// singleton; tests inject a recorder. `@ObservationIgnored` because it is a
+    /// dependency, not observable UI state.
+    @ObservationIgnored
+    lazy var videoQualitySource: any MusicVideoQualitySource = SingletonPlayerWebView.shared
+
     /// Whether AirPlay is currently connected (playing to a wireless target).
     var isAirPlayConnected: Bool = false
 

@@ -74,12 +74,7 @@ final class YouTubeWatchWebView {
 
     /// Ensures the WebView fills the given container (reparenting if needed).
     func ensureInHierarchy(container: NSView) {
-        guard let webView, webView.superview !== container else { return }
-        webView.removeFromSuperview()
-        container.addSubview(webView)
-        webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.frame = container.bounds
-        webView.autoresizingMask = [.width, .height]
+        self.webView?.reparent(into: container)
     }
 
     /// Loads a watch page for the given video, skipping if it is already current.
@@ -199,6 +194,7 @@ final class YouTubeWatchWebView {
     }
 
     /// Document-start state handed to each new watch page.
+    /// Document-start state handed to each new watch page.
     ///
     /// `pendingSeek`, when present, is a resume position (seconds) applied by the
     /// observer once the `<video>` element exists and is seekable (see
@@ -206,8 +202,7 @@ final class YouTubeWatchWebView {
     /// it is in place before the player boots, and naturally scoped to this one
     /// navigation.
     nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
-        let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
-        var script = "window.__kasetTargetVolume = \(clamped);"
+        var script = WebPlayerScripts.targetVolumeBootstrap(targetVolume)
         if let pendingSeek, pendingSeek.isFinite, pendingSeek > 0 {
             script += " window.__kasetPendingSeek = \(pendingSeek);"
         }
@@ -279,15 +274,12 @@ final class YouTubeWatchWebView {
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             DiagnosticsLogger.player.error("YouTube watch WebView content process terminated, recovering")
-            let videoId = YouTubeWatchWebView.shared.currentVideoId
-            webView.reload()
-            if let videoId {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
-                    YouTubeWatchWebView.shared.currentVideoId = nil
-                    YouTubeWatchWebView.shared.loadVideo(videoId: videoId)
-                }
-            }
+            WebPlayerScripts.recoverFromContentProcessTermination(
+                webView: webView,
+                lastVideoId: YouTubeWatchWebView.shared.currentVideoId,
+                clearTrackedVideoId: { YouTubeWatchWebView.shared.currentVideoId = nil },
+                reloadVideo: { YouTubeWatchWebView.shared.loadVideo(videoId: $0) }
+            )
         }
     }
 }

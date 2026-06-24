@@ -17,6 +17,17 @@ Kaset provides keyboard control for playback and navigation while preserving sta
 
 Mute is still available from the Playback menu and AppleScript, but Kaset intentionally does not assign a default mute shortcut so the native macOS minimize shortcut (`⌘M`) continues to work.
 
+## Video
+
+For Official Music Videos, Kaset can show the video in a floating window.
+
+| Shortcut | Action                                      |
+| -------- | ------------------------------------------- |
+| `⌘⇧V`    | Toggle video mode (when a video is available) |
+| `⌃⌘F`    | Toggle full screen (video window)           |
+
+The video window also enters full screen via its green traffic-light button or a double-click on the video.
+
 ## Navigation
 
 | Shortcut | Action           |

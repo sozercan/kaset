@@ -121,29 +121,13 @@ extension SingletonPlayerWebView {
     /// Play (resume).
     func play() {
         guard let webView else { return }
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video && video.paused) { video.play(); return 'played'; }
-                return 'already-playing';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(WebPlayerScripts.play(.ytMusic), completionHandler: nil)
     }
 
     /// Pause.
     func pause() {
         guard let webView else { return }
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video && !video.paused) { video.pause(); return 'paused'; }
-                return 'already-paused';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(WebPlayerScripts.pause(.ytMusic), completionHandler: nil)
     }
 
     /// Skip to next track.
@@ -185,15 +169,7 @@ extension SingletonPlayerWebView {
     /// Seek to a specific time in seconds.
     func seek(to time: Double) {
         guard let webView else { return }
-
-        let script = """
-            (function() {
-                const video = document.querySelector('video');
-                if (video) { video.currentTime = \(time); return 'seeked'; }
-                return 'no-video';
-            })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(WebPlayerScripts.seek(to: time, element: .ytMusic), completionHandler: nil)
     }
 
     /// Atomically pause and seek the underlying video.

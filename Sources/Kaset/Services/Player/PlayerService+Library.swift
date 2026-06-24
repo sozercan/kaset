@@ -173,6 +173,13 @@ extension PlayerService {
     }
 
     /// Resets like/library status when track changes.
+    ///
+    /// Note: video-quality state is intentionally NOT reset here. `trackChanged`
+    /// can be true for a same-videoId metadata refresh (title/artist glitch),
+    /// and `MainWindow` only re-discovers quality on an actual `videoId` change —
+    /// so clearing here would blank the picker for the current video with no
+    /// refresh to repopulate it. Quality is cleared videoId-keyed inside
+    /// ``refreshVideoQualityOptionsIfNeeded()`` / on playback stop instead.
     func resetTrackStatus() {
         self.currentTrackLikeStatus = .indifferent
         self.currentTrackInLibrary = false

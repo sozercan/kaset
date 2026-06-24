@@ -60,4 +60,12 @@ Two architectural questions dominated:
   fixable. `api-explorer --youtube` is the discovery tool.
 - YouTube ads play (no blocking); Premium accounts see none.
 
+## Follow-ups
+
+- The origin-neutral playback primitives (generic `<video>` volume/commands,
+  WebView reparenting, crash recovery) duplicated between the two playback
+  WebViews were later consolidated into `WebPlayerScripts` — see
+  [ADR-0024](0024-shared-web-player-scripts.md). The observers, `setVolume`,
+  and video-extraction scripts remain parallel by design.
+
 See [docs/youtube.md](../youtube.md) for the full architecture.

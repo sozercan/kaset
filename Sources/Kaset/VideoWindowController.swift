@@ -66,7 +66,12 @@ final class VideoWindowController {
         window.isMovableByWindowBackground = true
         // Normal window level (not always-on-top) for better UX
         window.level = .normal
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // fullScreenPrimary so the green traffic light (and ⌃⌘F) enters true
+        // macOS fullscreen rather than just zooming. This replaces the prior
+        // .fullScreenAuxiliary/.canJoinAllSpaces behavior — the window no
+        // longer floats over other apps' fullscreen spaces, the accepted
+        // tradeoff for a proper fullscreen video experience (ADR-0024 follow-up).
+        window.collectionBehavior = [.fullScreenPrimary]
         window.aspectRatio = NSSize(width: 16, height: 9)
         window.minSize = NSSize(width: 160, height: 90)
         window.backgroundColor = .black
@@ -98,6 +103,14 @@ final class VideoWindowController {
 
         // Update WebView display mode for video
         SingletonPlayerWebView.shared.updateDisplayMode(.video)
+    }
+
+    /// Toggles macOS fullscreen on the floating video window.
+    /// The window's `.fullScreenPrimary` collection behavior makes this a true
+    /// fullscreen transition. Mirrors `YouTubeVideoWindowController`; the music
+    /// path has no inline surface, so there is no return-inline-on-exit branch.
+    func toggleFullscreen() {
+        self.window?.toggleFullScreen(nil)
     }
 
     /// Closes the video window programmatically (called when showVideo becomes false).

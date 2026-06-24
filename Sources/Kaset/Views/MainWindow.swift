@@ -236,9 +236,30 @@ struct MainWindow: View {
                     playerService: self.playerService,
                     webKitManager: self.webKitManager
                 )
+                // Video mode just opened: discover the resolution levels the
+                // player offers for the current video (idempotent; retries if
+                // the player isn't ready yet).
+                Task { await self.playerService.refreshVideoQualityOptionsIfNeeded() }
             } else {
                 VideoWindowController.shared.close()
+                // Video mode closed: fully clear quality state (incl. the fetch
+                // guard) so reopening re-probes the player.
+                self.playerService.resetVideoQualityOptions()
             }
+        }
+        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+            // The track can change while video mode stays open; re-discover the
+            // new video's quality levels. refreshVideoQualityOptionsIfNeeded
+            // clears the previous video's displayed levels before probing.
+            guard self.playerService.showVideo else { return }
+            if newVideoId == nil {
+                // Playback stopped (currentTrack went nil) while video mode is
+                // still open — drop the stale picker rather than leaving the
+                // previous video's resolutions selectable with no active track.
+                self.playerService.resetVideoQualityOptions()
+                return
+            }
+            Task { await self.playerService.refreshVideoQualityOptionsIfNeeded() }
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
