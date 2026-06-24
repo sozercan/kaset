@@ -249,6 +249,10 @@ final class SingletonPlayerWebView {
     var mediaControlUsesNextPrev: Bool
     var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
 
+    /// Native timer that re-asserts the media-key override while backgrounded.
+    /// See `beginBackgroundMediaControlReassertion()`.
+    var mediaControlReassertTimer: Timer?
+
     /// Tracks if lyrics high-frequency polling should be active
     /// Used to restore polling after full-page navigation
     var isLyricsPollActive = false

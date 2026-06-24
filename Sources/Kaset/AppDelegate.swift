@@ -92,7 +92,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticsLogger.player.info("System woke from sleep, wasPlayingBeforeSleep: \(self.wasPlayingBeforeSleep)")
     }
 
+    func applicationDidResignActive(_: Notification) {
+        // WebKit freezes the page's requestAnimationFrame loop in the background, so the
+        // media-key override (nexttrack/previoustrack) is no longer re-applied and YouTube
+        // can reclaim it. Drive re-assertion from a native timer instead.
+        SingletonPlayerWebView.shared.beginBackgroundMediaControlReassertion()
+    }
+
     func applicationDidBecomeActive(_: Notification) {
+        // Foreground: the page's requestAnimationFrame loop resumes ownership of the
+        // override. Stop the native timer and re-assert once immediately.
+        SingletonPlayerWebView.shared.endBackgroundMediaControlReassertion()
+        SingletonPlayerWebView.shared.reassertMediaControlOverride()
         // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
         // This handles the case where video window is visible but main window is hidden.
         if self.isSwitchedToMiniPlayer {
