@@ -264,6 +264,8 @@ struct KasetApp: App {
                 }
             }
         }
+        .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
+        .windowResizability(.contentMinSize)
 
         Settings {
             SettingsView()
@@ -503,19 +505,23 @@ struct KasetApp: App {
     @discardableResult
     private func focusExistingMainWindow() -> Bool {
         // Find and show the main window
-        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == MainWindowLayout.autosaveName {
+            MainWindowLayout.configure(window)
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             return true
         }
 
-        for window in NSApplication.shared.windows where window.title == "Kaset" && !Self.isAuxiliaryPlayerWindow(window) {
+        for window in NSApplication.shared.windows where window.title == MainWindowLayout.windowTitle && !Self.isAuxiliaryPlayerWindow(window) {
+            MainWindowLayout.configure(window)
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             return true
         }
 
         // Fallback: find any main-capable window that's not an auxiliary player window.
+        // Do not apply the primary-window sizing contract here: a generic fallback
+        // may match Settings or another regular scene window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
             if Self.isAuxiliaryPlayerWindow(window) {
                 continue
@@ -534,7 +540,7 @@ struct KasetApp: App {
 
     /// Hides the main window while keeping playback and auxiliary windows alive.
     private func hideMainWindow() {
-        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == MainWindowLayout.autosaveName {
             window.orderOut(nil)
             return
         }
