@@ -489,10 +489,14 @@ jobs:
           git push origin main
 
       - name: Update Appcast
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch and checkout the default branch (we're in detached HEAD from tag checkout)
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+          # The default branch requires changes to land via pull request, so we
+          # open a short-lived appcast branch and auto-merge it instead of
+          # pushing straight to the default branch.
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch origin "$DEFAULT_BRANCH"
 
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
@@ -501,13 +505,20 @@ jobs:
           SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
           LENGTH="${{ steps.sparkle_sign.outputs.length }}"
 
-          if [ -n "$SIGNATURE" ]; then
-            PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
-            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
-            RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+          if [ -z "$SIGNATURE" ]; then
+            echo "No Sparkle signature available; skipping appcast update"
+            exit 0
+          fi
 
-            # Create updated appcast.xml with the new item at the top
-            cat > appcast.xml << APPCAST_EOF
+          BRANCH="appcast-${VERSION}-${{ github.run_id }}-${{ github.run_attempt }}"
+          git checkout -b "$BRANCH" "origin/${DEFAULT_BRANCH}"
+
+          PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
+          RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+
+          # Create updated appcast.xml with the new item at the top
+          cat > appcast.xml << APPCAST_EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <channel>
@@ -534,7 +545,31 @@ jobs:
           </rss>
           APPCAST_EOF
 
-            git add appcast.xml
-            git diff --cached --quiet || git commit -m "Update appcast to ${{ steps.artifact.outputs.tag }}"
-            git push origin ${{ github.event.repository.default_branch }}
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "Appcast already up to date; nothing to do"
+            exit 0
           fi
+
+          git commit -m "Update appcast to ${TAG}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$BRANCH" \
+            --title "Update appcast to ${TAG}" \
+            --body "Automated Sparkle appcast update for ${TAG} (release run ${{ github.run_id }}).")
+          echo "Opened appcast PR: $PR_URL"
+
+          # The default branch requires 0 approving reviews, so the PR is
+          # immediately mergeable. Retry while GitHub computes mergeability.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$BRANCH" --squash --delete-branch; then
+              echo "Merged appcast PR"
+              exit 0
+            fi
+            echo "Merge attempt ${attempt} failed; retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::warning::Appcast PR ${PR_URL} was opened but could not be auto-merged. Merge it manually to publish the Sparkle update."
