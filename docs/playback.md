@@ -1,6 +1,6 @@
-# Playback System
+# YouTube Music Playback System
 
-This document details the WebView-based playback system, its architecture, and implementation notes.
+This document details Kaset's YouTube Music WebView-based playback system, its architecture, and implementation notes. Regular YouTube video playback is a separate source with its own `YouTubePlayerService` and `YouTubeWatchWebView`; see [YouTube Mode](youtube.md).
 
 ## Overview
 

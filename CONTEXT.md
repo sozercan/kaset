@@ -1,8 +1,24 @@
 # Kaset Domain Language
 
+## App Source
+
+The active content experience selected by the sidebar source toggle. `.music` is the YouTube Music experience and remains the default; `.video` is the regular YouTube experience. Source switches swap the visible navigation surface without merging the two data models.
+
+## Music Experience
+
+Kaset's YouTube Music surface: songs, albums, artists, playlists, podcasts, lyrics, queue management, and DRM audio playback through the hidden `SingletonPlayerWebView`. Data fetching belongs to `YTMusicClient` and music-specific parsers.
+
+## YouTube Experience
+
+Kaset's regular YouTube surface: recommendations, search, subscriptions, Shorts, channels, playlists, Watch Later, history, comments, and video playback through `YouTubeWatchWebView`. Data fetching belongs to `YouTubeClient` and YouTube-specific parsers under `Services/API/Parsers/YouTube/`.
+
+## Playback Arbiter
+
+The coordinator that keeps YouTube Music and regular YouTube from playing over each other. It pauses music when a YouTube video starts, pauses YouTube video when music starts, and lets media-key handling follow whichever source played most recently.
+
 ## Library
 
-The signed-in user's saved YouTube Music collection. Kaset surfaces Library content as playlists, followed artists, subscribed podcast shows, and uploaded songs.
+The signed-in user's saved YouTube Music collection. Kaset surfaces Music Library content as playlists, followed artists, subscribed podcast shows, and uploaded songs. Regular YouTube has separate library-like surfaces such as subscriptions, Watch Later, liked videos, history, and playlists.
 
 ## Library Content Identity
 

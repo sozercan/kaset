@@ -1,14 +1,13 @@
 #!/usr/bin/env swift
 //
 //  main.swift
-//  Standalone API Explorer for YouTube Music
+//  Standalone API Explorer for YouTube Music and YouTube
 //
-//  A unified tool for exploring both public and authenticated YouTube Music API endpoints.
+//  A unified tool for exploring public and authenticated YouTube Music and regular YouTube API endpoints.
 //  Reads cookies from the Kaset app's debug cookie export for authenticated requests.
 //
 //  Usage:
-//    chmod +x Tools/api-explorer.swift
-//    ./Tools/api-explorer.swift [command] [options]
+//    swift run api-explorer [command] [options]
 //
 //  Commands:
 //    browse <browseId> [params]    - Explore a browse endpoint
@@ -21,17 +20,17 @@
 //  Options:
 //    -v, --verbose                 - Show full raw JSON response (not truncated)
 //    -o, --output <file>           - Save raw JSON response to a file
-//    --youtube                     - Target regular YouTube (www.youtube.com, WEB client)
+//    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
 //
 //  Examples:
-//    ./Tools/api-explorer.swift browse FEmusic_home
-//    ./Tools/api-explorer.swift browse FEmusic_charts
-//    ./Tools/api-explorer.swift browse FEmusic_liked_playlists   # Requires auth
-//    ./Tools/api-explorer.swift action search '{"query":"never gonna give you up"}'
-//    ./Tools/api-explorer.swift continuation <token> next        # Mix queue continuation
-//    ./Tools/api-explorer.swift auth
-//    ./Tools/api-explorer.swift list
+//    swift run api-explorer browse FEmusic_home
+//    swift run api-explorer browse FEmusic_charts
+//    swift run api-explorer browse FEmusic_liked_playlists   # Requires auth
+//    swift run api-explorer action search '{"query":"never gonna give you up"}'
+//    swift run api-explorer continuation <token> next        # Mix queue continuation
+//    swift run api-explorer auth
+//    swift run api-explorer list
 //
 
 import CommonCrypto
@@ -1033,7 +1032,7 @@ func discoverAccounts(verbose: Bool) async {
         }
         print()
         print("💡 Use --authuser N to make requests as a specific account")
-        print("   Example: ./api-explorer.swift browse FEmusic_liked_playlists --authuser 1")
+        print("   Example: swift run api-explorer browse FEmusic_liked_playlists --authuser 1")
     }
 }
 
@@ -1638,7 +1637,7 @@ func discoverBrandAccounts(verbose: Bool) async {
 
         print()
         print("💡 To use a brand account, use the --brand flag with the Brand ID:")
-        print("   Example: ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>")
+        print("   Example: swift run api-explorer browse FEmusic_liked_playlists --brand <ID>")
         print()
         print("   This sets context.user.onBehalfOfUser in the request body,")
         print("   which is required for brand account access.")
@@ -1782,7 +1781,7 @@ func listEndpoints() {
         ggMGKgQIBBAA    Alphabetical Z-A
         ggMCCAE         Default Sort
 
-        Example: ./api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
+        Example: swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
 
         FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
         It requires sign-in for useful content but does not need sort params.
@@ -1796,7 +1795,8 @@ func listEndpoints() {
         🌐/🔐 BROWSE (auth used automatically when cookies are available)
         ───────────────────────────────────────────────────────────────────────────────
         FEwhat_to_watch               Home feed (personalized recommendations)
-        FEtrending                    Trending
+        FE{gaming,news,sports,live,fashion,learning}_destination
+                                      Explore destination feeds
         FEsubscriptions               Subscriptions feed (requires auth)
         FElibrary                     Library overview (requires auth)
         FEhistory                     Watch history (requires auth)
@@ -1820,10 +1820,10 @@ func listEndpoints() {
         💡 USAGE TIPS
         ═══════════════════════════════════════════════════════════════════════════════
 
-        Check auth status:     ./api-explorer.swift auth
-        Explore with verbose:  ./api-explorer.swift browse FEmusic_charts -v
-        Dynamic browse ID:     ./api-explorer.swift browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
-        Action with body:      ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+        Check auth status:     swift run api-explorer auth
+        Explore with verbose:  swift run api-explorer browse FEmusic_charts -v
+        Dynamic browse ID:     swift run api-explorer browse VLPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+        Action with body:      swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
 
         * Param-based library endpoints above return HTTP 400 without both auth AND params
 
@@ -1834,14 +1834,14 @@ func listEndpoints() {
 func showHelp() {
     print(
         """
-        YouTube Music API Explorer
-        ==========================
+        YouTube Music and YouTube API Explorer
+        ======================================
 
-        A standalone tool for exploring YouTube Music API endpoints.
-        Supports both public and authenticated endpoints (reads cookies from Kaset app).
+        A standalone tool for exploring YouTube Music and regular YouTube API endpoints.
+        Supports public and authenticated endpoints (reads cookies from Kaset app).
 
         Usage:
-          ./api-explorer.swift <command> [options]
+          swift run api-explorer <command> [options]
 
         Commands:
           browse <browseId> [params]     Explore a browse endpoint
@@ -1864,47 +1864,47 @@ func showHelp() {
           -o, --output <file>            Save raw JSON response to a file
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
-          --youtube                      Target regular YouTube (www.youtube.com, WEB client)
+          --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
 
         YouTube mode examples:
           # Browse YouTube surfaces (auth used automatically when cookies exist)
-          ./api-explorer.swift --youtube browse FEwhat_to_watch     # Home feed
-          ./api-explorer.swift --youtube browse FEtrending          # Trending
-          ./api-explorer.swift --youtube browse FEsubscriptions     # Subscriptions feed
-          ./api-explorer.swift --youtube browse FEhistory           # Watch history
-          ./api-explorer.swift --youtube browse VLWL                # Watch Later
-          ./api-explorer.swift --youtube browse VLLL                # Liked videos
-          ./api-explorer.swift --youtube action search '{"query":"swift concurrency"}'
-          ./api-explorer.swift --youtube action next '{"videoId":"dQw4w9WgXcQ"}'
-          ./api-explorer.swift --youtube action guide '{}'          # Sidebar + subscriptions list
+          swift run api-explorer --youtube browse FEwhat_to_watch     # Home feed
+          swift run api-explorer --youtube browse FEgaming_destination # Explore destination
+          swift run api-explorer --youtube browse FEsubscriptions     # Subscriptions feed
+          swift run api-explorer --youtube browse FEhistory           # Watch history
+          swift run api-explorer --youtube browse VLWL                # Watch Later
+          swift run api-explorer --youtube browse VLLL                # Liked videos
+          swift run api-explorer --youtube action search '{"query":"swift concurrency"}'
+          swift run api-explorer --youtube action next '{"videoId":"dQw4w9WgXcQ"}'
+          swift run api-explorer --youtube action guide '{}'          # Sidebar + subscriptions list
 
         Examples:
           # Explore public endpoints
-          ./api-explorer.swift browse FEmusic_home
-          ./api-explorer.swift browse FEmusic_charts
-          ./api-explorer.swift browse FEmusic_moods_and_genres -v
+          swift run api-explorer browse FEmusic_home
+          swift run api-explorer browse FEmusic_charts
+          swift run api-explorer browse FEmusic_moods_and_genres -v
 
           # Explore authenticated endpoints (requires Kaset sign-in)
-          ./api-explorer.swift browse FEmusic_liked_playlists
-          ./api-explorer.swift browse FEmusic_history
-          ./api-explorer.swift browse FEmusic_library_corpus_track_artists
+          swift run api-explorer browse FEmusic_liked_playlists
+          swift run api-explorer browse FEmusic_history
+          swift run api-explorer browse FEmusic_library_corpus_track_artists
 
           # Discover brand accounts and use them
-          ./api-explorer.swift brandaccounts                            # List brand accounts with IDs
-          ./api-explorer.swift browse FEmusic_liked_playlists --brand <ID>  # Use brand account
+          swift run api-explorer brandaccounts                            # List brand accounts with IDs
+          swift run api-explorer browse FEmusic_liked_playlists --brand <ID>  # Use brand account
 
           # Action endpoints
-          ./api-explorer.swift action search '{"query":"never gonna give you up"}'
-          ./api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
-          ./api-explorer.swift action next '{"playlistId":"RDEM...","videoId":"abc123"}'
+          swift run api-explorer action search '{"query":"never gonna give you up"}'
+          swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
+          swift run api-explorer action next '{"playlistId":"RDEM...","videoId":"abc123"}'
 
           # Continuation (for pagination / infinite mix)
-          ./api-explorer.swift continuation <token>           # browse endpoint (default)
-          ./api-explorer.swift continuation <token> next      # next endpoint (for mix queues)
+          swift run api-explorer continuation <token>           # browse endpoint (default)
+          swift run api-explorer continuation <token> next      # next endpoint (for mix queues)
 
           # Check auth status
-          ./api-explorer.swift auth
+          swift run api-explorer auth
 
             Authentication:
                 For authenticated endpoints, sign in to the Kaset app first.
@@ -2065,7 +2065,7 @@ func runMain() async {
 
     default:
         print("❌ Unknown command: \(command)")
-        print("   Run './api-explorer.swift help' for usage")
+        print("   Run 'swift run api-explorer help' for usage")
     }
 }
 

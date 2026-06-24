@@ -1,6 +1,6 @@
 # Architecture & Services
 
-This document provides detailed information about Kaset's architecture, services, and design patterns.
+This document provides detailed information about Kaset's architecture, services, and design patterns. Kaset now has two parallel content sources over the same Google login: YouTube Music (`.music`, default) and regular YouTube (`.video`). Shared infrastructure handles auth, settings, caching, images, and media keys; source-specific clients, models, parsers, view models, and playback WebViews keep the two experiences isolated.
 
 ## Core Structure
 
@@ -13,17 +13,17 @@ Sources/
       ├── AppDelegate.swift → Window lifecycle
       ├── Models/       → Data types (Song, Playlist, Album, Artist, etc.)
       ├── Services/     → Business logic
-      │   ├── API/      → YTMusicClient, Parsers/
+      │   ├── API/      → YTMusicClient, YouTubeClient, Parsers/
       │   ├── Audio/    → EqualizerService, EqualizerAudioEngine, ProcessTapHelper, BiquadFilter
       │   ├── Auth/     → AuthService (login state machine)
       │   ├── Library/  → Library identity and optimistic reconciliation modules
-      │   ├── Player/   → PlayerService, NowPlayingManager, queue metadata and album playback actions
+      │   ├── Player/   → PlayerService, YouTubePlayerService, PlaybackArbiter, NowPlayingManager, queue metadata and album playback actions
       │   ├── Scripting/→ ScriptCommands (AppleScript integration)
       │   ├── WebKit/   → WebKitManager (cookie persistence)
       │   └── HapticService.swift → Force Touch trackpad haptic feedback
-      ├── ViewModels/   → State management (HomeViewModel, etc.)
+      ├── ViewModels/   → State management (music view models plus YouTube/ video-source view models)
       ├── Utilities/    → Helpers (DiagnosticsLogger, extensions)
-      └── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, etc.)
+      └── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, YouTube views, etc.)
   └── APIExplorer/      → API explorer CLI tool
 Tests/                  → Unit tests (KasetTests/)
 docs/                   → Documentation
@@ -39,6 +39,9 @@ All major services have protocol definitions for testability:
 protocol YTMusicClientProtocol: Sendable { ... }
 protocol AuthServiceProtocol { ... }
 protocol PlayerServiceProtocol { ... }
+
+// Sources/Kaset/Services/YouTubeProtocols.swift
+protocol YouTubeClientProtocol: Sendable { ... }
 ```
 
 ViewModels accept protocols via dependency injection with default implementations:
@@ -53,6 +56,8 @@ final class HomeViewModel {
     }
 }
 ```
+
+YouTube view models follow the same pattern with `YouTubeClientProtocol` and live under `Sources/Kaset/ViewModels/YouTube/`. `YouTubeViewModelStore` keeps the YouTube navigation stack and view-model caches warm while the user switches back to Music.
 
 ## State Management
 
@@ -136,6 +141,28 @@ Makes authenticated requests to YouTube Music's internal API:
 - `addSongToPlaylist(videoId:playlistId:allowDuplicate:)` → Add one song to an existing playlist via `browse/edit_playlist`
 - `createPlaylist(title:description:privacyStatus:videoIds:)` → Create a playlist and optionally seed it with songs
 
+### YouTubeClient
+
+**File**: `Sources/Kaset/Services/API/YouTubeClient.swift`
+
+Makes authenticated requests to regular YouTube's internal InnerTube API. It deliberately mirrors `YTMusicClient`'s scaffolding while keeping the origin, client identity, models, and parsers separate:
+
+- Uses `https://www.youtube.com` for `SAPISIDHASH`, `Origin`, `Referer`, and `X-Origin`
+- Uses the `WEB` InnerTube client instead of YouTube Music's `WEB_REMIX`
+- Prefixes shared `APICache` keys with `yt:` so video-source entries do not collide with Music cache invalidation
+- Delegates response parsing to YouTube-specific parsers under `Services/API/Parsers/YouTube/`
+
+**Endpoints / surfaces**:
+- `getHomeBundle()` / `getHomeFeed()` → Recommendations, chips, shelves, and pagination
+- `search(query:filter:)` → Videos, channels, and playlists
+- `getWatchNext(videoId:)` → Watch metadata, related videos, channel state, and comment continuation
+- `getComments(continuation:)`, `postComment(...)`, `performCommentAction(...)` → Watch-page comments
+- `getChannel(channelId:)`, `getPlaylist(playlistId:)`, `getDestinationFeed(_:)`, `getShorts()` → Browse surfaces
+- `getSubscriptionsFeed()`, `getSubscribedChannels()`, `getHistory(forceRefresh:)`, `getUserPlaylists()` → Signed-in YouTube surfaces
+- `rateVideo(...)`, `setSubscribed(...)`, `addToWatchLater(...)`, `removeFromWatchLater(...)` → Mutations
+
+See [youtube.md](youtube.md) for the full source-toggle and regular YouTube architecture.
+
 ### API Parsers
 
 **Directory**: `Sources/Kaset/Services/API/Parsers/`
@@ -155,9 +182,9 @@ Response parsing is extracted into specialized modules:
 | `RadioQueueParser.swift` | Radio queue from "next" endpoint |
 | `SongMetadataParser.swift` | Full song metadata with feedback tokens |
 | `LyricsParser.swift` | Lyrics extraction |
+| `YouTube/` | Regular YouTube feed, search, watch-next, comments, channel, playlist, guide, and renderer parsers |
 
 **Design**: Static enum-based parsers with pure functions for testability.
-
 
 ### Queue Song Metadata and Album Playback
 
@@ -167,7 +194,7 @@ Response parsing is extracted into specialized modules:
 
 **File**: `Sources/Kaset/Services/Player/PlayerService.swift`
 
-Controls audio playback via singleton WebView:
+Controls YouTube Music audio playback via the singleton Music WebView:
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -188,7 +215,7 @@ Controls audio playback via singleton WebView:
 
 **File**: `Sources/Kaset/Views/MiniPlayerWebView.swift`
 
-Manages the singleton WebView for playback:
+Manages the singleton WebView for YouTube Music playback:
 
 - Creates exactly ONE WebView for app lifetime
 - Handles video loading with pause-before-load
@@ -205,6 +232,28 @@ final class SingletonPlayerWebView {
 }
 ```
 
+### YouTubePlayerService and YouTubeWatchWebView
+
+**Files**:
+- `Sources/Kaset/Services/Player/YouTubePlayerService.swift`
+- `Sources/Kaset/Views/YouTube/YouTubeWatchWebView.swift`
+
+Control regular YouTube video playback through a separate singleton watch WebView. The WebView loads `www.youtube.com/watch?v={videoId}`, extracts the video surface for inline/floating presentation, and reports playback state, captions, quality, ad state, and timing back to Swift.
+
+`YouTubePlayerService.surfaceLocation` tracks where the extracted video currently lives:
+
+| Surface | Description |
+|---------|-------------|
+| `.inline` | Docked in `YouTubeWatchView` |
+| `.floating` | Hosted by `YouTubeVideoWindowController` |
+| `.none` | No active YouTube playback surface |
+
+### PlaybackArbiter
+
+**File**: `Sources/Kaset/Services/Player/PlaybackArbiter.swift`
+
+Coordinates the two playback services so Music and YouTube do not play over each other. When one source starts, the arbiter pauses the other source; `NowPlayingManager` uses the arbiter's active/last-played source to route media keys.
+
 ### NowPlayingManager
 
 **File**: `Sources/Kaset/Services/Player/NowPlayingManager.swift`
@@ -213,9 +262,9 @@ Remote command center integration for media key support:
 
 - Registers `MPRemoteCommandCenter` handlers
 - Handles media keys (play/pause, next, previous, seek)
-- Routes commands to `PlayerService` → `SingletonPlayerWebView`
+- Routes commands to `PlayerService` / `YouTubePlayerService` based on the active source
 
-**Note**: Now Playing display (track info, album art) is handled natively by WKWebView's Media Session API. This provides better integration with album artwork from YouTube Music.
+**Note**: Now Playing display (track/video info, artwork) is handled natively by WKWebView's Media Session API. This provides better integration with YouTube Music artwork and regular YouTube video metadata.
 
 ### HapticService
 
@@ -304,12 +353,13 @@ Manages user preferences persisted via `UserDefaults`:
 |---------|------|---------|-------------|
 | `showNowPlayingNotifications` | `Bool` | `true` | Track change notifications |
 | `defaultLaunchPage` | `LaunchPage` | `.home` | Initial page on app launch |
+| `appSource` | `AppSource` | `.music` | Active source toggle (`.music` for YouTube Music, `.video` for regular YouTube) |
 | `hapticFeedbackEnabled` | `Bool` | `true` | Force Touch feedback |
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 | `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |
 
-**LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
+**Music LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
 
 ### EqualizerService
 
@@ -394,7 +444,7 @@ Caches and syncs like/dislike status for songs:
 
 **File**: `Sources/Kaset/Services/URLHandler.swift`
 
-Parses YouTube Music and custom `kaset://` URLs:
+Parses YouTube Music URLs, regular YouTube watch links, and custom `kaset://` URLs:
 
 | URL Pattern | ParsedContent |
 |-------------|---------------|
@@ -402,12 +452,14 @@ Parses YouTube Music and custom `kaset://` URLs:
 | `music.youtube.com/playlist?list=xxx` | `.playlist(id:)` |
 | `music.youtube.com/browse/MPRExxx` | `.album(id:)` |
 | `music.youtube.com/channel/UCxxx` | `.artist(id:)` |
+| `youtube.com/watch?v=xxx` | `.youtubeVideo(videoId:)` |
+| `youtu.be/xxx` | `.youtubeVideo(videoId:)` |
 | `kaset://play?v=xxx` | `.song(videoId:)` |
 | `kaset://playlist?list=xxx` | `.playlist(id:)` |
 | `kaset://album?id=xxx` | `.album(id:)` |
 | `kaset://artist?id=xxx` | `.artist(id:)` |
 
-**Usage**: Called from `KasetApp.onOpenURL` to handle deep links.
+**Usage**: Called from `KasetApp.onOpenURL` to handle deep links. Music song links play through `PlayerService`; regular YouTube watch links switch to the YouTube source and open playback in the floating video window.
 
 ### ScriptCommands (AppleScript)
 
@@ -511,6 +563,8 @@ App Launch
 
 ## API Request Flow
 
+The Music and YouTube API clients share the same high-level request shape but use different origins and InnerTube client identities. The Music path looks like this:
+
 ```
 YTMusicClient.getHome()
     │
@@ -536,7 +590,11 @@ YTMusicClient.getHome()
                   → Show LoginSheet
 ```
 
+`YouTubeClient` follows the same cookie/SAPISIDHASH flow with `https://www.youtube.com`, the `WEB` client context, and `yt:`-prefixed cache keys.
+
 ## Playback Flow
+
+This diagram covers YouTube Music playback. Regular YouTube playback is documented in [youtube.md](youtube.md) and uses `YouTubePlayerService` plus `YouTubeWatchWebView`.
 
 ```
 User clicks Play

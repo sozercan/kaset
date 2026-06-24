@@ -1,18 +1,19 @@
 # Kaset
 
-A native macOS YouTube Music client built with Swift and SwiftUI.
+A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.
 
 <img src="docs/screenshot.png" alt="Kaset Screenshot">
 
 ## Features
 
-- 🎵 **Native macOS Experience** — Apple Music-style UI with Liquid Glass player bar and clean sidebar navigation
-- 🎧 **YouTube Music Premium Support** — Full playback of DRM-protected content via your existing subscription
+- 🎵 **Native macOS Experience** — Apple Music-style UI with Liquid Glass player bars, clean sidebar navigation, and a source toggle for Music ↔ YouTube
+- 🎧 **YouTube Music Support** — Full playback of DRM-protected YouTube Music content via your existing Premium subscription
+- ▶️ **[YouTube Support](docs/youtube.md)** — Browse regular YouTube recommendations, search, subscriptions, Shorts, Watch Later, history, comments, and video playback with native controls, captions, quality selection, and picture in picture
 - 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
 - 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
 - 🎶 **Track Notifications** — Get notified when a new track starts playing
 - 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
-- 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to YouTube Music output
+- 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to WebKit playback output
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 🧭 **Explore** — Discover new releases, charts, and moods & genres
 - 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
@@ -24,8 +25,7 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
-- ▶️ **[YouTube Mode](docs/youtube.md)** — Flip the sidebar source toggle for a native regular-YouTube client: recommendations, search, subscriptions, Shorts, Watch Later, history, comments, and video playback with native controls, captions, quality selection, and picture in picture
-- 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`; YouTube watch and `youtu.be` links play in YouTube mode
+- 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`; app-targeted YouTube watch and `youtu.be` links play in YouTube mode
 - 🤖 **[AppleScript Support](docs/applescript.md)** — Automate playback with scripts, Raycast, Alfred, and Shortcuts
 - 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home)
 
@@ -33,7 +33,7 @@ A native macOS YouTube Music client built with Swift and SwiftUI.
 
 - macOS 15.4 or later
 - Apple Intelligence features require macOS 26.0 or later
-- [Google](https://accounts.google.com) account
+- [Google](https://accounts.google.com) account for YouTube Music and YouTube personalization
 
 ## Installation
 

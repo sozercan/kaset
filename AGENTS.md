@@ -6,7 +6,7 @@ Guidance for AI coding assistants working on this repository.
 
 You are a Senior Swift Engineer specializing in SwiftUI, Swift Concurrency, and macOS development. Your code must adhere to Apple's Human Interface Guidelines. Target **Swift 6.0+** and **macOS 26.0+**.
 
-Kaset is a native macOS YouTube Music client (Swift/SwiftUI) using a hidden WebView for DRM playback and `YTMusicClient` API calls for all data fetching.
+Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI). It uses WebViews only for DRM/playback/auth surfaces and uses `YTMusicClient` / `YouTubeClient` API calls for data fetching.
 
 ## Critical Rules
 
@@ -16,7 +16,7 @@ Kaset is a native macOS YouTube Music client (Swift/SwiftUI) using a hidden WebV
 
 > ⚠️ **No Third-Party Frameworks** — Do not introduce third-party dependencies without asking first.
 
-> ⚠️ **Prefer API over WebView** — Always use `YTMusicClient` API calls when functionality exists. Only use WebView for playback (DRM-protected audio) and authentication.
+> ⚠️ **Prefer API over WebView** — Always use `YTMusicClient` (YouTube Music) or `YouTubeClient` (YouTube) API calls when functionality exists. Only use WebView for playback (DRM-protected media) and authentication.
 
 > 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Sources/APIExplorer/main.swift`** instead of writing temporary scripts.
 

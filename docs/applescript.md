@@ -7,7 +7,7 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | Command | Description |
 | ------- | ----------- |
 | `play` | Start or resume playback |
-| `play video` | Play a YouTube video by its video ID
+| `play video` | Play a YouTube Music item by its video ID |
 | `pause` | Pause playback |
 | `playpause` | Toggle play/pause |
 | `next track` | Skip to next track |
@@ -32,11 +32,13 @@ tell application "Kaset"
 end tell
 ```
 
-### Play a video
+### Play a YouTube Music item by video ID
 
 ```applescript
 tell application "Kaset" to play video "dQw4w9WgXcQ"
 ```
+
+For regular YouTube video links, use the URL routing documented in [URL Scheme and YouTube Links](url-scheme.md), for example `open -a Kaset "https://youtu.be/VIDEO_ID"`.
 
 ### Get Player State
 

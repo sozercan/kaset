@@ -215,4 +215,6 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
 - Watch-page DOM selectors (`#movie_player`, autonav toggle) can shift;
   the extraction enforcement loop and `api-explorer --youtube` are the
   debugging tools of choice.
-- Comments on the watch page are deferred.
+- Reply posting and comment sorting controls are intentionally minimal; the
+  current watch page supports loading top-level comments, posting a top-level
+  comment, and optimistic like/dislike toggles.

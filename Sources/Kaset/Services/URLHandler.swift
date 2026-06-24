@@ -2,7 +2,8 @@ import Foundation
 
 // MARK: - URLHandler
 
-/// Handles parsing and routing of YouTube Music URLs.
+/// Handles parsing and routing of YouTube Music URLs, regular YouTube watch
+/// links, and Kaset custom-scheme URLs.
 ///
 /// Supports URLs like:
 /// - `https://music.youtube.com/watch?v=dQw4w9WgXcQ` - Play song
@@ -11,6 +12,8 @@ import Foundation
 /// - `https://music.youtube.com/browse/VLPLxxx` - Open playlist (browse format)
 /// - `https://music.youtube.com/channel/UCxxx` - Open artist
 /// - `https://music.youtube.com/browse/MPLAUCxxx` - Open library artist
+/// - `https://www.youtube.com/watch?v=dQw4w9WgXcQ` - Play regular YouTube video
+/// - `https://youtu.be/dQw4w9WgXcQ` - Play regular YouTube video
 /// - `kaset://play?v=dQw4w9WgXcQ` - Custom scheme for song
 /// - `kaset://playlist?list=PLxxx` - Custom scheme for playlist
 /// - `kaset://album?id=MPRExxx` - Custom scheme for album
@@ -38,7 +41,7 @@ enum URLHandler {
 
     // MARK: - URL Parsing
 
-    /// Parses a YouTube Music URL and returns the content type.
+    /// Parses a supported URL and returns the content type.
     /// - Parameter url: The URL to parse.
     /// - Returns: The parsed content, or nil if the URL is not recognized.
     static func parse(_ url: URL) -> ParsedContent? {
