@@ -7,8 +7,8 @@ import SwiftUI
 /// Same capsule, sizing, and interaction patterns as the music `PlayerBar`
 /// (which is untouched); shown instead of it while a YouTube video is
 /// loaded. Differences per the YouTube content model:
-/// - No shuffle/repeat — previous/next skip between videos
-///   (session history / the watch page's related list).
+/// - No shuffle/repeat — left/right transport controls seek 30 seconds
+///   back/forward within the current video.
 /// - Center shows the video thumbnail, title, and channel · views.
 /// - No lyrics/queue buttons.
 /// - The minimize button drives the video pop-out (picture in picture);
@@ -91,18 +91,18 @@ struct YouTubePlayerBar: View {
 
     private var playbackControls: some View {
         HStack(spacing: 16) {
-            // Previous video (session history; restarts when none)
+            // Back 30 seconds
             Button {
                 HapticService.playback()
-                self.youtubePlayer.skipBackward()
+                self.youtubePlayer.seekBackward()
             } label: {
-                Image(systemName: "backward.fill")
+                Image(systemName: "gobackward.30")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
-            .disabled(self.youtubePlayer.currentVideo == nil)
-            .accessibilityLabel(String(localized: "Previous video"))
+            .disabled(!self.canSeek)
+            .accessibilityLabel(String(localized: "Back 30 seconds"))
 
             // Play/Pause
             Button {
@@ -124,20 +124,18 @@ struct YouTubePlayerBar: View {
                     : String(localized: "Play")
             )
 
-            // Next video (up next from the watch page)
+            // Forward 30 seconds
             Button {
                 HapticService.playback()
-                Task {
-                    await self.youtubePlayer.skipForward()
-                }
+                self.youtubePlayer.seekForward()
             } label: {
-                Image(systemName: "forward.fill")
+                Image(systemName: "goforward.30")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.pressable)
-            .disabled(self.youtubePlayer.currentVideo == nil)
-            .accessibilityLabel(String(localized: "Next video"))
+            .disabled(!self.canSeek)
+            .accessibilityLabel(String(localized: "Forward 30 seconds"))
         }
     }
 

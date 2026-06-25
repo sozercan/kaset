@@ -208,6 +208,26 @@ struct YouTubePlayerServiceTests {
         #expect(willStartCount == 1)
     }
 
+    @Test("Relative video seeks move by 30 seconds and clamp to bounds")
+    func relativeSeeksClampToBounds() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 20, duration: 100, videoId: "abc"))
+        self.sut.seekBackward()
+        #expect(self.sut.progress == 0)
+        #expect(self.controller.seeks == [0])
+
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 90, duration: 100, videoId: "abc"))
+        self.sut.seekForward()
+        #expect(self.sut.progress == 100)
+        #expect(self.controller.seeks == [0, 100])
+
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 45, duration: 100, videoId: "abc"))
+        self.sut.seekBackward()
+        self.sut.seekForward()
+        #expect(self.controller.seeks == [0, 100, 15, 45])
+    }
+
     @Test("Deferred paused identity reload survives observer updates before resume")
     func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))

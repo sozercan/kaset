@@ -90,11 +90,10 @@ currently serves.
 The bottom Liquid Glass bar adapts to the active source. In YouTube mode
 (`YouTubePlayerBar`, visually identical to the music `PlayerBar`):
 
-- Previous/next skip between videos: back through session history,
-  forward through the watch page's related list (fetched lazily when
-  popped out). Skips while docked open the new video's watch view.
 - The center shows the video thumbnail, title, and channel · views, with
   the same hover-to-seek behavior.
+- Player bar transport buttons seek 30 seconds back/forward within the
+  current video.
 - Actions: like/dislike, Watch Later, AirPlay (video picker), closed
   captions menu (player tracks + Off), quality menu, full view, and
   picture in picture (pop out / pop in; hidden in fullscreen).

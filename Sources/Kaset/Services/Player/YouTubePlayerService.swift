@@ -363,6 +363,23 @@ final class YouTubePlayerService {
         self.playbackController.seek(to: time)
     }
 
+    /// Seeks backward by a fixed interval, clamping to the beginning.
+    func seekBackward(by seconds: Double = 30) {
+        guard seconds.isFinite, seconds > 0 else { return }
+        self.seek(to: max(0, self.progress - seconds))
+    }
+
+    /// Seeks forward by a fixed interval, clamping to the known duration.
+    func seekForward(by seconds: Double = 30) {
+        guard seconds.isFinite, seconds > 0 else { return }
+        let target = self.progress + seconds
+        if self.duration > 0 {
+            self.seek(to: min(target, self.duration))
+        } else {
+            self.seek(to: target)
+        }
+    }
+
     /// Stops playback entirely and releases the surface.
     func stop() {
         self.logger.info("YouTubePlayer: stop")
