@@ -32,6 +32,14 @@ let package = Package(
             exclude: [
                 "Resources/AppIcon.icon",
                 "Resources/kaset.icns",
+                // Legacy .lproj directories conflict with Localizable.xcstrings
+                // compilation (both produce the same .strings output files).
+                // The .xcstrings catalog is the canonical localization source.
+                "Resources/ar.lproj",
+                "Resources/fr.lproj",
+                "Resources/id.lproj",
+                "Resources/ko.lproj",
+                "Resources/tr.lproj",
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
