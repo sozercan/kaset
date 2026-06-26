@@ -46,18 +46,6 @@ extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
 @MainActor
 @Observable
 final class YouTubePlayerService {
-    /// Distance from the known duration at which a manual seek is treated as a
-    /// completed watch. Seeking a WebKit video element to exactly `duration`
-    /// does not reliably emit `ended`, so terminal seeks must not depend on the
-    /// page's natural ended event to refresh Continue Watching state.
-    private static let seekToEndThreshold: TimeInterval = 0.5
-
-    /// Window during which repeated relative-seek button presses should build
-    /// from the last requested target instead of the last observer-reported
-    /// progress. YouTube's `STATE_UPDATE` observer is coarse and can briefly
-    /// report pre-seek progress after a button press.
-    private static let relativeSeekTargetCoalescingWindow: Duration = .seconds(1)
-
     // MARK: - State
 
     /// The video currently loaded for playback (nil when playback is closed).
@@ -110,28 +98,28 @@ final class YouTubePlayerService {
     /// there is no active playback to re-attribute. Defer the reload until the
     /// user explicitly resumes so loading YouTube's autoplaying watch page cannot
     /// create watch activity for content the user left paused.
-    private var pendingPausedIdentityReloadVideoId: String?
-    private var pendingPausedIdentityReloadResumeAt: Double?
-    private var userUpdatedPendingPausedIdentityReloadSeek = false
+    var pendingPausedIdentityReloadVideoId: String?
+    var pendingPausedIdentityReloadResumeAt: Double?
+    var userUpdatedPendingPausedIdentityReloadSeek = false
     private var isIdentityReloadInFlight = false
 
     /// Current position in seconds.
-    private(set) var progress: Double = 0
+    var progress: Double = 0
 
     /// Last observed playback position from genuine CONTENT (not an ad). Used as
     /// the resume target for an identity-switch reload so a switch during a
     /// preroll/midroll ad doesn't resume the content near 0 (the ad element's
     /// time).
-    private var lastNonAdContentProgress: Double = 0
+    var lastNonAdContentProgress: Double = 0
 
     /// Video length in seconds.
     private(set) var duration: Double = 0
 
     /// Last requested relative-seek target used to coalesce rapid repeated
     /// button presses while bridge state updates lag behind WebView commands.
-    private var lastRelativeSeekTarget: Double?
-    private var lastRelativeSeekIssuedAt: ContinuousClock.Instant?
-    private var lastRelativeSeekVideoId: String?
+    @ObservationIgnored var lastRelativeSeekTarget: Double?
+    @ObservationIgnored var lastRelativeSeekIssuedAt: ContinuousClock.Instant?
+    @ObservationIgnored var lastRelativeSeekVideoId: String?
 
     /// Whether an ad is currently showing on the watch page.
     private(set) var isShowingAd = false
@@ -228,7 +216,7 @@ final class YouTubePlayerService {
     // MARK: - Dependencies
 
     private let webKitManager: WebKitManager
-    private let playbackController: any YouTubeWatchPlaybackControlling
+    let playbackController: any YouTubeWatchPlaybackControlling
     private let logger = DiagnosticsLogger.player
 
     /// Whether a playing video should pop out into the floating window when the
@@ -369,103 +357,6 @@ final class YouTubePlayerService {
             self.isIdentityReloadInFlight = false
         }
         self.isPlaying = false
-    }
-
-    /// Seeks to a position in seconds.
-    func seek(to time: Double) {
-        self.clearRelativeSeekCoalescingTarget()
-        self.performSeek(to: time)
-    }
-
-    private func performSeek(to time: Double) {
-        guard time.isFinite else { return }
-        let target = self.clampedSeekTarget(time)
-        if self.duration > 0, target >= self.duration - Self.seekToEndThreshold {
-            self.handleManualSeekToEnd()
-            return
-        }
-
-        self.progress = target
-        if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
-            self.pendingPausedIdentityReloadResumeAt = target > 0 ? target : nil
-            self.userUpdatedPendingPausedIdentityReloadSeek = true
-        }
-        self.playbackController.seek(to: target)
-    }
-
-    private func clampedSeekTarget(_ time: Double) -> Double {
-        if self.duration > 0 {
-            return min(max(time, 0), self.duration)
-        }
-        return max(time, 0)
-    }
-
-    private func handleManualSeekToEnd() {
-        guard self.currentVideo != nil, self.duration > 0 else { return }
-        let terminalSeekTime = max(0, self.duration - Self.seekToEndThreshold)
-        self.progress = self.duration
-        self.lastNonAdContentProgress = self.duration
-        self.clearRelativeSeekCoalescingTarget()
-        if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
-            self.pendingPausedIdentityReloadResumeAt = nil
-            self.userUpdatedPendingPausedIdentityReloadSeek = true
-        }
-
-        // Keep the WebView away from exact-duration seeks and pause it so a
-        // follow-up state update cannot look like a fresh replay of the just-
-        // concluded watch.
-        self.playbackController.seek(to: terminalSeekTime)
-        self.playbackController.pause()
-        self.handleVideoEnded(videoId: self.currentVideo?.videoId)
-    }
-
-    /// Seeks backward by a fixed interval, clamping to the beginning.
-    func seekBackward(by seconds: Double = 30) {
-        guard seconds.isFinite, seconds > 0 else { return }
-        self.seekRelative(by: -seconds)
-    }
-
-    /// Seeks forward by a fixed interval, clamping to the known duration.
-    func seekForward(by seconds: Double = 30) {
-        guard seconds.isFinite, seconds > 0 else { return }
-        self.seekRelative(by: seconds)
-    }
-
-    private func seekRelative(by delta: Double) {
-        guard delta.isFinite, delta != 0, self.currentVideo != nil else { return }
-        let now = ContinuousClock.now
-        let currentVideoId = self.currentVideo?.videoId
-        if self.lastRelativeSeekVideoId != currentVideoId {
-            self.clearRelativeSeekCoalescingTarget()
-        }
-        self.lastRelativeSeekVideoId = currentVideoId
-
-        // Bridge progress can lag behind rapid button repeats. Briefly use the
-        // last command target so repeated clicks accumulate from user intent
-        // instead of from a stale 1 Hz observer tick.
-        let baseProgress = if self.canCoalesceRelativeSeekTarget(at: now),
-                              let lastRelativeSeekTarget = self.lastRelativeSeekTarget
-        {
-            lastRelativeSeekTarget
-        } else {
-            self.progress
-        }
-
-        let target = self.clampedSeekTarget(baseProgress + delta)
-        self.lastRelativeSeekTarget = target
-        self.lastRelativeSeekIssuedAt = now
-        self.performSeek(to: target)
-    }
-
-    private func canCoalesceRelativeSeekTarget(at now: ContinuousClock.Instant) -> Bool {
-        guard let lastRelativeSeekIssuedAt = self.lastRelativeSeekIssuedAt else { return false }
-        return now - lastRelativeSeekIssuedAt <= Self.relativeSeekTargetCoalescingWindow
-    }
-
-    private func clearRelativeSeekCoalescingTarget() {
-        self.lastRelativeSeekTarget = nil
-        self.lastRelativeSeekIssuedAt = nil
-        self.lastRelativeSeekVideoId = nil
     }
 
     /// Stops playback entirely and releases the surface.
