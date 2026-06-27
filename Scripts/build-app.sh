@@ -36,11 +36,13 @@ echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-# Build for each architecture
+# Build for all architectures in a single invocation (produces universal binaries or respects host settings)
+SWIFT_BUILD_ARGS=( -c "$CONF" --product "$APP_NAME" )
 for ARCH in "${ARCH_LIST[@]}"; do
-  echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
+  SWIFT_BUILD_ARGS+=( --arch "$ARCH" )
 done
+
+swift build "${SWIFT_BUILD_ARGS[@]}"
 
 # Create app bundle structure
 echo "📦 Creating app bundle..."
@@ -53,6 +55,62 @@ mkdir -p "$APP_BUNDLE/Contents/Frameworks"
 build_product_path() {
   local name="$1"
   local arch="$2"
+  
+  # 1. Try to query bin path dynamically from swift build
+  if [[ -n "$name" ]]; then
+    local show_bin
+    show_bin=$(swift build -c "$CONF" --arch "$arch" --show-bin-path 2>/dev/null || true)
+    if [[ -n "$show_bin" ]] && [[ -f "$show_bin/$name" ]]; then
+      echo "$show_bin/$name"
+      return 0
+    fi
+  fi
+
+  # 2. Check Xcode build system default paths (capitalized or lowercase Products directory)
+  local conf_cap
+  conf_cap="$(tr '[:lower:]' '[:upper:]' <<< "${CONF:0:1}")${CONF:1}"
+  if [[ -n "$name" ]]; then
+    if [[ -f ".build/out/Products/$conf_cap/$name" ]]; then
+      echo ".build/out/Products/$conf_cap/$name"
+      return 0
+    fi
+    if [[ -f ".build/out/Products/$CONF/$name" ]]; then
+      echo ".build/out/Products/$CONF/$name"
+      return 0
+    fi
+  else
+    if [[ -d ".build/out/Products/$conf_cap" ]]; then
+      echo ".build/out/Products/$conf_cap"
+      return 0
+    fi
+    if [[ -d ".build/out/Products/$CONF" ]]; then
+      echo ".build/out/Products/$CONF"
+      return 0
+    fi
+  fi
+
+  # 3. Check classic architecture-specific paths
+  if [[ -n "$name" ]]; then
+    if [[ -f ".build/${arch}-apple-macosx/$CONF/$name" ]]; then
+      echo ".build/${arch}-apple-macosx/$CONF/$name"
+      return 0
+    fi
+    if [[ -f ".build/$CONF/$name" ]]; then
+      echo ".build/$CONF/$name"
+      return 0
+    fi
+  else
+    if [[ -d ".build/${arch}-apple-macosx/$CONF" ]]; then
+      echo ".build/${arch}-apple-macosx/$CONF"
+      return 0
+    fi
+    if [[ -d ".build/$CONF" ]]; then
+      echo ".build/$CONF"
+      return 0
+    fi
+  fi
+
+  # Fallback to the original logic
   case "$arch" in
     arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF/$name" ;;
     *) echo ".build/$CONF/$name" ;;
@@ -122,10 +180,15 @@ install_binary() {
     fi
     binaries+=("$src")
   done
-  if [[ ${#ARCH_LIST[@]} -gt 1 ]]; then
-    lipo -create "${binaries[@]}" -output "$dest"
+
+  # Remove duplicate paths if they compiled to the same output file
+  local unique_binaries
+  unique_binaries=($(printf "%s\n" "${binaries[@]}" | sort -u))
+
+  if [[ ${#unique_binaries[@]} -eq 1 ]]; then
+    cp "${unique_binaries[0]}" "$dest"
   else
-    cp "${binaries[0]}" "$dest"
+    lipo -create "${unique_binaries[@]}" -output "$dest"
   fi
   chmod +x "$dest"
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"

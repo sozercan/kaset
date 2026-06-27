@@ -65,3 +65,4 @@ TEMP_*
 build/
 .codex/environments/environment.toml
 Build
+.jj

@@ -28,6 +28,7 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let boringNotchBridgeEnabled = "settings.boringNotchBridgeEnabled"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -320,6 +321,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the boring.notch bridge service is enabled.
+    var boringNotchBridgeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.boringNotchBridgeEnabled, forKey: Keys.boringNotchBridgeEnabled)
+        }
+    }
+
     /// The style the YouTube watch page should actually render: the chosen
     /// style when enabled, `.off` when the feature is disabled.
     var resolvedAmbientStyle: AmbientBackdropStyle {
@@ -371,6 +379,7 @@ final class SettingsManager {
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.boringNotchBridgeEnabled = UserDefaults.standard.object(forKey: Keys.boringNotchBridgeEnabled) as? Bool ?? false
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif
