@@ -98,22 +98,28 @@ final class YouTubePlayerService {
     /// there is no active playback to re-attribute. Defer the reload until the
     /// user explicitly resumes so loading YouTube's autoplaying watch page cannot
     /// create watch activity for content the user left paused.
-    private var pendingPausedIdentityReloadVideoId: String?
-    private var pendingPausedIdentityReloadResumeAt: Double?
-    private var userUpdatedPendingPausedIdentityReloadSeek = false
+    var pendingPausedIdentityReloadVideoId: String?
+    var pendingPausedIdentityReloadResumeAt: Double?
+    var userUpdatedPendingPausedIdentityReloadSeek = false
     private var isIdentityReloadInFlight = false
 
     /// Current position in seconds.
-    private(set) var progress: Double = 0
+    var progress: Double = 0
 
     /// Last observed playback position from genuine CONTENT (not an ad). Used as
     /// the resume target for an identity-switch reload so a switch during a
     /// preroll/midroll ad doesn't resume the content near 0 (the ad element's
     /// time).
-    private var lastNonAdContentProgress: Double = 0
+    var lastNonAdContentProgress: Double = 0
 
     /// Video length in seconds.
     private(set) var duration: Double = 0
+
+    /// Last requested relative-seek target used to coalesce rapid repeated
+    /// button presses while bridge state updates lag behind WebView commands.
+    @ObservationIgnored var lastRelativeSeekTarget: Double?
+    @ObservationIgnored var lastRelativeSeekIssuedAt: ContinuousClock.Instant?
+    @ObservationIgnored var lastRelativeSeekVideoId: String?
 
     /// Whether an ad is currently showing on the watch page.
     private(set) var isShowingAd = false
@@ -210,7 +216,7 @@ final class YouTubePlayerService {
     // MARK: - Dependencies
 
     private let webKitManager: WebKitManager
-    private let playbackController: any YouTubeWatchPlaybackControlling
+    let playbackController: any YouTubeWatchPlaybackControlling
     private let logger = DiagnosticsLogger.player
 
     /// Whether a playing video should pop out into the floating window when the
@@ -351,16 +357,6 @@ final class YouTubePlayerService {
             self.isIdentityReloadInFlight = false
         }
         self.isPlaying = false
-    }
-
-    /// Seeks to a position in seconds.
-    func seek(to time: Double) {
-        self.progress = time
-        if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
-            self.pendingPausedIdentityReloadResumeAt = time > 0 ? time : nil
-            self.userUpdatedPendingPausedIdentityReloadSeek = true
-        }
-        self.playbackController.seek(to: time)
     }
 
     /// Stops playback entirely and releases the surface.
@@ -513,6 +509,7 @@ final class YouTubePlayerService {
         self.pendingPausedIdentityReloadResumeAt = nil
         self.userUpdatedPendingPausedIdentityReloadSeek = false
         self.lastNonAdContentProgress = 0
+        self.clearRelativeSeekCoalescingTarget()
     }
 
     // MARK: - Watch Later

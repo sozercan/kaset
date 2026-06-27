@@ -208,6 +208,59 @@ struct YouTubePlayerServiceTests {
         #expect(willStartCount == 1)
     }
 
+    @Test("Relative video seeks move by 30 seconds and clamp backward to start")
+    func relativeSeeksClampToBounds() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 20, duration: 100, videoId: "abc"))
+        self.sut.seekBackward()
+        #expect(self.sut.progress == 0)
+        #expect(self.controller.seeks == [0])
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "def"))
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 45, duration: 100, videoId: "def"))
+        self.sut.seekBackward()
+        self.sut.seekForward()
+        #expect(self.controller.seeks == [0, 15, 45])
+    }
+
+    @Test("Rapid relative seeks accumulate from the last requested target")
+    func relativeSeeksAccumulateAcrossStaleObserverUpdates() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 10, duration: 100, videoId: "abc"))
+
+        self.sut.seekForward()
+        // A stale observer tick reports the pre-seek position before the next
+        // button press. The second seek must build from 40, not from 10.
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 10, duration: 100, videoId: "abc"))
+        self.sut.seekForward()
+
+        #expect(self.sut.progress == 70)
+        #expect(self.controller.seeks == [40, 70])
+    }
+
+    @Test("Forward relative seek near the end manually concludes without exact-duration seek")
+    func relativeSeekToEndConcludesWithoutExactDurationSeek() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 90, duration: 100, videoId: "abc"))
+        var endedVideoId: String?
+        self.sut.onVideoEnded = { endedVideoId = $0 }
+        let activityBefore = self.sut.watchActivityGeneration
+        let conclusionBefore = self.sut.watchConclusionGeneration
+
+        self.sut.seekForward()
+
+        #expect(self.sut.progress == 100)
+        #expect(self.sut.isPlaying == false)
+        #expect(endedVideoId == "abc")
+        #expect(self.sut.watchActivityGeneration == activityBefore + 1)
+        #expect(self.sut.watchConclusionGeneration == conclusionBefore + 1)
+        #expect(self.controller.pauseCount == 1)
+        #expect(self.controller.seeks.count == 1)
+        #expect(self.controller.seeks[0] < 100)
+        #expect(self.controller.seeks[0] >= 99)
+    }
+
     @Test("Deferred paused identity reload survives observer updates before resume")
     func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
