@@ -431,6 +431,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         {
             let artist = dict["artist"] as? String ?? "Unknown Artist"
             let duration: TimeInterval? = (dict["duration"] as? Int).map { TimeInterval($0) }
+            let hasVideo = dict["hasVideo"] as? Bool
             self.currentTrack = Song(
                 id: id,
                 title: title,
@@ -438,8 +439,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 album: nil,
                 duration: duration,
                 thumbnailURL: nil,
-                videoId: videoId
+                videoId: videoId,
+                hasVideo: hasVideo
             )
+            if let hasVideo {
+                self.currentTrackHasVideo = hasVideo
+            }
             self.logger.debug("Loaded mock current track: \(title)")
         }
 

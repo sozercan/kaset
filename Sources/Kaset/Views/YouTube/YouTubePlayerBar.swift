@@ -78,7 +78,6 @@ struct YouTubePlayerBar: View {
                 self.seekValue = self.youtubePlayer.progress / self.youtubePlayer.duration
             }
         }
-        .accessibilityIdentifier(AccessibilityID.YouTubeContent.playerBar)
     }
 
     private var playerAreaFade: some View {
@@ -211,7 +210,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var youtubeTransportControls: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             PlayerBarIconButton(
                 action: {
                     HapticService.playback()
@@ -424,28 +423,26 @@ struct YouTubePlayerBar: View {
                     .frame(width: 16, height: 16)
                     .foregroundStyle(.primary)
 
-                Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
-                    if editing {
-                        self.isAdjustingVolume = true
-                    } else {
-                        self.isAdjustingVolume = false
-                        self.youtubePlayer.volume = self.volumeValue
-                    }
-                }
-                .controlSize(.small)
-                .tint(self.volumeSliderTint)
-                .frame(width: 122)
-                .rotationEffect(.degrees(-90))
-                .frame(width: 28, height: 122)
-                .accessibilityLabel(String(localized: "Volume"))
-                .onChange(of: self.volumeValue) { oldValue, newValue in
-                    if self.isAdjustingVolume {
-                        if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
-                            HapticService.sliderBoundary()
+                PlayerBarVerticalSlider(
+                    value: self.$volumeValue,
+                    accent: self.volumeSliderTint,
+                    accessibilityIdentifier: nil,
+                    accessibilityLabel: String(localized: "Volume"),
+                    onEditingChanged: { editing in
+                        self.isAdjustingVolume = editing
+                        if !editing {
+                            self.youtubePlayer.volume = self.volumeValue
                         }
-                        self.youtubePlayer.volume = newValue
+                    },
+                    onValueChanged: { oldValue, newValue in
+                        if self.isAdjustingVolume {
+                            if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
+                                HapticService.sliderBoundary()
+                            }
+                            self.youtubePlayer.volume = newValue
+                        }
                     }
-                }
+                )
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 16)
@@ -572,7 +569,6 @@ extension View {
 // MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
-    static let playerBar = "youtubeContent.playerBar"
     static let watchPlayPause = "youtubeContent.watchPlayPause"
     static let watchLikeButton = "youtubeContent.watchLikeButton"
     static let watchDislikeButton = "youtubeContent.watchDislikeButton"

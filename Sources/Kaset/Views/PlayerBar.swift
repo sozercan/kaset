@@ -57,7 +57,6 @@ struct PlayerBar: View {
             .frame(height: 52)
             .compatGlass(interactive: true, in: .capsule)
             .compatGlassID("playerBar", in: self.playerNamespace)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.container)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -67,6 +66,7 @@ struct PlayerBar: View {
         .background {
             self.keyboardShortcuts
         }
+        .zIndex(1)
         .onChange(of: self.playerService.progress) { _, newValue in
             if !self.isSeeking, self.playerService.duration > 0 {
                 self.seekValue = newValue / self.playerService.duration
@@ -291,7 +291,7 @@ struct PlayerBar: View {
     }
 
     private var progressActionButtons: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             PlayerBarIconButton(
                 action: self.showAirPlayPicker,
                 isSelected: self.playerService.isAirPlayConnected,
@@ -368,8 +368,8 @@ struct PlayerBar: View {
                 accessibilityValue: self.repeatAccessibilityValue
             ) {
                 Image(systemName: self.repeatIconName)
-                    .font(.system(size: 15, weight: .regular))
-                    .frame(width: 10, height: 15)
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 12, height: 16)
                     .foregroundStyle(self.playerService.repeatMode == .off ? .primary : Self.brandAccent)
                     .contentTransition(.symbolEffect(.replace))
             }
@@ -404,33 +404,30 @@ struct PlayerBar: View {
                     .frame(width: 16, height: 16)
                     .foregroundStyle(.primary)
 
-                Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
-                    if editing {
-                        self.isAdjustingVolume = true
-                    } else {
-                        self.isAdjustingVolume = false
-                        Task {
-                            await self.playerService.setVolume(self.volumeValue)
+                PlayerBarVerticalSlider(
+                    value: self.$volumeValue,
+                    accent: self.volumeSliderTint,
+                    accessibilityIdentifier: AccessibilityID.PlayerBar.volumeSlider,
+                    accessibilityLabel: String(localized: "Volume"),
+                    onEditingChanged: { editing in
+                        self.isAdjustingVolume = editing
+                        if !editing {
+                            Task {
+                                await self.playerService.setVolume(self.volumeValue)
+                            }
+                        }
+                    },
+                    onValueChanged: { oldValue, newValue in
+                        if self.isAdjustingVolume {
+                            if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
+                                HapticService.sliderBoundary()
+                            }
+                            Task {
+                                await self.playerService.setVolume(newValue)
+                            }
                         }
                     }
-                }
-                .controlSize(.small)
-                .tint(self.volumeSliderTint)
-                .frame(width: 122)
-                .rotationEffect(.degrees(-90))
-                .frame(width: 28, height: 122)
-                .accessibilityIdentifier(AccessibilityID.PlayerBar.volumeSlider)
-                .accessibilityLabel(String(localized: "Volume"))
-                .onChange(of: self.volumeValue) { oldValue, newValue in
-                    if self.isAdjustingVolume {
-                        if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
-                            HapticService.sliderBoundary()
-                        }
-                        Task {
-                            await self.playerService.setVolume(newValue)
-                        }
-                    }
-                }
+                )
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 16)
@@ -464,6 +461,18 @@ struct PlayerBar: View {
         self.playerService.currentTrack != nil
             && self.playerService.duration > 0
             && !self.playerService.isCurrentItemLive
+    }
+
+    private var canShowCurrentTrackVideo: Bool {
+        guard let track = self.playerService.currentTrack else { return false }
+        if UITestConfig.isUITestMode,
+           UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) == "true"
+        {
+            return true
+        }
+        return self.playerService.currentTrackHasVideo
+            || track.musicVideoType?.hasVideoContent == true
+            || track.hasVideo == true
     }
 
     /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
@@ -538,18 +547,9 @@ struct PlayerBar: View {
     }
 
     private var pictureButton: some View {
-        @Bindable var player = self.playerService
-
-        return PlayerBarIconButton(
+        PlayerBarIconButton(
             action: {
-                guard self.playerService.currentTrackHasVideo else { return }
-                HapticService.toggle()
-                DiagnosticsLogger.player.debug(
-                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-                )
-                withAnimation(AppAnimation.standard) {
-                    player.showVideo.toggle()
-                }
+                self.toggleVideo()
             },
             isSelected: self.playerService.showVideo,
             accessibilityID: AccessibilityID.PlayerBar.videoButton,
@@ -565,7 +565,7 @@ struct PlayerBar: View {
         )
         .compatGlassID("picture", in: self.playerNamespace)
         .keyboardShortcut("v", modifiers: [.command, .shift])
-        .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
+        .disabled(!self.canShowCurrentTrackVideo)
     }
 
     private var miniPlayerButton: some View {
@@ -593,6 +593,17 @@ struct PlayerBar: View {
 
     private var pictureButtonIcon: String {
         self.playerService.showVideo ? "pip.exit" : "pip.enter"
+    }
+
+    private func toggleVideo() {
+        guard self.canShowCurrentTrackVideo else { return }
+        HapticService.toggle()
+        DiagnosticsLogger.player.debug(
+            "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+        )
+        withAnimation(AppAnimation.standard) {
+            self.playerService.showVideo.toggle()
+        }
     }
 
     // MARK: - Current Song Context Menu

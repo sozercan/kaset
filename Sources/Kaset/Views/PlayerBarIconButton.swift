@@ -16,16 +16,22 @@ struct PlayerBarIconButton<Icon: View>: View {
 
     var body: some View {
         Button(action: self.action) {
-            self.icon()
-                .frame(width: PlayerBarIconButtonMetrics.size, height: PlayerBarIconButtonMetrics.size)
-                .background {
-                    RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous)
-                        .fill(self.backgroundColor)
-                }
-                .contentShape(RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous))
+            Label {
+                Text(self.accessibilityLabel ?? "")
+            } icon: {
+                self.icon()
+                    .frame(width: PlayerBarIconButtonMetrics.size, height: PlayerBarIconButtonMetrics.size)
+                    .background {
+                        RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous)
+                            .fill(self.backgroundColor)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous))
+            }
+            .labelStyle(.iconOnly)
         }
         .buttonStyle(PlayerBarIconButtonStyle())
-        .accessibilityElement(children: .ignore)
+        .frame(width: PlayerBarIconButtonMetrics.size, height: PlayerBarIconButtonMetrics.size)
+        .contentShape(RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous))
         .playerBarAccessibilityIdentifier(self.accessibilityID)
         .playerBarAccessibilityLabel(self.accessibilityLabel)
         .playerBarAccessibilityValue(self.accessibilityValue)

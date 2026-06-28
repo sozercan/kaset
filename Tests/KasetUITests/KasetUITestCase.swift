@@ -230,6 +230,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),
@@ -325,6 +326,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),

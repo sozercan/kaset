@@ -26,14 +26,18 @@ struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
             Menu {
                 self.menuContent()
             } label: {
-                Color.white.opacity(0.001)
-                    .frame(width: 28, height: 28)
+                Label {
+                    Text(self.accessibilityLabel ?? "")
+                } icon: {
+                    Color.white.opacity(0.001)
+                        .frame(width: 28, height: 28)
+                }
+                .labelStyle(.iconOnly)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .buttonStyle(.plain)
             .frame(width: 28, height: 28)
-            .accessibilityElement(children: .ignore)
             .playerBarMenuAccessibilityIdentifier(self.accessibilityID)
             .playerBarMenuAccessibilityLabel(self.accessibilityLabel)
         }
