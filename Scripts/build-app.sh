@@ -30,24 +30,6 @@ if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   esac
 fi
 
-echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
-
-# Clean previous build
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-# Build for each architecture
-for ARCH in "${ARCH_LIST[@]}"; do
-  echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
-done
-
-# Create app bundle structure
-echo "📦 Creating app bundle..."
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
-mkdir -p "$APP_BUNDLE/Contents/Frameworks"
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 build_config_dir_names() {
@@ -100,16 +82,73 @@ build_product_dir() {
   esac
 }
 
+arch_staging_dir() {
+  local arch="$1"
+  echo "$BUILD_DIR/arch-products/$arch"
+}
+
+stage_arch_product() {
+  local name="$1"
+  local arch="$2"
+  local source_dir
+  local source_path
+  local dest_dir
+
+  source_dir=$(build_product_dir "$arch")
+  source_path="$source_dir/$name"
+  if [[ ! -f "$source_path" ]]; then
+    echo "ERROR: Missing ${name} build for ${arch} at ${source_path}" >&2
+    exit 1
+  fi
+
+  # Some SwiftPM/Xcode layouts report the same --show-bin-path for each
+  # --arch build. Preserve each thin executable immediately after it is built so
+  # a later architecture build cannot overwrite the input that lipo needs.
+  dest_dir=$(arch_staging_dir "$arch")
+  mkdir -p "$dest_dir"
+  cp "$source_path" "$dest_dir/$name"
+  chmod +x "$dest_dir/$name"
+}
+
 build_product_path() {
   local name="$1"
   local arch="$2"
   local dir
+  local staged
+
+  if [[ -n "$name" ]]; then
+    staged="$(arch_staging_dir "$arch")/$name"
+    if [[ -f "$staged" ]]; then
+      echo "$staged"
+      return 0
+    fi
+  fi
+
   dir=$(build_product_dir "$arch")
   if [[ -n "$name" ]]; then
     echo "$dir/$name"
   else
     echo "$dir"
   fi
+}
+
+find_framework_in_product_dir() {
+  local product_dir="$1"
+  local framework_name="$2"
+  local candidate
+
+  for candidate in \
+    "$product_dir/$framework_name" \
+    "$product_dir/PackageFrameworks/$framework_name" \
+    "$product_dir/ExecutableModules/$framework_name"
+  do
+    if [[ -d "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 verify_binary_arches() {
@@ -184,6 +223,26 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
+echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
+
+# Clean previous build
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# Build for each architecture. Stage the executable after each build because
+# some SwiftPM layouts reuse one products directory for every --arch build.
+for ARCH in "${ARCH_LIST[@]}"; do
+  echo "  → Building for $ARCH..."
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
+  stage_arch_product "$APP_NAME" "$ARCH"
+done
+
+# Create app bundle structure
+echo "📦 Creating app bundle..."
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+
 # ── Executable ───────────────────────────────────────────────────────────────
 
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
@@ -251,13 +310,18 @@ fi
 SPARKLE_FRAMEWORK=""
 for arch in "${ARCH_LIST[@]}"; do
   CANDIDATE_DIR=$(build_product_dir "$arch")
-  if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
-    SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
+  if SPARKLE_FRAMEWORK=$(find_framework_in_product_dir "$CANDIDATE_DIR" "Sparkle.framework"); then
     break
   fi
+  SPARKLE_FRAMEWORK=""
 done
-if [[ -z "$SPARKLE_FRAMEWORK" ]] && [[ -d ".build/$CONF/Sparkle.framework" ]]; then
-  SPARKLE_FRAMEWORK=".build/$CONF/Sparkle.framework"
+if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
+  for CANDIDATE_DIR in ".build/$CONF" ".build/$CONF/PackageFrameworks" ".build/$CONF/ExecutableModules"; do
+    if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
+      SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
+      break
+    fi
+  done
 fi
 
 if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
