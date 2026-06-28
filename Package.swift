@@ -32,6 +32,13 @@ let package = Package(
             exclude: [
                 "Resources/AppIcon.icon",
                 "Resources/kaset.icns",
+                // Legacy .lproj directories conflict with Localizable.xcstrings
+                // compilation because both produce the same .strings outputs.
+                "Resources/ar.lproj",
+                "Resources/fr.lproj",
+                "Resources/id.lproj",
+                "Resources/ko.lproj",
+                "Resources/tr.lproj",
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),

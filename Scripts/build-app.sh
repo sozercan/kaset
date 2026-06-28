@@ -50,13 +50,66 @@ mkdir -p "$APP_BUNDLE/Contents/Frameworks"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+build_config_dir_names() {
+  local conf_lower
+  local conf_title
+  conf_lower=$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')
+  conf_title="$(tr '[:lower:]' '[:upper:]' <<< "${conf_lower:0:1}")${conf_lower:1}"
+  printf '%s\n' "$conf_title" "$conf_lower" "$CONF" | awk 'NF && !seen[$0]++'
+}
+
+build_product_dir() {
+  local arch="$1"
+  local show_bin
+
+  # Xcode 27 / Swift 6.4 can emit SwiftPM products into an Xcode-style
+  # products directory (.build/out/Products/Release). Ask SwiftPM first so
+  # the packaging script follows the active toolchain instead of assuming one
+  # filesystem layout. Xcode 26/classic SwiftPM layouts are kept as fallbacks.
+  show_bin=$(swift build -c "$CONF" --arch "$arch" --show-bin-path 2>/dev/null || true)
+  if [[ -n "$show_bin" && -d "$show_bin" ]]; then
+    echo "$show_bin"
+    return 0
+  fi
+
+  local dir_name
+  while IFS= read -r dir_name; do
+    if [[ -d ".build/out/Products/$dir_name" ]]; then
+      echo ".build/out/Products/$dir_name"
+      return 0
+    fi
+  done < <(build_config_dir_names)
+
+  case "$arch" in
+    arm64|x86_64)
+      if [[ -d ".build/${arch}-apple-macosx/$CONF" ]]; then
+        echo ".build/${arch}-apple-macosx/$CONF"
+        return 0
+      fi
+      ;;
+  esac
+
+  if [[ -d ".build/$CONF" ]]; then
+    echo ".build/$CONF"
+    return 0
+  fi
+
+  case "$arch" in
+    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF" ;;
+    *) echo ".build/$CONF" ;;
+  esac
+}
+
 build_product_path() {
   local name="$1"
   local arch="$2"
-  case "$arch" in
-    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF/$name" ;;
-    *) echo ".build/$CONF/$name" ;;
-  esac
+  local dir
+  dir=$(build_product_dir "$arch")
+  if [[ -n "$name" ]]; then
+    echo "$dir/$name"
+  else
+    echo "$dir"
+  fi
 }
 
 verify_binary_arches() {
@@ -197,8 +250,7 @@ fi
 
 SPARKLE_FRAMEWORK=""
 for arch in "${ARCH_LIST[@]}"; do
-  CANDIDATE=$(build_product_path "" "$arch")
-  CANDIDATE_DIR=$(dirname "$CANDIDATE")
+  CANDIDATE_DIR=$(build_product_dir "$arch")
   if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
     SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
     break
