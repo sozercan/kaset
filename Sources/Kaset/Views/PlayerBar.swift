@@ -5,18 +5,18 @@ import SwiftUI
 /// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
 struct PlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
-    private static let compactLayoutThreshold: CGFloat = 980
+    private static let fullSongInfoWidth: CGFloat = 234
+    private static let compactSongInfoWidth: CGFloat = 116
+    private static let compactDetailsBreakpoint: CGFloat = MainWindowLayout.minimumWidth - 220 - 32 + 8
 
     @Environment(PlayerService.self) private var playerService
-    @Environment(WebKitManager.self) private var webKitManager
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
-
-    @State private var isHoveringSeekBar = false
 
     /// Local seek value for smooth slider dragging without network calls on every change.
     @State private var seekValue: Double = 0
@@ -25,8 +25,7 @@ struct PlayerBar: View {
     /// Local volume value for smooth slider dragging.
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
-
-    @State private var playerBarWidth: CGFloat = 0
+    @State private var showsVolumeOverlay = false
 
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
@@ -36,25 +35,29 @@ struct PlayerBar: View {
 
     var body: some View {
         CompatGlassContainer(spacing: 0) {
-            HStack(spacing: 0) {
-                // Left section: Playback controls
-                self.playbackControls
+            GeometryReader { proxy in
+                let usesCompactDetails = proxy.size.width <= Self.compactDetailsBreakpoint
 
-                Spacer()
+                HStack(spacing: 10) {
+                    self.songInfoSection(usesCompactDetails: usesCompactDetails)
+                        .frame(
+                            width: usesCompactDetails ? Self.compactSongInfoWidth : Self.fullSongInfoWidth,
+                            height: 52
+                        )
 
-                // Center section: Track info ⇄ full-width seek scrubber on hover
-                self.centerSection
+                    self.progressSection
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
 
-                Spacer()
-
-                // Right section: Volume control
-                self.volumeControl
+                    self.playbackOptionsSection
+                        .frame(width: 142, height: 52)
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
             .frame(height: 52)
             .compatGlass(interactive: true, in: .capsule)
             .compatGlassID("playerBar", in: self.playerNamespace)
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.container)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -62,78 +65,32 @@ struct PlayerBar: View {
             self.playerAreaFade
         }
         .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .preference(key: PlayerBarWidthPreferenceKey.self, value: proxy.size.width)
-            }
-        }
-        .background {
-            // Keyboard shortcuts for media controls
-            Group {
-                // Space: Play/Pause
-                Button("") {
-                    Task { await self.playerService.playPause() }
-                }
-                .keyboardShortcut(.space, modifiers: [])
-                .opacity(0)
-
-                // Command + Right Arrow: Next track
-                Button("") {
-                    Task { await self.playerService.next() }
-                }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(self.playerService.currentEpisode != nil)
-                .opacity(0)
-
-                // Command + Left Arrow: Previous track
-                Button("") {
-                    Task { await self.playerService.previous() }
-                }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(self.playerService.currentEpisode != nil)
-                .opacity(0)
-
-                // Command + Up Arrow: Volume up
-                Button("") {
-                    Task { await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1)) }
-                }
-                .keyboardShortcut(.upArrow, modifiers: .command)
-                .opacity(0)
-
-                // Command + Down Arrow: Volume down
-                Button("") {
-                    Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
-                }
-                .keyboardShortcut(.downArrow, modifiers: .command)
-                .opacity(0)
-            }
-        }
-        .onPreferenceChange(PlayerBarWidthPreferenceKey.self) { width in
-            if abs(width - self.playerBarWidth) > 0.5 {
-                self.playerBarWidth = width
-            }
+            self.keyboardShortcuts
         }
         .onChange(of: self.playerService.progress) { _, newValue in
-            // Sync local seek value when not actively seeking
             if !self.isSeeking, self.playerService.duration > 0 {
                 self.seekValue = newValue / self.playerService.duration
             }
-            // Only update formatted strings when the second changes to reduce Text view updates
+
             let currentSecond = Int(newValue)
             if currentSecond != self.lastProgressSecond {
                 self.lastProgressSecond = currentSecond
                 self.formattedProgress = self.formatTime(newValue)
-                self.formattedRemaining = "-\(self.formatTime(self.playerService.duration - newValue))"
+                self.formattedRemaining = "-\(self.formatTime(max(0, self.playerService.duration - newValue)))"
             }
         }
+        .onChange(of: self.playerService.duration) { _, newValue in
+            if !self.isSeeking, newValue > 0 {
+                self.seekValue = self.playerService.progress / newValue
+            }
+            self.formattedRemaining = "-\(self.formatTime(max(0, newValue - self.playerService.progress)))"
+        }
         .onChange(of: self.playerService.volume) { _, newValue in
-            // Sync local volume value when not actively adjusting
             if !self.isAdjustingVolume {
                 self.volumeValue = newValue
             }
         }
         .onAppear {
-            // Sync local volume value from saved state on initial load
             self.volumeValue = self.playerService.volume
             if self.playerService.duration > 0 {
                 self.seekValue = self.playerService.progress / self.playerService.duration
@@ -157,35 +114,58 @@ struct PlayerBar: View {
         .accessibilityHidden(true)
     }
 
-    // MARK: - Center Section (track info ⇄ full-width seek scrubber on hover)
-
-    private var centerSection: some View {
-        ZStack {
-            // Error state display with retry option
-            if case let .error(message) = playerService.state {
-                self.errorView(message: message)
-            } else {
-                // Track info — top-aligned so it lifts off the bottom progress line.
-                VStack(spacing: 0) {
-                    self.trackInfoView
-                    Spacer(minLength: 0)
-                }
-                .blur(radius: self.showsSeekControls ? 8 : 0)
-                .opacity(self.showsSeekControls ? 0 : 1)
-
-                // Thin idle progress line ⇄ full-width hover scrubber, filling the section.
-                if self.playerService.currentTrack != nil {
-                    self.seekOverlay
-                }
+    private var keyboardShortcuts: some View {
+        Group {
+            Button("") {
+                Task { await self.playerService.playPause() }
             }
-        }
-        .frame(maxWidth: 540, minHeight: 38)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(self.hoverAnimation) {
-                self.isHoveringSeekBar = hovering
+            .keyboardShortcut(.space, modifiers: [])
+            .opacity(0)
+
+            Button("") {
+                Task { await self.playerService.next() }
             }
+            .keyboardShortcut(.rightArrow, modifiers: .command)
+            .disabled(self.playerService.currentEpisode != nil)
+            .opacity(0)
+
+            Button("") {
+                Task { await self.playerService.previous() }
+            }
+            .keyboardShortcut(.leftArrow, modifiers: .command)
+            .disabled(self.playerService.currentEpisode != nil)
+            .opacity(0)
+
+            Button("") {
+                Task { await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1)) }
+            }
+            .keyboardShortcut(.upArrow, modifiers: .command)
+            .opacity(0)
+
+            Button("") {
+                Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
+            }
+            .keyboardShortcut(.downArrow, modifiers: .command)
+            .opacity(0)
         }
+    }
+
+    // MARK: - Song Info
+
+    private func songInfoSection(usesCompactDetails: Bool) -> some View {
+        HStack(spacing: 8) {
+            self.thumbnailView
+
+            if !usesCompactDetails {
+                self.songDetailsView
+                    .frame(width: 110, alignment: .leading)
+            }
+
+            self.songActionButtons
+        }
+        .padding(.leading, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .contextMenu {
             if let track = self.playerService.currentTrack {
                 self.currentSongContextMenu(for: track)
@@ -193,18 +173,297 @@ struct PlayerBar: View {
         }
     }
 
-    /// Whether the expanded scrubber (timestamps + thumb) is shown.
-    private var showsSeekControls: Bool {
-        self.isHoveringSeekBar && self.playerService.currentTrack != nil
+    @ViewBuilder
+    private var thumbnailView: some View {
+        if let track = self.playerService.currentTrack {
+            SongThumbnailView(song: track, size: 32, cornerRadius: 6)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
+        } else {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.quaternary)
+                .overlay {
+                    CassetteIcon(size: 18)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 32, height: 32)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
+        }
     }
 
-    /// Hover grow/shrink animation, honouring Reduce Motion.
-    private var hoverAnimation: Animation {
-        self.reduceMotion ? .easeInOut(duration: 0.12) : AppAnimation.snappy
+    private var songDetailsView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            PlayerBarMarqueeText(
+                text: self.playerService.currentTrack?.title ?? String(localized: "Not Playing"),
+                font: .system(size: 13),
+                color: .primary,
+                height: 13,
+                reduceMotion: self.reduceMotion
+            )
+            .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
+
+            Text(self.artistName)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .frame(height: 12, alignment: .leading)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.trackArtist)
+        }
+        .frame(height: 29, alignment: .leading)
     }
 
-    private var isCompactLayout: Bool {
-        self.playerBarWidth > 0 && self.playerBarWidth < Self.compactLayoutThreshold
+    private var artistName: String {
+        guard let track = self.playerService.currentTrack else {
+            return String(localized: "Kaset")
+        }
+        return track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay
+    }
+
+    private var songActionButtons: some View {
+        HStack(spacing: 6) {
+            PlayerBarIconButton(
+                action: self.likeCurrentTrack,
+                isSelected: self.playerService.currentTrackLikeStatus == .like,
+                accessibilityID: AccessibilityID.PlayerBar.likeButton,
+                accessibilityLabel: String(localized: "Like"),
+                accessibilityValue: self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked")
+            ) {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
+            .disabled(self.playerService.currentTrack == nil)
+
+            PlayerBarIconButton(
+                action: self.dislikeCurrentTrack,
+                isSelected: self.playerService.currentTrackLikeStatus == .dislike,
+                accessibilityID: AccessibilityID.PlayerBar.dislikeButton,
+                accessibilityLabel: String(localized: "Dislike"),
+                accessibilityValue: self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked")
+            ) {
+                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
+            .disabled(self.playerService.currentTrack == nil)
+        }
+    }
+
+    // MARK: - Progress
+
+    private var progressSection: some View {
+        ZStack(alignment: .top) {
+            if case let .error(message) = playerService.state {
+                self.errorView(message: message)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                PlayerBarProgressLane(
+                    fraction: self.displayFraction,
+                    accent: Self.brandAccent,
+                    elapsedText: self.isSeeking
+                        ? self.formatTime(self.seekValue * self.playerService.duration)
+                        : self.formattedProgress,
+                    remainingText: self.isSeeking
+                        ? "-\(self.formatTime(max(0, self.playerService.duration - self.seekValue * self.playerService.duration)))"
+                        : self.formattedRemaining,
+                    isLive: self.playerService.isCurrentItemLive,
+                    canSeek: self.canSeek,
+                    onScrub: { fraction in
+                        self.isSeeking = true
+                        self.seekValue = fraction
+                    },
+                    onCommit: {
+                        self.performSeek()
+                    }
+                )
+                .padding(.top, 18)
+
+                self.progressActionButtons
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var progressActionButtons: some View {
+        HStack(spacing: 10) {
+            PlayerBarIconButton(
+                action: self.showAirPlayPicker,
+                isSelected: self.playerService.isAirPlayConnected,
+                accessibilityID: AccessibilityID.PlayerBar.airplayButton,
+                accessibilityLabel: self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay")
+            ) {
+                Image(systemName: "airplayaudio")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.isAirPlayConnected ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .disabled(self.playerService.currentTrack == nil)
+
+            PlayerBarIconButton(
+                action: self.toggleShuffle,
+                isSelected: self.playerService.shuffleEnabled,
+                accessibilityID: AccessibilityID.PlayerBar.shuffleButton,
+                accessibilityLabel: String(localized: "Shuffle"),
+                accessibilityValue: self.playerService.shuffleEnabled ? String(localized: "On") : String(localized: "Off")
+            ) {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.shuffleEnabled ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .disabled(self.playerService.currentTrack == nil)
+
+            HStack(spacing: 6) {
+                PlayerBarIconButton(
+                    action: self.previousTrack,
+                    accessibilityID: AccessibilityID.PlayerBar.previousButton,
+                    accessibilityLabel: String(localized: "Previous track")
+                ) {
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 13, weight: .regular))
+                        .frame(width: 8, height: 13)
+                        .foregroundStyle(.primary)
+                }
+                .disabled(self.playerService.currentEpisode != nil)
+
+                PlayerBarIconButton(
+                    action: self.playPause,
+                    accessibilityID: AccessibilityID.PlayerBar.playPauseButton,
+                    accessibilityLabel: self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play")
+                ) {
+                    Image(systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 20, weight: .regular))
+                        .frame(width: 12, height: 20)
+                        .foregroundStyle(.primary)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .compatGlassID("playPause", in: self.playerNamespace)
+
+                PlayerBarIconButton(
+                    action: self.nextTrack,
+                    accessibilityID: AccessibilityID.PlayerBar.nextButton,
+                    accessibilityLabel: String(localized: "Next track")
+                ) {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 13, weight: .regular))
+                        .frame(width: 8, height: 13)
+                        .foregroundStyle(.primary)
+                }
+                .disabled(self.playerService.currentEpisode != nil)
+            }
+
+            PlayerBarIconButton(
+                action: self.cycleRepeatMode,
+                isSelected: self.playerService.repeatMode != .off,
+                accessibilityID: AccessibilityID.PlayerBar.repeatButton,
+                accessibilityLabel: String(localized: "Repeat"),
+                accessibilityValue: self.repeatAccessibilityValue
+            ) {
+                Image(systemName: self.repeatIconName)
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 10, height: 15)
+                    .foregroundStyle(self.playerService.repeatMode == .off ? .primary : Self.brandAccent)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .disabled(self.playerService.currentTrack == nil)
+
+            PlayerBarIconButton(
+                action: self.toggleVolumePopover,
+                accessibilityLabel: String(localized: "Volume")
+            ) {
+                Image(systemName: self.volumeIcon)
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 10, height: 15)
+                    .foregroundStyle(.primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .overlay(alignment: .top) {
+                if self.showsVolumeOverlay {
+                    self.volumeOverlay
+                        .offset(y: -176)
+                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
+                        .zIndex(1)
+                }
+            }
+        }
+    }
+
+    private var volumeOverlay: some View {
+        CompatGlassContainer(spacing: 0) {
+            VStack(spacing: 10) {
+                Image(systemName: self.volumeIcon)
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.primary)
+
+                Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
+                    if editing {
+                        self.isAdjustingVolume = true
+                    } else {
+                        self.isAdjustingVolume = false
+                        Task {
+                            await self.playerService.setVolume(self.volumeValue)
+                        }
+                    }
+                }
+                .controlSize(.small)
+                .tint(self.volumeSliderTint)
+                .frame(width: 122)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 28, height: 122)
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.volumeSlider)
+                .accessibilityLabel(String(localized: "Volume"))
+                .onChange(of: self.volumeValue) { oldValue, newValue in
+                    if self.isAdjustingVolume {
+                        if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
+                            HapticService.sliderBoundary()
+                        }
+                        Task {
+                            await self.playerService.setVolume(newValue)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 16)
+            .frame(width: 46, height: 168)
+            .background {
+                Capsule()
+                    .fill(self.volumeOverlayFill)
+            }
+            .compatGlass(interactive: true, tint: self.volumeOverlayTint, in: .capsule)
+            .shadow(color: self.volumeOverlayShadow, radius: 14, y: 5)
+        }
+    }
+
+    private var volumeOverlayFill: Color {
+        self.colorScheme == .dark ? .black.opacity(0.22) : .white.opacity(0.72)
+    }
+
+    private var volumeOverlayTint: Color {
+        self.colorScheme == .dark ? .white.opacity(0.10) : .black.opacity(0.06)
+    }
+
+    private var volumeSliderTint: Color {
+        self.colorScheme == .dark ? .white.opacity(0.85) : .black.opacity(0.72)
+    }
+
+    private var volumeOverlayShadow: Color {
+        self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
+    }
+
+    private var canSeek: Bool {
+        self.playerService.currentTrack != nil
+            && self.playerService.duration > 0
+            && !self.playerService.isCurrentItemLive
     }
 
     /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
@@ -216,84 +475,124 @@ struct PlayerBar: View {
         return min(max(0, self.playerService.progress / self.playerService.duration), 1)
     }
 
-    // MARK: - Track Info View (thumbnail + title/artist)
+    // MARK: - Playback Options
 
-    private var trackInfoView: some View {
-        HStack(spacing: 8) {
-            // Thumbnail
-            if let track = self.playerService.currentTrack {
-                SongThumbnailView(song: track, size: 32, cornerRadius: 4)
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.quaternary)
-                    .overlay {
-                        CassetteIcon(size: 18)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 32, height: 32)
-            }
-
-            // Track info
-            if let track = self.playerService.currentTrack {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(track.title)
-                        .font(.system(size: 11, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-
-                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: 240, alignment: .leading)
-            }
+    private var playbackOptionsSection: some View {
+        HStack(spacing: 6) {
+            self.lyricsButton
+            self.queueButton
+            self.pictureButton
+            self.miniPlayerButton
         }
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.trailing, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }
 
-    // MARK: - Seek Overlay (full-width: thin idle line ⇄ edge-to-edge hover scrubber)
+    private var lyricsButton: some View {
+        @Bindable var player = self.playerService
 
-    private var seekOverlay: some View {
-        ZStack {
-            if self.playerService.isCurrentItemLive {
-                self.liveIndicatorView
-                    .opacity(self.showsSeekControls ? 1 : 0)
-                    .transition(.opacity)
-                    .allowsHitTesting(false)
-            } else {
-                // Full-width hover scrubber (elapsed · long bar · remaining).
-                AppleMusicScrubber(
-                    fraction: self.displayFraction,
-                    accent: Self.brandAccent,
-                    elapsedText: self.isSeeking
-                        ? self.formatTime(self.seekValue * self.playerService.duration)
-                        : self.formattedProgress,
-                    remainingText: self.isSeeking
-                        ? "-\(self.formatTime(max(0, self.playerService.duration - self.seekValue * self.playerService.duration)))"
-                        : self.formattedRemaining,
-                    isInteractive: self.showsSeekControls,
-                    onScrub: { fraction in
-                        self.isSeeking = true
-                        self.seekValue = fraction
-                    },
-                    onCommit: {
-                        self.performSeek()
-                    }
-                )
-                .opacity(self.showsSeekControls ? 1 : 0)
-                .allowsHitTesting(self.showsSeekControls)
-
-                // Thin idle progress line shown when not hovering.
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    IdleProgressLine(fraction: self.displayFraction)
+        return PlayerBarIconButton(
+            action: {
+                HapticService.toggle()
+                withAnimation(AppAnimation.standard) {
+                    player.showLyrics.toggle()
                 }
-                .opacity(self.showsSeekControls ? 0 : 1)
-                .allowsHitTesting(false)
+            },
+            isSelected: self.playerService.showLyrics,
+            accessibilityID: AccessibilityID.PlayerBar.lyricsButton,
+            accessibilityLabel: String(localized: "Lyrics"),
+            accessibilityValue: self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"),
+            icon: {
+                Image(systemName: self.playerService.showLyrics ? "quote.bubble.fill" : "quote.bubble")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.showLyrics ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
             }
-        }
+        )
+        .compatGlassID("lyrics", in: self.playerNamespace)
+    }
+
+    private var queueButton: some View {
+        @Bindable var player = self.playerService
+
+        return PlayerBarIconButton(
+            action: {
+                HapticService.toggle()
+                withAnimation(AppAnimation.standard) {
+                    player.showQueue.toggle()
+                }
+            },
+            isSelected: self.playerService.showQueue,
+            accessibilityID: AccessibilityID.PlayerBar.queueButton,
+            accessibilityLabel: String(localized: "Queue"),
+            accessibilityValue: self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"),
+            icon: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 10, height: 16)
+                    .foregroundStyle(self.playerService.showQueue ? Self.brandAccent : .primary)
+            }
+        )
+        .compatGlassID("queue", in: self.playerNamespace)
+    }
+
+    private var pictureButton: some View {
+        @Bindable var player = self.playerService
+
+        return PlayerBarIconButton(
+            action: {
+                guard self.playerService.currentTrackHasVideo else { return }
+                HapticService.toggle()
+                DiagnosticsLogger.player.debug(
+                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
+                )
+                withAnimation(AppAnimation.standard) {
+                    player.showVideo.toggle()
+                }
+            },
+            isSelected: self.playerService.showVideo,
+            accessibilityID: AccessibilityID.PlayerBar.videoButton,
+            accessibilityLabel: String(localized: "Video"),
+            accessibilityValue: self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"),
+            icon: {
+                Image(systemName: self.pictureButtonIcon)
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 13, height: 14)
+                    .foregroundStyle(self.playerService.showVideo ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+        )
+        .compatGlassID("picture", in: self.playerNamespace)
+        .keyboardShortcut("v", modifiers: [.command, .shift])
+        .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
+    }
+
+    private var miniPlayerButton: some View {
+        @Bindable var player = self.playerService
+
+        return PlayerBarIconButton(
+            action: {
+                HapticService.toggle()
+                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
+            },
+            isSelected: self.playerService.isMiniPlayerVisible,
+            accessibilityID: AccessibilityID.PlayerBar.miniPlayerButton,
+            accessibilityLabel: self.playerService.isMiniPlayerVisible ? String(localized: "Return to Kaset") : String(localized: "Switch to Mini Player"),
+            accessibilityValue: self.playerService.isMiniPlayerVisible ? String(localized: "Showing") : String(localized: "Hidden"),
+            icon: {
+                Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 15, height: 15)
+                    .foregroundStyle(self.playerService.isMiniPlayerVisible ? Self.brandAccent : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+        )
+        .compatGlassID("miniPlayer", in: self.playerNamespace)
+    }
+
+    private var pictureButtonIcon: String {
+        self.playerService.showVideo ? "pip.exit" : "pip.enter"
     }
 
     // MARK: - Current Song Context Menu
@@ -362,23 +661,6 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Live Indicator View (replaces seek bar for live streams)
-
-    private var liveIndicatorView: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(.red)
-                .frame(width: 8, height: 8)
-
-            Text("LIVE", comment: "Label shown on the player bar when playing a live radio stream")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.red)
-                .tracking(0.5)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "Live stream"))
-    }
-
     // MARK: - Error View
 
     private func errorView(message: String) -> some View {
@@ -410,11 +692,64 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Seek
+    // MARK: - Actions
+
+    private func likeCurrentTrack() {
+        HapticService.toggle()
+        self.playerService.likeCurrentTrack()
+    }
+
+    private func dislikeCurrentTrack() {
+        HapticService.toggle()
+        self.playerService.dislikeCurrentTrack()
+    }
+
+    private func showAirPlayPicker() {
+        HapticService.toggle()
+        self.playerService.showAirPlayPicker()
+    }
+
+    private func previousTrack() {
+        HapticService.playback()
+        Task {
+            await self.playerService.previous()
+        }
+    }
+
+    private func playPause() {
+        HapticService.playback()
+        Task {
+            await self.playerService.playPause()
+        }
+    }
+
+    private func nextTrack() {
+        HapticService.playback()
+        Task {
+            await self.playerService.next()
+        }
+    }
+
+    private func toggleShuffle() {
+        HapticService.toggle()
+        self.playerService.toggleShuffle()
+    }
+
+    private func cycleRepeatMode() {
+        HapticService.toggle()
+        self.playerService.cycleRepeatMode()
+    }
+
+    private func toggleVolumePopover() {
+        HapticService.toggle()
+        withAnimation(AppAnimation.quick) {
+            self.showsVolumeOverlay.toggle()
+        }
+    }
 
     /// Performs the actual seek operation after slider interaction ends.
     private func performSeek() {
-        guard self.isSeeking else { return }
+        guard self.isSeeking, self.playerService.duration > 0 else { return }
         let seekTime = self.seekValue * self.playerService.duration
         Task {
             await self.playerService.seek(to: seekTime)
@@ -436,93 +771,19 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Playback Controls
-
-    private var playbackControls: some View {
-        HStack(spacing: 16) {
-            // Shuffle
-            Button {
-                HapticService.toggle()
-                self.playerService.toggleShuffle()
-            } label: {
-                Image(systemName: "shuffle")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.shuffleEnabled ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(String(localized: "Shuffle"))
-            .accessibilityValue(self.playerService.shuffleEnabled ? String(localized: "On") : String(localized: "Off"))
-
-            // Previous
-            Button {
-                HapticService.playback()
-                Task {
-                    await self.playerService.previous()
-                }
-            } label: {
-                Image(systemName: "backward.fill")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            .buttonStyle(.pressable)
-            .disabled(self.playerService.currentEpisode != nil)
-            .accessibilityLabel(String(localized: "Previous track"))
-
-            // Play/Pause
-            Button {
-                HapticService.playback()
-                Task {
-                    await self.playerService.playPause()
-                }
-            } label: {
-                Image(systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("playPause", in: self.playerNamespace)
-            .accessibilityLabel(self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
-
-            // Next
-            Button {
-                HapticService.playback()
-                Task {
-                    await self.playerService.next()
-                }
-            } label: {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            .buttonStyle(.pressable)
-            .disabled(self.playerService.currentEpisode != nil)
-            .accessibilityLabel(String(localized: "Next track"))
-
-            // Repeat
-            Button {
-                HapticService.toggle()
-                self.playerService.cycleRepeatMode()
-            } label: {
-                Image(systemName: self.repeatIcon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.repeatMode != .off ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(String(localized: "Repeat"))
-            .accessibilityValue(self.repeatAccessibilityValue)
+    private var volumeIcon: String {
+        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
+        if currentVolume == 0 {
+            return "speaker.slash.fill"
+        } else if currentVolume < 0.5 {
+            return "speaker.wave.1.fill"
+        } else {
+            return "speaker.wave.2.fill"
         }
     }
 
-    private var repeatIcon: String {
-        switch self.playerService.repeatMode {
-        case .off, .all:
-            "repeat"
-        case .one:
-            "repeat.1"
-        }
+    private var repeatIconName: String {
+        self.playerService.repeatMode == .one ? "repeat.1" : "repeat"
     }
 
     private var repeatAccessibilityValue: String {
@@ -535,359 +796,14 @@ struct PlayerBar: View {
             String(localized: "One")
         }
     }
-
-    // MARK: - Volume Control
-
-    private var volumeControl: some View {
-        HStack(spacing: 8) {
-            if self.isCompactLayout {
-                CompactVisibleActionButtons(playerNamespace: self.playerNamespace)
-                self.compactActionsMenu
-            } else {
-                // Like/Dislike/Library actions
-                self.actionButtons
-                self.airPlayButton
-            }
-
-            Divider()
-                .frame(height: 20)
-                .padding(.horizontal, 4)
-
-            Image(systemName: self.volumeIcon)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.85))
-                .frame(width: 18)
-
-            self.volumeSlider
-        }
-    }
-
-    private var airPlayButton: some View {
-        Button {
-            HapticService.toggle()
-            self.playerService.showAirPlayPicker()
-        } label: {
-            Image(systemName: "airplayaudio")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(self.playerService.isAirPlayConnected ? .red : .primary.opacity(0.85))
-                .contentTransition(.symbolEffect(.replace))
-        }
-        .buttonStyle(.pressable)
-        .accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
-        .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
-        .disabled(self.playerService.currentTrack == nil)
-    }
-
-    private var volumeSlider: some View {
-        Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
-            if editing {
-                // User started dragging
-                self.isAdjustingVolume = true
-            } else {
-                // User finished dragging/clicking - apply volume change
-                self.isAdjustingVolume = false
-                // Always apply volume when interaction ends to ensure WebView is synced
-                Task {
-                    await self.playerService.setVolume(self.volumeValue)
-                }
-            }
-        }
-        .frame(width: 80)
-        .controlSize(.small)
-        .tint(Self.brandAccent)
-        .onChange(of: self.volumeValue) { oldValue, newValue in
-            // Apply volume changes in real-time during dragging for immediate feedback
-            if self.isAdjustingVolume {
-                // Haptic feedback at slider boundaries
-                if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
-                    HapticService.sliderBoundary()
-                }
-                Task {
-                    await self.playerService.setVolume(newValue)
-                }
-            }
-        }
-    }
-
-    private var compactActionsMenu: some View {
-        @Bindable var player = self.playerService
-
-        return Menu {
-            Button {
-                HapticService.toggle()
-                self.playerService.showAirPlayPicker()
-            } label: {
-                Label(
-                    self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"),
-                    systemImage: "airplayaudio"
-                )
-            }
-            .disabled(self.playerService.currentTrack == nil)
-
-            Divider()
-
-            Button {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showQueue.toggle()
-                }
-            } label: {
-                Label(String(localized: "Queue"), systemImage: "list.bullet")
-            }
-
-            Button {
-                HapticService.toggle()
-                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
-            } label: {
-                Label(
-                    self.playerService.isMiniPlayerVisible
-                        ? String(localized: "Return to Kaset")
-                        : String(localized: "Switch to Mini Player"),
-                    systemImage: self.playerService.isMiniPlayerVisible
-                        ? "macwindow"
-                        : "rectangle.inset.bottomright.filled"
-                )
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.85))
-        }
-        .menuStyle(.borderlessButton)
-        .accessibilityLabel(String(localized: "More"))
-    }
-
-    // MARK: - Action Buttons (Like/Dislike/Lyrics/Queue)
-
-    private var actionButtons: some View {
-        @Bindable var player = self.playerService
-
-        return HStack(spacing: 12) {
-            // Dislike button
-            Button {
-                HapticService.toggle()
-                self.playerService.dislikeCurrentTrack()
-            } label: {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
-                    ? "hand.thumbsdown.fill"
-                    : "hand.thumbsdown")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
-            .accessibilityLabel(String(localized: "Dislike"))
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked"))
-            .disabled(self.playerService.currentTrack == nil)
-
-            // Like button
-            Button {
-                HapticService.toggle()
-                self.playerService.likeCurrentTrack()
-            } label: {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .like
-                    ? "hand.thumbsup.fill"
-                    : "hand.thumbsup")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
-            .accessibilityLabel(String(localized: "Like"))
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked"))
-            .disabled(self.playerService.currentTrack == nil)
-
-            // Lyrics button
-            Button {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showLyrics.toggle()
-                }
-            } label: {
-                Image(systemName: "quote.bubble")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("lyrics", in: self.playerNamespace)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
-            .accessibilityLabel(String(localized: "Lyrics"))
-            .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
-
-            // Queue button
-            Button {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showQueue.toggle()
-                }
-            } label: {
-                Image(systemName: "list.bullet")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showQueue ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("queue", in: self.playerNamespace)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.queueButton)
-            .accessibilityLabel(String(localized: "Queue"))
-            .accessibilityValue(self.playerService.showQueue ? String(localized: "Showing") : String(localized: "Hidden"))
-
-            Button {
-                HapticService.toggle()
-                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
-            } label: {
-                Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.isMiniPlayerVisible ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("miniPlayer", in: self.playerNamespace)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.miniPlayerButton)
-            .accessibilityLabel(self.playerService.isMiniPlayerVisible ? String(localized: "Return to Kaset") : String(localized: "Switch to Mini Player"))
-
-            // Video button stays visible so delayed availability detection does not shift the toolbar.
-            Button {
-                guard self.playerService.currentTrackHasVideo else { return }
-                HapticService.toggle()
-                DiagnosticsLogger.player.debug(
-                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-                )
-                withAnimation(AppAnimation.standard) {
-                    player.showVideo.toggle()
-                }
-            } label: {
-                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("video", in: self.playerNamespace)
-            .keyboardShortcut("v", modifiers: [.command, .shift])
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
-            .accessibilityLabel(String(localized: "Video"))
-            .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
-            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
-        }
-    }
-
-    private var volumeIcon: String {
-        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
-        if currentVolume == 0 {
-            return "speaker.slash.fill"
-        } else if currentVolume < 0.5 {
-            return "speaker.wave.1.fill"
-        } else {
-            return "speaker.wave.2.fill"
-        }
-    }
-}
-
-// MARK: - CompactVisibleActionButtons
-
-private struct CompactVisibleActionButtons: View {
-    let playerNamespace: Namespace.ID
-
-    @Environment(PlayerService.self) private var playerService
-
-    var body: some View {
-        @Bindable var player = self.playerService
-
-        HStack(spacing: 12) {
-            Button {
-                HapticService.toggle()
-                self.playerService.dislikeCurrentTrack()
-            } label: {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike
-                    ? "hand.thumbsdown.fill"
-                    : "hand.thumbsdown")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
-            .accessibilityLabel(String(localized: "Dislike"))
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked"))
-            .disabled(self.playerService.currentTrack == nil)
-
-            Button {
-                HapticService.toggle()
-                self.playerService.likeCurrentTrack()
-            } label: {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .like
-                    ? "hand.thumbsup.fill"
-                    : "hand.thumbsup")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
-            .accessibilityLabel(String(localized: "Like"))
-            .accessibilityValue(self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked"))
-            .disabled(self.playerService.currentTrack == nil)
-
-            Button {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showLyrics.toggle()
-                }
-            } label: {
-                Image(systemName: "quote.bubble")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showLyrics ? .red : .primary.opacity(0.85))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("compactLyrics", in: self.playerNamespace)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.lyricsButton)
-            .accessibilityLabel(String(localized: "Lyrics"))
-            .accessibilityValue(self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"))
-
-            Button {
-                guard self.playerService.currentTrackHasVideo else { return }
-                HapticService.toggle()
-                DiagnosticsLogger.player.debug(
-                    "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-                )
-                withAnimation(AppAnimation.standard) {
-                    player.showVideo.toggle()
-                }
-            } label: {
-                Image(systemName: self.playerService.showVideo ? "tv.fill" : "tv")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(self.playerService.showVideo ? .red : .primary.opacity(0.85))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-            .compatGlassID("compactVideo", in: self.playerNamespace)
-            .keyboardShortcut("v", modifiers: [.command, .shift])
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.videoButton)
-            .accessibilityLabel(String(localized: "Video"))
-            .accessibilityValue(self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"))
-            .disabled(self.playerService.currentTrack == nil || !self.playerService.currentTrackHasVideo)
-        }
-    }
 }
 
 #Preview {
     PlayerBar()
         .environment(PlayerService())
-        .environment(WebKitManager.shared)
         .environment(FavoritesManager.shared)
         .environment(SongLikeStatusManager.shared)
-        .frame(width: 600)
+        .frame(width: 810)
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
-}
-
-// MARK: - PlayerBarWidthPreferenceKey
-
-private struct PlayerBarWidthPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
 }

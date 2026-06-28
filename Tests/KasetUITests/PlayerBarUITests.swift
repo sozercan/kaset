@@ -98,7 +98,73 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(lyricsButton, timeout: 10), "Lyrics button should exist")
     }
 
+    func testQueueButtonExists() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let queueButton = app.buttons["Queue"]
+        XCTAssertTrue(waitForElement(queueButton, timeout: 10), "Queue button should exist")
+    }
+
+    func testAirPlayButtonExists() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let airPlayButton = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'AirPlay'")
+        ).firstMatch
+        XCTAssertTrue(waitForElement(airPlayButton, timeout: 10), "AirPlay button should exist")
+    }
+
+    func testVideoButtonExists() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
+        XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should exist")
+    }
+
+    func testMiniPlayerButtonExists() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let miniPlayerButton = app.buttons[TestAccessibilityID.PlayerBar.miniPlayerButton]
+        XCTAssertTrue(waitForElement(miniPlayerButton, timeout: 10), "Mini player button should exist")
+    }
+
     // MARK: - Button Interactions
+
+    func testLyricsButtonToggles() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let lyricsButton = app.buttons["Lyrics"]
+        XCTAssertTrue(waitForHittable(lyricsButton))
+
+        lyricsButton.click()
+
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(lyricsButton.value as? String, "Showing")
+    }
+
+    func testQueueButtonToggles() {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let queueButton = app.buttons["Queue"]
+        XCTAssertTrue(waitForHittable(queueButton))
+
+        queueButton.click()
+
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(queueButton.value as? String, "Showing")
+    }
 
     func testShuffleButtonToggles() {
         launchWithMockPlayer(isPlaying: true)
@@ -108,15 +174,10 @@ final class PlayerBarUITests: KasetUITestCase {
         let shuffleButton = app.buttons["Shuffle"]
         XCTAssertTrue(waitForHittable(shuffleButton))
 
-        // Check initial state
-        let initialValue = shuffleButton.value as? String ?? ""
-
-        // Click to toggle
         shuffleButton.click()
 
-        // State should change
         Thread.sleep(forTimeInterval: 0.5)
-        // The accessibility value should update
+        XCTAssertEqual(shuffleButton.value as? String, "On")
     }
 
     func testRepeatButtonCycles() {
@@ -127,15 +188,10 @@ final class PlayerBarUITests: KasetUITestCase {
         let repeatButton = app.buttons["Repeat"]
         XCTAssertTrue(waitForHittable(repeatButton))
 
-        // Click to cycle through modes: off -> all -> one -> off
         repeatButton.click()
-        Thread.sleep(forTimeInterval: 0.3)
 
-        repeatButton.click()
-        Thread.sleep(forTimeInterval: 0.3)
-
-        repeatButton.click()
-        Thread.sleep(forTimeInterval: 0.3)
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertNotEqual(repeatButton.value as? String, "Off")
     }
 
     // MARK: - Player Bar Persistence Across Views

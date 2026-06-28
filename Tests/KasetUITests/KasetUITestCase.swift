@@ -36,6 +36,7 @@ enum TestAccessibilityID {
     }
 
     enum PlayerBar {
+        static let miniPlayerButton = "playerBar.miniPlayer"
         static let videoButton = "playerBar.video"
     }
 
