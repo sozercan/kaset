@@ -47,6 +47,7 @@ struct KasetApp: App {
     @State private var syncedLyricsService: SyncedLyricsService
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
+    @State private var boringNotchBridge: BoringNotchBridgeService?
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
 
     /// Triggers search field focus when set to true.
@@ -126,6 +127,7 @@ struct KasetApp: App {
         ]))
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
+        _boringNotchBridge = State(initialValue: BoringNotchBridgeService(playerService: player))
 
         // Create scrobbling coordinator
         let lastFMService = LastFMService(credentialStore: KeychainCredentialStore())
@@ -185,6 +187,11 @@ struct KasetApp: App {
                     self.appDelegate.playerService = self.playerService
                     // Reference notificationService to keep SwiftUI from deallocating it
                     _ = self.notificationService
+                    // Start boring.notch bridge if enabled
+                    if self.settings.boringNotchBridgeEnabled {
+                        DiagnosticsLogger.network.info("boring.notch integration enabled at launch; starting bridge")
+                        self.boringNotchBridge?.start()
+                    }
                 }
                 .task {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -203,65 +210,18 @@ struct KasetApp: App {
                 .onOpenURL { url in
                     self.handleIncomingURL(url)
                 }
-                .onChange(of: self.playerService.isPlaying) { _, isPlaying in
-                    // The Core Audio process tap needs WebKit's GPU
-                    // process to be actively emitting audio before it
-                    // can be discovered. When playback starts, give the
-                    // equalizer a chance to spin up.
-                    if isPlaying {
-                        self.equalizerService.retryStartIfEnabled()
-                        // One audio source at a time: music starting pauses video.
-                        self.playbackArbiter.musicDidStartPlaying()
-                    }
-                }
-                .onChange(of: self.youtubePlayerService.surfaceLocation) { _, location in
-                    // The floating window hosts the video surface whenever it
-                    // is popped out (or the inline watch view went away).
-                    if location == .floating {
-                        YouTubeVideoWindowController.shared.show(
-                            youtubePlayerService: self.youtubePlayerService
-                        )
-                    } else {
-                        YouTubeVideoWindowController.shared.close()
-                    }
-                }
-                .onChange(of: self.youtubePlayerService.popInRequest) { _, request in
-                    // Pop-in from the floating window: bring the app to the
-                    // video source; YouTubeContentView opens/adopts the
-                    // watch view and consumes the request.
-                    guard request != nil else { return }
-                    self.settings.appSource = .video
-                    self.showMainWindow()
-                }
-                .task {
-                    NowPlayingManager.shared.configureYouTubeRouting(
+                .modifier(
+                    PlaybackChangeHandlers(
+                        playerService: self.playerService,
                         youtubePlayerService: self.youtubePlayerService,
-                        arbiter: self.playbackArbiter
+                        equalizerService: self.equalizerService,
+                        playbackArbiter: self.playbackArbiter,
+                        syncedLyricsService: self.syncedLyricsService,
+                        sharedClient: self.sharedClient,
+                        settings: self.settings,
+                        showMainWindow: self.showMainWindow
                     )
-                }
-                .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
-                    if isVisible {
-                        MiniPlayerWindowController.shared.show(
-                            playerService: self.playerService,
-                            client: self.sharedClient,
-                            syncedLyricsService: self.syncedLyricsService
-                        )
-                        if self.playerService.miniPlayerMode == .switchFromMainWindow {
-                            self.hideMainWindow()
-                        }
-                    } else {
-                        MiniPlayerWindowController.shared.close()
-                        if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
-                            self.showMainWindow()
-                        }
-                    }
-                }
-                .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
-                    MiniPlayerWindowController.shared.syncWindowState()
-                }
-                .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
-                    MiniPlayerWindowController.shared.syncWindowState()
-                }
+                )
             }
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
@@ -534,7 +494,7 @@ struct KasetApp: App {
         return false
     }
 
-    private static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+    fileprivate static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
         AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
     }
 
@@ -682,5 +642,98 @@ struct SettingsView: View {
         // 520×520 fits the Equalizer tab's six-band slider grid + curve
         // preview; the other tabs grow comfortably into the extra space.
         .frame(width: 520, height: 520)
+    }
+}
+
+// MARK: - PlaybackChangeHandlers
+
+/// Extracted from the `KasetApp.body` view builder to reduce type-checker
+/// complexity ("unable to type-check this expression in reasonable time").
+private struct PlaybackChangeHandlers: ViewModifier {
+    let playerService: PlayerService
+    let youtubePlayerService: YouTubePlayerService
+    let equalizerService: EqualizerService
+    let playbackArbiter: PlaybackArbiter
+    let syncedLyricsService: SyncedLyricsService
+    let sharedClient: any YTMusicClientProtocol
+    let settings: SettingsManager
+    let showMainWindow: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: self.playerService.isPlaying) { _, isPlaying in
+                // The Core Audio process tap needs WebKit's GPU
+                // process to be actively emitting audio before it
+                // can be discovered. When playback starts, give the
+                // equalizer a chance to spin up.
+                if isPlaying {
+                    self.equalizerService.retryStartIfEnabled()
+                    // One audio source at a time: music starting pauses video.
+                    self.playbackArbiter.musicDidStartPlaying()
+                }
+            }
+            .onChange(of: self.youtubePlayerService.surfaceLocation) { _, location in
+                // The floating window hosts the video surface whenever it
+                // is popped out (or the inline watch view went away).
+                if location == .floating {
+                    YouTubeVideoWindowController.shared.show(
+                        youtubePlayerService: self.youtubePlayerService
+                    )
+                } else {
+                    YouTubeVideoWindowController.shared.close()
+                }
+            }
+            .onChange(of: self.youtubePlayerService.popInRequest) { _, request in
+                // Pop-in from the floating window: bring the app to the
+                // video source; YouTubeContentView opens/adopts the
+                // watch view and consumes the request.
+                guard request != nil else { return }
+                self.settings.appSource = .video
+                self.showMainWindow()
+            }
+            .task {
+                NowPlayingManager.shared.configureYouTubeRouting(
+                    youtubePlayerService: self.youtubePlayerService,
+                    arbiter: self.playbackArbiter
+                )
+            }
+            .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
+                if isVisible {
+                    MiniPlayerWindowController.shared.show(
+                        playerService: self.playerService,
+                        client: self.sharedClient,
+                        syncedLyricsService: self.syncedLyricsService
+                    )
+                    if self.playerService.miniPlayerMode == .switchFromMainWindow {
+                        self.hideMainWindow()
+                    }
+                } else {
+                    MiniPlayerWindowController.shared.close()
+                    if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
+                        self.showMainWindow()
+                    }
+                }
+            }
+            .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
+                MiniPlayerWindowController.shared.syncWindowState()
+            }
+            .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
+                MiniPlayerWindowController.shared.syncWindowState()
+            }
+    }
+
+    private func hideMainWindow() {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == MainWindowLayout.autosaveName {
+            window.orderOut(nil)
+            return
+        }
+
+        for window in NSApplication.shared.windows where window.canBecomeMain {
+            if KasetApp.isAuxiliaryPlayerWindow(window) {
+                continue
+            }
+            window.orderOut(nil)
+            return
+        }
     }
 }

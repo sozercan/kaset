@@ -55,6 +55,10 @@ struct GeneralSettingsView: View {
                         Text(page.displayName).tag(page)
                     }
                 }
+
+                // boring.notch integration
+                Toggle("Enable boring.notch Integration", isOn: self.$settings.boringNotchBridgeEnabled)
+                    .help("Allows the boring.notch app to display current playback info")
             } header: {
                 Text("Behavior")
             }

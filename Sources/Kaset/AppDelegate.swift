@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
         // Set up notification center delegate to show notifications in foreground
-        if !UITestConfig.isRunningUnitTests {
+        if Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests {
             UNUserNotificationCenter.current().delegate = self
         }
 
