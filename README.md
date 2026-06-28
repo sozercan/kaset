@@ -2,7 +2,16 @@
 
 A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.
 
-<img src="docs/screenshot.png" alt="Kaset Screenshot">
+<table>
+  <tr>
+    <th>YouTube Music</th>
+    <th>YouTube</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-ytm.png" alt="Kaset YouTube Music screenshot"></td>
+    <td><img src="docs/screenshot-yt.png" alt="Kaset YouTube screenshot"></td>
+  </tr>
+</table>
 
 ## Features
 
