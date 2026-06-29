@@ -40,6 +40,7 @@ let package = Package(
             resources: [
                 .process("Resources/Assets.xcassets"),
                 .process("Resources/ar.lproj"),
+                .process("Resources/en.lproj"),
                 .process("Resources/fr.lproj"),
                 .process("Resources/id.lproj"),
                 .process("Resources/ko.lproj"),
