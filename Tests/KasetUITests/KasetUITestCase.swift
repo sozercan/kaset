@@ -16,6 +16,7 @@ enum TestAccessibilityID {
 
     enum Home {
         static let container = "homeView"
+        static let scrollView = "homeView.scrollView"
     }
 
     enum Search {

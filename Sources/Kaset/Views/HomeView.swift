@@ -87,6 +87,7 @@ struct HomeView: View {
             // on the stack.
             .padding(.vertical, 20)
         }
+        .accessibilityIdentifier(AccessibilityID.Home.scrollView)
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
