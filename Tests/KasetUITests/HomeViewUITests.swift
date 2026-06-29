@@ -36,7 +36,7 @@ final class HomeViewUITests: KasetUITestCase {
 
         // Wait for content to load
         // Look for section titles in the scroll view
-        let scrollView = app.scrollViews.firstMatch
+        let scrollView = app.scrollViews[TestAccessibilityID.Home.scrollView]
         XCTAssertTrue(waitForElement(scrollView, timeout: 10), "Scroll view should exist")
     }
 
@@ -45,7 +45,7 @@ final class HomeViewUITests: KasetUITestCase {
 
         navigateToHome()
 
-        let scrollView = app.scrollViews.firstMatch
+        let scrollView = app.scrollViews[TestAccessibilityID.Home.scrollView]
         XCTAssertTrue(waitForElement(scrollView))
 
         // Verify scrolling works

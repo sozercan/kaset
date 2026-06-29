@@ -30,33 +30,125 @@ if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   esac
 fi
 
-echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
-
-# Clean previous build
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-# Build for each architecture
-for ARCH in "${ARCH_LIST[@]}"; do
-  echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
-done
-
-# Create app bundle structure
-echo "📦 Creating app bundle..."
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
-mkdir -p "$APP_BUNDLE/Contents/Frameworks"
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+build_config_dir_names() {
+  local conf_lower
+  local conf_title
+  conf_lower=$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')
+  conf_title="$(tr '[:lower:]' '[:upper:]' <<< "${conf_lower:0:1}")${conf_lower:1}"
+  printf '%s\n' "$conf_title" "$conf_lower" "$CONF" | awk 'NF && !seen[$0]++'
+}
+
+build_product_dir() {
+  local arch="$1"
+  local show_bin
+
+  # Xcode 27 / Swift 6.4 can emit SwiftPM products into an Xcode-style
+  # products directory (.build/out/Products/Release). Ask SwiftPM first so
+  # the packaging script follows the active toolchain instead of assuming one
+  # filesystem layout. Xcode 26/classic SwiftPM layouts are kept as fallbacks.
+  show_bin=$(swift build -c "$CONF" --arch "$arch" --show-bin-path 2>/dev/null || true)
+  if [[ -n "$show_bin" && -d "$show_bin" ]]; then
+    echo "$show_bin"
+    return 0
+  fi
+
+  local dir_name
+  while IFS= read -r dir_name; do
+    if [[ -d ".build/out/Products/$dir_name" ]]; then
+      echo ".build/out/Products/$dir_name"
+      return 0
+    fi
+  done < <(build_config_dir_names)
+
+  case "$arch" in
+    arm64|x86_64)
+      if [[ -d ".build/${arch}-apple-macosx/$CONF" ]]; then
+        echo ".build/${arch}-apple-macosx/$CONF"
+        return 0
+      fi
+      ;;
+  esac
+
+  if [[ -d ".build/$CONF" ]]; then
+    echo ".build/$CONF"
+    return 0
+  fi
+
+  case "$arch" in
+    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF" ;;
+    *) echo ".build/$CONF" ;;
+  esac
+}
+
+arch_staging_dir() {
+  local arch="$1"
+  echo "$BUILD_DIR/arch-products/$arch"
+}
+
+stage_arch_product() {
+  local name="$1"
+  local arch="$2"
+  local source_dir
+  local source_path
+  local dest_dir
+
+  source_dir=$(build_product_dir "$arch")
+  source_path="$source_dir/$name"
+  if [[ ! -f "$source_path" ]]; then
+    echo "ERROR: Missing ${name} build for ${arch} at ${source_path}" >&2
+    exit 1
+  fi
+
+  # Some SwiftPM/Xcode layouts report the same --show-bin-path for each
+  # --arch build. Preserve each thin executable immediately after it is built so
+  # a later architecture build cannot overwrite the input that lipo needs.
+  dest_dir=$(arch_staging_dir "$arch")
+  mkdir -p "$dest_dir"
+  cp "$source_path" "$dest_dir/$name"
+  chmod +x "$dest_dir/$name"
+}
 
 build_product_path() {
   local name="$1"
   local arch="$2"
-  case "$arch" in
-    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF/$name" ;;
-    *) echo ".build/$CONF/$name" ;;
-  esac
+  local dir
+  local staged
+
+  if [[ -n "$name" ]]; then
+    staged="$(arch_staging_dir "$arch")/$name"
+    if [[ -f "$staged" ]]; then
+      echo "$staged"
+      return 0
+    fi
+  fi
+
+  dir=$(build_product_dir "$arch")
+  if [[ -n "$name" ]]; then
+    echo "$dir/$name"
+  else
+    echo "$dir"
+  fi
+}
+
+find_framework_in_product_dir() {
+  local product_dir="$1"
+  local framework_name="$2"
+  local candidate
+
+  for candidate in \
+    "$product_dir/$framework_name" \
+    "$product_dir/PackageFrameworks/$framework_name" \
+    "$product_dir/ExecutableModules/$framework_name"
+  do
+    if [[ -d "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 verify_binary_arches() {
@@ -131,6 +223,26 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
+echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
+
+# Clean previous build
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# Build for each architecture. Stage the executable after each build because
+# some SwiftPM layouts reuse one products directory for every --arch build.
+for ARCH in "${ARCH_LIST[@]}"; do
+  echo "  → Building for $ARCH..."
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
+  stage_arch_product "$APP_NAME" "$ARCH"
+done
+
+# Create app bundle structure
+echo "📦 Creating app bundle..."
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+
 # ── Executable ───────────────────────────────────────────────────────────────
 
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
@@ -197,15 +309,19 @@ fi
 
 SPARKLE_FRAMEWORK=""
 for arch in "${ARCH_LIST[@]}"; do
-  CANDIDATE=$(build_product_path "" "$arch")
-  CANDIDATE_DIR=$(dirname "$CANDIDATE")
-  if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
-    SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
+  CANDIDATE_DIR=$(build_product_dir "$arch")
+  if SPARKLE_FRAMEWORK=$(find_framework_in_product_dir "$CANDIDATE_DIR" "Sparkle.framework"); then
     break
   fi
+  SPARKLE_FRAMEWORK=""
 done
-if [[ -z "$SPARKLE_FRAMEWORK" ]] && [[ -d ".build/$CONF/Sparkle.framework" ]]; then
-  SPARKLE_FRAMEWORK=".build/$CONF/Sparkle.framework"
+if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
+  for CANDIDATE_DIR in ".build/$CONF" ".build/$CONF/PackageFrameworks" ".build/$CONF/ExecutableModules"; do
+    if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
+      SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
+      break
+    fi
+  done
 fi
 
 if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
@@ -222,10 +338,14 @@ fi
 # It is kept separate from the top-level Assets.car produced above.
 
 FIRST_ARCH="${ARCH_LIST[0]}"
-BINARY_PATH=$(build_product_path "$APP_NAME" "$FIRST_ARCH")
-PREFERRED_BUILD_DIR=$(dirname "$BINARY_PATH")
+PREFERRED_BUILD_DIR=$(build_product_dir "$FIRST_ARCH")
+SWIFTPM_BUNDLES=()
 shopt -s nullglob
-SWIFTPM_BUNDLES=("${PREFERRED_BUILD_DIR}/"*.bundle)
+for bundle in "${PREFERRED_BUILD_DIR}/"*.bundle; do
+  bundle_name=$(basename "$bundle")
+  [[ "$bundle_name" == *Tests.bundle ]] && continue
+  SWIFTPM_BUNDLES+=("$bundle")
+done
 shopt -u nullglob
 
 if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
@@ -242,17 +362,32 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
     fi
   done
 
+  SOURCE_LOCALIZATION_CATALOG="$ROOT/Sources/Kaset/Resources/Localizable.xcstrings"
+  if [[ -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+    echo "  → Compiling app localization catalog: $(basename "$SOURCE_LOCALIZATION_CATALOG")"
+    xcrun xcstringstool compile "$SOURCE_LOCALIZATION_CATALOG" \
+      --output-directory "$APP_BUNDLE/Contents/Resources"
+  fi
+
   for bundle in "${SWIFTPM_BUNDLES[@]}"; do
     bundle_name=$(basename "$bundle")
     bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
-    for xcstrings in "$bundle"/*.xcstrings; do
-      if [[ -f "$xcstrings" ]]; then
-        echo "  → Compiling localization catalog: $(basename "$xcstrings")"
-        xcrun xcstringstool compile "$xcstrings" \
-          --output-directory "$bundle_dest"
-        xcrun xcstringstool compile "$xcstrings" \
-          --output-directory "$APP_BUNDLE/Contents/Resources"
-      fi
+    LOCALIZATION_CATALOGS=()
+    if [[ "$bundle_name" == "${APP_NAME}_${APP_NAME}.bundle" && -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+      LOCALIZATION_CATALOGS+=("$SOURCE_LOCALIZATION_CATALOG")
+    fi
+    shopt -s nullglob
+    LOCALIZATION_CATALOGS+=("$bundle"/*.xcstrings)
+    shopt -u nullglob
+
+    if [[ ${#LOCALIZATION_CATALOGS[@]} -eq 0 ]]; then
+      continue
+    fi
+
+    for xcstrings in "${LOCALIZATION_CATALOGS[@]}"; do
+      echo "  → Compiling bundle localization catalog: $(basename "$xcstrings")"
+      xcrun xcstringstool compile "$xcstrings" \
+        --output-directory "$bundle_dest"
     done
   done
 fi

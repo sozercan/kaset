@@ -21,9 +21,11 @@ The repo is SwiftPM-first, but it also includes `Kaset.xcodeproj` and `KasetUITe
 
 ### String Catalogs (`.xcstrings`)
 
-Use Xcode String Catalogs (`Localizable.xcstrings`) as the single source of truth for all translatable strings. This is Apple's modern replacement for `.strings` / `.stringsdict` files, introduced in Xcode 15 and fully supported in SPM packages with `defaultLocalization` set.
+Use Xcode String Catalogs (`Localizable.xcstrings`) as the source of truth for all translatable strings. This is Apple's modern replacement for `.strings` / `.stringsdict` files, introduced in Xcode 15.
 
-The catalog lives at `Sources/Kaset/Resources/Localizable.xcstrings` and is processed by the existing `.process("Resources")` rule in `Package.swift`.
+The catalog lives at `Sources/Kaset/Resources/Localizable.xcstrings`. Because current SwiftPM/Xcode 26 builds can produce duplicate `.strings` outputs when processing both the catalog and checked-in `.lproj` resources, `Package.swift` excludes the catalog and processes generated `*.lproj` directories for SwiftPM/runtime resource bundles. The app packaging script (`Scripts/build-app.sh`) compiles the source catalog into both the packaged app resources and the Kaset SwiftPM resource bundle so packaged builds still come from the catalog.
+
+When updating translations, regenerate the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` files from `Localizable.xcstrings` so SwiftPM builds and packaged app builds stay in sync.
 
 ### String Wrapping Patterns
 

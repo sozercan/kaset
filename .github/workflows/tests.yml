@@ -75,7 +75,6 @@ jobs:
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
-            .build
           key: ${{ runner.os }}-${{ matrix.os }}-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.os }}-spm-
@@ -132,7 +131,6 @@ jobs:
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
-            .build
           key: ${{ runner.os }}-${{ matrix.os }}-spm-ui-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.os }}-spm-ui-

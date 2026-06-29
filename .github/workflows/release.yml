@@ -51,7 +51,6 @@ jobs:
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
-            .build
           key: ${{ runner.os }}-spm-release-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-release-
