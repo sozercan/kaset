@@ -17,6 +17,14 @@ enum PlayerBarSliderVisuals {
         return colorScheme == .dark ? .white.opacity(opacity) : .black.opacity(opacity)
     }
 
+    static func loadingFillColor(colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? .white.opacity(0.42) : .black.opacity(0.30)
+    }
+
+    static func loadingThumbColor(colorScheme: ColorScheme) -> Color {
+        Color(.sRGB, white: colorScheme == .dark ? 0.70 : 0.55, opacity: 1)
+    }
+
     static func thumbDiameter(isHovering: Bool, isDragging: Bool) -> CGFloat {
         if isDragging {
             return self.thumbActiveDiameter

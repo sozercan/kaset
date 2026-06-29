@@ -236,6 +236,7 @@ struct YouTubePlayerBar: View {
                 remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - (self.isSeeking ? self.seekValue * self.youtubePlayer.duration : self.youtubePlayer.progress))))",
                 isLive: false,
                 canSeek: self.canSeek,
+                isLoading: self.isProgressLoading,
                 onScrub: { fraction in
                     self.isSeeking = true
                     self.seekValue = fraction
@@ -527,6 +528,10 @@ struct YouTubePlayerBar: View {
     /// Seeking is unavailable during ads or before a duration is known.
     private var canSeek: Bool {
         self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd
+    }
+
+    private var isProgressLoading: Bool {
+        self.youtubePlayer.isPlaybackLoading
     }
 
     private var canNavigateToCurrentChannel: Bool {

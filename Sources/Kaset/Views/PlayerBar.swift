@@ -416,6 +416,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                         : self.formattedRemaining,
                     isLive: self.playerService.isCurrentItemLive,
                     canSeek: self.canSeek,
+                    isLoading: self.isProgressLoading,
                     onScrub: { fraction in
                         self.isSeeking = true
                         self.seekValue = fraction
@@ -600,6 +601,15 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.playerService.currentTrack != nil
             && self.playerService.duration > 0
             && !self.playerService.isCurrentItemLive
+    }
+
+    private var isProgressLoading: Bool {
+        switch self.playerService.state {
+        case .loading, .buffering:
+            self.playerService.currentTrack != nil
+        case .idle, .playing, .paused, .ended, .error:
+            false
+        }
     }
 
     private var canShowCurrentTrackVideo: Bool {

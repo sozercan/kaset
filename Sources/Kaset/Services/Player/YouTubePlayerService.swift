@@ -124,6 +124,9 @@ final class YouTubePlayerService {
     /// Whether an ad is currently showing on the watch page.
     private(set) var isShowingAd = false
 
+    /// Whether the current video is waiting for the WebView to report playable media.
+    private(set) var isPlaybackLoading = false
+
     /// Playback volume (0...1).
     var volume: Double = 1.0 {
         didSet {
@@ -252,6 +255,7 @@ final class YouTubePlayerService {
         self.hasObservedPlaybackState = false
         self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
+        self.isPlaybackLoading = true
         self.surfaceLocation = .inline
 
         // Create the WebView on demand; containers reparent it on appear.
@@ -301,6 +305,7 @@ final class YouTubePlayerService {
             resumeAt: resumeProgress > 0 ? resumeProgress : nil
         )
         self.isIdentityReloadInFlight = true
+        self.isPlaybackLoading = true
     }
 
     /// Toggles play/pause.
@@ -338,6 +343,7 @@ final class YouTubePlayerService {
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
         self.isIdentityReloadInFlight = true
+        self.isPlaybackLoading = true
         return true
     }
 
@@ -357,6 +363,7 @@ final class YouTubePlayerService {
             self.isIdentityReloadInFlight = false
         }
         self.isPlaying = false
+        self.isPlaybackLoading = false
     }
 
     /// Stops playback entirely and releases the surface.
@@ -376,6 +383,7 @@ final class YouTubePlayerService {
         }
         self.currentVideo = nil
         self.isPlaying = false
+        self.isPlaybackLoading = false
         self.hasObservedPlaybackState = false
         self.isIdentityReloadInFlight = false
         self.progress = 0
@@ -472,6 +480,7 @@ final class YouTubePlayerService {
         self.hasObservedPlaybackState = false
         self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
+        self.isPlaybackLoading = true
         self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
         self.playbackController.loadVideo(videoId: video.videoId)
 
@@ -737,6 +746,7 @@ final class YouTubePlayerService {
         self.progress = update.progress
         self.duration = update.duration
         self.isShowingAd = update.isAd
+        self.isPlaybackLoading = false
 
         // Remember the last real content position (ignoring ad playback) so an
         // identity-switch reload during an ad resumes the content, not the ad.
@@ -839,6 +849,7 @@ final class YouTubePlayerService {
             return
         }
         self.isPlaying = false
+        self.isPlaybackLoading = false
         // A finish changes watch history (the video crosses into "finished"), so
         // signal it — this lets Home drop a just-finished video from Continue
         // Watching even when the video ended in the floating window while the
