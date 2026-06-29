@@ -85,7 +85,7 @@ struct MiniPlayerToast: View {
 
 // MARK: - MiniPlayerWindow
 
-struct MiniPlayerWindow: View {
+struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     private enum Layout {
         static let chromeTopInset: CGFloat = 12
         static let trafficLightSize: CGFloat = 13
@@ -105,6 +105,7 @@ struct MiniPlayerWindow: View {
     @State private var settings = SettingsManager.shared
     @State private var seekValue: Double = 0
     @State private var isSeeking = false
+    @State private var seekHold = PlayerBarSeekHold()
     @State private var volumeValue: Double = 1
     @State private var isAdjustingVolume = false
     @State private var detailPane: DetailPane = .lyrics
@@ -127,14 +128,19 @@ struct MiniPlayerWindow: View {
         .clipShape(.rect(cornerRadius: self.cornerRadius))
         .accessibilityIdentifier(AccessibilityID.MiniPlayer.container)
         .onChange(of: self.playerService.progress) { _, newValue in
-            if !self.isSeeking, self.playerService.duration > 0 {
-                self.seekValue = newValue / self.playerService.duration
+            self.seekHold.reconcile(observedProgress: newValue)
+            if !self.isSeeking, !self.seekHold.isActive, self.playerService.duration > 0 {
+                self.seekValue = self.displayedPlaybackProgress / self.playerService.duration
             }
         }
         .onChange(of: self.playerService.duration) { _, _ in
-            if !self.isSeeking {
+            self.seekHold.reconcile(observedProgress: self.playerService.progress)
+            if !self.isSeeking, !self.seekHold.isActive {
                 self.syncSeekValue()
             }
+        }
+        .onChange(of: self.currentTrackIdentity) { _, _ in
+            self.clearSeekHold()
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -656,7 +662,7 @@ struct MiniPlayerWindow: View {
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
 
             HStack {
-                Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress))
+                Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
                 Spacer()
                 Text(self.playerService.isCurrentItemLive ? String(localized: "LIVE") : self.remainingTimeText)
             }
@@ -795,7 +801,15 @@ struct MiniPlayerWindow: View {
     }
 
     private var remainingTimeText: String {
-        "-\(self.formatTime(max(0, self.playerService.duration - self.playerService.progress)))"
+        "-\(self.formatTime(max(0, self.playerService.duration - self.displayedPlaybackProgress)))"
+    }
+
+    private var displayedPlaybackProgress: TimeInterval {
+        self.seekHold.displayProgress(observedProgress: self.playerService.progress)
+    }
+
+    private var currentTrackIdentity: String {
+        self.playerService.currentTrack?.videoId ?? "none"
     }
 
     private var repeatIcon: String {
@@ -820,7 +834,7 @@ struct MiniPlayerWindow: View {
 
     private func syncSeekValue() {
         if self.playerService.duration > 0 {
-            self.seekValue = self.playerService.progress / self.playerService.duration
+            self.seekValue = self.displayedPlaybackProgress / self.playerService.duration
         } else {
             self.seekValue = 0
         }
@@ -829,7 +843,20 @@ struct MiniPlayerWindow: View {
     private func performSeek() {
         guard self.playerService.duration > 0 else { return }
         let target = self.seekValue * self.playerService.duration
+        let holdToken = self.seekHold.begin(target: target)
         Task { await self.playerService.seek(to: target) }
+        Task { @MainActor in
+            try? await Task.sleep(for: PlayerBarSeekHold.timeout)
+            if self.seekHold.clearIfCurrent(holdToken) {
+                self.syncSeekValue()
+            }
+        }
+    }
+
+    private func clearSeekHold() {
+        self.seekHold.clear()
+        self.isSeeking = false
+        self.syncSeekValue()
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
