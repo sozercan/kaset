@@ -339,8 +339,13 @@ fi
 
 FIRST_ARCH="${ARCH_LIST[0]}"
 PREFERRED_BUILD_DIR=$(build_product_dir "$FIRST_ARCH")
+SWIFTPM_BUNDLES=()
 shopt -s nullglob
-SWIFTPM_BUNDLES=("${PREFERRED_BUILD_DIR}/"*.bundle)
+for bundle in "${PREFERRED_BUILD_DIR}/"*.bundle; do
+  bundle_name=$(basename "$bundle")
+  [[ "$bundle_name" == *Tests.bundle ]] && continue
+  SWIFTPM_BUNDLES+=("$bundle")
+done
 shopt -u nullglob
 
 if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
@@ -357,17 +362,32 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
     fi
   done
 
+  SOURCE_LOCALIZATION_CATALOG="$ROOT/Sources/Kaset/Resources/Localizable.xcstrings"
+  if [[ -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+    echo "  → Compiling app localization catalog: $(basename "$SOURCE_LOCALIZATION_CATALOG")"
+    xcrun xcstringstool compile "$SOURCE_LOCALIZATION_CATALOG" \
+      --output-directory "$APP_BUNDLE/Contents/Resources"
+  fi
+
   for bundle in "${SWIFTPM_BUNDLES[@]}"; do
     bundle_name=$(basename "$bundle")
     bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
-    for xcstrings in "$bundle"/*.xcstrings; do
-      if [[ -f "$xcstrings" ]]; then
-        echo "  → Compiling localization catalog: $(basename "$xcstrings")"
-        xcrun xcstringstool compile "$xcstrings" \
-          --output-directory "$bundle_dest"
-        xcrun xcstringstool compile "$xcstrings" \
-          --output-directory "$APP_BUNDLE/Contents/Resources"
-      fi
+    LOCALIZATION_CATALOGS=()
+    if [[ "$bundle_name" == "${APP_NAME}_${APP_NAME}.bundle" && -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+      LOCALIZATION_CATALOGS+=("$SOURCE_LOCALIZATION_CATALOG")
+    fi
+    shopt -s nullglob
+    LOCALIZATION_CATALOGS+=("$bundle"/*.xcstrings)
+    shopt -u nullglob
+
+    if [[ ${#LOCALIZATION_CATALOGS[@]} -eq 0 ]]; then
+      continue
+    fi
+
+    for xcstrings in "${LOCALIZATION_CATALOGS[@]}"; do
+      echo "  → Compiling bundle localization catalog: $(basename "$xcstrings")"
+      xcrun xcstringstool compile "$xcstrings" \
+        --output-directory "$bundle_dest"
     done
   done
 fi
