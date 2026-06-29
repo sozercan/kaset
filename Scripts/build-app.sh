@@ -338,8 +338,7 @@ fi
 # It is kept separate from the top-level Assets.car produced above.
 
 FIRST_ARCH="${ARCH_LIST[0]}"
-BINARY_PATH=$(build_product_path "$APP_NAME" "$FIRST_ARCH")
-PREFERRED_BUILD_DIR=$(dirname "$BINARY_PATH")
+PREFERRED_BUILD_DIR=$(build_product_dir "$FIRST_ARCH")
 shopt -s nullglob
 SWIFTPM_BUNDLES=("${PREFERRED_BUILD_DIR}/"*.bundle)
 shopt -u nullglob
