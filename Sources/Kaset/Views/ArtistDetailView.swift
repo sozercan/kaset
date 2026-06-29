@@ -5,10 +5,21 @@ import SwiftUI
 /// Detail view for an artist showing their songs and albums.
 struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
+    var playerBarNavigationAction: PlayerBarNavigationAction = .disabled
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+
+    init(
+        artist: Artist,
+        viewModel: ArtistDetailViewModel,
+        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
+    ) {
+        self.artist = artist
+        self.playerBarNavigationAction = playerBarNavigationAction
+        _viewModel = State(initialValue: viewModel)
+    }
 
     var body: some View {
         Group {
@@ -35,6 +46,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
                 PlayerBar()
+                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
+                    .environment(\.playerBarCurrentArtistID, self.artist.id)
             }
         }
         .task {

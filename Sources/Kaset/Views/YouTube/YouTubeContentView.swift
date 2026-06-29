@@ -33,6 +33,7 @@ struct YouTubeContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .environment(self.store)
         // Reconcile on (re)mount: switching to the Music source unmounts this
         // view, so the observers below can't see a floating video that finishes
         // or is closed while away. On switching back to YouTube with Home already

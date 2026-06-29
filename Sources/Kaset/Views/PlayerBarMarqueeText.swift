@@ -18,6 +18,7 @@ struct PlayerBarMarqueeText: View {
     private let copyGap: CGFloat = 24
     private let initialDelay: TimeInterval = 1.4
     private let scrollSpeed: CGFloat = 18
+    private let descenderAllowance: CGFloat = 3
 
     private var needsMarquee: Bool {
         !self.reduceMotion && self.effectiveTextWidth > self.containerWidth + 1
@@ -34,7 +35,7 @@ struct PlayerBarMarqueeText: View {
             }
             .fixedSize(horizontal: true, vertical: false)
             .offset(x: self.needsMarquee ? self.offset : 0)
-            .frame(width: proxy.size.width, height: self.height, alignment: .leading)
+            .frame(width: proxy.size.width, height: self.renderHeight, alignment: .leading)
             .clipped()
             .mask(self.maskView(phase: self.fadeMaskPhase))
             .overlay(alignment: .leading) {
@@ -59,6 +60,13 @@ struct PlayerBarMarqueeText: View {
         .task(id: self.marqueeTaskID) {
             await self.runMarqueeLoop()
         }
+        .onChange(of: self.text) { _, _ in
+            self.resetMarqueePositionImmediately()
+        }
+    }
+
+    private var renderHeight: CGFloat {
+        self.height + self.descenderAllowance
     }
 
     private var textView: some View {
@@ -159,10 +167,7 @@ struct PlayerBarMarqueeText: View {
 
     @MainActor
     private func resetMarqueePosition() {
-        self.resetOffsetWithoutAnimation()
-        withAnimation(.easeInOut(duration: 0.12)) {
-            self.fadeMaskPhase = .inactive
-        }
+        self.resetMarqueePositionImmediately()
     }
 
     @MainActor
@@ -171,6 +176,16 @@ struct PlayerBarMarqueeText: View {
         transaction.animation = nil
         withTransaction(transaction) {
             self.offset = 0
+        }
+    }
+
+    @MainActor
+    private func resetMarqueePositionImmediately() {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            self.offset = 0
+            self.fadeMaskPhase = .inactive
         }
     }
 }

@@ -13,6 +13,7 @@ struct PlayerBarVerticalSlider: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDragging = false
+    @State private var isHovering = false
 
     private var clampedValue: CGFloat {
         CGFloat(min(max(0, self.value), 1))
@@ -22,19 +23,22 @@ struct PlayerBarVerticalSlider: View {
         GeometryReader { proxy in
             let height = proxy.size.height
             let fillHeight = height * self.clampedValue
-            let thumbDiameter: CGFloat = 12
+            let thumbDiameter = PlayerBarSliderVisuals.thumbDiameter(
+                isHovering: self.isHovering,
+                isDragging: self.isDragging
+            )
 
             ZStack(alignment: .bottom) {
                 Capsule()
                     .fill(self.trackColor)
-                    .frame(width: 4)
+                    .frame(width: PlayerBarSliderVisuals.trackThickness)
 
                 UnevenRoundedRectangle(
                     bottomLeadingRadius: 999,
                     bottomTrailingRadius: 999
                 )
                 .fill(self.accent)
-                .frame(width: 4, height: fillHeight)
+                .frame(width: PlayerBarSliderVisuals.trackThickness, height: fillHeight)
 
                 Circle()
                     .fill(self.accent)
@@ -42,17 +46,28 @@ struct PlayerBarVerticalSlider: View {
                     .offset(y: -min(max(0, fillHeight - thumbDiameter / 2), max(0, height - thumbDiameter)))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(PlayerBarSliderVisuals.trackAnimation, value: self.isHovering)
+            .animation(PlayerBarSliderVisuals.thumbAnimation, value: self.isDragging)
+            .animation(PlayerBarSliderVisuals.thumbAnimation, value: self.isHovering)
+            .padding(PlayerBarSliderVisuals.hitOutset)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in
                         self.beginEditingIfNeeded()
-                        self.updateValue(from: drag.location.y, height: height)
+                        self.updateValue(
+                            from: drag.location.y - PlayerBarSliderVisuals.hitOutset,
+                            height: height
+                        )
                     }
                     .onEnded { _ in
                         self.endEditingIfNeeded()
                     }
             )
+            .padding(-PlayerBarSliderVisuals.hitOutset)
+            .onHover { hovering in
+                self.isHovering = hovering
+            }
         }
         .frame(width: 28, height: 122)
         .playerBarVerticalSliderAccessibilityIdentifier(self.accessibilityIdentifier)
@@ -104,7 +119,10 @@ struct PlayerBarVerticalSlider: View {
     }
 
     private var trackColor: Color {
-        self.colorScheme == .dark ? .white.opacity(0.18) : .black.opacity(0.18)
+        PlayerBarSliderVisuals.trackColor(
+            colorScheme: self.colorScheme,
+            isActive: self.isHovering || self.isDragging
+        )
     }
 }
 

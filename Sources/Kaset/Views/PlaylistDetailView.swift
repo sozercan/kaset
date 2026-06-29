@@ -7,6 +7,7 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
+    let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
@@ -33,8 +34,13 @@ struct PlaylistDetailView: View {
 
     private let logger = DiagnosticsLogger.ai
 
-    init(playlist: Playlist, viewModel: PlaylistDetailViewModel) {
+    init(
+        playlist: Playlist,
+        viewModel: PlaylistDetailViewModel,
+        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
+    ) {
         self.playlist = playlist
+        self.playerBarNavigationAction = playerBarNavigationAction
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -69,6 +75,8 @@ struct PlaylistDetailView: View {
             if case .error = self.viewModel.loadingState {
             } else {
                 PlayerBar()
+                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
+                    .environment(\.playerBarCurrentAlbumID, self.playlist.isAlbum ? self.playlist.id : nil)
             }
         }
         .task {

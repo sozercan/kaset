@@ -539,16 +539,22 @@ struct MainWindow: View {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                                 PlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm
+                                    viewModel: vm,
+                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm
+                                    viewModel: vm,
+                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
                             }
                         }
-                        .navigationDestinations(client: self.client)
+                        .navigationDestinations(
+                            client: self.client,
+                            playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
+                        )
+                        .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     }
                 }
             case .library:
@@ -558,6 +564,13 @@ struct MainWindow: View {
             }
         }
         .environment(self.libraryViewModel)
+    }
+
+    private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.likedMusicNavigationPath.append($0) },
+            openAlbum: { self.likedMusicNavigationPath.append($0) }
+        )
     }
 
     private func viewForSidebarPinnedItem(

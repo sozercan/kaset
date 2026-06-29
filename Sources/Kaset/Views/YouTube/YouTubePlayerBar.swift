@@ -19,6 +19,7 @@ struct YouTubePlayerBar: View {
     private static let compactVideoDetailsWidth: CGFloat = 141
 
     @Environment(YouTubePlayerService.self) private var youtubePlayer
+    @Environment(YouTubeViewModelStore.self) private var youtubeStore: YouTubeViewModelStore?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -99,24 +100,34 @@ struct YouTubePlayerBar: View {
 
     private func videoDetailsSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
-            CachedAsyncImage(
-                url: self.youtubePlayer.currentVideo?.thumbnailURL,
-                targetSize: CGSize(width: 128, height: 72)
-            ) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(.quaternary)
-                    .overlay {
-                        Image(systemName: "play.rectangle")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                    }
+            PlayerBarArtworkView(
+                width: 57,
+                height: 32,
+                cornerRadius: 6,
+                glowSources: self.currentVideoGlowSources,
+                glowIdentity: self.currentVideoGlowIdentity,
+                glowTargetSize: CGSize(width: 128, height: 72)
+            ) {
+                CachedAsyncImage(
+                    url: self.youtubePlayer.currentVideo?.thumbnailURL,
+                    targetSize: CGSize(width: 128, height: 72)
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "play.rectangle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: 57, height: 32)
+                .clipShape(.rect(cornerRadius: 6, style: .continuous))
             }
-            .frame(width: 57, height: 32)
-            .clipShape(.rect(cornerRadius: 6, style: .continuous))
+            .accessibilityHidden(self.youtubePlayer.currentVideo == nil)
 
             if !usesCompactDetails {
                 VStack(alignment: .leading, spacing: 4) {
@@ -127,12 +138,13 @@ struct YouTubePlayerBar: View {
                         height: 13,
                         reduceMotion: self.reduceMotion
                     )
+                    .id(self.currentTitleIdentity)
 
-                    Text(self.youtubePlayer.currentVideo?.channelName ?? String(localized: "YouTube"))
-                        .font(.system(size: 12))
-                        .lineLimit(1)
-                        .frame(height: 12, alignment: .leading)
-                        .foregroundStyle(.secondary)
+                    PlayerBarMetadataButton(
+                        text: self.youtubePlayer.currentVideo?.channelName ?? String(localized: "YouTube"),
+                        isEnabled: self.canNavigateToCurrentChannel,
+                        action: self.openCurrentChannel
+                    )
                 }
                 .frame(width: 129, height: 29, alignment: .leading)
             }
@@ -181,6 +193,38 @@ struct YouTubePlayerBar: View {
         }
         .padding(.leading, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var currentVideoGlowSources: [URL] {
+        guard let video = self.youtubePlayer.currentVideo else { return [] }
+        return self.uniqueURLs([
+            self.fallbackThumbnailURL(for: video.videoId),
+            video.thumbnailURL,
+        ])
+    }
+
+    private var currentVideoGlowIdentity: String? {
+        guard let video = self.youtubePlayer.currentVideo else { return nil }
+        return video.videoId
+    }
+
+    private func fallbackThumbnailURL(for videoId: String) -> URL? {
+        URL(string: "https://i.ytimg.com/vi/\(videoId)/mqdefault.jpg")
+    }
+
+    private func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
+    private var currentTitleIdentity: String {
+        [
+            self.youtubePlayer.currentVideo?.id ?? "none",
+            self.youtubePlayer.currentVideo?.title ?? "none",
+        ].joined(separator: "|")
     }
 
     private var youtubeProgressSection: some View {
@@ -424,7 +468,7 @@ struct YouTubePlayerBar: View {
 
                 PlayerBarVerticalSlider(
                     value: self.$volumeValue,
-                    accent: self.volumeSliderTint,
+                    accent: Self.brandAccent,
                     accessibilityIdentifier: nil,
                     accessibilityLabel: String(localized: "Volume"),
                     onEditingChanged: { editing in
@@ -463,10 +507,6 @@ struct YouTubePlayerBar: View {
         self.colorScheme == .dark ? .white.opacity(0.10) : .black.opacity(0.06)
     }
 
-    private var volumeSliderTint: Color {
-        self.colorScheme == .dark ? .white.opacity(0.85) : .black.opacity(0.72)
-    }
-
     private var volumeOverlayShadow: Color {
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
@@ -487,6 +527,22 @@ struct YouTubePlayerBar: View {
     /// Seeking is unavailable during ads or before a duration is known.
     private var canSeek: Bool {
         self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd
+    }
+
+    private var canNavigateToCurrentChannel: Bool {
+        self.youtubeStore != nil && self.currentChannelId != nil
+    }
+
+    private var currentChannelId: String? {
+        guard let channelId = self.youtubePlayer.currentVideo?.channelId, !channelId.isEmpty else {
+            return nil
+        }
+        return channelId
+    }
+
+    private func openCurrentChannel() {
+        guard let channelId = self.currentChannelId else { return }
+        self.youtubeStore?.navigationPath.append(YouTubeRoute.channel(channelId: channelId))
     }
 
     private func performSeek() {
