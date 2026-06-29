@@ -7,7 +7,6 @@ struct PlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullSongInfoWidth: CGFloat = 234
     private static let compactSongInfoWidth: CGFloat = 116
-    private static let compactDetailsBreakpoint: CGFloat = MainWindowLayout.minimumWidth - 220 - 32 + 8
 
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
@@ -36,7 +35,7 @@ struct PlayerBar: View {
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
-                let usesCompactDetails = proxy.size.width <= Self.compactDetailsBreakpoint
+                let usesCompactDetails = proxy.size.width <= PlayerBarLayout.compactDetailsBreakpoint
 
                 HStack(spacing: 10) {
                     self.songInfoSection(usesCompactDetails: usesCompactDetails)
@@ -282,10 +281,10 @@ struct PlayerBar: View {
                     }
                 )
                 .padding(.top, 18)
-
-                self.progressActionButtons
-                    .padding(.top, 2)
             }
+
+            self.progressActionButtons
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

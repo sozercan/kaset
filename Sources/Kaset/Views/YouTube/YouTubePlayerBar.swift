@@ -17,7 +17,6 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    private static let compactDetailsBreakpoint: CGFloat = MainWindowLayout.minimumWidth - 220 - 32 + 8
 
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,7 +34,7 @@ struct YouTubePlayerBar: View {
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
-                let usesCompactDetails = proxy.size.width <= Self.compactDetailsBreakpoint
+                let usesCompactDetails = proxy.size.width <= PlayerBarLayout.compactDetailsBreakpoint
 
                 HStack(spacing: 10) {
                     self.videoDetailsSection(usesCompactDetails: usesCompactDetails)

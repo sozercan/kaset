@@ -40,6 +40,8 @@ struct PlayerBarMarqueeText: View {
             .overlay(alignment: .leading) {
                 self.textMeasurer
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: self.text))
             .onAppear {
                 self.containerWidth = proxy.size.width
             }

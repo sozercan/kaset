@@ -50,8 +50,7 @@ struct PlayerBarVerticalSlider: View {
                         self.updateValue(from: drag.location.y, height: height)
                     }
                     .onEnded { _ in
-                        self.isDragging = false
-                        self.onEditingChanged(false)
+                        self.endEditingIfNeeded()
                     }
             )
         }
@@ -62,9 +61,9 @@ struct PlayerBarVerticalSlider: View {
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
-                self.setValue(self.value + 0.05)
+                self.adjustValue(by: 0.05)
             case .decrement:
-                self.setValue(self.value - 0.05)
+                self.adjustValue(by: -0.05)
             @unknown default:
                 break
             }
@@ -77,9 +76,23 @@ struct PlayerBarVerticalSlider: View {
         self.onEditingChanged(true)
     }
 
+    private func endEditingIfNeeded() {
+        guard self.isDragging else { return }
+        self.isDragging = false
+        self.onEditingChanged(false)
+    }
+
     private func updateValue(from locationY: CGFloat, height: CGFloat) {
         guard height > 0 else { return }
         self.setValue(1 - Double(min(max(0, locationY / height), 1)))
+    }
+
+    private func adjustValue(by delta: Double) {
+        let clamped = min(max(0, self.value + delta), 1)
+        guard self.value != clamped else { return }
+        self.beginEditingIfNeeded()
+        self.setValue(clamped)
+        self.endEditingIfNeeded()
     }
 
     private func setValue(_ newValue: Double) {
