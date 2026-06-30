@@ -64,6 +64,10 @@ struct ScriptCommandsTests {
             #expect(json["repeating"] != nil)
             #expect(json["muted"] != nil)
             #expect(json["likeStatus"] != nil)
+            // Cross-process contract keys consumed by external now-playing surfaces
+            // (e.g. boring.notch): pin them so a rename can't silently break consumers.
+            #expect(json["position"] != nil)
+            #expect(json["duration"] != nil)
         } else {
             Issue.record("Failed to parse JSON response")
         }
@@ -100,6 +104,7 @@ struct ScriptCommandsTests {
             #expect(trackInfo["album"] as? String == "Test Album")
             #expect(trackInfo["videoId"] as? String == "test-video-id")
             #expect(trackInfo["duration"] as? TimeInterval == 180)
+            #expect(trackInfo["artworkURL"] as? String == "https://example.com/thumb.jpg")
         } else {
             Issue.record("Failed to parse track info from JSON response")
         }
@@ -229,6 +234,35 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == errAECoercionFail)
         #expect(command.scriptErrorString?.contains("Volume must be an integer") == true)
+
+        // Cleanup
+        PlayerService.shared = nil
+    }
+
+    // MARK: - SeekCommand Tests
+
+    @Test("Seek sets error when PlayerService is nil")
+    func seekSetsErrorWhenNil() {
+        PlayerService.shared = nil
+
+        let command = SeekCommand()
+        command.directParameter = 30 as NSNumber
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == -1728)
+    }
+
+    @Test("Seek sets error for invalid parameter type")
+    func seekSetsErrorForInvalidParameter() {
+        let playerService = PlayerService()
+        PlayerService.shared = playerService
+
+        let command = SeekCommand()
+        command.directParameter = "not a number" as NSString
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == errAECoercionFail)
+        #expect(command.scriptErrorString?.contains("Position must be a number") == true)
 
         // Cleanup
         PlayerService.shared = nil
