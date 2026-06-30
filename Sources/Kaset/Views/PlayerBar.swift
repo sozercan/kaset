@@ -933,7 +933,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             self.resolvedArtist = artist
             self.isResolvingArtist = false
 
-            guard let artist else { return }
+            guard let artist, !self.isCurrentArtistTarget else { return }
             self.openArtist(artist, playsHaptic: false)
         }
     }
