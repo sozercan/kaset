@@ -32,6 +32,11 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
+
+    /// Switches the shared session's active delegated identity to the account
+    /// reached by `signinURL`, verifying via `ytcfg.DATASYNC_ID`. Throws if the
+    /// switch cannot be verified.
+    func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws
 }
 
 // MARK: - YTMusicClientProtocol

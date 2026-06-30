@@ -151,6 +151,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether a restored session is waiting for an explicit user-triggered load.
     var isPendingRestoredLoadDeferred: Bool = false
 
+    /// Whether the deferred restored load must force a full page navigation even
+    /// when the same video ID is already present in the WebView.
+    var shouldForcePendingRestoredLoad: Bool = false
+
     /// Whether launch-time session restoration is still reconciling with the player observer.
     var isRestoringPlaybackSession: Bool = false
 
@@ -427,6 +431,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         {
             let artist = dict["artist"] as? String ?? "Unknown Artist"
             let duration: TimeInterval? = (dict["duration"] as? Int).map { TimeInterval($0) }
+            let hasVideo = dict["hasVideo"] as? Bool
             self.currentTrack = Song(
                 id: id,
                 title: title,
@@ -434,8 +439,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 album: nil,
                 duration: duration,
                 thumbnailURL: nil,
-                videoId: videoId
+                videoId: videoId,
+                hasVideo: hasVideo
             )
+            if let hasVideo {
+                self.currentTrackHasVideo = hasVideo
+            }
             self.logger.debug("Loaded mock current track: \(title)")
         }
 

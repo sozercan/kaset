@@ -14,8 +14,11 @@ actor ImageCache {
     /// Maximum disk cache size in bytes (200MB).
     private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
-    private let memoryCache = NSCache<NSURL, NSImage>()
-    private var inFlight: [URL: Task<NSImage?, Never>] = [:]
+    private let memoryCache = NSCache<NSString, NSImage>()
+    /// Keyed by URL + target size (the memory-cache key), so an in-flight
+    /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
+    /// small downsampled image.
+    private var inFlight: [NSString: Task<NSImage?, Never>] = [:]
     private let fileManager = FileManager.default
     private let diskCacheURL: URL
 
@@ -63,30 +66,44 @@ actor ImageCache {
     ///   - targetSize: Optional target size for downsampling. If provided, the image will be
     ///                 downsampled to fit this size, significantly reducing memory usage.
     func image(for url: URL, targetSize: CGSize? = nil) async -> NSImage? {
-        // Check memory cache
-        if let cached = memoryCache.object(forKey: url as NSURL) {
+        // Memory cache is keyed by URL *and* target size: the same thumbnail is
+        // requested at different sizes (Home cards at 320×180, the watch
+        // placeholder at 1280×720). Keying by URL alone let the first small
+        // decode satisfy a later large request, leaving the large view blurry.
+        let memoryKey = Self.memoryKey(for: url, targetSize: targetSize)
+        if let cached = memoryCache.object(forKey: memoryKey) {
             return cached
         }
 
-        // Check disk cache
-        if let diskImage = loadFromDisk(url: url, targetSize: targetSize) {
-            self.memoryCache.setObject(diskImage, forKey: url as NSURL)
-            return diskImage
-        }
-
-        // Check if already fetching
-        if let existing = inFlight[url] {
+        // Coalesce concurrent cold requests for the same URL+size BEFORE any
+        // suspension point. The disk read runs off the actor (so decodes
+        // parallelize across cores), but registering the in-flight task first
+        // means two callers — e.g. the first-screen prefetch and a visible card
+        // — share one disk read + at most one network download instead of
+        // racing past each other and both downloading.
+        if let existing = inFlight[memoryKey] {
             return await existing.value
         }
 
-        // Fetch from network
-        let task = Task<NSImage?, Never> {
+        let task = Task<NSImage?, Never> { [self] in
+            // Disk holds the raw bytes (URL-keyed) and re-decodes at the
+            // requested size, so different sizes share one download but get
+            // distinct decodes. loadFromDisk is nonisolated (immutable state),
+            // run detached so the decode does not serialize on the actor.
+            if let diskImage = await Task.detached(priority: .userInitiated, operation: {
+                self.loadFromDisk(url: url, targetSize: targetSize)
+            }).value {
+                self.memoryCache.setObject(diskImage, forKey: memoryKey)
+                return diskImage
+            }
+
+            // Cold miss: download once, decode, and cache the raw bytes.
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 guard Self.isSuccessfulResponse(response) else { return nil }
                 guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
                 let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                self.memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
+                self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
                 self.saveToDisk(url: url, data: data)
                 return image
             } catch {
@@ -94,10 +111,17 @@ actor ImageCache {
             }
         }
 
-        self.inFlight[url] = task
+        self.inFlight[memoryKey] = task
         let result = await task.value
-        self.inFlight.removeValue(forKey: url)
+        self.inFlight.removeValue(forKey: memoryKey)
         return result
+    }
+
+    /// Memory-cache key combining the URL with the requested decode size, so
+    /// decodes at different sizes for the same URL do not evict one another.
+    private static func memoryKey(for url: URL, targetSize: CGSize?) -> NSString {
+        guard let targetSize else { return url.absoluteString as NSString }
+        return "\(url.absoluteString)@\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
     }
 
     private static func isSuccessfulResponse(_ response: URLResponse) -> Bool {
@@ -121,7 +145,7 @@ actor ImageCache {
                 guard !Task.isCancelled else { break }
 
                 // Skip if already in memory cache
-                if self.memoryCache.object(forKey: url as NSURL) != nil {
+                if self.memoryCache.object(forKey: Self.memoryKey(for: url, targetSize: targetSize)) != nil {
                     continue
                 }
 
@@ -210,23 +234,31 @@ actor ImageCache {
 
     // MARK: - Disk Cache Helpers
 
-    private func cacheKey(for url: URL) -> String {
+    // swiftformat:disable modifierOrder
+    nonisolated private func cacheKey(for url: URL) -> String {
         let data = Data(url.absoluteString.utf8)
         let hash = SHA256.hash(data: data)
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    private func diskCachePath(for url: URL) -> URL {
+    nonisolated private func diskCachePath(for url: URL) -> URL {
         self.diskCacheURL.appendingPathComponent(self.cacheKey(for: url))
     }
 
-    private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
+    /// Reads and decodes a cached image off the actor. `nonisolated` so warm
+    /// disk hits — `Data(contentsOf:)` plus the ImageIO downsample in
+    /// `createImage` — run concurrently across cores instead of serializing on
+    /// the `ImageCache` actor (every visible card used to queue its decode
+    /// behind the others). Touches only immutable state (`diskCacheURL`).
+    nonisolated private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
         let path = self.diskCachePath(for: url)
         guard let data = try? Data(contentsOf: path) else {
             return nil
         }
         return Self.createImage(from: data, targetSize: targetSize)
     }
+
+    // swiftformat:enable modifierOrder
 
     private func saveToDisk(url: URL, data: Data) {
         let path = self.diskCachePath(for: url)

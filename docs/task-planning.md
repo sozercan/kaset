@@ -65,7 +65,7 @@ Every task should be broken into phases. Each phase must have:
 ```
 Phase 1: Research
 ├── Write findings to session workspace
-├── Exit: Understand YTMusicClient pattern, confirm no existing solution
+├── Exit: Understand the relevant API client pattern (YTMusicClient for Music, YouTubeClient for YouTube), confirm no existing solution
 
 Phase 2: Interface
 ├── Create NewService.swift with protocol + stub

@@ -235,6 +235,16 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return configuration
     }
 
+    /// Creates the minimal WebView configuration used for hidden account-switch
+    /// navigations. It deliberately shares only the website data store (cookies)
+    /// and does not attach the app's `WKWebExtensionController`, so enabled
+    /// extensions/content scripts cannot observe credential-bearing signin URLs.
+    func createSessionSwitchWebViewConfiguration() -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = self.dataStore
+        return configuration
+    }
+
     /// Metadata required to present an extension-owned page in a dedicated web view.
     struct ExtensionPage: Identifiable {
         let id: String
@@ -532,3 +542,210 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
         }
     }
 #endif
+
+// MARK: - SessionSwitchError
+
+/// Errors raised while switching the WebView session's active delegated identity.
+enum SessionSwitchError: LocalizedError {
+    /// The page loaded but its `DATASYNC_ID` did not reflect the expected identity.
+    case identityNotApplied(expectedBrandId: String?)
+    /// The switch navigation failed to load.
+    case navigationFailed(underlying: String)
+    /// The switch did not complete within the allotted time.
+    case timedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .identityNotApplied:
+            "The account session could not be switched. Please try again."
+        case .navigationFailed:
+            "Failed to load the account switch page."
+        case .timedOut:
+            "Switching accounts timed out. Please try again."
+        }
+    }
+}
+
+extension WebKitManager {
+    /// Switches the shared cookie session's active delegated identity by
+    /// navigating a transient WebView to a server-issued account-switch URL.
+    ///
+    /// History is recorded by the playback page's own stats pings, which
+    /// attribute to the identity baked into the served document's
+    /// `ytcfg.DATASYNC_ID` (`"<delegatedSessionId>||<userSessionId>"` for a brand,
+    /// `"<userSessionId>||"` for primary). Navigating the brand's `signinUrl`
+    /// (which carries `&pageid=<brandId>`) re-points that identity for the single
+    /// shared `WKWebsiteDataStore`, so subsequent watch loads — and their history
+    /// pings — attribute to the brand.
+    ///
+    /// The method is verification-gated: it reads `DATASYNC_ID` after the
+    /// navigation settles and throws ``SessionSwitchError/identityNotApplied(expectedBrandId:)``
+    /// unless the result matches `expectedBrandId` (or, for `nil`, an empty
+    /// delegated half indicating the primary identity). Callers should perform
+    /// this switch *before* committing the new account so a failure can be
+    /// surfaced and reverted rather than silently recording to the wrong account.
+    ///
+    /// - Parameters:
+    ///   - signinURL: The server-issued `accountSigninToken.signinUrl`.
+    ///   - expectedBrandId: The brand pageId to verify, or `nil` for the primary.
+    func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws {
+        self.logger.info("Switching session identity (expecting \(expectedBrandId ?? "primary"))")
+        guard AccountsListParser.isAllowedSigninURL(signinURL) else {
+            throw SessionSwitchError.navigationFailed(underlying: "Refusing non-YouTube signin URL")
+        }
+
+        let configuration = self.createSessionSwitchWebViewConfiguration()
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.customUserAgent = Self.userAgent
+
+        // Keep the navigation driver alive for the lifetime of the load.
+        let driver = SessionSwitchNavigationDriver()
+        webView.navigationDelegate = driver
+
+        defer {
+            webView.navigationDelegate = nil
+            webView.stopLoading()
+        }
+
+        // Bail before mutating the shared cookie session if already cancelled
+        // (e.g. a stale launch pin superseded by a newer switch).
+        try Task.checkCancellation()
+
+        do {
+            try await driver.load(signinURL, in: webView, timeout: .seconds(20))
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as SessionSwitchError {
+            throw error
+        } catch {
+            throw SessionSwitchError.navigationFailed(underlying: error.localizedDescription)
+        }
+
+        // The page's ytcfg may be emitted slightly after didFinish; poll briefly.
+        // Note: the navigation above is the session MUTATION; this poll is
+        // read-only verification. Correctness across concurrent pins relies on
+        // ordering (the surviving navigation runs last), not on cancellation —
+        // stopLoading() cannot revert cookies already set mid-redirect.
+        for attempt in 0 ..< 5 {
+            if let dataSyncId = try? await Self.readDataSyncId(from: webView),
+               Self.dataSyncId(dataSyncId, matches: expectedBrandId)
+            {
+                self.logger.info("Session identity switch verified")
+                return
+            }
+            if attempt < 4 {
+                // Use a throwing sleep so cancellation breaks the poll loop.
+                try await Task.sleep(for: .milliseconds(400))
+            }
+        }
+
+        self.logger.error("Session identity switch could not be verified")
+        throw SessionSwitchError.identityNotApplied(expectedBrandId: expectedBrandId)
+    }
+
+    /// Reads `ytcfg.DATASYNC_ID` from a loaded WebView.
+    private static func readDataSyncId(from webView: WKWebView) async throws -> String? {
+        let script = """
+        (function() {
+            try {
+                if (window.ytcfg && typeof window.ytcfg.get === 'function') {
+                    return window.ytcfg.get('DATASYNC_ID') || '';
+                }
+                if (window.ytcfg && window.ytcfg.data_) {
+                    return window.ytcfg.data_['DATASYNC_ID'] || '';
+                }
+            } catch (e) {}
+            return '';
+        })();
+        """
+        let result = try await webView.evaluateJavaScript(script)
+        return result as? String
+    }
+
+    /// Returns `true` when a `DATASYNC_ID` reflects the expected identity.
+    ///
+    /// `DATASYNC_ID` is `"<delegatedSessionId>||<userSessionId>"` for a brand
+    /// (delegated/secondary channel) and `"<userSessionId>||"` for the primary
+    /// account — i.e. the primary has a non-empty first half and an empty second
+    /// half. A blank or malformed value (e.g. `""` or `"||"`, which the page JS
+    /// returns when `ytcfg` has not populated yet) is treated as *no match* for
+    /// either identity, so an unread page never falsely "verifies" as primary.
+    static func dataSyncId(_ dataSyncId: String, matches expectedBrandId: String?) -> Bool {
+        // A well-formed value has exactly two "||"-separated halves with a
+        // non-empty first half (the user/delegated session id).
+        let parts = dataSyncId.components(separatedBy: "||")
+        guard parts.count == 2, !parts[0].isEmpty else {
+            return false
+        }
+        let firstHalf = parts[0]
+        let hasUserSessionSuffix = !parts[1].isEmpty
+        // delegatedSessionId is present only for a secondary (brand) identity:
+        // "<delegated>||<user>". Primary is "<user>||" (empty second half).
+        let delegatedSessionId: String? = hasUserSessionSuffix ? firstHalf : nil
+        if let expectedBrandId {
+            return delegatedSessionId == expectedBrandId
+        }
+        return delegatedSessionId == nil
+    }
+}
+
+// MARK: - SessionSwitchNavigationDriver
+
+/// Drives a one-shot navigation to completion for ``WebKitManager/switchSessionIdentity(to:expectedBrandId:)``.
+///
+/// Bridges `WKNavigationDelegate` callbacks into a single awaitable result and
+/// enforces a timeout so a hung redirect chain cannot block the switch forever.
+@MainActor
+private final class SessionSwitchNavigationDriver: NSObject, WKNavigationDelegate {
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var finished = false
+    private var timeoutTask: Task<Void, Never>?
+
+    func load(_ url: URL, in webView: WKWebView, timeout: Duration) async throws {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                // The enclosing Task may have been cancelled between the call and
+                // this body running; bail out immediately if so.
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                self.continuation = continuation
+                self.timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: timeout)
+                    guard let self, !self.finished else { return }
+                    self.complete(with: .failure(SessionSwitchError.timedOut))
+                }
+                webView.load(URLRequest(url: url))
+            }
+        } onCancel: {
+            // Cooperative cancellation: resolve promptly with CancellationError so
+            // a stale pin does not block a newer switch for the full navigation.
+            Task { @MainActor [weak self] in
+                self?.complete(with: .failure(CancellationError()))
+            }
+        }
+    }
+
+    private func complete(with result: Result<Void, Error>) {
+        guard !self.finished else { return }
+        self.finished = true
+        self.timeoutTask?.cancel()
+        self.timeoutTask = nil
+        let continuation = self.continuation
+        self.continuation = nil
+        continuation?.resume(with: result)
+    }
+
+    func webView(_: WKWebView, didFinish _: WKNavigation!) {
+        self.complete(with: .success(()))
+    }
+
+    func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
+        self.complete(with: .failure(SessionSwitchError.navigationFailed(underlying: error.localizedDescription)))
+    }
+
+    func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
+        self.complete(with: .failure(SessionSwitchError.navigationFailed(underlying: error.localizedDescription)))
+    }
+}

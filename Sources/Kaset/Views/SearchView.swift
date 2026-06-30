@@ -39,10 +39,16 @@ struct SearchView: View {
                 self.contentView
             }
             .localizedNavigationTitle("Search")
-            .navigationDestinations(client: self.viewModel.client)
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             self.isSearchFieldFocused = true
@@ -53,6 +59,13 @@ struct SearchView: View {
                 self.focusTrigger = false
             }
         }
+    }
+
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
     }
 
     // MARK: - Search Bar

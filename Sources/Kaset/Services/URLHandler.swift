@@ -2,7 +2,8 @@ import Foundation
 
 // MARK: - URLHandler
 
-/// Handles parsing and routing of YouTube Music URLs.
+/// Handles parsing and routing of YouTube Music URLs, regular YouTube watch
+/// links, and Kaset custom-scheme URLs.
 ///
 /// Supports URLs like:
 /// - `https://music.youtube.com/watch?v=dQw4w9WgXcQ` - Play song
@@ -11,6 +12,8 @@ import Foundation
 /// - `https://music.youtube.com/browse/VLPLxxx` - Open playlist (browse format)
 /// - `https://music.youtube.com/channel/UCxxx` - Open artist
 /// - `https://music.youtube.com/browse/MPLAUCxxx` - Open library artist
+/// - `https://www.youtube.com/watch?v=dQw4w9WgXcQ` - Play regular YouTube video
+/// - `https://youtu.be/dQw4w9WgXcQ` - Play regular YouTube video
 /// - `kaset://play?v=dQw4w9WgXcQ` - Custom scheme for song
 /// - `kaset://playlist?list=PLxxx` - Custom scheme for playlist
 /// - `kaset://album?id=MPRExxx` - Custom scheme for album
@@ -31,11 +34,14 @@ enum URLHandler {
 
         /// An artist/channel to open.
         case artist(id: String)
+
+        /// A regular YouTube video to play (switches to the video source).
+        case youtubeVideo(videoId: String)
     }
 
     // MARK: - URL Parsing
 
-    /// Parses a YouTube Music URL and returns the content type.
+    /// Parses a supported URL and returns the content type.
     /// - Parameter url: The URL to parse.
     /// - Returns: The parsed content, or nil if the URL is not recognized.
     static func parse(_ url: URL) -> ParsedContent? {
@@ -49,6 +55,11 @@ enum URLHandler {
             return self.parseYouTubeMusicURL(url)
         }
 
+        // Handle regular YouTube web URLs (www.youtube.com, youtu.be)
+        if let youtubeContent = parseYouTubeVideoURL(url) {
+            return youtubeContent
+        }
+
         return nil
     }
 
@@ -56,6 +67,32 @@ enum URLHandler {
     private static func isYouTubeMusicURL(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return host == "music.youtube.com" || host == "www.music.youtube.com"
+    }
+
+    /// Parses regular YouTube video URLs:
+    /// `https://www.youtube.com/watch?v=xxx` and `https://youtu.be/xxx`.
+    private static func parseYouTubeVideoURL(_ url: URL) -> ParsedContent? {
+        guard let host = url.host?.lowercased() else { return nil }
+
+        if host == "youtu.be" {
+            let videoId = url.pathComponents.dropFirst().first ?? ""
+            return videoId.isEmpty ? nil : .youtubeVideo(videoId: videoId)
+        }
+
+        guard host == "youtube.com" || host == "www.youtube.com" || host == "m.youtube.com" else {
+            return nil
+        }
+
+        if url.path.lowercased() == "/watch" {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            if let videoId = Self.queryValue(for: "v", in: components?.queryItems ?? []),
+               !videoId.isEmpty
+            {
+                return .youtubeVideo(videoId: videoId)
+            }
+        }
+
+        return nil
     }
 
     /// Parses a kaset:// custom scheme URL.

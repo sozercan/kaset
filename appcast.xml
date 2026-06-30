@@ -7,16 +7,16 @@
         <language>en</language>
 
         <item>
-            <title>Version 0.11.0</title>
-            <sparkle:releaseNotesLink>https://github.com/sozercan/kaset/releases/tag/v0.11.0</sparkle:releaseNotesLink>
-            <pubDate>Mon, 08 Jun 2026 03:08:13 +0000</pubDate>
+            <title>Version 0.12.0</title>
+            <sparkle:releaseNotesLink>https://github.com/sozercan/kaset/releases/tag/v0.12.0</sparkle:releaseNotesLink>
+            <pubDate>Wed, 24 Jun 2026 04:55:17 +0000</pubDate>
             <enclosure
-                url="https://github.com/sozercan/kaset/releases/download/v0.11.0/kaset-v0.11.0.dmg"
-                sparkle:version="20"
-                sparkle:shortVersionString="0.11.0"
-                length="11088925"
+                url="https://github.com/sozercan/kaset/releases/download/v0.12.0/kaset-v0.12.0.dmg"
+                sparkle:version="21"
+                sparkle:shortVersionString="0.12.0"
+                length="13147978"
                 type="application/octet-stream"
-                sparkle:edSignature="UP86NarTurXZztNd/cwPDuPQVcaX8J0qrRp5BylDz8Wk1l5e6SiOfDL+ZvG1xSA00jiQTg3yX1jzW/69f1MfDg=="/>
+                sparkle:edSignature="kw+M7HiXclVlmPaxpMEMOnK3/HMubDaLKyvUl1kuZHQVXeoHSdfCfjG6tFF4UGvu77xG5vjhozF6lmE8SccgCw=="/>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
         </item>
 

@@ -2,17 +2,15 @@ import SwiftUI
 
 // MARK: - CarouselShelf
 
-/// A native horizontal shelf with edge fades and glass paging controls.
+/// A native horizontal shelf with glass paging controls. The scroll track runs
+/// edge-to-edge so items scroll under the floating Liquid Glass sidebar on
+/// macOS 26 (Apple's "Extending horizontal scrolling under a sidebar" pattern).
 struct CarouselShelf<Content: View>: View {
-    private static var hoverBleed: CGFloat {
-        4
-    }
-
     let accessibilityLabel: String
-    let fadeWidth: CGFloat
     let pageFraction: CGFloat
     let showsControls: Bool
     let controlVerticalAlignment: VerticalAlignment
+    let contentInset: CGFloat
 
     private let content: () -> Content
 
@@ -23,47 +21,60 @@ struct CarouselShelf<Content: View>: View {
 
     init(
         accessibilityLabel: String,
-        fadeWidth: CGFloat = 56,
         pageFraction: CGFloat = 0.85,
         showsControls: Bool = true,
         controlVerticalAlignment: VerticalAlignment = .center,
+        contentInset: CGFloat = 0,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.accessibilityLabel = accessibilityLabel
-        self.fadeWidth = fadeWidth
         self.pageFraction = pageFraction
         self.showsControls = showsControls
         self.controlVerticalAlignment = controlVerticalAlignment
+        self.contentInset = contentInset
         self.content = content
     }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            self.content()
+            // Apple's "Extending horizontal scrolling under a sidebar" pattern:
+            // the ScrollView track must reach the leading/trailing edges so the
+            // system auto-scrolls items UNDER the floating glass sidebar. The
+            // resting insets are therefore Spacers INSIDE the content (leading
+            // and trailing), never `.contentMargins`/`.padding` on the
+            // ScrollView (which would stop the track short of the sidebar and
+            // defeat the effect).
+            HStack(spacing: 0) {
+                if self.contentInset > 0 {
+                    Spacer()
+                        .frame(width: self.contentInset)
+                }
+                self.content()
+                if self.contentInset > 0 {
+                    Spacer()
+                        .frame(width: self.contentInset)
+                }
+            }
         }
-        .scrollClipDisabled()
         .scrollPosition(self.$scrollPosition)
         .onScrollGeometryChange(for: CarouselShelfScrollMetrics.self) { geometry in
             CarouselShelfScrollMetrics(geometry: geometry)
         } action: { _, newMetrics in
             self.scrollMetrics = newMetrics
         }
-        .padding(Self.hoverBleed)
-        .mask {
-            self.edgeFadeMask
-        }
-        .padding(-Self.hoverBleed)
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
                 self.controlButton(for: .leading)
-                    .padding(.leading, 4)
+                    // Sit at the resting inset (not the column edge) so the
+                    // button clears the floating-sidebar band on macOS 26.
+                    .padding(.leading, self.contentInset + 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .overlay(alignment: Alignment(horizontal: .trailing, vertical: self.controlVerticalAlignment)) {
             if self.showsTrailingControl {
                 self.controlButton(for: .trailing)
-                    .padding(.trailing, 4)
+                    .padding(.trailing, self.contentInset + 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
@@ -75,19 +86,6 @@ struct CarouselShelf<Content: View>: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(self.accessibilityLabel)
-    }
-
-    private var edgeFadeMask: some View {
-        HStack(spacing: 0) {
-            self.edgeFadeMaskSegment(for: .leading)
-
-            Rectangle()
-                .fill(.black)
-
-            self.edgeFadeMaskSegment(for: .trailing)
-        }
-        .animation(AppAnimation.quick, value: self.hasLeadingOverflow)
-        .animation(AppAnimation.quick, value: self.hasTrailingOverflow)
     }
 
     private var hasLeadingOverflow: Bool {
@@ -135,17 +133,6 @@ struct CarouselShelf<Content: View>: View {
         .accessibilityHint(String(localized: "Scrolls this shelf by one page"))
     }
 
-    private func edgeFadeMaskSegment(for direction: CarouselShelfDirection) -> some View {
-        LinearGradient(
-            colors: direction.maskColors(
-                isFaded: direction == .leading ? self.hasLeadingOverflow : self.hasTrailingOverflow
-            ),
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-        .frame(width: self.fadeWidth)
-    }
-
     private func page(in direction: CarouselShelfDirection) {
         let pageWidth = max(1, self.scrollMetrics.viewportWidth * self.pageFraction)
         let destination = switch direction {
@@ -181,10 +168,10 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
     let sectionSpacing: CGFloat
     let itemAlignment: VerticalAlignment
     let itemSpacing: CGFloat
-    let fadeWidth: CGFloat
     let pageFraction: CGFloat
     let showsControls: Bool
     let controlVerticalAlignment: VerticalAlignment
+    let contentInset: CGFloat
 
     private let header: () -> Header
     private let itemContent: (Items.Element) -> ItemContent
@@ -196,10 +183,10 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
         sectionSpacing: CGFloat = 12,
         itemAlignment: VerticalAlignment = .center,
         itemSpacing: CGFloat = 16,
-        fadeWidth: CGFloat = 56,
         pageFraction: CGFloat = 0.85,
         showsControls: Bool = true,
         controlVerticalAlignment: VerticalAlignment = .center,
+        contentInset: CGFloat = 0,
         @ViewBuilder header: @escaping () -> Header,
         @ViewBuilder itemContent: @escaping (Items.Element) -> ItemContent
     ) {
@@ -209,10 +196,10 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
         self.sectionSpacing = sectionSpacing
         self.itemAlignment = itemAlignment
         self.itemSpacing = itemSpacing
-        self.fadeWidth = fadeWidth
         self.pageFraction = pageFraction
         self.showsControls = showsControls
         self.controlVerticalAlignment = controlVerticalAlignment
+        self.contentInset = contentInset
         self.header = header
         self.itemContent = itemContent
     }
@@ -220,13 +207,19 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
     var body: some View {
         VStack(alignment: .leading, spacing: self.sectionSpacing) {
             self.header()
+                // Inset the header on both edges so the title stays clear of the
+                // floating glass sidebar and any trailing header content (e.g. a
+                // "See all" link) keeps its margin. The shelf below reaches
+                // edge-to-edge and insets its own resting content via
+                // `contentInset`.
+                .padding(.horizontal, self.contentInset)
 
             CarouselShelf(
                 accessibilityLabel: self.accessibilityLabel,
-                fadeWidth: self.fadeWidth,
                 pageFraction: self.pageFraction,
                 showsControls: self.showsControls,
-                controlVerticalAlignment: self.controlVerticalAlignment
+                controlVerticalAlignment: self.controlVerticalAlignment,
+                contentInset: self.contentInset
             ) {
                 LazyHStack(alignment: self.itemAlignment, spacing: self.itemSpacing) {
                     ForEach(self.items, id: self.id) { item in
@@ -245,10 +238,10 @@ extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.El
         sectionSpacing: CGFloat = 12,
         itemAlignment: VerticalAlignment = .center,
         itemSpacing: CGFloat = 16,
-        fadeWidth: CGFloat = 56,
         pageFraction: CGFloat = 0.85,
         showsControls: Bool = true,
         controlVerticalAlignment: VerticalAlignment = .center,
+        contentInset: CGFloat = 0,
         @ViewBuilder header: @escaping () -> Header,
         @ViewBuilder itemContent: @escaping (Items.Element) -> ItemContent
     ) {
@@ -259,10 +252,10 @@ extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.El
             sectionSpacing: sectionSpacing,
             itemAlignment: itemAlignment,
             itemSpacing: itemSpacing,
-            fadeWidth: fadeWidth,
             pageFraction: pageFraction,
             showsControls: showsControls,
             controlVerticalAlignment: controlVerticalAlignment,
+            contentInset: contentInset,
             header: header,
             itemContent: itemContent
         )
@@ -305,19 +298,6 @@ private enum CarouselShelfDirection: Hashable {
             "chevron.left"
         case .trailing:
             "chevron.right"
-        }
-    }
-
-    func maskColors(isFaded: Bool) -> [Color] {
-        guard isFaded else {
-            return [.black, .black]
-        }
-
-        switch self {
-        case .leading:
-            return [.clear, .black]
-        case .trailing:
-            return [.black, .clear]
         }
     }
 }

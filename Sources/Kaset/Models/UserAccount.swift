@@ -33,6 +33,17 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
     /// Brand account identifier, nil for primary accounts.
     public let brandId: String?
 
+    /// Server-issued account-switch endpoint for this identity.
+    ///
+    /// From `serviceEndpoint.selectActiveIdentityEndpoint.supportedTokens[]
+    /// .accountSigninToken.signinUrl`. Navigating a shared-cookie WebView to this
+    /// URL re-points the active delegated identity for the session (and therefore
+    /// which account playback history records to). Brand accounts carry a
+    /// `pageid` in this URL; the primary's URL omits it.
+    ///
+    /// Credential-bearing: never log the raw value.
+    public let signinURL: URL?
+
     /// URL for the account's profile photo thumbnail.
     public let thumbnailURL: URL?
 
@@ -52,6 +63,15 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
         self.isPrimary ? "Personal" : "Brand"
     }
 
+    /// Account-scoped cache identity used only as input to cache-key hashing.
+    ///
+    /// Primary accounts all use `id == "primary"`, so include the handle/name
+    /// to keep personalized caches separate when a different signed-in Google
+    /// account is restored with the same primary brand state.
+    var cacheIdentity: String {
+        [self.id, self.handle ?? "", self.name].joined(separator: "\u{1F}")
+    }
+
     // MARK: - Initialization
 
     /// Creates a new UserAccount instance.
@@ -63,13 +83,15 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
     ///   - brandId: Brand account identifier (nil for primary).
     ///   - thumbnailURL: URL for the profile photo.
     ///   - isSelected: Whether the account is currently active.
+    ///   - signinURL: Server-issued account-switch endpoint (nil if unavailable).
     public init(
         id: String,
         name: String,
         handle: String?,
         brandId: String?,
         thumbnailURL: URL?,
-        isSelected: Bool
+        isSelected: Bool,
+        signinURL: URL? = nil
     ) {
         self.id = id
         self.name = name
@@ -77,6 +99,7 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
         self.brandId = brandId
         self.thumbnailURL = thumbnailURL
         self.isSelected = isSelected
+        self.signinURL = signinURL
     }
 
     // MARK: - Factory Methods
@@ -92,13 +115,15 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
     ///   - brandId: Brand ID from `pageIdToken.pageId`, nil for primary account.
     ///   - thumbnailURL: Thumbnail URL from `accountPhoto.thumbnails[0].url`.
     ///   - isSelected: Selection state from `isSelected`.
+    ///   - signinURL: Switch URL from `accountSigninToken.signinUrl`.
     /// - Returns: A configured UserAccount instance.
     public static func from(
         name: String,
         handle: String?,
         brandId: String?,
         thumbnailURL: URL?,
-        isSelected: Bool
+        isSelected: Bool,
+        signinURL: URL? = nil
     ) -> UserAccount {
         let accountId = brandId ?? "primary"
         return UserAccount(
@@ -107,7 +132,19 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
             handle: handle,
             brandId: brandId,
             thumbnailURL: thumbnailURL,
-            isSelected: isSelected
+            isSelected: isSelected,
+            signinURL: signinURL
         )
+    }
+
+    public static func == (lhs: UserAccount, rhs: UserAccount) -> Bool {
+        lhs.id == rhs.id && lhs.name == rhs.name && lhs.handle == rhs.handle && lhs.brandId == rhs.brandId
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+        hasher.combine(self.name)
+        hasher.combine(self.handle)
+        hasher.combine(self.brandId)
     }
 }

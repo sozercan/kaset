@@ -30,6 +30,30 @@ struct APICacheTests {
         #expect(retrieved == nil)
     }
 
+    @Test("Raw data set and get round-trips")
+    func cacheDataSetAndGet() {
+        let bytes = Data("a 2MB-ish home response would go here".utf8)
+        self.cache.setData(key: "raw_key", data: bytes, ttl: 60)
+
+        #expect(self.cache.getData(key: "raw_key") == bytes)
+        // Missing key is nil, and a dict-typed entry is not mistaken for data.
+        #expect(self.cache.getData(key: "nonexistent_raw") == nil)
+        self.cache.set(key: "dict_key", data: ["k": 1], ttl: 60)
+        #expect(self.cache.getData(key: "dict_key") == nil)
+    }
+
+    @Test("invalidateAll bumps the generation counter")
+    func invalidateAllBumpsGeneration() {
+        // Callers capture the generation before an async fetch and refuse to
+        // write a stale response if it changed (account switch / sign-out /
+        // session expiry), even when the cache-scope key is unchanged.
+        let before = self.cache.generation
+        self.cache.invalidateAll()
+        #expect(self.cache.generation == before + 1)
+        self.cache.invalidateAll()
+        #expect(self.cache.generation == before + 2)
+    }
+
     @Test("Cache invalidate all")
     func cacheInvalidateAll() {
         self.cache.set(key: "key1", data: ["a": 1], ttl: 60)

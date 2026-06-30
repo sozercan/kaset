@@ -1,3 +1,5 @@
+import Foundation
+
 // MARK: - SingletonPlayerWebView Media Controls
 
 extension SingletonPlayerWebView {
@@ -13,6 +15,45 @@ extension SingletonPlayerWebView {
 
     func mediaControlBootstrapScript() -> String {
         Self.mediaControlStyleBootstrapScript(useNextPrev: self.mediaControlUsesNextPrev)
+    }
+
+    /// Re-asserts Kaset's `nexttrack`/`previoustrack` media-session override immediately.
+    ///
+    /// YouTube Music periodically re-registers its own handlers. In `nextPreviousTrack`
+    /// mode the page keeps ownership via a `requestAnimationFrame` re-apply loop — but
+    /// WebKit freezes `requestAnimationFrame` while the app is backgrounded, so the
+    /// override is lost and a media-key press falls through to YouTube (which jumps to its
+    /// own recommendation; queue-drift recovery then restarts the current song from 0).
+    /// Driving the re-apply from a native timer keeps the override alive in the background.
+    func reassertMediaControlOverride() {
+        guard self.mediaControlUsesNextPrev, let webView = self.webView else { return }
+        webView.evaluateJavaScript(
+            "if (typeof window.__kasetRefreshMediaControlStyle === 'function') { window.__kasetRefreshMediaControlStyle(); }",
+            completionHandler: nil
+        )
+    }
+
+    /// Starts a native timer that re-asserts the media-key override while the app is
+    /// backgrounded. Native run-loop timers keep firing in the background (active audio
+    /// playback prevents App Nap), unlike the page's frozen `requestAnimationFrame` loop.
+    func beginBackgroundMediaControlReassertion() {
+        guard self.mediaControlUsesNextPrev else { return }
+        self.reassertMediaControlOverride()
+        guard self.mediaControlReassertTimer == nil else { return }
+        let timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] (_: Timer) in
+            MainActor.assumeIsolated {
+                self?.reassertMediaControlOverride()
+            }
+        }
+        timer.tolerance = 0.5
+        self.mediaControlReassertTimer = timer
+    }
+
+    /// Stops the background re-assertion timer. The page's `requestAnimationFrame` loop
+    /// resumes ownership once the app is foreground again.
+    func endBackgroundMediaControlReassertion() {
+        self.mediaControlReassertTimer?.invalidate()
+        self.mediaControlReassertTimer = nil
     }
 
     static func mediaControlStyleBootstrapScript(useNextPrev: Bool) -> String {

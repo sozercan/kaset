@@ -1,8 +1,8 @@
-# YouTube Music API Reference
+# YouTube Music and YouTube API Reference
 
-> **Complete documentation of YouTube Music API endpoints for Kaset development.**
+> **Complete documentation of YouTube Music and regular YouTube InnerTube endpoints for Kaset development.**
 >
-> This document catalogs all known YouTube Music API endpoints, their authentication requirements, implementation status, and usage patterns. Use the standalone [API Explorer](../Tools/api-explorer.swift) tool for live endpoint testing.
+> This document catalogs known YouTube Music API endpoints, their authentication requirements, implementation status, and usage patterns. The same `api-explorer` tool also supports regular YouTube via `--youtube`; see [YouTube Mode](youtube.md) for the video-source architecture.
 
 ## Table of Contents
 
@@ -37,6 +37,17 @@ The YouTube Music API (`youtubei/v1`) is an internal API used by the YouTube Mus
 | Client Version | `1.20231204.01.00` |
 | Protocol | HTTPS POST with JSON body |
 
+Regular YouTube uses the same `youtubei/v1` protocol with different request identity:
+
+| Property | Value |
+|----------|-------|
+| Base URL | `https://www.youtube.com/youtubei/v1` |
+| API Key | Not required for the currently used WEB InnerTube requests |
+| Client Name | `WEB` |
+| Origin | `https://www.youtube.com` |
+
+Use `swift run api-explorer --youtube ...` to target regular YouTube. Use the default mode for YouTube Music.
+
 ### Endpoint Types
 
 1. **Browse Endpoints** - Load content pages (Home, Explore, Library, etc.)
@@ -63,6 +74,8 @@ let hash = SHA1(hashInput)
 let header = "SAPISIDHASH \(timestamp)_\(hash)"
 ```
 
+For regular YouTube requests, the hash input origin must be `https://www.youtube.com`; a `music.youtube.com` hash will fail authorization against the YouTube WEB client.
+
 ### Required Cookies
 
 | Cookie | Purpose |
@@ -81,7 +94,7 @@ Brand accounts (YouTube channels) can be accessed by setting `context.user.onBeh
 Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs:
 
 ```bash
-./Tools/api-explorer.swift brandaccounts
+swift run api-explorer brandaccounts
 ```
 
 **Response Structure**:
@@ -128,10 +141,10 @@ let body: [String: Any] = [
 **API Explorer Usage**:
 ```bash
 # List brand accounts with IDs
-./Tools/api-explorer.swift brandaccounts
+swift run api-explorer brandaccounts
 
 # Access brand account library
-./Tools/api-explorer.swift browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
 ```
 
 #### Key Differences: authuser vs brand
@@ -1114,39 +1127,51 @@ let result = try await RetryPolicy.execute(
 
 ## Using the API Explorer
 
-The standalone [api-explorer.swift](../Tools/api-explorer.swift) tool provides comprehensive exploration of both public and authenticated API endpoints.
-
-### Setup
-
-```bash
-# Make executable (one time)
-chmod +x Tools/api-explorer.swift
-```
+The SwiftPM `api-explorer` executable (`Sources/APIExplorer/main.swift`) provides comprehensive exploration of both public and authenticated API endpoints.
 
 ### Basic Usage
 
 ```bash
 # Check authentication status
-./Tools/api-explorer.swift auth
+swift run api-explorer auth
 
 # List all known endpoints
-./Tools/api-explorer.swift list
+swift run api-explorer list
 
 # Explore a public browse endpoint
-./Tools/api-explorer.swift browse FEmusic_charts
+swift run api-explorer browse FEmusic_charts
 # Output: ✅ HTTP 200
 #         📋 Top-level keys (5): contents, frameworkUpdates, header...
 
 # Explore with verbose output (shows full raw JSON, no truncation)
-./Tools/api-explorer.swift browse FEmusic_home -v
+swift run api-explorer browse FEmusic_home -v
 
 # Save raw JSON to a file for analysis
-./Tools/api-explorer.swift action search '{"query":"manifest"}' -o /tmp/search.json
+swift run api-explorer action search '{"query":"manifest"}' -o /tmp/search.json
 
 # Explore action endpoints
-./Tools/api-explorer.swift action search '{"query":"never gonna give you up"}'
-./Tools/api-explorer.swift action player '{"videoId":"dQw4w9WgXcQ"}'
+swift run api-explorer action search '{"query":"never gonna give you up"}'
+swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
 ```
+
+### Regular YouTube Mode
+
+Pass `--youtube` (or `--yt`) to target `www.youtube.com` with the WEB client instead of `music.youtube.com` with WEB_REMIX:
+
+```bash
+# Regular YouTube home recommendations
+swift run api-explorer --youtube browse FEwhat_to_watch
+
+# YouTube subscriptions and history (auth used automatically when cookies exist)
+swift run api-explorer --youtube browse FEsubscriptions
+swift run api-explorer --youtube browse FEhistory
+
+# Search and watch-next metadata
+swift run api-explorer --youtube action search '{"query":"swift concurrency"}'
+swift run api-explorer --youtube action next '{"videoId":"VIDEO_ID"}'
+```
+
+Prefer the destination feeds documented in [youtube.md](youtube.md) for Explore; YouTube's old `FEtrending` feed is no longer a reliable target.
 
 ### Authenticated Endpoints
 
@@ -1154,12 +1179,12 @@ For authenticated endpoints (🔐), sign in to the Kaset app first:
 
 ```bash
 # Check if cookies are available
-./Tools/api-explorer.swift auth
+swift run api-explorer auth
 
 # If authenticated, explore library endpoints
-./Tools/api-explorer.swift browse FEmusic_liked_playlists
-./Tools/api-explorer.swift browse FEmusic_history
-./Tools/api-explorer.swift browse FEmusic_library_albums ggMGKgQIARAA
+swift run api-explorer browse FEmusic_liked_playlists
+swift run api-explorer browse FEmusic_history
+swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
 ```
 
 Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
@@ -1168,10 +1193,10 @@ Debug builds export auth cookies for the API explorer to `~/Library/Application 
 
 ```bash
 # List all accounts (primary + brand) with their IDs
-./Tools/api-explorer.swift brandaccounts
+swift run api-explorer brandaccounts
 
 # Access a brand account's library
-./Tools/api-explorer.swift browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
 ```
 
 The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [Brand Account Support](#brand-account-support) in the Authentication section for details.
@@ -1197,6 +1222,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | `-o, --output <file>` | Save raw JSON to file |
 | `--authuser N` | Use Google account at index N |
 | `--brand <ID>` | Use brand account (21-digit ID) |
+| `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
 
 ---
 
@@ -1215,6 +1241,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-06-24 | Documented regular YouTube `--youtube` API Explorer mode alongside YouTube Music |
 | 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
 | 2026-01-06 | Added Video Feature API section: musicVideoType, streamingData quality options, related content endpoints |

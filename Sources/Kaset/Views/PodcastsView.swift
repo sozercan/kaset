@@ -38,10 +38,15 @@ struct PodcastsView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
-            .navigationDestinations(client: self.viewModel.client)
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -55,6 +60,13 @@ struct PodcastsView: View {
         }
     }
 
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
+    }
+
     // MARK: - Views
 
     private var contentView: some View {
@@ -64,7 +76,8 @@ struct PodcastsView: View {
                     self.sectionView(section)
                 }
             }
-            .padding(.horizontal, 24)
+            // Edge-to-edge so shelves slide under the glass sidebar; resting
+            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
     }
@@ -72,7 +85,8 @@ struct PodcastsView: View {
     private func sectionView(_ section: PodcastSection) -> some View {
         CarouselShelfSection(
             accessibilityLabel: section.title,
-            items: section.items
+            items: section.items,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             Text(section.title)
                 .font(.title2)
@@ -257,8 +271,11 @@ struct PodcastShowView: View {
                 // Episodes list
                 self.episodesList
             }
-            .padding(24)
+            .padding(.vertical, 24)
         }
+        // Inset resting content while the scroll view stays edge-to-edge so the
+        // accent backdrop refracts through the floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .accentBackground(from: self.show.thumbnailURL)
         .navigationTitle(self.show.title)
         .navigationDestination(for: AllEpisodesDestination.self) { destination in
@@ -604,8 +621,11 @@ struct AllEpisodesView: View {
                     }
                 }
             }
-            .padding(24)
+            .padding(.vertical, 24)
         }
+        // Inset resting content while the scroll view stays edge-to-edge so the
+        // accent backdrop refracts through the floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .accentBackground(from: self.show.thumbnailURL)
         .localizedNavigationTitle("All Episodes")
         .safeAreaInset(edge: .bottom, spacing: 0) {

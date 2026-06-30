@@ -16,6 +16,7 @@ enum TestAccessibilityID {
 
     enum Home {
         static let container = "homeView"
+        static let scrollView = "homeView.scrollView"
     }
 
     enum Search {
@@ -36,6 +37,7 @@ enum TestAccessibilityID {
     }
 
     enum PlayerBar {
+        static let miniPlayerButton = "playerBar.miniPlayer"
         static let videoButton = "playerBar.video"
     }
 
@@ -229,6 +231,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),
@@ -324,6 +327,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),

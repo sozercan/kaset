@@ -179,9 +179,33 @@ struct URLHandlerTests {
         #expect(result == nil)
     }
 
-    @Test("Regular YouTube URL is not recognized")
+    @Test("Regular YouTube watch URL parses as a YouTube video")
     func parseRegularYouTubeURL() throws {
         let url = try #require(URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"))
+        let result = URLHandler.parse(url)
+
+        #expect(result == .youtubeVideo(videoId: "dQw4w9WgXcQ"))
+    }
+
+    @Test("youtu.be short URL parses as a YouTube video")
+    func parseYoutuBeURL() throws {
+        let url = try #require(URL(string: "https://youtu.be/dQw4w9WgXcQ"))
+        let result = URLHandler.parse(url)
+
+        #expect(result == .youtubeVideo(videoId: "dQw4w9WgXcQ"))
+    }
+
+    @Test("YouTube non-watch pages are not recognized")
+    func parseYouTubeNonWatchURL() throws {
+        let url = try #require(URL(string: "https://www.youtube.com/feed/subscriptions"))
+        let result = URLHandler.parse(url)
+
+        #expect(result == nil)
+    }
+
+    @Test("YouTube watch URL without a video ID returns nil")
+    func parseYouTubeWatchWithoutId() throws {
+        let url = try #require(URL(string: "https://www.youtube.com/watch"))
         let result = URLHandler.parse(url)
 
         #expect(result == nil)

@@ -26,7 +26,6 @@ enum AccessibilityID {
     // MARK: - PlayerBar
 
     enum PlayerBar {
-        static let container = "playerBar"
         static let playPauseButton = "playerBar.playPause"
         static let previousButton = "playerBar.previous"
         static let nextButton = "playerBar.next"
@@ -76,6 +75,8 @@ enum AccessibilityID {
         static let container = "queueView"
         static let scrollView = "queueView.scrollView"
         static let clearButton = "queueView.clearButton"
+        static let saveToPlaylistButton = "queueView.saveToPlaylistButton"
+        static let removeDuplicatesButton = "queueView.removeDuplicatesButton"
         static let emptyState = "queueView.emptyState"
         static let refineButton = "queueView.refineButton"
         static let suggestionButton = "queueView.suggestionButton"

@@ -58,17 +58,25 @@ struct EqualizerSettingsView: View {
 
                 EQStatusRow(status: self.service.status)
 
+                HStack {
+                    Spacer()
+                    Button("Reset") {
+                        self.service.reset()
+                    }
+                    .disabled(!self.service.settings.isEnabled)
+                }
+            } header: {
+                Text("Output")
+            }
+
+            Section {
                 Picker("Preset", selection: self.preset) {
                     ForEach(self.availablePresets) { preset in
                         Text(preset.displayName).tag(preset)
                     }
                 }
                 .disabled(!self.service.settings.isEnabled)
-            } header: {
-                Text("Equalizer")
-            }
 
-            Section {
                 EQCurveAndSlidersView(
                     bands: self.bands,
                     gains: self.service.settings.bandGainsDB,
@@ -99,14 +107,6 @@ struct EqualizerSettingsView: View {
                     step: 0.5
                 )
                 .disabled(!self.service.settings.isEnabled)
-
-                HStack {
-                    Spacer()
-                    Button("Reset") {
-                        self.service.reset()
-                    }
-                    .disabled(!self.service.settings.isEnabled)
-                }
             } header: {
                 Text("Preamp")
             }

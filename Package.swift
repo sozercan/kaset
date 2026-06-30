@@ -32,10 +32,19 @@ let package = Package(
             exclude: [
                 "Resources/AppIcon.icon",
                 "Resources/kaset.icns",
+                // The checked-in .lproj files are the SwiftPM/Xcode 26 runtime
+                // resources. build-app.sh compiles the source catalog for the
+                // packaged app to avoid duplicate .strings outputs in SwiftPM.
+                "Resources/Localizable.xcstrings",
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
-                .process("Resources/Localizable.xcstrings"),
+                .process("Resources/ar.lproj"),
+                .process("Resources/en.lproj"),
+                .process("Resources/fr.lproj"),
+                .process("Resources/id.lproj"),
+                .process("Resources/ko.lproj"),
+                .process("Resources/tr.lproj"),
                 .process("Resources/Kaset.sdef"),
                 .copy("Extensions"),
             ],

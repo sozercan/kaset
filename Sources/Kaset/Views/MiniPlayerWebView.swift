@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import os
 import SwiftUI
 import WebKit
@@ -225,6 +226,7 @@ final class SingletonPlayerWebView {
     var currentVideoId: String?
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
+    private var loadGeneration = 0
 
     /// Current display mode for the WebView.
     enum DisplayMode {
@@ -246,6 +248,10 @@ final class SingletonPlayerWebView {
     var displayMode: DisplayMode = .hidden
     var mediaControlUsesNextPrev: Bool
     var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
+
+    /// Native timer that re-asserts the media-key override while backgrounded.
+    /// See `beginBackgroundMediaControlReassertion()`.
+    var mediaControlReassertTimer: Timer?
 
     /// Tracks if lyrics high-frequency polling should be active
     /// Used to restore polling after full-page navigation
@@ -360,6 +366,8 @@ final class SingletonPlayerWebView {
 
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
+        self.loadGeneration &+= 1
+        let generation = self.loadGeneration
 
         // Get current volume from PlayerService via coordinator
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
@@ -372,10 +380,22 @@ final class SingletonPlayerWebView {
             targetVolume: currentVolume
         )
 
-        // Stop current playback first, then load new video
+        // Stop current playback first, then load new video. For a forced
+        // full-page navigation (e.g. an identity-switch reload) skip pausing the
+        // OLD <video>: the navigation tears it down anyway, and the pause event
+        // would emit a stale STATE_UPDATE from the outgoing page that can be
+        // mis-reconciled against a restored session before the new document loads.
         let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
+        let skipPrenavPause = (strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId)
+        if skipPrenavPause {
+            webView.evaluateJavaScript("window.__kasetTargetVolume = \(currentVolume);", completionHandler: nil)
+            webView.load(URLRequest(url: urlToLoad))
+            return
+        }
+        let prenavScript = "document.querySelector('video')?.pause();"
+        webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
             guard let self, let webView = self.webView else { return }
+            guard self.loadGeneration == generation, self.currentVideoId == videoId else { return }
 
             // Keep the current page's target volume fresh until the new document
             // finishes loading and gets the same value from didFinish.

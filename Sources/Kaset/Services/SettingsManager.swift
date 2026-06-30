@@ -10,6 +10,7 @@ final class SettingsManager {
     // MARK: - Settings Keys
 
     enum Keys {
+        static let appSource = "settings.appSource"
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
@@ -25,6 +26,9 @@ final class SettingsManager {
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
         static let enabledNowPlayingSurfaces = "settings.enabledNowPlayingSurfaces"
+        static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
+        static let ambientBackdropStyle = "settings.ambientBackdropStyle"
+        static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -177,6 +181,13 @@ final class SettingsManager {
 
     // MARK: - Settings Properties
 
+    /// The active content source (YouTube Music or regular YouTube).
+    var appSource: AppSource {
+        didSet {
+            UserDefaults.standard.set(self.appSource.rawValue, forKey: Keys.appSource)
+        }
+    }
+
     /// Whether to show system notifications when the track changes.
     var showNowPlayingNotifications: Bool {
         didSet {
@@ -305,6 +316,37 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the ambient color backdrop is shown on the YouTube watch page.
+    /// Applies to regular YouTube videos only, not the Music experience.
+    var ambientBackdropEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.ambientBackdropEnabled, forKey: Keys.ambientBackdropEnabled)
+        }
+    }
+
+    /// The chosen ambient backdrop style when the feature is enabled.
+    var ambientBackdropStyle: AmbientBackdropStyle {
+        didSet {
+            UserDefaults.standard.set(self.ambientBackdropStyle.rawValue, forKey: Keys.ambientBackdropStyle)
+        }
+    }
+
+    /// Whether a playing YouTube video pops out into the floating window when
+    /// the user navigates away from the inline watch view. When disabled,
+    /// playback stops instead. Applies to regular YouTube videos only, not the
+    /// Music experience.
+    var popOutVideoOnNavigateAway: Bool {
+        didSet {
+            UserDefaults.standard.set(self.popOutVideoOnNavigateAway, forKey: Keys.popOutVideoOnNavigateAway)
+        }
+    }
+
+    /// The style the YouTube watch page should actually render: the chosen
+    /// style when enabled, `.off` when the feature is disabled.
+    var resolvedAmbientStyle: AmbientBackdropStyle {
+        self.ambientBackdropEnabled ? self.ambientBackdropStyle : .off
+    }
+
     /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
@@ -350,6 +392,8 @@ final class SettingsManager {
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
         let enabledSurfaceRawValues = UserDefaults.standard.stringArray(forKey: Keys.enabledNowPlayingSurfaces) ?? []
         self.enabledNowPlayingSurfaces = Set(enabledSurfaceRawValues.map(NowPlayingSurfaceID.init(_:)))
+        self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
+        self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif
@@ -370,6 +414,15 @@ final class SettingsManager {
             self.playbackAudioQuality = .auto
         }
 
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.ambientBackdropStyle),
+           let style = AmbientBackdropStyle(rawValue: rawValue),
+           style != .off
+        {
+            self.ambientBackdropStyle = style
+        } else {
+            self.ambientBackdropStyle = .live
+        }
+
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),
            let page = LaunchPage(rawValue: rawValue)
         {
@@ -384,6 +437,14 @@ final class SettingsManager {
             self.contentLanguage = language
         } else {
             self.contentLanguage = .system
+        }
+
+        if let rawValue = UserDefaults.standard.string(forKey: Keys.appSource),
+           let source = AppSource(rawValue: rawValue)
+        {
+            self.appSource = source
+        } else {
+            self.appSource = .music
         }
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)

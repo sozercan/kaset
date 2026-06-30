@@ -89,7 +89,8 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        )
+                        ),
+                        playerBarNavigationAction: self.playerBarNavigationAction
                     )
                 } else {
                     SimplePlaylistDetailView(
@@ -97,7 +98,8 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        )
+                        ),
+                        playerBarNavigationAction: self.playerBarNavigationAction
                     )
                 }
             }
@@ -108,7 +110,8 @@ struct LibraryView: View {
                         artist: artist,
                         client: self.viewModel.client,
                         libraryViewModel: self.viewModel
-                    )
+                    ),
+                    playerBarNavigationAction: self.playerBarNavigationAction
                 )
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
@@ -122,10 +125,13 @@ struct LibraryView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .environment(self.viewModel)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .task {
             if self.viewModel.loadingState == .idle {
@@ -142,6 +148,13 @@ struct LibraryView: View {
         }
     }
 
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
+    }
+
     // MARK: - Views
 
     private var contentView: some View {
@@ -153,9 +166,11 @@ struct LibraryView: View {
                 // Combined grid with filtered content
                 self.libraryGrid
             }
-            .padding(.horizontal, 24)
             .padding(.vertical, 20)
         }
+        // Inset the resting content while the scroll view stays edge-to-edge,
+        // so the grid extends under the floating glass sidebar.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     private var filterChips: some View {

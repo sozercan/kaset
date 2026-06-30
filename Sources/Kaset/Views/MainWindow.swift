@@ -19,6 +19,7 @@ struct MainWindow: View {
 
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
+    @Environment(YouTubePlayerService.self) private var youtubePlayerService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
@@ -31,8 +32,20 @@ struct MainWindow: View {
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
+    /// Binding to the YouTube (video) experience's navigation selection.
+    @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
+
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
+
+    /// Shared YouTube (video) API client.
+    let youtubeClient: any YouTubeClientProtocol
+
+    /// App-wide settings; drives the active content source (music vs. video).
+    @State private var settings = SettingsManager.shared
+
+    /// View models for the YouTube experience (persist across source toggles).
+    @State private var youtubeStore: YouTubeViewModelStore
 
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
@@ -58,9 +71,17 @@ struct MainWindow: View {
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
-    init(navigationSelection: Binding<NavigationItem?>, client: any YTMusicClientProtocol) {
+    init(
+        navigationSelection: Binding<NavigationItem?>,
+        youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        client: any YTMusicClientProtocol,
+        youtubeClient: any YouTubeClientProtocol
+    ) {
         self._navigationSelection = navigationSelection
+        self._youtubeNavigationSelection = youtubeNavigationSelection
         self.client = client
+        self.youtubeClient = youtubeClient
+        _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
         _homeViewModel = State(initialValue: HomeViewModel(client: client))
         _exploreViewModel = State(initialValue: ExploreViewModel(client: client))
         _searchViewModel = State(initialValue: SearchViewModel(client: client))
@@ -171,6 +192,7 @@ struct MainWindow: View {
             AccountErrorToast()
                 .padding(.top, 60)
         }
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .onChange(of: self.showCommandBar.wrappedValue) { _, newValue in
             if newValue {
                 self.presentCommandBarIfAvailable()
@@ -236,6 +258,8 @@ struct MainWindow: View {
                 guard newAccountId != nil else { return }
 
                 self.historyViewModel?.reset()
+                // YouTube surfaces are account-scoped too.
+                self.youtubeStore.resetForAccountChange()
 
                 // Brand accounts can have a different region than the
                 // primary; re-probe in the background so the sidebar
@@ -262,6 +286,23 @@ struct MainWindow: View {
                         }
                     }
                 }
+            }
+        }
+        .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
+            // Re-point in-flight playback ONLY once the new session identity is
+            // verified (DATASYNC_ID confirmed). Driving this off the verified
+            // signal — rather than `currentAccount?.id` — avoids reloading the
+            // player under an unverified/primary identity on cold-launch brand
+            // restore, where `currentAccount` is set before its session pin lands.
+            // History is recorded by the playback WebViews' own stats pings, so a
+            // track/video still loaded under the previous identity must reload to
+            // record to the new account. The shared cookie session covers both.
+            guard self.accountService.verifiedAccountId != nil else { return }
+            if self.playerService.currentTrack != nil {
+                self.playerService.reloadCurrentTrackForIdentitySwitch()
+            }
+            if self.youtubePlayerService.currentVideo != nil {
+                self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
             }
         }
         .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
@@ -336,18 +377,29 @@ struct MainWindow: View {
 
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
-            // Main navigation content
+            // Main navigation content — sidebar and detail swap with the active source.
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                Sidebar(
-                    selection: self.$navigationSelection,
-                    pinnedSelection: self.$selectedSidebarPinnedItem
-                )
+                if self.settings.appSource == .music {
+                    Sidebar(
+                        selection: self.$navigationSelection,
+                        pinnedSelection: self.$selectedSidebarPinnedItem
+                    )
+                } else {
+                    YouTubeSidebar(selection: self.$youtubeNavigationSelection)
+                }
             } detail: {
-                self.detailView(
-                    for: self.navigationSelection,
-                    pinnedItem: self.selectedSidebarPinnedItem,
-                    client: self.client
-                )
+                if self.settings.appSource == .music {
+                    self.detailView(
+                        for: self.navigationSelection,
+                        pinnedItem: self.selectedSidebarPinnedItem,
+                        client: self.client
+                    )
+                } else {
+                    YouTubeContentView(
+                        selection: self.youtubeNavigationSelection,
+                        store: self.youtubeStore
+                    )
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
@@ -362,7 +414,7 @@ struct MainWindow: View {
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
             if self.supportsCommandBarUI {
                 ToolbarItem(placement: .primaryAction) {
@@ -387,7 +439,10 @@ struct MainWindow: View {
     }
 
     private var supportsCommandBarUI: Bool {
+        // The command bar is a music/AI feature; it has no role in the
+        // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
+            && self.settings.appSource == .music
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -484,16 +539,22 @@ struct MainWindow: View {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                                 PlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm
+                                    viewModel: vm,
+                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm
+                                    viewModel: vm,
+                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
                             }
                         }
-                        .navigationDestinations(client: self.client)
+                        .navigationDestinations(
+                            client: self.client,
+                            playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
+                        )
+                        .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     }
                 }
             case .library:
@@ -503,6 +564,13 @@ struct MainWindow: View {
             }
         }
         .environment(self.libraryViewModel)
+    }
+
+    private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.likedMusicNavigationPath.append($0) },
+            openAlbum: { self.likedMusicNavigationPath.append($0) }
+        )
     }
 
     private func viewForSidebarPinnedItem(
@@ -544,7 +612,7 @@ struct MainWindow: View {
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
         }
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
@@ -715,12 +783,18 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
+    @Previewable @State var youtubeNavSelection: YouTubeNavigationItem? = .home
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
-    MainWindow(navigationSelection: $navSelection, client: ytMusicClient)
-        .environment(authService)
-        .environment(PlayerService())
-        .environment(WebKitManager.shared)
-        .environment(accountService)
+    MainWindow(
+        navigationSelection: $navSelection,
+        youtubeNavigationSelection: $youtubeNavSelection,
+        client: ytMusicClient,
+        youtubeClient: YouTubeClient(authService: authService)
+    )
+    .environment(authService)
+    .environment(PlayerService())
+    .environment(WebKitManager.shared)
+    .environment(accountService)
 }

@@ -275,7 +275,23 @@ extension PlayerService {
             return
         }
 
+        if self.isRestoringPlaybackSession {
+            self.isPendingRestoredLoadDeferred = true
+            self.shouldAutoResumeAfterRestoredLoad = false
+            self.shouldForcePendingRestoredLoad = true
+            self.state = .paused
+            if self.pendingPlayVideoId != nil {
+                SingletonPlayerWebView.shared.pause()
+            } else {
+                await self.evaluatePlayerCommand("pause")
+            }
+            return
+        }
+
         self.clearRestoredPlaybackSessionState()
+        if self.state != .ended {
+            self.state = .paused
+        }
         if self.pendingPlayVideoId != nil {
             SingletonPlayerWebView.shared.pause()
         } else {
@@ -304,7 +320,9 @@ extension PlayerService {
             self.showMiniPlayer = false
             self.state = .loading
             if SingletonPlayerWebView.shared.webView != nil {
-                SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId)
+                let strategy: SingletonPlayerWebView.VideoLoadStrategy = self.shouldForcePendingRestoredLoad ? .forceFullPageWhenSameVideoId : .standard
+                SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId, strategy: strategy)
+                self.shouldForcePendingRestoredLoad = false
             }
             return
         }

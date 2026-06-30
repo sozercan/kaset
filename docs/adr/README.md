@@ -54,4 +54,8 @@ What becomes easier or more difficult because of this change?
 | [0017](0017-equalizer.md) | 6-Band Equalizer via Core Audio Process Tap | Implemented |
 | [0018](0018-artist-page-episodes.md) | Artist Page — Episodes, Singles, Playlists, Podcasts, Related Artists | Accepted |
 | [0019](0019-podcasts-availability.md) | Region-Aware Podcasts Tab Visibility | Implemented |
-| [0020](0020-now-playing-surfaces.md) | Now Playing Surfaces | Accepted |
+| [0020](0020-youtube-source-toggle.md) | Native YouTube Client Behind a Source Toggle | Accepted |
+| [0021](0021-liquid-glass-sidebar-slide-under.md) | Liquid Glass Sidebar Slide-Under | Accepted |
+| [0022](0022-youtube-home-sections.md) | YouTube Home Sections — Continue Watching + Personalized Topic Rails | Accepted |
+| [0023](0023-brand-account-history-session-switch.md) | Brand-Account History via WebView Session-Identity Switch | Accepted |
+| [0024](0024-now-playing-surfaces.md) | Now Playing Surfaces | Accepted |

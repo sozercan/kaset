@@ -92,7 +92,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticsLogger.player.info("System woke from sleep, wasPlayingBeforeSleep: \(self.wasPlayingBeforeSleep)")
     }
 
+    func applicationDidResignActive(_: Notification) {
+        // WebKit freezes the page's requestAnimationFrame loop in the background, so the
+        // media-key override (nexttrack/previoustrack) is no longer re-applied and YouTube
+        // can reclaim it. Drive re-assertion from a native timer instead.
+        SingletonPlayerWebView.shared.beginBackgroundMediaControlReassertion()
+    }
+
     func applicationDidBecomeActive(_: Notification) {
+        // Foreground: the page's requestAnimationFrame loop resumes ownership of the
+        // override. Stop the native timer and re-assert once immediately.
+        SingletonPlayerWebView.shared.endBackgroundMediaControlReassertion()
+        SingletonPlayerWebView.shared.reassertMediaControlOverride()
         // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
         // This handles the case where video window is visible but main window is hidden.
         if self.isSwitchedToMiniPlayer {
@@ -107,16 +118,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupWindowDelegate() {
         DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            // Skip auxiliary player windows; only the regular app window should be hidden-on-close.
-            if self.isAuxiliaryPlayerWindow(window) {
+            // Skip auxiliary/player and non-primary scene windows; only the regular app window should be hidden-on-close.
+            if self.isAuxiliaryPlayerWindow(window) || !MainWindowLayout.isPrimaryWindow(window) {
                 continue
             }
             window.delegate = self
-            // Enable automatic window frame persistence using autosave name
-            // This ensures window size/position is restored across app launches
-            if window.frameAutosaveName.isEmpty {
-                window.setFrameAutosaveName("KasetMainWindow")
-            }
+            MainWindowLayout.configure(window)
             // Store reference to main window for reliable reopen
             self.mainWindow = window
         }
@@ -217,7 +224,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMainWindowIfNeeded() {
         DiagnosticsLogger.app.info("AppDelegate: showMainWindowIfNeeded")
         // Try stored reference first
-        if let mainWindow {
+        if let mainWindow, MainWindowLayout.isPrimaryWindow(mainWindow) {
+            MainWindowLayout.configure(mainWindow)
             if !mainWindow.isVisible {
                 mainWindow.makeKeyAndOrderFront(nil)
             }
@@ -225,7 +233,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Fallback: find main window by frameAutosaveName
-        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == MainWindowLayout.autosaveName {
+            MainWindowLayout.configure(window)
             self.mainWindow = window
             if !window.isVisible {
                 window.makeKeyAndOrderFront(nil)
@@ -234,11 +243,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Last resort: find any main-capable window that's not an auxiliary player window.
+        // Do not apply the primary-window sizing contract here: a generic fallback
+        // may match Settings or another regular scene window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
             if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
-            self.mainWindow = window
             if !window.isVisible {
                 window.makeKeyAndOrderFront(nil)
             }

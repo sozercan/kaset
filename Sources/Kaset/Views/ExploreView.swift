@@ -32,10 +32,16 @@ struct ExploreView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Explore")
-            .navigationDestinations(client: self.viewModel.client)
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -49,6 +55,13 @@ struct ExploreView: View {
         }
     }
 
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
+    }
+
     // MARK: - Views
 
     private var contentView: some View {
@@ -58,7 +71,8 @@ struct ExploreView: View {
                     self.sectionView(section)
                 }
             }
-            .padding(.horizontal, 24)
+            // Edge-to-edge so shelves slide under the glass sidebar; resting
+            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
         .accessibilityIdentifier(AccessibilityID.Explore.scrollView)
@@ -69,7 +83,8 @@ struct ExploreView: View {
             accessibilityLabel: section.title,
             items: Array(section.items.enumerated()),
             id: \.element.id,
-            itemAlignment: .top
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             Text(section.title)
                 .font(.title2)

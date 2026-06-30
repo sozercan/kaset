@@ -32,10 +32,16 @@ struct MoodsAndGenresView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Moods & Genres")
-            .navigationDestinations(client: self.viewModel.client)
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -47,6 +53,13 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+    }
+
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
     }
 
     // MARK: - Views
@@ -66,7 +79,8 @@ struct MoodsAndGenresView: View {
                             self.sectionView(section)
                         }
                     }
-                    .padding(.horizontal, 24)
+                    // Edge-to-edge so shelves slide under the glass sidebar;
+                    // resting inset is restored per-shelf via contentInset.
                     .padding(.vertical, 20)
                 }
             }
@@ -78,7 +92,8 @@ struct MoodsAndGenresView: View {
             accessibilityLabel: section.title,
             items: Array(section.items.enumerated()),
             id: \.element.id,
-            itemAlignment: .top
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
         ) {
             Text(section.title)
                 .font(.title2)

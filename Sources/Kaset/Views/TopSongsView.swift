@@ -64,9 +64,11 @@ struct TopSongsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
+        // Edge-to-edge with a resting inset so the list extends under the
+        // floating glass sidebar; the accent backdrop refracts through it.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     // MARK: - Song Row

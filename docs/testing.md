@@ -42,14 +42,16 @@ swiftlint --strict && swiftformat .
 Tests/KasetTests/
 ├── Helpers/
 │   ├── MockURLProtocol.swift    # Network mocking
-│   ├── MockYTMusicClient.swift  # API client mock
+│   ├── MockYTMusicClient.swift  # YouTube Music API client mock
+│   ├── MockYouTubeClient.swift  # Regular YouTube API client mock
 │   └── TestFixtures.swift       # Fixture loading utilities
 ├── SwiftTestingHelpers/
 │   └── Tags.swift               # Custom test tags (.api, .parser, etc.)
 ├── Fixtures/
 │   ├── home_response.json       # Sample API responses
 │   ├── search_response.json
-│   └── playlist_detail.json
+│   ├── playlist_detail.json
+│   └── YouTube/                 # Sanitized regular YouTube fixtures
 ├── *Tests.swift                 # Unit test files (Swift Testing)
 └── MusicIntentIntegrationTests.swift  # AI integration tests
 ```
@@ -62,6 +64,7 @@ New code in `Sources/Kaset/` (Services, Models, ViewModels, Utilities) must incl
 
 1. Create test file in `Tests/KasetTests/` matching the source file name
    - Example: `YTMusicClient.swift` → `YTMusicClientTests.swift`
+   - Example: `YouTubeClient.swift` / YouTube parsers → `YouTube...Tests.swift`
 2. Add the test file to the Xcode project
 3. Run tests to verify
 
@@ -283,7 +286,7 @@ func durationFormatting(seconds: Double, expected: String) {
 
 ### MockYTMusicClient
 
-The project includes a ready-to-use mock client:
+The project includes ready-to-use API client mocks for both sources. Use `MockYTMusicClient` for YouTube Music view models and services:
 
 ```swift
 // Tests/KasetTests/Helpers/MockYTMusicClient.swift
@@ -299,6 +302,25 @@ final class MockYTMusicClient: YTMusicClientProtocol, @unchecked Sendable {
     // ... other methods
 }
 ```
+
+Use `MockYouTubeClient` for the regular YouTube source:
+
+```swift
+// Tests/KasetTests/Helpers/MockYouTubeClient.swift
+final class MockYouTubeClient: YouTubeClientProtocol, @unchecked Sendable {
+    var homeFeed = YouTubeFeed(videos: [], continuation: nil)
+    var searchResponse = YouTubeSearchResponse(videos: [], channels: [], playlists: [], continuation: nil)
+    var error: Error?
+
+    func getHomeFeed() async throws -> YouTubeFeed {
+        if let error { throw error }
+        return homeFeed
+    }
+    // ... other methods
+}
+```
+
+Regular YouTube parser tests should use sanitized fixtures in `Tests/KasetTests/Fixtures/YouTube/`; re-capture with `swift run api-explorer --youtube ... -o` when YouTube renderer shapes change.
 
 **Usage in tests**:
 ```swift

@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
         with:
           fetch-depth: 0  # Full history for changelog generation
 
@@ -47,11 +47,10 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
-            .build
           key: ${{ runner.os }}-spm-release-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-release-
@@ -200,7 +199,7 @@ jobs:
 
       - name: Cache Homebrew
         id: cache-homebrew
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             /usr/local/Homebrew
@@ -436,7 +435,7 @@ jobs:
           fi
 
       - name: Checkout Homebrew tap repo
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
         with:
           repository: sozercan/homebrew-repo
           token: ${{ secrets.HOMEBREW_REPO_TOKEN }}
@@ -466,7 +465,7 @@ jobs:
             # Homebrew casks can gate on macOS release symbols, but not this
             # app's exact 15.4 patch minimum; LSMinimumSystemVersion and
             # Sparkle's appcast enforce 15.4 at launch/update time.
-            depends_on macos: ">= :sequoia"
+            depends_on macos: :sequoia
 
             app "Kaset.app"
 
@@ -489,10 +488,14 @@ jobs:
           git push origin main
 
       - name: Update Appcast
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch and checkout the default branch (we're in detached HEAD from tag checkout)
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+          # The default branch requires changes to land via pull request, so we
+          # open a short-lived appcast branch and auto-merge it instead of
+          # pushing straight to the default branch.
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch origin "$DEFAULT_BRANCH"
 
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
@@ -501,13 +504,20 @@ jobs:
           SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
           LENGTH="${{ steps.sparkle_sign.outputs.length }}"
 
-          if [ -n "$SIGNATURE" ]; then
-            PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
-            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
-            RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+          if [ -z "$SIGNATURE" ]; then
+            echo "No Sparkle signature available; skipping appcast update"
+            exit 0
+          fi
 
-            # Create updated appcast.xml with the new item at the top
-            cat > appcast.xml << APPCAST_EOF
+          BRANCH="appcast-${VERSION}-${{ github.run_id }}-${{ github.run_attempt }}"
+          git checkout -b "$BRANCH" "origin/${DEFAULT_BRANCH}"
+
+          PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
+          RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+
+          # Create updated appcast.xml with the new item at the top
+          cat > appcast.xml << APPCAST_EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <channel>
@@ -534,7 +544,31 @@ jobs:
           </rss>
           APPCAST_EOF
 
-            git add appcast.xml
-            git diff --cached --quiet || git commit -m "Update appcast to ${{ steps.artifact.outputs.tag }}"
-            git push origin ${{ github.event.repository.default_branch }}
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "Appcast already up to date; nothing to do"
+            exit 0
           fi
+
+          git commit -m "Update appcast to ${TAG}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$BRANCH" \
+            --title "Update appcast to ${TAG}" \
+            --body "Automated Sparkle appcast update for ${TAG} (release run ${{ github.run_id }}).")
+          echo "Opened appcast PR: $PR_URL"
+
+          # The default branch requires 0 approving reviews, so the PR is
+          # immediately mergeable. Retry while GitHub computes mergeability.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$BRANCH" --squash --delete-branch; then
+              echo "Merged appcast PR"
+              exit 0
+            fi
+            echo "Merge attempt ${attempt} failed; retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::warning::Appcast PR ${PR_URL} was opened but could not be auto-merged. Merge it manually to publish the Sparkle update."
