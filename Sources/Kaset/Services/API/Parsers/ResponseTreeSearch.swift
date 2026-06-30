@@ -27,11 +27,17 @@ enum ResponseTreeSearch {
     static func containsKey(_ key: String, in value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
             if dictionary[key] != nil { return true }
-            return dictionary.values.contains { self.containsKey(key, in: $0) }
+            for child in dictionary.values where self.containsKey(key, in: child) {
+                return true
+            }
+            return false
         }
 
         if let array = value as? [Any] {
-            return array.contains { self.containsKey(key, in: $0) }
+            for child in array where self.containsKey(key, in: child) {
+                return true
+            }
+            return false
         }
 
         return false
@@ -43,11 +49,17 @@ enum ResponseTreeSearch {
         }
 
         if let dictionary = value as? [String: Any] {
-            return dictionary.values.contains { self.containsText(text, in: $0) }
+            for child in dictionary.values where self.containsText(text, in: child) {
+                return true
+            }
+            return false
         }
 
         if let array = value as? [Any] {
-            return array.contains { self.containsText(text, in: $0) }
+            for child in array where self.containsText(text, in: child) {
+                return true
+            }
+            return false
         }
 
         return false

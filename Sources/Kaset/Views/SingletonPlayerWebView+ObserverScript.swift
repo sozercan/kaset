@@ -29,6 +29,7 @@ extension SingletonPlayerWebView {
             let isPollingActive = false;
             let pollIntervalId = null;
             let lastUpdateTime = 0;
+            let trailingUpdateTimeoutId = null;
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
 
@@ -86,8 +87,8 @@ extension SingletonPlayerWebView {
                         sendTrackEnded();
                         stopPolling();
                     });
-                    video.addEventListener('waiting', () => sendUpdate()); // Buffer state
-                    video.addEventListener('seeked', () => sendUpdate()); // Seek completed
+                    video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
+                    video.addEventListener('seeked', () => sendUpdate(true)); // Seek completed
 
                     // AirPlay state tracking
                     video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
@@ -241,7 +242,7 @@ extension SingletonPlayerWebView {
                 // Don't apply volume here - let volume enforcement handle it
                 // Applying volume on every startPolling causes volume jumps
 
-                sendUpdate(); // Immediate update
+                sendUpdate(true); // Immediate update
                 // Poll at 1Hz during playback for progress updates (reduced CPU usage)
                 pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
             }
@@ -252,7 +253,7 @@ extension SingletonPlayerWebView {
                     clearInterval(pollIntervalId);
                     pollIntervalId = null;
                 }
-                sendUpdate(); // Final state update
+                sendUpdate(true); // Final state update
             }
 
             function setupObserver(playerBar) {
@@ -270,7 +271,7 @@ extension SingletonPlayerWebView {
                     childList: true, subtree: true,
                     attributeFilter: ['title', 'aria-label', 'like-status', 'value', 'aria-valuemax']
                 });
-                sendUpdate();
+                sendUpdate(true);
             }
 
             function sendTrackEnded() {
@@ -281,11 +282,25 @@ extension SingletonPlayerWebView {
                 });
             }
 
-            function sendUpdate() {
-                // Throttle updates
+            function sendUpdate(force = false) {
+                // Throttle non-forced updates across polling and mutation paths.
+                // If an update is skipped, keep one trailing send so paused/setup
+                // mutations that are not followed by a polling tick still reach Swift.
                 const now = Date.now();
-                if (now - lastUpdateTime < UPDATE_THROTTLE_MS && isPollingActive) {
-                    return;
+                if (!force) {
+                    const elapsed = now - lastUpdateTime;
+                    if (elapsed < UPDATE_THROTTLE_MS) {
+                        if (!trailingUpdateTimeoutId) {
+                            trailingUpdateTimeoutId = setTimeout(() => {
+                                trailingUpdateTimeoutId = null;
+                                sendUpdate(true);
+                            }, UPDATE_THROTTLE_MS - elapsed);
+                        }
+                        return;
+                    }
+                } else if (trailingUpdateTimeoutId) {
+                    clearTimeout(trailingUpdateTimeoutId);
+                    trailingUpdateTimeoutId = null;
                 }
                 lastUpdateTime = now;
 

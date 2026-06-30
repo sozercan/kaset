@@ -8,7 +8,7 @@ struct VideoRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            VideoThumbnailView(video: self.video)
+            VideoThumbnailView(video: self.video, targetSize: CGSize(width: 160, height: 90))
                 .frame(width: 160)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -107,7 +107,7 @@ struct YouTubePlaylistRowView: View {
         HStack(alignment: .top, spacing: 12) {
             CachedAsyncImage(
                 url: self.playlist.thumbnailURL,
-                targetSize: CGSize(width: 320, height: 180)
+                targetSize: CGSize(width: 160, height: 90)
             ) { image in
                 image
                     .resizable()
@@ -172,7 +172,7 @@ struct YouTubePlaylistCard: View {
         VStack(alignment: .leading, spacing: 8) {
             CachedAsyncImage(
                 url: self.playlist.thumbnailURL,
-                targetSize: CGSize(width: 640, height: 360)
+                targetSize: CGSize(width: 320, height: 180)
             ) { image in
                 image
                     .resizable()

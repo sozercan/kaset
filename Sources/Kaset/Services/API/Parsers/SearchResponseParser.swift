@@ -37,6 +37,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                songs.reserveCapacity(songs.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData) {
                         Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
@@ -90,6 +91,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                songs.reserveCapacity(songs.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData),
                        case let .song(song) = item
@@ -121,8 +123,7 @@ enum SearchResponseParser {
         }
 
         // Extract thumbnail
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         // Extract subtitle
         var subtitle: String?
@@ -159,8 +160,7 @@ enum SearchResponseParser {
            let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
         {
-            let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
-            let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer)
             let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
             let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
 
@@ -227,8 +227,7 @@ enum SearchResponseParser {
         _ data: [String: Any],
         videoId: String
     ) -> SearchResultItem? {
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(data)
@@ -300,6 +299,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                albums.reserveCapacity(albums.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData),
                        case let .album(album) = item
@@ -328,6 +328,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                artists.reserveCapacity(artists.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData),
                        case let .artist(artist) = item
@@ -356,6 +357,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                playlists.reserveCapacity(playlists.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData),
                        case let .playlist(playlist) = item
@@ -384,6 +386,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                podcasts.reserveCapacity(podcasts.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let show = Self.parsePodcastShowFromSearchResult(itemData) {
                         podcasts.append(show)
@@ -411,8 +414,7 @@ enum SearchResponseParser {
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer)
         let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown Podcast"
         let author = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
 
@@ -440,6 +442,7 @@ enum SearchResponseParser {
             if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             {
+                songs.reserveCapacity(songs.count + shelfContents.count)
                 for itemData in shelfContents {
                     if let item = parseSearchResultItem(itemData),
                        case let .song(song) = item
@@ -470,6 +473,7 @@ enum SearchResponseParser {
         {
             // Parse items
             if let contents = musicShelfContinuation["contents"] as? [[String: Any]] {
+                songs.reserveCapacity(contents.count)
                 for itemData in contents {
                     // Try to parse as podcast show first (for podcast search continuation)
                     if let show = Self.parsePodcastShowFromSearchResult(itemData) {

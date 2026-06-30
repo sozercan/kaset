@@ -20,14 +20,37 @@ enum ParsingHelpers {
     ///   - components: Additional identifying components (first item ID, index, etc.)
     /// - Returns: A stable hex string ID derived from the content hash
     static func stableId(title: String, components: String...) -> String {
-        var combined = title
+        var reservedCapacity = title.utf8.count
         for component in components {
-            combined += "|" + component
+            reservedCapacity += 1 + component.utf8.count
         }
+
+        var combined = ""
+        combined.reserveCapacity(reservedCapacity)
+        combined += title
+        for component in components {
+            combined.append("|")
+            combined += component
+        }
+
         let data = Data(combined.utf8)
         let hash = SHA256.hash(data: data)
         // Use first 16 bytes (32 hex chars) for a compact but collision-resistant ID
-        return hash.prefix(16).compactMap { String(format: "%02x", $0) }.joined()
+        return Self.hexString(from: hash.prefix(16))
+    }
+
+    private static let lowercaseHexDigits = Array("0123456789abcdef".utf8)
+
+    private static func hexString(from bytes: some Sequence<UInt8>) -> String {
+        var output: [UInt8] = []
+        output.reserveCapacity(32)
+
+        for byte in bytes {
+            output.append(Self.lowercaseHexDigits[Int(byte >> 4)])
+            output.append(Self.lowercaseHexDigits[Int(byte & 0x0F)])
+        }
+
+        return String(bytes: output, encoding: .utf8) ?? ""
     }
 
     /// Keywords used to identify chart sections for special rendering.
@@ -63,7 +86,7 @@ enum ParsingHelpers {
                let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
                let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
             {
-                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return self.normalizedThumbnailURLs(from: thumbnails)
             }
 
             // Try croppedSquareThumbnailRenderer (used in library playlists)
@@ -71,12 +94,12 @@ enum ParsingHelpers {
                let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
                let thumbList = thumbnails["thumbnails"] as? [[String: Any]]
             {
-                return thumbList.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return Self.normalizedThumbnailURLs(from: thumbList)
             }
 
             // Direct thumbnails array
             if let thumbnails = thumbnail["thumbnails"] as? [[String: Any]] {
-                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return Self.normalizedThumbnailURLs(from: thumbnails)
             }
         }
 
@@ -86,14 +109,14 @@ enum ParsingHelpers {
                let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
                let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
             {
-                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return Self.normalizedThumbnailURLs(from: thumbnails)
             }
 
             if let croppedRenderer = thumbnailRenderer["croppedSquareThumbnailRenderer"] as? [String: Any],
                let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
                let thumbList = thumbnails["thumbnails"] as? [[String: Any]]
             {
-                return thumbList.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return Self.normalizedThumbnailURLs(from: thumbList)
             }
         }
 
@@ -103,16 +126,107 @@ enum ParsingHelpers {
                let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
                let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
             {
-                return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+                return Self.normalizedThumbnailURLs(from: thumbnails)
             }
         }
 
         // Try direct thumbnails array at top level
         if let thumbnails = data["thumbnails"] as? [[String: Any]] {
-            return thumbnails.compactMap { $0["url"] as? String }.map(self.normalizeURL)
+            return Self.normalizedThumbnailURLs(from: thumbnails)
         }
 
         return []
+    }
+
+    private static func normalizedThumbnailURLs(from thumbnails: [[String: Any]]) -> [String] {
+        var urls: [String] = []
+        urls.reserveCapacity(thumbnails.count)
+
+        for thumbnail in thumbnails {
+            if let url = thumbnail["url"] as? String {
+                urls.append(Self.normalizeURL(url))
+            }
+        }
+
+        return urls
+    }
+
+    /// Extracts the largest/last thumbnail URL from YouTube Music thumbnail structures.
+    static func extractThumbnailURL(from data: [String: Any]) -> URL? {
+        guard let urlString = extractLastThumbnailURLString(from: data) else {
+            return nil
+        }
+        return URL(string: urlString)
+    }
+
+    private static func extractLastThumbnailURLString(from data: [String: Any]) -> String? {
+        if let thumbnail = data["thumbnail"] as? [String: Any] {
+            if let musicThumbnailRenderer = thumbnail["musicThumbnailRenderer"] as? [String: Any],
+               let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
+               let thumbnails = thumbData["thumbnails"] as? [[String: Any]],
+               let url = lastNormalizedThumbnailURL(from: thumbnails)
+            {
+                return url
+            }
+
+            if let croppedRenderer = thumbnail["croppedSquareThumbnailRenderer"] as? [String: Any],
+               let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
+               let thumbList = thumbnails["thumbnails"] as? [[String: Any]],
+               let url = Self.lastNormalizedThumbnailURL(from: thumbList)
+            {
+                return url
+            }
+
+            if let thumbnails = thumbnail["thumbnails"] as? [[String: Any]],
+               let url = Self.lastNormalizedThumbnailURL(from: thumbnails)
+            {
+                return url
+            }
+        }
+
+        if let thumbnailRenderer = data["thumbnailRenderer"] as? [String: Any] {
+            if let musicThumbnailRenderer = thumbnailRenderer["musicThumbnailRenderer"] as? [String: Any],
+               let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
+               let thumbnails = thumbData["thumbnails"] as? [[String: Any]],
+               let url = Self.lastNormalizedThumbnailURL(from: thumbnails)
+            {
+                return url
+            }
+
+            if let croppedRenderer = thumbnailRenderer["croppedSquareThumbnailRenderer"] as? [String: Any],
+               let thumbnails = croppedRenderer["thumbnail"] as? [String: Any],
+               let thumbList = thumbnails["thumbnails"] as? [[String: Any]],
+               let url = Self.lastNormalizedThumbnailURL(from: thumbList)
+            {
+                return url
+            }
+        }
+
+        if let foregroundThumbnail = data["foregroundThumbnail"] as? [String: Any],
+           let musicThumbnailRenderer = foregroundThumbnail["musicThumbnailRenderer"] as? [String: Any],
+           let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
+           let thumbnails = thumbData["thumbnails"] as? [[String: Any]],
+           let url = Self.lastNormalizedThumbnailURL(from: thumbnails)
+        {
+            return url
+        }
+
+        if let thumbnails = data["thumbnails"] as? [[String: Any]],
+           let url = Self.lastNormalizedThumbnailURL(from: thumbnails)
+        {
+            return url
+        }
+
+        return nil
+    }
+
+    private static func lastNormalizedThumbnailURL(from thumbnails: [[String: Any]]) -> String? {
+        for thumbnail in thumbnails.reversed() {
+            if let url = thumbnail["url"] as? String {
+                return self.normalizeURL(url)
+            }
+        }
+        return nil
     }
 
     /// Extracts artists from subtitle data.
@@ -445,13 +559,18 @@ enum ParsingHelpers {
 
     /// Parses a duration string (e.g., "3:45") into seconds.
     static func parseDuration(_ text: String) -> TimeInterval? {
-        let components = text.split(separator: ":").compactMap { Int($0) }
-        if components.count == 2 {
-            return TimeInterval(components[0] * 60 + components[1])
-        } else if components.count == 3 {
-            return TimeInterval(components[0] * 3600 + components[1] * 60 + components[2])
+        let components = text.split(separator: ":")
+        guard components.count == 2 || components.count == 3 else {
+            return nil
         }
-        return nil
+
+        var totalSeconds = 0
+        for component in components {
+            guard let value = Int(component) else { return nil }
+            totalSeconds = totalSeconds * 60 + value
+        }
+
+        return TimeInterval(totalSeconds)
     }
 
     /// Extracts subtitle from flex columns.
@@ -459,15 +578,24 @@ enum ParsingHelpers {
     static func extractSubtitleFromFlexColumns(_ data: [String: Any]) -> String? {
         if let flexColumns = data["flexColumns"] as? [[String: Any]],
            flexColumns.count > 1,
-           let secondColumn = flexColumns[safe: 1],
-           let renderer = secondColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+           let renderer = flexColumns[1]["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
            let text = renderer["text"] as? [String: Any],
            let runs = text["runs"] as? [[String: Any]]
         {
-            let subtitle = runs.compactMap { $0["text"] as? String }.joined()
+            let subtitle = Self.joinedText(from: runs)
             return subtitle.isEmpty ? nil : subtitle
         }
         return nil
+    }
+
+    private static func joinedText(from runs: [[String: Any]]) -> String {
+        var text = ""
+        for run in runs {
+            if let runText = run["text"] as? String {
+                text += runText
+            }
+        }
+        return text
     }
 
     /// Extracts song count from flex columns subtitle (e.g., "Playlist • 145 songs" → 145).
@@ -495,17 +623,40 @@ enum ParsingHelpers {
 
     /// Extracts song count from subtitle text (e.g., "Playlist • YouTube Music • 145 songs" → 145).
     static func extractSongCount(from text: String) -> Int? {
-        // Match patterns like "145 songs", "1 song", or "2,429 tracks"
-        guard let regex = try? NSRegularExpression(
-            pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
-            options: .caseInsensitive
-        ),
-            let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-            let countRange = Range(match.range(at: 1), in: text)
-        else {
-            return nil
+        let components = text.split(whereSeparator: \.isWhitespace)
+        guard components.count >= 2 else { return nil }
+
+        for index in components.indices.dropFirst() {
+            let unit = components[index]
+                .trimmingCharacters(in: .punctuationCharacters)
+                .lowercased()
+            guard unit == "song" || unit == "songs" || unit == "track" || unit == "tracks" else {
+                continue
+            }
+
+            let countText = components[components.index(before: index)]
+            var normalizedCount = ""
+            normalizedCount.reserveCapacity(countText.count)
+
+            var hasInvalidCharacter = false
+            for character in countText {
+                if character.isNumber {
+                    normalizedCount.append(character)
+                } else if character != "," {
+                    hasInvalidCharacter = true
+                    break
+                }
+            }
+
+            if !hasInvalidCharacter,
+               !normalizedCount.isEmpty,
+               let count = Int(normalizedCount)
+            {
+                return count
+            }
         }
-        return Int(text[countRange].replacingOccurrences(of: ",", with: ""))
+
+        return nil
     }
 
     /// Extracts title from flex columns.
@@ -533,20 +684,35 @@ enum ParsingHelpers {
     }
 
     private static func isMetadataText(_ text: String) -> Bool {
-        if self.contentTypeKeywords.contains(text)
-            || self.parseDuration(text) != nil
-            || self.isNaturalLanguageDuration(text)
-            || self.extractSongCount(from: text) != nil
-            || self.isStandaloneYear(text)
-        {
+        if self.contentTypeKeywords.contains(text) {
             return true
         }
 
         let lowercased = text.lowercased()
-        return lowercased.contains(" views")
+
+        if lowercased.contains(" views")
             || lowercased.contains(" plays")
             || lowercased.contains(" subscribers")
             || lowercased.contains("episodes")
+        {
+            return true
+        }
+
+        if text.contains(":"), self.parseDuration(text) != nil {
+            return true
+        }
+
+        if self.containsDurationUnit(in: lowercased), self.isNaturalLanguageDuration(text) {
+            return true
+        }
+
+        if lowercased.contains("song") || lowercased.contains("track") {
+            if self.extractSongCount(from: text) != nil {
+                return true
+            }
+        }
+
+        return self.isStandaloneYear(text)
     }
 
     private static func isStandaloneYear(_ text: String) -> Bool {
@@ -563,9 +729,8 @@ enum ParsingHelpers {
 
     private static func isNaturalLanguageDuration(_ text: String) -> Bool {
         let lowercased = text.lowercased()
-        let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
 
-        guard durationUnits.contains(where: { lowercased.contains($0) }) else {
+        guard Self.containsDurationUnit(in: lowercased) else {
             return false
         }
 
@@ -573,8 +738,15 @@ enum ParsingHelpers {
             character.isNumber
                 || character.isWhitespace
                 || character == ","
-                || durationUnits.joined().contains(character)
+                || Self.durationUnitCharacters.contains(character)
         }
+    }
+
+    private static let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
+    private static let durationUnitCharacters = Set("secondsecondsminuteminuteshourhours")
+
+    private static func containsDurationUnit(in lowercasedText: String) -> Bool {
+        self.durationUnits.contains { lowercasedText.contains($0) }
     }
 
     /// Extracts artists from flex columns.
@@ -583,13 +755,15 @@ enum ParsingHelpers {
 
         guard let flexColumns = data["flexColumns"] as? [[String: Any]],
               flexColumns.count > 1,
-              let secondColumn = flexColumns[safe: 1],
-              let renderer = secondColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+              let renderer = flexColumns[1]["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
               let text = renderer["text"] as? [String: Any],
               let runs = text["runs"] as? [[String: Any]]
         else {
             return []
         }
+
+        artists.reserveCapacity(runs.count)
+        var fallbackArtistName: String?
 
         for run in runs {
             guard let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -610,6 +784,11 @@ enum ParsingHelpers {
                     name: artistName,
                     profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
                 ))
+            } else if fallbackArtistName == nil,
+                      run["navigationEndpoint"] == nil,
+                      !Self.isMetadataText(artistName)
+            {
+                fallbackArtistName = artistName
             }
         }
 
@@ -620,15 +799,7 @@ enum ParsingHelpers {
         // Uploaded songs often expose artist metadata as plain text, without a
         // browse endpoint. Preserve that text so playlist rows do not show an
         // empty artist line.
-        guard let artistName = runs.compactMap({ run -> String? in
-            guard run["navigationEndpoint"] == nil,
-                  let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !artistName.isEmpty,
-                  !Self.isArtistSeparator(artistName),
-                  !Self.isMetadataText(artistName)
-            else { return nil }
-            return artistName
-        }).first else {
+        guard let artistName = fallbackArtistName else {
             return []
         }
 
@@ -648,8 +819,7 @@ enum ParsingHelpers {
         // Album is typically in the second or third column
         // Look through columns 1, 2, and 3 (indices 1, 2, 3) for album data
         for columnIndex in 1 ..< min(4, flexColumns.count) {
-            guard let column = flexColumns[safe: columnIndex],
-                  let renderer = column["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+            guard let renderer = flexColumns[columnIndex]["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
                   let text = renderer["text"] as? [String: Any],
                   let runs = text["runs"] as? [[String: Any]]
             else {

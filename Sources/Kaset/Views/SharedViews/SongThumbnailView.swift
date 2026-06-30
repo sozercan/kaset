@@ -74,8 +74,13 @@ struct SongThumbnailView: View {
         }
     }
 
+    private var targetSize: CGSize {
+        let dimension = max(self.size, 1)
+        return CGSize(width: dimension, height: dimension)
+    }
+
     var body: some View {
-        CachedAsyncImage(url: self.activeURL, onFailure: self.failureHandler) { image in
+        CachedAsyncImage(url: self.activeURL, targetSize: self.targetSize, onFailure: self.failureHandler) { image in
             image
                 .resizable()
                 .aspectRatio(contentMode: .fill)

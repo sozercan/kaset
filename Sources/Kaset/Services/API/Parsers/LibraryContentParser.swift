@@ -212,14 +212,13 @@ enum LibraryContentParser {
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         return LibraryItemCandidate(
             sourceName: "parseLibraryItem",
             browseId: browseId,
             browseEndpoint: browseEndpoint,
             title: ParsingHelpers.extractTitle(from: data) ?? "Unknown",
             subtitle: ParsingHelpers.extractSubtitle(from: data),
-            thumbnailURL: thumbnails.last.flatMap { URL(string: $0) },
+            thumbnailURL: ParsingHelpers.extractThumbnailURL(from: data),
             allowsRadioPlaylist: true,
             renderer: data
         )
@@ -234,14 +233,13 @@ enum LibraryContentParser {
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         return LibraryItemCandidate(
             sourceName: "parseLibraryItemFromResponsive",
             browseId: browseId,
             browseEndpoint: browseEndpoint,
             title: ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown",
             subtitle: ParsingHelpers.extractSubtitleFromFlexColumns(data),
-            thumbnailURL: thumbnails.last.flatMap { URL(string: $0) },
+            thumbnailURL: ParsingHelpers.extractThumbnailURL(from: data),
             allowsRadioPlaylist: false,
             renderer: data
         )

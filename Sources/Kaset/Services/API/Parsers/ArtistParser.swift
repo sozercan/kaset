@@ -413,8 +413,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                     .joined()
             }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         let isLive = (data["badges"] as? [[String: Any]])?
             .contains { $0["liveBadgeRenderer"] != nil } ?? false
@@ -435,8 +434,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
     ) -> PodcastShow? {
         let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown Show"
         let author = ParsingHelpers.extractSubtitle(from: data)
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         return PodcastShow(
             id: browseId,
@@ -455,8 +453,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         guard let name = ParsingHelpers.extractTitle(from: data) else {
             return nil
         }
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         return Artist(id: browseId, name: name, thumbnailURL: thumbnailURL)
     }
 
@@ -467,8 +464,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         guard let title = ParsingHelpers.extractTitle(from: data) else {
             return nil
         }
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let author = ParsingHelpers.extractSubtitle(from: data)
 
         return Playlist(
@@ -490,8 +486,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown Album"
 
         var year: String?
@@ -548,8 +543,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                 result.description = runs.compactMap { $0["text"] as? String }.joined()
             }
 
-            let thumbnails = ParsingHelpers.extractThumbnails(from: immersiveHeader)
-            result.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            result.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: immersiveHeader)
 
             // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: immersiveHeader, into: &result)
@@ -571,8 +565,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                 result.name = text
             }
 
-            let thumbnails = ParsingHelpers.extractThumbnails(from: visualHeader)
-            result.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            result.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: visualHeader)
 
             // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: visualHeader, into: &result)
@@ -738,6 +731,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
     private static func parseTracksFromItems(_ items: [[String: Any]], fallbackThumbnailURL: URL? = nil) -> [Song] {
         var tracks: [Song] = []
+        tracks.reserveCapacity(items.count)
 
         for itemData in items {
             guard let responsiveRenderer = itemData["musicResponsiveListItemRenderer"] as? [String: Any] else {
@@ -750,8 +744,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
             let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
             let artists = ParsingHelpers.extractArtistsFromFlexColumns(responsiveRenderer)
-            let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
-            let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) } ?? fallbackThumbnailURL
+            let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer) ?? fallbackThumbnailURL
             let duration = ParsingHelpers.extractDurationFromFlexColumns(responsiveRenderer)
             let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
             let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
@@ -788,8 +781,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown"
         let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
         let subtitleText = self.parseCarouselSubtitle(from: data)
