@@ -438,64 +438,13 @@ final class PlaylistDetailViewModel {
 
         do {
             let response = try await client.getPlaylistContinuation(token: continuationToken)
-
-            // Build a set of existing video IDs for deduplication
-            let existingVideoIds = Set(currentDetail.tracks.map(\.videoId))
-            guard self.isCurrentLoadGeneration(generation) else { return false }
-            guard !Task.isCancelled else {
-                self.loadingState = .loaded
-                return false
-            }
-
-            // Filter out duplicates from the new tracks
-            let newTracks = response.tracks.filter { !existingVideoIds.contains($0.videoId) }
-
-            // If no new unique tracks were added, stop pagination
-            // This handles radio playlists that return overlapping data
-            if newTracks.isEmpty {
-                self.hasMore = false
-                self.continuationToken = nil
-                self.loadingState = .loaded
-                self.logger.info("No new unique tracks in continuation, stopping pagination")
-                return false
-            }
-
-            let normalizedNewTracks: [Song] = if self.isLikedMusicPlaylist {
-                self.markSongsAsLiked(newTracks)
-            } else {
-                newTracks
-            }
-
-            // Append only new tracks to existing playlist
-            let allTracks = currentDetail.tracks + normalizedNewTracks
-            let preservedTrackCount = max(allTracks.count, currentDetail.trackCount ?? 0)
-            let updatedPlaylist = Playlist(
-                id: currentDetail.id,
-                title: currentDetail.title,
-                description: currentDetail.description,
-                thumbnailURL: currentDetail.thumbnailURL,
-                trackCount: preservedTrackCount,
-                author: currentDetail.author,
-                canDelete: currentDetail.canDelete
+            let batch = ContinuationDrainBatch(
+                generation: generation ?? self.loadGeneration,
+                continuation: continuationToken,
+                currentDetail: currentDetail,
+                isLikedMusicPlaylist: self.isLikedMusicPlaylist
             )
-            self.playlistDetail = PlaylistDetail(
-                playlist: updatedPlaylist,
-                tracks: allTracks,
-                duration: currentDetail.duration
-            )
-
-            if self.isLikedMusicPlaylist {
-                for song in normalizedNewTracks {
-                    SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
-                }
-            }
-
-            self.continuationToken = response.continuationToken
-            self.hasMore = response.hasMore
-
-            self.loadingState = .loaded
-            self.logger.info("Loaded \(normalizedNewTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
-            return true
+            return self.applyRemainingTracksResponse(response, batch: batch)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return false }
             self.logger.debug("Playlist continuation cancelled")

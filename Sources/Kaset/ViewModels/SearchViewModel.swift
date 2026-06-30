@@ -14,6 +14,7 @@ final class SearchViewModel {
         didSet {
             self.searchTask?.cancel()
             self.suggestionsTask?.cancel()
+            self.allSearchEnrichmentID = nil
             if self.query != self.suppressedSuggestionsQuery {
                 self.suppressedSuggestionsQuery = nil
             }
@@ -47,7 +48,10 @@ final class SearchViewModel {
 
     /// Whether filters should be shown for the current search.
     var shouldShowFilters: Bool {
-        guard !self.query.isEmpty, self.lastSearchedQuery == self.query else {
+        guard !self.query.isEmpty,
+              self.lastSearchedQuery == self.query,
+              self.allSearchEnrichmentID == nil
+        else {
             return false
         }
 
@@ -160,6 +164,12 @@ final class SearchViewModel {
         let error: (any Error)?
     }
 
+    /// Non-nil while an All-filter search has published its mixed first paint
+    /// but is still awaiting dedicated category requests. Filter chips stay
+    /// hidden during this window because those category calls can still update
+    /// the shared client continuation token.
+    private var allSearchEnrichmentID: UUID?
+
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
@@ -225,6 +235,7 @@ final class SearchViewModel {
     func search() {
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
+        self.allSearchEnrichmentID = nil
         self.suggestions = []
         self.suppressedSuggestionsQuery = self.query
         self.client.clearSearchContinuation()
@@ -249,6 +260,7 @@ final class SearchViewModel {
     func searchImmediately() {
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
+        self.allSearchEnrichmentID = nil
         self.suggestions = []
         self.suppressedSuggestionsQuery = self.query
         self.client.clearSearchContinuation()
@@ -267,6 +279,7 @@ final class SearchViewModel {
     /// Performs a search with the current filter (no debounce, called when filter changes).
     private func searchWithFilter() {
         self.searchTask?.cancel()
+        self.allSearchEnrichmentID = nil
         self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
@@ -288,6 +301,15 @@ final class SearchViewModel {
         self.loadingState = .loading
         let currentQuery = self.query
         let currentFilter = self.selectedFilter
+        let allSearchEnrichmentID = currentFilter == .all ? UUID() : nil
+        if let allSearchEnrichmentID {
+            self.allSearchEnrichmentID = allSearchEnrichmentID
+        }
+        defer {
+            if let allSearchEnrichmentID, self.allSearchEnrichmentID == allSearchEnrichmentID {
+                self.allSearchEnrichmentID = nil
+            }
+        }
         self.logger.info("Searching for: \(currentQuery) with filter: \(currentFilter.rawValue)")
 
         do {
@@ -502,6 +524,7 @@ final class SearchViewModel {
         self.lastSearchedQuery = nil
         self.lastSearchedFilter = nil
         self.suppressedSuggestionsQuery = nil
+        self.allSearchEnrichmentID = nil
         self.loadingState = .idle
         self.client.clearSearchContinuation()
     }

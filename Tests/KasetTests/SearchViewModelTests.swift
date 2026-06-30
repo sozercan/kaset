@@ -294,6 +294,7 @@ struct SearchViewModelTests {
             description: "mixed results first paint"
         )
         #expect(self.viewModel.results.albums.isEmpty)
+        #expect(self.viewModel.shouldShowFilters == false)
         #expect(self.mockClient.completedSearchEndpoints == [.mixed])
 
         await categoryGate.open()
@@ -304,6 +305,7 @@ struct SearchViewModelTests {
 
         #expect(self.viewModel.results.songs.map(\.id) == ["mixed-song", "category-song"])
         #expect(self.viewModel.results.albums.map(\.id) == ["MPRE-category"])
+        #expect(self.viewModel.shouldShowFilters == true)
         #expect(self.mockClient.searchQueries.count == 7)
     }
 
@@ -386,28 +388,5 @@ struct SearchViewModelTests {
         #expect(error.isRetryable)
         #expect(self.viewModel.results.isEmpty)
         #expect(self.mockClient.searchQueries.count == 7)
-    }
-}
-
-// MARK: - AsyncGate
-
-private actor AsyncGate {
-    private var isOpen = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    func wait() async {
-        if self.isOpen { return }
-        await withCheckedContinuation { continuation in
-            self.waiters.append(continuation)
-        }
-    }
-
-    func open() {
-        self.isOpen = true
-        let waiters = self.waiters
-        self.waiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
     }
 }

@@ -392,6 +392,45 @@ struct PlaylistDetailViewModelTests {
         #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
     }
 
+    @Test("Manual load more preserves live removal after background drain failure")
+    func manualLoadMorePreservesLiveRemovalAfterBackgroundDrainFailure() async {
+        let initialTracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks, trackCount: 3)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
+            [TestFixtures.makeSong(id: "future-unliked", title: "Future Unliked")],
+            [TestFixtures.makeSong(id: "liked-3", title: "Liked 3")],
+        ]
+        self.mockClient.playlistContinuationDelay = .milliseconds(200)
+
+        await likedMusicViewModel.load()
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationCallCount == 1,
+            description: "failed background continuation to start"
+        )
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationReturnCount == 1 && likedMusicViewModel.loadingState == .loaded,
+            description: "failed background continuation to return"
+        )
+        self.mockClient.shouldThrowError = nil
+        self.mockClient.playlistContinuationDelay = nil
+
+        #expect(likedMusicViewModel.hasMore == true)
+        likedMusicViewModel.handleLikeStatusChange(
+            LikeStatusEvent(videoId: "future-unliked", status: .indifferent, song: nil)
+        )
+
+        await likedMusicViewModel.loadMore()
+        await likedMusicViewModel.loadMore()
+
+        let videoIds = likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(videoIds == ["liked-1", "liked-3"])
+        #expect(videoIds.contains("future-unliked") == false)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
+        #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
+        #expect(likedMusicViewModel.hasMore == false)
+    }
+
     @Test("Live-synced duplicate page advances continuation drain")
     func liveSyncedDuplicatePageAdvancesContinuationDrain() async {
         let initialTracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
