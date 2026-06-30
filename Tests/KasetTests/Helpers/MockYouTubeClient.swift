@@ -15,6 +15,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var homeTopicFeeds: [String: YouTubeFeed] = [:]
     var homeTopicError: (continuation: String, error: Error)?
     var searchResponse = YouTubeSearchResponse.empty
+    var searchResponsesByRequest: [String: YouTubeSearchResponse] = [:]
     var searchContinuation: YouTubeSearchResponse?
     var watchNextData = WatchNextData.empty
     var channelDetail: YouTubeChannelDetail?
@@ -29,6 +30,10 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var searchCallCount = 0
     private(set) var lastSearchQuery: String?
     private(set) var lastSearchFilter: YouTubeSearchFilter?
+
+    nonisolated static func searchKey(query: String, filter: YouTubeSearchFilter) -> String {
+        "\(filter.rawValue)|\(query)"
+    }
 
     var hasMoreHomeFeed: Bool {
         // When a multi-page queue is configured it drives "has more"; otherwise
@@ -115,19 +120,41 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeTopicFeeds[continuation] ?? .empty
     }
 
+    /// Awaited inside `search` before it returns, so a test can hold one
+    /// search request open while a newer query/filter search completes first.
+    var beforeSearchReturn: (@Sendable (String, YouTubeSearchFilter) async -> Void)?
+
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
         if let error { throw error }
         self.searchCallCount += 1
         self.lastSearchQuery = query
         self.lastSearchFilter = filter
-        return self.searchResponse
+        if let beforeSearchReturn {
+            await beforeSearchReturn(query, filter)
+        }
+        let key = Self.searchKey(query: query, filter: filter)
+        return self.searchResponsesByRequest[key] ?? self.searchResponse
     }
 
+    /// Awaited inside `getSearchContinuation` before it returns, so a test can
+    /// hold a pagination request open while a newer search replaces results.
+    var beforeSearchContinuationReturn: (@Sendable () async -> Void)?
+
     func getSearchContinuation() async throws -> YouTubeSearchResponse? {
+        guard let currentContinuation = self.searchContinuation?.continuation else { return nil }
+        return try await self.getSearchContinuation(continuation: currentContinuation)
+    }
+
+    func getSearchContinuation(continuation _: String) async throws -> YouTubeSearchResponse? {
         if let error { throw error }
-        let continuation = self.searchContinuation
-        self.searchContinuation = nil
-        return continuation
+        let response = self.searchContinuation
+        if let beforeSearchContinuationReturn {
+            await beforeSearchContinuationReturn()
+        }
+        if self.searchContinuation?.continuation == response?.continuation {
+            self.searchContinuation = nil
+        }
+        return response
     }
 
     func getWatchNext(videoId _: String) async throws -> WatchNextData {
