@@ -1,0 +1,124 @@
+import AppKit
+import Testing
+@testable import Kaset
+
+@Suite("Dock menu Like item", .serialized)
+@MainActor
+struct AppDelegateDockMenuTests {
+    init() {
+        // Neutralize the shared like-status singleton so the optimistic-update
+        // Task spawned by likeCurrentTrack() can't leak across tests.
+        SongLikeStatusManager.shared.clearCache()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
+    }
+
+    private func likeItem(_ delegate: AppDelegate) -> NSMenuItem? {
+        let menu = delegate.applicationDockMenu(NSApplication.shared)
+        // Locate structurally by action selector so the lookup is locale-independent
+        // (the title is localized); title equality is asserted separately.
+        return menu?.items.first { $0.action == NSSelectorFromString("dockMenuToggleLike") }
+    }
+
+    @Test("Disabled and reads 'Like' for a live player with no current track")
+    func disabledWithNoTrack() {
+        let delegate = AppDelegate()
+        // playerService is a weak var; the strong local keeps the live player
+        // alive so we exercise the no-track path, not the nil-player path.
+        let player = PlayerService()
+        delegate.playerService = player
+        #expect(player.currentTrack == nil)
+
+        let item = self.likeItem(delegate)
+
+        #expect(item?.title == "Like")
+        #expect(item?.isEnabled == false)
+    }
+
+    @Test("Reads 'Like' and is enabled for an unliked current track")
+    func likeForUnlikedTrack() {
+        let delegate = AppDelegate()
+        let player = PlayerService()
+        player.currentTrack = TestFixtures.makeSong(id: "v1")
+        player.currentTrackLikeStatus = .indifferent
+        delegate.playerService = player
+
+        let item = self.likeItem(delegate)
+
+        #expect(item?.title == "Like")
+        #expect(item?.isEnabled == true)
+    }
+
+    @Test("Reads 'Unlike' for an already-liked current track")
+    func unlikeForLikedTrack() {
+        let delegate = AppDelegate()
+        let player = PlayerService()
+        player.currentTrack = TestFixtures.makeSong(id: "v1")
+        player.currentTrackLikeStatus = .like
+        delegate.playerService = player
+
+        let item = self.likeItem(delegate)
+
+        #expect(item?.title == "Unlike")
+        #expect(item?.isEnabled == true)
+    }
+
+    @Test("Triggering the item toggles the like state via likeCurrentTrack()")
+    func triggeringItemTogglesLike() {
+        let delegate = AppDelegate()
+        let player = PlayerService()
+        player.currentTrack = TestFixtures.makeSong(id: "v1")
+        player.currentTrackLikeStatus = .indifferent
+        delegate.playerService = player
+
+        let item = self.likeItem(delegate)
+        #expect(item?.target === delegate)
+
+        guard let action = item?.action else {
+            Issue.record("Like item has no action wired")
+            return
+        }
+        _ = delegate.perform(action)
+
+        // likeCurrentTrack() applies a synchronous optimistic update before its
+        // async API call, so the toggle is observable immediately. This proves
+        // the item is wired to like (not dislike) and the handler is not a no-op.
+        #expect(player.currentTrackLikeStatus == .like)
+    }
+
+    @Test("Triggering the item un-likes an already-liked track")
+    func triggeringItemUnlikesLikedTrack() {
+        let delegate = AppDelegate()
+        let player = PlayerService()
+        player.currentTrack = TestFixtures.makeSong(id: "v1")
+        player.currentTrackLikeStatus = .like
+        delegate.playerService = player
+
+        let item = self.likeItem(delegate)
+        guard let action = item?.action else {
+            Issue.record("Like item has no action wired")
+            return
+        }
+        _ = delegate.perform(action)
+
+        // The optimistic toggle takes a liked track back to indifferent — the
+        // un-like direction that makes the "Unlike" title truthful.
+        #expect(player.currentTrackLikeStatus == .indifferent)
+    }
+
+    @Test("Transport items stay enabled even with no current track")
+    func transportItemsEnabledWithNoTrack() {
+        let delegate = AppDelegate()
+        let player = PlayerService()
+        delegate.playerService = player
+        #expect(player.currentTrack == nil)
+
+        // autoenablesItems = false means each item manages its own isEnabled. The
+        // transport items rely on NSMenuItem's default (enabled); guard that the
+        // Like item's menu-wide switch never silently greys them out.
+        let menu = delegate.applicationDockMenu(NSApplication.shared)
+        for title in ["Play/Pause", "Next Track", "Previous Track"] {
+            let item = menu?.items.first { $0.title == title }
+            #expect(item?.isEnabled == true, "\(title) should remain enabled under autoenablesItems = false")
+        }
+    }
+}

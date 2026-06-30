@@ -133,6 +133,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDockMenu(_: NSApplication) -> NSMenu? {
         let menu = NSMenu()
+        // Menu-wide: with auto-enable off, every item must set `isEnabled` itself —
+        // AppKit no longer enables an item just because its target responds to the
+        // action. Required so the Like item can grey out with no track; the transport
+        // items below rely on NSMenuItem's default (enabled). Any future item added
+        // here must set its own isEnabled.
+        menu.autoenablesItems = false
 
         let playPauseItem = NSMenuItem(
             title: "Play/Pause",
@@ -157,6 +163,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         previousItem.target = self
         menu.addItem(previousItem)
+
+        menu.addItem(.separator())
+
+        // Like/Unlike the current track. Title mirrors the player-bar thumbs-up
+        // toggle; disabled when nothing is playing. A disliked track also reads
+        // "Like" — clicking replaces the dislike with a like, matching the player
+        // bar (the dock has no dislike affordance).
+        let isLiked = self.playerService?.currentTrackLikeStatus == .like
+        let likeItem = NSMenuItem(
+            title: isLiked ? String(localized: "Unlike") : String(localized: "Like"),
+            action: #selector(self.dockMenuToggleLike),
+            keyEquivalent: ""
+        )
+        likeItem.target = self
+        likeItem.isEnabled = self.playerService?.currentTrack != nil
+        menu.addItem(likeItem)
 
         return menu
     }
@@ -192,6 +214,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await playerService.previous()
         }
+    }
+
+    @objc private func dockMenuToggleLike() {
+        // Like requires the API-backed SongLikeStatusManager, so there is no
+        // WebView-only fallback like the transport actions have.
+        self.playerService?.likeCurrentTrack()
     }
 
     /// Keep app running when the window is closed (for background audio).
