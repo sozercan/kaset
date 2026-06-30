@@ -3,9 +3,11 @@ import Foundation
 // MARK: - PlayerBarSeekHold
 
 struct PlayerBarSeekHold {
-    static let timeout: Duration = .milliseconds(2200)
+    private static let timeoutMilliseconds = 2200
 
-    private static let timeoutSeconds: TimeInterval = 2.2
+    static let timeout: Duration = .milliseconds(Self.timeoutMilliseconds)
+
+    private static let timeoutSeconds = TimeInterval(Self.timeoutMilliseconds) / 1000
     private static let minimumConfirmationAgeSeconds: TimeInterval = 0.35
     private static let confirmationTolerance: TimeInterval = 1.25
 
@@ -21,18 +23,19 @@ struct PlayerBarSeekHold {
         self.target
     }
 
-    mutating func begin(target: TimeInterval) -> UUID {
+    @discardableResult
+    mutating func begin(target: TimeInterval, issuedAt: Date = Date()) -> UUID {
         let newID = UUID()
         self.target = max(0, target)
-        self.issuedAt = Date()
+        self.issuedAt = issuedAt
         self.id = newID
         return newID
     }
 
-    mutating func reconcile(observedProgress: TimeInterval) {
+    mutating func reconcile(observedProgress: TimeInterval, now: Date = Date()) {
         guard let target, let issuedAt else { return }
 
-        let age = Date().timeIntervalSince(issuedAt)
+        let age = now.timeIntervalSince(issuedAt)
         if age >= Self.timeoutSeconds {
             self.clear()
             return
