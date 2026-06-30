@@ -5,6 +5,18 @@ import Foundation
 /// A mock implementation of YTMusicClientProtocol for testing.
 @MainActor
 final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this type_body_length
+    enum SearchEndpoint: Hashable {
+        case mixed
+        case songs
+        case songsWithPagination
+        case albums
+        case artists
+        case playlists
+        case featuredPlaylists
+        case communityPlaylists
+        case podcasts
+    }
+
     private static func playlistContinuationToken(playlistId: String, index: Int) -> String {
         "mock-playlist-continuation|\(playlistId)|\(index)"
     }
@@ -161,6 +173,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getChartsCallCount = 0
     private(set) var searchCalled = false
     private(set) var searchQueries: [String] = []
+    private(set) var completedSearchEndpoints: [SearchEndpoint] = []
+
+    var beforeSearchReturn: (@Sendable (String, SearchEndpoint) async -> Void)?
+
+    private func waitBeforeSearchReturn(query: String, endpoint: SearchEndpoint) async {
+        if let beforeSearchReturn {
+            await beforeSearchReturn(query, endpoint)
+        }
+    }
+
     private(set) var getSearchSuggestionsCalled = false
     private(set) var getSearchSuggestionsQueries: [String] = []
     private(set) var getLibraryContentCalled = false
@@ -393,6 +415,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .mixed)
+        defer { self.completedSearchEndpoints.append(.mixed) }
         if let error = shouldThrowError { throw error }
         return self.mixedSearchResponse ?? self.searchResponse
     }
@@ -400,6 +424,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func searchSongs(query: String) async throws -> [Song] {
         self.searchCalled = true
         self.searchQueries.append(query)
+        await self.waitBeforeSearchReturn(query: query, endpoint: .songs)
+        defer { self.completedSearchEndpoints.append(.songs) }
         if let error = shouldThrowError { throw error }
         return (self.songsSearchResponse ?? self.searchResponse).songs
     }
@@ -408,6 +434,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .songsWithPagination)
+        defer { self.completedSearchEndpoints.append(.songsWithPagination) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.songsSearchResponse ?? self.searchResponse
@@ -424,6 +452,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .albums)
+        defer { self.completedSearchEndpoints.append(.albums) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.albumsSearchResponse ?? self.searchResponse
@@ -440,6 +470,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .artists)
+        defer { self.completedSearchEndpoints.append(.artists) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.artistsSearchResponse ?? self.searchResponse
@@ -456,6 +488,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .playlists)
+        defer { self.completedSearchEndpoints.append(.playlists) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.playlistsSearchResponse ?? self.searchResponse
@@ -472,6 +506,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .featuredPlaylists)
+        defer { self.completedSearchEndpoints.append(.featuredPlaylists) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.featuredPlaylistsSearchResponse ?? self.searchResponse
@@ -488,6 +524,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .communityPlaylists)
+        defer { self.completedSearchEndpoints.append(.communityPlaylists) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.communityPlaylistsSearchResponse ?? self.searchResponse
@@ -504,6 +542,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = true
         self.searchQueries.append(query)
         self._searchContinuationIndex = 0
+        await self.waitBeforeSearchReturn(query: query, endpoint: .podcasts)
+        defer { self.completedSearchEndpoints.append(.podcasts) }
         if let error = shouldThrowError { throw error }
         let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.podcastsSearchResponse ?? self.searchResponse
@@ -958,6 +998,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._likedSongsContinuationIndex = 0
         self.searchCalled = false
         self.searchQueries = []
+        self.completedSearchEndpoints = []
+        self.beforeSearchReturn = nil
         self.getSearchSuggestionsCalled = false
         self.getSearchSuggestionsQueries = []
         self.getLibraryContentCalled = false

@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - SearchViewModelTests
+
 /// Tests for SearchViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
@@ -29,6 +31,27 @@ struct SearchViewModelTests {
         }
 
         Issue.record("Timed out waiting for suggestion fetch for query: \(query)")
+    }
+
+    private func waitUntil(
+        _ condition: @autoclosure () -> Bool,
+        description: String,
+        timeout: Duration = .seconds(3)
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        Issue.record("Timed out waiting for \(description)")
+    }
+
+    private var isErrorLoadingState: Bool {
+        if case .error = self.viewModel.loadingState { return true }
+        return false
     }
 
     @Test("Initial state is idle with empty query")
@@ -162,7 +185,10 @@ struct SearchViewModelTests {
         self.viewModel.selectedFilter = .artists
 
         self.viewModel.searchImmediately()
-        try? await Task.sleep(for: .milliseconds(25))
+        await self.waitUntil(
+            self.viewModel.loadingState == .loaded,
+            description: "filtered search to load"
+        )
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.filteredItems.isEmpty)
@@ -215,7 +241,10 @@ struct SearchViewModelTests {
         self.viewModel.query = "lofi"
         self.viewModel.selectedFilter = .all
         self.viewModel.searchImmediately()
-        try? await Task.sleep(for: .milliseconds(50))
+        await self.waitUntil(
+            self.viewModel.filteredItems.count == 6,
+            description: "all-filter aggregate results"
+        )
 
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.filteredItems.count == 6)
@@ -227,6 +256,115 @@ struct SearchViewModelTests {
         #expect(self.mockClient.searchQueries.count == 7)
     }
 
+    @Test("All filter publishes mixed results before category searches complete")
+    func allFilterPublishesMixedResultsBeforeCategorySearchesComplete() async {
+        let categoryGate = AsyncGate()
+        let mixedSong = TestFixtures.makeSong(id: "mixed-song", title: "Mixed Song")
+        let categorySong = TestFixtures.makeSong(id: "category-song", title: "Category Song")
+        self.mockClient.mixedSearchResponse = SearchResponse(
+            songs: [mixedSong],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.mockClient.songsSearchResponse = SearchResponse(
+            songs: [categorySong],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.mockClient.albumsSearchResponse = SearchResponse(
+            songs: [],
+            albums: [TestFixtures.makeAlbum(id: "MPRE-category", title: "Category Album")],
+            artists: [],
+            playlists: []
+        )
+        self.mockClient.beforeSearchReturn = { _, endpoint in
+            if endpoint != .mixed {
+                await categoryGate.wait()
+            }
+        }
+
+        self.viewModel.query = "lofi"
+        self.viewModel.selectedFilter = .all
+        self.viewModel.searchImmediately()
+
+        await self.waitUntil(
+            self.viewModel.results.songs.map(\.id) == ["mixed-song"] && self.viewModel.loadingState == .loaded,
+            description: "mixed results first paint"
+        )
+        #expect(self.viewModel.results.albums.isEmpty)
+        #expect(self.mockClient.completedSearchEndpoints == [.mixed])
+
+        await categoryGate.open()
+        await self.waitUntil(
+            self.viewModel.results.songs.map(\.id).contains("category-song") && self.viewModel.results.albums.count == 1,
+            description: "category-enriched all-filter results"
+        )
+
+        #expect(self.viewModel.results.songs.map(\.id) == ["mixed-song", "category-song"])
+        #expect(self.viewModel.results.albums.map(\.id) == ["MPRE-category"])
+        #expect(self.mockClient.searchQueries.count == 7)
+    }
+
+    @Test("All filter discards delayed category results after query changes")
+    func allFilterDiscardsDelayedCategoryResultsAfterQueryChanges() async {
+        let oldCategoryGate = AsyncGate()
+        self.mockClient.beforeSearchReturn = { query, endpoint in
+            if query == "old", endpoint != .mixed {
+                await oldCategoryGate.wait()
+            }
+        }
+        self.mockClient.mixedSearchResponse = SearchResponse(
+            songs: [TestFixtures.makeSong(id: "old-mixed", title: "Old Mixed")],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.mockClient.songsSearchResponse = SearchResponse(
+            songs: [TestFixtures.makeSong(id: "old-category", title: "Old Category")],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+
+        self.viewModel.query = "old"
+        self.viewModel.selectedFilter = .all
+        self.viewModel.searchImmediately()
+        await self.waitUntil(
+            self.viewModel.results.songs.map(\.id) == ["old-mixed"],
+            description: "old mixed first paint"
+        )
+
+        self.mockClient.mixedSearchResponse = SearchResponse(
+            songs: [TestFixtures.makeSong(id: "new-mixed", title: "New Mixed")],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.mockClient.songsSearchResponse = SearchResponse(
+            songs: [TestFixtures.makeSong(id: "new-category", title: "New Category")],
+            albums: [],
+            artists: [],
+            playlists: []
+        )
+        self.viewModel.query = "new"
+        self.viewModel.searchImmediately()
+        await self.waitUntil(
+            self.viewModel.results.songs.map(\.id).contains("new-category"),
+            description: "new all-filter final results"
+        )
+
+        await oldCategoryGate.open()
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.viewModel.results.songs.map(\.id) == ["new-mixed", "new-category"])
+        #expect(self.viewModel.results.songs.map(\.id).contains("old-category") == false)
+        #expect(self.viewModel.loadingState == .loaded)
+    }
+
     @Test("All filter reports error when every aggregate request fails")
     func allFilterReportsErrorWhenEveryAggregateRequestFails() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
@@ -234,7 +372,10 @@ struct SearchViewModelTests {
         self.viewModel.query = "lofi"
         self.viewModel.selectedFilter = .all
         self.viewModel.searchImmediately()
-        try? await Task.sleep(for: .milliseconds(50))
+        await self.waitUntil(
+            self.isErrorLoadingState,
+            description: "all-filter error"
+        )
 
         guard case let .error(error) = self.viewModel.loadingState else {
             Issue.record("Expected all-filter total failure to surface an error")
@@ -245,5 +386,28 @@ struct SearchViewModelTests {
         #expect(error.isRetryable)
         #expect(self.viewModel.results.isEmpty)
         #expect(self.mockClient.searchQueries.count == 7)
+    }
+}
+
+// MARK: - AsyncGate
+
+private actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if self.isOpen { return }
+        await withCheckedContinuation { continuation in
+            self.waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        self.isOpen = true
+        let waiters = self.waiters
+        self.waiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
     }
 }
