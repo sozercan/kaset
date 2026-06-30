@@ -843,11 +843,11 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     private func performSeek() {
         guard self.playerService.duration > 0 else { return }
         let target = self.seekValue * self.playerService.duration
-        let holdToken = self.seekHold.begin(target: target)
+        let holdID = self.seekHold.begin(target: target)
         Task { await self.playerService.seek(to: target) }
         Task { @MainActor in
             try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdToken) {
+            if self.seekHold.clearIfCurrent(holdID) {
                 self.syncSeekValue()
             }
         }

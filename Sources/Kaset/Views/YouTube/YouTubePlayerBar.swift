@@ -117,7 +117,8 @@ struct YouTubePlayerBar: View {
                 cornerRadius: 6,
                 glowSources: self.currentVideoGlowSources,
                 glowIdentity: self.currentVideoGlowIdentity,
-                glowTargetSize: CGSize(width: 128, height: 72)
+                glowTargetSize: CGSize(width: 128, height: 72),
+                showsHoverOverlay: false
             ) {
                 CachedAsyncImage(
                     url: self.youtubePlayer.currentVideo?.thumbnailURL,
@@ -576,13 +577,13 @@ struct YouTubePlayerBar: View {
     private func performSeek() {
         guard self.isSeeking else { return }
         let seekTime = self.seekValue * self.youtubePlayer.duration
-        let holdToken = self.seekHold.begin(target: seekTime)
+        let holdID = self.seekHold.begin(target: seekTime)
         self.isSeeking = false
         self.youtubePlayer.seek(to: seekTime)
 
         Task { @MainActor in
             try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdToken) {
+            if self.seekHold.clearIfCurrent(holdID) {
                 self.syncSeekValueFromDisplayedProgress()
             }
         }

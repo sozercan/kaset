@@ -11,7 +11,7 @@ struct PlayerBarSeekHold {
 
     private var target: TimeInterval?
     private var issuedAt: Date?
-    private var token = UUID()
+    private var id = UUID()
 
     var isActive: Bool {
         self.target != nil
@@ -22,11 +22,11 @@ struct PlayerBarSeekHold {
     }
 
     mutating func begin(target: TimeInterval) -> UUID {
-        let newToken = UUID()
+        let newID = UUID()
         self.target = max(0, target)
         self.issuedAt = Date()
-        self.token = newToken
-        return newToken
+        self.id = newID
+        return newID
     }
 
     mutating func reconcile(observedProgress: TimeInterval) {
@@ -51,8 +51,8 @@ struct PlayerBarSeekHold {
     }
 
     @discardableResult
-    mutating func clearIfCurrent(_ token: UUID) -> Bool {
-        guard self.target != nil, self.token == token else { return false }
+    mutating func clearIfCurrent(_ id: UUID) -> Bool {
+        guard self.target != nil, self.id == id else { return false }
         self.clear()
         return true
     }

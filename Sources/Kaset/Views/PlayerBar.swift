@@ -293,15 +293,14 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private var canOpenCurrentArtist: Bool {
         self.playerService.currentTrack != nil
             && self.navigationAction.openArtist != nil
-            && !self.artistName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (self.currentArtistTarget != nil || self.playerService.ytMusicClient != nil)
+            && (self.currentArtistTarget != nil || (self.currentArtistSearchName != nil && self.playerService.ytMusicClient != nil))
             && !self.isCurrentArtistTarget
     }
 
     private var canOpenCurrentAlbum: Bool {
         self.playerService.currentTrack != nil
             && self.navigationAction.openAlbum != nil
-            && (self.currentAlbumTarget != nil || self.playerService.ytMusicClient != nil)
+            && (self.currentAlbumTarget != nil || (self.currentArtistSearchName != nil && self.playerService.ytMusicClient != nil))
             && !self.isCurrentAlbumTarget
             && !self.isResolvingCurrentRouteAlbum
     }
@@ -349,6 +348,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     private var primaryNavigableArtist: Artist? {
         self.playerService.currentTrack?.artists.first(where: { $0.hasNavigableId })
+    }
+
+    private var currentArtistSearchName: String? {
+        guard let track = self.playerService.currentTrack else { return nil }
+        return self.primaryArtistName(in: track)
     }
 
     private var artistName: String {
@@ -887,13 +891,18 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
         let identity = self.currentTitleIdentity
 
-        if self.primaryNavigableArtist == nil {
-            let artist = await self.resolveArtist(named: self.artistName, client: client)
+        if self.navigationAction.openArtist != nil,
+           self.primaryNavigableArtist == nil,
+           let artistName = self.currentArtistSearchName
+        {
+            let artist = await self.resolveArtist(named: artistName, client: client)
             guard !Task.isCancelled, self.currentTitleIdentity == identity else { return }
             self.resolvedArtist = artist
         }
 
-        if self.currentAlbumPlaylist == nil,
+        if self.navigationAction.openAlbum != nil,
+           self.currentAlbumPlaylist == nil,
+           self.currentArtistSearchName != nil,
            let track = self.playerService.currentTrack
         {
             let album = await self.resolveAlbum(for: track, client: client)
@@ -912,7 +921,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             return
         }
 
-        let query = self.artistName
+        guard let query = self.currentArtistSearchName else { return }
         guard let client = self.playerService.ytMusicClient else { return }
         let identity = self.currentTitleIdentity
 
@@ -972,11 +981,13 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private func resolveArtist(named name: String, client: any YTMusicClientProtocol) async -> Artist? {
+        guard let query = self.trimmedNonEmpty(name) else { return nil }
+
         do {
-            let response = try await client.searchArtists(query: name)
+            let response = try await client.searchArtists(query: query)
             return response.artists.first { artist in
-                artist.hasNavigableId && self.matchesSearchResultTitle(artist.name, query: name)
-            } ?? response.artists.first(where: \.hasNavigableId)
+                artist.hasNavigableId && self.matchesSearchResultTitle(artist.name, query: query)
+            }
         } catch {
             DiagnosticsLogger.ui.error("Failed to resolve player bar artist: \(error.localizedDescription)")
             return nil
@@ -991,9 +1002,14 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
 
         do {
-            let response = try await client.searchSongsWithPagination(query: "\(track.title) \(self.artistName)")
+            guard let query = self.searchQuery(parts: [track.title, self.primaryArtistName(in: track)]) else { return nil }
+
+            let response = try await client.searchSongsWithPagination(query: query)
             let matchedSong = response.songs.first { $0.videoId == track.videoId }
-                ?? response.songs.first { self.matchesSearchResultTitle($0.title, query: track.title) }
+                ?? response.songs.first { song in
+                    self.matchesSearchResultTitle(song.title, query: track.title)
+                        && self.matchesTrackArtist(song, fallbackTrack: track)
+                }
 
             guard let album = matchedSong?.album, album.hasNavigableId else { return nil }
             return self.playlist(from: album, track: matchedSong ?? track)
@@ -1008,11 +1024,17 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         fallbackTrack track: Song,
         client: any YTMusicClientProtocol
     ) async -> Playlist? {
+        guard let query = self.searchQuery(parts: [title, self.primaryArtistName(in: track)]),
+              let artistName = self.primaryArtistName(in: track)
+        else { return nil }
+
         do {
-            let response = try await client.searchAlbums(query: title)
+            let response = try await client.searchAlbums(query: query)
             guard let album = response.albums.first(where: { album in
-                album.hasNavigableId && self.matchesSearchResultTitle(album.title, query: title)
-            }) ?? response.albums.first(where: \.hasNavigableId) else {
+                album.hasNavigableId
+                    && self.matchesSearchResultTitle(album.title, query: title)
+                    && self.matchesAlbumArtist(album, artistName: artistName)
+            }) else {
                 return nil
             }
 
@@ -1021,6 +1043,33 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             DiagnosticsLogger.ui.error("Failed to resolve player bar album: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    private func primaryArtistName(in track: Song) -> String? {
+        track.artists.lazy.compactMap { self.trimmedNonEmpty($0.name) }.first
+    }
+
+    private func searchQuery(parts: [String?]) -> String? {
+        let query = parts.compactMap { part in
+            part.flatMap(self.trimmedNonEmpty)
+        }.joined(separator: " ")
+
+        return self.trimmedNonEmpty(query)
+    }
+
+    private func trimmedNonEmpty(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func matchesTrackArtist(_ song: Song, fallbackTrack track: Song) -> Bool {
+        guard let artistName = self.primaryArtistName(in: track) else { return false }
+        return song.artists.contains { self.matchesSearchResultTitle($0.name, query: artistName) }
+    }
+
+    private func matchesAlbumArtist(_ album: Album, artistName: String) -> Bool {
+        guard let artists = album.artists else { return false }
+        return artists.contains { self.matchesSearchResultTitle($0.name, query: artistName) }
     }
 
     private func matchesSearchResultTitle(_ title: String, query: String) -> Bool {
@@ -1080,7 +1129,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private func performSeek() {
         guard self.isSeeking, self.playerService.duration > 0 else { return }
         let seekTime = self.seekValue * self.playerService.duration
-        let holdToken = self.seekHold.begin(target: seekTime)
+        let holdID = self.seekHold.begin(target: seekTime)
         self.updateFormattedTimes(progress: seekTime, duration: self.playerService.duration)
         self.isSeeking = false
 
@@ -1089,7 +1138,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
         Task { @MainActor in
             try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdToken) {
+            if self.seekHold.clearIfCurrent(holdID) {
                 self.syncSeekValueFromDisplayedProgress()
                 self.updateFormattedTimes(
                     progress: self.displayedPlaybackProgress,
