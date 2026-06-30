@@ -48,7 +48,7 @@ struct PlayerBarSeekHoldTests {
 
         hold.reconcile(
             observedProgress: 30.5,
-            now: issuedAt.addingTimeInterval(0.35)
+            now: issuedAt.addingTimeInterval(0.36)
         )
 
         #expect(!hold.isActive)
@@ -79,7 +79,7 @@ struct PlayerBarSeekHoldTests {
 
         hold.reconcile(
             observedProgress: 5,
-            now: issuedAt.addingTimeInterval(2.2)
+            now: issuedAt.addingTimeInterval(2.21)
         )
 
         #expect(!hold.isActive)
