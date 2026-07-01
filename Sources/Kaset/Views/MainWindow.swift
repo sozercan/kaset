@@ -325,6 +325,7 @@ struct MainWindow: View {
         }
         .task {
             NowPlayingManager.shared.configure(playerService: self.playerService)
+            NowPlayingBroadcaster.shared.configure(playerService: self.playerService)
         }
         .task(id: self.accountService.currentAccount?.id) {
             // Keep PodcastsViewModel in sync with the active account so

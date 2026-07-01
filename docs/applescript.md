@@ -13,6 +13,7 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | `next track` | Skip to next track |
 | `previous track` | Go to previous track |
 | `set volume N` | Set volume (0-100) |
+| `seek N` | Seek to position N seconds in the current track |
 | `toggle mute` | Mute/unmute |
 | `toggle shuffle` | Toggle shuffle mode |
 | `cycle repeat` | Cycle repeat (Off → All → One) |
@@ -83,6 +84,9 @@ osascript -e 'tell application "Kaset" to next track'
 # Set volume (0-100)
 osascript -e 'tell application "Kaset" to set volume 75'
 
+# Seek to a position (seconds into the current track)
+osascript -e 'tell application "Kaset" to seek 30'
+
 # Toggle modes
 osascript -e 'tell application "Kaset" to toggle shuffle'
 osascript -e 'tell application "Kaset" to cycle repeat'
@@ -93,6 +97,25 @@ osascript -e 'tell application "Kaset" to get player info'
 # Parse with jq
 osascript -e 'tell application "Kaset" to get player info' | jq '.currentTrack.name'
 ```
+
+## Now Playing Notifications
+
+Kaset posts a distributed notification named `com.sertacozercan.Kaset.playerInfo`
+whenever discrete playback state changes (current track, play/pause, like status,
+shuffle, or repeat). External now-playing surfaces — menu-bar widgets, or notch apps
+such as boring.notch — can observe it to refresh reactively instead of polling on a
+timer.
+
+The notification is a **bare, change-only trigger**:
+
+- It carries no payload (the App Sandbox strips `userInfo` from a sandboxed sender),
+  so observers read the current state with `get player info`.
+- It fires only on a *change*; there is no initial snapshot and a missed notification
+  is not resent. Observers should call `get player info` once on startup for the
+  initial state and keep a low-frequency poll as a fallback.
+- High-frequency values — **playback position and volume** — are intentionally not
+  triggers (they would flood the notification during playback and volume drags). Read
+  `position` and `volume` from `get player info`, polling if you need them live.
 
 ## Error Handling
 

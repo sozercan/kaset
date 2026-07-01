@@ -52,6 +52,11 @@
             <direct-parameter type="integer" description="Volume level (0-100)."/>
         </command>
 
+        <command name="seek" code="Kastseek" description="Seek to a position (in seconds) in the current track.">
+            <cocoa class="KasetSeekCommand"/>
+            <direct-parameter type="real" description="Position in seconds."/>
+        </command>
+
         <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle mode.">
             <cocoa class="KasetToggleShuffleCommand"/>
         </command>
