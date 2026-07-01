@@ -200,6 +200,13 @@ final class AccountService {
                 self.logger.info("AccountService: Ignoring stale account fetch after auth/account state changed")
                 return
             }
+
+            if response.accounts.isEmpty {
+                self.logger.warning("AccountService: 0 accounts returned, marking session as expired")
+                self.authService.sessionExpired()
+                return
+            }
+
             self.accounts = response.accounts
 
             // Restore previously selected account if stored
@@ -241,6 +248,7 @@ final class AccountService {
             self.errorSequence += 1
         }
     }
+
 
     // swiftlint:disable cyclomatic_complexity
     /// Schedules a best-effort WebView session pin for the restored account, off
