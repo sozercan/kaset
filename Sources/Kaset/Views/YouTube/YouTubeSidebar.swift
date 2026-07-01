@@ -11,7 +11,7 @@ struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
 
     var body: some View {
-        List(selection: self.listSelection) {
+        List {
             // Main navigation
             Section {
                 self.row(for: .search)
@@ -42,22 +42,21 @@ struct YouTubeSidebar: View {
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
     }
 
-    /// Selection binding that adds haptic feedback on change.
-    private var listSelection: Binding<YouTubeNavigationItem?> {
-        Binding {
-            self.selection
-        } set: { newValue in
-            guard self.selection != newValue else { return }
-            self.selection = newValue
-            HapticService.navigation()
-        }
-    }
-
     private func row(for item: YouTubeNavigationItem) -> some View {
-        NavigationLink(value: item) {
-            Label(item.displayName, systemImage: item.icon)
+        KasetSidebarRow(
+            title: item.displayName,
+            systemImage: item.icon,
+            isSelected: self.selection == item
+        ) {
+            self.select(item)
         }
         .accessibilityIdentifier(AccessibilityID.YouTubeSidebar.item(for: item))
+    }
+
+    private func select(_ item: YouTubeNavigationItem) {
+        guard self.selection != item else { return }
+        self.selection = item
+        HapticService.navigation()
     }
 }
 
