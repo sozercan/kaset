@@ -1,6 +1,448 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Smart Shuffle": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الخلط الذكي"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akıllı Karıştırma"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 셔플"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acak Cerdas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture aléatoire intelligente"
+          }
+        }
+      }
+    },
+    "Enable Smart Shuffle": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تفعيل الخلط الذكي"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akıllı Karıştırmayı Etkinleştir"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 셔플 사용"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktifkan Acak Cerdas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer la lecture aléatoire intelligente"
+          }
+        }
+      }
+    },
+    "Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يضيف حالة \"ذكية\" ثالثة إلى زر الخلط لإدراج المقطوعات المقترحة ضمن قائمة التشغيل"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karıştırma düğmesine, önerilen parçaları kuyruğunuza ekleyen üçüncü bir \"akıllı\" durum ekler"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "셔플 버튼에 추천 트랙을 대기열에 끼워 넣는 세 번째 '스마트' 상태를 추가합니다"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menambahkan status \"cerdas\" ketiga ke tombol acak yang menyisipkan trek rekomendasi ke antrean Anda"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoute un troisième état « intelligent » au bouton de lecture aléatoire qui intègre des titres recommandés à votre file d’attente"
+          }
+        }
+      }
+    },
+    "Insert a suggestion every": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إدراج اقتراح كل"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu kadar şarkıda bir öneri ekle:"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 곡 수마다 추천 삽입"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sisipkan saran setiap"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insérer une suggestion tous les"
+          }
+        }
+      }
+    },
+    "songs": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أغانٍ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "şarkı"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "곡"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lagu"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "morceaux"
+          }
+        }
+      }
+    },
+    "How far apart suggestions are placed (every N of your playlist's songs)": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مدى تباعد الاقتراحات (كل N من أغاني قائمتك)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önerilerin ne sıklıkta yerleştirileceği (çalma listenizdeki her N şarkıda bir)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추천이 배치되는 간격(재생목록 곡 N개마다)"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seberapa jauh jarak antar saran (setiap N lagu di daftar putar Anda)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espacement des suggestions (tous les N morceaux de votre playlist)"
+          }
+        }
+      }
+    },
+    "Suggestions per insertion": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الاقتراحات لكل إدراج"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekleme başına öneri"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "삽입당 추천 수"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saran per penyisipan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions par insertion"
+          }
+        }
+      }
+    },
+    "How many recommended tracks to drop in at each insertion point": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عدد المقطوعات المقترحة التي تُضاف عند كل نقطة إدراج"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her ekleme noktasında kaç önerilen parça ekleneceği"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "각 삽입 지점에 넣을 추천 트랙 수"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berapa banyak trek rekomendasi yang disisipkan di setiap titik penyisipan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de titres recommandés ajoutés à chaque point d’insertion"
+          }
+        }
+      }
+    },
+    "Keep suggestions queued ahead": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إبقاء الاقتراحات في قائمة الانتظار"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önerileri ileride kuyrukta tut"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미리 대기열에 유지할 추천"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan saran dalam antrean di depan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder des suggestions en file d’attente"
+          }
+        }
+      }
+    },
+    "tracks": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مقطوعات"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "parça"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "트랙"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "trek"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "titres"
+          }
+        }
+      }
+    },
+    "How many recommendations to keep ready ahead of the current track": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عدد الاقتراحات التي تبقى جاهزة قبل المقطوعة الحالية"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçerli parçanın önünde kaç önerinin hazır tutulacağı"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재 트랙보다 앞서 준비해 둘 추천 수"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berapa banyak rekomendasi yang disiapkan di depan trek saat ini"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de recommandations à garder prêtes avant le titre actuel"
+          }
+        }
+      }
+    },
+    "Suggested": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مقترح"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önerilen"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추천"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disarankan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggéré"
+          }
+        }
+      }
+    },
+    "Smart": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ذكي"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akıllı"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerdas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intelligent"
+          }
+        }
+      }
+    },
     "": {},
     "%@ %@": {
       "comment": "A title that displays the version number of the app. The argument is the string “Version”.",

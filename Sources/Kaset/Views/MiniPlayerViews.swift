@@ -758,13 +758,22 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                     .foregroundStyle(.white.opacity(0.76))
                     .frame(maxWidth: .infinity, minHeight: 210)
                 } else {
-                    ForEach(Array(self.playerService.queue.enumerated()), id: \.offset) { index, song in
+                    ForEach(Array(self.playerService.queueEntries.enumerated()), id: \.element.id) { index, entry in
+                        let song = entry.song
                         HStack(spacing: 7) {
                             SongThumbnailView(song: song, size: 21, cornerRadius: 4)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(song.title)
-                                    .font(.system(size: 9, weight: index == self.playerService.currentIndex ? .semibold : .regular))
-                                    .lineLimit(1)
+                                HStack(spacing: 4) {
+                                    Text(song.title)
+                                        .font(.system(size: 9, weight: index == self.playerService.currentIndex ? .semibold : .regular))
+                                        .lineLimit(1)
+                                    if entry.source == .suggested {
+                                        Image(systemName: "sparkles")
+                                            .font(.system(size: 8, weight: .semibold))
+                                            .foregroundStyle(PackageResourceLookup.brandAccent)
+                                            .accessibilityLabel(Text("Suggested"))
+                                    }
+                                }
                                 Text(song.artistsDisplay)
                                     .font(.system(size: 8))
                                     .foregroundStyle(.white.opacity(0.58))

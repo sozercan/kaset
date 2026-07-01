@@ -25,6 +25,10 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
+        static let smartShuffleEnabled = "settings.smartShuffleEnabled"
+        static let smartShuffleSuggestEveryN = "settings.smartShuffleSuggestEveryN"
+        static let smartShuffleBurst = "settings.smartShuffleBurst"
+        static let smartShuffleSuggestionsAhead = "settings.smartShuffleSuggestionsAhead"
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
@@ -215,6 +219,7 @@ final class SettingsManager {
             // Clear stale values when setting is disabled to prevent unexpected restoration
             if !self.rememberPlaybackSettings {
                 UserDefaults.standard.removeObject(forKey: "playerShuffleEnabled")
+                UserDefaults.standard.removeObject(forKey: "playerShuffleMode")
                 UserDefaults.standard.removeObject(forKey: "playerRepeatMode")
             }
         }
@@ -295,6 +300,68 @@ final class SettingsManager {
         }
     }
 
+    // MARK: - Smart Shuffle defaults & ranges (single source of truth)
+
+    /// Default cadence: insert a burst of suggestions every N originals.
+    static let smartShuffleSuggestEveryNDefault = 3
+    /// Valid range for the insert-every-N cadence.
+    static let smartShuffleSuggestEveryNRange = 1 ... 6
+    /// Default number of suggestions inserted at each slot.
+    static let smartShuffleBurstDefault = 1
+    /// Valid range for the per-insertion burst.
+    static let smartShuffleBurstRange = 1 ... 5
+    /// Default number of suggestions to keep queued ahead of the current track.
+    static let smartShuffleSuggestionsAheadDefault = 20
+    /// Valid range for how many suggestions to keep queued ahead.
+    static let smartShuffleSuggestionsAheadRange = 5 ... 100
+
+    private static func clamp(_ value: Int, to range: ClosedRange<Int>) -> Int {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    /// Whether Smart Shuffle (the third shuffle state) is available from the shuffle button.
+    var smartShuffleEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.smartShuffleEnabled, forKey: Keys.smartShuffleEnabled)
+        }
+    }
+
+    /// Smart Shuffle interleave cadence: insert a burst of suggestions every N songs (1...6).
+    var smartShuffleSuggestEveryN: Int {
+        didSet {
+            let clamped = Self.clamp(self.smartShuffleSuggestEveryN, to: Self.smartShuffleSuggestEveryNRange)
+            if clamped != self.smartShuffleSuggestEveryN {
+                self.smartShuffleSuggestEveryN = clamped
+                return
+            }
+            UserDefaults.standard.set(self.smartShuffleSuggestEveryN, forKey: Keys.smartShuffleSuggestEveryN)
+        }
+    }
+
+    /// Smart Shuffle burst: how many suggestions to insert at each slot (1...5).
+    var smartShuffleBurst: Int {
+        didSet {
+            let clamped = Self.clamp(self.smartShuffleBurst, to: Self.smartShuffleBurstRange)
+            if clamped != self.smartShuffleBurst {
+                self.smartShuffleBurst = clamped
+                return
+            }
+            UserDefaults.standard.set(self.smartShuffleBurst, forKey: Keys.smartShuffleBurst)
+        }
+    }
+
+    /// Smart Shuffle: how many suggestions to keep queued ahead of the current track (5...100).
+    var smartShuffleSuggestionsAhead: Int {
+        didSet {
+            let clamped = Self.clamp(self.smartShuffleSuggestionsAhead, to: Self.smartShuffleSuggestionsAheadRange)
+            if clamped != self.smartShuffleSuggestionsAhead {
+                self.smartShuffleSuggestionsAhead = clamped
+                return
+            }
+            UserDefaults.standard.set(self.smartShuffleSuggestionsAhead, forKey: Keys.smartShuffleSuggestionsAhead)
+        }
+    }
+
     /// Whether the ambient color backdrop is shown on the YouTube watch page.
     /// Applies to regular YouTube videos only, not the Music experience.
     var ambientBackdropEnabled: Bool {
@@ -369,6 +436,20 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
+        // Property observers do not fire for assignments in init, so clamp persisted values here too.
+        self.smartShuffleSuggestEveryN = Self.clamp(
+            UserDefaults.standard.object(forKey: Keys.smartShuffleSuggestEveryN) as? Int ?? Self.smartShuffleSuggestEveryNDefault,
+            to: Self.smartShuffleSuggestEveryNRange
+        )
+        self.smartShuffleBurst = Self.clamp(
+            UserDefaults.standard.object(forKey: Keys.smartShuffleBurst) as? Int ?? Self.smartShuffleBurstDefault,
+            to: Self.smartShuffleBurstRange
+        )
+        self.smartShuffleSuggestionsAhead = Self.clamp(
+            UserDefaults.standard.object(forKey: Keys.smartShuffleSuggestionsAhead) as? Int ?? Self.smartShuffleSuggestionsAheadDefault,
+            to: Self.smartShuffleSuggestionsAheadRange
+        )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
         #if DEBUG

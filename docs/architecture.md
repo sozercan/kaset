@@ -205,11 +205,21 @@ Controls YouTube Music audio playback via the singleton Music WebView:
 | `pendingPlayVideoId` | `String?` | Video ID to play |
 | `showMiniPlayer` | `Bool` | Mini player visibility |
 | `showLyrics` | `Bool` | Lyrics panel visibility |
+| `shuffleMode` | `ShuffleMode` | Tri-state shuffle (`off` / `on` / `smart`) |
+| `shuffleEnabled` | `Bool` | Computed shim, `true` when `shuffleMode != .off` |
 
 **Key Methods**:
 - `play(videoId:)` — Loads and plays a video
 - `play(song:)` — Plays a Song model
 - `confirmPlaybackStarted()` — Dismisses mini player
+- `toggleShuffle()` — Binary on↔off shuffle (menu ⌘S, mini player, AppleScript, AI)
+- `cycleShuffleMode()` — Player-bar control cycling off→on→smart→off (skips smart when disabled in settings)
+
+Smart Shuffle is implemented in `PlayerService+SmartShuffle.swift` as a rolling
+recommendation window (pure helpers `nextSuggestionSlot`, `dedupeSuggestions`,
+`stripSuggested` plus async `fillSmartShuffleWindow`). See
+[ADR-0024: Smart Shuffle](adr/0024-smart-shuffle.md) and
+[docs/playback.md](playback.md#smart-shuffle) for details.
 
 ### SingletonPlayerWebView
 
@@ -476,7 +486,7 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 | `PreviousTrackCommand` | `previous track` | Go to previous track |
 | `SetVolumeCommand` | `set volume N` | Set volume (0-100) |
 | `ToggleMuteCommand` | `toggle mute` | Toggle mute state |
-| `ToggleShuffleCommand` | `toggle shuffle` | Toggle shuffle mode |
+| `ToggleShuffleCommand` | `toggle shuffle` | Toggle shuffle on/off (binary; does not reach Smart Shuffle) |
 | `CycleRepeatCommand` | `cycle repeat` | Cycle repeat (Off → All → One) |
 | `LikeTrackCommand` | `like track` | Like current track |
 | `DislikeTrackCommand` | `dislike track` | Dislike current track |

@@ -80,9 +80,7 @@ struct PlaylistDetailView: View {
             }
         }
         .task {
-            if self.viewModel.loadingState == .idle {
-                await self.viewModel.load()
-            }
+            await self.viewModel.ensureLoaded()
         }
         .refreshable {
             await self.viewModel.refresh()
@@ -449,9 +447,10 @@ struct PlaylistDetailView: View {
         let cleanedTracks = self.playableTracks(
             tracks, fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
         )
-        Task {
-            await self.playerService.playQueue(cleanedTracks, startingAt: playableIndex)
-        }
+        self.playAndLoadFullPlaylist(
+            initial: cleanedTracks, startingAt: playableIndex,
+            fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+        )
     }
 
     func playAll(
@@ -461,8 +460,41 @@ struct PlaylistDetailView: View {
             tracks, fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
         )
         guard !cleanedTracks.isEmpty else { return }
-        Task {
-            await self.playerService.playQueue(cleanedTracks, startingAt: 0)
+        self.playAndLoadFullPlaylist(
+            initial: cleanedTracks, startingAt: 0,
+            fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+        )
+    }
+
+    /// Plays the currently-loaded tracks immediately, then — if the playlist is still loading —
+    /// grows the queue to the full set before Smart Shuffle generates suggestions, re-shuffling
+    /// the complete set when shuffling. Reuses the data the detail view is already paging.
+    private func playAndLoadFullPlaylist(
+        initial cleanedTracks: [Song], startingAt index: Int,
+        fallbackArtist: String?, fallbackAlbum: Album?
+    ) {
+        Task { @MainActor in
+            let willDeferLoad = self.viewModel.hasMore
+            let loadGeneration = await self.playerService.playQueue(
+                cleanedTracks, startingAt: index, deferringSmartShuffleFill: willDeferLoad
+            )
+            // Not deferring (playlist already fully loaded): playQueue filled suggestions itself.
+            guard let loadGeneration else { return }
+
+            await self.viewModel.loadAllRemaining()
+
+            // Stand down if a *different* playback superseded this load while it paged. (User edits
+            // such as removing a track keep the same load generation, so loading continues.)
+            guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
+
+            let fullTracks = self.playableTracks(
+                self.viewModel.playlistDetail?.tracks ?? [],
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+            let existingIds = Set(self.playerService.queue.map(\.videoId))
+            let remaining = fullTracks.filter { existingIds.contains($0.videoId) == false }
+            self.playerService.appendOriginalTracks(remaining)
+            await self.playerService.endQueueLoading(loadGeneration)
         }
     }
 

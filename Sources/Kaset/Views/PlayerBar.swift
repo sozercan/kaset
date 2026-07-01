@@ -463,16 +463,25 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             .disabled(self.playerService.currentTrack == nil)
 
             PlayerBarIconButton(
-                action: self.toggleShuffle,
+                action: self.cycleShuffle,
                 isSelected: self.playerService.shuffleEnabled,
                 accessibilityID: AccessibilityID.PlayerBar.shuffleButton,
                 accessibilityLabel: String(localized: "Shuffle"),
-                accessibilityValue: self.playerService.shuffleEnabled ? String(localized: "On") : String(localized: "Off")
+                accessibilityValue: self.shuffleAccessibilityValue
             ) {
                 Image(systemName: "shuffle")
                     .font(.system(size: 16, weight: .regular))
                     .frame(width: 10, height: 16)
-                    .foregroundStyle(self.playerService.shuffleEnabled ? Self.brandAccent : .primary)
+                    .foregroundStyle(self.shuffleTint)
+                    .overlay(alignment: .topTrailing) {
+                        if self.playerService.shuffleMode == .smart {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(Self.brandAccent)
+                                .offset(x: 5, y: -5)
+                        }
+                    }
+                    .opacity(self.playerService.isApplyingSmartShuffle ? 0.5 : 1)
                     .contentTransition(.symbolEffect(.replace))
             }
             .disabled(self.playerService.currentTrack == nil)
@@ -1108,9 +1117,24 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    private func toggleShuffle() {
+    private var shuffleTint: Color {
+        switch self.playerService.shuffleMode {
+        case .off: .primary
+        case .on, .smart: Self.brandAccent
+        }
+    }
+
+    private var shuffleAccessibilityValue: String {
+        switch self.playerService.shuffleMode {
+        case .off: String(localized: "Off")
+        case .on: String(localized: "On")
+        case .smart: String(localized: "Smart")
+        }
+    }
+
+    private func cycleShuffle() {
         HapticService.toggle()
-        self.playerService.toggleShuffle()
+        self.playerService.cycleShuffleMode()
     }
 
     private func cycleRepeatMode() {

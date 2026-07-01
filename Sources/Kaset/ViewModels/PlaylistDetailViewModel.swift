@@ -94,6 +94,52 @@ final class PlaylistDetailViewModel {
             )
     }
 
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var fullLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var pagingTask: Task<Bool, Never>?
+
+    /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
+    /// callers so a player can await the complete track set before finalizing the queue.
+    func ensureLoaded() async {
+        if let loadTask {
+            await loadTask.value
+            return
+        }
+        guard self.loadingState == .idle else { return }
+        let task = Task { await self.load() }
+        self.loadTask = task
+        await task.value
+        self.loadTask = nil
+    }
+
+    /// Drives pagination to completion (every track), for callers that need the full playlist
+    /// (e.g. building a play queue). Coalesces callers and retries no-progress rounds caused by
+    /// transient continuation failures or concurrent batches. Runs in a stored unstructured task
+    /// so it survives `.task` restarts — the same single-flight discipline as `ensureLoaded`.
+    func loadAllRemaining() async {
+        await self.ensureLoaded()
+        if let fullLoadTask {
+            await fullLoadTask.value
+            return
+        }
+        let task = Task { @MainActor in
+            var consecutiveStalls = 0
+            while self.hasMore, consecutiveStalls < 8 {
+                let before = self.playlistDetail?.tracks.count ?? 0
+                _ = await self.loadMoreBatch()
+                if (self.playlistDetail?.tracks.count ?? 0) > before {
+                    consecutiveStalls = 0
+                } else {
+                    consecutiveStalls += 1
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
+        }
+        self.fullLoadTask = task
+        await task.value
+        self.fullLoadTask = nil
+    }
+
     /// Loads the playlist details including tracks.
     func load() async {
         await self.load(restartingInFlightLoad: false)
@@ -425,7 +471,23 @@ final class PlaylistDetailViewModel {
         return detail.tracks.count >= Self.fullPlaylistLoadTrackThreshold
     }
 
+    /// Single-flight wrapper around one continuation fetch. Concurrent callers — the initial
+    /// full-playlist load, the scroll-triggered `loadMore()`, `loadAllRemaining`, and repeated play
+    /// triggers — coalesce onto the in-flight batch and receive its real result, instead of colliding
+    /// on `loadingState` (the loser would otherwise return a spurious `false` that resilient loops
+    /// mis-read as "no progress" and give up on, leaving the queue stuck at a partial count).
     private func loadMoreBatch(generation: Int? = nil) async -> Bool {
+        if let pagingTask {
+            return await pagingTask.value
+        }
+        let task = Task { @MainActor in await self.performLoadMoreBatch(generation: generation) }
+        self.pagingTask = task
+        let result = await task.value
+        self.pagingTask = nil
+        return result
+    }
+
+    private func performLoadMoreBatch(generation: Int? = nil) async -> Bool {
         guard self.loadingState == .loaded,
               self.hasMore,
               let continuationToken,

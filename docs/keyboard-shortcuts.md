@@ -11,7 +11,7 @@ Kaset provides keyboard control for playback and navigation while preserving sta
 | `⌘←`     | Previous track                      |
 | `⌘↑`     | Volume up                           |
 | `⌘↓`     | Volume down                         |
-| `⌘S`     | Toggle shuffle                      |
+| `⌘S`     | Toggle shuffle (off/on; the player-bar control also cycles to Smart Shuffle) |
 | `⌘R`     | Cycle repeat mode (Off → All → One) |
 | `⇧⌘M`    | Switch to Mini Player               |
 

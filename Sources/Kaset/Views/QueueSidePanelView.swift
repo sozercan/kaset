@@ -281,6 +281,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                 index: row,
                 isCurrentTrack: row == self.currentIndex,
                 isPlaying: self.isPlaying,
+                isSuggested: entry.source == .suggested,
                 actions: QueueCellActions(
                     onPlay: { [weak self] in self?.onSelect(row) },
                     onRemove: { [weak self] in self?.onRemove(row) },

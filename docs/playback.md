@@ -439,6 +439,8 @@ Kaset treats its own queue as the source of truth whenever one exists:
   replays the expected queue track instead of inheriting YouTube autoplay
 - At the end of a non-repeating queue, Kaset marks playback ended rather than
   allowing autoplay to continue into unrelated tracks
+- In smart shuffle mode the queue may also contain ephemeral `.suggested`
+  entries, which are stripped before persistence (see [Smart Shuffle](#smart-shuffle))
 
 ## Mini Player UI
 
@@ -547,6 +549,47 @@ The continuation token is cleared when:
 
 This prevents infinite fetch from triggering on non-mix playback.
 
+## Smart Shuffle
+
+Shuffle is tri-state: `enum ShuffleMode { off, on, smart }` on `PlayerService`,
+with a computed `shuffleEnabled: Bool { mode != .off }` shim so existing readers
+(WebQueueSync, UI, scripting) are unchanged. Binary controls (`⌘S`, menu,
+mini-player, AppleScript, AI) only toggle on↔off; only the player-bar control
+cycles `off → on → smart → off`, and it skips `smart` when the feature is
+disabled in Settings. See [ADR-0024](adr/0024-smart-shuffle.md) for the rationale.
+
+### Rolling window
+
+In `smart` mode, `fillSmartShuffleWindow()` (in `PlayerService+SmartShuffle.swift`)
+keeps a configurable number of recommended tracks queued ahead. It is idempotent
+and rolling — it runs when entering smart mode and again on every track advance.
+`nextSuggestionSlot()` scans the upcoming entries for the next gap that still needs
+suggestions; for each slot it seeds `getRadioQueue(videoId:)` from the original
+track *immediately preceding* the slot (so picks stay locally coherent across a
+multi-genre playlist), dedupes candidates by `videoId` against the live queue, and
+inserts up to `burst` entries marked `QueueEntry.source = .suggested`. Because radio
+has no continuation token, the window tops up by re-seeding from later originals
+rather than paginating. Leaving smart mode strips not-yet-played suggestions.
+
+| Setting (`SettingsManager`) | Range / default | Purpose |
+|------------------------------|-----------------|---------|
+| `smartShuffleEnabled` | `Bool`, `true` | Whether the player-bar control can cycle into smart |
+| `smartShuffleSuggestEveryN` | `1...6`, `3` | Insert a suggestion slot every N originals |
+| `smartShuffleBurst` | `1...5`, `1` | Suggestions inserted per slot |
+| `smartShuffleSuggestionsAhead` | `5...100`, `20` | How many suggestions to keep queued ahead |
+
+### Suggestions are ephemeral
+
+Suggested entries are never persisted. `saveQueueForPersistence()` strips
+`.suggested` entries before saving (keeping the currently-playing track so resume
+mid-track works), and the window is regenerated automatically from live playback
+context once a session restores in smart mode (and again on the next advance) —
+avoiding a stale snapshot fighting the rolling window. Suggested tracks carry a
+brand-accent "sparkles" marker on all three queue surfaces (popup, side panel,
+mini player). Disabling Smart Shuffle in Settings stops further top-ups
+immediately, and a persisted `smart` mode falls back to `on` on launch when the
+feature is off.
+
 ## Video Mode
 
 For floating video window functionality, see [docs/video.md](video.md).
@@ -555,6 +598,7 @@ For floating video window functionality, see [docs/video.md](video.md).
 
 - [x] Queue management (next/previous)
 - [x] Infinite mix loading
+- [x] Smart Shuffle (tri-state shuffle with rolling recommendation window)
 - [x] Video mode (floating video window)
 - [x] Seek support via JavaScript
 - [x] Volume control
