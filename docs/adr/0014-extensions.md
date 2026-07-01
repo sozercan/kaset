@@ -34,7 +34,8 @@ ExtensionsManager (singleton, @MainActor @Observable)
   └── toggleExtension(id:)
 
 WebKitManager
-  └── loadExtensions()  iterates ExtensionsManager.resolvedURLs(), loads via WKWebExtensionController
+  ├── loadExtensions()  iterates ExtensionsManager.resolvedURLs(), loads via WKWebExtensionController
+  └── KasetWebExtensionHost exposes playback WebViews as WKWebExtension tabs/windows
 
 ExtensionsSettingsView
   └── renders manager.extensions, calls add/remove/toggle
@@ -52,12 +53,22 @@ ExtensionsSettingsView
 | `popupPath` | String? | Relative path to an extension-provided popup page, when present |
 | `localBookmark` | Data? | Optional security-scoped bookmark for the copied local folder |
 
+### Playback WebView hosting
+
+WebKit extension injection is not driven by `WKWebViewConfiguration.webExtensionController` alone. WebKit also asks the containing app for browser-like tabs and windows, and `WKWebExtensionTab.webView(for:)` is the seam that lets extension content injection and tab-scoped APIs resolve the target `WKWebView`. Kaset does not expose browser tabs in its product UI, so `KasetWebExtensionHost` provides a small internal tab/window model for the two long-lived playback surfaces:
+
+- `SingletonPlayerWebView` (`music.youtube.com`) registers as the music playback tab.
+- `YouTubeWatchWebView` (`www.youtube.com/watch`) registers as the YouTube video playback tab.
+
+The host is intentionally an adapter around existing singleton playback WebViews rather than a new owner of playback lifecycle. Playback services still own loading, teardown, and navigation; the host only supplies WebKit extension tab/window identity and forwards navigation property changes.
+
 ## Consequences
 
 - **Positive**: Users have full control — they can install any WebKit-compatible extension, custom content scripts, privacy tools, and similar tooling.
 - **Positive**: No extension is loaded by default — the app has zero implicit behavioural dependencies on a third-party codebase at runtime.
 - **Positive**: Copying extensions into app storage avoids depending on the original import location remaining available.
 - **Positive**: Extension options and popup pages can be surfaced through the native settings flow when available.
+- **Positive**: Playback WebViews are exposed through a focused WebKit tab/window adapter, concentrating extension-hosting behaviour in one module instead of spreading `WKWebExtensionTab` protocol details across player views.
 - **Negative**: Imported extensions are snapshots; if the original source folder changes, users must re-import it to pick up updates.
 - **Negative**: Changes require a restart (no public unload API on `WKWebExtensionController`). The UI communicates this clearly.
 

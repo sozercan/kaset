@@ -13,7 +13,7 @@ struct LoginWebView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        let configuration = self.webKitManager.createWebViewConfiguration()
+        let configuration = self.webKitManager.createSessionSwitchWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.customUserAgent = WebKitManager.userAgent
