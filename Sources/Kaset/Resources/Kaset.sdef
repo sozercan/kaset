@@ -52,7 +52,7 @@
             <direct-parameter type="integer" description="Volume level (0-100)."/>
         </command>
 
-        <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle mode.">
+        <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle on or off (binary; does not enable Smart Shuffle).">
             <cocoa class="KasetToggleShuffleCommand"/>
         </command>
 

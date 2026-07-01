@@ -264,7 +264,13 @@ extension PlayerService {
                         var enrichedQueueSong = songData
                         enrichedQueueSong.likeStatus = resolvedLikeStatus
                         var updatedEntries = self.queueEntries
-                        updatedEntries[queueIndex] = QueueEntry(id: updatedEntries[queueIndex].id, song: enrichedQueueSong)
+                        // Preserve `source` so enriching a playing Smart Shuffle suggestion does
+                        // not demote it to `.queued` (which would lose its marker and persist it).
+                        updatedEntries[queueIndex] = QueueEntry(
+                            id: updatedEntries[queueIndex].id,
+                            song: enrichedQueueSong,
+                            source: updatedEntries[queueIndex].source
+                        )
                         self.setQueue(entries: updatedEntries)
                         self.logger.debug("Enriched queue entry at index \(queueIndex): '\(enrichedQueueSong.title)' with artists: \(enrichedQueueSong.artistsDisplay)")
                         // Save the enriched queue to persistence

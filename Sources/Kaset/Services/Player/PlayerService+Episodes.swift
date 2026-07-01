@@ -20,6 +20,11 @@ extension PlayerService {
     func playEpisode(_ episode: ArtistEpisode) async {
         self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
 
+        // A standalone episode is a new playback context that replaces the queue: supersede any
+        // in-flight deferred playlist load (so it stands down instead of resurrecting a playlist
+        // behind the episode) and cancel any smart-shuffle fill.
+        self.prepareForNewPlaybackContext()
+
         // Live streams / channel videos play standalone — clear queue state.
         self.setQueue([])
         self.currentIndex = 0

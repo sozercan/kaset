@@ -62,6 +62,7 @@ Enums that use `rawValue` as display text (`NavigationItem`, `SearchFilter`, `Li
 - **SPM + xcstrings is relatively new** — Less community precedent than `.strings` files in SPM; Phase 0 validates this before committing
 - **Large initial diff** — Wrapping ~300 strings touches many files, but this is spread across multiple focused PRs
 - **Manual Arabic translations needed** — No automated translation pipeline; each string requires manual Arabic translation
+- **No CLI auto-extraction** — Auto-extraction (above) only runs in Xcode builds. The repo's day-to-day workflow is CLI-first (`swift build`), which compiles new `LocalizedStringKey`/`String(localized:)` literals fine but does **not** write the new keys back into `Localizable.xcstrings` — missing keys silently fall through to the literal English at runtime with no error. When adding strings via the CLI workflow, hand-add each new key to `Localizable.xcstrings` (with `ar`/`tr`/`ko`/`id`/`fr` values to match existing coverage) as part of the same change.
 
 ### Neutral
 - SwiftUI's implicit `LocalizedStringKey` means many `Text("…")` calls already work — they just need the catalog to contain the key

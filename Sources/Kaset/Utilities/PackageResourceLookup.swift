@@ -8,19 +8,22 @@ enum PackageResourceLookup {
     static let bundle = Self.candidateBundles.first
     static let localizationBundle = Self.bundle
 
-    static let brandAccent: Color = {
+    /// The brand accent as an AppKit color, for views built with AppKit (e.g. NSTableView cells).
+    static let brandAccentNSColor: NSColor = {
         if let color = NSColor(named: accentColorName, bundle: Bundle.main) {
-            return Color(nsColor: color)
+            return color
         }
 
         for bundle in candidateBundles {
             if let color = NSColor(named: accentColorName, bundle: bundle) {
-                return Color(nsColor: color)
+                return color
             }
         }
 
-        return Color(red: 1.0, green: 0.0, blue: 0.337)
+        return NSColor(srgbRed: 1.0, green: 0.0, blue: 0.337, alpha: 1.0)
     }()
+
+    static let brandAccent = Color(nsColor: Self.brandAccentNSColor)
 
     private static let bundleSearchRoots: [Bundle] = {
         var bundles: [Bundle] = [Bundle.main]

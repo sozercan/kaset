@@ -345,6 +345,7 @@ extension PlayerService {
                     await self.play(song: nextSong)
                 }
                 await self.fetchMoreMixSongsIfNeeded()
+                await self.fillSmartShuffleWindow()
                 self.saveQueueForPersistence()
             } else if self.repeatMode == .all {
                 self.pushForwardSkipStackIfLeavingIndex(for: 0)
@@ -352,6 +353,7 @@ extension PlayerService {
                 if let firstSong = self.queue.first {
                     await self.play(song: firstSong)
                 }
+                await self.fillSmartShuffleWindow()
                 self.saveQueueForPersistence()
             } else if self.mixContinuationToken != nil {
                 let previousCount = self.queue.count
@@ -362,6 +364,7 @@ extension PlayerService {
                     if let nextSong = self.queue[safe: self.currentIndex] {
                         await self.play(song: nextSong)
                     }
+                    await self.fillSmartShuffleWindow()
                     self.saveQueueForPersistence()
                 }
             }
@@ -477,19 +480,63 @@ extension PlayerService {
         }
     }
 
-    /// Toggles shuffle mode.
-    func toggleShuffle() {
-        self.shuffleEnabled.toggle()
-        if self.shuffleEnabled {
-            self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: true)
-        } else {
+    /// Applies a new shuffle mode, materializing or restoring the queue as needed.
+    func setShuffleMode(_ newMode: ShuffleMode) {
+        let oldMode = self.shuffleMode
+        guard newMode != oldMode else { return }
+        self.shuffleMode = newMode
+
+        // Leaving smart: cancel any in-flight fill (so it can't re-add suggestions after the strip),
+        // then strip upcoming suggestions before applying the new ordering.
+        if oldMode == .smart {
+            self.cancelSmartShuffleFill()
+            self.stripSuggestedEntries()
+            self.resetSmartShuffleState()
+        }
+
+        switch newMode {
+        case .off:
             self.restoreQueueOrderBeforeShuffle(recordUndo: true)
+        case .on:
+            // From .off: shuffle and snapshot original order.
+            // From .smart (suggestions already stripped): reshuffle the originals in place.
+            self.materializeShuffleQueueForCurrentTrack(
+                recordUndo: true,
+                storesOriginalOrder: oldMode == .off
+            )
+        case .smart:
+            // Phase 1 (synchronous): plain shuffle so playback continues instantly.
+            self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: true)
+            // Phase 2 (async): fetch radio seeds and fill the suggestion window.
+            Task { await self.fillSmartShuffleWindow() }
         }
-        if SettingsManager.shared.rememberPlaybackSettings {
-            UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
+
+        self.persistShuffleMode()
+        self.logger.info("Shuffle mode: \(self.shuffleMode.rawValue)")
+    }
+
+    /// Cycles the player-bar shuffle control: off -> on -> smart -> off.
+    /// When Smart Shuffle is disabled in settings, the smart state is skipped (off -> on -> off).
+    func cycleShuffleMode() {
+        let smartAvailable = SettingsManager.shared.smartShuffleEnabled
+        switch self.shuffleMode {
+        case .off: self.setShuffleMode(.on)
+        case .on: self.setShuffleMode(smartAvailable ? .smart : .off)
+        case .smart: self.setShuffleMode(.off)
         }
-        let status = self.shuffleEnabled ? "enabled" : "disabled"
-        self.logger.info("Shuffle mode: \(status)")
+    }
+
+    /// Binary shuffle toggle, preserved for menu (⌘S), mini player, AppleScript, and AI callers.
+    /// Turning shuffle "on" enables plain shuffle; turning "off" also exits smart mode.
+    func toggleShuffle() {
+        self.setShuffleMode(self.shuffleEnabled ? .off : .on)
+    }
+
+    /// Persists the current shuffle mode (and a legacy bool for downgrade compatibility).
+    func persistShuffleMode() {
+        guard SettingsManager.shared.rememberPlaybackSettings else { return }
+        UserDefaults.standard.set(self.shuffleMode.rawValue, forKey: Self.shuffleModeKey)
+        UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
     }
 
     /// Cycles through repeat modes: off -> all -> one -> off.

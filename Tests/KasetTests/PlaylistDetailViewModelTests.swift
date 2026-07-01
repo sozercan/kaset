@@ -506,6 +506,45 @@ struct PlaylistDetailViewModelTests {
         #expect(videoIds.contains("stale-continuation") == false)
     }
 
+    @Test("Concurrent paging callers coalesce: full load, no stall, no duplicate fetch")
+    func concurrentPagingCoalesces() async {
+        // Small playlist (10 < threshold) so load() does NOT auto-page; we drive paging explicitly
+        // to exercise the single-flight wrapper with overlapping callers.
+        let initialTracks = TestFixtures.makeSongs(count: 10) // video-0...video-9
+        let detail = PlaylistDetail(
+            playlist: TestFixtures.makePlaylist(id: "VL-test-playlist"),
+            tracks: initialTracks,
+            duration: nil
+        )
+        self.mockClient.playlistDetails["VL-test-playlist"] = detail
+        self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [
+            (10 ..< 20).map { TestFixtures.makeSong(id: "video-\($0)") },
+            (20 ..< 30).map { TestFixtures.makeSong(id: "video-\($0)") },
+            (30 ..< 35).map { TestFixtures.makeSong(id: "video-\($0)") },
+        ]
+        // Widen the overlap window so the concurrent callers genuinely race.
+        self.mockClient.playlistContinuationDelay = .milliseconds(40)
+
+        await self.viewModel.load()
+        #expect(self.viewModel.hasMore)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 10)
+
+        // The completion loader plus two scroll-style loadMore() calls run concurrently. With the
+        // single-flight wrapper they coalesce onto the in-flight batch instead of colliding on
+        // `loadingState` (where the loser would return a spurious false that the resilient loop
+        // mis-reads as a stall and gives up on, leaving the queue stuck at a partial count).
+        async let all: Void = self.viewModel.loadAllRemaining()
+        async let more1: Void = self.viewModel.loadMore()
+        async let more2: Void = self.viewModel.loadMore()
+        _ = await (all, more1, more2)
+
+        #expect(self.viewModel.playlistDetail?.tracks.count == 35)
+        #expect(self.viewModel.hasMore == false)
+        // Each of the 3 continuation batches is fetched exactly once — no batch skipped, and no
+        // duplicate fetch from a coalesced caller advancing the token twice.
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 3)
+    }
+
     @Test("Small playlist load keeps continuation lazy")
     func smallPlaylistLoadKeepsContinuationLazy() async {
         let playlistDetail = TestFixtures.makePlaylistDetail(

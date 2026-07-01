@@ -14,7 +14,7 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | `previous track` | Go to previous track |
 | `set volume N` | Set volume (0-100) |
 | `toggle mute` | Mute/unmute |
-| `toggle shuffle` | Toggle shuffle mode |
+| `toggle shuffle` | Toggle shuffle on/off (binary; does not reach Smart Shuffle) |
 | `cycle repeat` | Cycle repeat (Off → All → One) |
 | `like track` | Like current track |
 | `dislike track` | Dislike current track |

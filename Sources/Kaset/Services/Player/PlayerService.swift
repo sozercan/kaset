@@ -40,6 +40,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         case one
     }
 
+    /// Shuffle mode for playback. `smart` interleaves recommended tracks.
+    enum ShuffleMode: String, CaseIterable {
+        case off
+        case on
+        case smart
+    }
+
     /// How the mini player was opened.
     enum MiniPlayerMode: Equatable {
         /// Mini player floats alongside the main app window.
@@ -91,8 +98,25 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.volume == 0
     }
 
-    /// Whether shuffle mode is enabled.
-    var shuffleEnabled: Bool = false
+    /// Current shuffle mode (off / on / smart).
+    var shuffleMode: ShuffleMode = .off
+
+    /// Whether any shuffle (plain or smart) is active. Computed shim so existing
+    /// readers (WebQueueSync, UI, scripting, protocol) keep working unchanged.
+    var shuffleEnabled: Bool {
+        self.shuffleMode != .off
+    }
+
+    /// True while the rest of a playlist is still loading into the queue after playback
+    /// started. Smart Shuffle defers suggestion generation until this clears, so candidates
+    /// dedup against the complete playlist instead of only the first loaded batch.
+    var isQueueLoading: Bool = false
+
+    /// Monotonic token identifying the current deferred-load stream. Bumped whenever a new
+    /// playback replaces the queue, so a stale deferred load (e.g. a playlist still paging when
+    /// the user starts a different one) can detect it has been superseded and stand down instead
+    /// of clobbering the new playback's loading state. Not observed by the UI.
+    @ObservationIgnored var queueLoadGeneration = 0
 
     /// Current repeat mode.
     private(set) var repeatMode: RepeatMode = .off
@@ -218,6 +242,25 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
 
+    /// Smart Shuffle: videoIds suggested this session, for dedup across fills.
+    var smartShuffleSeenSuggestionIds: Set<String> = []
+
+    /// Smart Shuffle: seed videoIds whose radio yielded nothing new, so the filler skips them.
+    var smartShuffleExhaustedSeeds: Set<String> = []
+
+    /// Whether the smart-shuffle window filler is running (also drives the player-bar progress hint).
+    var isApplyingSmartShuffle: Bool = false
+
+    /// The in-flight suggestion fill, if any. A single stored task coalesces concurrent callers
+    /// (mode cycling, rapid advances) onto one fill loop and lets a queue replacement cancel a
+    /// stale fill, replacing the old fire-and-forget `Task {}` + boolean re-entrancy guard.
+    @ObservationIgnored var smartShuffleFillTask: Task<Void, Never>?
+
+    /// Monotonic token for the current fill. `Task` is a value type (no identity), so the spawner
+    /// captures this epoch and only clears the shared task/hint if it still owns them — a cancel or
+    /// a newer fill bumps the epoch so a stale spawner cannot stomp the live one.
+    @ObservationIgnored var smartShuffleFillEpoch = 0
+
     /// UserDefaults key for persisting queue display mode.
     static let queueDisplayModeKey = "kaset.queue.displayMode"
 
@@ -238,6 +281,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
     /// UserDefaults key for persisting shuffle state.
     static let shuffleEnabledKey = "playerShuffleEnabled"
+    /// UserDefaults key for persisting the tri-state shuffle mode.
+    static let shuffleModeKey = "playerShuffleMode"
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
 
@@ -265,9 +310,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Restore shuffle and repeat settings if enabled in settings
         if SettingsManager.shared.rememberPlaybackSettings {
-            if UserDefaults.standard.object(forKey: Self.shuffleEnabledKey) != nil {
-                self.shuffleEnabled = UserDefaults.standard.bool(forKey: Self.shuffleEnabledKey)
-                self.logger.info("Restored shuffle state: \(self.shuffleEnabled)")
+            if let savedMode = UserDefaults.standard.string(forKey: Self.shuffleModeKey),
+               let mode = ShuffleMode(rawValue: savedMode)
+            {
+                self.shuffleMode = mode
+                self.logger.info("Restored shuffle mode: \(self.shuffleMode.rawValue)")
+            } else if UserDefaults.standard.object(forKey: Self.shuffleEnabledKey) != nil {
+                // Legacy migration: map the old bool to the new tri-state.
+                self.shuffleMode = UserDefaults.standard.bool(forKey: Self.shuffleEnabledKey) ? .on : .off
+                self.logger.info("Migrated legacy shuffle state to mode: \(self.shuffleMode.rawValue)")
+            }
+
+            // Don't resurrect smart mode if the feature has since been disabled in settings;
+            // fall back to plain shuffle (the user still wanted shuffle, just not suggestions).
+            if self.shuffleMode == .smart, !SettingsManager.shared.smartShuffleEnabled {
+                self.shuffleMode = .on
             }
 
             if let savedRepeatMode = UserDefaults.standard.string(forKey: Self.repeatModeKey) {
@@ -367,6 +424,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Restores the previous queue state. Does nothing if undo history is empty.
     func undoQueue() {
         guard let state = self.queueUndoHistory.popLast() else { return }
+        // Undo replaces the queue, so supersede any in-flight deferred load: otherwise its pager
+        // would keep splicing the playlist onto the restored queue and corrupt it.
+        self.invalidateStaleQueueLoad()
         self.queueRedoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
         self.setQueue(entries: state.entries)
         self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))
@@ -378,6 +438,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Restores the next queue state after an undo. Does nothing if redo history is empty.
     func redoQueue() {
         guard let state = self.queueRedoHistory.popLast() else { return }
+        // Redo replaces the queue, so supersede any in-flight deferred load (see undoQueue).
+        self.invalidateStaleQueueLoad()
         self.queueUndoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
         self.setQueue(entries: state.entries)
         self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))

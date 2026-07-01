@@ -30,6 +30,38 @@ struct MusicSettingsView: View {
                 Text("Now Playing")
             }
 
+            // MARK: - Smart Shuffle Section
+
+            Section {
+                Toggle("Enable Smart Shuffle", isOn: self.$settings.smartShuffleEnabled)
+                    .help("Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue")
+
+                if self.settings.smartShuffleEnabled {
+                    self.numberField(
+                        label: "Insert a suggestion every",
+                        unit: "songs",
+                        value: self.$settings.smartShuffleSuggestEveryN
+                    )
+                    .help("How far apart suggestions are placed (every N of your playlist's songs)")
+
+                    self.numberField(
+                        label: "Suggestions per insertion",
+                        unit: nil,
+                        value: self.$settings.smartShuffleBurst
+                    )
+                    .help("How many recommended tracks to drop in at each insertion point")
+
+                    self.numberField(
+                        label: "Keep suggestions queued ahead",
+                        unit: "tracks",
+                        value: self.$settings.smartShuffleSuggestionsAhead
+                    )
+                    .help("How many recommendations to keep ready ahead of the current track")
+                }
+            } header: {
+                Text("Smart Shuffle")
+            }
+
             // MARK: - Audio Section
 
             Section {
@@ -58,5 +90,23 @@ struct MusicSettingsView: View {
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
         .localizedNavigationTitle("Music")
+    }
+
+    /// A Form row with a leading label, a trailing numeric entry field, and an optional unit suffix.
+    private func numberField(label: LocalizedStringKey, unit: LocalizedStringKey?, value: Binding<Int>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("", value: value, format: .number)
+                .labelsHidden()
+                .frame(width: 48)
+                .multilineTextAlignment(.trailing)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text(label))
+            if let unit {
+                Text(unit)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
