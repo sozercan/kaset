@@ -219,12 +219,10 @@ extension PlayerService {
             return
         }
 
-        let previousValue = self.currentTrackHasVideo
-        self.currentTrackHasVideo = hasVideo
+        guard self.currentTrackHasVideo != hasVideo else { return }
 
-        if previousValue != hasVideo {
-            self.logger.debug("Video availability updated: \(hasVideo)")
-        }
+        self.currentTrackHasVideo = hasVideo
+        self.logger.debug("Video availability updated: \(hasVideo)")
     }
 
     /// Called when video window opens to start grace period

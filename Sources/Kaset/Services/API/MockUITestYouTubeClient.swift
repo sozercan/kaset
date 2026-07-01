@@ -83,6 +83,10 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         nil
     }
 
+    func getSearchContinuation(continuation _: String) async throws -> YouTubeSearchResponse? {
+        nil
+    }
+
     func getWatchNext(videoId _: String) async throws -> WatchNextData {
         WatchNextData(
             videoTitle: "Mock Video One",

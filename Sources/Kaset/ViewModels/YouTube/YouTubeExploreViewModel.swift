@@ -16,6 +16,7 @@ final class YouTubeExploreViewModel {
     var selectedDestination: YouTubeDestination = .gaming {
         didSet {
             guard oldValue != self.selectedDestination else { return }
+            self.cancelLoad()
             self.videos = []
             self.loadingState = .idle
         }
@@ -31,20 +32,44 @@ final class YouTubeExploreViewModel {
     /// Invalidates stale in-flight loads when a newer one starts.
     private var loadGeneration = 0
 
+    /// The single in-flight load, shared by concurrent `load()` callers so
+    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
+    /// destination feed request.
+    private var loadTask: Task<Void, Never>?
+
     func load() async {
+        if case .loaded = self.loadingState {
+            return
+        }
+        if let existing = self.loadTask {
+            await existing.value
+            return
+        }
         self.loadGeneration += 1
-        let generation = self.loadGeneration
+        let runID = self.loadGeneration
+        let task = Task { await self.performLoad(runID: runID) }
+        self.loadTask = task
+        await task.value
+    }
+
+    private func performLoad(runID: Int) async {
+        defer {
+            if self.loadGeneration == runID {
+                self.loadTask = nil
+            }
+        }
+        guard runID == self.loadGeneration, !Task.isCancelled else { return }
         self.loadingState = .loading
         let destination = self.selectedDestination
         do {
-            let feed = try await client.getDestinationFeed(destination)
+            let feed = try await self.client.getDestinationFeed(destination)
             // Ignore stale results (superseded load or switched category).
-            guard generation == self.loadGeneration,
+            guard runID == self.loadGeneration,
                   destination == self.selectedDestination else { return }
             self.videos = feed.videos
             self.loadingState = .loaded
         } catch {
-            guard generation == self.loadGeneration,
+            guard runID == self.loadGeneration,
                   destination == self.selectedDestination else { return }
             // A cancelled load (view went away mid-flight) is not an
             // error; reset so the next task run reloads.
@@ -58,8 +83,15 @@ final class YouTubeExploreViewModel {
     }
 
     func refresh() async {
+        self.cancelLoad()
         self.loadingState = .idle
         self.videos = []
         await self.load()
+    }
+
+    func cancelLoad() {
+        self.loadTask?.cancel()
+        self.loadTask = nil
+        self.loadGeneration += 1
     }
 }

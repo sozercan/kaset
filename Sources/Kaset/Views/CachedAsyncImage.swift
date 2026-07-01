@@ -1,5 +1,12 @@
 import SwiftUI
 
+// MARK: - CachedAsyncImageRequest
+
+private struct CachedAsyncImageRequest: Equatable {
+    let url: URL?
+    let targetSize: CGSize
+}
+
 // MARK: - CachedAsyncImage
 
 /// A cached version of AsyncImage that uses ImageCache.
@@ -14,12 +21,18 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     @ViewBuilder let content: (Image) -> Content
     @ViewBuilder let placeholder: () -> Placeholder
 
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     @State private var image: NSImage?
     @State private var isLoaded = false
 
+    private var request: CachedAsyncImageRequest {
+        CachedAsyncImageRequest(url: self.url, targetSize: self.targetSize)
+    }
+
     /// Whether to animate the image appearance.
     private var shouldAnimate: Bool {
-        !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        !self.accessibilityReduceMotion
     }
 
     var body: some View {
@@ -32,15 +45,17 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 self.placeholder()
             }
         }
-        .onChange(of: self.url) { _, _ in
-            // Reset state when URL changes for proper UX
+        .onChange(of: self.request) { _, _ in
+            // Reset state when the underlying request changes for proper UX.
+            // Include targetSize so a reused view does not keep a stale decode.
             self.image = nil
             self.isLoaded = false
         }
-        .task(id: self.url) {
-            guard let url else { return }
-            let loadedImage = await ImageCache.shared.image(for: url, targetSize: self.targetSize)
-            guard !Task.isCancelled else { return }
+        .task(id: self.request) {
+            let request = self.request
+            guard let url = request.url else { return }
+            let loadedImage = await ImageCache.shared.image(for: url, targetSize: request.targetSize)
+            guard !Task.isCancelled, self.request == request else { return }
 
             guard let loadedImage else {
                 self.image = nil
@@ -70,10 +85,12 @@ extension CachedAsyncImage where Placeholder == SizedProgressView {
     /// Convenience initializer with default ProgressView placeholder.
     init(
         url: URL?,
+        targetSize: CGSize = .init(width: 320, height: 320),
         onFailure: (@MainActor () -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content
     ) {
         self.url = url
+        self.targetSize = targetSize
         self.onFailure = onFailure
         self.content = content
         self.placeholder = { SizedProgressView() }

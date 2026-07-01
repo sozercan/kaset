@@ -174,8 +174,12 @@ private extension PlayerService {
         duration: Double,
         previousProgress: TimeInterval
     ) {
-        self.progress = progress
-        self.duration = duration
+        if self.progress != progress {
+            self.progress = progress
+        }
+        if self.duration != duration {
+            self.duration = duration
+        }
 
         if isPlaying {
             self.confirmPlaybackStarted()
@@ -208,7 +212,10 @@ private extension PlayerService {
             return
         }
 
-        self.progress = progress > 0 ? progress : previousProgress
+        let resolvedProgress = progress > 0 ? progress : previousProgress
+        if self.progress != resolvedProgress {
+            self.progress = resolvedProgress
+        }
         self.reconcileRestoredPlaybackWithoutPendingSeek(
             isPlaying: isPlaying,
             resolvedDuration: resolvedDuration
@@ -217,7 +224,9 @@ private extension PlayerService {
 
     func resolveRestoredDuration(from duration: Double) -> TimeInterval {
         let resolvedDuration = duration > 0 ? duration : self.duration
-        self.duration = resolvedDuration
+        if self.duration != resolvedDuration {
+            self.duration = resolvedDuration
+        }
         return resolvedDuration
     }
 
@@ -228,7 +237,9 @@ private extension PlayerService {
         resolvedDuration: TimeInterval
     ) {
         let clampedTargetProgress = self.clampedRestoredProgress(targetProgress, duration: resolvedDuration)
-        self.progress = clampedTargetProgress
+        if self.progress != clampedTargetProgress {
+            self.progress = clampedTargetProgress
+        }
 
         guard resolvedDuration > 0 || clampedTargetProgress == 0 else {
             self.state = self.shouldAutoResumeAfterRestoredLoad ? .loading : .paused

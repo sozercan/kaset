@@ -423,6 +423,8 @@ struct AccountServiceTests {
             signinURL: URL(string: "https://www.youtube.com/signin?pageid=222222222222222222222&authuser=0&next=%2F")
         )
         await Self.populateAccounts(services, accounts: [primary, brandA, brandB], selectedIndex: 0)
+        await Self.waitForSwitchSessionIdentityCompletions(mockWebKit, count: 1)
+        mockWebKit.reset()
 
         // Gate the FIRST switch (to A) so it is still verifying when B starts.
         let releaseA = AsyncReleaseGate()
@@ -903,6 +905,18 @@ struct AccountServiceTests {
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
         return TestServices(account: service, client: mockClient, auth: authService)
+    }
+
+    @MainActor
+    private static func waitForSwitchSessionIdentityCompletions(
+        _ mockWebKit: MockWebKitManager,
+        count: Int
+    ) async {
+        for _ in 0 ..< 1000 {
+            if mockWebKit.switchSessionIdentityCompletedBrandIds.count >= count { return }
+            await Task.yield()
+        }
+        Issue.record("Timed out waiting for switch session identity completions")
     }
 
     /// Populates the AccountService with accounts by going through fetchAccounts().

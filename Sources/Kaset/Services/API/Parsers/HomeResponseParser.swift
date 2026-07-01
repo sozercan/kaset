@@ -26,6 +26,7 @@ enum HomeResponseParser {
             return HomeResponse(sections: [])
         }
 
+        sections.reserveCapacity(sectionContents.count)
         for sectionData in sectionContents {
             if let section = parseHomeSection(sectionData) {
                 sections.append(section)
@@ -152,6 +153,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -180,6 +182,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -215,6 +218,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -243,6 +247,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -278,6 +283,7 @@ enum HomeResponseParser {
         }
 
         var sectionItems: [HomeSectionItem] = []
+        sectionItems.reserveCapacity(items.count)
         for itemData in items {
             if let item = parseHomeSectionItem(itemData) {
                 sectionItems.append(item)
@@ -372,8 +378,7 @@ enum HomeResponseParser {
     }
 
     private static func parseTwoRowItem(_ data: [String: Any]) -> HomeSectionItem? {
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         guard let title = ParsingHelpers.extractTitle(from: data) else {
             return nil
@@ -433,8 +438,7 @@ enum HomeResponseParser {
 
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(data)
 
@@ -458,8 +462,7 @@ enum HomeResponseParser {
         pageType: String?
     ) -> HomeSectionItem? {
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         guard let itemType = self.determineBrowseItemType(browseId: browseId, pageType: pageType) else {
             return nil

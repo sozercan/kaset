@@ -67,16 +67,12 @@ struct VideoCard: View {
 /// 16:9 video thumbnail with a duration (or LIVE) badge.
 struct VideoThumbnailView: View {
     let video: YouTubeVideo
+    var targetSize = CGSize(width: 320, height: 180)
 
     var body: some View {
         CachedAsyncImage(
             url: self.video.thumbnailURL,
-            // Cards render at ≤320 pt wide (~640 px @2x). ImageCache doubles
-            // targetSize for Retina, so 320×180 → a 640 px decode that matches
-            // the displayed size. The previous 640×360 decoded at 1280 px — ~4×
-            // the pixels — wasting CPU on first paint and thrashing the 50 MB
-            // memory cache (fewer images fit → re-decode on scroll).
-            targetSize: CGSize(width: 320, height: 180)
+            targetSize: self.targetSize
         ) { image in
             image
                 .resizable()

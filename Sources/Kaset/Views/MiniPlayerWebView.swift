@@ -593,10 +593,15 @@ final class SingletonPlayerWebView {
                     self.playerService.updateLikeStatus(likeStatus)
                 }
 
-                // Repeat-one must keep enforcing queue/current song even if WebView doesn't flag `trackChanged`
-                // for a transient autoplay swap. In other modes, keep the existing trackChanged gate.
-                let shouldReconcileMetadata = (trackChanged || self.playerService.repeatMode == .one)
-                    && (observedVideoId != nil || !title.isEmpty)
+                let hasObservedMetadata = observedVideoId != nil || !title.isEmpty
+                // Repeat-one still needs drift recovery, but the normal same-song polling path
+                // should not rewrite `currentTrack` on every observer tick.
+                let repeatOneNeedsReconcile = self.playerService.repeatMode == .one
+                    && hasObservedMetadata
+                    && (trackChanged
+                        || (observedVideoId != nil && observedVideoId != self.playerService.currentTrack?.videoId)
+                        || (observedVideoId == nil && !title.isEmpty && title != self.playerService.currentTrack?.title))
+                let shouldReconcileMetadata = hasObservedMetadata && (trackChanged || repeatOneNeedsReconcile)
 
                 if shouldReconcileMetadata {
                     self.playerService.updateTrackMetadata(

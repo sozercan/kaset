@@ -624,8 +624,7 @@ enum PlaylistParser {
             header.description = runs.compactMap { $0["text"] as? String }.joined()
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: renderer)
-        header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
 
         if let subtitleData = renderer["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
@@ -652,8 +651,7 @@ enum PlaylistParser {
         }
 
         if header.thumbnailURL == nil {
-            let thumbnails = ParsingHelpers.extractThumbnails(from: renderer)
-            header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
         }
 
         if header.description == nil,
@@ -683,8 +681,7 @@ enum PlaylistParser {
         }
 
         if header.thumbnailURL == nil {
-            let thumbnails = ParsingHelpers.extractThumbnails(from: renderer)
-            header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
         }
     }
 
@@ -701,8 +698,7 @@ enum PlaylistParser {
         }
 
         if header.thumbnailURL == nil {
-            let thumbnails = ParsingHelpers.extractThumbnails(from: detailHeader)
-            header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: detailHeader)
         }
 
         if let subtitleData = detailHeader["subtitle"] as? [String: Any],
@@ -782,8 +778,7 @@ enum PlaylistParser {
         }
 
         if header.thumbnailURL == nil {
-            let thumbnails = ParsingHelpers.extractThumbnails(from: renderer)
-            header.thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
         }
 
         if header.description == nil,
@@ -918,14 +913,20 @@ enum PlaylistParser {
             return true
         }
 
-        guard let regex = try? NSRegularExpression(
-            pattern: #"^\d+\+?\s+(?:hours?|minutes?|seconds?)$"#,
-            options: .caseInsensitive
-        ) else {
-            return false
-        }
+        let components = text.lowercased().split(whereSeparator: \.isWhitespace)
+        guard components.count == 2 else { return false }
 
-        return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+        let amount = components[0]
+        let unit = components[1]
+        let unitMatches = unit == "hour" || unit == "hours"
+            || unit == "minute" || unit == "minutes"
+            || unit == "second" || unit == "seconds"
+        guard unitMatches else { return false }
+
+        if amount.hasSuffix("+") {
+            return amount.dropLast().allSatisfy(\.isNumber)
+        }
+        return amount.allSatisfy(\.isNumber)
     }
 
     // MARK: - Track Parsing
@@ -988,12 +989,18 @@ enum PlaylistParser {
     }
 
     private static func parseTracksFromSections(_ sections: [[String: Any]], fallbackThumbnailURL: URL?) -> [Song] {
-        let playlistShelfTracks = sections.flatMap { sectionData -> [Song] in
+        var playlistShelfTracks: [Song] = []
+        for sectionData in sections {
             guard let playlistShelfRenderer = sectionData["musicPlaylistShelfRenderer"] as? [String: Any],
                   let playlistContents = playlistShelfRenderer["contents"] as? [[String: Any]]
-            else { return [] }
+            else { continue }
 
-            return playlistContents.compactMap { self.parseTrackItem($0, fallbackThumbnailURL: fallbackThumbnailURL) }
+            playlistShelfTracks.reserveCapacity(playlistShelfTracks.count + playlistContents.count)
+            for itemData in playlistContents {
+                if let track = self.parseTrackItem(itemData, fallbackThumbnailURL: fallbackThumbnailURL) {
+                    playlistShelfTracks.append(track)
+                }
+            }
         }
 
         // When the browse response has a musicPlaylistShelfRenderer, that shelf is
@@ -1012,6 +1019,7 @@ enum PlaylistParser {
                   let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
             else { continue }
 
+            tracks.reserveCapacity(tracks.count + shelfContents.count)
             for itemData in shelfContents {
                 if let track = parseTrackItem(itemData, fallbackThumbnailURL: fallbackThumbnailURL) {
                     tracks.append(track)
@@ -1057,8 +1065,7 @@ enum PlaylistParser {
 
         let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(responsiveRenderer)
-        let thumbnails = ParsingHelpers.extractThumbnails(from: responsiveRenderer)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) } ?? fallbackThumbnailURL
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer) ?? fallbackThumbnailURL
         let duration = ParsingHelpers.extractDurationFromFlexColumns(responsiveRenderer)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
@@ -1116,8 +1123,7 @@ enum PlaylistParser {
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let title = ParsingHelpers.extractTitle(from: data) ?? "Unknown Playlist"
 
         return Playlist(
@@ -1140,8 +1146,7 @@ enum PlaylistParser {
             return nil
         }
 
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown Playlist"
 
         return Playlist(
@@ -1301,7 +1306,7 @@ enum PlaylistParser {
 
         let subtitle = Self.extractText(from: data["subtitle"] as? [String: Any])
             ?? Self.extractText(from: data["secondaryText"] as? [String: Any])
-        let thumbnailURL = ParsingHelpers.extractThumbnails(from: data).last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         return AddToPlaylistOption(
             playlistId: playlistId,

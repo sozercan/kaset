@@ -129,6 +129,11 @@ actor ImageCache {
         return (200 ..< 300).contains(httpResponse.statusCode)
     }
 
+    private static func uniqued(_ urls: [URL]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.filter { seen.insert($0).inserted }
+    }
+
     /// Prefetches images with controlled concurrency to avoid network congestion.
     /// Supports cooperative cancellation from SwiftUI's structured concurrency.
     /// - Parameters:
@@ -136,6 +141,9 @@ actor ImageCache {
     ///   - targetSize: Optional target size for downsampling.
     ///   - maxConcurrent: Maximum number of concurrent fetches (default: 4).
     func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch) async {
+        let urls = Self.uniqued(urls)
+        let maxConcurrent = max(1, maxConcurrent)
+
         // Use structured concurrency directly - cancellation propagates automatically
         // when SwiftUI's .task is cancelled (view disappears or id changes)
         await withTaskGroup(of: Void.self) { group in

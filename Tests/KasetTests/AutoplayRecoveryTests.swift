@@ -116,6 +116,14 @@ struct AutoplayRecoveryJSTests {
     func observerScriptRetriesRecoveryWhenMediaAlreadyReady() {
         #expect(SingletonPlayerWebView.observerScript.contains("video.readyState >= 3"))
     }
+
+    @Test("Observer script schedules trailing throttled updates")
+    func observerScriptSchedulesTrailingThrottledUpdates() {
+        let script = SingletonPlayerWebView.observerScript
+
+        #expect(script.contains("trailingUpdateTimeoutId"))
+        #expect(script.contains("sendUpdate(true);"))
+    }
 }
 
 // MARK: - AutoplayIntentScriptTests

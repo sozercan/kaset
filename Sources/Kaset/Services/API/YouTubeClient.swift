@@ -228,10 +228,16 @@ final class YouTubeClient: YouTubeClientProtocol {
             return nil
         }
 
-        let data = try await self.request("search", body: ["continuation": continuation])
-        let response = YouTubeSearchParser.parseContinuation(data)
-        self.searchContinuation = response.continuation
+        let response = try await self.getSearchContinuation(continuation: continuation)
+        if self.searchContinuation == continuation {
+            self.searchContinuation = response?.continuation
+        }
         return response
+    }
+
+    func getSearchContinuation(continuation: String) async throws -> YouTubeSearchResponse? {
+        let data = try await self.request("search", body: ["continuation": continuation])
+        return YouTubeSearchParser.parseContinuation(data)
     }
 
     // MARK: - Watch

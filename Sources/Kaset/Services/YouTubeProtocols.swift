@@ -46,6 +46,9 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches the next page of the current search, or `nil` when exhausted.
     func getSearchContinuation() async throws -> YouTubeSearchResponse?
 
+    /// Fetches the next page for an explicit search continuation token.
+    func getSearchContinuation(continuation: String) async throws -> YouTubeSearchResponse?
+
     // MARK: Watch
 
     /// Fetches watch-page companion data (metadata + related videos).

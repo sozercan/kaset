@@ -236,6 +236,7 @@ private struct FavoriteItemCard: View {
 
     private static let cardWidth: CGFloat = 160
     private static let cardHeight: CGFloat = 160
+    private static let thumbnailTargetSize = CGSize(width: cardWidth, height: cardHeight)
 
     @State private var isHovering = false
 
@@ -259,7 +260,7 @@ private struct FavoriteItemCard: View {
     private var thumbnail: some View {
         ZStack {
             if let url = item.thumbnailURL?.highQualityThumbnailURL {
-                CachedAsyncImage(url: url) { image in
+                CachedAsyncImage(url: url, targetSize: Self.thumbnailTargetSize) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)

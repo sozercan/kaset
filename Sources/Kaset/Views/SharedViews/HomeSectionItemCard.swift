@@ -101,11 +101,18 @@ struct HomeSectionItemCard: View {
     // MARK: - Shared Components
 
     private var thumbnail: some View {
-        ZStack {
+        let thumbnailURLs = self.thumbnailURLs
+        let thumbnailURL = thumbnailURLs.first { !self.failedThumbnailURLs.contains($0) }
+
+        return ZStack {
             self.thumbnailBackground
 
-            if let url = self.thumbnailURL {
-                CachedAsyncImage(url: url, targetSize: self.thumbnailSize, onFailure: self.thumbnailFailureHandler) { image in
+            if let thumbnailURL {
+                CachedAsyncImage(
+                    url: thumbnailURL,
+                    targetSize: self.thumbnailSize,
+                    onFailure: self.thumbnailFailureHandler(for: thumbnailURL, in: thumbnailURLs)
+                ) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: self.thumbnailContentMode)
@@ -147,10 +154,6 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    private var thumbnailURL: URL? {
-        self.thumbnailURLs.first { !self.failedThumbnailURLs.contains($0) }
-    }
-
     private var thumbnailURLs: [URL] {
         if self.isVideoSong {
             return Self.uniqueURLs([
@@ -163,10 +166,8 @@ struct HomeSectionItemCard: View {
         return Self.uniqueURLs([self.item.thumbnailURL?.highQualityThumbnailURL])
     }
 
-    private var thumbnailFailureHandler: (@MainActor () -> Void)? {
-        guard let thumbnailURL,
-              self.hasFallback(after: thumbnailURL)
-        else {
+    private func thumbnailFailureHandler(for thumbnailURL: URL, in thumbnailURLs: [URL]) -> (@MainActor () -> Void)? {
+        guard self.hasFallback(after: thumbnailURL, in: thumbnailURLs) else {
             return nil
         }
 
@@ -189,9 +190,9 @@ struct HomeSectionItemCard: View {
         self.isVideoSong ? .fit : .fill
     }
 
-    private func hasFallback(after url: URL) -> Bool {
-        guard let index = self.thumbnailURLs.firstIndex(of: url) else { return false }
-        let fallbackURLs = self.thumbnailURLs.dropFirst(index + 1)
+    private func hasFallback(after url: URL, in thumbnailURLs: [URL]) -> Bool {
+        guard let index = thumbnailURLs.firstIndex(of: url) else { return false }
+        let fallbackURLs = thumbnailURLs.dropFirst(index + 1)
         return fallbackURLs.contains { !self.failedThumbnailURLs.contains($0) }
     }
 
