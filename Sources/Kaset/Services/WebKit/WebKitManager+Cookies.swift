@@ -123,9 +123,44 @@ enum KeychainCookieStorage {
         _ = Self.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
     }
 
+    private static var debugCookieFileURL: URL? {
+        guard let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        return appSupport
+            .appendingPathComponent("Kaset", isDirectory: true)
+            .appendingPathComponent("cookies.dat")
+    }
+
     /// Saves an already-serialized cookie archive to the Keychain.
     @discardableResult
     static func saveArchiveData(_ data: Data, cookieCount: Int) -> Bool {
+        #if DEBUG
+        // Bypass Keychain completely to avoid hangs in local adhoc-signed/unsigned builds
+        if let fileURL = self.debugCookieFileURL {
+            do {
+                try FileManager.default.createDirectory(
+                    at: fileURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try data.write(to: fileURL, options: .atomic)
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o600],
+                    ofItemAtPath: fileURL.path
+                )
+                self.writeCoordinator.finishSave(data, success: true)
+                Self.logger.info("Saved \(cookieCount) auth cookies to debug file: \(fileURL.path)")
+                return true
+            } catch {
+                Self.logger.error("Failed to save debug cookies file: \(error.localizedDescription)")
+                return false
+            }
+        }
+        #endif
+
         guard self.writeCoordinator.beginSaveIfNeeded(data) else {
             self.logger.debug("Skipping Keychain cookie save because archive is already saved or a write is in progress")
             return false
@@ -167,6 +202,12 @@ enum KeychainCookieStorage {
 
     /// Returns `true` if a Keychain item exists for our cookie storage.
     static func hasCookieItem() -> Bool {
+        #if DEBUG
+        if let fileURL = self.debugCookieFileURL {
+            return FileManager.default.fileExists(atPath: fileURL.path)
+        }
+        return false
+        #else
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -177,10 +218,26 @@ enum KeychainCookieStorage {
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
         return status == errSecSuccess
+        #endif
     }
 
     /// Loads the raw serialized cookie archive data from Keychain.
     static func loadArchiveData() -> Data? {
+        #if DEBUG
+        if let fileURL = self.debugCookieFileURL {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                if let data = try? Data(contentsOf: fileURL) {
+                    self.writeCoordinator.seedPersistedArchive(data)
+                    Self.logger.info("Loaded cookies from debug file: \(fileURL.path)")
+                    return data
+                }
+            }
+            Self.logger.info("No debug cookies file found, returning nil directly")
+            self.writeCoordinator.seedPersistedArchive(nil)
+            return nil
+        }
+        return nil
+        #else
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -210,6 +267,7 @@ enum KeychainCookieStorage {
 
         Self.writeCoordinator.seedPersistedArchive(data)
         return data
+        #endif
     }
 
     /// Decodes cookies from a serialized archive created by `makeArchiveData(from:)`.
@@ -254,6 +312,15 @@ enum KeychainCookieStorage {
 
     /// Deletes cookies from the Keychain.
     static func deleteCookies() {
+        #if DEBUG
+        if let fileURL = self.debugCookieFileURL {
+            try? FileManager.default.removeItem(at: fileURL)
+            self.writeCoordinator.seedPersistedArchive(nil)
+            Self.logger.info("Deleted cookies from debug file")
+            return
+        }
+        #endif
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
