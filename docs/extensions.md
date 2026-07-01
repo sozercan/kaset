@@ -29,6 +29,7 @@ Click the **trash** icon next to any extension, then restart Kaset.
 - **Imported files:** Kaset copies each added extension into `~/Library/Application Support/Kaset/ManagedExtensions/` and loads that local snapshot.
 - **Security:** Kaset may store a local security-scoped bookmark for the copied extension folder when WebKit needs sandbox-friendly access.
 - **Loading:** At launch, `WebKitManager` loads all enabled extensions in order via `WKWebExtensionController`, granting them all requested permissions.
+- **Playback hosting:** Kaset registers its long-lived YouTube Music and YouTube watch WebViews as lightweight WebKit extension tabs/windows so content scripts and tab-scoped extension APIs can resolve the playback page WebView.
 
 ## Troubleshooting
 
