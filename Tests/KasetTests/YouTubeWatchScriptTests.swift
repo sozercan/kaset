@@ -24,6 +24,25 @@ struct YouTubeWatchScriptTests {
         #expect(script.contains("ytp-chrome-bottom"))
     }
 
+    @Test("Caption track script falls back to player response tracks")
+    func captionTrackScriptUsesPlayerResponseFallback() {
+        let script = YouTubeWatchWebView.availableCaptionTracksScript
+        #expect(script.contains("playerCaptionsTracklistRenderer"))
+        #expect(script.contains("captionTracks"))
+        #expect(script.contains("track.name"))
+        #expect(script.contains("track.vssId || track.languageCode"))
+    }
+
+    @Test("Caption selection script selects the full player response track")
+    func captionSelectionUsesFullTrackObject() {
+        let script = YouTubeWatchWebView.setCaptionTrackScript(languageCode: "en")
+        #expect(script.contains("playerCaptionsTracklistRenderer"))
+        #expect(script.contains("track.vssId === requested"))
+        #expect(script.contains("requested.indexOf('.') !== -1"))
+        #expect(script.contains("{ vssId: requested }"))
+        #expect(script.contains("setOption('captions', 'track', selected)"))
+    }
+
     @Test("Bootstrap script clamps the volume target")
     func bootstrapClampsVolume() {
         #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 2.0)
