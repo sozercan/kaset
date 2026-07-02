@@ -84,4 +84,5 @@ extension AccessibilityID {
 #Preview {
     YouTubeSidebar(selection: .constant(.home))
         .frame(width: 220)
+        .environment(AuthService())
 }

@@ -171,6 +171,7 @@ struct Sidebar: View {
 #Preview {
     Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
         .frame(width: 220)
+        .environment(AuthService())
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }
