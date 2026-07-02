@@ -454,6 +454,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Appends songs to the end of the queue.
     func appendToQueue(_ songs: [Song])
 
+    /// Removes every queue entry whose song matches one of the given video IDs.
+    func removeFromQueue(videoIds: Set<String>)
+
     // MARK: - Like/Library Actions
 
     /// Likes the current track.

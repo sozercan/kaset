@@ -71,6 +71,13 @@ struct CommandIntentParser {
             return .queueRadio
         }
 
+        if lowered.hasPrefix("remove ") || lowered.hasPrefix("delete ") || lowered.hasPrefix("take out ") {
+            let subject = self.removeQueueSubject(from: trimmedQuery)
+            if !subject.isEmpty {
+                return .removeFromQueue(query: subject)
+            }
+        }
+
         if let searchQuery = self.explicitSearchQuery(from: trimmedQuery) {
             return .openSearch(query: searchQuery)
         }
@@ -143,6 +150,29 @@ struct CommandIntentParser {
         }
 
         return nil
+    }
+
+    private func removeQueueSubject(from query: String) -> String {
+        var cleaned = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for prefix in ["remove ", "delete ", "take out "] where cleaned.lowercased().hasPrefix(prefix) {
+            cleaned = String(cleaned.dropFirst(prefix.count))
+            break
+        }
+
+        for suffix in [" from the queue", " from queue", " out of the queue", " out of queue"]
+            where cleaned.lowercased().hasSuffix(suffix)
+        {
+            cleaned = String(cleaned.dropLast(suffix.count))
+            break
+        }
+
+        for suffix in [" songs", " tracks", " song", " track"] where cleaned.lowercased().hasSuffix(suffix) {
+            cleaned = String(cleaned.dropLast(suffix.count))
+            break
+        }
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func referencesCurrentTrackRadio(_ lowered: String) -> Bool {

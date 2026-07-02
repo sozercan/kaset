@@ -14,6 +14,7 @@ struct CommandExecutor {
         case shuffleQueue
         case toggleShuffle
         case queueRadio
+        case removeFromQueue(query: String)
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
@@ -110,6 +111,9 @@ struct CommandExecutor {
         case .queueRadio:
             HapticService.success()
             return await self.queueRadioFromCurrentTrack()
+
+        case let .removeFromQueue(query):
+            return self.removeMatchingFromQueue(query: query)
 
         case let .playSearch(query, description):
             return await self.playSearchResult(query: query, description: description)
@@ -287,6 +291,32 @@ struct CommandExecutor {
             self.logger.error("Search failed: \(error.localizedDescription)")
             return .error(String(localized: "Couldn't search for music"))
         }
+    }
+
+    private func removeMatchingFromQueue(query: String) -> Outcome {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Empty subject is a safe no-op: never let a fumbled removal fall through to a full clear.
+        guard !trimmed.isEmpty else {
+            return .error(String(localized: "Tell me which songs to remove from the queue"))
+        }
+
+        let needle = trimmed.lowercased()
+        let matches = self.playerService.queue.filter {
+            $0.artistsDisplay.lowercased().contains(needle) || $0.title.lowercased().contains(needle)
+        }
+        let videoIds = Set(matches.map(\.videoId))
+
+        guard !videoIds.isEmpty else {
+            return .error(String(localized: "No songs matching \"\(trimmed)\" in the queue"))
+        }
+
+        HapticService.toggle()
+        self.playerService.removeFromQueue(videoIds: videoIds)
+        self.logger.info("Removed \(matches.count) songs matching \(needle) from queue")
+
+        let songLabel = matches.count == 1 ? "song" : "songs"
+        return .result("Removed \(matches.count) \(songLabel) matching \"\(trimmed)\"")
     }
 
     private func queueRadioFromCurrentTrack() async -> Outcome {

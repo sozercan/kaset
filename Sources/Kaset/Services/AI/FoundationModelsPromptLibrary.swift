@@ -97,6 +97,11 @@ enum FoundationModelsPromptLibrary {
             For "more like this", "songs like this", "similar songs", "keep it going", or
             "start a radio", use action radio (a mix seeded from the currently playing song).
 
+            To remove specific songs from the queue, use action removeFromQueue and put the
+            artist, title, or genre to remove in subject (e.g. "remove daft punk songs from
+            the queue" -> removeFromQueue, subject: "daft punk"). Only use clearQueue when the
+            user wants to empty the whole queue with no specific song mentioned.
+
             For simple commands: skip/next -> skip, pause/stop -> pause, play/resume -> resume,
             shuffle my queue -> shuffle (shuffleScope: queue), like this -> like,
             clear queue -> clearQueue, what's in my queue -> inspectQueue
@@ -107,7 +112,7 @@ enum FoundationModelsPromptLibrary {
             You are Kaset's command-bar parser. Return the best CommandBarParseResult for the user's request.
 
             Field rules:
-            - action: play, queue, radio, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, resume
+            - action: play, queue, radio, search, inspectQueue, shuffle, clearQueue, removeFromQueue, like, dislike, skip, previous, pause, resume
             - subject: keep the important search words, including qualifiers like "hits", "greatest", and "best of"
             - artist: artist or band name only
             - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop
@@ -120,7 +125,8 @@ enum FoundationModelsPromptLibrary {
             - skip or next -> skip
             - pause or stop -> pause
             - resume only when the user clearly wants to continue current playback
-            - clear queue -> clearQueue
+            - clear queue, empty the queue (no specific song named) -> clearQueue
+            - remove or delete a specific artist, song, or genre from the queue -> removeFromQueue with that artist or title in subject
             - what's in my queue, show queue, or describe my queue -> inspectQueue
             - shuffle my queue -> action shuffle with shuffleScope "queue"
             - more like this, songs like this, similar songs, keep it going, or start a radio -> radio (a mix seeded from the currently playing song; leave subject empty)
@@ -129,6 +135,7 @@ enum FoundationModelsPromptLibrary {
             - "best of queen" -> play, subject "best of queen", artist "Queen"
             - "add some energetic workout music to queue" -> queue, subject "energetic workout music", mood "energetic", activity "workout"
             - "add more songs like this to the queue" -> radio
+            - "remove daft punk songs from the queue" -> removeFromQueue, subject "daft punk"
             - "what's in my queue?" -> inspectQueue
             - "clear queue" -> clearQueue
 
