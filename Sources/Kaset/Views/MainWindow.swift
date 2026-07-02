@@ -37,6 +37,9 @@ struct MainWindow: View {
     /// Binding to the YouTube (video) experience's navigation selection.
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
 
+    /// Whether startup guest playback cleanup has completed.
+    @Binding var didCompleteStartupPlaybackCleanup: Bool
+
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
 
@@ -78,11 +81,13 @@ struct MainWindow: View {
     init(
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        didCompleteStartupPlaybackCleanup: Binding<Bool>,
         client: any YTMusicClientProtocol,
         youtubeClient: any YouTubeClientProtocol
     ) {
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
+        self._didCompleteStartupPlaybackCleanup = didCompleteStartupPlaybackCleanup
         self.client = client
         self.youtubeClient = youtubeClient
         _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
@@ -131,10 +136,14 @@ struct MainWindow: View {
                         // correct state on first frame.
                         self.initializingView
                     }
-                } else {
+                } else if self.didCompleteStartupPlaybackCleanup {
                     // Guest mode: public browsing/search/playback remains available
                     // without login. Personal routes render sign-in prompts below.
                     self.mainContent
+                } else {
+                    // Hold restored account playback/queue metadata out of the
+                    // guest shell until startup cleanup has finished.
+                    self.initializingView
                 }
             }
             .onAppear {
@@ -668,8 +677,10 @@ struct MainWindow: View {
                 // the UI and re-probes the endpoint.
                 self.podcastsAvailability.reset()
             }
-            self.normalizeGuestSelections()
-            self.accountService.clearAccounts()
+            if !isReauthTransition {
+                self.normalizeGuestSelections()
+                self.accountService.clearAccounts()
+            }
             if shouldRefreshGuestContent {
                 self.scheduleGuestContentRefresh()
             }
@@ -912,6 +923,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     MainWindow(
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
+        didCompleteStartupPlaybackCleanup: .constant(true),
         client: ytMusicClient,
         youtubeClient: YouTubeClient(authService: authService)
     )

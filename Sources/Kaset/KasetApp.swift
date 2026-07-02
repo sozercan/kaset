@@ -164,6 +164,7 @@ struct KasetApp: App {
                 MainWindow(
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
+                    didCompleteStartupPlaybackCleanup: self.$didCompleteStartupPlaybackCleanup,
                     client: self.sharedClient,
                     youtubeClient: self.sharedYouTubeClient
                 )
