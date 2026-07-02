@@ -20,6 +20,13 @@ struct AppDelegateDockMenuTests {
         SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
 
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
+        for _ in 0 ..< 20 {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
     private func likeItem(_ delegate: AppDelegate) -> NSMenuItem? {
         let menu = delegate.applicationDockMenu(NSApplication.shared)
         // Locate structurally by action selector so the lookup is locale-independent
@@ -85,7 +92,7 @@ struct AppDelegateDockMenuTests {
     }
 
     @Test("Triggering the item toggles the like state via likeCurrentTrack()")
-    func triggeringItemTogglesLike() {
+    func triggeringItemTogglesLike() async {
         let delegate = AppDelegate()
         let player = self.loggedInPlayer()
         player.currentTrack = TestFixtures.makeSong(id: "v1")
@@ -101,14 +108,14 @@ struct AppDelegateDockMenuTests {
         }
         _ = delegate.perform(action)
 
-        // likeCurrentTrack() applies a synchronous optimistic update before its
-        // async API call, so the toggle is observable immediately. This proves
-        // the item is wired to like (not dislike) and the handler is not a no-op.
+        // The ObjC menu action can be delivered asynchronously on CI; wait for
+        // the same optimistic update that proves the item is wired to like.
+        await self.waitUntil { player.currentTrackLikeStatus == .like }
         #expect(player.currentTrackLikeStatus == .like)
     }
 
     @Test("Triggering the item un-likes an already-liked track")
-    func triggeringItemUnlikesLikedTrack() {
+    func triggeringItemUnlikesLikedTrack() async {
         let delegate = AppDelegate()
         let player = self.loggedInPlayer()
         player.currentTrack = TestFixtures.makeSong(id: "v1")
@@ -124,6 +131,7 @@ struct AppDelegateDockMenuTests {
 
         // The optimistic toggle takes a liked track back to indifferent — the
         // un-like direction that makes the "Unlike" title truthful.
+        await self.waitUntil { player.currentTrackLikeStatus == .indifferent }
         #expect(player.currentTrackLikeStatus == .indifferent)
     }
 
