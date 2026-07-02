@@ -94,7 +94,7 @@ struct GuestModeAPIClientTests {
         defer { MockURLProtocol.reset(session: session) }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
-            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-api-key" : nil
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
         })
         let client = YTMusicClient(
             authService: authService,
@@ -125,7 +125,7 @@ struct GuestModeAPIClientTests {
         defer { MockURLProtocol.reset(session: session) }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
-            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-api-key" : nil
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
         })
         let client = YTMusicClient(
             authService: authService,

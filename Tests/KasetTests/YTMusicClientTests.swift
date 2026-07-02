@@ -248,9 +248,9 @@ struct YTMusicAPIKeyResolverTests {
     @Test("Extracts Innertube API key from web client HTML")
     @MainActor
     func extractsInnertubeAPIKey() {
-        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"test-api-key","INNERTUBE_API_VERSION":"v1"});"#
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-token","INNERTUBE_API_VERSION":"v1"});"#
 
-        #expect(YTMusicAPIKeyResolver.extractInnertubeAPIKey(from: html) == "test-api-key")
+        #expect(YTMusicAPIKeyResolver.extractInnertubeAPIKey(from: html) == "mock-token")
     }
 
     @Test("Environment override is trimmed and avoids network fetch")
@@ -267,20 +267,20 @@ struct YTMusicAPIKeyResolverTests {
         let resolver = YTMusicAPIKeyResolver(
             session: session,
             environment: { name in
-                name == YTMusicAPIKeyResolver.environmentVariable ? "  env-api-key\n" : nil
+                name == YTMusicAPIKeyResolver.environmentVariable ? "  mock-token\n" : nil
             }
         )
 
         let apiKey = try await resolver.resolve()
 
-        #expect(apiKey == "env-api-key")
+        #expect(apiKey == "mock-token")
     }
 
     @Test("Fetches and caches API key from mocked web client HTML")
     @MainActor
     func fetchesAndCachesAPIKeyFromHTML() async throws {
         let session = MockURLProtocol.makeMockSession()
-        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-html-api-key"});"#
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#
         nonisolated(unsafe) var requestCount = 0
 
         MockURLProtocol.setRequestHandler(for: session) { request in
@@ -307,8 +307,8 @@ struct YTMusicAPIKeyResolverTests {
         let first = try await resolver.resolve()
         let second = try await resolver.resolve()
 
-        #expect(first == "mock-html-api-key")
-        #expect(second == "mock-html-api-key")
+        #expect(first == "mock-token")
+        #expect(second == "mock-token")
         #expect(requestCount == 1)
     }
 
