@@ -621,7 +621,7 @@ enum PlaylistParser {
         if let descData = renderer["description"] as? [String: Any],
            let runs = descData["runs"] as? [[String: Any]]
         {
-            header.description = runs.compactMap { $0["text"] as? String }.joined()
+            header.description = ParsingHelpers.joinedRunText(runs)
         }
 
         header.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
@@ -658,7 +658,7 @@ enum PlaylistParser {
            let descData = renderer["description"] as? [String: Any],
            let runs = descData["runs"] as? [[String: Any]]
         {
-            header.description = runs.compactMap { $0["text"] as? String }.joined()
+            header.description = ParsingHelpers.joinedRunText(runs)
         }
 
         if let subtitleData = renderer["subtitle"] as? [String: Any],
@@ -787,7 +787,7 @@ enum PlaylistParser {
            let bodyText = descriptionShelfRenderer["description"] as? [String: Any],
            let runs = bodyText["runs"] as? [[String: Any]]
         {
-            header.description = runs.compactMap { $0["text"] as? String }.joined()
+            header.description = ParsingHelpers.joinedRunText(runs)
         }
 
         if let facepileArtist = ParsingHelpers.extractFacepileArtist(from: renderer) {
@@ -1390,7 +1390,7 @@ enum PlaylistParser {
             return content
         }
         if let runs = data["runs"] as? [[String: Any]] {
-            let text = runs.compactMap { $0["text"] as? String }.joined()
+            let text = ParsingHelpers.joinedRunText(runs)
             return text.isEmpty ? nil : text
         }
         return nil

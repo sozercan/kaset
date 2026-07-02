@@ -446,6 +446,17 @@ struct ParsingHelpersTests {
         #expect(subtitle == "Artist • Album")
     }
 
+    @Test("Join run text skips missing text without intermediate arrays")
+    func joinedRunTextSkipsMissingText() {
+        let runs: [[String: Any]] = [
+            ["text": "First"],
+            ["navigationEndpoint": ["browseEndpoint": ["browseId": "UC123"]]],
+            ["text": " Second"],
+        ]
+
+        #expect(ParsingHelpers.joinedRunText(runs) == "First Second")
+    }
+
     @Test("Extract artists from flex columns")
     func extractArtistsFromFlexColumns() {
         let data: [String: Any] = [

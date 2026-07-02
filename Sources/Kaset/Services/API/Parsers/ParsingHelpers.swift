@@ -277,8 +277,7 @@ enum ParsingHelpers {
         if let subtitleData = data["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            let texts = runs.compactMap { $0["text"] as? String }
-            let subtitle = texts.joined()
+            let subtitle = Self.joinedRunText(runs)
             return subtitle.isEmpty ? nil : subtitle
         }
         return nil
@@ -589,14 +588,22 @@ enum ParsingHelpers {
            let text = renderer["text"] as? [String: Any],
            let runs = text["runs"] as? [[String: Any]]
         {
-            let subtitle = Self.joinedText(from: runs)
+            let subtitle = Self.joinedRunText(runs)
             return subtitle.isEmpty ? nil : subtitle
         }
         return nil
     }
 
-    private static func joinedText(from runs: [[String: Any]]) -> String {
+    static func joinedRunText(_ runs: [[String: Any]]) -> String {
+        var capacity = 0
+        for run in runs {
+            if let runText = run["text"] as? String {
+                capacity += runText.count
+            }
+        }
+
         var text = ""
+        text.reserveCapacity(capacity)
         for run in runs {
             if let runText = run["text"] as? String {
                 text += runText
