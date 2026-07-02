@@ -30,7 +30,30 @@ run_tests() {
 }
 
 copy_sparkle_into_xctest_bundle() {
-  local products_dir="$PWD/.build/out/Products/Release"
+  local products_dir=""
+  local show_bin
+  show_bin=$(swift build -c release --show-bin-path 2>/dev/null || true)
+
+  for candidate in \
+    "$PWD/.build/out/Products/Release" \
+    "$PWD/.build/out/arm64-apple-macosx/release" \
+    "$PWD/.build/out/x86_64-apple-macosx/release" \
+    "$show_bin" \
+    "$PWD/.build/release" \
+    "$PWD/.build/arm64-apple-macosx/release" \
+    "$PWD/.build/x86_64-apple-macosx/release"
+  do
+    if [[ -n "$candidate" && -d "$candidate/KasetTests.xctest" && -d "$candidate/Sparkle.framework" ]]; then
+      products_dir="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$products_dir" || ! -d "$products_dir" ]]; then
+    echo "Could not locate SwiftPM release XCTest/Sparkle products for Sparkle fallback" >&2
+    return 0
+  fi
+
   local xctest_bundle="$products_dir/KasetTests.xctest"
   local sparkle_framework="$products_dir/Sparkle.framework"
 
