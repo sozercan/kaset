@@ -8,6 +8,7 @@ struct SearchView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(AuthService.self) private var authService
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
@@ -460,13 +461,15 @@ struct SearchView: View {
 
         Divider()
 
-        Button {
-            SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-        } label: {
-            Label("Add to Library", systemImage: "plus.circle")
-        }
+        if self.authService.state.isLoggedIn {
+            Button {
+                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
+            }
 
-        Divider()
+            Divider()
+        }
 
         ShareContextMenu.menuItem(for: song)
 
@@ -576,19 +579,21 @@ struct SearchView: View {
 
     @ViewBuilder
     private func playlistContextMenu(_ playlist: Playlist) -> some View {
-        Button {
-            Task {
-                await SongActionsHelper.addPlaylistToLibrary(
-                    playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
+        if self.authService.state.isLoggedIn {
+            Button {
+                Task {
+                    await SongActionsHelper.addPlaylistToLibrary(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
+                }
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
             }
-        } label: {
-            Label("Add to Library", systemImage: "plus.circle")
-        }
 
-        Divider()
+            Divider()
+        }
 
         FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
 

@@ -18,7 +18,6 @@ struct YouTubePlayerBar: View {
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
 
-    @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @Environment(YouTubeViewModelStore.self) private var youtubeStore: YouTubeViewModelStore?

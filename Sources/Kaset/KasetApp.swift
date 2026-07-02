@@ -64,10 +64,12 @@ struct KasetApp: App {
     /// Whether the "What's New" sheet should be shown.
     @State private var showWhatsNew = false
 
-    /// Incoming app URLs received before auth initialization completes.
-    /// These are replayed after the login check resolves so guest-startup
+    /// Incoming app URLs received before auth initialization and guest-startup
+    /// cleanup complete. These are replayed only after guest cleanup has run so
     /// cleanup cannot erase URL-started playback.
     @State private var pendingIncomingURL: URL?
+
+    @State private var didCompleteStartupPlaybackCleanup = false
 
     init() {
         Bundle.enableAppLocalizationOverride()
@@ -86,6 +88,7 @@ struct KasetApp: App {
 
         // Wire up dependencies
         player.setYTMusicClient(client)
+        player.setAuthService(auth)
         SongLikeStatusManager.shared.setClient(client)
 
         // Set shared instance for AppleScript access
@@ -200,6 +203,7 @@ struct KasetApp: App {
                         self.playerService.clearPlaybackForGuestStartup()
                         self.youtubePlayerService.stop()
                     }
+                    self.didCompleteStartupPlaybackCleanup = true
                     self.drainPendingIncomingURLIfReady()
 
                     // Fetch accounts after login check (for account switcher)
@@ -481,7 +485,7 @@ struct KasetApp: App {
         // The floating window hosts the video surface whenever it is popped out
         // (or the inline watch view went away).
         if location == .floating {
-            YouTubeVideoWindowController.shared.show(youtubePlayerService: self.youtubePlayerService)
+            YouTubeVideoWindowController.shared.show(youtubePlayerService: self.youtubePlayerService, authService: self.authService)
         } else {
             YouTubeVideoWindowController.shared.close()
         }
@@ -607,8 +611,8 @@ struct KasetApp: App {
     private func handleIncomingURL(_ url: URL) {
         DiagnosticsLogger.app.info("Received URL: \(url.absoluteString)")
 
-        guard !self.authService.state.isInitializing else {
-            DiagnosticsLogger.app.info("Auth still initializing; deferring incoming URL")
+        guard !self.authService.state.isInitializing, self.didCompleteStartupPlaybackCleanup else {
+            DiagnosticsLogger.app.info("Startup auth/guest cleanup still running; deferring incoming URL")
             self.pendingIncomingURL = url
             return
         }
@@ -618,6 +622,7 @@ struct KasetApp: App {
 
     private func drainPendingIncomingURLIfReady() {
         guard !self.authService.state.isInitializing,
+              self.didCompleteStartupPlaybackCleanup,
               let url = self.pendingIncomingURL
         else { return }
 

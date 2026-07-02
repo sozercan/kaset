@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import SwiftUI
 
 // MARK: - MainWindow
@@ -51,6 +53,8 @@ struct MainWindow: View {
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
+    @State private var contentResetID = UUID()
+    @State private var guestRefreshTask: Task<Void, Never>?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -403,6 +407,7 @@ struct MainWindow: View {
                     )
                 }
             }
+            .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
                 // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
@@ -665,13 +670,13 @@ struct MainWindow: View {
             self.normalizeGuestSelections()
             self.accountService.clearAccounts()
             if shouldRefreshGuestContent {
-                Task { @MainActor in
-                    await self.refreshGuestContent()
-                }
+                self.scheduleGuestContentRefresh()
             }
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
+            self.guestRefreshTask?.cancel()
+            self.guestRefreshTask = nil
             self.showLoginSheet = false
             // Auto-present "What's New" — fetch from GitHub release notes
             if self.whatsNewToPresent == nil {
@@ -719,6 +724,17 @@ struct MainWindow: View {
         self.libraryViewModel = LibraryViewModel(client: self.client)
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()
+        self.contentResetID = UUID()
+    }
+
+    private func scheduleGuestContentRefresh() {
+        self.guestRefreshTask?.cancel()
+        self.guestRefreshTask = Task { @MainActor in
+            await self.refreshGuestContent()
+            if !Task.isCancelled {
+                self.guestRefreshTask = nil
+            }
+        }
     }
 
     private func normalizeGuestSelections() {
@@ -768,6 +784,7 @@ struct MainWindow: View {
         await self.moodsAndGenresViewModel?.refresh()
         await self.newReleasesViewModel?.refresh()
         await self.youtubeStore.refreshGuestContent()
+        self.podcastsAvailability.activateAccount(nil)
         if self.podcastsAvailability.availability != .unavailable {
             await self.podcastsViewModel?.refresh()
         }

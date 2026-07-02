@@ -8,6 +8,8 @@ struct LoginSheet: View {
 
     @State private var isCheckingLogin = false
     @State private var didCaptureInitialSAPISID = false
+    @State private var didNavigateToYouTubeMusic = false
+    @State private var didCompleteLogin = false
     @State private var initialSAPISID: String?
     @State private var pollTask: Task<Void, Never>?
 
@@ -20,6 +22,7 @@ struct LoginSheet: View {
 
             // WebView
             LoginWebView(onNavigationToYouTubeMusic: {
+                self.didNavigateToYouTubeMusic = true
                 self.checkForSuccessfulLogin()
             })
         }
@@ -36,6 +39,9 @@ struct LoginSheet: View {
         }
         .onDisappear {
             self.pollTask?.cancel()
+            if !self.didCompleteLogin {
+                self.authService.cancelLoginIfNeeded()
+            }
         }
     }
 
@@ -93,7 +99,8 @@ struct LoginSheet: View {
         // Small delay to allow cookies to settle
         try? await Task.sleep(for: .milliseconds(300))
 
-        if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID {
+        let canReuseInitialSAPISIDForReauth = self.authService.needsReauth && self.didNavigateToYouTubeMusic
+        if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID || canReuseInitialSAPISIDForReauth {
             // Force backup cookies immediately after login
             // This ensures persistence across app restarts even if WebKit loses data
             await self.webKitManager.forceBackupCookies()
@@ -102,6 +109,7 @@ struct LoginSheet: View {
             // This prevents race conditions where API calls happen before cookies are ready
             try? await Task.sleep(for: .milliseconds(200))
 
+            self.didCompleteLogin = true
             self.authService.completeLogin(sapisid: sapisid)
             self.pollTask?.cancel()
             self.dismiss()

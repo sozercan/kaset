@@ -7,6 +7,10 @@ extension PlayerService {
     /// Likes the current track (thumbs up).
     /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
     func likeCurrentTrack() {
+        guard self.canPerformAccountMutation else {
+            self.logger.info("Ignoring like request while signed out")
+            return
+        }
         guard let track = currentTrack else { return }
         self.logger.info("Liking current track: \(track.videoId)")
         let activeAccountID = SongLikeStatusManager.shared.activeAccountID
@@ -46,6 +50,10 @@ extension PlayerService {
     /// Dislikes the current track (thumbs down).
     /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
     func dislikeCurrentTrack() {
+        guard self.canPerformAccountMutation else {
+            self.logger.info("Ignoring dislike request while signed out")
+            return
+        }
         guard let track = currentTrack else { return }
         self.logger.info("Disliking current track: \(track.videoId)")
         let activeAccountID = SongLikeStatusManager.shared.activeAccountID
@@ -84,6 +92,10 @@ extension PlayerService {
 
     /// Toggles the library status of the current track.
     func toggleLibraryStatus() {
+        guard self.canPerformAccountMutation else {
+            self.logger.info("Ignoring library toggle request while signed out")
+            return
+        }
         guard let track = currentTrack else { return }
         self.logger.info("Toggling library status for current track: \(track.videoId)")
         let activeAccountID = SongLikeStatusManager.shared.activeAccountID

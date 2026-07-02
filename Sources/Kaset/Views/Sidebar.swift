@@ -9,7 +9,6 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
-    @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability

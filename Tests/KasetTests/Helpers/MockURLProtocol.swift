@@ -65,21 +65,22 @@ final class MockURLProtocol: URLProtocol {
 
     /// Sets the request handler associated with a specific mock session.
     static func setRequestHandler(for session: URLSession, _ handler: @escaping RequestHandler) {
-        guard let sessionID = session.configuration.httpAdditionalHeaders?[sessionIDHeader] as? String else {
-            self.requestHandler = handler
-            return
-        }
-        Self.handlersLock.withLock {
+        self.handlersLock.withLock {
+            guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
+                Self.requestHandler = handler
+                return
+            }
             Self.handlersBySessionID[sessionID] = handler
         }
     }
 
     /// Removes the request handler associated with a specific mock session.
     static func reset(session: URLSession) {
-        guard let sessionID = session.configuration.httpAdditionalHeaders?[sessionIDHeader] as? String else {
-            return
-        }
-        _ = Self.handlersLock.withLock {
+        self.handlersLock.withLock {
+            guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
+                Self.requestHandler = nil
+                return
+            }
             Self.handlersBySessionID.removeValue(forKey: sessionID)
         }
     }
@@ -100,32 +101,36 @@ final class MockURLProtocol: URLProtocol {
         // Pre-serialize the JSON to Data to avoid capturing non-Sendable type
         // swiftlint:disable:next force_try
         let data = try! JSONSerialization.data(withJSONObject: json)
-        self.requestHandler = { request in
-            let response = HTTPURLResponse(
-                url: request.url!,
-                statusCode: statusCode,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "application/json"]
-            )!
-            return (response, data)
+        Self.handlersLock.withLock {
+            Self.requestHandler = { request in
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: statusCode,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )!
+                return (response, data)
+            }
         }
     }
 
     /// Sets up an error response.
     /// - Parameter error: The error to throw.
     static func setMockError(_ error: any Error & Sendable) {
-        self.requestHandler = { _ in
-            throw error
+        self.handlersLock.withLock {
+            Self.requestHandler = { _ in
+                throw error
+            }
         }
     }
 
     private static func handler(for request: URLRequest) -> RequestHandler? {
         let sessionID = request.value(forHTTPHeaderField: Self.sessionIDHeader)
-        let sessionHandler = sessionID.flatMap { id in
-            Self.handlersLock.withLock {
+        return Self.handlersLock.withLock {
+            let sessionHandler = sessionID.flatMap { id in
                 Self.handlersBySessionID[id]
             }
+            return sessionHandler ?? Self.requestHandler
         }
-        return sessionHandler ?? Self.requestHandler
     }
 }

@@ -10,7 +10,6 @@ struct YouTubeContentView: View {
     let selection: YouTubeNavigationItem?
     @Bindable var store: YouTubeViewModelStore
 
-    @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 

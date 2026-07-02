@@ -630,10 +630,17 @@ extension PlayerService {
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence() {
         guard !self.queue.isEmpty else {
+            if self.suppressNextEmptyQueuePersistence {
+                self.suppressNextEmptyQueuePersistence = false
+                self.logger.info("Skipped clearing saved playback session after guest-startup cleanup")
+                return
+            }
             self.removeSavedPlaybackSession()
             self.logger.info("Cleared saved playback session (queue is empty)")
             return
         }
+
+        self.suppressNextEmptyQueuePersistence = false
 
         do {
             let encoder = JSONEncoder()

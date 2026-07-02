@@ -130,6 +130,22 @@ struct PlayerServiceLibraryTests {
         #expect(replacementClient.rateSongCalled == false)
     }
 
+    @Test("likeCurrentTrack is ignored while signed out")
+    func likeCurrentTrackIgnoredWhenSignedOut() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        self.playerService.setAuthService(authService)
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.likeCurrentTrack()
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        #expect(self.mockClient.rateSongCalled == false)
+    }
+
     // MARK: - Dislike Current Track Tests
 
     @Test("dislikeCurrentTrack does nothing when no current track")
@@ -221,6 +237,22 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }
 
+    @Test("dislikeCurrentTrack is ignored while signed out")
+    func dislikeCurrentTrackIgnoredWhenSignedOut() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        self.playerService.setAuthService(authService)
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.dislikeCurrentTrack()
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        #expect(self.mockClient.rateSongCalled == false)
+    }
+
     // MARK: - Toggle Library Status Tests
 
     @Test("toggleLibraryStatus does nothing when no current track")
@@ -243,6 +275,23 @@ struct PlayerServiceLibraryTests {
 
         try? await Task.sleep(for: .milliseconds(200))
 
+        #expect(self.mockClient.editSongLibraryStatusCalled == false)
+    }
+
+    @Test("toggleLibraryStatus is ignored while signed out")
+    func toggleLibraryStatusIgnoredWhenSignedOut() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        self.playerService.setAuthService(authService)
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+
+        self.playerService.toggleLibraryStatus()
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(self.playerService.currentTrackInLibrary == false)
         #expect(self.mockClient.editSongLibraryStatusCalled == false)
     }
 

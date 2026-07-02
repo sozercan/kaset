@@ -57,6 +57,14 @@ final class AuthService: AuthServiceProtocol {
         self.state = .loggingIn
     }
 
+    /// Cancels an in-progress login presentation without changing an already
+    /// completed authenticated session.
+    func cancelLoginIfNeeded() {
+        guard self.state == .loggingIn else { return }
+        self.logger.info("Login flow cancelled")
+        self.state = .loggedOut
+    }
+
     /// Checks if the user is logged in based on existing cookies.
     /// Waits for the initial Keychain restore before reading WebKit cookies.
     func checkLoginStatus() async {

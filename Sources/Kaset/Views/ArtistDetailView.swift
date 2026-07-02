@@ -8,6 +8,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     var playerBarNavigationAction: PlayerBarNavigationAction = .disabled
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
@@ -412,13 +413,15 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
             Divider()
 
-            Button {
-                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-            } label: {
-                Label("Add to Library", systemImage: "plus.circle")
-            }
+            if self.authService.state.isLoggedIn {
+                Button {
+                    SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+                } label: {
+                    Label("Add to Library", systemImage: "plus.circle")
+                }
 
-            Divider()
+                Divider()
+            }
 
             ShareContextMenu.menuItem(for: song)
 

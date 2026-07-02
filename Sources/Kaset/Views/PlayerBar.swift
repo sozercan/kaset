@@ -10,7 +10,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private static let fullSongInfoWidth: CGFloat = 234
     private static let compactSongInfoWidth: CGFloat = 116
 
-    @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager

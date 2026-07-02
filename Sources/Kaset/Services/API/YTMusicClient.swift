@@ -1583,7 +1583,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             if Self.authRequiredBrowseIds.contains(browseId)
                 || browseId == LikedMusicPlaylist.browseID
                 || browseId.hasPrefix("MPLAUC")
-                || browseId.hasPrefix("MPSPP")
                 || browseId == Playlist.uploadedSongsBrowseID
             {
                 return .required

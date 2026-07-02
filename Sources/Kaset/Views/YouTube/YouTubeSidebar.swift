@@ -9,7 +9,6 @@ import SwiftUI
 /// shared footer (source toggle + profile) at the bottom.
 struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
-    @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
 
     var body: some View {

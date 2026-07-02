@@ -10,6 +10,7 @@ struct PlaylistDetailView: View {
     let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
@@ -397,13 +398,15 @@ struct PlaylistDetailView: View {
 
             Divider()
 
-            Button {
-                SongActionsHelper.addToLibrary(track, playerService: self.playerService)
-            } label: {
-                Label("Add to Library", systemImage: "plus.circle")
-            }
+            if self.authService.state.isLoggedIn {
+                Button {
+                    SongActionsHelper.addToLibrary(track, playerService: self.playerService)
+                } label: {
+                    Label("Add to Library", systemImage: "plus.circle")
+                }
 
-            Divider()
+                Divider()
+            }
 
             ShareContextMenu.menuItem(for: track)
 

@@ -537,6 +537,9 @@ extension PlayerService {
         self.mixContinuationToken = nil
         self.queueOrderBeforeShuffle = nil
         self.currentIndex = 0
+        if !persistEmptyQueue {
+            self.suppressNextEmptyQueuePersistence = true
+        }
         self.setQueue([])
         self.resetTrackStatus()
         if persistEmptyQueue {
