@@ -411,6 +411,94 @@ struct PlayerServiceQueueTests {
         #expect(newService.pendingPlayVideoId == duplicateSong.videoId)
     }
 
+    @Test("Guest startup preserves known guest playback session persistence")
+    func guestStartupPreservesKnownGuestPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+        restoredService.saveQueueForPersistence()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == true)
+        #expect(nextLaunchService.queue.count == 2)
+        #expect(nextLaunchService.currentIndex == 1)
+    }
+
+    @Test("Guest startup preserves session saved while signed-out login is open")
+    func guestStartupPreservesSignedOutLoginPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        await authService.checkLoginStatus()
+        authService.startLogin()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+        authService.cancelLoginIfNeeded()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+        restoredService.saveQueueForPersistence()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == true)
+        #expect(nextLaunchService.queue.count == 2)
+        #expect(nextLaunchService.currentIndex == 1)
+    }
+
+    @Test("Guest startup clears legacy unknown playback session persistence")
+    func guestStartupClearsLegacyUnknownPlaybackSessionPersistence() throws {
+        let songs = TestFixtures.makeSongs(count: 2)
+        let queueData = try JSONEncoder().encode(songs)
+        UserDefaults.standard.set(queueData, forKey: "kaset.saved.queue")
+        UserDefaults.standard.set(1, forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+
+        #expect(self.playerService.restoreQueueFromPersistence() == true)
+
+        self.playerService.clearPlaybackForGuestStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
+    @Test("Guest startup clears playback session saved during expired auth")
+    func guestStartupClearsExpiredAuthPlaybackSessionPersistence() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "expired-sapisid")
+        authService.sessionExpired()
+        self.playerService.setAuthService(authService)
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+
+        let restoredService = PlayerService()
+        restoredService.setYTMusicClient(self.mockClient)
+        #expect(restoredService.restoreQueueFromPersistence() == true)
+
+        restoredService.clearPlaybackForGuestStartup()
+
+        let nextLaunchService = PlayerService()
+        nextLaunchService.setYTMusicClient(self.mockClient)
+        #expect(nextLaunchService.restoreQueueFromPersistence() == false)
+        #expect(nextLaunchService.queue.isEmpty)
+    }
+
     @Test("Resume on a restored session loads through the hidden persistent player")
     func resumeDeferredRestoredSession() async {
         // Arrange

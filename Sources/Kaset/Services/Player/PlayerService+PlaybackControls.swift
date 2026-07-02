@@ -500,12 +500,16 @@ extension PlayerService {
 
     /// Clears active playback UI/WebView state when startup resolves to guest mode.
     ///
-    /// Unlike explicit sign-out, this does **not** overwrite persisted queue state
-    /// with an empty queue. That avoids deleting a legitimate guest queue on every
-    /// signed-out launch while still preventing restored account-owned metadata
-    /// from being shown in the visible guest shell.
+    /// Unlike explicit sign-out, this preserves only persisted sessions that are
+    /// known to have been created in guest mode. Legacy/unknown sessions are
+    /// cleared because they may contain account-owned listening metadata.
     func clearPlaybackForGuestStartup() {
         self.logger.info("Clearing active playback state for guest startup")
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else {
+            self.clearSavedQueue()
+            self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+            return
+        }
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
     }
 

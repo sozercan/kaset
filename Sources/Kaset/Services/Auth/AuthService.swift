@@ -29,8 +29,19 @@ final class AuthService: AuthServiceProtocol {
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool = false
 
+    /// Whether account-scoped playback persistence should be tagged as guest-owned.
+    /// A signed-out user can temporarily be `.loggingIn` while the login sheet is
+    /// open; that flow should still preserve guest-owned queues if cancelled.
+    var shouldPersistGuestPlaybackState: Bool {
+        guard !self.needsReauth else { return false }
+        if self.state == .loggedOut { return true }
+        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut { return true }
+        return false
+    }
+
     private let webKitManager: WebKitManagerProtocol
     private let logger = DiagnosticsLogger.auth
+    private var stateBeforeLogin: State?
 
     init(webKitManager: WebKitManagerProtocol = WebKitManager.shared) {
         self.webKitManager = webKitManager
@@ -54,6 +65,9 @@ final class AuthService: AuthServiceProtocol {
     /// Starts the login flow by presenting the login sheet.
     func startLogin() {
         self.logger.info("Starting login flow")
+        if self.state != .loggingIn {
+            self.stateBeforeLogin = self.state
+        }
         self.state = .loggingIn
     }
 
@@ -62,7 +76,8 @@ final class AuthService: AuthServiceProtocol {
     func cancelLoginIfNeeded() {
         guard self.state == .loggingIn else { return }
         self.logger.info("Login flow cancelled")
-        self.state = .loggedOut
+        self.state = self.stateBeforeLogin ?? .loggedOut
+        self.stateBeforeLogin = nil
     }
 
     /// Checks if the user is logged in based on existing cookies.
@@ -107,6 +122,7 @@ final class AuthService: AuthServiceProtocol {
         self.logger.warning("Session expired, requiring re-authentication")
         self.state = .loggedOut
         self.needsReauth = true
+        self.stateBeforeLogin = nil
         // Drop cached personalized responses so a later login in the same
         // session can't be served the previous user's data (incl. the
         // account-unknown "pending" cache scope) before its TTL expires.
@@ -122,6 +138,7 @@ final class AuthService: AuthServiceProtocol {
 
         self.state = .loggedOut
         self.needsReauth = false
+        self.stateBeforeLogin = nil
 
         self.logger.info("User signed out successfully")
     }
@@ -131,5 +148,6 @@ final class AuthService: AuthServiceProtocol {
         self.logger.info("Login completed successfully")
         self.state = .loggedIn(sapisid: sapisid)
         self.needsReauth = false
+        self.stateBeforeLogin = nil
     }
 }

@@ -36,6 +36,52 @@ struct AuthServiceTests {
         #expect(self.authService.state == .loggingIn)
     }
 
+    @Test("Cancel login restores prior logged-in session")
+    func cancelLoginRestoresLoggedInState() {
+        self.authService.completeLogin(sapisid: "existing-sapisid")
+
+        self.authService.startLogin()
+        self.authService.cancelLoginIfNeeded()
+
+        #expect(self.authService.state == .loggedIn(sapisid: "existing-sapisid"))
+    }
+
+    @Test("Cancel login from signed out remains signed out")
+    func cancelLoginFromSignedOutStaysSignedOut() async {
+        await self.authService.checkLoginStatus()
+
+        self.authService.startLogin()
+        self.authService.cancelLoginIfNeeded()
+
+        #expect(self.authService.state == .loggedOut)
+    }
+
+    @Test("Guest persistence flag remains true while signed-out login is open")
+    func guestPersistenceFlagWhileLoginOpen() async {
+        await self.authService.checkLoginStatus()
+
+        self.authService.startLogin()
+
+        #expect(self.authService.shouldPersistGuestPlaybackState == true)
+    }
+
+    @Test("Guest persistence flag is false for reauth")
+    func guestPersistenceFlagFalseForReauth() {
+        self.authService.completeLogin(sapisid: "existing-sapisid")
+
+        self.authService.startLogin()
+
+        #expect(self.authService.shouldPersistGuestPlaybackState == false)
+    }
+
+    @Test("Guest persistence flag is false after session expiry")
+    func guestPersistenceFlagFalseAfterSessionExpiry() {
+        self.authService.completeLogin(sapisid: "expired-sapisid")
+        self.authService.sessionExpired()
+
+        #expect(self.authService.shouldPersistGuestPlaybackState == false)
+    }
+
     @Test("Complete login transitions to loggedIn state")
     func completeLogin() {
         self.authService.completeLogin(sapisid: "test-sapisid")

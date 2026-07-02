@@ -11,7 +11,9 @@ struct LoginSheet: View {
     @State private var didNavigateToYouTubeMusic = false
     @State private var didCompleteLogin = false
     @State private var initialSAPISID: String?
+    @State private var bootstrapTask: Task<Void, Never>?
     @State private var pollTask: Task<Void, Never>?
+    @State private var isActive = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,13 +33,17 @@ struct LoginSheet: View {
             self.checkForSuccessfulLogin()
         }
         .onAppear {
-            Task {
+            self.isActive = true
+            self.bootstrapTask = Task {
                 self.initialSAPISID = await self.webKitManager.getSAPISID()
+                guard !Task.isCancelled, self.isActive else { return }
                 self.didCaptureInitialSAPISID = true
                 self.startPollingForLogin()
             }
         }
         .onDisappear {
+            self.isActive = false
+            self.bootstrapTask?.cancel()
             self.pollTask?.cancel()
             if !self.didCompleteLogin {
                 self.authService.cancelLoginIfNeeded()
@@ -70,6 +76,7 @@ struct LoginSheet: View {
 
     /// Starts a periodic task to check for successful login.
     private func startPollingForLogin() {
+        guard self.isActive else { return }
         self.pollTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
@@ -82,6 +89,7 @@ struct LoginSheet: View {
     }
 
     private func checkForSuccessfulLogin() {
+        guard self.isActive else { return }
         guard !self.isCheckingLogin else { return }
 
         Task {
@@ -92,12 +100,18 @@ struct LoginSheet: View {
     private func checkForSuccessfulLoginAsync() async {
         guard !self.isCheckingLogin else { return }
 
+        guard self.isActive else { return }
+
         guard self.didCaptureInitialSAPISID else { return }
 
         self.isCheckingLogin = true
 
         // Small delay to allow cookies to settle
         try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled, self.isActive else {
+            self.isCheckingLogin = false
+            return
+        }
 
         let canReuseInitialSAPISIDForReauth = self.authService.needsReauth && self.didNavigateToYouTubeMusic
         if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID || canReuseInitialSAPISIDForReauth {
@@ -108,6 +122,10 @@ struct LoginSheet: View {
             // Wait a moment longer to ensure all cookies are fully propagated
             // This prevents race conditions where API calls happen before cookies are ready
             try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled, self.isActive else {
+                self.isCheckingLogin = false
+                return
+            }
 
             self.didCompleteLogin = true
             self.authService.completeLogin(sapisid: sapisid)

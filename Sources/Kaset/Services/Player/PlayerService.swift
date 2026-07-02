@@ -103,6 +103,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Set when guest-startup privacy cleanup empties visible queue state but
     /// must not delete a saved guest queue/session on the next persistence pass.
     var suppressNextEmptyQueuePersistence = false
+
+    /// Ownership scope restored from the persisted playback session payload.
+    /// `nil` means legacy/unknown and must not be trusted across guest privacy boundaries.
+    var restoredPlaybackSessionOwnerScope: String?
+
+    static let playbackSessionScopeGuest = "guest"
+    static let playbackSessionScopeAuthenticated = "authenticated"
     var queue: [Song] {
         self.queueStorage.map(\.song)
     }

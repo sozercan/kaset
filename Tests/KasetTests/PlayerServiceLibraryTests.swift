@@ -17,6 +17,14 @@ struct PlayerServiceLibraryTests {
         SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
 
+    @MainActor
+    private func waitUntil(_ condition: @escaping () -> Bool) async {
+        for _ in 0 ..< 20 {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
     // MARK: - Like Current Track Tests
 
     @Test("likeCurrentTrack does nothing when no current track")
@@ -87,8 +95,8 @@ struct PlayerServiceLibraryTests {
         // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
-        try? await Task.sleep(for: .milliseconds(300))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
+        await self.waitUntil { self.playerService.currentTrackLikeStatus == .indifferent }
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }
@@ -212,8 +220,8 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
-        try? await Task.sleep(for: .milliseconds(300))
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
+        await self.waitUntil { self.playerService.currentTrackLikeStatus == .indifferent }
 
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
     }

@@ -620,6 +620,7 @@ extension PlayerService {
         let currentVideoId: String?
         let progress: TimeInterval
         let duration: TimeInterval
+        let ownerScope: String?
     }
 
     /// UserDefaults keys for queue persistence (no expiry; saved queue is kept until overwritten or cleared).
@@ -652,13 +653,18 @@ extension PlayerService {
                 : max(self.progress, 0)
 
             let queueData = try encoder.encode(self.queue)
+            let isKnownGuestSession = self.authService?.shouldPersistGuestPlaybackState == true
+            let ownerScope = isKnownGuestSession
+                ? Self.playbackSessionScopeGuest
+                : Self.playbackSessionScopeAuthenticated
             let sessionData = try encoder.encode(
                 PersistedPlaybackSession(
                     queue: self.queue,
                     currentIndex: safeIndex,
                     currentVideoId: currentVideoId,
                     progress: clampedProgress,
-                    duration: resolvedDuration
+                    duration: resolvedDuration,
+                    ownerScope: ownerScope
                 )
             )
 
@@ -698,6 +704,7 @@ extension PlayerService {
                     progress: savedSession.progress,
                     duration: savedSession.duration
                 )
+                self.restoredPlaybackSessionOwnerScope = savedSession.ownerScope
                 self.logger.info(
                     "Restored playback session with \(savedSession.queue.count) songs at index \(resolvedIndex)"
                 )
@@ -747,6 +754,7 @@ extension PlayerService {
                 progress: 0,
                 duration: restoredDuration
             )
+            self.restoredPlaybackSessionOwnerScope = nil
             self.logger.info("Restored legacy queue with \(savedQueue.count) songs at index \(resolvedIndex)")
             return true
         } catch {
@@ -761,6 +769,7 @@ extension PlayerService {
         UserDefaults.standard.removeObject(forKey: Self.savedQueueKey)
         UserDefaults.standard.removeObject(forKey: Self.savedQueueIndexKey)
         UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
+        self.restoredPlaybackSessionOwnerScope = nil
     }
 
     /// Resolves the queue index from saved metadata.
