@@ -56,4 +56,14 @@ final class YouTubeViewModelStore {
         self.history = YouTubeHistoryViewModel(client: self.client)
         self.playlists = YouTubePlaylistsViewModel(client: self.client)
     }
+
+    /// Refreshes public guest-safe YouTube surfaces after sign-out.
+    ///
+    /// Signed-in-only surfaces (subscriptions, history, playlists) are reset
+    /// above and hidden in guest mode, so only public feeds should fetch here.
+    func refreshGuestContent() async {
+        await self.home.refresh()
+        await self.explore.refresh()
+        await self.shorts.refresh()
+    }
 }

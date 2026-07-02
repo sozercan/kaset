@@ -767,6 +767,7 @@ struct MainWindow: View {
         await self.chartsViewModel?.refresh()
         await self.moodsAndGenresViewModel?.refresh()
         await self.newReleasesViewModel?.refresh()
+        await self.youtubeStore.refreshGuestContent()
         if self.podcastsAvailability.availability != .unavailable {
             await self.podcastsViewModel?.refresh()
         }
