@@ -21,6 +21,9 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool
 
+    /// Clears only authentication cookies from WebKit and persisted storage.
+    func clearAuthCookies() async
+
     /// Clears all website data (cookies, cache, etc.).
     func clearAllData() async
 

@@ -537,6 +537,17 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("==============================")
     }
 
+    /// Clears only authentication cookies, preserving public WebKit cache/data.
+    func clearAuthCookies() async {
+        self.logger.info("Clearing WebKit auth cookies")
+        let cookies = await self.dataStore.httpCookieStore.allCookies()
+        for cookie in cookies where KeychainCookieStorage.authCookieNames.contains(cookie.name) {
+            await self.dataStore.httpCookieStore.deleteCookie(cookie)
+        }
+        KeychainCookieStorage.deleteCookies()
+        self.cookiesDidChange = Date()
+    }
+
     /// Clears all website data (cookies, cache, etc.).
     func clearAllData() async {
         let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()

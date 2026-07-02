@@ -37,6 +37,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var getSAPISIDCalled = false
     private(set) var getSAPISIDCallCount = 0
     private(set) var hasAuthCookiesCalled = false
+    private(set) var clearAuthCookiesCalled = false
     private(set) var clearAllDataCalled = false
     private(set) var forceBackupCookiesCalled = false
     private(set) var waitForInitialCookieRestoreCalled = false
@@ -81,6 +82,12 @@ final class MockWebKitManager: WebKitManagerProtocol {
     func hasAuthCookies() async -> Bool {
         self.hasAuthCookiesCalled = true
         return self.sapisidValue != nil
+    }
+
+    func clearAuthCookies() async {
+        self.clearAuthCookiesCalled = true
+        self.sapisidValue = nil
+        self.allCookies.removeAll { KeychainCookieStorage.authCookieNames.contains($0.name) }
     }
 
     func clearAllData() async {
@@ -149,6 +156,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.getSAPISIDCalled = false
         self.getSAPISIDCallCount = 0
         self.hasAuthCookiesCalled = false
+        self.clearAuthCookiesCalled = false
         self.clearAllDataCalled = false
         self.forceBackupCookiesCalled = false
         self.waitForInitialCookieRestoreCalled = false

@@ -36,6 +36,9 @@ struct LoginSheet: View {
         }
         .task {
             self.isActive = true
+            if self.authService.needsReauth {
+                await self.webKitManager.clearAuthCookies()
+            }
             self.initialSAPISID = await self.webKitManager.getSAPISID()
             guard !Task.isCancelled, self.isActive else { return }
             self.didCaptureInitialSAPISID = true
@@ -112,8 +115,7 @@ struct LoginSheet: View {
             return
         }
 
-        let canReuseInitialSAPISIDForReauth = self.authService.needsReauth && self.didNavigateToYouTubeMusic
-        if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID || canReuseInitialSAPISIDForReauth {
+        if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID {
             // Force backup cookies immediately after login
             // This ensures persistence across app restarts even if WebKit loses data
             await self.webKitManager.forceBackupCookies()
