@@ -68,24 +68,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.authService = authService
         self.webKitManager = webKitManager
 
-        let resolvedSession: URLSession
-        if let session {
-            resolvedSession = session
+        let resolvedSession: URLSession = if let session {
+            session
         } else {
-            let configuration = URLSessionConfiguration.default
-            configuration.httpAdditionalHeaders = [
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "Accept-Encoding": "gzip, deflate, br",
-            ]
-            // Increase connection pool for parallel requests (HTTP/2 multiplexing is automatic)
-            configuration.httpMaximumConnectionsPerHost = 6
-            // Use shared URL cache for transport-level caching
-            configuration.urlCache = URLCache.shared
-            configuration.requestCachePolicy = .useProtocolCachePolicy
-            // Reduce timeout for faster failure detection
-            configuration.timeoutIntervalForRequest = 15
-            configuration.timeoutIntervalForResource = 30
-            resolvedSession = URLSession(configuration: configuration)
+            URLSession(configuration: APISessionConfiguration.make())
         }
 
         self.session = resolvedSession
@@ -1826,6 +1812,13 @@ final class YTMusicAPIKeyResolver {
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
                 forHTTPHeaderField: "User-Agent"
             )
+            // The Innertube API key is public and needs no authentication. Do NOT send the user's
+            // cookie jar for this fetch: a stale/partial consent cookie lands the request on the EU
+            // consent interstitial (consent.youtube.com), whose HTML has no key, breaking every API
+            // call with "Data Error". A cookieless request with a pre-accepted SOCS consent cookie
+            // bypasses the consent wall and returns the real web client page.
+            request.httpShouldHandleCookies = false
+            request.setValue("SOCS=CAI", forHTTPHeaderField: "Cookie")
             let (data, response) = try await self.session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse,
                !(200 ... 399).contains(httpResponse.statusCode)
