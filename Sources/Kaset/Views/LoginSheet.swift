@@ -7,6 +7,8 @@ struct LoginSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isCheckingLogin = false
+    @State private var didCaptureInitialSAPISID = false
+    @State private var initialSAPISID: String?
     @State private var pollTask: Task<Void, Never>?
 
     var body: some View {
@@ -26,7 +28,11 @@ struct LoginSheet: View {
             self.checkForSuccessfulLogin()
         }
         .onAppear {
-            self.startPollingForLogin()
+            Task {
+                self.initialSAPISID = await self.webKitManager.getSAPISID()
+                self.didCaptureInitialSAPISID = true
+                self.startPollingForLogin()
+            }
         }
         .onDisappear {
             self.pollTask?.cancel()
@@ -80,12 +86,14 @@ struct LoginSheet: View {
     private func checkForSuccessfulLoginAsync() async {
         guard !self.isCheckingLogin else { return }
 
+        guard self.didCaptureInitialSAPISID else { return }
+
         self.isCheckingLogin = true
 
         // Small delay to allow cookies to settle
         try? await Task.sleep(for: .milliseconds(300))
 
-        if let sapisid = await webKitManager.getSAPISID() {
+        if let sapisid = await webKitManager.getSAPISID(), sapisid != self.initialSAPISID {
             // Force backup cookies immediately after login
             // This ensures persistence across app restarts even if WebKit loses data
             await self.webKitManager.forceBackupCookies()
