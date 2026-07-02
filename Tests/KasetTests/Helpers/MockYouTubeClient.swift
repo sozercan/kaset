@@ -215,17 +215,21 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var watchLaterRemovals: [String] = []
     private(set) var lastDestination: YouTubeDestination?
     private(set) var lastFeedContinuation: String?
+    private(set) var destinationFeedCallCount = 0
+    private(set) var shortsCallCount = 0
 
     var shorts: [YouTubeVideo] = []
 
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
         if let error { throw error }
+        self.destinationFeedCallCount += 1
         self.lastDestination = destination
         return self.destinationFeed
     }
 
     func getShorts() async throws -> [YouTubeVideo] {
         if let error { throw error }
+        self.shortsCallCount += 1
         return self.shorts
     }
 

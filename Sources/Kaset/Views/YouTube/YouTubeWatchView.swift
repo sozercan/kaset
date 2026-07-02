@@ -13,6 +13,8 @@ struct YouTubeWatchView: View {
 
     let video: YouTubeVideo
 
+    @Environment(AccountService.self) private var accountService
+    @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var viewModel: YouTubeWatchViewModel
 
@@ -279,7 +281,9 @@ struct YouTubeWatchView: View {
                     }
                     .buttonStyle(.plain)
 
-                    self.subscribeButton
+                    if self.hasPersonalAccount {
+                        self.subscribeButton
+                    }
 
                     Spacer(minLength: 0)
                 }
@@ -401,7 +405,7 @@ struct YouTubeWatchView: View {
     private var commentComposer: some View {
         HStack(spacing: 10) {
             TextField(
-                self.viewModel.canComment
+                self.hasPersonalAccount && self.viewModel.canComment
                     ? String(localized: "Add a comment…")
                     : String(localized: "Sign in to comment"),
                 text: self.$commentDraft
@@ -410,7 +414,7 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 12)
             .frame(height: 30)
             .background(.quaternary.opacity(0.5), in: Capsule())
-            .disabled(!self.viewModel.canComment)
+            .disabled(!self.hasPersonalAccount || !self.viewModel.canComment)
             .onSubmit {
                 self.submitComment()
             }
@@ -439,13 +443,18 @@ struct YouTubeWatchView: View {
             }
             .buttonStyle(.plain)
             .disabled(
-                !self.viewModel.canComment
+                !self.hasPersonalAccount
+                    || !self.viewModel.canComment
                     || self.viewModel.isPostingComment
                     || self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
             .accessibilityLabel(String(localized: "Post comment"))
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentPostButton)
         }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
     }
 
     /// Whether the composer holds postable text (drives the send accent).

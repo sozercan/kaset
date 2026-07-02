@@ -257,11 +257,11 @@ struct YTMusicAPIKeyResolverTests {
     @MainActor
     func environmentOverrideAvoidsNetworkFetch() async throws {
         let session = MockURLProtocol.makeMockSession()
-        MockURLProtocol.requestHandler = { _ in
+        MockURLProtocol.setRequestHandler(for: session) { _ in
             throw URLError(.badServerResponse)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let resolver = YTMusicAPIKeyResolver(
@@ -283,7 +283,7 @@ struct YTMusicAPIKeyResolverTests {
         let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-html-api-key"});"#
         nonisolated(unsafe) var requestCount = 0
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             requestCount += 1
             guard let url = request.url,
                   let response = HTTPURLResponse(
@@ -299,7 +299,7 @@ struct YTMusicAPIKeyResolverTests {
             return (response, Data(html.utf8))
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
@@ -316,7 +316,7 @@ struct YTMusicAPIKeyResolverTests {
     @MainActor
     func httpFailureMapsToAPIError() async throws {
         let session = MockURLProtocol.makeMockSession()
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url,
                   let response = HTTPURLResponse(
                       url: url,
@@ -331,7 +331,7 @@ struct YTMusicAPIKeyResolverTests {
             return (response, Data("temporarily unavailable".utf8))
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
@@ -352,7 +352,7 @@ struct YTMusicAPIKeyResolverTests {
     @MainActor
     func missingAPIKeyMapsToParseError() async throws {
         let session = MockURLProtocol.makeMockSession()
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url,
                   let response = HTTPURLResponse(
                       url: url,
@@ -367,7 +367,7 @@ struct YTMusicAPIKeyResolverTests {
             return (response, Data("<html></html>".utf8))
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })

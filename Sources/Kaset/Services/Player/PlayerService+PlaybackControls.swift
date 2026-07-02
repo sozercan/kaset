@@ -498,6 +498,52 @@ extension PlayerService {
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
     }
 
+    /// Clears active playback UI/WebView state when startup resolves to guest mode.
+    ///
+    /// Unlike explicit sign-out, this does **not** overwrite persisted queue state
+    /// with an empty queue. That avoids deleting a legitimate guest queue on every
+    /// signed-out launch while still preventing restored account-owned metadata
+    /// from being shown in the visible guest shell.
+    func clearPlaybackForGuestStartup() {
+        self.logger.info("Clearing active playback state for guest startup")
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
+    }
+
+    /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
+    func clearPlaybackForSignOut() {
+        self.logger.info("Clearing playback state for sign-out")
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
+        self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.tearDown()
+        self.state = .idle
+        self.songNearingEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.currentEpisode = nil
+        self.currentTrack = nil
+        self.pendingPlayVideoId = nil
+        self.progress = 0
+        self.currentTimeMs = 0
+        self.duration = 0
+        self.showMiniPlayer = false
+        self.isMiniPlayerVisible = false
+        self.showLyrics = false
+        self.showQueue = false
+        self.showVideo = false
+        self.currentTrackHasVideo = false
+        self.mixContinuationToken = nil
+        self.queueOrderBeforeShuffle = nil
+        self.currentIndex = 0
+        self.setQueue([])
+        self.resetTrackStatus()
+        if persistEmptyQueue {
+            self.saveQueueForPersistence()
+        }
+    }
+
     /// Stops playback and clears state.
     func stop() async {
         self.logger.debug("Stopping playback")

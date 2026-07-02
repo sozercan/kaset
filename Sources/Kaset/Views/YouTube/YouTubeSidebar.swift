@@ -9,6 +9,8 @@ import SwiftUI
 /// shared footer (source toggle + profile) at the bottom.
 struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
+    @Environment(AccountService.self) private var accountService
+    @Environment(AuthService.self) private var authService
 
     var body: some View {
         List {
@@ -16,7 +18,9 @@ struct YouTubeSidebar: View {
             Section {
                 self.row(for: .search)
                 self.row(for: .home)
-                self.row(for: .subscriptions)
+                if self.hasPersonalAccount {
+                    self.row(for: .subscriptions)
+                }
             }
 
             // Discover section
@@ -25,12 +29,14 @@ struct YouTubeSidebar: View {
                 self.row(for: .shorts)
             }
 
-            // Collection section
-            Section(String(localized: "Collection")) {
-                self.row(for: .likedVideos)
-                self.row(for: .watchLater)
-                self.row(for: .playlists)
-                self.row(for: .history)
+            if self.hasPersonalAccount {
+                // Collection section
+                Section(String(localized: "Collection")) {
+                    self.row(for: .likedVideos)
+                    self.row(for: .watchLater)
+                    self.row(for: .playlists)
+                    self.row(for: .history)
+                }
             }
         }
         .listStyle(.sidebar)
@@ -40,6 +46,10 @@ struct YouTubeSidebar: View {
             SidebarFooterView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
     }
 
     private func row(for item: YouTubeNavigationItem) -> some View {

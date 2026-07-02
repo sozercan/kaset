@@ -81,12 +81,18 @@ struct SidebarProfileView: View {
                 AccountSwitcherPopover()
                     .environment(self.accountService)
             }
-        } else if self.accountService.lastError != nil, !self.accountService.isLoading {
+        } else if self.accountService.isLoading {
+            // Loading state only while account data is actively being fetched.
+            // If auth is stale but there is no current account, show the guest
+            // sign-in affordance instead of a permanent skeleton.
+            self.loadingStateView
+        } else if self.accountService.lastError != nil {
             // Error state - show retry option
             self.errorStateView
         } else {
-            // Loading state when account not yet fetched
-            self.loadingStateView
+            // Missing account data should not leave the footer as a permanent
+            // skeleton. Treat it like guest mode until a concrete account lands.
+            self.loggedOutContent
         }
     }
 
@@ -148,19 +154,31 @@ struct SidebarProfileView: View {
     // MARK: - Logged Out Content
 
     private var loggedOutContent: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 24))
-                .foregroundStyle(.tertiary)
+        Button {
+            self.authService.startLogin()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 24))
+                    .foregroundStyle(.tertiary)
 
-            Text(String(localized: "Not signed in"))
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Guest Mode"))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
 
-            Spacer()
+                    Text(String(localized: "Sign in for your library"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
-        .accessibilityLabel(String(localized: "Not signed in"))
+        .accessibilityLabel(String(localized: "Guest mode. Sign in for your library."))
     }
 
     // MARK: - Avatar View

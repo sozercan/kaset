@@ -22,6 +22,7 @@
 //    -o, --output <file>           - Save raw JSON response to a file
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
+//    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
 //
 //  Examples:
 //    swift run api-explorer browse FEmusic_home
@@ -50,6 +51,7 @@ let origin = "https://music.youtube.com"
 /// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
 nonisolated(unsafe) var youtubeMode = false
 nonisolated(unsafe) var cachedClientVersion: String?
+nonisolated(unsafe) var forceUnauthenticatedRequests = false
 
 // Active request configuration. Defaults to YouTube Music (the constants
 // above); --youtube switches everything to regular YouTube.
@@ -82,6 +84,10 @@ nonisolated(unsafe) var globalBrandAccountId: String?
 /// Reads cookies from Kaset app's backup file in Application Support.
 /// This allows the standalone tool to make authenticated API requests.
 func loadCookiesFromAppBackup() -> [HTTPCookie]? {
+    guard !forceUnauthenticatedRequests else {
+        return nil
+    }
+
     guard let appSupport = FileManager.default.urls(
         for: .applicationSupportDirectory,
         in: .userDomainMask
@@ -1866,16 +1872,17 @@ func showHelp() {
           --brand <ID>                   Use brand account ID (21-digit number)
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
+          --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
 
         YouTube mode examples:
           # Browse YouTube surfaces (auth used automatically when cookies exist)
-          swift run api-explorer --youtube browse FEwhat_to_watch     # Home feed
-          swift run api-explorer --youtube browse FEgaming_destination # Explore destination
+          swift run api-explorer --youtube --guest browse FEwhat_to_watch     # Signed-out Home feed
+          swift run api-explorer --youtube --guest browse FEgaming_destination # Signed-out Explore destination
           swift run api-explorer --youtube browse FEsubscriptions     # Subscriptions feed
           swift run api-explorer --youtube browse FEhistory           # Watch history
           swift run api-explorer --youtube browse VLWL                # Watch Later
           swift run api-explorer --youtube browse VLLL                # Liked videos
-          swift run api-explorer --youtube action search '{"query":"swift concurrency"}'
+          swift run api-explorer --youtube --guest action search '{"query":"swift concurrency"}'
           swift run api-explorer --youtube action next '{"videoId":"dQw4w9WgXcQ"}'
           swift run api-explorer --youtube action guide '{}'          # Sidebar + subscriptions list
 
@@ -1910,6 +1917,8 @@ func showHelp() {
                 For authenticated endpoints, sign in to the Kaset app first.
                 Debug builds export auth cookies to:
                     ~/Library/Application Support/Kaset/cookies.dat
+                Use --guest/--no-auth to validate signed-out behavior without
+                reading those cookies.
 
         """
     )
@@ -1953,6 +1962,14 @@ func runMain() async {
         activateYouTubeMode()
     }
 
+    // Parse guest/no-auth option before filtering so cookie-backed auth checks
+    // behave as if no Kaset debug cookie export exists. This is useful for
+    // validating public signed-out API behavior on a developer machine that is
+    // normally signed in.
+    if args.contains("--no-auth") || args.contains("--guest") {
+        forceUnauthenticatedRequests = true
+    }
+
     // Filter out option flags and their values
     var filteredArgs: [String] = []
     var skipNext = false
@@ -1961,7 +1978,9 @@ func runMain() async {
             skipNext = false
             continue
         }
-        if arg == "-v" || arg == "--verbose" || arg == "--youtube" || arg == "--yt" {
+        if arg == "-v" || arg == "--verbose" || arg == "--youtube" || arg == "--yt"
+            || arg == "--no-auth" || arg == "--guest"
+        {
             continue
         }
         if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {

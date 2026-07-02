@@ -20,13 +20,15 @@ final class MiniPlayerWindowController {
     func show(
         playerService: PlayerService,
         client: any YTMusicClientProtocol,
-        syncedLyricsService: SyncedLyricsService
+        syncedLyricsService: SyncedLyricsService,
+        authService: AuthService
     ) {
         self.playerService = playerService
 
         let contentView = MiniPlayerWindow(client: client)
             .environment(playerService)
             .environment(WebKitManager.shared)
+            .environment(authService)
             .environment(FavoritesManager.shared)
             .environment(SongLikeStatusManager.shared)
             .environment(syncedLyricsService)

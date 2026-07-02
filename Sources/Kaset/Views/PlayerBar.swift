@@ -10,6 +10,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private static let fullSongInfoWidth: CGFloat = 234
     private static let compactSongInfoWidth: CGFloat = 116
 
+    @Environment(AccountService.self) private var accountService
+    @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
@@ -373,39 +375,42 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         )
     }
 
+    @ViewBuilder
     private var songActionButtons: some View {
-        HStack(spacing: 6) {
-            PlayerBarIconButton(
-                action: self.likeCurrentTrack,
-                isSelected: self.playerService.currentTrackLikeStatus == .like,
-                accessibilityID: AccessibilityID.PlayerBar.likeButton,
-                accessibilityLabel: String(localized: "Like"),
-                accessibilityValue: self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked")
-            ) {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 10, height: 16)
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? Self.brandAccent : .primary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
-            .disabled(self.playerService.currentTrack == nil)
+        if self.hasPersonalAccount {
+            HStack(spacing: 6) {
+                PlayerBarIconButton(
+                    action: self.likeCurrentTrack,
+                    isSelected: self.playerService.currentTrackLikeStatus == .like,
+                    accessibilityID: AccessibilityID.PlayerBar.likeButton,
+                    accessibilityLabel: String(localized: "Like"),
+                    accessibilityValue: self.playerService.currentTrackLikeStatus == .like ? String(localized: "Liked") : String(localized: "Not liked")
+                ) {
+                    Image(systemName: self.playerService.currentTrackLikeStatus == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
+                        .font(.system(size: 16, weight: .regular))
+                        .frame(width: 10, height: 16)
+                        .foregroundStyle(self.playerService.currentTrackLikeStatus == .like ? Self.brandAccent : .primary)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .like)
+                .disabled(self.playerService.currentTrack == nil)
 
-            PlayerBarIconButton(
-                action: self.dislikeCurrentTrack,
-                isSelected: self.playerService.currentTrackLikeStatus == .dislike,
-                accessibilityID: AccessibilityID.PlayerBar.dislikeButton,
-                accessibilityLabel: String(localized: "Dislike"),
-                accessibilityValue: self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked")
-            ) {
-                Image(systemName: self.playerService.currentTrackLikeStatus == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 10, height: 16)
-                    .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? Self.brandAccent : .primary)
-                    .contentTransition(.symbolEffect(.replace))
+                PlayerBarIconButton(
+                    action: self.dislikeCurrentTrack,
+                    isSelected: self.playerService.currentTrackLikeStatus == .dislike,
+                    accessibilityID: AccessibilityID.PlayerBar.dislikeButton,
+                    accessibilityLabel: String(localized: "Dislike"),
+                    accessibilityValue: self.playerService.currentTrackLikeStatus == .dislike ? String(localized: "Disliked") : String(localized: "Not disliked")
+                ) {
+                    Image(systemName: self.playerService.currentTrackLikeStatus == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                        .font(.system(size: 16, weight: .regular))
+                        .frame(width: 10, height: 16)
+                        .foregroundStyle(self.playerService.currentTrackLikeStatus == .dislike ? Self.brandAccent : .primary)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
+                .disabled(self.playerService.currentTrack == nil)
             }
-            .symbolEffect(.bounce, value: self.playerService.currentTrackLikeStatus == .dislike)
-            .disabled(self.playerService.currentTrack == nil)
         }
     }
 
@@ -785,23 +790,27 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private func currentSongContextMenu(for track: Song) -> some View {
         FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
 
-        Divider()
+        if self.hasPersonalAccount {
+            Divider()
 
-        LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
+            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
+        }
 
         Divider()
 
         StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
 
-        Divider()
+        if self.hasPersonalAccount {
+            Divider()
 
-        Button {
-            self.playerService.toggleLibraryStatus()
-        } label: {
-            Label(
-                self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
-                systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
-            )
+            Button {
+                self.playerService.toggleLibraryStatus()
+            } label: {
+                Label(
+                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
+                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
+                )
+            }
         }
 
         Divider()
@@ -812,7 +821,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
         AddToQueueContextMenu(song: track, playerService: self.playerService)
 
-        if let client = self.playerService.ytMusicClient {
+        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
             Divider()
 
             AddToPlaylistContextMenu(song: track, client: client)
@@ -874,7 +883,12 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Actions
 
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
+    }
+
     private func likeCurrentTrack() {
+        guard self.hasPersonalAccount else { return }
         HapticService.toggle()
         self.playerService.likeCurrentTrack()
     }
@@ -1078,6 +1092,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private func dislikeCurrentTrack() {
+        guard self.hasPersonalAccount else { return }
         HapticService.toggle()
         self.playerService.dislikeCurrentTrack()
     }

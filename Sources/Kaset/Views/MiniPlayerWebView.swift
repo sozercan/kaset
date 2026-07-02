@@ -336,6 +336,18 @@ final class SingletonPlayerWebView {
         self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
     }
 
+    /// Stops playback, blanks the page, and detaches the persistent music WebView.
+    func tearDown() {
+        guard let webView else { return }
+        self.logger.info("Tearing down singleton music WebView")
+        self.loadGeneration += 1
+        self.currentVideoId = nil
+        webView.evaluateJavaScript("document.querySelector('video')?.pause()", completionHandler: nil)
+        webView.loadHTMLString("", baseURL: nil)
+        webView.removeFromSuperview()
+        self.webKitManager?.extensionHostWebViewDidDeactivate(role: .musicPlayer)
+    }
+
     /// Load a video, stopping any currently playing audio first.
     /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
     /// AirPlay connections will be lost on full navigation but the auto-reconnect picker will appear.

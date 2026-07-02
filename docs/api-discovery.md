@@ -55,6 +55,41 @@ Use `swift run api-explorer --youtube ...` to target regular YouTube. Use the de
 
 ---
 
+### Guest Mode / Unauthenticated Playback (verified 2026-07-01)
+
+Kaset can drive a signed-out public experience without user cookies. Public
+endpoint requests should be sent without signed-in browser credentials when
+`AuthService` is logged out, while still using the normal WebView playback URLs
+for media:
+
+- Music playback: `https://music.youtube.com/watch?v=<videoId>`
+- YouTube playback: `https://www.youtube.com/watch?v=<videoId>`
+
+Forced signed-out API Explorer probes confirmed these public surfaces:
+
+| Surface | Endpoint | Signed-out behavior |
+|---------|----------|---------------------|
+| Music search | `search` | HTTP 200; song `videoId`s returned |
+| Music metadata / queue | `next` | HTTP 200; current item, lyrics tab, and queue data returned |
+| Music radio | `next` with `playlistId: RDAMVM<videoId>` | HTTP 200; 50-item radio queue plus continuation |
+| Music queue continuation | `continuation … next` | HTTP 200; more radio items returned |
+| Music bulk queue metadata | `music/get_queue` | HTTP 200; `playlistPanelVideoRenderer` metadata returned |
+| Public Music browse | `FEmusic_home`, `FEmusic_explore`, `FEmusic_charts`, `FEmusic_moods_and_genres`, `FEmusic_new_releases`, `FEmusic_podcasts` | HTTP 200 public content |
+| Lyrics browse | `MPLYt...` from `next` | HTTP 200 when lyrics are public |
+| YouTube search/watch-next | `--youtube search`, `--youtube next` | HTTP 200 public results / related videos |
+
+Personal surfaces and mutations remain sign-in-only. Gate or hide UI for:
+
+- Music: library, history, liked music, add-to-playlist, like/dislike, save/remove from library, account/brand switching.
+- YouTube: subscriptions, history, playlists, liked videos, Watch Later, subscribe/rate/comment mutations.
+
+Do **not** rely on `/player` streaming URLs for guest playback. Signed-out
+`player` probes for both WEB_REMIX and WEB returned HTTP 200 but
+`playabilityStatus.status = UNPLAYABLE` and no `streamingData`; the browser
+player/WebView remains the correct playback surface.
+
+---
+
 ## Authentication
 
 ### Authentication Methods
