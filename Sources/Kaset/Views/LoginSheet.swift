@@ -8,7 +8,6 @@ struct LoginSheet: View {
 
     @State private var isCheckingLogin = false
     @State private var didCaptureInitialSAPISID = false
-    @State private var didNavigateToYouTubeMusic = false
     @State private var didCompleteLogin = false
     @State private var initialSAPISID: String?
     @State private var pollTask: Task<Void, Never>?
@@ -23,7 +22,6 @@ struct LoginSheet: View {
 
             // WebView
             LoginWebView(onNavigationToYouTubeMusic: {
-                self.didNavigateToYouTubeMusic = true
                 self.checkForSuccessfulLogin()
             })
         }

@@ -399,7 +399,7 @@ extension YouTubeWatchWebView {
         }
     }
 
-    /// Activates a caption track by language code, or turns captions off (nil).
+    /// Activates a caption track by preferred caption identifier (`vssId` when available, else language code), or turns captions off (nil).
     func setCaptionTrack(languageCode: String?) {
         self.webView?.evaluateJavaScript(Self.setCaptionTrackScript(languageCode: languageCode), completionHandler: nil)
     }
