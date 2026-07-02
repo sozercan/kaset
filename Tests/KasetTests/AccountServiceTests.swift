@@ -11,6 +11,7 @@ import Testing
 // MARK: - AccountServiceTests
 
 @Suite(.serialized)
+// swiftlint:disable:next type_body_length
 struct AccountServiceTests {
     // MARK: - Initial State Tests
 
@@ -467,9 +468,19 @@ struct AccountServiceTests {
 
         // Gate the switch so it is still verifying when logout fires.
         let release = AsyncReleaseGate()
+        let callsBeforeSwitch = mockWebKit.switchSessionIdentityCallCount
         mockWebKit.switchSessionIdentityGate = { await release.wait() }
         async let switching: Void = services.account.switchAccount(to: brand)
-        await Task.yield()
+        // Let this switch reach the gated session navigation before logging out.
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount <= callsBeforeSwitch {
+            await Task.yield()
+        }
+        guard mockWebKit.switchSessionIdentityCallCount > callsBeforeSwitch else {
+            Issue.record("Expected switch navigation to start")
+            await release.release()
+            try? await switching
+            return
+        }
 
         // Logout while the switch is in flight: it must invalidate the switch so
         // the brand is never committed after the account data is cleared.
