@@ -13,6 +13,7 @@ struct CommandExecutor {
         case clearQueue
         case shuffleQueue
         case toggleShuffle
+        case queueRadio
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
@@ -105,6 +106,10 @@ struct CommandExecutor {
             self.playerService.toggleShuffle()
             let status = self.playerService.shuffleEnabled ? "on" : "off"
             return .result("Shuffle is now \(status)")
+
+        case .queueRadio:
+            HapticService.success()
+            return await self.queueRadioFromCurrentTrack()
 
         case let .playSearch(query, description):
             return await self.playSearchResult(query: query, description: description)
@@ -281,6 +286,31 @@ struct CommandExecutor {
         } catch {
             self.logger.error("Search failed: \(error.localizedDescription)")
             return .error(String(localized: "Couldn't search for music"))
+        }
+    }
+
+    private func queueRadioFromCurrentTrack() async -> Outcome {
+        guard let seed = self.playerService.currentTrack, !seed.videoId.isEmpty else {
+            return .error(String(localized: "Nothing is playing to build a radio from"))
+        }
+
+        do {
+            let radioSongs = try await self.client.getRadioQueue(videoId: seed.videoId)
+            let existingIds = Set(self.playerService.queue.map(\.videoId))
+            let newSongs = radioSongs.filter { !existingIds.contains($0.videoId) }
+
+            self.logger.info("Radio queue for \(seed.videoId) returned \(radioSongs.count), \(newSongs.count) new")
+
+            guard !newSongs.isEmpty else {
+                return .error(String(localized: "Couldn't find more songs like that"))
+            }
+
+            self.playerService.appendToQueue(newSongs)
+            let seedArtist = seed.artistsDisplay.isEmpty ? "" : " by \(seed.artistsDisplay)"
+            return .result("Added \(newSongs.count) songs like \"\(seed.title)\"\(seedArtist) to the queue")
+        } catch {
+            self.logger.error("Radio queue failed: \(error.localizedDescription)")
+            return .error(String(localized: "Couldn't build a radio from this song"))
         }
     }
 

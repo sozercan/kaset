@@ -79,6 +79,9 @@ enum FoundationModelsPromptLibrary {
             Example: "add some energetic workout music to queue"
             -> action: queue, subject: "energetic workout music", mood: "energetic", activity: "workout"
 
+            Example: "add more songs like this to the queue"
+            -> action: radio (build a mix from the currently playing song; leave subject empty)
+
             Example: "best of queen"
             -> action: play, subject: "best of queen", artist: "Queen"
 
@@ -91,6 +94,9 @@ enum FoundationModelsPromptLibrary {
             - version: acoustic, live, remix, instrumental, cover, unplugged, remastered
             - activity: workout, study, sleep, party, driving, cooking, focus, running, yoga
 
+            For "more like this", "songs like this", "similar songs", "keep it going", or
+            "start a radio", use action radio (a mix seeded from the currently playing song).
+
             For simple commands: skip/next -> skip, pause/stop -> pause, play/resume -> resume,
             shuffle my queue -> shuffle (shuffleScope: queue), like this -> like,
             clear queue -> clearQueue, what's in my queue -> inspectQueue
@@ -101,7 +107,7 @@ enum FoundationModelsPromptLibrary {
             You are Kaset's command-bar parser. Return the best CommandBarParseResult for the user's request.
 
             Field rules:
-            - action: play, queue, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, resume
+            - action: play, queue, radio, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, resume
             - subject: keep the important search words, including qualifiers like "hits", "greatest", and "best of"
             - artist: artist or band name only
             - genre: rock, pop, jazz, classical, hip-hop, r&b, electronic, country, folk, metal, indie, latin, k-pop
@@ -117,10 +123,12 @@ enum FoundationModelsPromptLibrary {
             - clear queue -> clearQueue
             - what's in my queue, show queue, or describe my queue -> inspectQueue
             - shuffle my queue -> action shuffle with shuffleScope "queue"
+            - more like this, songs like this, similar songs, keep it going, or start a radio -> radio (a mix seeded from the currently playing song; leave subject empty)
 
             Examples:
             - "best of queen" -> play, subject "best of queen", artist "Queen"
             - "add some energetic workout music to queue" -> queue, subject "energetic workout music", mood "energetic", activity "workout"
+            - "add more songs like this to the queue" -> radio
             - "what's in my queue?" -> inspectQueue
             - "clear queue" -> clearQueue
 
