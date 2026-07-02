@@ -35,4 +35,18 @@ struct ResponseTreeSearchTests {
         #expect(ResponseTreeSearch.containsText("playlist/delete", in: response))
         #expect(!ResponseTreeSearch.containsKey("createPlaylistEndpoint", in: response))
     }
+
+    @Test("Detects nested key or text in one pass")
+    func detectsNestedKeyOrTextInOnePass() {
+        let response: [String: Any] = [
+            "outer": [[
+                "command": [
+                    "label": "Playlist/Delete",
+                ],
+            ]],
+        ]
+
+        #expect(ResponseTreeSearch.containsAny(keys: ["missingRenderer"], text: "playlist/delete", in: response))
+        #expect(!ResponseTreeSearch.containsAny(keys: ["missingRenderer"], text: "not-present", in: response))
+    }
 }
