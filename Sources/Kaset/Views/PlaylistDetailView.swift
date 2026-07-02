@@ -33,6 +33,10 @@ struct PlaylistDetailView: View {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
     }
 
+    var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
+    }
+
     private let logger = DiagnosticsLogger.ai
 
     init(
@@ -276,6 +280,7 @@ struct PlaylistDetailView: View {
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            allowsLikeActions: self.hasPersonalAccount,
             onPlay: {
                 self.playTrackInQueue(
                     tracks: tracks, startingAt: index, fallbackArtist: author,
@@ -675,6 +680,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
     let index: Int
     let isAlbum: Bool
     let subtitle: String?
+    let allowsLikeActions: Bool
     let onPlay: () -> Void
     @ViewBuilder let menu: () -> Menu
 
@@ -726,7 +732,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                LikeButton(song: self.track, isRowHovered: self.isHovered)
+                LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
 
                 Text(self.track.durationDisplay)
                     .font(.system(size: 12))

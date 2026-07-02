@@ -402,7 +402,7 @@ struct SearchView: View {
 
                     // Favorite toggle for songs
                     if case let .song(song) = item {
-                        LikeButton(song: song, isRowHovered: isHovered)
+                        LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.state.isLoggedIn)
                     }
 
                     // Play indicator for songs

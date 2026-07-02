@@ -212,7 +212,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
 
                     // Subscribe button
-                    if detail.channelId != nil {
+                    if detail.channelId != nil, self.hasPersonalAccount {
                         self.subscribeButton(detail)
                     }
                 }
@@ -374,7 +374,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
 
                     // Favorite toggle
-                    LikeButton(song: song, isRowHovered: isHovered)
+                    LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.hasPersonalAccount)
 
                     // Duration
                     Text(song.durationDisplay)
@@ -866,6 +866,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             || lowercasedTitle.hasPrefix("ep")
             ? .singles
             : .albums
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
     }
 
     // MARK: - Section Header with Optional See-all

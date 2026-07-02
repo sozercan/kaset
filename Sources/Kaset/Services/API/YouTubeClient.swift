@@ -319,6 +319,11 @@ final class YouTubeClient: YouTubeClientProtocol {
         return YouTubeFeedParser.parseContinuation(data)
     }
 
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        let data = try await self.request("browse", body: ["continuation": continuation], authPolicy: .required)
+        return YouTubeFeedParser.parseContinuation(data)
+    }
+
     func getShorts() async throws -> [YouTubeVideo] {
         self.logger.info("Fetching YouTube Shorts")
 
@@ -483,10 +488,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                 let headers = try await self.buildAuthHeaders()
                 return RequestAuthHeaders(headers: headers, authenticated: true)
             } catch {
-                if authPolicy == .required {
-                    throw error
-                }
-                self.logger.warning("Proceeding without YouTube auth for public request: \(error.localizedDescription, privacy: .public)")
+                self.authService.sessionExpired()
+                throw YTMusicError.authExpired
             }
         } else if authPolicy == .required {
             throw YTMusicError.notAuthenticated
@@ -586,12 +589,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         body: [String: Any],
         ttl: TimeInterval? = nil,
         retry: Bool = true,
-        bypassCache: Bool = false
+        bypassCache: Bool = false,
+        authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
     ) async throws -> [String: Any] {
         // Capture before auth-header awaits so sign-out/account-switch invalidations
         // during cookie extraction still reject any stale write.
         let cacheGeneration = APICache.shared.generation
-        let authPolicy = self.authPolicy(forEndpoint: endpoint, body: body)
+        let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
 
         var fullBody = body
@@ -729,10 +733,12 @@ final class YouTubeClient: YouTubeClientProtocol {
         )
     }
 
-    /// Returns cached raw home bytes for `key` if present, after validating the
-    /// auth session (a cleared/expired session must not serve private cached
-    /// data). `key` is captured by the caller before any network await so it
-    /// reflects the authenticated request scope, not a later signed-out one.
+    /// Returns cached raw home bytes for an already-scoped `key`.
+    ///
+    /// The caller resolves optional auth before constructing this key, so guest
+    /// and authenticated Home responses live in separate cache scopes. The key
+    /// is captured before network awaits so stale account/sign-out completions
+    /// cannot write through a later scope.
     private func cachedHomeData(key: String) -> Data? {
         if let cached = APICache.shared.getData(key: key) {
             self.logger.debug("Cache hit (data) for \(Self.cachePrefix)browse")

@@ -222,7 +222,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
-    weak var authService: AuthService?
+    var authService: AuthService?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
@@ -365,6 +365,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         !self.queueRedoHistory.isEmpty
     }
 
+    /// Clears queue undo/redo history at account/privacy boundaries.
+    func clearQueueUndoRedoHistory() {
+        self.queueUndoHistory.removeAll()
+        self.queueRedoHistory.removeAll()
+    }
+
     /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
     func recordQueueStateForUndo() {
         let state = QueueState(entries: self.queueEntries, currentIndex: self.currentIndex)
@@ -487,7 +493,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Account-backed library/rating mutations should be no-ops in guest mode.
     var canPerformAccountMutation: Bool {
-        self.authService?.state.isLoggedIn ?? true
+        self.authService?.state.isLoggedIn ?? false
     }
 
     /// Flag to track when a song is nearing its end.

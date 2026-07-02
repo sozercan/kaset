@@ -654,7 +654,8 @@ struct MainWindow: View {
             // Still checking login status, do nothing
             break
         case .loggedOut:
-            let crossedSignOutBoundary = oldState.isLoggedIn
+            let isReauthTransition = self.authService.needsReauth
+            let crossedSignOutBoundary = oldState.isLoggedIn && !isReauthTransition
             let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing
             if crossedSignOutBoundary {
                 self.playerService.clearPlaybackForSignOut()
@@ -677,6 +678,12 @@ struct MainWindow: View {
         case .loggedIn:
             self.guestRefreshTask?.cancel()
             self.guestRefreshTask = nil
+            if oldState == .loggingIn {
+                // Replace any mounted guest-loaded models so in-flight guest
+                // responses cannot populate the authenticated shell.
+                self.resetMusicViewModelsForGuest()
+                self.youtubeStore.resetForAccountChange()
+            }
             self.showLoginSheet = false
             // Auto-present "What's New" — fetch from GitHub release notes
             if self.whatsNewToPresent == nil {

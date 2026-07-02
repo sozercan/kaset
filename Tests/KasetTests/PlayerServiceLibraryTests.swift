@@ -8,11 +8,15 @@ import Testing
 struct PlayerServiceLibraryTests {
     var playerService: PlayerService
     var mockClient: MockYTMusicClient
+    var authService: AuthService
 
     init() {
         self.mockClient = MockYTMusicClient()
+        self.authService = AuthService(webKitManager: MockWebKitManager())
+        self.authService.completeLogin(sapisid: "test-sapisid")
         self.playerService = PlayerService()
         self.playerService.setYTMusicClient(self.mockClient)
+        self.playerService.setAuthService(self.authService)
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
     }

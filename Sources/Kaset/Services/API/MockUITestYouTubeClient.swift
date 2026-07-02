@@ -157,6 +157,10 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         .empty
     }
 
+    func getPrivateFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
+        .empty
+    }
+
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }

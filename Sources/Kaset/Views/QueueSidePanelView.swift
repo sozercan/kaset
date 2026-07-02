@@ -5,6 +5,7 @@ import SwiftUI
 
 struct QueueSidePanelView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
@@ -26,6 +27,7 @@ struct QueueSidePanelView: View {
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
                     likeStatusManager: self.likeStatusManager,
+                    allowsLikeActions: self.authService.state.isLoggedIn,
                     likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { index in
                         Task {
@@ -87,6 +89,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let isPlaying: Bool
     let favoritesManager: FavoritesManager
     let likeStatusManager: SongLikeStatusManager
+    let allowsLikeActions: Bool
     /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
     let likeStatusEvent: LikeStatusEvent?
     let onSelect: (Int) -> Void
@@ -107,6 +110,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         context.coordinator.isPlaying = self.isPlaying
         context.coordinator.favoritesManager = self.favoritesManager
         context.coordinator.likeStatusManager = self.likeStatusManager
+        context.coordinator.allowsLikeActions = self.allowsLikeActions
         context.coordinator.lastLikeEvent = self.likeStatusEvent
 
         if !context.coordinator.isDragging {
@@ -136,6 +140,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             isPlaying: self.isPlaying,
             favoritesManager: self.favoritesManager,
             likeStatusManager: self.likeStatusManager,
+            allowsLikeActions: self.allowsLikeActions,
             onSelect: self.onSelect,
             onReorder: self.onReorder,
             onRemove: self.onRemove,
@@ -208,6 +213,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         var isPlaying: Bool
         var favoritesManager: FavoritesManager
         var likeStatusManager: SongLikeStatusManager
+        var allowsLikeActions: Bool
         var lastLikeEvent: LikeStatusEvent?
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
@@ -219,6 +225,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
              likeStatusManager: SongLikeStatusManager,
+             allowsLikeActions: Bool,
              onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (Int) -> Void, onStartRadio: @escaping (Song) -> Void)
         {
             self.entries = entries
@@ -226,6 +233,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.isPlaying = isPlaying
             self.favoritesManager = favoritesManager
             self.likeStatusManager = likeStatusManager
+            self.allowsLikeActions = allowsLikeActions
             self.onSelect = onSelect
             self.onReorder = onReorder
             self.onRemove = onRemove
@@ -286,12 +294,14 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     onRemove: { [weak self] in self?.onRemove(row) },
                     onToggleLike: { [weak self] in
                         guard let self else { return }
+                        guard self.allowsLikeActions else { return }
                         if self.likeStatusManager.isLiked(song) {
                             SongActionsHelper.unlikeSong(song, likeStatusManager: self.likeStatusManager)
                         } else {
                             SongActionsHelper.likeSong(song, likeStatusManager: self.likeStatusManager)
                         }
                     },
+                    allowsLikeAction: self.allowsLikeActions,
                     isLiked: isLiked
                 )
             )
@@ -727,11 +737,13 @@ private struct QueueFooterIconButton: View {
 
 private struct QueueFooterActions: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
 
     @State private var isSavingPlaylist = false
 
     private var canSaveQueueAsPlaylist: Bool {
-        !self.playerService.queue.isEmpty
+        self.authService.state.isLoggedIn
+            && !self.playerService.queue.isEmpty
             && !self.isSavingPlaylist
             && self.playerService.ytMusicClient != nil
     }
@@ -809,7 +821,7 @@ private struct QueueFooterActions: View {
     }
 
     private func presentSaveQueueAsPlaylistDialog() {
-        guard !self.isSavingPlaylist else { return }
+        guard self.authService.state.isLoggedIn, !self.isSavingPlaylist else { return }
         let songs = self.playerService.queue
         guard !songs.isEmpty else { return }
 
@@ -842,7 +854,7 @@ private struct QueueFooterActions: View {
     }
 
     private func saveQueueAsPlaylist(title: String, songCount: Int) async {
-        guard !self.isSavingPlaylist else { return }
+        guard self.authService.state.isLoggedIn, !self.isSavingPlaylist else { return }
         self.isSavingPlaylist = true
         defer { self.isSavingPlaylist = false }
 

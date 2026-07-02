@@ -178,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         likeItem.target = self
         likeItem.isEnabled = self.playerService?.currentTrack != nil
+            && self.playerService?.canPerformAccountMutation == true
         menu.addItem(likeItem)
 
         return menu

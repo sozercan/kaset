@@ -368,6 +368,10 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         return self.feedContinuation
     }
 
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        try await self.getFeedContinuation(continuation: continuation)
+    }
+
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
         self.subscriptionsFeedCallCount += 1
         try await self.waitIfNeeded()

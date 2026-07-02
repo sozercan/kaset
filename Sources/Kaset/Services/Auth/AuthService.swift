@@ -120,8 +120,8 @@ final class AuthService: AuthServiceProtocol {
     /// Called when a session expires (e.g., 401/403 from API).
     func sessionExpired() {
         self.logger.warning("Session expired, requiring re-authentication")
-        self.state = .loggedOut
         self.needsReauth = true
+        self.state = .loggedOut
         self.stateBeforeLogin = nil
         // Drop cached personalized responses so a later login in the same
         // session can't be served the previous user's data (incl. the

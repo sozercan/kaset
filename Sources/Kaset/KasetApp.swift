@@ -199,11 +199,13 @@ struct KasetApp: App {
                     // Check if user is already logged in from previous session
                     await self.authService.checkLoginStatus()
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
-                    if !self.authService.state.isLoggedIn {
-                        self.playerService.clearPlaybackForGuestStartup()
-                        self.youtubePlayerService.stop()
+                    if !self.didCompleteStartupPlaybackCleanup {
+                        if !self.authService.state.isLoggedIn {
+                            self.playerService.clearPlaybackForGuestStartup()
+                            self.youtubePlayerService.stop()
+                        }
+                        self.didCompleteStartupPlaybackCleanup = true
                     }
-                    self.didCompleteStartupPlaybackCleanup = true
                     self.drainPendingIncomingURLIfReady()
 
                     // Fetch accounts after login check (for account switcher)

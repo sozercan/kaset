@@ -239,6 +239,10 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.feedContinuation
     }
 
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        try await self.getFeedContinuation(continuation: continuation)
+    }
+
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
         if let error { throw error }
         return self.subscriptionsFeed

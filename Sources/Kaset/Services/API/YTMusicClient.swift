@@ -55,7 +55,6 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
-
     /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
     private var personalizedRecommendationsContinuationToken: String?
 
@@ -191,7 +190,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Fetching personalized recommendations continuation")
 
         do {
-            let continuationData = try await self.requestContinuation(token)
+            let continuationData = try await self.requestContinuation(token, authPolicy: .required)
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
             self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
             let hasMore = self.personalizedRecommendationsContinuationToken != nil
@@ -363,11 +362,15 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Makes a continuation request for browse endpoints.
-    private func requestContinuation(_ token: String, ttl: TimeInterval? = APICache.TTL.home) async throws -> [String: Any] {
+    private func requestContinuation(
+        _ token: String,
+        ttl: TimeInterval? = APICache.TTL.home,
+        authPolicy: RequestAuthPolicy? = nil
+    ) async throws -> [String: Any] {
         let body: [String: Any] = [
             "continuation": token,
         ]
-        return try await self.request("browse", body: body, ttl: ttl)
+        return try await self.request("browse", body: body, ttl: ttl, authPolicy: authPolicy)
     }
 
     /// Makes a continuation request for next/queue endpoints.
@@ -780,7 +783,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Fetching liked songs continuation")
 
         do {
-            let continuationData = try await requestContinuation(token)
+            let continuationData = try await requestContinuation(token, authPolicy: .required)
             // Use playlist continuation parser since VLLM returns playlist format
             let playlistResponse = PlaylistParser.parsePlaylistContinuation(continuationData)
             self.likedSongsContinuationToken = playlistResponse.continuationToken
@@ -1598,10 +1601,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                 let headers = try await self.buildAuthHeaders()
                 return RequestAuthHeaders(headers: headers, authenticated: true)
             } catch {
-                if authPolicy == .required {
-                    throw error
-                }
-                self.logger.warning("Proceeding without YouTube Music auth for public request: \(error.localizedDescription, privacy: .public)")
+                self.authService.sessionExpired()
+                throw YTMusicError.authExpired
             }
         } else if authPolicy == .required {
             throw YTMusicError.notAuthenticated
@@ -1738,8 +1739,13 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Makes a request to the API with optional authentication, caching, and retry.
-    private func request(_ endpoint: String, body: [String: Any], ttl: TimeInterval? = nil) async throws -> [String: Any] {
-        let authPolicy = self.authPolicy(forEndpoint: endpoint, body: body)
+    private func request(
+        _ endpoint: String,
+        body: [String: Any],
+        ttl: TimeInterval? = nil,
+        authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
+    ) async throws -> [String: Any] {
+        let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
 
         // Build request body with context so cache keys reflect the actual request.

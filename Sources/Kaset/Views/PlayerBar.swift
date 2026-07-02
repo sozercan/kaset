@@ -1229,6 +1229,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 #Preview {
     PlayerBar()
         .environment(PlayerService())
+        .environment(AuthService())
         .environment(FavoritesManager.shared)
         .environment(SongLikeStatusManager.shared)
         .frame(width: 810)

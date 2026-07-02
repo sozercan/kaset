@@ -540,6 +540,7 @@ extension PlayerService {
         self.currentTrackHasVideo = false
         self.mixContinuationToken = nil
         self.queueOrderBeforeShuffle = nil
+        self.clearQueueUndoRedoHistory()
         self.currentIndex = 0
         if !persistEmptyQueue {
             self.suppressNextEmptyQueuePersistence = true

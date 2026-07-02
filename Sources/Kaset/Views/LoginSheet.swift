@@ -11,7 +11,6 @@ struct LoginSheet: View {
     @State private var didNavigateToYouTubeMusic = false
     @State private var didCompleteLogin = false
     @State private var initialSAPISID: String?
-    @State private var bootstrapTask: Task<Void, Never>?
     @State private var pollTask: Task<Void, Never>?
     @State private var isActive = false
 
@@ -34,16 +33,16 @@ struct LoginSheet: View {
         }
         .onAppear {
             self.isActive = true
-            self.bootstrapTask = Task {
-                self.initialSAPISID = await self.webKitManager.getSAPISID()
-                guard !Task.isCancelled, self.isActive else { return }
-                self.didCaptureInitialSAPISID = true
-                self.startPollingForLogin()
-            }
+        }
+        .task {
+            self.isActive = true
+            self.initialSAPISID = await self.webKitManager.getSAPISID()
+            guard !Task.isCancelled, self.isActive else { return }
+            self.didCaptureInitialSAPISID = true
+            self.startPollingForLogin()
         }
         .onDisappear {
             self.isActive = false
-            self.bootstrapTask?.cancel()
             self.pollTask?.cancel()
             if !self.didCompleteLogin {
                 self.authService.cancelLoginIfNeeded()

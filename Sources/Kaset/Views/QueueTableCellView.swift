@@ -7,6 +7,7 @@ struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
     let onToggleLike: () -> Void
+    let allowsLikeAction: Bool
     let isLiked: Bool
 }
 
@@ -210,6 +211,7 @@ class QueueTableCellView: NSView {
         self.onPlay = actions.onPlay
         self.onRemove = actions.onRemove
         self.onToggleLikeAction = actions.onToggleLike
+        self.likeButton.isEnabled = actions.allowsLikeAction
         self.isCurrentTrack = isCurrentTrack
         self.isPlaying = isPlaying
         self.updateAppearance(isCurrentTrack: isCurrentTrack, isPlaying: isPlaying, index: index)
@@ -259,7 +261,7 @@ class QueueTableCellView: NSView {
             : String(localized: "Like")
         self.likeButton.image = NSImage(systemSymbolName: likeIconName, accessibilityDescription: likeDescription)
         self.likeButton.contentTintColor = isLiked ? NSColor.systemRed : NSColor.tertiaryLabelColor
-        self.likeButton.alphaValue = isLiked ? 1.0 : 0.55
+        self.likeButton.alphaValue = !self.likeButton.isEnabled ? 0 : (isLiked ? 1.0 : 0.55)
         self.likeButton.toolTip = likeDescription
         self.likeButton.setAccessibilityLabel(likeDescription)
     }
