@@ -182,6 +182,30 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.status(for: "video-2") == .dislike)
     }
 
+    @Test("bulk setStatus updates cache for active account")
+    func bulkSetStatusUpdatesCacheForActiveAccount() {
+        let videoIds = ["bulk-video-1", "bulk-video-2", "bulk-video-3"]
+
+        self.manager.setStatus(.like, for: videoIds)
+
+        for videoId in videoIds {
+            #expect(self.manager.status(for: videoId) == .like)
+        }
+    }
+
+    @Test("bulk setStatus respects active account scope")
+    func bulkSetStatusRespectsActiveAccountScope() {
+        let videoIds = ["bulk-scoped-video-1", "bulk-scoped-video-2"]
+
+        self.manager.setActiveAccountID("brand-account")
+        self.manager.setStatus(.like, for: videoIds)
+
+        for videoId in videoIds {
+            #expect(self.manager.status(for: videoId) == .like)
+            #expect(self.manager.status(for: videoId, accountID: "primary") == nil)
+        }
+    }
+
     @Test("cache is isolated by active account")
     func cacheIsIsolatedByActiveAccount() {
         self.manager.setActiveAccountID("primary")
