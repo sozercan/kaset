@@ -81,12 +81,18 @@ struct SidebarProfileView: View {
                 AccountSwitcherPopover()
                     .environment(self.accountService)
             }
-        } else if self.accountService.lastError != nil, !self.accountService.isLoading {
+        } else if self.accountService.isLoading {
+            // Loading state only while account data is actively being fetched.
+            // If auth is stale but there is no current account, show the guest
+            // sign-in affordance instead of a permanent skeleton.
+            self.loadingStateView
+        } else if self.accountService.lastError != nil {
             // Error state - show retry option
             self.errorStateView
         } else {
-            // Loading state when account not yet fetched
-            self.loadingStateView
+            // Missing account data should not leave the footer as a permanent
+            // skeleton. Treat it like guest mode until a concrete account lands.
+            self.loggedOutContent
         }
     }
 
