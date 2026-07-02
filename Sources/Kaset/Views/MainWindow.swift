@@ -128,7 +128,9 @@ struct MainWindow: View {
                         self.initializingView
                     }
                 } else {
-                    OnboardingView()
+                    // Guest mode: public browsing/search/playback remains available
+                    // without login. Personal routes render sign-in prompts below.
+                    self.mainContent
                 }
             }
             .onAppear {
@@ -443,6 +445,7 @@ struct MainWindow: View {
         // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
             && self.settings.appSource == .music
+            && self.hasPersonalAccount
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -533,7 +536,9 @@ struct MainWindow: View {
             case .podcasts:
                 if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
             case .likedMusic:
-                if let vm = likedMusicViewModel {
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
                         Group {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
@@ -558,12 +563,35 @@ struct MainWindow: View {
                     }
                 }
             case .library:
-                if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = libraryViewModel {
+                    LibraryView(viewModel: vm)
+                }
             case .history:
-                if let vm = historyViewModel { HistoryView(viewModel: vm) }
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = historyViewModel {
+                    HistoryView(viewModel: vm)
+                }
             }
         }
         .environment(self.libraryViewModel)
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
+    }
+
+    private func requiresSignIn(_ item: NavigationItem) -> Bool {
+        item.requiresSignIn && !self.hasPersonalAccount
+    }
+
+    private func signInRequiredView(for item: NavigationItem) -> some View {
+        SignInRequiredView(
+            title: "Sign in to use \(item.displayName)",
+            message: "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections."
+        )
     }
 
     private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
@@ -621,11 +649,26 @@ struct MainWindow: View {
             // Still checking login status, do nothing
             break
         case .loggedOut:
-            // Onboarding view handles login, no need to auto-show sheet
+            let crossedSignOutBoundary = oldState.isLoggedIn
+            let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing
+            if crossedSignOutBoundary {
+                self.playerService.clearPlaybackForSignOut()
+                self.youtubePlayerService.stop()
+            }
+            if shouldRefreshGuestContent {
+                self.resetMusicViewModelsForGuest()
+                self.youtubeStore.resetForAccountChange()
+                // Reset podcasts availability so the next sign-in re-gates
+                // the UI and re-probes the endpoint.
+                self.podcastsAvailability.reset()
+            }
+            self.normalizeGuestSelections()
             self.accountService.clearAccounts()
-            // Reset podcasts availability so the next sign-in re-gates
-            // the UI and re-probes the endpoint.
-            self.podcastsAvailability.reset()
+            if shouldRefreshGuestContent {
+                Task { @MainActor in
+                    await self.refreshGuestContent()
+                }
+            }
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
@@ -659,6 +702,35 @@ struct MainWindow: View {
         }
     }
 
+    private func resetMusicViewModelsForGuest() {
+        self.homeViewModel = HomeViewModel(client: self.client)
+        self.exploreViewModel = ExploreViewModel(client: self.client)
+        self.searchViewModel = SearchViewModel(client: self.client)
+        self.chartsViewModel = ChartsViewModel(client: self.client)
+        self.moodsAndGenresViewModel = MoodsAndGenresViewModel(client: self.client)
+        self.newReleasesViewModel = NewReleasesViewModel(client: self.client)
+        let podcastsViewModel = PodcastsViewModel(client: self.client)
+        podcastsViewModel.configure(availabilityService: self.podcastsAvailability, accountId: nil)
+        self.podcastsViewModel = podcastsViewModel
+        self.likedMusicViewModel = PlaylistDetailViewModel(
+            playlist: LikedMusicPlaylist.playlist,
+            client: self.client
+        )
+        self.libraryViewModel = LibraryViewModel(client: self.client)
+        self.historyViewModel = HistoryViewModel(client: self.client)
+        self.likedMusicNavigationPath = NavigationPath()
+    }
+
+    private func normalizeGuestSelections() {
+        if self.navigationSelection?.requiresSignIn == true {
+            self.navigationSelection = .home
+        }
+        if self.youtubeNavigationSelection?.requiresSignIn == true {
+            self.youtubeNavigationSelection = .home
+        }
+        self.selectedSidebarPinnedItem = nil
+    }
+
     @MainActor
     private func dismissWhatsNew(_ whatsNew: PresentedWhatsNew) {
         WhatsNewVersionStore().markPresented(whatsNew.requestedVersion)
@@ -682,6 +754,22 @@ struct MainWindow: View {
             whatsNew: whatsNew,
             requestedVersion: currentVersion
         )
+    }
+
+    /// Refreshes only public guest-safe surfaces after sign-out so prior
+    /// account-personalized content is not left visible in the guest shell.
+    private func refreshGuestContent() async {
+        // These view models are main-actor-bound observable UI state. Keep the
+        // refresh calls on the main actor instead of spawning task-group child
+        // tasks that capture `self` and mutate UI state off actor.
+        await self.homeViewModel?.refresh()
+        await self.exploreViewModel?.refresh()
+        await self.chartsViewModel?.refresh()
+        await self.moodsAndGenresViewModel?.refresh()
+        await self.newReleasesViewModel?.refresh()
+        if self.podcastsAvailability.availability != .unavailable {
+            await self.podcastsViewModel?.refresh()
+        }
     }
 
     /// Refreshes all content when switching accounts.
@@ -777,6 +865,15 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "square.stack.fill"
         case .history:
             "clock.arrow.circlepath"
+        }
+    }
+
+    var requiresSignIn: Bool {
+        switch self {
+        case .home, .explore, .search, .charts, .moodsAndGenres, .newReleases, .podcasts:
+            false
+        case .likedMusic, .library, .history:
+            true
         }
     }
 }

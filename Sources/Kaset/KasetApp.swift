@@ -64,6 +64,11 @@ struct KasetApp: App {
     /// Whether the "What's New" sheet should be shown.
     @State private var showWhatsNew = false
 
+    /// Incoming app URLs received before auth initialization completes.
+    /// These are replayed after the login check resolves so guest-startup
+    /// cleanup cannot erase URL-started playback.
+    @State private var pendingIncomingURL: URL?
+
     init() {
         Bundle.enableAppLocalizationOverride()
 
@@ -191,6 +196,11 @@ struct KasetApp: App {
                     // Check if user is already logged in from previous session
                     await self.authService.checkLoginStatus()
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
+                    if !self.authService.state.isLoggedIn {
+                        self.playerService.clearPlaybackForGuestStartup()
+                        self.youtubePlayerService.stop()
+                    }
+                    self.drainPendingIncomingURLIfReady()
 
                     // Fetch accounts after login check (for account switcher)
                     await self.accountService?.fetchAccounts()
@@ -215,15 +225,7 @@ struct KasetApp: App {
                     }
                 }
                 .onChange(of: self.youtubePlayerService.surfaceLocation) { _, location in
-                    // The floating window hosts the video surface whenever it
-                    // is popped out (or the inline watch view went away).
-                    if location == .floating {
-                        YouTubeVideoWindowController.shared.show(
-                            youtubePlayerService: self.youtubePlayerService
-                        )
-                    } else {
-                        YouTubeVideoWindowController.shared.close()
-                    }
+                    self.handleYouTubeSurfaceLocationChange(location)
                 }
                 .onChange(of: self.youtubePlayerService.popInRequest) { _, request in
                     // Pop-in from the floating window: bring the app to the
@@ -240,21 +242,7 @@ struct KasetApp: App {
                     )
                 }
                 .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
-                    if isVisible {
-                        MiniPlayerWindowController.shared.show(
-                            playerService: self.playerService,
-                            client: self.sharedClient,
-                            syncedLyricsService: self.syncedLyricsService
-                        )
-                        if self.playerService.miniPlayerMode == .switchFromMainWindow {
-                            self.hideMainWindow()
-                        }
-                    } else {
-                        MiniPlayerWindowController.shared.close()
-                        if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
-                            self.showMainWindow()
-                        }
-                    }
+                    self.handleMiniPlayerVisibilityChange(isVisible)
                 }
                 .onChange(of: self.playerService.miniPlayerPanel) { _, _ in
                     MiniPlayerWindowController.shared.syncWindowState()
@@ -489,6 +477,44 @@ struct KasetApp: App {
         }
     }
 
+    private func handleYouTubeSurfaceLocationChange(_ location: YouTubePlayerService.SurfaceLocation) {
+        // The floating window hosts the video surface whenever it is popped out
+        // (or the inline watch view went away).
+        if location == .floating {
+            YouTubeVideoWindowController.shared.show(youtubePlayerService: self.youtubePlayerService)
+        } else {
+            YouTubeVideoWindowController.shared.close()
+        }
+    }
+
+    private func handleMiniPlayerVisibilityChange(_ isVisible: Bool) {
+        if isVisible {
+            MiniPlayerWindowController.shared.show(
+                playerService: self.playerService,
+                client: self.sharedClient,
+                syncedLyricsService: self.syncedLyricsService,
+                authService: self.authService
+            )
+            if self.playerService.miniPlayerMode == .switchFromMainWindow {
+                Task { @MainActor in
+                    // Let the AppKit mini-player window order front before hiding
+                    // the main SwiftUI scene. Otherwise AppKit can see a transient
+                    // no-visible-window state and terminate the app.
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard self.playerService.isMiniPlayerVisible,
+                          self.playerService.miniPlayerMode == .switchFromMainWindow
+                    else { return }
+                    self.hideMainWindow()
+                }
+            }
+        } else {
+            MiniPlayerWindowController.shared.close()
+            if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
+                self.showMainWindow()
+            }
+        }
+    }
+
     /// Shows the main window.
     private func showMainWindow() {
         guard !self.focusExistingMainWindow() else { return }
@@ -581,14 +607,27 @@ struct KasetApp: App {
     private func handleIncomingURL(_ url: URL) {
         DiagnosticsLogger.app.info("Received URL: \(url.absoluteString)")
 
-        guard let content = URLHandler.parse(url) else {
-            DiagnosticsLogger.app.warning("Unrecognized URL format: \(url.absoluteString)")
+        guard !self.authService.state.isInitializing else {
+            DiagnosticsLogger.app.info("Auth still initializing; deferring incoming URL")
+            self.pendingIncomingURL = url
             return
         }
 
-        // If not logged in, ignore for now
-        guard self.authService.state.isLoggedIn else {
-            DiagnosticsLogger.app.info("Not logged in, ignoring URL")
+        self.handleReadyIncomingURL(url)
+    }
+
+    private func drainPendingIncomingURLIfReady() {
+        guard !self.authService.state.isInitializing,
+              let url = self.pendingIncomingURL
+        else { return }
+
+        self.pendingIncomingURL = nil
+        self.handleReadyIncomingURL(url)
+    }
+
+    private func handleReadyIncomingURL(_ url: URL) {
+        guard let content = URLHandler.parse(url) else {
+            DiagnosticsLogger.app.warning("Unrecognized URL format: \(url.absoluteString)")
             return
         }
 

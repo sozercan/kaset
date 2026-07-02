@@ -98,6 +98,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         case queue
     }
 
+    @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
 
     let client: any YTMusicClientProtocol
@@ -485,11 +486,18 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         })
     }
 
+    @ViewBuilder
     private var trackActionButtons: some View {
-        HStack(spacing: 5) {
-            self.likeButton
-            self.moreMenu
+        if self.hasPersonalAccount {
+            HStack(spacing: 5) {
+                self.likeButton
+                self.moreMenu
+            }
         }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
     }
 
     private var likeButton: some View {
@@ -497,6 +505,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         let label = isLiked ? String(localized: "Remove Like") : String(localized: "Like")
 
         return Button {
+            guard self.hasPersonalAccount else { return }
             self.playerService.likeCurrentTrack()
         } label: {
             MiniPlayerGlassIconLabel(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup", isActive: isLiked, size: 23, fontSize: 12)

@@ -1564,6 +1564,103 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     // MARK: - Private Methods
 
+    private enum RequestAuthPolicy {
+        case optional
+        case required
+    }
+
+    private struct RequestAuthHeaders {
+        let headers: [String: String]
+        let authenticated: Bool
+    }
+
+    private func authPolicy(forEndpoint endpoint: String, body: [String: Any]) -> RequestAuthPolicy {
+        if Self.authRequiredActionEndpoints.contains(endpoint) {
+            return .required
+        }
+
+        if endpoint == "browse", let browseId = body["browseId"] as? String {
+            if Self.authRequiredBrowseIds.contains(browseId)
+                || browseId == LikedMusicPlaylist.browseID
+                || browseId.hasPrefix("MPLAUC")
+                || browseId.hasPrefix("MPSPP")
+                || browseId == Playlist.uploadedSongsBrowseID
+            {
+                return .required
+            }
+        }
+
+        return .optional
+    }
+
+    private func buildRequestHeaders(authPolicy: RequestAuthPolicy) async throws -> RequestAuthHeaders {
+        if self.authService.state.isLoggedIn {
+            do {
+                let headers = try await self.buildAuthHeaders()
+                return RequestAuthHeaders(headers: headers, authenticated: true)
+            } catch {
+                if authPolicy == .required {
+                    throw error
+                }
+                self.logger.warning("Proceeding without YouTube Music auth for public request: \(error.localizedDescription, privacy: .public)")
+            }
+        } else if authPolicy == .required {
+            throw YTMusicError.notAuthenticated
+        }
+
+        return RequestAuthHeaders(headers: self.buildUnauthenticatedHeaders(), authenticated: false)
+    }
+
+    private func buildUnauthenticatedHeaders() -> [String: String] {
+        let origin = WebKitManager.origin
+        return [
+            "Origin": origin,
+            "Referer": origin,
+            "Content-Type": "application/json",
+        ]
+    }
+
+    private func cacheScope(authenticated: Bool) -> String {
+        guard authenticated else { return "guest" }
+        let brandId = self.brandIdProvider?() ?? ""
+        return brandId.isEmpty ? "primary" : brandId
+    }
+
+    private static let authRequiredBrowseIds: Set<String> = [
+        "FEmusic_liked_playlists",
+        "FEmusic_liked_videos",
+        "FEmusic_history",
+        "FEmusic_library_landing",
+        "FEmusic_library_albums",
+        "FEmusic_library_artists",
+        "FEmusic_library_corpus_artists",
+        "FEmusic_library_corpus_track_artists",
+        "FEmusic_library_songs",
+        "FEmusic_recently_played",
+        "FEmusic_offline",
+        "FEmusic_library_privately_owned_landing",
+        "FEmusic_library_privately_owned_tracks",
+        "FEmusic_library_privately_owned_albums",
+        "FEmusic_library_privately_owned_artists",
+    ]
+
+    private static let authRequiredActionEndpoints: Set<String> = [
+        "like/like",
+        "like/dislike",
+        "like/removelike",
+        "feedback",
+        "subscription/subscribe",
+        "subscription/unsubscribe",
+        "playlist/get_add_to_playlist",
+        "browse/edit_playlist",
+        "playlist/create",
+        "playlist/delete",
+        "account/account_menu",
+        "account/accounts_list",
+        "notification/get_notification_menu",
+        "stats/watchtime",
+    ]
+
     /// Builds authentication headers for API requests.
     private func buildAuthHeaders() async throws -> [String: String] {
         // Log available cookies for debugging auth issues
@@ -1603,18 +1700,22 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Builds the standard context payload.
-    /// Includes `onBehalfOfUser` when a brand account is selected.
-    private func buildContext() -> [String: Any] {
+    /// Includes `onBehalfOfUser` only for authenticated requests when a brand account is selected.
+    private func buildContext(authenticated: Bool) -> [String: Any] {
         var userDict: [String: Any] = [
             "lockedSafetyMode": false,
         ]
 
-        // Add brand account ID if one is selected
-        if let brandId = self.brandIdProvider?() {
+        // Add brand account ID only when this request is actually authenticated.
+        // Signed-out requests must look like a normal public YouTube Music web
+        // request and must not carry a stale delegated identity in the body.
+        if authenticated, let brandId = self.brandIdProvider?() {
             userDict["onBehalfOfUser"] = brandId
             self.logger.debug("Using brand account: \(brandId)")
-        } else {
+        } else if authenticated {
             self.logger.debug("Using primary account (no brand ID)")
+        } else {
+            self.logger.debug("Using signed-out YouTube Music context")
         }
 
         return [
@@ -1637,34 +1738,36 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
     }
 
-    /// Makes an authenticated request to the API with optional caching and retry.
+    /// Makes a request to the API with optional authentication, caching, and retry.
     private func request(_ endpoint: String, body: [String: Any], ttl: TimeInterval? = nil) async throws -> [String: Any] {
-        // Build request body with context so cache keys reflect the actual request
+        let authPolicy = self.authPolicy(forEndpoint: endpoint, body: body)
+        let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
+
+        // Build request body with context so cache keys reflect the actual request.
         var fullBody = body
-        fullBody["context"] = self.buildContext()
+        fullBody["context"] = self.buildContext(authenticated: requestAuth.authenticated)
 
-        // Generate stable cache key from endpoint, full body, and brand account ID
-        // Brand ID must be in cache key to prevent returning cached data from other accounts
-        let brandId = self.brandIdProvider?() ?? ""
-        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: brandId)
-        self.logger.debug(
-            "Request \(endpoint): brandId=\(brandId.isEmpty ? "primary" : brandId), cacheKey=\(cacheKey)"
-        )
+        let cacheScope = self.cacheScope(authenticated: requestAuth.authenticated)
+        let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: cacheScope)
+        self.logger.debug("Request \(endpoint): cacheScope=\(cacheScope), cacheKey=\(cacheKey)")
 
-        // Check cache first
+        // Check cache first.
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug(
-                "Cache hit for \(endpoint) (brandId=\(brandId.isEmpty ? "primary" : brandId))"
-            )
+            self.logger.debug("Cache hit for \(endpoint) (cacheScope=\(cacheScope))")
             return cached
         }
 
-        // Execute with retry policy
+        // Execute with retry policy.
         let json = try await RetryPolicy.default.execute { [self] in
-            try await self.performRequest(endpoint, fullBody: fullBody)
+            try await self.performRequest(
+                endpoint,
+                fullBody: fullBody,
+                headers: requestAuth.headers,
+                authenticated: requestAuth.authenticated
+            )
         }
 
-        // Cache response if TTL specified
+        // Cache response if TTL specified.
         if let ttl {
             APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
         }
@@ -1673,9 +1776,12 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Performs the actual network request.
-    private func performRequest(_ endpoint: String, fullBody: [String: Any]) async throws -> [String:
-        Any]
-    {
+    private func performRequest(
+        _ endpoint: String,
+        fullBody: [String: Any],
+        headers: [String: String],
+        authenticated: Bool
+    ) async throws -> [String: Any] {
         let apiKey = try await self.resolveAPIKey()
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
@@ -1688,9 +1794,8 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.httpShouldHandleCookies = authenticated
 
-        // Add auth headers
-        let headers = try await self.buildAuthHeaders()
         for (key, value) in headers {
             request.setValue(value, forHTTPHeaderField: key)
         }
@@ -1724,8 +1829,11 @@ final class YTMusicClient: YTMusicClientProtocol {
             return json
         case let .authError(statusCode):
             self.logger.error("Auth error: HTTP \(statusCode)")
-            self.authService.sessionExpired()
-            throw YTMusicError.authExpired
+            if authenticated {
+                self.authService.sessionExpired()
+                throw YTMusicError.authExpired
+            }
+            throw YTMusicError.notAuthenticated
         case let .httpError(statusCode):
             self.logger.error("API error: HTTP \(statusCode)")
             throw YTMusicError.apiError(

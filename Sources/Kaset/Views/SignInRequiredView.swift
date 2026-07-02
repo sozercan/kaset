@@ -1,0 +1,50 @@
+import SwiftUI
+
+/// Lightweight empty state for routes that need a YouTube account.
+/// Guest mode still supports public browsing/search/playback, while personal
+/// collections and mutations route here until the user signs in.
+struct SignInRequiredView: View {
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
+
+    @Environment(AuthService.self) private var authService
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.system(size: 48, weight: .regular))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 6) {
+                Text(self.title)
+                    .font(.title3.weight(.semibold))
+
+                Text(self.message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+
+            Button {
+                self.authService.startLogin()
+            } label: {
+                Text("Sign In")
+                    .font(.headline)
+                    .frame(minWidth: 140)
+            }
+            .compatGlassProminentButton()
+            .controlSize(.large)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+#Preview {
+    SignInRequiredView(
+        title: "Sign in required",
+        message: "Sign in to access your library."
+    )
+    .environment(AuthService())
+}

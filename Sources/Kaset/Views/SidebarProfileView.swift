@@ -148,19 +148,31 @@ struct SidebarProfileView: View {
     // MARK: - Logged Out Content
 
     private var loggedOutContent: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 24))
-                .foregroundStyle(.tertiary)
+        Button {
+            self.authService.startLogin()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 24))
+                    .foregroundStyle(.tertiary)
 
-            Text(String(localized: "Not signed in"))
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Guest Mode"))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
 
-            Spacer()
+                    Text(String(localized: "Sign in for your library"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
-        .accessibilityLabel(String(localized: "Not signed in"))
+        .accessibilityLabel(String(localized: "Guest mode. Sign in for your library."))
     }
 
     // MARK: - Avatar View

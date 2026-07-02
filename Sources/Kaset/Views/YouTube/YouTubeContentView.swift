@@ -10,6 +10,8 @@ struct YouTubeContentView: View {
     let selection: YouTubeNavigationItem?
     @Bindable var store: YouTubeViewModelStore
 
+    @Environment(AccountService.self) private var accountService
+    @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     var body: some View {
@@ -117,6 +119,22 @@ struct YouTubeContentView: View {
 
     @ViewBuilder
     private func rootView(for item: YouTubeNavigationItem) -> some View {
+        if item.requiresSignIn, !self.hasPersonalAccount {
+            SignInRequiredView(
+                title: "Sign in to use \(item.displayName)",
+                message: "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections."
+            )
+        } else {
+            self.publicOrAuthenticatedRootView(for: item)
+        }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.state.isLoggedIn
+    }
+
+    @ViewBuilder
+    private func publicOrAuthenticatedRootView(for item: YouTubeNavigationItem) -> some View {
         switch item {
         case .home:
             YouTubeHomeView(viewModel: self.store.home)
@@ -206,6 +224,15 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
             "list.and.film"
         case .history:
             "clock.arrow.circlepath"
+        }
+    }
+
+    var requiresSignIn: Bool {
+        switch self {
+        case .home, .search, .explore, .shorts:
+            false
+        case .subscriptions, .likedVideos, .watchLater, .playlists, .history:
+            true
         }
     }
 }
