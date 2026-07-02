@@ -323,10 +323,13 @@ final class PlaylistDetailViewModel {
             : response.tracks
         let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
         let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
-        let newTracks = candidateTracks.filter { !self.loadedTrackVideoIds.contains($0.videoId) }
+        let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
+        let newTracks = candidateTracks.filter {
+            !self.loadedTrackVideoIds.contains($0.videoId)
+                && !originalExistingVideoIds.contains($0.videoId)
+        }
 
         if newTracks.isEmpty {
-            let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
             let duplicatesWereAlreadyPresent = candidateTracks.allSatisfy { originalExistingVideoIds.contains($0.videoId) }
             if duplicatesWereAlreadyPresent, !skippedLiveRemovedTracks, !responseContainsLiveInsertedTrack {
                 self.hasMore = false
