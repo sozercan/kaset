@@ -100,7 +100,8 @@ struct GuestModeAPIClientTests {
             authService: authService,
             webKitManager: webKitManager,
             session: session,
-            apiKeyResolver: resolver
+            apiKeyResolver:
+            resolver
         )
         let response = try await client.search(query: "swift")
 
@@ -131,7 +132,8 @@ struct GuestModeAPIClientTests {
             authService: authService,
             webKitManager: webKitManager,
             session: session,
-            apiKeyResolver: resolver
+            apiKeyResolver:
+            resolver
         )
 
         await #expect(throws: YTMusicError.self) {

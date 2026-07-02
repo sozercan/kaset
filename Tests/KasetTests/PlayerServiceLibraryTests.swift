@@ -285,7 +285,8 @@ struct PlayerServiceLibraryTests {
         self.playerService.setAuthService(authService)
         self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
         self.playerService.currentTrackInLibrary = false
-        self.playerService.currentTrackFeedbackTokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        let feedback = FeedbackTokens(add: "add-token", remove: "remove-token")
+        self.playerService[keyPath: \.currentTrackFeedbackTokens] = feedback
 
         self.playerService.toggleLibraryStatus()
 
