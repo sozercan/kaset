@@ -1,5 +1,4 @@
 "%lld songs" = "%lld morceaux";
-"A native YouTube Music experience for macOS" = "Une expérience YouTube Music native pour macOS";
 "AI responses follow your system language settings." = "Les réponses de l'IA suivent les paramètres de langue de votre système.";
 "About" = "À propos";
 "Access your playlists and liked songs" = "Accédez à vos playlists et morceaux aimés";
@@ -227,7 +226,6 @@
 "Shuffle On" = "Aléatoire activé";
 "Sign Out" = "Se déconnecter";
 "Sign in to YouTube Music" = "Se connecter à YouTube Music";
-"Sign in to access your YouTube Music library" = "Connectez-vous pour accéder à votre bibliothèque YouTube Music";
 "Sign in with Google" = "Se connecter avec Google";
 "Skip Forward/Backward" = "Avancer/Reculer";
 "Software Update" = "Mise à jour logicielle";
