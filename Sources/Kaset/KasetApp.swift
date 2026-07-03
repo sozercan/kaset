@@ -663,7 +663,8 @@ struct KasetApp: App {
             // window (no inline watch view is open yet).
             self.settings.appSource = .video
             self.youtubePlayerService.play(
-                video: YouTubeVideo(videoId: videoId, title: String(localized: "YouTube video"))
+                video: YouTubeVideo(videoId: videoId, title: String(localized: "YouTube video")),
+                usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
             )
             self.youtubePlayerService.popOutToWindow()
 

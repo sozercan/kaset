@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 
 // MARK: - Queue Management
@@ -660,14 +661,15 @@ extension PlayerService {
                 ? min(max(self.progress, 0), resolvedDuration)
                 : max(self.progress, 0)
 
-            let queueData = try encoder.encode(queue)
             let isKnownGuestSession = self.authService?.shouldPersistGuestPlaybackState == true
             let ownerScope = isKnownGuestSession
                 ? Self.playbackSessionScopeGuest
                 : Self.playbackSessionScopeAuthenticated
+            let persistedQueue = isKnownGuestSession ? Self.queueWithoutAccountMetadata(queue) : queue
+            let queueData = try encoder.encode(persistedQueue)
             let sessionData = try encoder.encode(
                 PersistedPlaybackSession(
-                    queue: queue,
+                    queue: persistedQueue,
                     currentIndex: safeIndex,
                     currentVideoId: currentVideoId,
                     progress: clampedProgress,
@@ -683,6 +685,16 @@ extension PlayerService {
             self.logger.info("Saved playback session with \(queue.count) songs at index \(safeIndex)")
         } catch {
             self.logger.error("Failed to save playback session: \(error.localizedDescription)")
+        }
+    }
+
+    private static func queueWithoutAccountMetadata(_ queue: [Song]) -> [Song] {
+        queue.map { song in
+            var sanitized = song
+            sanitized.likeStatus = nil
+            sanitized.isInLibrary = nil
+            sanitized.feedbackTokens = nil
+            return sanitized
         }
     }
 

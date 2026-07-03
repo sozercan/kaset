@@ -179,8 +179,8 @@ final class AccountService {
     /// If a previously selected account ID is stored, that account will be
     /// automatically selected.
     func fetchAccounts() async {
-        guard self.authService.state.isLoggedIn else {
-            self.logger.debug("AccountService: Skipping fetch - not logged in")
+        guard self.authService.hasPersonalAccount else {
+            self.logger.debug("AccountService: Skipping fetch - no personal account active")
             return
         }
 
@@ -195,7 +195,7 @@ final class AccountService {
         do {
             let response = try await self.ytMusicClient.fetchAccountsList()
             guard fetchGeneration == self.accountDataGeneration,
-                  self.authService.state.isLoggedIn
+                  self.authService.hasPersonalAccount
             else {
                 self.logger.info("AccountService: Ignoring stale account fetch after auth/account state changed")
                 return

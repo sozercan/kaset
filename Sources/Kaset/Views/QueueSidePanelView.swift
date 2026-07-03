@@ -283,7 +283,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }()
             let entry = self.entries[row]
             let song = entry.song
-            let isLiked = self.likeStatusManager.isLiked(song)
+            let isLiked = self.allowsLikeActions && self.likeStatusManager.isLiked(song)
             cellView.configure(
                 song: song,
                 index: row,
@@ -365,20 +365,22 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard row >= 0, let entry = entries[safe: row] else { return nil }
             let song = entry.song
             let menu = NSMenu()
-            let manager = self.favoritesManager
-            let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
+            if self.allowsLikeActions {
+                let manager = self.favoritesManager
+                let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
 
-            let favoritesItem = NSMenuItem(
-                title: isPinned ? "Remove from Favorites" : "Add to Favorites",
-                action: #selector(Coordinator.contextMenuFavorites(_:)),
-                keyEquivalent: ""
-            )
-            favoritesItem.target = self
-            favoritesItem.representedObject = song
-            favoritesItem.image = NSImage(systemSymbolName: isPinned ? "heart.slash" : "heart", accessibilityDescription: nil)
-            menu.addItem(favoritesItem)
+                let favoritesItem = NSMenuItem(
+                    title: isPinned ? "Remove from Favorites" : "Add to Favorites",
+                    action: #selector(Coordinator.contextMenuFavorites(_:)),
+                    keyEquivalent: ""
+                )
+                favoritesItem.target = self
+                favoritesItem.representedObject = song
+                favoritesItem.image = NSImage(systemSymbolName: isPinned ? "heart.slash" : "heart", accessibilityDescription: nil)
+                menu.addItem(favoritesItem)
 
-            menu.addItem(NSMenuItem.separator())
+                menu.addItem(NSMenuItem.separator())
+            }
 
             let startRadioItem = NSMenuItem(title: "Start Radio", action: #selector(Coordinator.contextMenuStartRadio(_:)), keyEquivalent: "")
             startRadioItem.target = self
@@ -409,7 +411,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         @objc private func contextMenuFavorites(_ sender: NSMenuItem) {
-            guard let song = sender.representedObject as? Song else { return }
+            guard self.allowsLikeActions, let song = sender.representedObject as? Song else { return }
             let manager = self.favoritesManager
             MainActor.assumeIsolated { manager.toggle(song: song) }
         }
