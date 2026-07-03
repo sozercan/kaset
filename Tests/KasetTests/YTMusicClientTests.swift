@@ -312,6 +312,47 @@ struct YTMusicAPIKeyResolverTests {
         #expect(requestCount == 1)
     }
 
+    @Test("API key fetch is cookieless and sends consent cookie")
+    @MainActor
+    func apiKeyFetchIsCookielessAndSendsConsentCookie() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-html-api-key"});"#
+        nonisolated(unsafe) var observedShouldHandleCookies: Bool?
+        nonisolated(unsafe) var observedCookieHeader: String?
+        nonisolated(unsafe) var observedUserAgent: String?
+
+        MockURLProtocol.requestHandler = { request in
+            observedShouldHandleCookies = request.httpShouldHandleCookies
+            observedCookieHeader = request.value(forHTTPHeaderField: "Cookie")
+            observedUserAgent = request.value(forHTTPHeaderField: "User-Agent")
+
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data(html.utf8))
+        }
+        defer {
+            MockURLProtocol.reset()
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        let apiKey = try await resolver.resolve()
+
+        #expect(apiKey == "mock-html-api-key")
+        #expect(observedShouldHandleCookies == false)
+        #expect(observedCookieHeader == "SOCS=CAI")
+        #expect(observedUserAgent == APISessionConfiguration.userAgent)
+    }
+
     @Test("HTTP failures map to YTMusic API errors")
     @MainActor
     func httpFailureMapsToAPIError() async throws {
