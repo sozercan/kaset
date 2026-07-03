@@ -1808,10 +1808,7 @@ final class YTMusicAPIKeyResolver {
 
         do {
             var request = URLRequest(url: self.webClientURL)
-            request.setValue(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                forHTTPHeaderField: "User-Agent"
-            )
+            request.setValue(APISessionConfiguration.userAgent, forHTTPHeaderField: "User-Agent")
             // The Innertube API key is public and needs no authentication. Do NOT send the user's
             // cookie jar for this fetch: a stale/partial consent cookie lands the request on the EU
             // consent interstitial (consent.youtube.com), whose HTML has no key, breaking every API
