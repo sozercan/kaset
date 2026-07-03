@@ -204,9 +204,16 @@ struct PlaylistDetailView: View {
         if !artists.isEmpty {
             HStack(spacing: 0) {
                 ForEach(Array(artists.enumerated()), id: \.offset) { index, artist in
-                    Text(artist.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                    if artist.hasNavigableId {
+                        NavigationLink(value: artist) {
+                            HeaderArtistLinkLabel(name: artist.name)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text(artist.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
 
                     if index < artists.count - 1 {
                         Text(", ")
@@ -769,6 +776,24 @@ private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
         .onHover { hovering in
             self.isHovering = hovering
         }
+    }
+}
+
+// MARK: - HeaderArtistLinkLabel
+
+private struct HeaderArtistLinkLabel: View {
+    let name: String
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Text(self.name)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(self.isHovering ? .primary : .secondary)
+            .animation(.easeInOut(duration: 0.15), value: self.isHovering)
+            .onHover { hovering in
+                self.isHovering = hovering
+            }
     }
 }
 
