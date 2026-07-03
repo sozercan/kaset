@@ -94,7 +94,7 @@ struct AccountSwitcherPopover: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.blue)
-                        .accessibilityLabel("Selected")
+                        .accessibilityLabel(String(localized: "Selected"))
                 }
             }
             .padding(.horizontal, 12)
@@ -136,17 +136,14 @@ struct AccountSwitcherPopover: View {
                                 Task {
                                     let wasGuestMode = self.authService.isGuestModeEnabled
                                     do {
-                                        if wasGuestMode {
-                                            self.authService.exitGuestMode()
-                                        }
                                         if account != self.accountService.currentAccount {
                                             try await self.accountService.switchAccount(to: account)
                                         }
+                                        if wasGuestMode {
+                                            self.authService.exitGuestMode()
+                                        }
                                         self.dismiss()
                                     } catch {
-                                        if wasGuestMode {
-                                            self.authService.enterGuestMode()
-                                        }
                                         // Keep the popover open so the user can retry.
                                     }
                                 }

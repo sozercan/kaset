@@ -155,7 +155,7 @@ struct SidebarProfileView: View {
             self.guestModeLabel(subtitle: String(localized: "Switch back to your account"))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
+        .accessibilityIdentifier(AccessibilityID.SidebarProfile.profileButton)
         .accessibilityLabel(String(localized: "Guest mode. Switch back to your account."))
         .popover(isPresented: self.$showingAccountSwitcher, arrowEdge: .top) {
             AccountSwitcherPopover()

@@ -41,6 +41,16 @@ enum ParsingHelpers {
 
     private static let lowercaseHexDigits = Array("0123456789abcdef".utf8)
 
+    private static let accessibilityMinuteDurationRegex = try? NSRegularExpression(
+        pattern: #"(\d+)\s*minutes?"#,
+        options: .caseInsensitive
+    )
+
+    private static let accessibilitySecondDurationRegex = try? NSRegularExpression(
+        pattern: #"(\d+)\s*seconds?"#,
+        options: .caseInsensitive
+    )
+
     private static func hexString(from bytes: some Sequence<UInt8>) -> String {
         var output: [UInt8] = []
         output.reserveCapacity(32)
@@ -267,8 +277,7 @@ enum ParsingHelpers {
         if let subtitleData = data["subtitle"] as? [String: Any],
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
-            let texts = runs.compactMap { $0["text"] as? String }
-            let subtitle = texts.joined()
+            let subtitle = Self.joinedRunText(runs)
             return subtitle.isEmpty ? nil : subtitle
         }
         return nil
@@ -529,22 +538,19 @@ enum ParsingHelpers {
     /// Extracts duration from accessibility label text.
     /// Handles formats like "4 minutes, 55 seconds" or "4:55"
     private static func extractDurationFromAccessibilityLabel(_ label: String) -> TimeInterval? {
-        // Try "X minutes, Y seconds" format
-        let minutePattern = #"(\d+)\s*minutes?"#
-        let secondPattern = #"(\d+)\s*seconds?"#
-
         var minutes = 0
         var seconds = 0
+        let fullRange = NSRange(label.startIndex..., in: label)
 
-        if let minuteRegex = try? NSRegularExpression(pattern: minutePattern, options: .caseInsensitive),
-           let minuteMatch = minuteRegex.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)),
+        if let minuteRegex = Self.accessibilityMinuteDurationRegex,
+           let minuteMatch = minuteRegex.firstMatch(in: label, range: fullRange),
            let minuteRange = Range(minuteMatch.range(at: 1), in: label)
         {
             minutes = Int(label[minuteRange]) ?? 0
         }
 
-        if let secondRegex = try? NSRegularExpression(pattern: secondPattern, options: .caseInsensitive),
-           let secondMatch = secondRegex.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)),
+        if let secondRegex = Self.accessibilitySecondDurationRegex,
+           let secondMatch = secondRegex.firstMatch(in: label, range: fullRange),
            let secondRange = Range(secondMatch.range(at: 1), in: label)
         {
             seconds = Int(label[secondRange]) ?? 0
@@ -582,14 +588,22 @@ enum ParsingHelpers {
            let text = renderer["text"] as? [String: Any],
            let runs = text["runs"] as? [[String: Any]]
         {
-            let subtitle = Self.joinedText(from: runs)
+            let subtitle = Self.joinedRunText(runs)
             return subtitle.isEmpty ? nil : subtitle
         }
         return nil
     }
 
-    private static func joinedText(from runs: [[String: Any]]) -> String {
+    static func joinedRunText(_ runs: [[String: Any]]) -> String {
+        var capacity = 0
+        for run in runs {
+            if let runText = run["text"] as? String {
+                capacity += runText.count
+            }
+        }
+
         var text = ""
+        text.reserveCapacity(capacity)
         for run in runs {
             if let runText = run["text"] as? String {
                 text += runText

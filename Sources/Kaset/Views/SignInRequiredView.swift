@@ -4,12 +4,14 @@ import SwiftUI
 /// Guest mode still supports public browsing/search/playback, while personal
 /// collections and mutations route here until the user signs in.
 struct SignInRequiredView: View {
-    let title: LocalizedStringKey
-    let message: LocalizedStringKey
+    let title: String
+    let message: String
 
     @Environment(AuthService.self) private var authService
 
     var body: some View {
+        let shouldExitGuestMode = self.authService.state.isLoggedIn && self.authService.isGuestModeEnabled
+
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.system(size: 48, weight: .regular))
@@ -27,9 +29,13 @@ struct SignInRequiredView: View {
             }
 
             Button {
-                self.authService.startLogin()
+                if shouldExitGuestMode {
+                    self.authService.exitGuestMode()
+                } else {
+                    self.authService.startLogin()
+                }
             } label: {
-                Text("Sign In")
+                Text(shouldExitGuestMode ? String(localized: "Exit Guest Mode") : String(localized: "Sign In"))
                     .font(.headline)
                     .frame(minWidth: 140)
             }

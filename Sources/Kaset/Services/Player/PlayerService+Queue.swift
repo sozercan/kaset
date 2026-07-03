@@ -310,30 +310,35 @@ extension PlayerService {
     /// - Parameter entryIDs: Set of queue entry IDs to remove.
     func removeFromQueue(entryIDs: Set<UUID>) {
         guard !entryIDs.isEmpty else { return }
-        let indicesToRemove = self.queueEntries.enumerated()
-            .filter { entryIDs.contains($0.element.id) }
-            .map(\.offset)
-            .sorted(by: >)
 
-        guard !indicesToRemove.isEmpty else { return }
+        let priorEntries = self.queueEntries
+        var remainingEntries: [QueueEntry] = []
+        remainingEntries.reserveCapacity(priorEntries.count)
+        var removedIndices: [Int] = []
+
+        for (index, entry) in priorEntries.enumerated() {
+            if entryIDs.contains(entry.id) {
+                removedIndices.append(index)
+            } else {
+                remainingEntries.append(entry)
+            }
+        }
+
+        guard !removedIndices.isEmpty else { return }
 
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
-        let previousCount = self.queue.count
+        let previousCount = priorEntries.count
         let currentEntryID = self.currentQueueEntryID
         let originalCurrentIndex = self.currentIndex
-        var remainingEntries = self.queueEntries
-        for index in indicesToRemove {
-            remainingEntries.remove(at: index)
-        }
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,
             originalCurrentIndex: originalCurrentIndex,
-            removedIndices: indicesToRemove
+            removedIndices: removedIndices
         )
 
-        self.logger.info("Removed \(previousCount - self.queue.count) songs from queue")
+        self.logger.info("Removed \(previousCount - remainingEntries.count) songs from queue")
         self.saveQueueForPersistence()
     }
 
@@ -387,8 +392,9 @@ extension PlayerService {
         originalCurrentIndex: Int,
         removedIndices: [Int]
     ) {
+        let currentEntries = self.queueEntries
         if let currentEntryID,
-           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
+           let newIndex = currentEntries.firstIndex(where: { $0.id == currentEntryID })
         {
             self.currentIndex = newIndex
             return
@@ -396,7 +402,7 @@ extension PlayerService {
 
         let removedBeforeCurrent = removedIndices.count(where: { $0 < originalCurrentIndex })
         let adjustedIndex = max(0, originalCurrentIndex - removedBeforeCurrent)
-        self.currentIndex = min(adjustedIndex, max(0, self.queue.count - 1))
+        self.currentIndex = min(adjustedIndex, max(0, currentEntries.count - 1))
     }
 
     private func realignCurrentIndexAfterDuplicateRemoval(
@@ -418,7 +424,7 @@ extension PlayerService {
             return
         }
 
-        self.currentIndex = min(self.currentIndex, max(0, self.queue.count - 1))
+        self.currentIndex = min(self.currentIndex, max(0, self.queueEntries.count - 1))
     }
 
     /// Removes songs from the queue by video ID.
@@ -483,8 +489,9 @@ extension PlayerService {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let currentEntryID = self.currentQueueEntryID
+        let currentEntries = self.queueEntries
         var entriesByVideoId: [String: [QueueEntry]] = [:]
-        for entry in self.queueEntries {
+        for entry in currentEntries {
             entriesByVideoId[entry.song.videoId, default: []].append(entry)
         }
 
@@ -499,7 +506,7 @@ extension PlayerService {
 
         // Update currentIndex to match current track's new position
         if let currentEntryID,
-           let newIndex = self.queueEntryIDs.firstIndex(of: currentEntryID)
+           let newIndex = reorderedEntries.firstIndex(where: { $0.id == currentEntryID })
         {
             self.currentIndex = newIndex
         }
@@ -630,7 +637,8 @@ extension PlayerService {
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence() {
-        guard !self.queue.isEmpty else {
+        let queue = self.queue
+        guard !queue.isEmpty else {
             if self.suppressNextEmptyQueuePersistence {
                 self.suppressNextEmptyQueuePersistence = false
                 self.logger.info("Skipped clearing saved playback session after guest-startup cleanup")
@@ -645,21 +653,21 @@ extension PlayerService {
 
         do {
             let encoder = JSONEncoder()
-            let safeIndex = min(max(self.currentIndex, 0), self.queue.count - 1)
-            let currentVideoId = self.currentTrack?.videoId ?? self.queue[safe: safeIndex]?.videoId
-            let resolvedDuration = max(self.duration, self.currentTrack?.duration ?? self.queue[safe: safeIndex]?.duration ?? 0)
+            let safeIndex = min(max(self.currentIndex, 0), queue.count - 1)
+            let currentVideoId = self.currentTrack?.videoId ?? queue[safe: safeIndex]?.videoId
+            let resolvedDuration = max(self.duration, self.currentTrack?.duration ?? queue[safe: safeIndex]?.duration ?? 0)
             let clampedProgress = resolvedDuration > 0
                 ? min(max(self.progress, 0), resolvedDuration)
                 : max(self.progress, 0)
 
-            let queueData = try encoder.encode(self.queue)
+            let queueData = try encoder.encode(queue)
             let isKnownGuestSession = self.authService?.shouldPersistGuestPlaybackState == true
             let ownerScope = isKnownGuestSession
                 ? Self.playbackSessionScopeGuest
                 : Self.playbackSessionScopeAuthenticated
             let sessionData = try encoder.encode(
                 PersistedPlaybackSession(
-                    queue: self.queue,
+                    queue: queue,
                     currentIndex: safeIndex,
                     currentVideoId: currentVideoId,
                     progress: clampedProgress,
@@ -671,7 +679,8 @@ extension PlayerService {
             UserDefaults.standard.set(queueData, forKey: Self.savedQueueKey)
             UserDefaults.standard.set(safeIndex, forKey: Self.savedQueueIndexKey)
             UserDefaults.standard.set(sessionData, forKey: Self.savedPlaybackSessionKey)
-            self.logger.info("Saved playback session with \(self.queue.count) songs at index \(safeIndex)")
+            self.restoredPlaybackSessionOwnerScope = ownerScope
+            self.logger.info("Saved playback session with \(queue.count) songs at index \(safeIndex)")
         } catch {
             self.logger.error("Failed to save playback session: \(error.localizedDescription)")
         }

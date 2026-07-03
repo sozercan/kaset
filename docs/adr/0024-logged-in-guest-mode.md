@@ -42,10 +42,10 @@ session, rather than as logout.
   `APICache` when crossing the personal/guest boundary. Sign-out, reauth, and
   login completion already clear guest state or cache as appropriate.
 - The profile/account switcher includes a first-class **Guest Mode** row. When
-  selecting another account while in Guest Mode, the switcher exits Guest Mode
-  before calling `AccountService.switchAccount(to:)` so the account switch can
-  run with credentials; if the switch fails, it restores Guest Mode and keeps
-  the popover open for retry.
+  selecting another account while in Guest Mode, the switcher first completes
+  `AccountService.switchAccount(to:)`, then exits Guest Mode only after the
+  switch succeeds. If the switch fails, Guest Mode remains active and the
+  popover stays open for retry.
 - Sidebars and action surfaces use `hasPersonalAccount` instead of raw
   `state.isLoggedIn` so logged-in Guest Mode does not expose account-only
   destinations or mutations that would fail or use personalization.

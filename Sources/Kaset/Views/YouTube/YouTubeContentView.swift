@@ -120,8 +120,8 @@ struct YouTubeContentView: View {
     private func rootView(for item: YouTubeNavigationItem) -> some View {
         if item.requiresSignIn, !self.hasPersonalAccount {
             SignInRequiredView(
-                title: "Sign in to use \(item.displayName)",
-                message: "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections."
+                title: String(localized: "Sign in to use \(item.displayName)"),
+                message: String(localized: "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections.")
             )
         } else {
             self.publicOrAuthenticatedRootView(for: item)

@@ -72,6 +72,7 @@ struct AuthServiceTests {
         self.authService.startLogin()
 
         #expect(self.authService.shouldPersistGuestPlaybackState == false)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore == false)
     }
 
     @Test("Guest persistence flag is false after session expiry")
@@ -108,6 +109,7 @@ struct AuthServiceTests {
         #expect(self.authService.isGuestModeEnabled == true)
         #expect(self.authService.hasPersonalAccount == false)
         #expect(self.authService.shouldPersistGuestPlaybackState == true)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore == true)
         #expect(APICache.shared.generation == cacheGeneration &+ 1)
 
         self.authService.enterGuestMode()
@@ -117,6 +119,7 @@ struct AuthServiceTests {
         #expect(self.authService.state.isLoggedIn == true)
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(self.authService.hasPersonalAccount == true)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore == false)
         #expect(APICache.shared.generation == cacheGeneration &+ 2)
 
         self.authService.exitGuestMode()

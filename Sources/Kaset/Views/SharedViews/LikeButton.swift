@@ -19,8 +19,8 @@ struct LikeButton: View {
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
-        let isLiked = self.likeStatusManager.isLiked(self.song)
-        if self.allowsActions || isLiked {
+        let isLiked = self.allowsActions && self.likeStatusManager.isLiked(self.song)
+        if self.allowsActions {
             Button {
                 guard self.allowsActions else { return }
                 HapticService.success()
@@ -51,6 +51,10 @@ struct LikeButton: View {
                     ? String(localized: "Unlike")
                     : String(localized: "Like")
             )
+        } else {
+            Color.clear
+                .frame(width: 22, height: 22)
+                .accessibilityHidden(true)
         }
     }
 }

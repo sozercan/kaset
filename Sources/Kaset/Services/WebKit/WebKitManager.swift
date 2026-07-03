@@ -256,10 +256,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return patterns
     }
 
-    /// Creates a WebView configuration using the shared persistent data store.
-    func createWebViewConfiguration() -> WKWebViewConfiguration {
+    /// Creates a WebView configuration using the shared persistent data store by default.
+    func createWebViewConfiguration(websiteDataStore: WKWebsiteDataStore? = nil) -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = self.dataStore
+        configuration.websiteDataStore = websiteDataStore ?? self.dataStore
 
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {

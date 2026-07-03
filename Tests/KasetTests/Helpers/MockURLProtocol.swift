@@ -8,7 +8,8 @@ final class MockURLProtocol: URLProtocol {
 
     private static let sessionIDHeader = "X-Kaset-MockURLProtocol-Session-ID"
     private static let handlersLock = NSLock()
-    nonisolated(unsafe) static var handlersBySessionID: [String: RequestHandler] = [:]
+    // swiftlint:disable:next modifier_order
+    private nonisolated(unsafe) static var handlersBySessionID: [String: RequestHandler] = [:]
 
     /// Legacy fallback handler for older tests. Prefer `makeMockSession(handler:)`
     /// so parallel suites cannot clear or replace each other's handler.
@@ -85,10 +86,10 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Resets all request handlers.
+    /// Resets the legacy fallback request handler.
+    /// Per-session handlers are isolated and must be cleared with `reset(session:)`.
     static func reset() {
         self.handlersLock.withLock {
-            Self.handlersBySessionID.removeAll()
             Self.requestHandler = nil
         }
     }

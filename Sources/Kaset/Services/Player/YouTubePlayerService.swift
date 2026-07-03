@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Observation
 
@@ -7,7 +8,7 @@ import Observation
 /// The real implementation is `YouTubeWatchWebView`; tests inject a recorder.
 @MainActor
 protocol YouTubeWatchPlaybackControlling: AnyObject {
-    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService)
+    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService, usesCookieFreeDataStore: Bool)
     func loadVideo(videoId: String)
     func reloadVideo(videoId: String, resumeAt seconds: Double?)
     func cancelPendingLoad()
@@ -30,8 +31,12 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
 // MARK: - YouTubeWatchWebView + YouTubeWatchPlaybackControlling
 
 extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
-    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService) {
-        _ = self.getWebView(webKitManager: webKitManager, playerService: playerService)
+    func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService, usesCookieFreeDataStore: Bool) {
+        _ = self.getWebView(
+            webKitManager: webKitManager,
+            playerService: playerService,
+            usesCookieFreeDataStore: usesCookieFreeDataStore
+        )
     }
 }
 
@@ -220,6 +225,7 @@ final class YouTubePlayerService {
 
     private let webKitManager: WebKitManager
     let playbackController: any YouTubeWatchPlaybackControlling
+    private var usesCookieFreePlaybackDataStore = false
     private let logger = DiagnosticsLogger.player
 
     /// Whether a playing video should pop out into the floating window when the
@@ -241,8 +247,9 @@ final class YouTubePlayerService {
     // MARK: - Commands
 
     /// Starts playback of a video, docked inline.
-    func play(video: YouTubeVideo) {
+    func play(video: YouTubeVideo, usesCookieFreeDataStore: Bool = false) {
         self.logger.info("YouTubePlayer: play video")
+        self.usesCookieFreePlaybackDataStore = usesCookieFreeDataStore
         self.playbackWillStart?()
 
         if let current = self.currentVideo, current.videoId != video.videoId {
@@ -259,7 +266,11 @@ final class YouTubePlayerService {
         self.surfaceLocation = .inline
 
         // Create the WebView on demand; containers reparent it on appear.
-        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.prepare(
+            webKitManager: self.webKitManager,
+            playerService: self,
+            usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
+        )
         self.playbackController.loadVideo(videoId: video.videoId)
     }
 
@@ -270,6 +281,12 @@ final class YouTubePlayerService {
     /// identity of the served document. After an account switch the in-flight
     /// page is still the previous identity's document, so a full reload is needed
     /// for continued watching to record to the new account.
+    func reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
+        self.usesCookieFreePlaybackDataStore = usesCookieFreeDataStore
+        guard self.currentVideo != nil else { return }
+        self.reloadCurrentVideoForIdentitySwitch()
+    }
+
     func reloadCurrentVideoForIdentitySwitch() {
         guard let currentVideo = self.currentVideo else {
             self.logger.debug("Identity switch: no current video to re-point")
@@ -296,7 +313,11 @@ final class YouTubePlayerService {
             return
         }
 
-        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.prepare(
+            webKitManager: self.webKitManager,
+            playerService: self,
+            usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
+        )
         // Defer the seek to load completion: the new <video> element does not
         // exist until the reloaded document finishes, so seeking now would be a
         // no-op against the old/torn-down page.
@@ -340,7 +361,11 @@ final class YouTubePlayerService {
         self.pendingPausedIdentityReloadResumeAt = nil
         self.userUpdatedPendingPausedIdentityReloadSeek = false
         self.playbackWillStart?()
-        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.prepare(
+            webKitManager: self.webKitManager,
+            playerService: self,
+            usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
+        )
         self.playbackController.reloadVideo(videoId: currentVideo.videoId, resumeAt: resumeAt)
         self.isIdentityReloadInFlight = true
         self.isPlaybackLoading = true
@@ -481,7 +506,11 @@ final class YouTubePlayerService {
         self.isIdentityReloadInFlight = false
         self.resetPerVideoState()
         self.isPlaybackLoading = true
-        self.playbackController.prepare(webKitManager: self.webKitManager, playerService: self)
+        self.playbackController.prepare(
+            webKitManager: self.webKitManager,
+            playerService: self,
+            usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
+        )
         self.playbackController.loadVideo(videoId: video.videoId)
 
         // Keep the surface where it is; when docked inline the content view

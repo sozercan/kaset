@@ -225,7 +225,7 @@ struct YouTubeWatchView: View {
                 self.youtubePlayer.dockInline()
             }
         } else {
-            self.youtubePlayer.play(video: self.video)
+            self.youtubePlayer.play(video: self.video, usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore)
         }
         self.youtubePlayer.activeInlineVideoId = self.video.videoId
     }

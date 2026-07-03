@@ -12,6 +12,7 @@ import WebKit
 struct MiniPlayerWebView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
 
     /// The video ID to play.
     let videoId: String
@@ -41,7 +42,8 @@ struct MiniPlayerWebView: NSViewRepresentable {
         // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
-            playerService: self.playerService
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
         // Remove existing handler if present to avoid duplicates, then add fresh one
@@ -224,6 +226,8 @@ final class SingletonPlayerWebView {
 
     private(set) var webView: WKWebView?
     weak var webKitManager: WebKitManager?
+    private weak var currentContainer: NSView?
+    private var usesCookieFreeDataStore: Bool?
     var currentVideoId: String?
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
@@ -266,18 +270,27 @@ final class SingletonPlayerWebView {
     /// Get or create the singleton WebView.
     func getWebView(
         webKitManager: WebKitManager,
-        playerService: PlayerService
+        playerService: PlayerService,
+        usesCookieFreeDataStore: Bool = false
     ) -> WKWebView {
-        if let existing = webView {
+        if let existing = webView, self.usesCookieFreeDataStore == usesCookieFreeDataStore {
             return existing
+        }
+        let previousContainer = self.currentContainer
+        if self.webView != nil {
+            self.logger.info("Recreating singleton WebView for auth data-store boundary")
+            self.tearDown()
         }
 
         self.logger.info("Creating singleton WebView")
+        self.usesCookieFreeDataStore = usesCookieFreeDataStore
 
         // Create coordinator
         self.coordinator = Coordinator(playerService: playerService)
 
-        let configuration = webKitManager.createWebViewConfiguration()
+        let configuration = webKitManager.createWebViewConfiguration(
+            websiteDataStore: usesCookieFreeDataStore ? .nonPersistent() : nil
+        )
 
         // Add script message handler
         configuration.userContentController.add(self.coordinator!, name: "singletonPlayer")
@@ -302,12 +315,16 @@ final class SingletonPlayerWebView {
         #endif
 
         self.webView = newWebView
+        if let previousContainer {
+            self.ensureInHierarchy(container: previousContainer)
+        }
         return newWebView
     }
 
     /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
         guard let webView else { return }
+        self.currentContainer = container
         self.webKitManager?.extensionHostWebViewDidBecomeActive(webView)
         guard webView.superview !== container else { return }
         webView.removeFromSuperview()
@@ -346,6 +363,30 @@ final class SingletonPlayerWebView {
         webView.loadHTMLString("", baseURL: nil)
         webView.removeFromSuperview()
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .musicPlayer)
+        self.webView = nil
+        self.coordinator = nil
+        self.currentContainer = nil
+        self.usesCookieFreeDataStore = nil
+    }
+
+    /// Recreates the playback WebView when crossing a cookie-store boundary while preserving the tracked video id.
+    func rebuildForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
+        guard self.usesCookieFreeDataStore != usesCookieFreeDataStore else { return }
+        guard let webKitManager = self.webKitManager,
+              let playerService = self.coordinator?.playerService
+        else {
+            self.usesCookieFreeDataStore = usesCookieFreeDataStore
+            return
+        }
+        let videoId = self.currentVideoId
+        self.logger.info("Rebuilding singleton music WebView for auth data-store boundary")
+        self.tearDown()
+        _ = self.getWebView(
+            webKitManager: webKitManager,
+            playerService: playerService,
+            usesCookieFreeDataStore: usesCookieFreeDataStore
+        )
+        self.currentVideoId = videoId
     }
 
     /// Load a video, stopping any currently playing audio first.

@@ -38,6 +38,16 @@ final class AuthService: AuthServiceProtocol {
         self.state.isLoggedIn && !self.isGuestModeEnabled
     }
 
+    /// Whether playback WebViews should use a cookie-free data store.
+    /// Reauth prompts keep the existing account-cookie playback store so active
+    /// playback is not torn down while the user re-authenticates.
+    var shouldUseCookieFreePlaybackDataStore: Bool {
+        if self.isGuestModeEnabled { return true }
+        if self.state == .loggedOut, !self.needsReauth { return true }
+        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut { return true }
+        return false
+    }
+
     /// Whether account-scoped playback persistence should be tagged as guest-owned.
     /// A signed-out user can temporarily be `.loggingIn` while the login sheet is
     /// open; that flow should still preserve guest-owned queues if cancelled.
@@ -136,7 +146,6 @@ final class AuthService: AuthServiceProtocol {
         if let sapisid = await self.webKitManager.getSAPISID() {
             self.logger.info("Found SAPISID cookie after initial restore, user is logged in")
             self.state = .loggedIn(sapisid: sapisid)
-            self.isGuestModeEnabled = false
             self.needsReauth = false
             return
         }

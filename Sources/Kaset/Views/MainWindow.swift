@@ -606,8 +606,8 @@ struct MainWindow: View {
 
     private func signInRequiredView(for item: NavigationItem) -> some View {
         SignInRequiredView(
-            title: "Sign in to use \(item.displayName)",
-            message: "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections."
+            title: String(localized: "Sign in to use \(item.displayName)"),
+            message: String(localized: "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections.")
         )
     }
 
@@ -674,7 +674,7 @@ struct MainWindow: View {
                 self.youtubePlayerService.stop()
             }
             if shouldRefreshGuestContent {
-                self.resetMusicViewModelsForGuest()
+                self.rebuildMusicViewModels()
                 self.youtubeStore.resetForAccountChange()
                 // Reset podcasts availability so the next sign-in re-gates
                 // the UI and re-probes the endpoint.
@@ -692,10 +692,11 @@ struct MainWindow: View {
         case .loggedIn:
             self.guestRefreshTask?.cancel()
             self.guestRefreshTask = nil
-            if oldState == .loggingIn {
-                // Replace any mounted guest-loaded models so in-flight guest
-                // responses cannot populate the authenticated shell.
-                self.resetMusicViewModelsForGuest()
+            let shouldRefreshAuthenticatedContent = oldState == .loggingIn || oldState == .loggedOut
+            if shouldRefreshAuthenticatedContent {
+                // Replace any mounted guest/expired models so in-flight responses
+                // cannot populate the authenticated shell after login or reauth.
+                self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
                 self.youtubeStore.resetForAccountChange()
             }
             self.showLoginSheet = false
@@ -708,21 +709,14 @@ struct MainWindow: View {
             Task {
                 await self.accountService.fetchAccounts()
             }
-            // If we just completed login (transitioning from loggingIn), refresh content
-            // This handles the case where cookies weren't ready during initial load
-            if case .loggingIn = oldState {
+            // If we just completed login/reauth, refresh content. This handles
+            // the case where cookies were unavailable during initial load and
+            // preserved views that may currently hold auth-expired state.
+            if shouldRefreshAuthenticatedContent {
                 Task {
                     // Brief delay to ensure cookies are fully propagated in WebKit
                     try? await Task.sleep(for: .milliseconds(500))
-
-                    // Parallel initial data fetch for ~40% faster app launch.
-                    // The podcasts probe is driven separately by the
-                    // `.task(id: state.isLoggedIn)` UI gate below.
-                    await withTaskGroup(of: Void.self) { group in
-                        group.addTask { await self.homeViewModel?.refresh() }
-                        group.addTask { await self.exploreViewModel?.refresh() }
-                        group.addTask { await self.libraryViewModel?.load() }
-                    }
+                    await self.refreshAuthenticatedContent()
                 }
             }
         }
@@ -732,28 +726,27 @@ struct MainWindow: View {
         guard self.authService.state.isLoggedIn else { return }
         self.guestRefreshTask?.cancel()
         self.guestRefreshTask = nil
-        self.resetMusicViewModelsForGuest()
         self.youtubeStore.resetForAccountChange()
         self.podcastsAvailability.reset()
 
         if isGuestModeEnabled {
+            self.rebuildMusicViewModels()
             self.playerService.clearPlaybackForGuestStartup()
             self.youtubePlayerService.stop()
             self.normalizeGuestSelections()
             self.scheduleGuestContentRefresh()
         } else {
+            self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
+            self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
             Task { @MainActor in
                 await self.accountService.fetchAccounts()
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { await self.homeViewModel?.refresh() }
-                    group.addTask { await self.exploreViewModel?.refresh() }
-                    group.addTask { await self.libraryViewModel?.load() }
-                }
+                await self.refreshAuthenticatedContent()
             }
         }
     }
 
-    private func resetMusicViewModelsForGuest() {
+    private func rebuildMusicViewModels(accountId: String? = nil) {
         self.homeViewModel = HomeViewModel(client: self.client)
         self.exploreViewModel = ExploreViewModel(client: self.client)
         self.searchViewModel = SearchViewModel(client: self.client)
@@ -761,7 +754,7 @@ struct MainWindow: View {
         self.moodsAndGenresViewModel = MoodsAndGenresViewModel(client: self.client)
         self.newReleasesViewModel = NewReleasesViewModel(client: self.client)
         let podcastsViewModel = PodcastsViewModel(client: self.client)
-        podcastsViewModel.configure(availabilityService: self.podcastsAvailability, accountId: nil)
+        podcastsViewModel.configure(availabilityService: self.podcastsAvailability, accountId: accountId)
         self.podcastsViewModel = podcastsViewModel
         self.likedMusicViewModel = PlaylistDetailViewModel(
             playlist: LikedMusicPlaylist.playlist,
@@ -791,6 +784,16 @@ struct MainWindow: View {
             self.youtubeNavigationSelection = .home
         }
         self.selectedSidebarPinnedItem = nil
+    }
+
+    private func refreshAuthenticatedContent() async {
+        // Parallel initial data fetch for ~40% faster app launch. The podcasts
+        // probe is driven separately by the `.task(id: hasPersonalAccount)` UI gate.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.homeViewModel?.refresh() }
+            group.addTask { await self.exploreViewModel?.refresh() }
+            group.addTask { await self.libraryViewModel?.load() }
+        }
     }
 
     @MainActor

@@ -9,6 +9,7 @@ import SwiftUI
 struct PersistentPlayerView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
 
     let videoId: String
     let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
@@ -24,7 +25,8 @@ struct PersistentPlayerView: NSViewRepresentable {
         // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
-            playerService: self.playerService
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
         // Remove from any previous superview and add to this container
@@ -48,7 +50,8 @@ struct PersistentPlayerView: NSViewRepresentable {
         // Ensure WebView is in this container
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
-            playerService: self.playerService
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
         if webView.superview !== container {

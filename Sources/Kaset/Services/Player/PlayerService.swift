@@ -420,7 +420,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func synchronizeCurrentQueueEntryID() {
-        self.currentQueueEntryID = self.queueEntries[safe: self.currentIndex]?.id
+        self.currentQueueEntryID = self.queueStorage[safe: self.currentIndex]?.id
     }
 
     /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).

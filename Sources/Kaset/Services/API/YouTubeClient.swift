@@ -63,17 +63,7 @@ final class YouTubeClient: YouTubeClientProtocol {
         if let session {
             self.session = session
         } else {
-            let configuration = URLSessionConfiguration.default
-            configuration.httpAdditionalHeaders = [
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "Accept-Encoding": "gzip, deflate, br",
-            ]
-            configuration.httpMaximumConnectionsPerHost = 6
-            configuration.urlCache = URLCache.shared
-            configuration.requestCachePolicy = .useProtocolCachePolicy
-            configuration.timeoutIntervalForRequest = 15
-            configuration.timeoutIntervalForResource = 30
-            self.session = URLSession(configuration: configuration)
+            self.session = URLSession(configuration: APISessionConfiguration.make())
         }
     }
 

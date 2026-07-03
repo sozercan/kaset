@@ -108,6 +108,12 @@ extension PlayerService {
         return self.shouldForcePendingRestoredLoad || SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
     }
 
+    func reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
+        guard self.currentTrack != nil else { return }
+        SingletonPlayerWebView.shared.rebuildForAuthDataStoreChange(usesCookieFreeDataStore: usesCookieFreeDataStore)
+        self.reloadCurrentTrackForIdentitySwitch()
+    }
+
     /// Re-loads the currently playing track so it is served under the WebView
     /// session's current (just-switched) delegated identity.
     ///

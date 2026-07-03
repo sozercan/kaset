@@ -21,14 +21,6 @@ struct PlayerServiceLibraryTests {
         SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
 
-    @MainActor
-    private func waitUntil(_ condition: @escaping () -> Bool) async {
-        for _ in 0 ..< 20 {
-            if condition() { return }
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-    }
-
     // MARK: - Like Current Track Tests
 
     @Test("likeCurrentTrack does nothing when no current track")
@@ -100,9 +92,8 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
         // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
-        await self.waitUntil { self.playerService.currentTrackLikeStatus == .indifferent }
-
-        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("likeCurrentTrack ignores stale completion after current track changes")
@@ -225,9 +216,8 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
         // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
-        await self.waitUntil { self.playerService.currentTrackLikeStatus == .indifferent }
-
-        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("dislikeCurrentTrack ignores stale completion after current track changes")
@@ -456,5 +446,19 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
         #expect(self.playerService.currentTrackInLibrary == false)
         #expect(self.playerService.currentTrackFeedbackTokens == nil)
+    }
+
+    private func waitUntilLikeStatus(
+        _ expectedStatus: LikeStatus,
+        attempts: Int = 200,
+        pollInterval: Duration = .milliseconds(10)
+    ) async -> Bool {
+        for _ in 0 ..< attempts {
+            if self.playerService.currentTrackLikeStatus == expectedStatus {
+                return true
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+        return false
     }
 }
