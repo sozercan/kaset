@@ -121,7 +121,7 @@ struct MainWindow: View {
                 if self.authService.state.isInitializing {
                     // Show loading while checking login status to avoid onboarding flash
                     self.initializingView
-                } else if self.authService.state.isLoggedIn {
+                } else if self.authService.hasPersonalAccount {
                     // Skip the probe gate in UI test mode: existing test
                     // fixtures (e.g. `navigateToSidebarItem`) check
                     // sidebar element existence synchronously right after
@@ -240,6 +240,9 @@ struct MainWindow: View {
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
+        .onChange(of: self.authService.isGuestModeEnabled) { _, isGuestModeEnabled in
+            self.handleGuestModeChange(isGuestModeEnabled: isGuestModeEnabled)
+        }
         .onChange(of: self.authService.needsReauth) { _, needsReauth in
             if needsReauth {
                 self.showLoginSheet = true
@@ -353,13 +356,13 @@ struct MainWindow: View {
                 accountId: accountId
             )
         }
-        .task(id: self.authService.state.isLoggedIn) {
+        .task(id: self.authService.hasPersonalAccount) {
             // Run the podcasts availability probe whenever the user
             // becomes logged in (cold start with cached cookies, or
             // after an explicit sign-in). The result gates `mainContent`
             // via `didResolveFirstProbe`, so the sidebar paints with the
             // correct state on first frame — no flicker.
-            guard self.authService.state.isLoggedIn else { return }
+            guard self.authService.hasPersonalAccount else { return }
             // Brief delay so post-login cookies have a chance to settle
             // into the data store the API client reads from. On cold
             // start cookies are already there; this 200 ms is a small
@@ -594,7 +597,7 @@ struct MainWindow: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private func requiresSignIn(_ item: NavigationItem) -> Bool {
@@ -720,6 +723,31 @@ struct MainWindow: View {
                         group.addTask { await self.exploreViewModel?.refresh() }
                         group.addTask { await self.libraryViewModel?.load() }
                     }
+                }
+            }
+        }
+    }
+
+    private func handleGuestModeChange(isGuestModeEnabled: Bool) {
+        guard self.authService.state.isLoggedIn else { return }
+        self.guestRefreshTask?.cancel()
+        self.guestRefreshTask = nil
+        self.resetMusicViewModelsForGuest()
+        self.youtubeStore.resetForAccountChange()
+        self.podcastsAvailability.reset()
+
+        if isGuestModeEnabled {
+            self.playerService.clearPlaybackForGuestStartup()
+            self.youtubePlayerService.stop()
+            self.normalizeGuestSelections()
+            self.scheduleGuestContentRefresh()
+        } else {
+            Task { @MainActor in
+                await self.accountService.fetchAccounts()
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await self.homeViewModel?.refresh() }
+                    group.addTask { await self.exploreViewModel?.refresh() }
+                    group.addTask { await self.libraryViewModel?.load() }
                 }
             }
         }

@@ -361,7 +361,7 @@ struct PodcastShowView: View {
                         .compatGlassProminentButton()
                     }
 
-                    if self.authService.state.isLoggedIn {
+                    if self.authService.hasPersonalAccount {
                         // Add to Library button
                         Button {
                             Task {

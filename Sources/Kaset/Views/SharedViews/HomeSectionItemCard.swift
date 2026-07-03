@@ -136,7 +136,7 @@ struct HomeSectionItemCard: View {
         .overlay(alignment: .topTrailing) {
             // Favorite heart in the corner for songs
             if case let .song(song) = self.item {
-                LikeButton(song: song, isRowHovered: self.isHovering, allowsActions: self.authService.state.isLoggedIn)
+                LikeButton(song: song, isRowHovered: self.isHovering, allowsActions: self.authService.hasPersonalAccount)
                     .padding(6)
             }
         }

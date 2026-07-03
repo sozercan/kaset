@@ -48,7 +48,7 @@ struct YouTubeSidebar: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private func row(for item: YouTubeNavigationItem) -> some View {

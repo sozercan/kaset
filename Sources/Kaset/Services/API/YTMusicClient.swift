@@ -1596,7 +1596,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     private func buildRequestHeaders(authPolicy: RequestAuthPolicy) async throws -> RequestAuthHeaders {
-        if self.authService.state.isLoggedIn {
+        if self.authService.hasPersonalAccount {
             do {
                 let headers = try await self.buildAuthHeaders()
                 return RequestAuthHeaders(headers: headers, authenticated: true)

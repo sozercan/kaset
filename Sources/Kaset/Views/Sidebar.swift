@@ -80,7 +80,7 @@ struct Sidebar: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private var currentSidebarSelection: SidebarSelection? {

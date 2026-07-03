@@ -493,7 +493,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Account-backed library/rating mutations should be no-ops in guest mode.
     var canPerformAccountMutation: Bool {
-        self.authService?.state.isLoggedIn ?? false
+        self.authService?.hasPersonalAccount ?? false
     }
 
     /// Flag to track when a song is nearing its end.

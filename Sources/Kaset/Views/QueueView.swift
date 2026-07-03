@@ -109,7 +109,7 @@ struct QueueView: View {
                         song: entry.song,
                         isCurrentTrack: index == self.playerService.currentIndex,
                         index: index,
-                        allowsLikeActions: self.authService.state.isLoggedIn,
+                        allowsLikeActions: self.authService.hasPersonalAccount,
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {

@@ -115,7 +115,7 @@ struct TopSongsView: View {
                     }
 
                     // Favorite toggle
-                    LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.state.isLoggedIn)
+                    LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
 
                     // Duration
                     Text(song.durationDisplay)
@@ -140,7 +140,7 @@ struct TopSongsView: View {
 
             FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 Divider()
 
                 LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
@@ -150,7 +150,7 @@ struct TopSongsView: View {
 
             StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 Divider()
 
                 Button {
@@ -170,7 +170,7 @@ struct TopSongsView: View {
 
             Divider()
 
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
             }
 

@@ -413,7 +413,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
             Divider()
 
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 Button {
                     SongActionsHelper.addToLibrary(song, playerService: self.playerService)
                 } label: {
@@ -869,7 +869,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     // MARK: - Section Header with Optional See-all

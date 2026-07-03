@@ -402,7 +402,7 @@ struct SearchView: View {
 
                     // Favorite toggle for songs
                     if case let .song(song) = item {
-                        LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.state.isLoggedIn)
+                        LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
                     }
 
                     // Play indicator for songs
@@ -461,7 +461,7 @@ struct SearchView: View {
 
         Divider()
 
-        if self.authService.state.isLoggedIn {
+        if self.authService.hasPersonalAccount {
             Button {
                 SongActionsHelper.addToLibrary(song, playerService: self.playerService)
             } label: {
@@ -579,7 +579,7 @@ struct SearchView: View {
 
     @ViewBuilder
     private func playlistContextMenu(_ playlist: Playlist) -> some View {
-        if self.authService.state.isLoggedIn {
+        if self.authService.hasPersonalAccount {
             Button {
                 Task {
                     await SongActionsHelper.addPlaylistToLibrary(

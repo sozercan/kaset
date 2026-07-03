@@ -129,7 +129,7 @@ struct YouTubeContentView: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     @ViewBuilder

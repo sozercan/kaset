@@ -12,7 +12,7 @@ struct LikeDislikeContextMenu: View {
     @Environment(AuthService.self) private var authService
 
     var body: some View {
-        if self.authService.state.isLoggedIn {
+        if self.authService.hasPersonalAccount {
             self.menuItems
         }
     }
@@ -99,7 +99,7 @@ struct AddToPlaylistContextMenu: View {
     }
 
     var body: some View {
-        if self.authService.state.isLoggedIn {
+        if self.authService.hasPersonalAccount {
             self.menu
         }
     }

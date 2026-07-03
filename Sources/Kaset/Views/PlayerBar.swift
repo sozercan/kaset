@@ -883,7 +883,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     // MARK: - Actions
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private func likeCurrentTrack() {

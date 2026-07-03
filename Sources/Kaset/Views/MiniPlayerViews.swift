@@ -497,7 +497,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private var likeButton: some View {

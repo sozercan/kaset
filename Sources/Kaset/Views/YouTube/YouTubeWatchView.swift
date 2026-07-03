@@ -453,7 +453,7 @@ struct YouTubeWatchView: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     /// Whether the composer holds postable text (drives the send accent).

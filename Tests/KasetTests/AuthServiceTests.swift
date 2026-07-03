@@ -98,6 +98,46 @@ struct AuthServiceTests {
         #expect(self.authService.needsReauth == true)
     }
 
+    @Test("Logged-in users can enter and exit guest mode")
+    func loggedInGuestModeToggle() {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        let cacheGeneration = APICache.shared.generation
+
+        self.authService.enterGuestMode()
+        #expect(self.authService.state.isLoggedIn == true)
+        #expect(self.authService.isGuestModeEnabled == true)
+        #expect(self.authService.hasPersonalAccount == false)
+        #expect(self.authService.shouldPersistGuestPlaybackState == true)
+        #expect(APICache.shared.generation == cacheGeneration &+ 1)
+
+        self.authService.enterGuestMode()
+        #expect(APICache.shared.generation == cacheGeneration &+ 1)
+
+        self.authService.exitGuestMode()
+        #expect(self.authService.state.isLoggedIn == true)
+        #expect(self.authService.isGuestModeEnabled == false)
+        #expect(self.authService.hasPersonalAccount == true)
+        #expect(APICache.shared.generation == cacheGeneration &+ 2)
+
+        self.authService.exitGuestMode()
+        #expect(APICache.shared.generation == cacheGeneration &+ 2)
+    }
+
+    @Test("Completing login and sign out clear guest mode")
+    func loginAndSignOutClearGuestMode() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        self.authService.enterGuestMode()
+
+        self.authService.completeLogin(sapisid: "new-sapisid")
+        #expect(self.authService.isGuestModeEnabled == false)
+        #expect(self.authService.hasPersonalAccount == true)
+
+        self.authService.enterGuestMode()
+        await self.authService.signOut()
+        #expect(self.authService.isGuestModeEnabled == false)
+        #expect(self.authService.hasPersonalAccount == false)
+    }
+
     @Test("State isLoggedIn property")
     func stateIsLoggedIn() {
         #expect(self.authService.state.isLoggedIn == false)

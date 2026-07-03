@@ -71,7 +71,7 @@ struct HomeView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
                 // Favorites section (hidden when empty)
-                if self.authService.state.isLoggedIn, self.favoritesManager.isVisible {
+                if self.authService.hasPersonalAccount, self.favoritesManager.isVisible {
                     FavoritesSection(
                         onNavigate: { destination in
                             if let playlist = destination as? Playlist {

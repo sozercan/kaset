@@ -211,7 +211,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private var currentVideoGlowSources: [URL] {

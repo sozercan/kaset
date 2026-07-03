@@ -58,3 +58,4 @@ What becomes easier or more difficult because of this change?
 | [0021](0021-liquid-glass-sidebar-slide-under.md) | Liquid Glass Sidebar Slide-Under | Accepted |
 | [0022](0022-youtube-home-sections.md) | YouTube Home Sections — Continue Watching + Personalized Topic Rails | Accepted |
 | [0023](0023-brand-account-history-session-switch.md) | Brand-Account History via WebView Session-Identity Switch | Accepted |
+| [0024](0024-logged-in-guest-mode.md) | Logged-In Guest Mode | Accepted |

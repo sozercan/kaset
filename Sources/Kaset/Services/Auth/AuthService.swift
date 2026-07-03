@@ -29,11 +29,21 @@ final class AuthService: AuthServiceProtocol {
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool = false
 
+    /// Whether a signed-in user is temporarily browsing as a guest.
+    /// Cookies/accounts stay available so the user can switch back without signing in again.
+    private(set) var isGuestModeEnabled = false
+
+    /// Whether account-backed UI/actions/API requests should use the personal account.
+    var hasPersonalAccount: Bool {
+        self.state.isLoggedIn && !self.isGuestModeEnabled
+    }
+
     /// Whether account-scoped playback persistence should be tagged as guest-owned.
     /// A signed-out user can temporarily be `.loggingIn` while the login sheet is
     /// open; that flow should still preserve guest-owned queues if cancelled.
     var shouldPersistGuestPlaybackState: Bool {
         guard !self.needsReauth else { return false }
+        if self.isGuestModeEnabled { return true }
         if self.state == .loggedOut { return true }
         if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut { return true }
         return false
@@ -60,6 +70,23 @@ final class AuthService: AuthServiceProtocol {
         } else {
             self.state = .initializing
         }
+    }
+
+    /// Temporarily uses public guest mode while preserving the signed-in session.
+    func enterGuestMode() {
+        guard self.state.isLoggedIn else { return }
+        guard !self.isGuestModeEnabled else { return }
+        self.logger.info("Entering guest mode")
+        APICache.shared.invalidateAll()
+        self.isGuestModeEnabled = true
+    }
+
+    /// Leaves guest mode and resumes the signed-in personal account.
+    func exitGuestMode() {
+        guard self.isGuestModeEnabled else { return }
+        self.logger.info("Leaving guest mode")
+        APICache.shared.invalidateAll()
+        self.isGuestModeEnabled = false
     }
 
     /// Starts the login flow by presenting the login sheet.
@@ -109,6 +136,7 @@ final class AuthService: AuthServiceProtocol {
         if let sapisid = await self.webKitManager.getSAPISID() {
             self.logger.info("Found SAPISID cookie after initial restore, user is logged in")
             self.state = .loggedIn(sapisid: sapisid)
+            self.isGuestModeEnabled = false
             self.needsReauth = false
             return
         }
@@ -121,6 +149,7 @@ final class AuthService: AuthServiceProtocol {
     func sessionExpired() {
         self.logger.warning("Session expired, requiring re-authentication")
         self.needsReauth = true
+        self.isGuestModeEnabled = false
         self.state = .loggedOut
         self.stateBeforeLogin = nil
         // Drop cached personalized responses so a later login in the same
@@ -137,6 +166,7 @@ final class AuthService: AuthServiceProtocol {
         APICache.shared.invalidateAll()
 
         self.state = .loggedOut
+        self.isGuestModeEnabled = false
         self.needsReauth = false
         self.stateBeforeLogin = nil
 
@@ -147,6 +177,7 @@ final class AuthService: AuthServiceProtocol {
     func completeLogin(sapisid: String) {
         self.logger.info("Login completed successfully")
         self.state = .loggedIn(sapisid: sapisid)
+        self.isGuestModeEnabled = false
         self.needsReauth = false
         self.stateBeforeLogin = nil
     }

@@ -34,7 +34,7 @@ struct PlaylistDetailView: View {
     }
 
     var hasPersonalAccount: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
     }
 
     private let logger = DiagnosticsLogger.ai
@@ -403,7 +403,7 @@ struct PlaylistDetailView: View {
 
             Divider()
 
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 Button {
                     SongActionsHelper.addToLibrary(track, playerService: self.playerService)
                 } label: {

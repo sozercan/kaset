@@ -27,7 +27,7 @@ struct QueueSidePanelView: View {
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
                     likeStatusManager: self.likeStatusManager,
-                    allowsLikeActions: self.authService.state.isLoggedIn,
+                    allowsLikeActions: self.authService.hasPersonalAccount,
                     likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { index in
                         Task {
@@ -742,7 +742,7 @@ private struct QueueFooterActions: View {
     @State private var isSavingPlaylist = false
 
     private var canSaveQueueAsPlaylist: Bool {
-        self.authService.state.isLoggedIn
+        self.authService.hasPersonalAccount
             && !self.playerService.queue.isEmpty
             && !self.isSavingPlaylist
             && self.playerService.ytMusicClient != nil
@@ -821,7 +821,7 @@ private struct QueueFooterActions: View {
     }
 
     private func presentSaveQueueAsPlaylistDialog() {
-        guard self.authService.state.isLoggedIn, !self.isSavingPlaylist else { return }
+        guard self.authService.hasPersonalAccount, !self.isSavingPlaylist else { return }
         let songs = self.playerService.queue
         guard !songs.isEmpty else { return }
 
@@ -854,7 +854,7 @@ private struct QueueFooterActions: View {
     }
 
     private func saveQueueAsPlaylist(title: String, songCount: Int) async {
-        guard self.authService.state.isLoggedIn, !self.isSavingPlaylist else { return }
+        guard self.authService.hasPersonalAccount, !self.isSavingPlaylist else { return }
         self.isSavingPlaylist = true
         defer { self.isSavingPlaylist = false }
 
