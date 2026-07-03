@@ -249,7 +249,6 @@ final class AccountService {
         }
     }
 
-
     // swiftlint:disable cyclomatic_complexity
     /// Schedules a best-effort WebView session pin for the restored account, off
     /// the `fetchAccounts` path so it never blocks launch or holds `isLoading`.
