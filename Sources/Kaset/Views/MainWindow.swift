@@ -119,7 +119,7 @@ struct MainWindow: View {
         ZStack(alignment: .bottomTrailing) {
             Group {
                 if self.authService.state.isInitializing {
-                    // Show loading while checking login status to avoid onboarding flash
+                    // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
                     // Skip the probe gate in UI test mode: existing test

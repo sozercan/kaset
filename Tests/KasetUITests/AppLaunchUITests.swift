@@ -58,7 +58,7 @@ final class AppLaunchUITests: KasetUITestCase {
         app.launchArguments.append("-SkipAuth")
         app.launch()
 
-        // Should skip onboarding and go directly to main content
+        // Should skip auth and go directly to main content
         let sidebarItem = app.outlineRows.firstMatch
         XCTAssertTrue(waitForElement(sidebarItem, timeout: 10), "Should skip auth and show main content")
     }

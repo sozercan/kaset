@@ -8,7 +8,7 @@ enum UITestConfig {
     /// When present, app runs in UI test mode with mock services.
     static let uiTestModeArgument = "-UITestMode"
 
-    /// When present, skip onboarding and assume logged in.
+    /// When present, skip auth and assume logged in.
     static let skipAuthArgument = "-SkipAuth"
 
     // MARK: - Environment Keys

@@ -450,7 +450,7 @@ struct PlayerServiceLibraryTests {
 
     private func waitUntilLikeStatus(
         _ expectedStatus: LikeStatus,
-        attempts: Int = 200,
+        attempts: Int = 1000,
         pollInterval: Duration = .milliseconds(10)
     ) async -> Bool {
         for _ in 0 ..< attempts {

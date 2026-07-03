@@ -30,6 +30,7 @@ final class YouTubeHomeViewModel {
 
     /// Cap on Continue Watching items and on topic rails shown at first paint.
     private static let continueWatchingCap = 20
+    private static let guestFallbackRailCap = 20
     private static let topicRailCap = 8
 
     /// Public destination rails used when signed-out Home returns YouTube's empty
@@ -271,13 +272,14 @@ final class YouTubeHomeViewModel {
     private func loadGuestFallbackRails(generation: Int) async {
         self.logger.info("YouTube home returned empty recommendations; loading public guest fallback rails")
 
+        let guestFallbackRailCap = Self.guestFallbackRailCap
         var slots = [YouTubeHomeSection?](repeating: nil, count: Self.guestFallbackDestinations.count)
         await withTaskGroup(of: (Int, YouTubeHomeSection?).self) { group in
             for (index, destination) in Self.guestFallbackDestinations.enumerated() {
                 group.addTask { [client] in
                     do {
                         let feed = try await client.getDestinationFeed(destination)
-                        let videos = Array(feed.videos.prefix(20))
+                        let videos = Array(feed.videos.prefix(guestFallbackRailCap))
                         guard !videos.isEmpty else { return (index, nil) }
                         return (
                             index,
