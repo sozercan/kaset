@@ -26,6 +26,17 @@ struct MusicSettingsView: View {
 
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
                     .help("Save shuffle and repeat settings across app restarts")
+
+                ForEach(self.nowPlayingSurfaceDescriptors) { descriptor in
+                    Toggle(
+                        descriptor.displayName,
+                        isOn: Binding(
+                            get: { self.settings.isNowPlayingSurfaceEnabled(descriptor.id) },
+                            set: { self.settings.setNowPlayingSurface(descriptor.id, enabled: $0) }
+                        )
+                    )
+                    .help(descriptor.helpText)
+                }
             } header: {
                 Text("Now Playing")
             }
@@ -58,5 +69,15 @@ struct MusicSettingsView: View {
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
         .localizedNavigationTitle("Music")
+    }
+
+    private var nowPlayingSurfaceDescriptors: [NowPlayingSurfaceDescriptor] {
+        let includeMusicIsland = if #available(macOS 26.0, *) {
+            !self.settings.useLegacyMacOS15UI
+        } else {
+            false
+        }
+
+        return NowPlayingSurfaceCatalog.descriptors(includeMusicIsland: includeMusicIsland)
     }
 }

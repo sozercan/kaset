@@ -319,9 +319,19 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                 case .lyrics:
                     Group {
                         if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
-                            LyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
+                            LyricsView(
+                                client: self.client,
+                                showsHeader: false,
+                                preferredWidth: nil,
+                                lyricsDemandConsumerID: .miniPlayerLyrics
+                            )
                         } else {
-                            SimpleLyricsView(client: self.client, showsHeader: false, preferredWidth: nil)
+                            SimpleLyricsView(
+                                client: self.client,
+                                showsHeader: false,
+                                preferredWidth: nil,
+                                lyricsDemandConsumerID: .miniPlayerLyrics
+                            )
                         }
                     }
                     .accessibilityIdentifier(AccessibilityID.MiniPlayer.lyricsView)

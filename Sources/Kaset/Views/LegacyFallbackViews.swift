@@ -225,10 +225,12 @@ struct SimplePlaylistDetailView: View {
 struct SimpleLyricsView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
+    @Environment(\.lyricsDemandCoordinator) private var lyricsDemandCoordinator
 
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    var lyricsDemandConsumerID: NowPlayingSurfaceID = .lyricsSidebar
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -261,15 +263,7 @@ struct SimpleLyricsView: View {
                 await self.loadLyrics(for: videoId)
             }
         }
-        .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
-            self.updateLyricsPolling(for: newLyrics)
-        }
-        .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
-        }
-        .onAppear {
-            self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
-        }
+        .lyricsDemand(consumerID: self.lyricsDemandConsumerID, for: self.syncedLyricsService.currentLyrics)
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)
     }
 
@@ -372,14 +366,6 @@ struct SimpleLyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func updateLyricsPolling(for result: LyricResult) {
-        if case .synced = result {
-            SingletonPlayerWebView.shared.startLyricsPoll()
-        } else {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
-        }
-    }
-
     @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId
@@ -388,20 +374,7 @@ struct SimpleLyricsView: View {
         guard let track = self.playerService.currentTrack else { return }
         guard track.videoId == videoId else { return }
 
-        let info = LyricsSearchInfo(
-            title: track.title,
-            artist: track.artistsDisplay,
-            album: track.album?.title,
-            duration: track.duration,
-            videoId: track.videoId
-        )
-
-        if SettingsManager.shared.syncedLyricsEnabled {
-            await self.syncedLyricsService.fetchLyrics(for: info)
-        } else {
-            self.syncedLyricsService.currentLyrics = .unavailable
-            self.syncedLyricsService.activeProvider = nil
-        }
+        await self.lyricsDemandCoordinator?.fetchSyncedLyricsIfNeeded(for: track)
 
         guard self.lastLoadedVideoId == videoId else { return }
         guard self.playerService.currentTrack?.videoId == videoId else { return }

@@ -20,7 +20,8 @@ final class MiniPlayerWindowController {
     func show(
         playerService: PlayerService,
         client: any YTMusicClientProtocol,
-        syncedLyricsService: SyncedLyricsService
+        syncedLyricsService: SyncedLyricsService,
+        lyricsDemandCoordinator: LyricsDemandCoordinator? = nil
     ) {
         self.playerService = playerService
 
@@ -30,6 +31,7 @@ final class MiniPlayerWindowController {
             .environment(FavoritesManager.shared)
             .environment(SongLikeStatusManager.shared)
             .environment(syncedLyricsService)
+            .environment(\.lyricsDemandCoordinator, lyricsDemandCoordinator)
 
         if let existingWindow = self.window {
             self.isClosing = false
