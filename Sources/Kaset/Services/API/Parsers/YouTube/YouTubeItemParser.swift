@@ -262,7 +262,7 @@ enum YouTubeItemParser {
         }
 
         if let runs = dict["runs"] as? [[String: Any]] {
-            let joined = runs.compactMap { $0["text"] as? String }.joined()
+            let joined = ParsingHelpers.joinedRunText(runs)
             return joined.isEmpty ? nil : joined
         }
 

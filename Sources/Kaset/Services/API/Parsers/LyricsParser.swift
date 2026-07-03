@@ -118,7 +118,7 @@ enum LyricsParser {
         if let description = shelf["description"] as? [String: Any],
            let runs = description["runs"] as? [[String: Any]]
         {
-            lyricsText = runs.compactMap { $0["text"] as? String }.joined()
+            lyricsText = ParsingHelpers.joinedRunText(runs)
         }
 
         // Extract the footer (source attribution)
@@ -126,7 +126,7 @@ enum LyricsParser {
         if let footer = shelf["footer"] as? [String: Any],
            let runs = footer["runs"] as? [[String: Any]]
         {
-            source = runs.compactMap { $0["text"] as? String }.joined()
+            source = ParsingHelpers.joinedRunText(runs)
         }
 
         if lyricsText.isEmpty {

@@ -88,6 +88,34 @@ final class ParserPerformanceTests: XCTestCase {
         }
     }
 
+    // MARK: - Regex-heavy Parser Performance
+
+    func testAccessibilityDurationFallbackPerformance() {
+        // Given: Rows that only expose duration in accessibility labels.
+        let rows = self.makeAccessibilityDurationRows(count: 1000)
+        _ = ParsingHelpers.extractDurationFromFlexColumns(rows[0])
+
+        // When/Then: Measure duration extraction without network/UI work.
+        measure {
+            var total: TimeInterval = 0
+            for row in rows {
+                total += ParsingHelpers.extractDurationFromFlexColumns(row) ?? 0
+            }
+            XCTAssertGreaterThan(total, 0)
+        }
+    }
+
+    func testLRCParsingPerformance() {
+        // Given: Mixed line-level and word-level synced lyric data.
+        let raw = self.makeLRCData(lineCount: 600)
+        XCTAssertNotNil(LRCParser.parse(raw))
+
+        // When/Then: Measure LRC parsing throughput.
+        measure {
+            XCTAssertNotNil(LRCParser.parse(raw))
+        }
+    }
+
     // MARK: - Helpers: Home Response
 
     private func makeHomeResponseData(sectionCount: Int, itemsPerSection: Int) -> [String: Any] {
@@ -501,5 +529,60 @@ final class ParserPerformanceTests: XCTestCase {
                 ],
             ],
         ]
+    }
+
+    private func makeAccessibilityDurationRows(count: Int) -> [[String: Any]] {
+        (0 ..< count).map { index in
+            [
+                "overlay": [
+                    "musicItemThumbnailOverlayRenderer": [
+                        "content": [
+                            "musicPlayButtonRenderer": [
+                                "accessibilityPlayData": [
+                                    "accessibilityData": [
+                                        "label": "Play Benchmark Song \(index), \((index % 5) + 1) minutes, \((index % 50) + 1) seconds",
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        }
+    }
+
+    private func makeLRCData(lineCount: Int) -> String {
+        var lines = [
+            "[ar:Benchmark Artist]",
+            "[ti:Benchmark Song]",
+            "[offset:125]",
+        ]
+        lines.reserveCapacity(lineCount + lines.count)
+
+        for index in 0 ..< lineCount {
+            let minute = index / 60
+            let second = index % 60
+            let centisecond = index % 100
+            if index.isMultiple(of: 3) {
+                lines.append(String(
+                    format: "[%02d:%02d.%02d]<%02d:%02d.%02d>word%d <%02d:%02d.%02d>line%d",
+                    minute,
+                    second,
+                    centisecond,
+                    minute,
+                    second,
+                    centisecond,
+                    index,
+                    minute,
+                    min(59, second + 1),
+                    centisecond,
+                    index
+                ))
+            } else {
+                lines.append(String(format: "[%02d:%02d.%02d]Benchmark lyric line %d", minute, second, centisecond, index))
+            }
+        }
+
+        return lines.joined(separator: "\n")
     }
 }

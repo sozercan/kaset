@@ -401,16 +401,12 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
         let subtitle = (data["subtitle"] as? [String: Any])
             .flatMap { subtitleData in
-                (subtitleData["runs"] as? [[String: Any]])?
-                    .compactMap { $0["text"] as? String }
-                    .joined()
+                (subtitleData["runs"] as? [[String: Any]]).map(ParsingHelpers.joinedRunText(_:))
             }
 
         let description = (data["description"] as? [String: Any])
             .flatMap { descData in
-                (descData["runs"] as? [[String: Any]])?
-                    .compactMap { $0["text"] as? String }
-                    .joined()
+                (descData["runs"] as? [[String: Any]]).map(ParsingHelpers.joinedRunText(_:))
             }
 
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
@@ -540,7 +536,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             if let descData = immersiveHeader["description"] as? [String: Any],
                let runs = descData["runs"] as? [[String: Any]]
             {
-                result.description = runs.compactMap { $0["text"] as? String }.joined()
+                result.description = ParsingHelpers.joinedRunText(runs)
             }
 
             result.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: immersiveHeader)
@@ -598,24 +594,24 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             if let shortSubscriberCountText = subscribeButtonRenderer["shortSubscriberCountText"] as? [String: Any],
                let runs = shortSubscriberCountText["runs"] as? [[String: Any]]
             {
-                result.subscriberCount = runs.compactMap { $0["text"] as? String }.joined()
+                result.subscriberCount = ParsingHelpers.joinedRunText(runs)
             } else if let subscriberCountText = subscribeButtonRenderer["subscriberCountText"] as? [String: Any],
                       let runs = subscriberCountText["runs"] as? [[String: Any]]
             {
-                result.subscriberCount = runs.compactMap { $0["text"] as? String }.joined()
+                result.subscriberCount = ParsingHelpers.joinedRunText(runs)
             }
 
             if let subscribedButtonText = subscribeButtonRenderer["subscribedButtonText"] as? [String: Any],
                let runs = subscribedButtonText["runs"] as? [[String: Any]]
             {
-                result.subscribedButtonText = runs.compactMap { $0["text"] as? String }.joined()
+                result.subscribedButtonText = ParsingHelpers.joinedRunText(runs)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
 
             if let unsubscribedButtonText = subscribeButtonRenderer["unsubscribedButtonText"] as? [String: Any],
                let runs = unsubscribedButtonText["runs"] as? [[String: Any]]
             {
-                result.unsubscribedButtonText = runs.compactMap { $0["text"] as? String }.joined()
+                result.unsubscribedButtonText = ParsingHelpers.joinedRunText(runs)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
@@ -675,7 +671,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
     private static func parseMonthlyAudience(from data: [String: Any]) -> String? {
         guard let runs = data["runs"] as? [[String: Any]] else { return nil }
-        let text = runs.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = ParsingHelpers.joinedRunText(runs).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
 
         return text
@@ -902,7 +898,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return nil
         }
 
-        let text = runs.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = ParsingHelpers.joinedRunText(runs).trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 

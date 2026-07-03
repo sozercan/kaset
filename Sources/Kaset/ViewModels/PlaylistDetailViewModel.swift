@@ -49,6 +49,9 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored
     private var loadGeneration = 0
 
+    @ObservationIgnored
+    private var loadedTrackVideoIds: Set<String> = []
+
     private var removedLikedMusicVideoIDs: Set<String> = []
     private var countedRemovedLikedMusicVideoIDs: Set<String> = []
     private var insertedLikedMusicVideoIDs: Set<String> = []
@@ -209,6 +212,7 @@ final class PlaylistDetailViewModel {
             let loadedTrackCount = detail.tracks.count
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
+            self.replaceLoadedTrackVideoIds(with: detail.tracks)
             self.startRemainingTracksTaskIfNeeded(generation: generation)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return }
@@ -306,8 +310,6 @@ final class PlaylistDetailViewModel {
               let latestDetail = self.playlistDetail
         else { return false }
 
-        let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
-        let latestExistingVideoIds = originalExistingVideoIds.union(latestDetail.tracks.map(\.videoId))
         let skippedRemovedVideoIDs = batch.isLikedMusicPlaylist
             ? response.tracks.compactMap { song -> String? in
                 guard self.removedLikedMusicVideoIDs.contains(song.videoId),
@@ -321,7 +323,11 @@ final class PlaylistDetailViewModel {
             : response.tracks
         let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
         let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
-        let newTracks = candidateTracks.filter { !latestExistingVideoIds.contains($0.videoId) }
+        let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
+        let newTracks = candidateTracks.filter {
+            !self.loadedTrackVideoIds.contains($0.videoId)
+                && !originalExistingVideoIds.contains($0.videoId)
+        }
 
         if newTracks.isEmpty {
             let duplicatesWereAlreadyPresent = candidateTracks.allSatisfy { originalExistingVideoIds.contains($0.videoId) }
@@ -347,7 +353,9 @@ final class PlaylistDetailViewModel {
             newTracks
         }
 
-        let allTracks = latestDetail.tracks + normalizedNewTracks
+        var allTracks = latestDetail.tracks
+        allTracks.reserveCapacity(latestDetail.tracks.count + normalizedNewTracks.count)
+        allTracks.append(contentsOf: normalizedNewTracks)
         let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovedVideoIDs.count)
         let preservedTrackCount = max(allTracks.count, adjustedTrackCount ?? 0)
         let updatedPlaylist = Playlist(
@@ -364,11 +372,10 @@ final class PlaylistDetailViewModel {
             tracks: allTracks,
             duration: latestDetail.duration
         )
+        self.insertLoadedTrackVideoIds(from: normalizedNewTracks)
 
         if batch.isLikedMusicPlaylist {
-            for song in normalizedNewTracks {
-                SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
-            }
+            SongLikeStatusManager.shared.setStatus(.like, for: normalizedNewTracks.lazy.map(\.videoId))
         }
 
         self.continuationToken = response.continuationToken
@@ -494,7 +501,7 @@ final class PlaylistDetailViewModel {
     func refresh() async {
         self.cancelAllLiveSyncTasks()
         self.cancelRemainingTracksTask()
-        self.playlistDetail = nil
+        self.replacePlaylistDetail(nil)
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
@@ -512,9 +519,7 @@ final class PlaylistDetailViewModel {
 
     private func normalizeLikedMusicDetail(_ detail: PlaylistDetail) -> PlaylistDetail {
         let likedTracks = self.markSongsAsLiked(detail.tracks, deduplicating: true)
-        for song in likedTracks {
-            SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
-        }
+        SongLikeStatusManager.shared.setStatus(.like, for: likedTracks.lazy.map(\.videoId))
 
         let resolvedTrackCount = max(detail.trackCount ?? 0, likedTracks.count)
         return self.updatedPlaylistDetail(
@@ -557,12 +562,28 @@ final class PlaylistDetailViewModel {
     }
 
     private func containsTrack(videoId: String) -> Bool {
-        self.playlistDetail?.tracks.contains(where: { $0.videoId == videoId }) == true
+        self.loadedTrackVideoIds.contains(videoId)
+    }
+
+    private func replacePlaylistDetail(_ detail: PlaylistDetail?) {
+        self.playlistDetail = detail
+        self.replaceLoadedTrackVideoIds(with: detail?.tracks ?? [])
+    }
+
+    private func replaceLoadedTrackVideoIds(with tracks: [Song]) {
+        self.loadedTrackVideoIds = Set(tracks.map(\.videoId))
+    }
+
+    private func insertLoadedTrackVideoIds(from tracks: [Song]) {
+        self.loadedTrackVideoIds.reserveCapacity(self.loadedTrackVideoIds.count + tracks.count)
+        for track in tracks {
+            self.loadedTrackVideoIds.insert(track.videoId)
+        }
     }
 
     private func insertLiveSyncedLikedSong(_ song: Song) {
         guard let currentDetail = self.playlistDetail else { return }
-        guard !currentDetail.tracks.contains(where: { $0.videoId == song.videoId }) else { return }
+        guard !self.loadedTrackVideoIds.contains(song.videoId) else { return }
 
         var likedSong = song
         likedSong.likeStatus = .like
@@ -577,6 +598,7 @@ final class PlaylistDetailViewModel {
             tracks: updatedTracks,
             trackCount: updatedTrackCount
         )
+        self.loadedTrackVideoIds.insert(song.videoId)
         SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
         self.logger.info("Live sync: added song \(song.videoId) to liked music")
     }
@@ -595,6 +617,7 @@ final class PlaylistDetailViewModel {
             tracks: updatedTracks,
             trackCount: updatedTrackCount
         )
+        self.loadedTrackVideoIds.remove(videoId)
         self.logger.info("Live sync: removed song \(videoId) from liked music")
     }
 

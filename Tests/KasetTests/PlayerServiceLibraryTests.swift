@@ -87,10 +87,9 @@ struct PlayerServiceLibraryTests {
         // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
-        try? await Task.sleep(for: .milliseconds(300))
-
-        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("likeCurrentTrack ignores stale completion after current track changes")
@@ -196,10 +195,9 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back
-        try? await Task.sleep(for: .milliseconds(300))
-
-        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("dislikeCurrentTrack ignores stale completion after current track changes")
@@ -394,5 +392,19 @@ struct PlayerServiceLibraryTests {
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
         #expect(self.playerService.currentTrackInLibrary == false)
         #expect(self.playerService.currentTrackFeedbackTokens == nil)
+    }
+
+    private func waitUntilLikeStatus(
+        _ expectedStatus: LikeStatus,
+        attempts: Int = 200,
+        pollInterval: Duration = .milliseconds(10)
+    ) async -> Bool {
+        for _ in 0 ..< attempts {
+            if self.playerService.currentTrackLikeStatus == expectedStatus {
+                return true
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+        return false
     }
 }

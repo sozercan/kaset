@@ -295,7 +295,7 @@ enum PodcastParser {
         if let descriptionData = data["description"] as? [String: Any],
            let runs = descriptionData["runs"] as? [[String: Any]]
         {
-            description = runs.compactMap { $0["text"] as? String }.joined()
+            description = ParsingHelpers.joinedRunText(runs)
         }
 
         let episode = PodcastEpisode(
@@ -599,7 +599,7 @@ enum PodcastParser {
         if let description = data["description"] as? [String: Any],
            let runs = description["runs"] as? [[String: Any]]
         {
-            return runs.compactMap { $0["text"] as? String }.joined()
+            return ParsingHelpers.joinedRunText(runs)
         }
         return nil
     }
