@@ -9,6 +9,9 @@ import Foundation
 /// (songs, albums, artists). Enables dependency injection and mocking.
 @MainActor
 protocol YouTubeClientProtocol: Sendable {
+    /// Clears client-held pagination/session state when auth/account mode changes.
+    func resetSessionStateForAccountSwitch()
+
     // MARK: Home feed
 
     /// Fetches the recommended home feed (`FEwhat_to_watch`).

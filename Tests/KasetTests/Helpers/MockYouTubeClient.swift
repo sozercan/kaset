@@ -44,6 +44,13 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeFeedContinuation != nil
     }
 
+    func resetSessionStateForAccountSwitch() {
+        self.homeFeed = YouTubeFeed(videos: self.homeFeed.videos, continuation: nil)
+        self.homeFeedContinuation = nil
+        self.homeContinuationPages = []
+        self.searchContinuation = nil
+    }
+
     /// Optional queue of continuation pages, consumed front-to-back by
     /// `getHomeFeedContinuation()`. Takes precedence over the single-page
     /// `homeFeedContinuation` when non-empty. Lets tests exercise multi-page

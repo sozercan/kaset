@@ -52,6 +52,11 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.homeContinuation != nil
     }
 
+    func resetSessionStateForAccountSwitch() {
+        self.homeContinuation = nil
+        self.searchContinuation = nil
+    }
+
     init(
         authService: AuthService,
         webKitManager: WebKitManager = .shared,

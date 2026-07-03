@@ -675,6 +675,7 @@ struct MainWindow: View {
             }
             if shouldRefreshGuestContent {
                 self.client.resetSessionStateForAccountSwitch()
+                self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels()
                 self.youtubeStore.resetForAccountChange()
                 // Reset podcasts availability so the next sign-in re-gates
@@ -697,8 +698,12 @@ struct MainWindow: View {
             if shouldRefreshAuthenticatedContent {
                 // Replace any mounted guest/expired models so in-flight responses
                 // cannot populate the authenticated shell after login or reauth.
+                self.client.resetSessionStateForAccountSwitch()
+                self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
                 self.youtubeStore.resetForAccountChange()
+                self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+                self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
             }
             self.showLoginSheet = false
             // Auto-present "What's New" — fetch from GitHub release notes
@@ -732,12 +737,15 @@ struct MainWindow: View {
 
         if isGuestModeEnabled {
             self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
             self.rebuildMusicViewModels()
             self.playerService.clearPlaybackForGuestStartup()
             self.youtubePlayerService.stop()
             self.normalizeGuestSelections()
             self.scheduleGuestContentRefresh()
         } else {
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
             self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
             self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
             self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
