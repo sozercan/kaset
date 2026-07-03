@@ -668,12 +668,13 @@ struct MainWindow: View {
         case .loggedOut:
             let isReauthTransition = self.authService.needsReauth
             let crossedSignOutBoundary = oldState.isLoggedIn && !isReauthTransition
-            let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing
+            let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing || isReauthTransition
             if crossedSignOutBoundary {
                 self.playerService.clearPlaybackForSignOut()
                 self.youtubePlayerService.stop()
             }
             if shouldRefreshGuestContent {
+                self.client.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels()
                 self.youtubeStore.resetForAccountChange()
                 // Reset podcasts availability so the next sign-in re-gates
@@ -730,6 +731,7 @@ struct MainWindow: View {
         self.podcastsAvailability.reset()
 
         if isGuestModeEnabled {
+            self.client.resetSessionStateForAccountSwitch()
             self.rebuildMusicViewModels()
             self.playerService.clearPlaybackForGuestStartup()
             self.youtubePlayerService.stop()

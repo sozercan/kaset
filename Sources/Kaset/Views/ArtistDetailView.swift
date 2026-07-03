@@ -399,21 +399,23 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 Label("Play", systemImage: "play.fill")
             }
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+                FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
-            Divider()
+                Divider()
 
-            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+                LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+            }
 
             Divider()
 
             StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
-            Divider()
-
             if self.authService.hasPersonalAccount {
+                Divider()
+
                 Button {
                     SongActionsHelper.addToLibrary(song, playerService: self.playerService)
                 } label: {
@@ -421,17 +423,17 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 }
 
                 Divider()
+
+                AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
             }
+
+            Divider()
 
             ShareContextMenu.menuItem(for: song)
 
             Divider()
 
             AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            Divider()
-
-            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
 
             // Go to Album - show if album has valid browse ID
             if let album = song.album, album.hasNavigableId {

@@ -396,21 +396,23 @@ struct PlaylistDetailView: View {
                 Label("Play", systemImage: "play.fill")
             }
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
+                FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
 
-            Divider()
+                Divider()
 
-            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
+                LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
+            }
 
             Divider()
 
             StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
 
-            Divider()
-
             if self.authService.hasPersonalAccount {
+                Divider()
+
                 Button {
                     SongActionsHelper.addToLibrary(track, playerService: self.playerService)
                 } label: {
@@ -418,17 +420,17 @@ struct PlaylistDetailView: View {
                 }
 
                 Divider()
+
+                AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
             }
+
+            Divider()
 
             ShareContextMenu.menuItem(for: track)
 
             Divider()
 
             AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-            Divider()
-
-            AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
 
             Divider()
 
