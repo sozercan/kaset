@@ -55,6 +55,7 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
+    private var continuationGeneration = 0
     /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
     private var personalizedRecommendationsContinuationToken: String?
 
@@ -88,14 +89,17 @@ final class YTMusicClient: YTMusicClientProtocol {
             "browseId": type.rawValue,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("browse", body: body, ttl: ttl)
         let response = HomeResponseParser.parse(data)
 
         // Store continuation token for progressive loading
         let token = HomeResponseParser.extractContinuationToken(from: data)
-        self.continuationTokens[type] = token
+        if generation == self.continuationGeneration {
+            self.continuationTokens[type] = token
+        }
 
-        let hasMore = token != nil
+        let hasMore = generation == self.continuationGeneration && token != nil
         self.logger.info("\(type.displayName.capitalized) page loaded: \(response.sections.count) initial sections, hasMore: \(hasMore)")
         return response
     }
@@ -109,10 +113,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching \(type.displayName) continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await requestContinuation(token)
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale \(type.displayName) continuation after session reset")
+                return nil
+            }
             self.continuationTokens[type] = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
             let hasMore = self.continuationTokens[type] != nil
 
@@ -157,11 +166,15 @@ final class YTMusicClient: YTMusicClientProtocol {
             "browseId": PaginatedContentType.home.rawValue,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await self.request("browse", body: body, ttl: APICache.TTL.home)
         let response = HomeResponseParser.parse(data)
-        self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationToken(from: data)
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        if generation == self.continuationGeneration {
+            self.personalizedRecommendationsContinuationToken = token
+        }
 
-        let hasMore = self.personalizedRecommendationsContinuationToken != nil
+        let hasMore = generation == self.continuationGeneration && token != nil
         self.logger.info("Personalized recommendations loaded: \(response.sections.count) sections, hasMore: \(hasMore)")
         return response
     }
@@ -174,10 +187,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching personalized recommendations continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await self.requestContinuation(token, authPolicy: .required)
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale personalized recommendations continuation after session reset")
+                return nil
+            }
             self.personalizedRecommendationsContinuationToken = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
             let hasMore = self.personalizedRecommendationsContinuationToken != nil
 
@@ -269,10 +287,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching history continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await self.requestContinuation(continuation, authPolicy: .required)
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale history continuation after session reset")
+                return nil
+            }
             self.continuationTokens[.history] = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
             let hasMore = self.continuationTokens[.history] != nil
 
@@ -298,14 +321,17 @@ final class YTMusicClient: YTMusicClientProtocol {
             "browseId": PaginatedContentType.podcasts.rawValue,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("browse", body: body, ttl: APICache.TTL.home)
         let sections = PodcastParser.parseDiscovery(data)
 
         // Store continuation token for progressive loading
         let token = HomeResponseParser.extractContinuationToken(from: data)
-        self.continuationTokens[.podcasts] = token
+        if generation == self.continuationGeneration {
+            self.continuationTokens[.podcasts] = token
+        }
 
-        let hasMore = token != nil
+        let hasMore = generation == self.continuationGeneration && token != nil
         self.logger.info("Podcasts page loaded: \(sections.count) initial sections, hasMore: \(hasMore)")
         return sections
     }
@@ -318,10 +344,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching podcasts continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await requestContinuation(token)
             let additionalSections = PodcastParser.parseContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale podcasts continuation after session reset")
+                return nil
+            }
             self.continuationTokens[.podcasts] = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
             let hasMore = self.continuationTokens[.podcasts] != nil
 
@@ -452,9 +483,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.albums,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (albums, token) = SearchResponseParser.parseAlbumsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Albums search found \(albums.count) albums, hasMore: \(token != nil)")
         return SearchResponse(songs: [], albums: albums, artists: [], playlists: [], continuationToken: token)
@@ -469,9 +503,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.artists,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (artists, token) = SearchResponseParser.parseArtistsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Artists search found \(artists.count) artists, hasMore: \(token != nil)")
         return SearchResponse(songs: [], albums: [], artists: artists, playlists: [], continuationToken: token)
@@ -486,9 +523,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.playlists,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
         return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
@@ -503,9 +543,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.featuredPlaylists,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Featured playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
         return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
@@ -520,9 +563,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.communityPlaylists,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Community playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
         return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
@@ -537,9 +583,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.podcasts,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (podcastShows, token) = SearchResponseParser.parsePodcastsOnly(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Podcasts search found \(podcastShows.count) shows, hasMore: \(token != nil)")
         return SearchResponse(
@@ -561,9 +610,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.songs,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let (songs, token) = SearchResponseParser.parseSongsWithContinuation(data)
-        self.searchContinuationToken = token
+        if generation == self.continuationGeneration {
+            self.searchContinuationToken = token
+        }
 
         self.logger.info("Songs search found \(songs.count) songs, hasMore: \(token != nil)")
         return SearchResponse(songs: songs, albums: [], artists: [], playlists: [], continuationToken: token)
@@ -578,10 +630,15 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching search continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await requestContinuation(token, ttl: APICache.TTL.search)
             let response = SearchResponseParser.parseContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale search continuation after session reset")
+                return nil
+            }
             self.searchContinuationToken = response.continuationToken
 
             self.logger.info("Search continuation loaded: \(response.allItems.count) items, hasMore: \(response.hasMore)")
@@ -601,6 +658,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
+        self.continuationGeneration &+= 1
         self.continuationTokens.removeAll()
         self.personalizedRecommendationsContinuationToken = nil
         self.searchContinuationToken = nil
@@ -758,14 +816,17 @@ final class YTMusicClient: YTMusicClientProtocol {
             "browseId": LikedMusicPlaylist.browseID,
         ]
 
+        let generation = self.continuationGeneration
         let data = try await request("browse", body: body, ttl: APICache.TTL.library)
 
         // Use playlist parser since VLLM returns playlist format
         let playlistResponse = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: LikedMusicPlaylist.id)
 
         // Store continuation token for pagination
-        self.likedSongsContinuationToken = playlistResponse.continuationToken
-        let hasMore = playlistResponse.hasMore
+        if generation == self.continuationGeneration {
+            self.likedSongsContinuationToken = playlistResponse.continuationToken
+        }
+        let hasMore = generation == self.continuationGeneration && playlistResponse.hasMore
 
         // Convert to LikedSongsResponse format
         let response = LikedSongsResponse(
@@ -786,11 +847,16 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Fetching liked songs continuation")
+        let generation = self.continuationGeneration
 
         do {
             let continuationData = try await requestContinuation(token, authPolicy: .required)
             // Use playlist continuation parser since VLLM returns playlist format
             let playlistResponse = PlaylistParser.parsePlaylistContinuation(continuationData)
+            guard generation == self.continuationGeneration else {
+                self.logger.info("Discarding stale liked songs continuation after session reset")
+                return nil
+            }
             self.likedSongsContinuationToken = playlistResponse.continuationToken
             let hasMore = playlistResponse.hasMore
 

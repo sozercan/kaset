@@ -79,6 +79,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var getPlaylistDelay: Duration?
     var playlistContinuationDelay: Duration?
     var mixQueueDelay: Duration?
+    var getRadioQueueDelay: Duration?
     var mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
     var mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
     private(set) var getMixQueueContinuationCallCount = 0
@@ -953,6 +954,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getRadioQueue(videoId: String) async throws -> [Song] {
         self.getRadioQueueCalled = true
         self.getRadioQueueVideoIds.append(videoId)
+        if let getRadioQueueDelay {
+            try? await Task.sleep(for: getRadioQueueDelay)
+        }
         if let error = shouldThrowError { throw error }
         return self.radioQueueSongs[videoId] ?? []
     }
@@ -1066,6 +1070,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.rateSongDelay = nil
         self.getSongDelay = nil
         self.mixQueueDelay = nil
+        self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
         self.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
         self.getMixQueueContinuationCallCount = 0

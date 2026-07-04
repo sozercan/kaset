@@ -424,3 +424,109 @@ struct YTMusicAPIKeyResolverTests {
         }
     }
 }
+
+// MARK: - YTMusicClientContinuationResetTests
+
+@Suite(.serialized, .tags(.api))
+@MainActor
+struct YTMusicClientContinuationResetTests {
+    @Test("Stale home continuation cannot repopulate page cursor after reset")
+    func staleHomeContinuationCannotRepopulatePageCursorAfterReset() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        nonisolated(unsafe) var requestCount = 0
+        nonisolated(unsafe) var continuationRequestCount = 0
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            guard let url = request.url else { throw URLError(.badURL) }
+
+            if request.httpMethod == "GET" {
+                let response = try #require(
+                    HTTPURLResponse(
+                        url: url,
+                        statusCode: 200,
+                        httpVersion: nil,
+                        headerFields: ["Content-Type": "text/html"]
+                    )
+                )
+                return (response, Data(#"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#.utf8))
+            }
+
+            requestCount += 1
+            let payload: [String: Any]
+            if requestCount == 2 {
+                continuationRequestCount += 1
+                Thread.sleep(forTimeInterval: 0.15)
+                payload = Self.homeContinuationPayload(nextCursor: "page-2")
+            } else {
+                payload = Self.homePayload(cursor: "page-1")
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: payload)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )
+            )
+            return (response, data)
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        let client = YTMusicClient(authService: authService, session: session)
+
+        _ = try await client.getHome()
+        async let staleContinuation = client.getHomeContinuation()
+        try? await Task.sleep(for: .milliseconds(30))
+        client.resetSessionStateForAccountSwitch()
+
+        let staleResult = try await staleContinuation
+        let secondResult = try await client.getHomeContinuation()
+
+        #expect(staleResult == nil)
+        #expect(secondResult == nil)
+        #expect(continuationRequestCount == 1)
+    }
+
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func homePayload(cursor: String) -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [],
+                                    "continuations": [[
+                                        "nextContinuationData": [
+                                            "continuation": cursor,
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func homeContinuationPayload(nextCursor: String) -> [String: Any] {
+        [
+            "continuationContents": [
+                "sectionListContinuation": [
+                    "contents": [],
+                    "continuations": [[
+                        "nextContinuationData": [
+                            "continuation": nextCursor,
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+}

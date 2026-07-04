@@ -165,6 +165,7 @@ extension PlayerService {
 
     /// Fetches radio queue and applies it, keeping the current song at the front.
     func fetchAndApplyRadioQueue(for videoId: String) async {
+        let requestGeneration = self.playbackRequestGeneration
         guard let client = ytMusicClient else {
             self.logger.warning("No YTMusicClient available for fetching radio queue")
             return
@@ -172,6 +173,10 @@ extension PlayerService {
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
+            guard requestGeneration == self.playbackRequestGeneration else {
+                self.logger.info("Discarding stale radio queue after privacy boundary")
+                return
+            }
             guard !radioSongs.isEmpty else {
                 self.logger.info("No radio songs returned")
                 return

@@ -70,6 +70,25 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.count == 5)
     }
 
+    @Test("pending radio queue is discarded after guest privacy boundary")
+    func pendingRadioQueueDiscardedAfterGuestPrivacyBoundary() async {
+        let seed = TestFixtures.makeSong(id: "radio-seed", title: "Radio Seed")
+        self.mockClient.getRadioQueueDelay = .milliseconds(150)
+        self.mockClient.radioQueueSongs[seed.videoId] = [
+            seed,
+            TestFixtures.makeSong(id: "radio-personalized", title: "Personalized Radio"),
+        ]
+        await self.playerService.play(song: seed)
+
+        async let radio: Void = self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
+        try? await Task.sleep(for: .milliseconds(30))
+        self.playerService.clearPlaybackForGuestStartup()
+        await radio
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack == nil)
+    }
+
     @Test("pending mix playback is discarded after guest privacy boundary")
     func pendingMixPlaybackDiscardedAfterGuestPrivacyBoundary() async {
         self.mockClient.mixQueueDelay = .milliseconds(150)
