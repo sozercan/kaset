@@ -44,7 +44,7 @@ final class AuthService: AuthServiceProtocol {
     var shouldUseCookieFreePlaybackDataStore: Bool {
         if self.isGuestModeEnabled { return true }
         if self.state == .loggedOut, !self.needsReauth { return true }
-        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut { return true }
+        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut, !self.needsReauth { return true }
         return false
     }
 

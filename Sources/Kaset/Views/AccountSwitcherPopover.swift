@@ -136,9 +136,7 @@ struct AccountSwitcherPopover: View {
                                 Task {
                                     let wasGuestMode = self.authService.isGuestModeEnabled
                                     do {
-                                        if account != self.accountService.currentAccount {
-                                            try await self.accountService.switchAccount(to: account)
-                                        }
+                                        try await self.accountService.switchAccount(to: account)
                                         if wasGuestMode {
                                             self.authService.exitGuestMode()
                                         }

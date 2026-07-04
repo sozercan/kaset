@@ -83,6 +83,19 @@ struct AuthServiceTests {
         #expect(self.authService.shouldPersistGuestPlaybackState == false)
     }
 
+    @Test("Guest persistence and cookie-free playback remain false during reauth retry")
+    func guestPersistenceAndCookieFreePlaybackRemainFalseDuringReauthRetry() {
+        self.authService.completeLogin(sapisid: "expired-sapisid")
+        self.authService.sessionExpired()
+
+        self.authService.startLogin()
+
+        #expect(self.authService.state == .loggingIn)
+        #expect(self.authService.needsReauth == true)
+        #expect(self.authService.shouldPersistGuestPlaybackState == false)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore == false)
+    }
+
     @Test("Complete login transitions to loggedIn state")
     func completeLogin() {
         self.authService.completeLogin(sapisid: "test-sapisid")
