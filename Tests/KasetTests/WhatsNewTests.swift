@@ -228,6 +228,26 @@ struct WhatsNewProviderTests {
         }
     }
 
+    @Test("Static fallback copy is not legacy onboarding or account-only copy")
+    func staticFallbackCopyIsNotLegacyOnboardingCopy() {
+        let disallowedTerms = [
+            "welcome",
+            "your library",
+            "liked songs",
+            "playlists",
+        ]
+
+        for entry in WhatsNewProvider.fallbackCollection {
+            let copy = ([entry.title] + entry.features.flatMap { [$0.title, $0.subtitle] })
+                .joined(separator: " ")
+                .lowercased()
+
+            for term in disallowedTerms {
+                #expect(!copy.contains(term), "Static fallback copy should not contain legacy onboarding/account-only term: \(term)")
+            }
+        }
+    }
+
     @Test("Can bypass presented-version gating for manual reopen")
     func bypassesPresentedVersionGating() async {
         let store = WhatsNewVersionStore(defaults: self.defaults)
