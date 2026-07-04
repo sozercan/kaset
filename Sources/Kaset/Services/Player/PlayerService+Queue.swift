@@ -707,7 +707,10 @@ extension PlayerService {
         if let sessionData = UserDefaults.standard.data(forKey: Self.savedPlaybackSessionKey) {
             do {
                 let savedSession = try decoder.decode(PersistedPlaybackSession.self, from: sessionData)
-                guard !savedSession.queue.isEmpty else {
+                let restoredQueue = savedSession.ownerScope == Self.playbackSessionScopeGuest
+                    ? Self.queueWithoutAccountMetadata(savedSession.queue)
+                    : savedSession.queue
+                guard !restoredQueue.isEmpty else {
                     self.logger.info("Saved playback session is empty")
                     UserDefaults.standard.removeObject(forKey: Self.savedPlaybackSessionKey)
                     return self.restoreLegacyQueueFromPersistence(using: decoder)
@@ -716,18 +719,18 @@ extension PlayerService {
                 let resolvedIndex = self.resolvedPersistedQueueIndex(
                     savedIndex: savedSession.currentIndex,
                     currentVideoId: savedSession.currentVideoId,
-                    in: savedSession.queue
+                    in: restoredQueue
                 )
 
                 self.applyRestoredPlaybackSession(
-                    queue: savedSession.queue,
+                    queue: restoredQueue,
                     currentIndex: resolvedIndex,
                     progress: savedSession.progress,
                     duration: savedSession.duration
                 )
                 self.restoredPlaybackSessionOwnerScope = savedSession.ownerScope
                 self.logger.info(
-                    "Restored playback session with \(savedSession.queue.count) songs at index \(resolvedIndex)"
+                    "Restored playback session with \(restoredQueue.count) songs at index \(resolvedIndex)"
                 )
                 return true
             } catch {

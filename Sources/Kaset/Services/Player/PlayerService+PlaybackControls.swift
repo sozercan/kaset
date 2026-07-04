@@ -510,7 +510,7 @@ extension PlayerService {
             self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
             return
         }
-        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
+        self.logger.info("Preserving restored guest-owned playback session")
     }
 
     /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
