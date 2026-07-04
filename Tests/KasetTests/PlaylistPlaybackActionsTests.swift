@@ -73,6 +73,38 @@ struct PlaylistPlaybackActionsTests {
         #expect(songs.first?.isExplicit == true)
     }
 
+    @Test("Playlist playback continuation auth uses loaded ownership")
+    func playlistPlaybackContinuationAuthUsesLoadedOwnership() async {
+        let routePlaylist = TestFixtures.makePlaylist(
+            id: "VL-owned-playlist",
+            title: "Owned Playlist",
+            canDelete: false
+        )
+        let loadedPlaylist = TestFixtures.makePlaylist(
+            id: routePlaylist.id,
+            title: routePlaylist.title,
+            canDelete: true
+        )
+        let initial = Song(id: "initial", title: "Initial", artists: [], videoId: "initial")
+        let continuation = Song(id: "continuation", title: "Continuation", artists: [], videoId: "continuation")
+        self.mockClient.playlistDetails[routePlaylist.id] = PlaylistDetail(
+            playlist: loadedPlaylist,
+            tracks: [initial],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[routePlaylist.id] = [[continuation]]
+        let playerService = PlayerService()
+
+        PlaylistPlaybackActions.playPlaylist(
+            routePlaylist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(2, in: playerService)
+
+        #expect(self.mockClient.getPlaylistContinuationRequiresAuthFlags == [true])
+    }
+
     @Test("Playlist playback starts before continuation loading completes")
     func playlistPlaybackStartsBeforeContinuationLoadingCompletes() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")

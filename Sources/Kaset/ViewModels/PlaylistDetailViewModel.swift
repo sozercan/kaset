@@ -304,7 +304,7 @@ final class PlaylistDetailViewModel {
             continuation: continuationToken,
             currentDetail: currentDetail,
             isLikedMusicPlaylist: self.isLikedMusicPlaylist,
-            requiresAuth: self.playlist.requiresPersonalAccountForContinuations
+            requiresAuth: currentDetail.requiresPersonalAccountForContinuations
         )
     }
 
@@ -448,16 +448,17 @@ final class PlaylistDetailViewModel {
         self.logger.info("Loading more playlist tracks")
 
         do {
+            let continuation = continuationToken
             let response = try await client.getPlaylistContinuation(
-                token: continuationToken,
-                requiresAuth: self.playlist.requiresPersonalAccountForContinuations
+                token: continuation,
+                requiresAuth: currentDetail.requiresPersonalAccountForContinuations
             )
             let batch = ContinuationDrainBatch(
                 generation: generation ?? self.loadGeneration,
-                continuation: continuationToken,
+                continuation: continuation,
                 currentDetail: currentDetail,
                 isLikedMusicPlaylist: self.isLikedMusicPlaylist,
-                requiresAuth: self.playlist.requiresPersonalAccountForContinuations
+                requiresAuth: currentDetail.requiresPersonalAccountForContinuations
             )
             return self.applyRemainingTracksResponse(response, batch: batch)
         } catch is CancellationError {

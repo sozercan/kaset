@@ -580,6 +580,34 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 7)
     }
 
+    @Test("Load more continuation auth uses loaded ownership")
+    func loadMoreContinuationAuthUsesLoadedOwnership() async {
+        let routePlaylist = TestFixtures.makePlaylist(
+            id: "VL-owned-load-more",
+            title: "Owned Load More",
+            canDelete: false
+        )
+        let loadedPlaylist = TestFixtures.makePlaylist(
+            id: routePlaylist.id,
+            title: routePlaylist.title,
+            canDelete: true
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: routePlaylist, client: self.mockClient)
+        self.mockClient.playlistDetails[routePlaylist.id] = PlaylistDetail(
+            playlist: loadedPlaylist,
+            tracks: [TestFixtures.makeSong(id: "owned-initial")],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[routePlaylist.id] = [
+            [TestFixtures.makeSong(id: "owned-continuation")],
+        ]
+
+        await viewModel.load()
+        await viewModel.loadMore()
+
+        #expect(self.mockClient.getPlaylistContinuationRequiresAuthFlags == [true])
+    }
+
     @Test("Load more uses the view model's own continuation token after another playlist loads")
     func loadMoreUsesOwnContinuationTokenAfterAnotherPlaylistLoads() async {
         let firstPlaylist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "First Playlist")

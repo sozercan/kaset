@@ -87,7 +87,7 @@ final class AuthService: AuthServiceProtocol {
         guard self.state.isLoggedIn else { return }
         guard !self.isGuestModeEnabled else { return }
         self.logger.info("Entering guest mode")
-        APICache.shared.invalidateAll()
+        self.clearAPIResponseCaches()
         self.isGuestModeEnabled = true
     }
 
@@ -95,7 +95,7 @@ final class AuthService: AuthServiceProtocol {
     func exitGuestMode() {
         guard self.isGuestModeEnabled else { return }
         self.logger.info("Leaving guest mode")
-        APICache.shared.invalidateAll()
+        self.clearAPIResponseCaches()
         self.isGuestModeEnabled = false
     }
 
@@ -164,7 +164,7 @@ final class AuthService: AuthServiceProtocol {
         // Drop cached personalized responses so a later login in the same
         // session can't be served the previous user's data (incl. the
         // account-unknown "pending" cache scope) before its TTL expires.
-        APICache.shared.invalidateAll()
+        self.clearAPIResponseCaches()
     }
 
     /// Signs out the user by clearing all cookies and data.
@@ -172,7 +172,7 @@ final class AuthService: AuthServiceProtocol {
         self.logger.info("Signing out user")
 
         await self.webKitManager.clearAllData()
-        APICache.shared.invalidateAll()
+        self.clearAPIResponseCaches()
 
         self.state = .loggedOut
         self.isGuestModeEnabled = false
@@ -180,6 +180,11 @@ final class AuthService: AuthServiceProtocol {
         self.stateBeforeLogin = nil
 
         self.logger.info("User signed out successfully")
+    }
+
+    private func clearAPIResponseCaches() {
+        APICache.shared.invalidateAll()
+        URLCache.shared.removeAllCachedResponses()
     }
 
     /// Called when login completes successfully (from LoginSheet observation).

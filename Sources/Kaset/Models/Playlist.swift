@@ -198,7 +198,7 @@ struct PlaylistDetail: Identifiable {
 
     /// Whether continuations for this detail require the user's account.
     var requiresPersonalAccountForContinuations: Bool {
-        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs
+        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
     }
 
     init(playlist: Playlist, tracks: [Song], duration: String? = nil) {

@@ -197,6 +197,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getPlaylistContinuationCalled = false
     private(set) var getPlaylistContinuationCallCount = 0
     private(set) var getPlaylistContinuationTokens: [String] = []
+    private(set) var getPlaylistContinuationRequiresAuthFlags: [Bool] = []
     private(set) var getArtistCalled = false
     private(set) var getArtistIds: [String] = []
     private(set) var getArtistSongsCalled = false
@@ -663,10 +664,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         )
     }
 
-    func getPlaylistContinuation(token: String, requiresAuth _: Bool) async throws -> PlaylistContinuationResponse {
+    func getPlaylistContinuation(token: String, requiresAuth: Bool) async throws -> PlaylistContinuationResponse {
         self.getPlaylistContinuationCalled = true
         self.getPlaylistContinuationCallCount += 1
         self.getPlaylistContinuationTokens.append(token)
+        self.getPlaylistContinuationRequiresAuthFlags.append(requiresAuth)
         defer {
             self.getPlaylistContinuationReturnCount += 1
         }
@@ -1020,6 +1022,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPlaylistContinuationCalled = false
         self.getPlaylistContinuationCallCount = 0
         self.getPlaylistContinuationTokens = []
+        self.getPlaylistContinuationRequiresAuthFlags = []
         self.playlistAllTracks = [:]
         self.getArtistCalled = false
         self.getArtistIds = []

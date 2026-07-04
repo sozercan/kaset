@@ -379,6 +379,7 @@ final class SingletonPlayerWebView {
             return
         }
         let videoId = self.currentVideoId
+        let previousContainer = self.currentContainer
         self.logger.info("Rebuilding singleton music WebView for auth data-store boundary")
         self.tearDown()
         _ = self.getWebView(
@@ -386,6 +387,9 @@ final class SingletonPlayerWebView {
             playerService: playerService,
             usesCookieFreeDataStore: usesCookieFreeDataStore
         )
+        if let previousContainer {
+            self.ensureInHierarchy(container: previousContainer)
+        }
         self.currentVideoId = videoId
     }
 

@@ -112,6 +112,33 @@ struct AuthServiceTests {
         #expect(self.authService.needsReauth == true)
     }
 
+    @Test("Guest mode transitions clear URL cache")
+    func guestModeTransitionsClearURLCache() async throws {
+        self.authService.completeLogin(sapisid: "placeholder")
+
+        let enterRequest = try self.storeCachedResponse(identifier: "enter-guest-mode")
+        self.authService.enterGuestMode()
+        #expect(await self.cachedResponseWasCleared(for: enterRequest))
+
+        let exitRequest = try self.storeCachedResponse(identifier: "exit-guest-mode")
+        self.authService.exitGuestMode()
+        #expect(await self.cachedResponseWasCleared(for: exitRequest))
+    }
+
+    @Test("Session expiry and sign out clear URL cache")
+    func sessionExpiryAndSignOutClearURLCache() async throws {
+        self.authService.completeLogin(sapisid: "placeholder")
+
+        let expiryRequest = try self.storeCachedResponse(identifier: "session-expired")
+        self.authService.sessionExpired()
+        #expect(await self.cachedResponseWasCleared(for: expiryRequest))
+
+        self.authService.completeLogin(sapisid: "placeholder-2")
+        let signOutRequest = try self.storeCachedResponse(identifier: "sign-out")
+        await self.authService.signOut()
+        #expect(await self.cachedResponseWasCleared(for: signOutRequest))
+    }
+
     @Test("Logged-in users can enter and exit guest mode")
     func loggedInGuestModeToggle() {
         self.authService.completeLogin(sapisid: "test-sapisid")
@@ -212,5 +239,34 @@ struct AuthServiceTests {
 
         let state5 = AuthService.State.loggedIn(sapisid: "different")
         #expect(state3 != state5)
+    }
+
+    private func cachedResponseWasCleared(for request: URLRequest) async -> Bool {
+        for _ in 0 ..< 20 {
+            if URLCache.shared.cachedResponse(for: request) == nil {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return URLCache.shared.cachedResponse(for: request) == nil
+    }
+
+    private func storeCachedResponse(identifier: String) throws -> URLRequest {
+        let url = try #require(URL(string: "https://music.youtube.com/cache-boundary-\(identifier)"))
+        let request = URLRequest(url: url)
+        let response = try #require(
+            HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "max-age=300"]
+            )
+        )
+        URLCache.shared.storeCachedResponse(
+            CachedURLResponse(response: response, data: Data("placeholder-cache-data-\(identifier)".utf8)),
+            for: request
+        )
+        #expect(URLCache.shared.cachedResponse(for: request) != nil)
+        return request
     }
 }

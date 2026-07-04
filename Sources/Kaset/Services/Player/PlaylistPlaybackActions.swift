@@ -7,6 +7,7 @@ enum PlaylistPlaybackActions {
         let existingVideoIds: Set<String>
         let expectedQueueEntryIDs: [UUID]
         let playlist: Playlist
+        let requiresAuth: Bool
         let client: any YTMusicClientProtocol
         let playerService: PlayerService
     }
@@ -47,6 +48,7 @@ enum PlaylistPlaybackActions {
                             existingVideoIds: Set(songs.map(\.videoId)),
                             expectedQueueEntryIDs: playerService.queueEntryIDs,
                             playlist: playlist,
+                            requiresAuth: response.detail.requiresPersonalAccountForContinuations,
                             client: client,
                             playerService: playerService
                         )
@@ -109,7 +111,7 @@ enum PlaylistPlaybackActions {
             do {
                 let response = try await context.client.getPlaylistContinuation(
                     token: c,
-                    requiresAuth: context.playlist.requiresPersonalAccountForContinuations
+                    requiresAuth: context.requiresAuth
                 )
                 let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
                 guard !newTracks.isEmpty else { break }
