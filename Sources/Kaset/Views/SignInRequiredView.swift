@@ -8,6 +8,7 @@ struct SignInRequiredView: View {
     let message: String
 
     @Environment(AuthService.self) private var authService
+    @Environment(AccountService.self) private var accountService
 
     var body: some View {
         let shouldExitGuestMode = self.authService.state.isLoggedIn && self.authService.isGuestModeEnabled
@@ -30,7 +31,7 @@ struct SignInRequiredView: View {
 
             Button {
                 if shouldExitGuestMode {
-                    self.authService.exitGuestMode()
+                    self.authService.exitGuestMode(activeAccountID: self.accountService.currentAccount?.id)
                 } else {
                     self.authService.startLogin()
                 }
@@ -48,9 +49,14 @@ struct SignInRequiredView: View {
 }
 
 #Preview {
+    let authService = AuthService()
+    let ytMusicClient = YTMusicClient(authService: authService)
+    let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
+
     SignInRequiredView(
         title: "Sign in required",
         message: "Sign in to access your library."
     )
-    .environment(AuthService())
+    .environment(authService)
+    .environment(accountService)
 }

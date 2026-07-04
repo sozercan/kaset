@@ -10,6 +10,8 @@ struct AuthServiceTests {
     var mockWebKitManager: MockWebKitManager
 
     init() {
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
+        SongLikeStatusManager.shared.clearCache()
         self.mockWebKitManager = MockWebKitManager()
         self.authService = AuthService(webKitManager: self.mockWebKitManager)
     }
@@ -166,6 +168,17 @@ struct AuthServiceTests {
 
         self.authService.exitGuestMode()
         #expect(APICache.shared.generation == cacheGeneration &+ 2)
+    }
+
+    @Test("Exit guest mode restores provided account like scope")
+    func exitGuestModeRestoresProvidedAccountLikeScope() {
+        self.authService.completeLogin(sapisid: "placeholder")
+        self.authService.enterGuestMode()
+
+        self.authService.exitGuestMode(activeAccountID: "brand-account")
+
+        #expect(self.authService.isGuestModeEnabled == false)
+        #expect(SongLikeStatusManager.shared.activeAccountID == "brand-account")
     }
 
     @Test("Completing login and sign out clear guest mode")

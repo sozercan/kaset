@@ -138,7 +138,7 @@ struct AccountSwitcherPopover: View {
                                     do {
                                         try await self.accountService.switchAccount(to: account)
                                         if wasGuestMode {
-                                            self.authService.exitGuestMode()
+                                            self.authService.exitGuestMode(activeAccountID: account.id)
                                         }
                                         self.dismiss()
                                     } catch {

@@ -93,11 +93,11 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Leaves guest mode and resumes the signed-in personal account.
-    func exitGuestMode() {
+    func exitGuestMode(activeAccountID: String? = nil) {
         guard self.isGuestModeEnabled else { return }
         self.logger.info("Leaving guest mode")
         self.clearAPIResponseCaches()
-        SongLikeStatusManager.shared.setActiveAccountID(nil)
+        SongLikeStatusManager.shared.setActiveAccountID(activeAccountID)
         self.isGuestModeEnabled = false
     }
 
