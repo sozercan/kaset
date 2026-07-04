@@ -698,6 +698,31 @@ extension PlayerService {
         }
     }
 
+    /// Re-tags a restored/persisted playback session after crossing a playback
+    /// privacy boundary without otherwise changing the queue payload.
+    func updateRestoredPlaybackSessionOwnerScope(_ ownerScope: String?) {
+        self.restoredPlaybackSessionOwnerScope = ownerScope
+
+        guard let sessionData = UserDefaults.standard.data(forKey: Self.savedPlaybackSessionKey) else { return }
+
+        do {
+            let decoder = JSONDecoder()
+            let savedSession = try decoder.decode(PersistedPlaybackSession.self, from: sessionData)
+            let updatedSession = PersistedPlaybackSession(
+                queue: savedSession.queue,
+                currentIndex: savedSession.currentIndex,
+                currentVideoId: savedSession.currentVideoId,
+                progress: savedSession.progress,
+                duration: savedSession.duration,
+                ownerScope: ownerScope
+            )
+            let sessionData = try JSONEncoder().encode(updatedSession)
+            UserDefaults.standard.set(sessionData, forKey: Self.savedPlaybackSessionKey)
+        } catch {
+            self.logger.error("Failed to update playback session owner scope: \(error.localizedDescription)")
+        }
+    }
+
     /// Restores the queue from UserDefaults if available.
     /// - Returns: True if queue was restored, false otherwise.
     @discardableResult

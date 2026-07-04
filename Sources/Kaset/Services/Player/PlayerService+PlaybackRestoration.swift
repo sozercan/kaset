@@ -110,6 +110,13 @@ extension PlayerService {
 
     func reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
         guard self.currentTrack != nil else { return }
+        let isDeferredGuestRestore = self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest
+            && self.isPendingRestoredLoadDeferred
+        if usesCookieFreeDataStore || !isDeferredGuestRestore {
+            self.updateRestoredPlaybackSessionOwnerScope(
+                usesCookieFreeDataStore ? Self.playbackSessionScopeGuest : Self.playbackSessionScopeAuthenticated
+            )
+        }
         SingletonPlayerWebView.shared.rebuildForAuthDataStoreChange(usesCookieFreeDataStore: usesCookieFreeDataStore)
         self.reloadCurrentTrackForIdentitySwitch()
     }

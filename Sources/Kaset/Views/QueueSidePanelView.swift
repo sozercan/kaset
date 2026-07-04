@@ -127,7 +127,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                         isPlaying: self.isPlaying,
                         index: row
                     )
-                    cellView.updateLikeState(isLiked: self.likeStatusManager.isLiked(self.entries[row].song))
+                    cellView.updateLikeState(isLiked: self.allowsLikeActions && self.likeStatusManager.isLiked(self.entries[row].song))
                 }
             }
         }

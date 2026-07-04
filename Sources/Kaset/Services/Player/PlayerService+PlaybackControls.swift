@@ -513,6 +513,16 @@ extension PlayerService {
         self.logger.info("Preserving restored guest-owned playback session")
     }
 
+    /// Clears guest-owned restored playback when startup resolves to a signed-in
+    /// account. Guest Mode itself is not persisted, so a guest-owned restore must
+    /// not silently move onto the authenticated playback store.
+    func clearGuestPlaybackForAuthenticatedStartup() {
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
+        self.logger.info("Clearing guest-owned playback state for authenticated startup")
+        self.clearSavedQueue()
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
     /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
     func clearPlaybackForSignOut() {
         self.logger.info("Clearing playback state for sign-out")

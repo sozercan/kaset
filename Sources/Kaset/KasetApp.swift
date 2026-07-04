@@ -201,7 +201,9 @@ struct KasetApp: App {
                     await self.authService.checkLoginStatus()
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
-                        if !self.authService.state.isLoggedIn {
+                        if self.authService.state.isLoggedIn {
+                            self.playerService.clearGuestPlaybackForAuthenticatedStartup()
+                        } else {
                             self.playerService.clearPlaybackForGuestStartup()
                             self.youtubePlayerService.stop()
                         }
