@@ -25,6 +25,7 @@ final class SongLikeStatusManager {
     static let shared = SongLikeStatusManager()
 
     private static let primaryAccountID = "primary"
+    static let guestAccountID = "guest"
 
     /// Cache of account ID to (video ID to like status).
     private var statusCacheByAccount: [String: [String: LikeStatus]] = [:]

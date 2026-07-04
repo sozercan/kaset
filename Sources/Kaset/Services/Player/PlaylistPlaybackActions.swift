@@ -19,13 +19,22 @@ enum PlaylistPlaybackActions {
         playerService: PlayerService
     ) {
         Task { @MainActor in
+            let requestGeneration = playerService.playbackRequestGeneration
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
+                guard requestGeneration == playerService.playbackRequestGeneration else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after privacy boundary")
+                    return
+                }
                 var songs = response.detail.tracks
 
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
+                        guard requestGeneration == playerService.playbackRequestGeneration else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after privacy boundary")
+                            return
+                        }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
                             songs = self.tracksForPlaylistPlayback(
                                 browseTracks: response.detail.tracks,

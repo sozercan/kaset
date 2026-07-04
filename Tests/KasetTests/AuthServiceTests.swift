@@ -145,6 +145,7 @@ struct AuthServiceTests {
         let cacheGeneration = APICache.shared.generation
 
         self.authService.enterGuestMode()
+        #expect(SongLikeStatusManager.shared.activeAccountID == SongLikeStatusManager.guestAccountID)
         #expect(self.authService.state.isLoggedIn == true)
         #expect(self.authService.isGuestModeEnabled == true)
         #expect(self.authService.hasPersonalAccount == false)
@@ -156,6 +157,7 @@ struct AuthServiceTests {
         #expect(APICache.shared.generation == cacheGeneration &+ 1)
 
         self.authService.exitGuestMode()
+        #expect(SongLikeStatusManager.shared.activeAccountID != SongLikeStatusManager.guestAccountID)
         #expect(self.authService.state.isLoggedIn == true)
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(self.authService.hasPersonalAccount == true)

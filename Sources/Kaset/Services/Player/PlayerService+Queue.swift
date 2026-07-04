@@ -62,6 +62,8 @@ extension PlayerService {
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(playlistId: String, startVideoId: String?) async {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
+        let requestGeneration = self.playbackRequestGeneration
+        let continuationRequiresAuth = self.authService?.hasPersonalAccount == true
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
 
@@ -78,8 +80,14 @@ extension PlayerService {
                 return
             }
 
+            guard requestGeneration == self.playbackRequestGeneration else {
+                self.logger.info("Discarding stale mix playback request after privacy boundary")
+                return
+            }
+
             // Store continuation token for infinite mix
             self.mixContinuationToken = result.continuationToken
+            self.mixContinuationRequiresAuth = continuationRequiresAuth
 
             // Shuffle the queue to get a different order each time
             // YouTube's API returns a personalized but consistent order per session,
@@ -111,6 +119,7 @@ extension PlayerService {
         // Only fetch if we have a continuation token and we're near the end
         guard let token = mixContinuationToken,
               !isFetchingMoreMixSongs,
+              !(self.mixContinuationRequiresAuth && self.authService?.hasPersonalAccount != true),
               let client = ytMusicClient
         else {
             return
@@ -123,9 +132,15 @@ extension PlayerService {
 
         self.logger.info("Fetching more mix songs, \(songsRemaining) remaining in queue")
         self.isFetchingMoreMixSongs = true
+        let requestGeneration = self.playbackRequestGeneration
 
         do {
             let result = try await client.getMixQueueContinuation(continuationToken: token)
+            guard requestGeneration == self.playbackRequestGeneration else {
+                self.logger.info("Discarding stale mix continuation after privacy boundary")
+                self.isFetchingMoreMixSongs = false
+                return
+            }
             self.logger.debug("Continuation returned \(result.songs.count) songs, hasNextToken: \(result.continuationToken != nil)")
 
             // Filter out songs already in queue to avoid duplicates
@@ -696,6 +711,10 @@ extension PlayerService {
             sanitized.feedbackTokens = nil
             return sanitized
         }
+    }
+
+    func invalidatePendingPlaybackRequests() {
+        self.playbackRequestGeneration &+= 1
     }
 
     /// Re-tags a restored/persisted playback session after crossing a playback

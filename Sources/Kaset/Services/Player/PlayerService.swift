@@ -226,6 +226,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
+    var mixContinuationRequiresAuth = false
+    var playbackRequestGeneration = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false

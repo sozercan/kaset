@@ -76,7 +76,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var rateSongDelay: Duration?
     var getSongDelay: Duration?
     var getPodcastsDelay: Duration?
+    var getPlaylistDelay: Duration?
     var playlistContinuationDelay: Duration?
+    var mixQueueDelay: Duration?
+    var mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
+    var mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+    private(set) var getMixQueueContinuationCallCount = 0
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
     var shouldAutoUpdateArtistLibraryOnMutation = true
@@ -653,6 +658,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.getPlaylistCalled = true
         self.getPlaylistIds.append(id)
+        if let getPlaylistDelay {
+            try? await Task.sleep(for: getPlaylistDelay)
+        }
         if let error = shouldThrowError { throw error }
         guard let detail = playlistDetails[id] else {
             throw YTMusicError.parseError(message: "Playlist not found: \(id)")
@@ -950,14 +958,17 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getMixQueue(playlistId _: String, startVideoId _: String?) async throws -> RadioQueueResult {
+        if let mixQueueDelay {
+            try? await Task.sleep(for: mixQueueDelay)
+        }
         if let error = shouldThrowError { throw error }
-        // Return empty by default, can be overridden via radioQueueSongs if needed
-        return RadioQueueResult(songs: [], continuationToken: nil)
+        return self.mixQueueResult
     }
 
     func getMixQueueContinuation(continuationToken _: String) async throws -> RadioQueueResult {
+        self.getMixQueueContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
-        return RadioQueueResult(songs: [], continuationToken: nil)
+        return self.mixQueueContinuationResult
     }
 
     func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
@@ -1019,6 +1030,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getLikedSongsContinuationCallCount = 0
         self.getPlaylistCalled = false
         self.getPlaylistIds = []
+        self.getPlaylistDelay = nil
         self.getPlaylistContinuationCalled = false
         self.getPlaylistContinuationCallCount = 0
         self.getPlaylistContinuationTokens = []
@@ -1053,6 +1065,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.unsubscribeFromArtistDelay = nil
         self.rateSongDelay = nil
         self.getSongDelay = nil
+        self.mixQueueDelay = nil
+        self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.getMixQueueContinuationCallCount = 0
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []
         self.getRadioQueueCalled = false

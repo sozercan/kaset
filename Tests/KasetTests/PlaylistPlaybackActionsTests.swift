@@ -105,6 +105,30 @@ struct PlaylistPlaybackActionsTests {
         #expect(self.mockClient.getPlaylistContinuationRequiresAuthFlags == [true])
     }
 
+    @Test("Pending playlist playback is discarded after guest privacy boundary")
+    func pendingPlaylistPlaybackDiscardedAfterGuestPrivacyBoundary() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-delayed-playlist", title: "Delayed Playlist")
+        self.mockClient.getPlaylistDelay = .milliseconds(150)
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [Song(id: "initial", title: "Initial", artists: [], videoId: "initial")],
+            duration: nil
+        )
+        let playerService = PlayerService()
+
+        PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        try? await Task.sleep(for: .milliseconds(30))
+        playerService.clearPlaybackForGuestStartup()
+        try? await Task.sleep(for: .milliseconds(250))
+
+        #expect(playerService.queue.isEmpty)
+        #expect(playerService.currentTrack == nil)
+    }
+
     @Test("Playlist playback starts before continuation loading completes")
     func playlistPlaybackStartsBeforeContinuationLoadingCompletes() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")

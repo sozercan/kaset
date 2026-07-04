@@ -87,10 +87,22 @@ struct SidebarProfileView: View {
             // Error state - show retry option
             self.errorStateView
         } else {
-            // Missing account data should not leave the footer as a permanent
-            // skeleton. Treat it like guest mode until a concrete account lands.
-            self.loggedOutContent
+            self.missingAccountContent
         }
+    }
+
+    private var missingAccountContent: some View {
+        Button {
+            Task {
+                await self.accountService.fetchAccounts()
+            }
+        } label: {
+            self.guestModeLabel(subtitle: String(localized: "Loading account…"))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.SidebarProfile.loadingState)
+        .accessibilityLabel(String(localized: "Loading account"))
+        .accessibilityHint(String(localized: "Double-tap to retry loading accounts"))
     }
 
     // MARK: - Loading State

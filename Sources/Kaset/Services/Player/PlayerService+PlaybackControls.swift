@@ -530,6 +530,7 @@ extension PlayerService {
     }
 
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
+        self.invalidatePendingPlaybackRequests()
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.tearDown()
         self.state = .idle
@@ -549,6 +550,7 @@ extension PlayerService {
         self.showVideo = false
         self.currentTrackHasVideo = false
         self.mixContinuationToken = nil
+        self.mixContinuationRequiresAuth = false
         self.queueOrderBeforeShuffle = nil
         self.clearQueueUndoRedoHistory()
         self.currentIndex = 0

@@ -88,6 +88,7 @@ final class AuthService: AuthServiceProtocol {
         guard !self.isGuestModeEnabled else { return }
         self.logger.info("Entering guest mode")
         self.clearAPIResponseCaches()
+        SongLikeStatusManager.shared.setActiveAccountID(SongLikeStatusManager.guestAccountID)
         self.isGuestModeEnabled = true
     }
 
@@ -96,6 +97,7 @@ final class AuthService: AuthServiceProtocol {
         guard self.isGuestModeEnabled else { return }
         self.logger.info("Leaving guest mode")
         self.clearAPIResponseCaches()
+        SongLikeStatusManager.shared.setActiveAccountID(nil)
         self.isGuestModeEnabled = false
     }
 
