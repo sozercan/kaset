@@ -107,7 +107,10 @@ enum PlaylistPlaybackActions {
 
         while let c = nextContinuation, !Task.isCancelled {
             do {
-                let response = try await context.client.getPlaylistContinuation(token: c)
+                let response = try await context.client.getPlaylistContinuation(
+                    token: c,
+                    requiresAuth: context.playlist.requiresPersonalAccountForContinuations
+                )
                 let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
                 guard !newTracks.isEmpty else { break }
 

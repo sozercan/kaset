@@ -876,11 +876,12 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Fetches a batch of playlist tracks using the provided continuation token.
-    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
+    func getPlaylistContinuation(token: String, requiresAuth: Bool) async throws -> PlaylistContinuationResponse {
         self.logger.info("Fetching playlist continuation")
 
         do {
-            let continuationData = try await requestContinuation(token)
+            let authPolicy: RequestAuthPolicy? = requiresAuth ? .required : nil
+            let continuationData = try await requestContinuation(token, authPolicy: authPolicy)
             let response = PlaylistParser.parsePlaylistContinuation(continuationData)
             let hasMore = response.hasMore
 

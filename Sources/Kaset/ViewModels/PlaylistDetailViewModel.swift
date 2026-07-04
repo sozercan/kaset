@@ -23,6 +23,7 @@ final class PlaylistDetailViewModel {
         let continuation: String
         let currentDetail: PlaylistDetail
         let isLikedMusicPlaylist: Bool
+        let requiresAuth: Bool
     }
 
     /// Current loading state.
@@ -262,8 +263,10 @@ final class PlaylistDetailViewModel {
                 guard let batch = self?.nextRemainingTracksBatch(generation: generation) else { break }
 
                 do {
-                    let loadContinuation = client.getPlaylistContinuation(token:)
-                    let response = try await loadContinuation(batch.continuation)
+                    let response = try await client.getPlaylistContinuation(
+                        token: batch.continuation,
+                        requiresAuth: batch.requiresAuth
+                    )
                     guard self?.applyRemainingTracksResponse(response, batch: batch) == true else { break }
                 } catch is CancellationError {
                     self?.restoreLoadedStateIfCurrent(generation: generation)
@@ -300,7 +303,8 @@ final class PlaylistDetailViewModel {
             generation: generation,
             continuation: continuationToken,
             currentDetail: currentDetail,
-            isLikedMusicPlaylist: self.isLikedMusicPlaylist
+            isLikedMusicPlaylist: self.isLikedMusicPlaylist,
+            requiresAuth: self.playlist.requiresPersonalAccountForContinuations
         )
     }
 
@@ -444,12 +448,16 @@ final class PlaylistDetailViewModel {
         self.logger.info("Loading more playlist tracks")
 
         do {
-            let response = try await client.getPlaylistContinuation(token: continuationToken)
+            let response = try await client.getPlaylistContinuation(
+                token: continuationToken,
+                requiresAuth: self.playlist.requiresPersonalAccountForContinuations
+            )
             let batch = ContinuationDrainBatch(
                 generation: generation ?? self.loadGeneration,
                 continuation: continuationToken,
                 currentDetail: currentDetail,
-                isLikedMusicPlaylist: self.isLikedMusicPlaylist
+                isLikedMusicPlaylist: self.isLikedMusicPlaylist,
+                requiresAuth: self.playlist.requiresPersonalAccountForContinuations
             )
             return self.applyRemainingTracksResponse(response, batch: batch)
         } catch is CancellationError {

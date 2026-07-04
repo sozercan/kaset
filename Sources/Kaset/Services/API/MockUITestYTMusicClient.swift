@@ -302,7 +302,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return PlaylistTracksResponse(detail: detail, continuationToken: nil)
     }
 
-    func getPlaylistContinuation(token _: String) async throws -> PlaylistContinuationResponse {
+    func getPlaylistContinuation(token _: String, requiresAuth _: Bool) async throws -> PlaylistContinuationResponse {
         PlaylistContinuationResponse(tracks: [], continuationToken: nil)
     }
 

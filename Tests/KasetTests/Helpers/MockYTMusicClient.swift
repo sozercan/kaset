@@ -663,7 +663,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         )
     }
 
-    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
+    func getPlaylistContinuation(token: String, requiresAuth _: Bool) async throws -> PlaylistContinuationResponse {
         self.getPlaylistContinuationCalled = true
         self.getPlaylistContinuationCallCount += 1
         self.getPlaylistContinuationTokens.append(token)
