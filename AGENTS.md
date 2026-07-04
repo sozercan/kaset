@@ -53,6 +53,8 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 
 See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, and the single-flight load pattern that resolves the `.task`-restart cancellation deadlock.
 
+> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`.
+
 ## Continuous Review
 
 For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out.
