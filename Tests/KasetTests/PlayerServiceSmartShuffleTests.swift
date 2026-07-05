@@ -93,6 +93,27 @@ struct PlayerServiceSmartShuffleTests {
         #expect(self.playerService.queue.map(\.videoId) == originalOrder)
     }
 
+    @Test("disabling Smart Shuffle while a fill is in flight prevents late insertions")
+    func disablingSmartShuffleStopsInFlightFill() async {
+        let settings = SettingsManager.shared
+        let savedEnabled = settings.smartShuffleEnabled
+        settings.smartShuffleEnabled = true
+        defer { settings.smartShuffleEnabled = savedEnabled }
+
+        let songs = TestFixtures.makeSongs(count: 6)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.mockClient.getRadioQueueDelay = .milliseconds(100)
+        self.mockClient.radioQueueSongs["video-0"] = [TestFixtures.makeSong(id: "rec-0")]
+
+        let fill = Task { await self.playerService.fillSmartShuffleWindow() }
+        try? await Task.sleep(for: .milliseconds(20))
+        settings.smartShuffleEnabled = false
+        await fill.value
+
+        #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
+    }
+
     @Test("advancing near the end of a smart queue tops up with fresh suggestions")
     func smartTopUp() async {
         // Force lazy top-up: a small look-ahead window (min 5) with one slot per original means

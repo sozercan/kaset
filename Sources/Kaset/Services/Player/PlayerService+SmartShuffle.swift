@@ -134,7 +134,11 @@ extension PlayerService {
         // budget guarantees it cannot trip before a genuinely converged state, even when many seeds
         // are exhausted on a very long playlist.
         var safety = self.queueEntries.count + (target + 2) * (everyN + burst) + 10
-        while safety > 0, self.shuffleMode == .smart, !Task.isCancelled {
+        while safety > 0,
+              self.shuffleMode == .smart,
+              SettingsManager.shared.smartShuffleEnabled,
+              !Task.isCancelled
+        {
             safety -= 1
             let entries = self.queueEntries
             let upcomingStart = min(self.currentIndex + 1, entries.count)
@@ -164,8 +168,12 @@ extension PlayerService {
                 continue
             }
 
-            // The queue or mode may have changed while awaiting — re-validate against current state.
-            guard self.shuffleMode == .smart, !Task.isCancelled else { break }
+            // The queue, mode, or feature setting may have changed while awaiting — re-validate
+            // against current state before inserting any recommendations.
+            guard self.shuffleMode == .smart,
+                  SettingsManager.shared.smartShuffleEnabled,
+                  !Task.isCancelled
+            else { break }
             let entriesNow = self.queueEntries
             guard let seedIndex = entriesNow.firstIndex(where: { $0.id == seedEntry.id }),
                   seedIndex >= self.currentIndex
