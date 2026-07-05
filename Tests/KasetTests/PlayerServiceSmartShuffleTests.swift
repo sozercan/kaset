@@ -114,6 +114,33 @@ struct PlayerServiceSmartShuffleTests {
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
+    @Test("undo cancels an in-flight Smart Shuffle fill for the replaced queue")
+    func undoCancelsInFlightSmartShuffleFill() async {
+        let settings = SettingsManager.shared
+        let savedEnabled = settings.smartShuffleEnabled
+        settings.smartShuffleEnabled = true
+        defer { settings.smartShuffleEnabled = savedEnabled }
+
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.mockClient.getRadioQueueDelay = .milliseconds(100)
+        self.mockClient.radioQueueSongs["video-0"] = [TestFixtures.makeSong(id: "rec-stale")]
+
+        self.playerService.recordQueueStateForUndo()
+        self.playerService.setQueue(entries: self.playerService.queueEntries + [
+            QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "extra")),
+        ])
+
+        let fill = Task { await self.playerService.fillSmartShuffleWindow() }
+        try? await Task.sleep(for: .milliseconds(20))
+        self.playerService.undoQueue()
+        await fill.value
+
+        #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-2", "video-3"])
+    }
+
     @Test("turning Smart Shuffle off while a suggestion is playing keeps the current entry")
     func turningSmartOffKeepsCurrentSuggestedEntry() {
         let originals = TestFixtures.makeSongs(count: 3).map { QueueEntry(id: UUID(), song: $0) }

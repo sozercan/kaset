@@ -444,9 +444,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Restores the previous queue state. Does nothing if undo history is empty.
     func undoQueue() {
         guard let state = self.queueUndoHistory.popLast() else { return }
-        // Undo replaces the queue, so supersede any in-flight deferred load: otherwise its pager
-        // would keep splicing the playlist onto the restored queue and corrupt it.
-        self.invalidateStaleQueueLoad()
+        // Undo replaces the queue, so cancel Smart Shuffle fills and supersede any in-flight
+        // deferred load: otherwise stale async work can splice tracks into the restored queue.
+        self.prepareForNewPlaybackContext()
         self.queueRedoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
         self.setQueue(entries: state.entries)
         self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))
@@ -458,8 +458,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Restores the next queue state after an undo. Does nothing if redo history is empty.
     func redoQueue() {
         guard let state = self.queueRedoHistory.popLast() else { return }
-        // Redo replaces the queue, so supersede any in-flight deferred load (see undoQueue).
-        self.invalidateStaleQueueLoad()
+        // Redo replaces the queue, so cancel/supersede stale async queue work (see undoQueue).
+        self.prepareForNewPlaybackContext()
         self.queueUndoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
         self.setQueue(entries: state.entries)
         self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))
