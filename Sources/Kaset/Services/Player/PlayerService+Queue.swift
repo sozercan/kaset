@@ -637,9 +637,33 @@ extension PlayerService {
         let currentEntriesByID = Dictionary(uniqueKeysWithValues: currentEntries.map { ($0.id, $0) })
         let currentEntryIDs = Set(currentEntries.map(\.id))
 
+        let snapshotEntryIDs = Set(snapshot.map(\.id))
         var restoredEntries: [QueueEntry] = []
-        for entry in snapshot where currentEntryIDs.contains(entry.id) {
-            restoredEntries.append(currentEntriesByID[entry.id] ?? entry)
+        if let currentEntryID,
+           snapshotEntryIDs.contains(currentEntryID) == false,
+           let currentEntry = currentEntriesByID[currentEntryID],
+           let currentPosition = currentEntries.firstIndex(where: { $0.id == currentEntryID })
+        {
+            // The current Smart Shuffle suggestion is not in the original-order snapshot. Keep
+            // originals that were already behind the playhead before it, then insert the current
+            // suggestion, then restore the remaining originals in playlist order so Next continues
+            // through the unplayed playlist instead of skipping it.
+            let originalIDsBeforeCurrent = Set(
+                currentEntries[..<currentPosition]
+                    .filter { snapshotEntryIDs.contains($0.id) }
+                    .map(\.id)
+            )
+            for entry in snapshot where currentEntryIDs.contains(entry.id) && originalIDsBeforeCurrent.contains(entry.id) {
+                restoredEntries.append(currentEntriesByID[entry.id] ?? entry)
+            }
+            restoredEntries.append(currentEntry)
+            for entry in snapshot where currentEntryIDs.contains(entry.id) && originalIDsBeforeCurrent.contains(entry.id) == false {
+                restoredEntries.append(currentEntriesByID[entry.id] ?? entry)
+            }
+        } else {
+            for entry in snapshot where currentEntryIDs.contains(entry.id) {
+                restoredEntries.append(currentEntriesByID[entry.id] ?? entry)
+            }
         }
 
         let restoredEntryIDs = Set(restoredEntries.map(\.id))

@@ -141,16 +141,23 @@ struct PlayerServiceSmartShuffleTests {
         #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-2", "video-3"])
     }
 
-    @Test("turning Smart Shuffle off while a suggestion is playing keeps the current entry")
-    func turningSmartOffKeepsCurrentSuggestedEntry() {
-        let originals = TestFixtures.makeSongs(count: 3).map { QueueEntry(id: UUID(), song: $0) }
+    @Test("turning Smart Shuffle off while a suggestion is playing keeps the remaining playlist ahead")
+    func turningSmartOffKeepsRemainingPlaylistAfterCurrentSuggestedEntry() {
+        let originals = TestFixtures.makeSongs(count: 5).map { QueueEntry(id: UUID(), song: $0) }
         let suggestion = QueueEntry(
             id: UUID(),
             song: TestFixtures.makeSong(id: "rec-current"),
             source: .suggested
         )
-        self.playerService.setQueue(entries: originals + [suggestion])
-        self.playerService.currentIndex = originals.count
+        self.playerService.setQueue(entries: [
+            originals[0],
+            originals[2],
+            suggestion,
+            originals[3],
+            originals[1],
+            originals[4],
+        ])
+        self.playerService.currentIndex = 2
         self.playerService.currentTrack = suggestion.song
         self.playerService.queueOrderBeforeShuffle = originals
         self.playerService.shuffleMode = .smart
@@ -159,8 +166,15 @@ struct PlayerServiceSmartShuffleTests {
 
         #expect(self.playerService.shuffleMode == .off)
         #expect(self.playerService.currentTrack?.videoId == "rec-current")
-        #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-2", "rec-current"])
-        #expect(self.playerService.currentIndex == 3)
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.queue.map(\.videoId) == [
+            "video-0",
+            "video-2",
+            "rec-current",
+            "video-1",
+            "video-3",
+            "video-4",
+        ])
     }
 
     @Test("advancing near the end of a smart queue tops up with fresh suggestions")
