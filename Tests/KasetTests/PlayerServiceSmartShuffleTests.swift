@@ -72,6 +72,27 @@ struct PlayerServiceSmartShuffleTests {
         #expect(self.playerService.queue.allSatisfy { $0.videoId.hasPrefix("video-") })
     }
 
+    @Test("entering Smart Shuffle from plain shuffle preserves the original-order snapshot")
+    func smartFromPlainShufflePreservesOriginalSnapshot() async {
+        let songs = TestFixtures.makeSongs(count: 5)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let originalEntries = self.playerService.queueEntries
+        let originalOrder = originalEntries.map(\.song.videoId)
+
+        var plainShuffledEntries = originalEntries
+        plainShuffledEntries.swapAt(1, 2)
+        self.playerService.setQueue(entries: plainShuffledEntries)
+        self.playerService.currentIndex = 0
+        self.playerService.queueOrderBeforeShuffle = originalEntries
+        self.playerService.shuffleMode = .on
+
+        self.playerService.setShuffleMode(.smart)
+        #expect(self.playerService.queueOrderBeforeShuffle?.map(\.song.videoId) == originalOrder)
+
+        self.playerService.setShuffleMode(.off)
+        #expect(self.playerService.queue.map(\.videoId) == originalOrder)
+    }
+
     @Test("advancing near the end of a smart queue tops up with fresh suggestions")
     func smartTopUp() async {
         // Force lazy top-up: a small look-ahead window (min 5) with one slot per original means
@@ -149,6 +170,46 @@ struct PlayerServiceSmartShuffleTests {
 
         let service = PlayerService()
         #expect(service.shuffleMode == .on)
+    }
+
+    @Test("clamped Smart Shuffle numeric settings persist the corrected values")
+    func clampedSmartShuffleSettingsPersist() {
+        let settings = SettingsManager.shared
+        let defaults = UserDefaults.standard
+        let savedEveryN = settings.smartShuffleSuggestEveryN
+        let savedBurst = settings.smartShuffleBurst
+        let savedAhead = settings.smartShuffleSuggestionsAhead
+        let savedEveryNObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleSuggestEveryN)
+        let savedBurstObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleBurst)
+        let savedAheadObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleSuggestionsAhead)
+
+        func restore(_ value: Any?, forKey key: String) {
+            if let value {
+                defaults.set(value, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        defer {
+            settings.smartShuffleSuggestEveryN = savedEveryN
+            settings.smartShuffleBurst = savedBurst
+            settings.smartShuffleSuggestionsAhead = savedAhead
+            restore(savedEveryNObject, forKey: SettingsManager.Keys.smartShuffleSuggestEveryN)
+            restore(savedBurstObject, forKey: SettingsManager.Keys.smartShuffleBurst)
+            restore(savedAheadObject, forKey: SettingsManager.Keys.smartShuffleSuggestionsAhead)
+        }
+
+        settings.smartShuffleSuggestEveryN = SettingsManager.smartShuffleSuggestEveryNRange.upperBound + 10
+        settings.smartShuffleBurst = SettingsManager.smartShuffleBurstRange.lowerBound - 10
+        settings.smartShuffleSuggestionsAhead = SettingsManager.smartShuffleSuggestionsAheadRange.upperBound + 10
+
+        #expect(settings.smartShuffleSuggestEveryN == SettingsManager.smartShuffleSuggestEveryNRange.upperBound)
+        #expect(settings.smartShuffleBurst == SettingsManager.smartShuffleBurstRange.lowerBound)
+        #expect(settings.smartShuffleSuggestionsAhead == SettingsManager.smartShuffleSuggestionsAheadRange.upperBound)
+        #expect(defaults.integer(forKey: SettingsManager.Keys.smartShuffleSuggestEveryN) == settings.smartShuffleSuggestEveryN)
+        #expect(defaults.integer(forKey: SettingsManager.Keys.smartShuffleBurst) == settings.smartShuffleBurst)
+        #expect(defaults.integer(forKey: SettingsManager.Keys.smartShuffleSuggestionsAhead) == settings.smartShuffleSuggestionsAhead)
     }
 
     @Test("playing while loading defers the fill; it dedups against late-loaded tracks (#1)")

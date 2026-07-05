@@ -506,7 +506,12 @@ extension PlayerService {
             )
         case .smart:
             // Phase 1 (synchronous): plain shuffle so playback continues instantly.
-            self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: true)
+            // From .on, preserve the existing original-order snapshot so turning shuffle off restores
+            // playlist order rather than the already-shuffled order.
+            self.materializeShuffleQueueForCurrentTrack(
+                recordUndo: true,
+                storesOriginalOrder: oldMode == .off
+            )
             // Phase 2 (async): fetch radio seeds and fill the suggestion window.
             Task { await self.fillSmartShuffleWindow() }
         }

@@ -347,3 +347,18 @@
 "Show a notification when a new track starts playing" = "إظهار إشعار عند بدء تشغيل مقطع جديد";
 "Choose the language for content and search results from YouTube Music" = "اختر لغة المحتوى ونتائج البحث من YouTube Music";
 "When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations." = "عند التفعيل، يمكن لـ Kaset إضافة تحليل أعمق لقائمة الانتظار، وتحسين قوائم التشغيل بالذكاء الاصطناعي، وشرح كلمات الأغاني.";
+
+/* Smart Shuffle */
+"Smart Shuffle" = "الخلط الذكي";
+"Enable Smart Shuffle" = "تفعيل الخلط الذكي";
+"Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue" = "يضيف حالة \"ذكية\" ثالثة إلى زر الخلط لإدراج المقطوعات المقترحة ضمن قائمة التشغيل";
+"Insert a suggestion every" = "إدراج اقتراح كل";
+"songs" = "أغانٍ";
+"How far apart suggestions are placed (every N of your playlist's songs)" = "مدى تباعد الاقتراحات (كل N من أغاني قائمتك)";
+"Suggestions per insertion" = "الاقتراحات لكل إدراج";
+"How many recommended tracks to drop in at each insertion point" = "عدد المقطوعات المقترحة التي تُضاف عند كل نقطة إدراج";
+"Keep suggestions queued ahead" = "إبقاء الاقتراحات في قائمة الانتظار";
+"tracks" = "مقطوعات";
+"How many recommendations to keep ready ahead of the current track" = "عدد الاقتراحات التي تبقى جاهزة قبل المقطوعة الحالية";
+"Suggested" = "مقترح";
+"Smart" = "ذكي";

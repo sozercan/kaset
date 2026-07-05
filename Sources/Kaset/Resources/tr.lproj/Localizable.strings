@@ -347,3 +347,18 @@
 "Show a notification when a new track starts playing" = "Yeni bir parça çalmaya başladığında bildirim göster";
 "Choose the language for content and search results from YouTube Music" = "YouTube Music içeriği ve arama sonuçları için dili seçin";
 "When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations." = "Etkinleştirildiğinde Kaset; daha zengin kuyruk analizi, yapay zeka destekli çalma listesi iyileştirmesi ve şarkı sözü açıklamaları ekleyebilir.";
+
+/* Smart Shuffle */
+"Smart Shuffle" = "Akıllı Karıştırma";
+"Enable Smart Shuffle" = "Akıllı Karıştırmayı Etkinleştir";
+"Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue" = "Karıştırma düğmesine, önerilen parçaları kuyruğunuza ekleyen üçüncü bir \"akıllı\" durum ekler";
+"Insert a suggestion every" = "Şu kadar şarkıda bir öneri ekle:";
+"songs" = "şarkı";
+"How far apart suggestions are placed (every N of your playlist's songs)" = "Önerilerin ne sıklıkta yerleştirileceği (çalma listenizdeki her N şarkıda bir)";
+"Suggestions per insertion" = "Ekleme başına öneri";
+"How many recommended tracks to drop in at each insertion point" = "Her ekleme noktasında kaç önerilen parça ekleneceği";
+"Keep suggestions queued ahead" = "Önerileri ileride kuyrukta tut";
+"tracks" = "parça";
+"How many recommendations to keep ready ahead of the current track" = "Geçerli parçanın önünde kaç önerinin hazır tutulacağı";
+"Suggested" = "Önerilen";
+"Smart" = "Akıllı";

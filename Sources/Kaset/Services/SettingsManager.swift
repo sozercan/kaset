@@ -332,9 +332,8 @@ final class SettingsManager {
             let clamped = Self.clamp(self.smartShuffleSuggestEveryN, to: Self.smartShuffleSuggestEveryNRange)
             if clamped != self.smartShuffleSuggestEveryN {
                 self.smartShuffleSuggestEveryN = clamped
-                return
             }
-            UserDefaults.standard.set(self.smartShuffleSuggestEveryN, forKey: Keys.smartShuffleSuggestEveryN)
+            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleSuggestEveryN)
         }
     }
 
@@ -344,9 +343,8 @@ final class SettingsManager {
             let clamped = Self.clamp(self.smartShuffleBurst, to: Self.smartShuffleBurstRange)
             if clamped != self.smartShuffleBurst {
                 self.smartShuffleBurst = clamped
-                return
             }
-            UserDefaults.standard.set(self.smartShuffleBurst, forKey: Keys.smartShuffleBurst)
+            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleBurst)
         }
     }
 
@@ -356,9 +354,8 @@ final class SettingsManager {
             let clamped = Self.clamp(self.smartShuffleSuggestionsAhead, to: Self.smartShuffleSuggestionsAheadRange)
             if clamped != self.smartShuffleSuggestionsAhead {
                 self.smartShuffleSuggestionsAhead = clamped
-                return
             }
-            UserDefaults.standard.set(self.smartShuffleSuggestionsAhead, forKey: Keys.smartShuffleSuggestionsAhead)
+            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleSuggestionsAhead)
         }
     }
 

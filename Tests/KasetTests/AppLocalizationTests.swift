@@ -144,6 +144,21 @@ struct AppLocalizationTests {
         }
     }
 
+    @Test("Smart Shuffle strings resolve from runtime lproj bundles")
+    func smartShuffleRuntimeStringsResolveFromLprojBundles() {
+        let expectedValues = [
+            ("ar", "الخلط الذكي"),
+            ("tr", "Akıllı Karıştırma"),
+            ("ko", "스마트 셔플"),
+            ("id", "Acak Cerdas"),
+            ("fr", "Lecture aléatoire intelligente"),
+        ]
+
+        for (locale, expectedValue) in expectedValues {
+            #expect(self.localizedValue(key: "Smart Shuffle", localeIdentifier: locale) == expectedValue)
+        }
+    }
+
     @Test("French bundle localizes artist and subscribe strings")
     func frenchLocalizationWorks() throws {
         let frenchBundle = try #require(self.localizedBundle(for: "fr"))

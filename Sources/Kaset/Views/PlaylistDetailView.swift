@@ -473,6 +473,7 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
+        let initiallyQueuedVideoIds = Set(cleanedTracks.map(\.videoId))
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
@@ -491,8 +492,7 @@ struct PlaylistDetailView: View {
                 self.viewModel.playlistDetail?.tracks ?? [],
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
-            let existingIds = Set(self.playerService.queue.map(\.videoId))
-            let remaining = fullTracks.filter { existingIds.contains($0.videoId) == false }
+            let remaining = fullTracks.filter { initiallyQueuedVideoIds.contains($0.videoId) == false }
             self.playerService.appendOriginalTracks(remaining)
             await self.playerService.endQueueLoading(loadGeneration)
         }

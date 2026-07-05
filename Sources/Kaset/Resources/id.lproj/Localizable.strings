@@ -348,3 +348,18 @@
 "Couldn't install the audio render callback (%lld)." = "Tidak dapat memasang callback render audio (%lld).";
 "Audio engine failed to start: %@" = "Mesin audio gagal dimulai: %@";
 "Kaset can't access its own audio output. Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Kaset tidak dapat mengakses output audio-nya sendiri. Buka Pengaturan Sistem → Privasi & Keamanan → Perekaman Layar & Audio Sistem dan aktifkan Kaset, lalu aktifkan kembali equalizer.";
+
+/* Smart Shuffle */
+"Smart Shuffle" = "Acak Cerdas";
+"Enable Smart Shuffle" = "Aktifkan Acak Cerdas";
+"Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue" = "Menambahkan status \"cerdas\" ketiga ke tombol acak yang menyisipkan trek rekomendasi ke antrean Anda";
+"Insert a suggestion every" = "Sisipkan saran setiap";
+"songs" = "lagu";
+"How far apart suggestions are placed (every N of your playlist's songs)" = "Seberapa jauh jarak antar saran (setiap N lagu di daftar putar Anda)";
+"Suggestions per insertion" = "Saran per penyisipan";
+"How many recommended tracks to drop in at each insertion point" = "Berapa banyak trek rekomendasi yang disisipkan di setiap titik penyisipan";
+"Keep suggestions queued ahead" = "Simpan saran dalam antrean di depan";
+"tracks" = "trek";
+"How many recommendations to keep ready ahead of the current track" = "Berapa banyak rekomendasi yang disiapkan di depan trek saat ini";
+"Suggested" = "Disarankan";
+"Smart" = "Cerdas";

@@ -348,3 +348,18 @@
 "Couldn't install the audio render callback (%lld)." = "Impossible d'installer le rappel de rendu audio (%lld).";
 "Audio engine failed to start: %@" = "Échec du démarrage du moteur audio : %@";
 "Kaset can't access its own audio output. Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Kaset n'a pas accès à sa propre sortie audio. Ouvrez Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran et de l'audio système, activez Kaset, puis réactivez l'égaliseur.";
+
+/* Smart Shuffle */
+"Smart Shuffle" = "Lecture aléatoire intelligente";
+"Enable Smart Shuffle" = "Activer la lecture aléatoire intelligente";
+"Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue" = "Ajoute un troisième état « intelligent » au bouton de lecture aléatoire qui intègre des titres recommandés à votre file d’attente";
+"Insert a suggestion every" = "Insérer une suggestion tous les";
+"songs" = "morceaux";
+"How far apart suggestions are placed (every N of your playlist's songs)" = "Espacement des suggestions (tous les N morceaux de votre playlist)";
+"Suggestions per insertion" = "Suggestions par insertion";
+"How many recommended tracks to drop in at each insertion point" = "Nombre de titres recommandés ajoutés à chaque point d’insertion";
+"Keep suggestions queued ahead" = "Garder des suggestions en file d’attente";
+"tracks" = "titres";
+"How many recommendations to keep ready ahead of the current track" = "Nombre de recommandations à garder prêtes avant le titre actuel";
+"Suggested" = "Suggéré";
+"Smart" = "Intelligent";
