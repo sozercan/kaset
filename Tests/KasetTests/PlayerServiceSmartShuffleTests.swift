@@ -215,6 +215,28 @@ struct PlayerServiceSmartShuffleTests {
         #expect(self.mockClient.getRadioQueueVideoIds.count > radioCallsAfterEntry)
     }
 
+    @Test("current Smart Shuffle suggestion restores with its suggested source")
+    func currentSmartShuffleSuggestionRestoresSuggestedSource() {
+        let originalBefore = QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "video-before"))
+        let currentSuggestion = QueueEntry(
+            id: UUID(),
+            song: TestFixtures.makeSong(id: "rec-current"),
+            source: .suggested
+        )
+        let originalAfter = QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "video-after"))
+        self.playerService.setQueue(entries: [originalBefore, currentSuggestion, originalAfter])
+        self.playerService.currentIndex = 1
+        self.playerService.currentTrack = currentSuggestion.song
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+
+        let restored = PlayerService()
+        #expect(restored.restoreQueueFromPersistence())
+        #expect(restored.queue.map(\.videoId) == ["video-before", "rec-current", "video-after"])
+        #expect(restored.queueEntries.map(\.source) == [.queued, .suggested, .queued])
+        #expect(restored.currentIndex == 1)
+    }
+
     @Test("suggestions are ephemeral: not persisted across a save/restore")
     func suggestionsNotPersisted() async {
         let songs = TestFixtures.makeSongs(count: 4)

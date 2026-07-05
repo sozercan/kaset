@@ -29,6 +29,7 @@ extension PlayerService {
     /// Applies a previously persisted playback session in a paused, resume-ready state.
     func applyRestoredPlaybackSession(
         queue: [Song],
+        entrySources: [QueueEntry.Source]? = nil,
         currentIndex: Int,
         progress: TimeInterval,
         duration: TimeInterval
@@ -37,7 +38,13 @@ extension PlayerService {
 
         self.clearRestoredPlaybackSessionState()
         self.clearForwardSkipNavigationStack()
-        self.setQueue(queue)
+        if let entrySources, entrySources.count == queue.count {
+            self.setQueue(entries: zip(queue, entrySources).map { song, source in
+                QueueEntry(id: UUID(), song: song, source: source)
+            })
+        } else {
+            self.setQueue(queue)
+        }
         self.currentIndex = currentIndex
         self.currentTrack = currentSong
         self.pendingPlayVideoId = currentSong.videoId

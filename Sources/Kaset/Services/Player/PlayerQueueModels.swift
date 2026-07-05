@@ -4,7 +4,7 @@ import Foundation
 
 struct QueueEntry: Identifiable, Hashable {
     /// Where a queue entry came from. `suggested` marks Smart Shuffle recommendations.
-    enum Source: String, Hashable {
+    enum Source: String, Hashable, Codable {
         case queued
         case suggested
     }

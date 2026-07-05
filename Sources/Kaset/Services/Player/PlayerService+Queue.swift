@@ -707,6 +707,7 @@ extension PlayerService {
     /// Serialized playback session persisted across launches.
     private struct PersistedPlaybackSession: Codable {
         let queue: [Song]
+        let entrySources: [QueueEntry.Source]?
         let currentIndex: Int
         let currentVideoId: String?
         let progress: TimeInterval
@@ -768,6 +769,7 @@ extension PlayerService {
             let sessionData = try encoder.encode(
                 PersistedPlaybackSession(
                     queue: persistedQueue,
+                    entrySources: persistedEntries.map(\.source),
                     currentIndex: safeIndex,
                     currentVideoId: currentVideoId,
                     progress: clampedProgress,
@@ -812,6 +814,7 @@ extension PlayerService {
             let savedSession = try decoder.decode(PersistedPlaybackSession.self, from: sessionData)
             let updatedSession = PersistedPlaybackSession(
                 queue: savedSession.queue,
+                entrySources: savedSession.entrySources,
                 currentIndex: savedSession.currentIndex,
                 currentVideoId: savedSession.currentVideoId,
                 progress: savedSession.progress,
@@ -851,6 +854,7 @@ extension PlayerService {
 
                 self.applyRestoredPlaybackSession(
                     queue: restoredQueue,
+                    entrySources: savedSession.entrySources,
                     currentIndex: resolvedIndex,
                     progress: savedSession.progress,
                     duration: savedSession.duration
