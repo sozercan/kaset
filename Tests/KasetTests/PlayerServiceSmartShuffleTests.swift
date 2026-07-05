@@ -246,6 +246,23 @@ struct PlayerServiceSmartShuffleTests {
         #expect(videoIds.count(where: { $0 == "video-5" }) == 1)
     }
 
+    @Test("deferred loading preserves duplicate original playlist entries")
+    func deferredLoadingPreservesDuplicateOriginals() async {
+        let initial = [
+            TestFixtures.makeSong(id: "video-0"),
+            TestFixtures.makeSong(id: "video-1"),
+        ]
+        let loadGeneration = await self.playerService.playQueue(initial, startingAt: 0, deferringSmartShuffleFill: true)
+
+        self.playerService.appendOriginalTracks([
+            TestFixtures.makeSong(id: "video-1"),
+            TestFixtures.makeSong(id: "video-2"),
+        ])
+        if let loadGeneration { await self.playerService.endQueueLoading(loadGeneration) }
+
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-1", "video-2"])
+    }
+
     @Test("finishing a load re-shuffles the full queue and keeps off-restore order complete")
     func endQueueLoadingReshufflesFullSet() async {
         self.playerService.setShuffleMode(.on)

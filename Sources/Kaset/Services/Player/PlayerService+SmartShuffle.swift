@@ -279,15 +279,10 @@ extension PlayerService {
     /// Appends originals (in playlist order) to a queue that is still loading, keeping the
     /// pre-shuffle snapshot complete so "shuffle off" later restores the full original order.
     /// Late tracks land at the tail of a shuffled queue; `endQueueLoading` re-shuffles them in.
+    /// Duplicate video IDs are preserved because authored playlists can intentionally repeat songs.
     func appendOriginalTracks(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
-        // Dedup against existing ORIGINALS only — never against suggestions — so a real playlist
-        // track is not silently dropped just because a radio suggestion happens to share its
-        // videoId (radio recommendations are frequently songs already in a Liked Music playlist).
-        let existingIds = Set(self.queueEntries.filter { $0.source == .queued }.map(\.song.videoId))
-        let fresh = songs.filter { existingIds.contains($0.videoId) == false }
-        guard !fresh.isEmpty else { return }
-        let newEntries = fresh.map { QueueEntry(id: UUID(), song: $0) }
+        let newEntries = songs.map { QueueEntry(id: UUID(), song: $0) }
         self.setQueue(entries: self.queueEntries + newEntries)
         if self.queueOrderBeforeShuffle != nil {
             self.queueOrderBeforeShuffle?.append(contentsOf: newEntries)

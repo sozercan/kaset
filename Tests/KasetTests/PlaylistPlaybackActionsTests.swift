@@ -129,6 +129,30 @@ struct PlaylistPlaybackActionsTests {
         #expect(playerService.currentTrack == nil)
     }
 
+    @Test("Playlist continuations preserve authored duplicate songs")
+    func playlistContinuationsPreserveAuthoredDuplicates() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-duplicates", title: "Duplicates")
+        let first = Song(id: "repeat-1", title: "Repeat", artists: [], videoId: "repeat")
+        let duplicate = Song(id: "repeat-2", title: "Repeat Again", artists: [], videoId: "repeat")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [first],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [[duplicate]]
+        let playerService = PlayerService()
+
+        PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(2, in: playerService)
+
+        #expect(playerService.queue.map(\.videoId) == ["repeat", "repeat"])
+        #expect(playerService.queue.map(\.title) == ["Repeat", "Repeat Again"])
+    }
+
     @Test("Playlist playback starts before continuation loading completes")
     func playlistPlaybackStartsBeforeContinuationLoadingCompletes() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")

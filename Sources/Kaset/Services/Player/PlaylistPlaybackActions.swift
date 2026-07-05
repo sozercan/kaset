@@ -4,7 +4,6 @@ import Foundation
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
-        let existingVideoIds: Set<String>
         let loadGeneration: Int
         let playlist: Playlist
         let requiresAuth: Bool
@@ -63,7 +62,6 @@ enum PlaylistPlaybackActions {
                     await self.appendContinuations(
                         ContinuationContext(
                             continuationToken: response.continuationToken,
-                            existingVideoIds: Set(songs.map(\.videoId)),
                             loadGeneration: loadGeneration,
                             playlist: playlist,
                             requiresAuth: response.detail.requiresPersonalAccountForContinuations,
@@ -126,7 +124,6 @@ enum PlaylistPlaybackActions {
     @MainActor
     static func appendContinuations(_ context: ContinuationContext) async {
         var nextContinuation = context.continuationToken
-        var seenVideoIds = context.existingVideoIds
 
         while let c = nextContinuation, !Task.isCancelled {
             do {
@@ -134,10 +131,9 @@ enum PlaylistPlaybackActions {
                     token: c,
                     requiresAuth: context.requiresAuth
                 )
-                let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
-                guard !newTracks.isEmpty else { break }
+                guard !response.tracks.isEmpty else { break }
 
-                let playableSongs = Self.playableSongsWithPlaylistArtwork(newTracks, playlist: context.playlist)
+                let playableSongs = Self.playableSongsWithPlaylistArtwork(response.tracks, playlist: context.playlist)
                 if !playableSongs.isEmpty {
                     // Tolerate user edits (remove/reorder) within the same playback; only discard if a
                     // *different* playback superseded this load (which bumps the load generation).
