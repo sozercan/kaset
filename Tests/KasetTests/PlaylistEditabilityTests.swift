@@ -44,4 +44,17 @@ struct PlaylistEditabilityTests {
 
         #expect(!PlaylistEditability.canDeletePlaylist(from: response))
     }
+
+    @Test("Delete affordance is true for delete command text")
+    func canDeleteForDeleteCommandText() {
+        let response: [String: Any] = [
+            "menu": [
+                "items": [[
+                    "label": "music/playlist/delete",
+                ]],
+            ],
+        ]
+
+        #expect(PlaylistEditability.canDeletePlaylist(from: response))
+    }
 }

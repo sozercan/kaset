@@ -123,6 +123,17 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Playback queue.
     private var queueStorage: [QueueEntry] = []
+
+    /// Set when guest-startup privacy cleanup empties visible queue state but
+    /// must not delete a saved guest queue/session on the next persistence pass.
+    var suppressNextEmptyQueuePersistence = false
+
+    /// Ownership scope restored from the persisted playback session payload.
+    /// `nil` means legacy/unknown and must not be trusted across guest privacy boundaries.
+    var restoredPlaybackSessionOwnerScope: String?
+
+    static let playbackSessionScopeGuest = "guest"
+    static let playbackSessionScopeAuthenticated = "authenticated"
     var queue: [Song] {
         self.queueStorage.map(\.song)
     }
@@ -235,9 +246,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
+    var authService: AuthService?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
+    var mixContinuationRequiresAuth = false
+    var playbackRequestGeneration = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
@@ -410,6 +424,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         !self.queueRedoHistory.isEmpty
     }
 
+    /// Clears queue undo/redo history at account/privacy boundaries.
+    func clearQueueUndoRedoHistory() {
+        self.queueUndoHistory.removeAll()
+        self.queueRedoHistory.removeAll()
+    }
+
     /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
     func recordQueueStateForUndo() {
         let state = QueueState(entries: self.queueEntries, currentIndex: self.currentIndex)
@@ -464,7 +484,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func synchronizeCurrentQueueEntryID() {
-        self.currentQueueEntryID = self.queueEntries[safe: self.currentIndex]?.id
+        self.currentQueueEntryID = self.queueStorage[safe: self.currentIndex]?.id
     }
 
     /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).
@@ -528,6 +548,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the YTMusicClient for API calls (dependency injection).
     func setYTMusicClient(_ client: any YTMusicClientProtocol) {
         self.ytMusicClient = client
+    }
+
+    /// Sets the AuthService used to guard account-scoped mutations.
+    func setAuthService(_ authService: AuthService) {
+        self.authService = authService
+    }
+
+    /// Account-backed library/rating mutations should be no-ops in guest mode.
+    var canPerformAccountMutation: Bool {
+        self.authService?.hasPersonalAccount ?? false
     }
 
     /// Flag to track when a song is nearing its end.

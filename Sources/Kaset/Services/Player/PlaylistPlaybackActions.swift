@@ -7,6 +7,7 @@ enum PlaylistPlaybackActions {
         let existingVideoIds: Set<String>
         let loadGeneration: Int
         let playlist: Playlist
+        let requiresAuth: Bool
         let client: any YTMusicClientProtocol
         let playerService: PlayerService
     }
@@ -18,13 +19,22 @@ enum PlaylistPlaybackActions {
         playerService: PlayerService
     ) {
         Task { @MainActor in
+            let requestGeneration = playerService.playbackRequestGeneration
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
+                guard requestGeneration == playerService.playbackRequestGeneration else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after privacy boundary")
+                    return
+                }
                 var songs = response.detail.tracks
 
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
+                        guard requestGeneration == playerService.playbackRequestGeneration else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after privacy boundary")
+                            return
+                        }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
                             songs = self.tracksForPlaylistPlayback(
                                 browseTracks: response.detail.tracks,
@@ -56,6 +66,7 @@ enum PlaylistPlaybackActions {
                             existingVideoIds: Set(songs.map(\.videoId)),
                             loadGeneration: loadGeneration,
                             playlist: playlist,
+                            requiresAuth: response.detail.requiresPersonalAccountForContinuations,
                             client: client,
                             playerService: playerService
                         )
@@ -119,7 +130,10 @@ enum PlaylistPlaybackActions {
 
         while let c = nextContinuation, !Task.isCancelled {
             do {
-                let response = try await context.client.getPlaylistContinuation(token: c)
+                let response = try await context.client.getPlaylistContinuation(
+                    token: c,
+                    requiresAuth: context.requiresAuth
+                )
                 let newTracks = response.tracks.filter { seenVideoIds.insert($0.videoId).inserted }
                 guard !newTracks.isEmpty else { break }
 

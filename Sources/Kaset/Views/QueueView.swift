@@ -5,6 +5,7 @@ import SwiftUI
 /// Right sidebar panel displaying the playback queue.
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.showCommandBar) private var showCommandBar
 
@@ -109,6 +110,7 @@ struct QueueView: View {
                         isCurrentTrack: index == self.playerService.currentIndex,
                         index: index,
                         isSuggested: entry.source == .suggested,
+                        allowsLikeActions: self.authService.hasPersonalAccount,
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
@@ -136,6 +138,7 @@ private struct QueueRowView: View {
     let isCurrentTrack: Bool
     let index: Int
     let isSuggested: Bool
+    let allowsLikeActions: Bool
     let favoritesManager: FavoritesManager
     let playerService: PlayerService
     let onRemove: () -> Void
@@ -174,7 +177,7 @@ private struct QueueRowView: View {
                 Spacer()
 
                 // Favorite toggle
-                LikeButton(song: self.song, isRowHovered: self.isHovering)
+                LikeButton(song: self.song, isRowHovered: self.isHovering, allowsActions: self.allowsLikeActions)
 
                 // Duration
                 if let duration = song.duration {

@@ -108,7 +108,7 @@ final class YouTubeSubscriptionsViewModel {
 
         self.loadingState = .loadingMore
         do {
-            let feed = try await client.getFeedContinuation(continuation: continuation)
+            let feed = try await client.getPrivateFeedContinuation(continuation: continuation)
             let existing = Set(self.videos.map(\.videoId))
             self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
             self.continuation = feed.continuation

@@ -385,6 +385,20 @@ struct ParsingHelpersTests {
         #expect(duration == nil)
     }
 
+    @Test(
+        "Extract duration from accessibility overlay labels",
+        arguments: [
+            ("Play Song by Artist, 4 minutes, 55 seconds", 295.0),
+            ("Play Song, 1 minute, 1 second", 61.0),
+            ("Play Song, 45 seconds", 45.0),
+            ("Play Song, 4 minutes", 240.0),
+        ]
+    )
+    func extractDurationFromAccessibilityOverlayLabel(label: String, expectedSeconds: TimeInterval) {
+        let duration = ParsingHelpers.extractDurationFromFlexColumns(self.makeAccessibilityOverlayRow(label: label))
+        #expect(duration == expectedSeconds)
+    }
+
     // MARK: - Flex Column Extraction
 
     @Test("Extract title from flex columns")
@@ -430,6 +444,17 @@ struct ParsingHelpersTests {
 
         let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(data)
         #expect(subtitle == "Artist • Album")
+    }
+
+    @Test("Join run text skips missing text without intermediate arrays")
+    func joinedRunTextSkipsMissingText() {
+        let runs: [[String: Any]] = [
+            ["text": "First"],
+            ["navigationEndpoint": ["browseEndpoint": ["browseId": "UC123"]]],
+            ["text": " Second"],
+        ]
+
+        #expect(ParsingHelpers.joinedRunText(runs) == "First Second")
     }
 
     @Test("Extract artists from flex columns")
@@ -491,5 +516,62 @@ struct ParsingHelpersTests {
 
         let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
         #expect(duration == 295.0) // 4 * 60 + 55
+    }
+
+    @Test("Linked duration-looking flex run is skipped")
+    func extractDurationSkipsLinkedDurationLookingRun() {
+        let data: [String: Any] = [
+            "flexColumns": [[
+                "musicResponsiveListItemFlexColumnRenderer": [
+                    "text": [
+                        "runs": [[
+                            "text": "4:44",
+                            "navigationEndpoint": ["browseEndpoint": ["browseId": "MPRE444"]],
+                        ]],
+                    ],
+                ],
+            ]],
+        ]
+
+        let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
+        #expect(duration == nil)
+    }
+
+    @Test("Unlinked duration after linked numeric title is extracted")
+    func extractDurationUsesUnlinkedDurationAfterLinkedRun() {
+        let data: [String: Any] = [
+            "flexColumns": [[
+                "musicResponsiveListItemFlexColumnRenderer": [
+                    "text": [
+                        "runs": [
+                            [
+                                "text": "4:44",
+                                "navigationEndpoint": ["browseEndpoint": ["browseId": "MPRE444"]],
+                            ],
+                            ["text": "3:21"],
+                        ],
+                    ],
+                ],
+            ]],
+        ]
+
+        let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
+        #expect(duration == 201.0)
+    }
+
+    private func makeAccessibilityOverlayRow(label: String) -> [String: Any] {
+        [
+            "overlay": [
+                "musicItemThumbnailOverlayRenderer": [
+                    "content": [
+                        "musicPlayButtonRenderer": [
+                            "accessibilityPlayData": [
+                                "accessibilityData": ["label": label],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
     }
 }

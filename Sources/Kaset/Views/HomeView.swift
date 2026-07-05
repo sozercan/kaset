@@ -6,6 +6,7 @@ struct HomeView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(AuthService.self) private var authService
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -70,7 +71,7 @@ struct HomeView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
                 // Favorites section (hidden when empty)
-                if self.favoritesManager.isVisible {
+                if self.authService.hasPersonalAccount, self.favoritesManager.isVisible {
                     FavoritesSection(
                         onNavigate: { destination in
                             if let playlist = destination as? Playlist {
@@ -334,5 +335,6 @@ struct HomeView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     HomeView(viewModel: HomeViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
         .environment(FavoritesManager.shared)
 }

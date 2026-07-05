@@ -8,6 +8,7 @@ import SwiftUI
 struct YouTubeShortsView: View {
     let viewModel: YouTubeShortsViewModel
 
+    @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
     /// The short currently snapped into view (drives autoplay).
@@ -100,7 +101,7 @@ struct YouTubeShortsView: View {
             return
         }
         guard self.youtubePlayer.currentVideo?.videoId != short.videoId else { return }
-        self.youtubePlayer.play(video: short)
+        self.youtubePlayer.play(video: short, usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore)
         self.youtubePlayer.activeInlineVideoId = short.videoId
     }
 

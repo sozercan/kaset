@@ -5,6 +5,7 @@ import SwiftUI
 
 struct QueueSidePanelView: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
@@ -26,6 +27,7 @@ struct QueueSidePanelView: View {
                     isPlaying: self.playerService.isPlaying,
                     favoritesManager: self.favoritesManager,
                     likeStatusManager: self.likeStatusManager,
+                    allowsLikeActions: self.authService.hasPersonalAccount,
                     likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { index in
                         Task {
@@ -87,6 +89,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let isPlaying: Bool
     let favoritesManager: FavoritesManager
     let likeStatusManager: SongLikeStatusManager
+    let allowsLikeActions: Bool
     /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
     let likeStatusEvent: LikeStatusEvent?
     let onSelect: (Int) -> Void
@@ -107,6 +110,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         context.coordinator.isPlaying = self.isPlaying
         context.coordinator.favoritesManager = self.favoritesManager
         context.coordinator.likeStatusManager = self.likeStatusManager
+        context.coordinator.allowsLikeActions = self.allowsLikeActions
         context.coordinator.lastLikeEvent = self.likeStatusEvent
 
         if !context.coordinator.isDragging {
@@ -123,7 +127,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                         isPlaying: self.isPlaying,
                         index: row
                     )
-                    cellView.updateLikeState(isLiked: self.likeStatusManager.isLiked(self.entries[row].song))
+                    cellView.updateLikeState(isLiked: self.allowsLikeActions && self.likeStatusManager.isLiked(self.entries[row].song))
                 }
             }
         }
@@ -136,6 +140,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             isPlaying: self.isPlaying,
             favoritesManager: self.favoritesManager,
             likeStatusManager: self.likeStatusManager,
+            allowsLikeActions: self.allowsLikeActions,
             onSelect: self.onSelect,
             onReorder: self.onReorder,
             onRemove: self.onRemove,
@@ -208,6 +213,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         var isPlaying: Bool
         var favoritesManager: FavoritesManager
         var likeStatusManager: SongLikeStatusManager
+        var allowsLikeActions: Bool
         var lastLikeEvent: LikeStatusEvent?
         let onSelect: (Int) -> Void
         let onReorder: (Int, Int) -> Void
@@ -219,6 +225,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
              likeStatusManager: SongLikeStatusManager,
+             allowsLikeActions: Bool,
              onSelect: @escaping (Int) -> Void, onReorder: @escaping (Int, Int) -> Void, onRemove: @escaping (Int) -> Void, onStartRadio: @escaping (Song) -> Void)
         {
             self.entries = entries
@@ -226,6 +233,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.isPlaying = isPlaying
             self.favoritesManager = favoritesManager
             self.likeStatusManager = likeStatusManager
+            self.allowsLikeActions = allowsLikeActions
             self.onSelect = onSelect
             self.onReorder = onReorder
             self.onRemove = onRemove
@@ -275,7 +283,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }()
             let entry = self.entries[row]
             let song = entry.song
-            let isLiked = self.likeStatusManager.isLiked(song)
+            let isLiked = self.allowsLikeActions && self.likeStatusManager.isLiked(song)
             cellView.configure(
                 song: song,
                 index: row,
@@ -287,12 +295,14 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     onRemove: { [weak self] in self?.onRemove(row) },
                     onToggleLike: { [weak self] in
                         guard let self else { return }
+                        guard self.allowsLikeActions else { return }
                         if self.likeStatusManager.isLiked(song) {
                             SongActionsHelper.unlikeSong(song, likeStatusManager: self.likeStatusManager)
                         } else {
                             SongActionsHelper.likeSong(song, likeStatusManager: self.likeStatusManager)
                         }
                     },
+                    allowsLikeAction: self.allowsLikeActions,
                     isLiked: isLiked
                 )
             )
@@ -356,20 +366,22 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard row >= 0, let entry = entries[safe: row] else { return nil }
             let song = entry.song
             let menu = NSMenu()
-            let manager = self.favoritesManager
-            let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
+            if self.allowsLikeActions {
+                let manager = self.favoritesManager
+                let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
 
-            let favoritesItem = NSMenuItem(
-                title: isPinned ? "Remove from Favorites" : "Add to Favorites",
-                action: #selector(Coordinator.contextMenuFavorites(_:)),
-                keyEquivalent: ""
-            )
-            favoritesItem.target = self
-            favoritesItem.representedObject = song
-            favoritesItem.image = NSImage(systemSymbolName: isPinned ? "heart.slash" : "heart", accessibilityDescription: nil)
-            menu.addItem(favoritesItem)
+                let favoritesItem = NSMenuItem(
+                    title: isPinned ? "Remove from Favorites" : "Add to Favorites",
+                    action: #selector(Coordinator.contextMenuFavorites(_:)),
+                    keyEquivalent: ""
+                )
+                favoritesItem.target = self
+                favoritesItem.representedObject = song
+                favoritesItem.image = NSImage(systemSymbolName: isPinned ? "heart.slash" : "heart", accessibilityDescription: nil)
+                menu.addItem(favoritesItem)
 
-            menu.addItem(NSMenuItem.separator())
+                menu.addItem(NSMenuItem.separator())
+            }
 
             let startRadioItem = NSMenuItem(title: "Start Radio", action: #selector(Coordinator.contextMenuStartRadio(_:)), keyEquivalent: "")
             startRadioItem.target = self
@@ -400,7 +412,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         @objc private func contextMenuFavorites(_ sender: NSMenuItem) {
-            guard let song = sender.representedObject as? Song else { return }
+            guard self.allowsLikeActions, let song = sender.representedObject as? Song else { return }
             let manager = self.favoritesManager
             MainActor.assumeIsolated { manager.toggle(song: song) }
         }
@@ -728,11 +740,13 @@ private struct QueueFooterIconButton: View {
 
 private struct QueueFooterActions: View {
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
 
     @State private var isSavingPlaylist = false
 
     private var canSaveQueueAsPlaylist: Bool {
-        !self.playerService.queue.isEmpty
+        self.authService.hasPersonalAccount
+            && !self.playerService.queue.isEmpty
             && !self.isSavingPlaylist
             && self.playerService.ytMusicClient != nil
     }
@@ -810,7 +824,7 @@ private struct QueueFooterActions: View {
     }
 
     private func presentSaveQueueAsPlaylistDialog() {
-        guard !self.isSavingPlaylist else { return }
+        guard self.authService.hasPersonalAccount, !self.isSavingPlaylist else { return }
         let songs = self.playerService.queue
         guard !songs.isEmpty else { return }
 
@@ -843,7 +857,7 @@ private struct QueueFooterActions: View {
     }
 
     private func saveQueueAsPlaylist(title: String, songCount: Int) async {
-        guard !self.isSavingPlaylist else { return }
+        guard self.authService.hasPersonalAccount, !self.isSavingPlaylist else { return }
         self.isSavingPlaylist = true
         defer { self.isSavingPlaylist = false }
 

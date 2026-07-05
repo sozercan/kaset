@@ -1,7 +1,6 @@
 "Artist" = "Sanatçı";
 "Subscribe %@" = "Abone Ol %@";
 "%lld songs" = "%lld şarkı";
-"A native YouTube Music experience for macOS" = "macOS için yerel bir YouTube Music deneyimi";
 "About" = "Hakkında";
 "Access your playlists and liked songs" = "Çalma listelerinize ve beğendiğiniz şarkılara erişin";
 "Account" = "Hesap";
@@ -228,7 +227,6 @@
 "Shuffle" = "Karıştır";
 "Shuffle Off" = "Karıştırma Kapalı";
 "Shuffle On" = "Karıştırma Açık";
-"Sign in to access your YouTube Music library" = "YouTube Music kitaplığınıza erişmek için oturum açın";
 "Sign in to YouTube Music" = "YouTube Music'te oturum aç";
 "Sign in with Google" = "Google ile giriş yap";
 "Sign Out" = "Çıkış Yap";

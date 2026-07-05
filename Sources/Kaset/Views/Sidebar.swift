@@ -9,6 +9,7 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
 
@@ -43,19 +44,21 @@ struct Sidebar: View {
                 }
             }
 
-            // Collection section
-            Section(String(localized: "Collection")) {
-                self.navigationRow(.library)
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
+            if self.hasPersonalAccount {
+                // Collection section
+                Section(String(localized: "Collection")) {
+                    self.navigationRow(.library)
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
 
-                self.navigationRow(.likedMusic)
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
+                    self.navigationRow(.likedMusic)
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
 
-                self.navigationRow(.history)
-                    .accessibilityIdentifier(AccessibilityID.Sidebar.historyItem)
+                    self.navigationRow(.history)
+                        .accessibilityIdentifier(AccessibilityID.Sidebar.historyItem)
+                }
             }
 
-            if self.sidebarPinnedItemsManager.isVisible {
+            if self.hasPersonalAccount, self.sidebarPinnedItemsManager.isVisible {
                 Section(String(localized: "Playlists")) {
                     ForEach(self.sidebarPinnedItemsManager.items) { item in
                         self.sidebarPinnedRow(item)
@@ -74,6 +77,10 @@ struct Sidebar: View {
             SidebarFooterView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
     }
 
     private var currentSidebarSelection: SidebarSelection? {
@@ -164,6 +171,7 @@ struct Sidebar: View {
 #Preview {
     Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
         .frame(width: 220)
+        .environment(AuthService())
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }

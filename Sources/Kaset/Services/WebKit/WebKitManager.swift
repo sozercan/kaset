@@ -54,6 +54,15 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     private var extensionContexts: [String: WKWebExtensionContext] = [:]
 
+    #if compiler(>=5.9)
+        @ObservationIgnored
+        @available(macOS 15.4, *)
+        private lazy var webExtensionHost = KasetWebExtensionHost(
+            controller: self.webExtensionController,
+            logger: DiagnosticsLogger.extensions
+        )
+    #endif
+
     private init(dataStore: WKWebsiteDataStore, restoresCookies: Bool, loadsExtensions: Bool) {
         self.dataStore = dataStore
 
@@ -196,6 +205,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         do {
             let webExtension = try await WKWebExtension(resourceBaseURL: url)
             let context = WKWebExtensionContext(for: webExtension)
+            // WebKit generates a new context identifier by default, which would
+            // move extension storage and webkit-extension:// origins every launch.
+            // Use Kaset's persisted managed-extension ID as the stable host identity.
+            context.uniqueIdentifier = id
 
             self.extensionContexts[id] = context
 
@@ -207,18 +220,46 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 context.setPermissionStatus(.grantedExplicitly, for: matchPattern)
             }
 
+            if #available(macOS 15.4, *) {
+                for matchPattern in Self.contentScriptMatchPatterns(from: webExtension.manifest) {
+                    context.setPermissionStatus(.grantedExplicitly, for: matchPattern)
+                }
+            }
+
             try self.webExtensionController.load(context)
-            try? await context.loadBackgroundContent()
+            if webExtension.hasBackgroundContent {
+                try? await context.loadBackgroundContent()
+            }
             self.logger.info("Loaded extension \(webExtension.displayName ?? url.lastPathComponent) (\(webExtension.version ?? "?")). Options: \(context.optionsPageURL?.absoluteString ?? "none")")
         } catch {
             self.logger.error("Failed to load extension at \(url.path): \(error.localizedDescription)")
         }
     }
 
-    /// Creates a WebView configuration using the shared persistent data store.
-    func createWebViewConfiguration() -> WKWebViewConfiguration {
+    @available(macOS 15.4, *)
+    static func contentScriptMatchPatterns(from manifest: [AnyHashable: Any]) -> [WKWebExtension.MatchPattern] {
+        guard let contentScripts = manifest["content_scripts"] as? [[String: Any]] else {
+            return []
+        }
+
+        var patterns: [WKWebExtension.MatchPattern] = []
+        var seen = Set<String>()
+
+        for contentScript in contentScripts {
+            guard let matches = contentScript["matches"] as? [String] else { continue }
+            for match in matches where seen.insert(match).inserted {
+                guard let pattern = try? WKWebExtension.MatchPattern(string: match) else { continue }
+                patterns.append(pattern)
+            }
+        }
+
+        return patterns
+    }
+
+    /// Creates a WebView configuration using the shared persistent data store by default.
+    func createWebViewConfiguration(websiteDataStore: WKWebsiteDataStore? = nil) -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = self.dataStore
+        configuration.websiteDataStore = websiteDataStore ?? self.dataStore
 
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -233,6 +274,67 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         configuration.allowsAirPlayForMediaPlayback = true
 
         return configuration
+    }
+
+    /// Registers a Kaset-owned playback WebView as a browser tab for Web Extensions.
+    ///
+    /// WebKit can attach a `WKWebExtensionController` to a `WKWebViewConfiguration`,
+    /// but content injection and tab-scoped APIs also require the app to expose a
+    /// lightweight `WKWebExtensionTab`/`WKWebExtensionWindow` model.
+    func registerExtensionHostWebView(_ webView: WKWebView, role: WebExtensionHostedWebViewRole) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.register(webView: webView, role: role)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewWillNavigate(_ webView: WKWebView, to url: URL?) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.noteNavigationStarted(for: webView, pendingURL: url)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewDidStartNavigation(_ webView: WKWebView) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.noteNavigationStarted(for: webView, pendingURL: nil)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewDidBecomeActive(_ webView: WKWebView) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.noteBecameActive(webView: webView)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewDidDeactivate(role: WebExtensionHostedWebViewRole) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.deactivate(role: role)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewDidFinishNavigation(_ webView: WKWebView) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.noteNavigationFinished(for: webView)
+            }
+        #endif
+    }
+
+    func extensionHostWebViewDidFailNavigation(_ webView: WKWebView) {
+        #if compiler(>=5.9)
+            if #available(macOS 15.4, *) {
+                self.webExtensionHost.noteNavigationFailed(for: webView)
+            }
+        #endif
     }
 
     /// Creates the minimal WebView configuration used for hidden account-switch
@@ -435,6 +537,17 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("==============================")
     }
 
+    /// Clears only authentication cookies, preserving public WebKit cache/data.
+    func clearAuthCookies() async {
+        self.logger.info("Clearing WebKit auth cookies")
+        let cookies = await self.dataStore.httpCookieStore.allCookies()
+        for cookie in cookies where KeychainCookieStorage.authCookieNames.contains(cookie.name) {
+            await self.dataStore.httpCookieStore.deleteCookie(cookie)
+        }
+        KeychainCookieStorage.deleteCookies()
+        self.cookiesDidChange = Date()
+    }
+
     /// Clears all website data (cookies, cache, etc.).
     func clearAllData() async {
         let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()
@@ -539,6 +652,16 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
         func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor matchPatterns: Set<WKWebExtension.MatchPattern>, in _: WKWebExtensionContext) async -> Bool {
             self.logger.info("Showing match-pattern prompt for: \(matchPatterns.map(\.string).joined(separator: ", "))")
             return true
+        }
+
+        @available(macOS 15.4, *)
+        func webExtensionController(_: WKWebExtensionController, openWindowsFor _: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
+            self.webExtensionHost.openWindows
+        }
+
+        @available(macOS 15.4, *)
+        func webExtensionController(_: WKWebExtensionController, focusedWindowFor _: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
+            self.webExtensionHost.focusedWindow
         }
     }
 #endif

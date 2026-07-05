@@ -228,13 +228,33 @@ struct WhatsNewProviderTests {
         }
     }
 
+    @Test("Static fallback copy is not legacy onboarding or account-only copy")
+    func staticFallbackCopyIsNotLegacyOnboardingCopy() {
+        let disallowedTerms = [
+            "welcome",
+            "your library",
+            "liked songs",
+            "playlists",
+        ]
+
+        for entry in WhatsNewProvider.fallbackCollection {
+            let copy = ([entry.title] + entry.features.flatMap { [$0.title, $0.subtitle] })
+                .joined(separator: " ")
+                .lowercased()
+
+            for term in disallowedTerms {
+                #expect(!copy.contains(term), "Static fallback copy should not contain legacy onboarding/account-only term: \(term)")
+            }
+        }
+    }
+
     @Test("Can bypass presented-version gating for manual reopen")
     func bypassesPresentedVersionGating() async {
         let store = WhatsNewVersionStore(defaults: self.defaults)
         let session = MockURLProtocol.makeMockSession()
         store.markPresented("1.0.0")
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else {
                 throw URLError(.badURL)
             }
@@ -268,7 +288,7 @@ struct WhatsNewProviderTests {
             return (response, data)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let result = await WhatsNewProvider.fetchWhatsNew(
@@ -286,7 +306,7 @@ struct WhatsNewProviderTests {
     func fetchesExactPrereleaseTag() async {
         let session = MockURLProtocol.makeMockSession()
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else {
                 throw URLError(.badURL)
             }
@@ -320,7 +340,7 @@ struct WhatsNewProviderTests {
             return (response, data)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let result = await WhatsNewProvider.fetchWhatsNew(
@@ -337,7 +357,7 @@ struct WhatsNewProviderTests {
     func extractsWhatsNewSectionFromCRLFReleaseNotes() async {
         let session = MockURLProtocol.makeMockSession()
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else {
                 throw URLError(.badURL)
             }
@@ -371,7 +391,7 @@ struct WhatsNewProviderTests {
             return (response, data)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let result = await WhatsNewProvider.fetchWhatsNew(
@@ -387,7 +407,7 @@ struct WhatsNewProviderTests {
     func preservesContentInsideWhatsNewSection() async {
         let session = MockURLProtocol.makeMockSession()
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else {
                 throw URLError(.badURL)
             }
@@ -440,7 +460,7 @@ struct WhatsNewProviderTests {
             return (response, data)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let result = await WhatsNewProvider.fetchWhatsNew(
@@ -463,7 +483,7 @@ struct WhatsNewProviderTests {
     func stripsHiddenWrapperSectionsWithoutWhatsNewHeading() async {
         let session = MockURLProtocol.makeMockSession()
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else {
                 throw URLError(.badURL)
             }
@@ -507,7 +527,7 @@ struct WhatsNewProviderTests {
             return (response, data)
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let result = await WhatsNewProvider.fetchWhatsNew(

@@ -218,7 +218,7 @@ Controls YouTube Music audio playback via the singleton Music WebView:
 Smart Shuffle is implemented in `PlayerService+SmartShuffle.swift` as a rolling
 recommendation window (pure helpers `nextSuggestionSlot`, `dedupeSuggestions`,
 `stripSuggested` plus async `fillSmartShuffleWindow`). See
-[ADR-0024: Smart Shuffle](adr/0024-smart-shuffle.md) and
+[ADR-0025: Smart Shuffle](adr/0025-smart-shuffle.md) and
 [docs/playback.md](playback.md#smart-shuffle) for details.
 
 ### SingletonPlayerWebView

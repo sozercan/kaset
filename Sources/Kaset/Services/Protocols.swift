@@ -21,6 +21,9 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool
 
+    /// Clears only authentication cookies from WebKit and persisted storage.
+    func clearAuthCookies() async
+
     /// Clears all website data (cookies, cache, etc.).
     func clearAllData() async
 
@@ -190,7 +193,7 @@ protocol YTMusicClientProtocol: Sendable {
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song]
 
     /// Fetches a batch of playlist tracks using the provided continuation token.
-    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse
+    func getPlaylistContinuation(token: String, requiresAuth: Bool) async throws -> PlaylistContinuationResponse
 
     /// Fetches artist details including their songs and albums.
     func getArtist(id: String) async throws -> ArtistDetail
@@ -283,6 +286,13 @@ protocol YTMusicClientProtocol: Sendable {
     /// Fetches the list of available accounts (primary + brand accounts).
     /// Used for account switching functionality.
     func fetchAccountsList() async throws -> AccountsListResponse
+}
+
+extension YTMusicClientProtocol {
+    /// Fetches a public playlist continuation by default.
+    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
+        try await self.getPlaylistContinuation(token: token, requiresAuth: false)
+    }
 }
 
 // MARK: - AuthServiceProtocol

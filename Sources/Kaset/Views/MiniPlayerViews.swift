@@ -9,6 +9,7 @@ import SwiftUI
 struct PersistentPlayerView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
 
     let videoId: String
     let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
@@ -24,7 +25,8 @@ struct PersistentPlayerView: NSViewRepresentable {
         // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
-            playerService: self.playerService
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
         // Remove from any previous superview and add to this container
@@ -48,7 +50,8 @@ struct PersistentPlayerView: NSViewRepresentable {
         // Ensure WebView is in this container
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
-            playerService: self.playerService
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
         if webView.superview !== container {
@@ -98,6 +101,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         case queue
     }
 
+    @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
 
     let client: any YTMusicClientProtocol
@@ -485,11 +489,18 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         })
     }
 
+    @ViewBuilder
     private var trackActionButtons: some View {
-        HStack(spacing: 5) {
-            self.likeButton
-            self.moreMenu
+        if self.hasPersonalAccount {
+            HStack(spacing: 5) {
+                self.likeButton
+                self.moreMenu
+            }
         }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
     }
 
     private var likeButton: some View {
@@ -497,6 +508,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         let label = isLiked ? String(localized: "Remove Like") : String(localized: "Like")
 
         return Button {
+            guard self.hasPersonalAccount else { return }
             self.playerService.likeCurrentTrack()
         } label: {
             MiniPlayerGlassIconLabel(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup", isActive: isLiked, size: 23, fontSize: 12)

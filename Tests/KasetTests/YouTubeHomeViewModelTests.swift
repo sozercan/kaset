@@ -375,6 +375,27 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.sections.contains { $0.kind == .topic } == false)
     }
 
+    @Test("Empty signed-out home loads public guest fallback rails")
+    func emptyHomeLoadsGuestFallbackRails() async {
+        self.mockClient.homeFeed = .empty
+        self.mockClient.homeChips = []
+        self.mockClient.homeShelves = []
+        self.mockClient.destinationFeed = YouTubeFeed(
+            videos: [MockYouTubeClient.makeVideo(videoId: "guest-public")],
+            continuation: nil
+        )
+
+        await self.sut.load()
+
+        #expect(self.sut.loadingState == .loaded)
+        #expect(self.sut.videos.isEmpty)
+        #expect(self.sut.hasMoreVideos == false)
+        #expect(self.mockClient.destinationFeedCallCount == 4)
+        #expect(self.sut.sections.map(\.id) == ["guest-news", "guest-sports", "guest-gaming", "guest-learning"])
+        #expect(self.sut.sections.allSatisfy { $0.kind == .shelf })
+        #expect(self.sut.sections.allSatisfy { $0.videos.map(\.videoId) == ["guest-public"] })
+    }
+
     @Test("Topic-only sections still load when the grid is empty")
     func sectionsRenderWithEmptyGrid() async {
         self.mockClient.homeFeed = .empty

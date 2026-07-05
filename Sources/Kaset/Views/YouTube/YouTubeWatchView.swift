@@ -13,6 +13,7 @@ struct YouTubeWatchView: View {
 
     let video: YouTubeVideo
 
+    @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var viewModel: YouTubeWatchViewModel
 
@@ -224,7 +225,7 @@ struct YouTubeWatchView: View {
                 self.youtubePlayer.dockInline()
             }
         } else {
-            self.youtubePlayer.play(video: self.video)
+            self.youtubePlayer.play(video: self.video, usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore)
         }
         self.youtubePlayer.activeInlineVideoId = self.video.videoId
     }
@@ -279,7 +280,9 @@ struct YouTubeWatchView: View {
                     }
                     .buttonStyle(.plain)
 
-                    self.subscribeButton
+                    if self.hasPersonalAccount {
+                        self.subscribeButton
+                    }
 
                     Spacer(minLength: 0)
                 }
@@ -369,7 +372,7 @@ struct YouTubeWatchView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(self.viewModel.comments) { comment in
-                        CommentThread(comment: comment, viewModel: self.viewModel)
+                        CommentThread(comment: comment, viewModel: self.viewModel, allowsActions: self.hasPersonalAccount)
                     }
                 }
             }
@@ -401,7 +404,7 @@ struct YouTubeWatchView: View {
     private var commentComposer: some View {
         HStack(spacing: 10) {
             TextField(
-                self.viewModel.canComment
+                self.hasPersonalAccount && self.viewModel.canComment
                     ? String(localized: "Add a comment…")
                     : String(localized: "Sign in to comment"),
                 text: self.$commentDraft
@@ -410,7 +413,7 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 12)
             .frame(height: 30)
             .background(.quaternary.opacity(0.5), in: Capsule())
-            .disabled(!self.viewModel.canComment)
+            .disabled(!self.hasPersonalAccount || !self.viewModel.canComment)
             .onSubmit {
                 self.submitComment()
             }
@@ -439,13 +442,18 @@ struct YouTubeWatchView: View {
             }
             .buttonStyle(.plain)
             .disabled(
-                !self.viewModel.canComment
+                !self.hasPersonalAccount
+                    || !self.viewModel.canComment
                     || self.viewModel.isPostingComment
                     || self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
             .accessibilityLabel(String(localized: "Post comment"))
             .accessibilityIdentifier(AccessibilityID.YouTubeContent.commentPostButton)
         }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
     }
 
     /// Whether the composer holds postable text (drives the send accent).
@@ -470,6 +478,7 @@ struct YouTubeWatchView: View {
 private struct CommentThread: View {
     let comment: YouTubeComment
     let viewModel: YouTubeWatchViewModel
+    let allowsActions: Bool
 
     @State private var showsReplies = false
 
@@ -488,7 +497,8 @@ private struct CommentThread: View {
                     Task {
                         await self.viewModel.dislikeComment(self.comment)
                     }
-                }
+                },
+                allowsActions: self.allowsActions
             )
 
             if self.comment.repliesContinuation != nil {
@@ -534,7 +544,8 @@ private struct CommentThread: View {
                                     Task {
                                         await self.viewModel.dislikeComment(reply)
                                     }
-                                }
+                                },
+                                allowsActions: self.allowsActions
                             )
                         }
                     }
@@ -555,6 +566,7 @@ private struct CommentRow: View {
     let isDisliked: Bool
     let onLike: () -> Void
     let onDislike: () -> Void
+    let allowsActions: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -596,7 +608,7 @@ private struct CommentRow: View {
                         .foregroundStyle(self.isLiked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(self.comment.likeAction == nil)
+                    .disabled(!self.allowsActions || self.comment.likeAction == nil)
                     .accessibilityLabel(String(localized: "Like comment"))
 
                     Button(action: self.onDislike) {
@@ -605,7 +617,7 @@ private struct CommentRow: View {
                             .foregroundStyle(self.isDisliked ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(self.comment.dislikeAction == nil)
+                    .disabled(!self.allowsActions || self.comment.dislikeAction == nil)
                     .accessibilityLabel(String(localized: "Dislike comment"))
                 }
                 .padding(.top, 2)

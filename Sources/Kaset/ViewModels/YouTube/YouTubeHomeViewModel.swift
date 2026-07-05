@@ -30,7 +30,18 @@ final class YouTubeHomeViewModel {
 
     /// Cap on Continue Watching items and on topic rails shown at first paint.
     private static let continueWatchingCap = 20
+    private static let guestFallbackRailCap = 20
     private static let topicRailCap = 8
+
+    /// Public destination rails used when signed-out Home returns YouTube's empty
+    /// recommendation shell. These are browseable without a user account and keep
+    /// Home useful in guest mode instead of showing a dead "no recommendations" state.
+    private static let guestFallbackDestinations: [YouTubeDestination] = [
+        .news,
+        .sports,
+        .gaming,
+        .learning,
+    ]
 
     /// Backstop on how many fully-filtered continuation pages `loadMore()` will
     /// walk in one call before giving up, so a pathological feed (every page's
@@ -185,13 +196,16 @@ final class YouTubeHomeViewModel {
                 }
             }
 
+            let chips = Array(bundle.chips.prefix(Self.topicRailCap))
+
+            let mayNeedGuestFallback = gridVideos.isEmpty && shelves.isEmpty && chips.isEmpty
+
             // Stream the rails in as each resolves; the streamer is the single
             // writer of `sections` and prepends Continue Watching when its
             // (concurrent) history fetch lands. See streamTopicRails. Mark the
             // window so a concurrent post-watch refresh defers instead of racing
             // the streamer (which would otherwise overwrite a refreshed rail).
             // Only the current generation may own the guard.
-            let chips = Array(bundle.chips.prefix(Self.topicRailCap))
             guard generation == self.loadGeneration else { return }
             self.isStreamingInitialRails = true
             await self.streamTopicRails(
@@ -218,6 +232,15 @@ final class YouTubeHomeViewModel {
             // `hasMoreVideos`), don't clobber its `.loadingMore`.
             try Task.checkCancellation()
             guard generation == self.loadGeneration else { return }
+            if mayNeedGuestFallback, self.sections.isEmpty {
+                // Signed-out YouTube Home can legally return an empty recommendation
+                // shell. Only fall back after the Continue Watching attempt: an
+                // authenticated user can have an empty Home response while history
+                // is still the sole useful rail.
+                await self.loadGuestFallbackRails(generation: generation)
+                return
+            }
+
             if !gridReady, self.loadingState == .loading {
                 self.loadingState = .loaded
             }
@@ -243,6 +266,51 @@ final class YouTubeHomeViewModel {
             }
             self.logger.error("Failed to load YouTube home feed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
+        }
+    }
+
+    private func loadGuestFallbackRails(generation: Int) async {
+        self.logger.info("YouTube home returned empty recommendations; loading public guest fallback rails")
+
+        let guestFallbackRailCap = Self.guestFallbackRailCap
+        var slots = [YouTubeHomeSection?](repeating: nil, count: Self.guestFallbackDestinations.count)
+        await withTaskGroup(of: (Int, YouTubeHomeSection?).self) { group in
+            for (index, destination) in Self.guestFallbackDestinations.enumerated() {
+                group.addTask { [client] in
+                    do {
+                        let feed = try await client.getDestinationFeed(destination)
+                        let videos = Array(feed.videos.prefix(guestFallbackRailCap))
+                        guard !videos.isEmpty else { return (index, nil) }
+                        return (
+                            index,
+                            YouTubeHomeSection(
+                                id: "guest-\(destination.rawValue)",
+                                title: destination.displayName,
+                                videos: videos,
+                                kind: .shelf
+                            )
+                        )
+                    } catch {
+                        return (index, nil)
+                    }
+                }
+            }
+
+            for await (index, section) in group {
+                guard generation == self.loadGeneration else { return }
+                slots[index] = section
+                let resolved = slots.compactMap(\.self)
+                if !resolved.isEmpty {
+                    self.sections = resolved
+                    self.loadingState = .loaded
+                }
+            }
+        }
+
+        guard generation == self.loadGeneration else { return }
+        self.hasMoreVideos = false
+        if self.loadingState == .loading {
+            self.loadingState = .loaded
         }
     }
 

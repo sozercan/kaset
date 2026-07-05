@@ -550,6 +550,72 @@ extension PlayerService {
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
     }
 
+    /// Clears active playback UI/WebView state when startup resolves to guest mode.
+    ///
+    /// Unlike explicit sign-out, this preserves only persisted sessions that are
+    /// known to have been created in guest mode. Legacy/unknown sessions are
+    /// cleared because they may contain account-owned listening metadata.
+    func clearPlaybackForGuestStartup() {
+        self.logger.info("Clearing active playback state for guest startup")
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else {
+            self.clearSavedQueue()
+            self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+            return
+        }
+        self.logger.info("Preserving restored guest-owned playback session")
+    }
+
+    /// Clears guest-owned restored playback when startup resolves to a signed-in
+    /// account. Guest Mode itself is not persisted, so a guest-owned restore must
+    /// not silently move onto the authenticated playback store.
+    func clearGuestPlaybackForAuthenticatedStartup() {
+        guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
+        self.logger.info("Clearing guest-owned playback state for authenticated startup")
+        self.clearSavedQueue()
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
+    func clearPlaybackForSignOut() {
+        self.logger.info("Clearing playback state for sign-out")
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
+        self.invalidatePendingPlaybackRequests()
+        self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.tearDown()
+        self.state = .idle
+        self.songNearingEnd = false
+        self.isKasetInitiatedPlayback = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.currentEpisode = nil
+        self.currentTrack = nil
+        self.pendingPlayVideoId = nil
+        self.progress = 0
+        self.currentTimeMs = 0
+        self.duration = 0
+        self.showMiniPlayer = false
+        self.isMiniPlayerVisible = false
+        self.showLyrics = false
+        self.showQueue = false
+        self.showVideo = false
+        self.currentTrackHasVideo = false
+        self.mixContinuationToken = nil
+        self.mixContinuationRequiresAuth = false
+        self.queueOrderBeforeShuffle = nil
+        self.clearQueueUndoRedoHistory()
+        self.currentIndex = 0
+        if !persistEmptyQueue {
+            self.suppressNextEmptyQueuePersistence = true
+        }
+        self.setQueue([])
+        self.resetTrackStatus()
+        if persistEmptyQueue {
+            self.saveQueueForPersistence()
+        }
+    }
+
     /// Stops playback and clears state.
     func stop() async {
         self.logger.debug("Stopping playback")

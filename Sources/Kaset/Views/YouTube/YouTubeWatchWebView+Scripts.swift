@@ -383,25 +383,7 @@ extension YouTubeWatchWebView {
 
     /// Fetches the caption tracks the player offers.
     func availableCaptionTracks() async -> [YouTubeCaptionTrack] {
-        let script = """
-        (function() {
-            try {
-                const player = document.getElementById('movie_player');
-                if (!player || typeof player.getOption !== 'function') { return '[]'; }
-                if (typeof player.loadModule === 'function') {
-                    try { player.loadModule('captions'); } catch (e) {}
-                }
-                const tracks = player.getOption('captions', 'tracklist') || [];
-                return JSON.stringify(tracks.map(function(track) {
-                    return {
-                        code: track.languageCode || '',
-                        name: track.displayName || track.languageName || track.languageCode || ''
-                    };
-                }));
-            } catch (e) { return '[]'; }
-        })();
-        """
-        guard let json = await self.evaluateForString(script),
+        guard let json = await self.evaluateForString(Self.availableCaptionTracksScript),
               let data = json.data(using: .utf8),
               let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: String]]
         else {
@@ -417,28 +399,117 @@ extension YouTubeWatchWebView {
         }
     }
 
-    /// Activates a caption track by language code, or turns captions off (nil).
+    /// Activates a caption track by preferred caption identifier (`vssId` when available, else language code), or turns captions off (nil).
     func setCaptionTrack(languageCode: String?) {
-        let script = if let languageCode {
-            """
+        self.webView?.evaluateJavaScript(Self.setCaptionTrackScript(languageCode: languageCode), completionHandler: nil)
+    }
+
+    static var availableCaptionTracksScript: String {
+        """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player) { return '[]'; }
+                if (typeof player.loadModule === 'function') {
+                    try { player.loadModule('captions'); } catch (e) {}
+                }
+
+                function textFrom(value) {
+                    if (!value) { return ''; }
+                    if (typeof value === 'string') { return value; }
+                    if (value.simpleText) { return value.simpleText; }
+                    if (Array.isArray(value.runs)) {
+                        return value.runs.map(function(run) { return run.text || ''; }).join('');
+                    }
+                    return '';
+                }
+
+                function playerResponse() {
+                    if (typeof player.getPlayerResponse === 'function') {
+                        try {
+                            const response = player.getPlayerResponse();
+                            if (response) { return response; }
+                        } catch (e) {}
+                    }
+                    return window.ytInitialPlayerResponse || null;
+                }
+
+                function responseCaptionTracks() {
+                    const response = playerResponse();
+                    const renderer = response && response.captions && response.captions.playerCaptionsTracklistRenderer;
+                    return (renderer && renderer.captionTracks) || [];
+                }
+
+                let tracks = [];
+                if (typeof player.getOption === 'function') {
+                    try { tracks = player.getOption('captions', 'tracklist') || []; } catch (e) { tracks = []; }
+                }
+                if (!tracks.length) { tracks = responseCaptionTracks(); }
+
+                const seen = new Set();
+                return JSON.stringify(tracks.map(function(track) {
+                    const code = track.vssId || track.languageCode || '';
+                    const name = textFrom(track.displayName) || textFrom(track.name) || track.languageName || code;
+                    return { code: code, name: name };
+                }).filter(function(track) {
+                    if (!track.code || !track.name || seen.has(track.code)) { return false; }
+                    seen.add(track.code);
+                    return true;
+                }));
+            } catch (e) { return '[]'; }
+        })();
+        """
+    }
+
+    static func setCaptionTrackScript(languageCode: String?) -> String {
+        if let languageCode {
+            let codeLiteral = Self.jsStringLiteral(languageCode)
+            return """
             (function() {
                 const player = document.getElementById('movie_player');
                 if (!player) { return; }
+                const requested = \(codeLiteral);
+
+                function playerResponse() {
+                    if (typeof player.getPlayerResponse === 'function') {
+                        try {
+                            const response = player.getPlayerResponse();
+                            if (response) { return response; }
+                        } catch (e) {}
+                    }
+                    return window.ytInitialPlayerResponse || null;
+                }
+
+                function responseCaptionTracks() {
+                    const response = playerResponse();
+                    const renderer = response && response.captions && response.captions.playerCaptionsTracklistRenderer;
+                    return (renderer && renderer.captionTracks) || [];
+                }
+
+                let tracks = [];
+                if (typeof player.getOption === 'function') {
+                    try { tracks = player.getOption('captions', 'tracklist') || []; } catch (e) { tracks = []; }
+                }
+                if (!tracks.length) { tracks = responseCaptionTracks(); }
+                const selected = tracks.find(function(track) {
+                    return track && (track.vssId === requested || track.languageCode === requested);
+                }) || (requested.indexOf('.') !== -1 ? { vssId: requested } : { languageCode: requested });
+
                 try { player.loadModule('captions'); } catch (e) {}
-                try { player.setOption('captions', 'track', {languageCode: '\(languageCode)'}); } catch (e) {}
-            })();
-            """
-        } else {
-            """
-            (function() {
-                const player = document.getElementById('movie_player');
-                if (!player) { return; }
-                try { player.setOption('captions', 'track', {}); } catch (e) {}
-                try { player.unloadModule('captions'); } catch (e) {}
+                try { player.setOption('captions', 'track', selected); } catch (e) {
+                    try { player.setOption('captions', 'track', { languageCode: requested }); } catch (e2) {}
+                }
             })();
             """
         }
-        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+        return """
+        (function() {
+            const player = document.getElementById('movie_player');
+            if (!player) { return; }
+            try { player.setOption('captions', 'track', {}); } catch (e) {}
+            try { player.unloadModule('captions'); } catch (e) {}
+        })();
+        """
     }
 
     /// The storyboard spec string for the current video, read from the player
@@ -492,7 +563,7 @@ extension YouTubeWatchWebView {
                 const player = document.getElementById('movie_player');
                 if (!player || typeof player.getOption !== 'function') { return ''; }
                 const track = player.getOption('captions', 'track');
-                return (track && track.languageCode) || '';
+                return (track && (track.vssId || track.languageCode)) || '';
             } catch (e) { return ''; }
         })();
         """

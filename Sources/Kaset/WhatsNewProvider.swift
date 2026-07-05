@@ -12,7 +12,7 @@ enum WhatsNewProvider {
     static let fallbackCollection: [WhatsNew] = [
         WhatsNew(
             version: "1.0.0",
-            title: "Welcome to Kaset",
+            title: "What's New in Kaset",
             features: [
                 .init(
                     icon: "play.circle.fill",
@@ -30,9 +30,9 @@ enum WhatsNewProvider {
                     subtitle: "Control playback with your keyboard"
                 ),
                 .init(
-                    icon: "person.crop.circle.fill",
-                    title: "Your Library",
-                    subtitle: "Access your playlists and liked songs"
+                    icon: "person.crop.circle.badge.checkmark",
+                    title: "Guest Browsing",
+                    subtitle: "Browse public music and videos without signing in"
                 ),
             ],
             learnMoreURL: URL(string: "https://github.com/sozercan/kaset/releases")

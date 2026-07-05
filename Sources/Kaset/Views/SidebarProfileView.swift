@@ -19,8 +19,10 @@ struct SidebarProfileView: View {
 
     var body: some View {
         Group {
-            if self.authService.state.isLoggedIn {
+            if self.authService.hasPersonalAccount {
                 self.loggedInContent
+            } else if self.authService.state.isLoggedIn {
+                self.loggedInGuestContent
             } else {
                 self.loggedOutContent
             }
@@ -35,9 +37,7 @@ struct SidebarProfileView: View {
     private var loggedInContent: some View {
         if let account = accountService.currentAccount {
             Button {
-                if self.accountService.hasBrandAccounts {
-                    self.showingAccountSwitcher = true
-                }
+                self.showingAccountSwitcher = true
             } label: {
                 HStack(spacing: 10) {
                     // Avatar
@@ -60,8 +60,8 @@ struct SidebarProfileView: View {
 
                     Spacer()
 
-                    // Chevron indicator (only if multiple accounts)
-                    if self.accountService.hasBrandAccounts {
+                    // Chevron indicator for account/guest switching.
+                    if self.accountService.hasBrandAccounts || self.authService.state.isLoggedIn {
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.tertiary)
@@ -72,22 +72,37 @@ struct SidebarProfileView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.SidebarProfile.profileButton)
             .accessibilityLabel(self.profileAccessibilityLabel(for: account))
-            .accessibilityHint(
-                self.accountService.hasBrandAccounts
-                    ? String(localized: "Double-tap to switch accounts")
-                    : ""
-            )
+            .accessibilityHint(String(localized: "Double-tap to switch accounts or guest mode"))
             .popover(isPresented: self.$showingAccountSwitcher, arrowEdge: .top) {
                 AccountSwitcherPopover()
+                    .environment(self.authService)
                     .environment(self.accountService)
             }
-        } else if self.accountService.lastError != nil, !self.accountService.isLoading {
+        } else if self.accountService.isLoading {
+            // Loading state only while account data is actively being fetched.
+            // If auth is stale but there is no current account, show the guest
+            // sign-in affordance instead of a permanent skeleton.
+            self.loadingStateView
+        } else if self.accountService.lastError != nil {
             // Error state - show retry option
             self.errorStateView
         } else {
-            // Loading state when account not yet fetched
-            self.loadingStateView
+            self.missingAccountContent
         }
+    }
+
+    private var missingAccountContent: some View {
+        Button {
+            Task {
+                await self.accountService.fetchAccounts()
+            }
+        } label: {
+            self.guestModeLabel(subtitle: String(localized: "Loading account…"))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.SidebarProfile.loadingState)
+        .accessibilityLabel(String(localized: "Loading account"))
+        .accessibilityHint(String(localized: "Double-tap to retry loading accounts"))
     }
 
     // MARK: - Loading State
@@ -145,22 +160,54 @@ struct SidebarProfileView: View {
         .accessibilityHint(String(localized: "Double-tap to retry"))
     }
 
+    private var loggedInGuestContent: some View {
+        Button {
+            self.showingAccountSwitcher = true
+        } label: {
+            self.guestModeLabel(subtitle: String(localized: "Switch back to your account"))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.SidebarProfile.profileButton)
+        .accessibilityLabel(String(localized: "Guest mode. Switch back to your account."))
+        .popover(isPresented: self.$showingAccountSwitcher, arrowEdge: .top) {
+            AccountSwitcherPopover()
+                .environment(self.authService)
+                .environment(self.accountService)
+        }
+    }
+
     // MARK: - Logged Out Content
 
     private var loggedOutContent: some View {
+        Button {
+            self.authService.startLogin()
+        } label: {
+            self.guestModeLabel(subtitle: String(localized: "Sign in for your library"))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
+        .accessibilityLabel(String(localized: "Guest mode. Sign in for your library."))
+    }
+
+    private func guestModeLabel(subtitle: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "person.crop.circle")
                 .font(.system(size: 24))
                 .foregroundStyle(.tertiary)
 
-            Text(String(localized: "Not signed in"))
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "Guest Mode"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
         }
-        .accessibilityIdentifier(AccessibilityID.SidebarProfile.loggedOutState)
-        .accessibilityLabel(String(localized: "Not signed in"))
+        .contentShape(Rectangle())
     }
 
     // MARK: - Avatar View

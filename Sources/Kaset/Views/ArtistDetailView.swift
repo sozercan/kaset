@@ -8,6 +8,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     var playerBarNavigationAction: PlayerBarNavigationAction = .disabled
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
@@ -211,7 +212,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
 
                     // Subscribe button
-                    if detail.channelId != nil {
+                    if detail.channelId != nil, self.hasPersonalAccount {
                         self.subscribeButton(detail)
                     }
                 }
@@ -373,7 +374,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
 
                     // Favorite toggle
-                    LikeButton(song: song, isRowHovered: isHovered)
+                    LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.hasPersonalAccount)
 
                     // Duration
                     Text(song.durationDisplay)
@@ -398,24 +399,32 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 Label("Play", systemImage: "play.fill")
             }
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+                FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
-            Divider()
+                Divider()
 
-            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+                LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+            }
 
             Divider()
 
             StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            Button {
-                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-            } label: {
-                Label("Add to Library", systemImage: "plus.circle")
+                Button {
+                    SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+                } label: {
+                    Label("Add to Library", systemImage: "plus.circle")
+                }
+
+                Divider()
+
+                AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
             }
 
             Divider()
@@ -425,10 +434,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             Divider()
 
             AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            Divider()
-
-            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
 
             // Go to Album - show if album has valid browse ID
             if let album = song.album, album.hasNavigableId {
@@ -863,6 +868,10 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             || lowercasedTitle.hasPrefix("ep")
             ? .singles
             : .albums
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
     }
 
     // MARK: - Section Header with Optional See-all

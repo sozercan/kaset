@@ -166,13 +166,6 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - OnboardingView
-
-    enum Onboarding {
-        static let container = "onboardingView"
-        static let signInButton = "onboardingView.signInButton"
-    }
-
     // MARK: - Main Window
 
     enum MainWindow {

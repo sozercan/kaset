@@ -148,4 +148,5 @@ struct ExploreView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     ExploreView(viewModel: ExploreViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
 }

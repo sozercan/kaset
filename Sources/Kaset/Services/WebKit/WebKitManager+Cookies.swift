@@ -51,8 +51,12 @@ final class CookieArchiveWriteCoordinator: @unchecked Sendable {
 
 // MARK: - KeychainCookieStorage
 
-/// Securely stores auth cookies in the macOS Keychain.
-/// Provides encryption at rest and app-specific access control.
+/// Stores auth cookie backups in the configured backing store.
+///
+/// Release builds use the macOS Keychain for encryption at rest and app-specific
+/// access control. DEBUG builds default to a sandboxed file to avoid local
+/// ad-hoc signing hangs inside Security.framework; set
+/// `KASET_DEBUG_COOKIE_STORAGE=keychain` to exercise the Keychain path locally.
 enum KeychainCookieStorage {
     private static let logger = DiagnosticsLogger.webKit
     private static let writeCoordinator = CookieArchiveWriteCoordinator()
@@ -62,6 +66,14 @@ enum KeychainCookieStorage {
 
     /// Keychain account identifier.
     private static let account = "youtube-music-cookies"
+
+    #if DEBUG
+        private static let debugCookieStorageEnvironmentKey = "KASET_DEBUG_COOKIE_STORAGE"
+
+        private static var usesDebugFileStorage: Bool {
+            ProcessInfo.processInfo.environment[debugCookieStorageEnvironmentKey]?.lowercased() != "keychain"
+        }
+    #endif
 
     /// Cookie names required for YouTube Music authentication.
     static let authCookieNames = Set([
@@ -77,7 +89,7 @@ enum KeychainCookieStorage {
         return true
     }
 
-    /// Creates the serialized archive we persist to Keychain (and in DEBUG to `cookies.dat`).
+    /// Creates the serialized archive persisted by the active cookie backup store.
     /// Returns nil if there are no valid auth cookies to store.
     static func makeArchiveData(from cookies: [HTTPCookie]) -> (data: Data, cookieCount: Int)? {
         let now = Date()
@@ -109,23 +121,41 @@ enum KeychainCookieStorage {
                   requiringSecureCoding: true
               )
         else {
-            Self.logger.error("Failed to serialize cookies for Keychain")
+            Self.logger.error("Failed to serialize cookies for backup storage")
             return nil
         }
 
         return (data: data, cookieCount: cookieData.count)
     }
 
-    /// Saves YouTube auth cookies to the Keychain.
+    /// Saves YouTube auth cookies to the active cookie backup store.
     static func saveCookies(_ cookies: [HTTPCookie]) {
         guard let archive = makeArchiveData(from: cookies) else { return }
 
         _ = Self.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
     }
 
-    /// Saves an already-serialized cookie archive to the Keychain.
+    private static var debugCookieFileURL: URL? {
+        guard let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        return appSupport
+            .appendingPathComponent("Kaset", isDirectory: true)
+            .appendingPathComponent("cookies.dat")
+    }
+
+    /// Saves an already-serialized cookie archive to the active cookie backup store.
     @discardableResult
     static func saveArchiveData(_ data: Data, cookieCount: Int) -> Bool {
+        #if DEBUG
+            if self.usesDebugFileStorage {
+                return self.saveArchiveDataToDebugFile(data, cookieCount: cookieCount)
+            }
+        #endif
+
         guard self.writeCoordinator.beginSaveIfNeeded(data) else {
             self.logger.debug("Skipping Keychain cookie save because archive is already saved or a write is in progress")
             return false
@@ -165,8 +195,43 @@ enum KeychainCookieStorage {
         }
     }
 
-    /// Returns `true` if a Keychain item exists for our cookie storage.
+    #if DEBUG
+        private static func saveArchiveDataToDebugFile(_ data: Data, cookieCount: Int) -> Bool {
+            guard let fileURL = debugCookieFileURL else {
+                self.logger.error("Debug cookie file storage is unavailable")
+                self.writeCoordinator.seedPersistedArchive(nil)
+                return false
+            }
+
+            do {
+                try FileManager.default.createDirectory(
+                    at: fileURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try data.write(to: fileURL, options: .atomic)
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o600],
+                    ofItemAtPath: fileURL.path
+                )
+                self.writeCoordinator.finishSave(data, success: true)
+                Self.logger.info("Saved \(cookieCount) auth cookies to debug file storage")
+                return true
+            } catch {
+                Self.logger.error("Failed to save debug cookies file: \(error.localizedDescription)")
+                return false
+            }
+        }
+    #endif
+
+    /// Returns `true` if a cookie backup exists in the active backing store.
     static func hasCookieItem() -> Bool {
+        #if DEBUG
+            if self.usesDebugFileStorage {
+                guard let fileURL = self.debugCookieFileURL else { return false }
+                return FileManager.default.fileExists(atPath: fileURL.path)
+            }
+        #endif
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -179,8 +244,14 @@ enum KeychainCookieStorage {
         return status == errSecSuccess
     }
 
-    /// Loads the raw serialized cookie archive data from Keychain.
+    /// Loads the raw serialized cookie archive data from the active backing store.
     static func loadArchiveData() -> Data? {
+        #if DEBUG
+            if self.usesDebugFileStorage {
+                return self.loadArchiveDataFromDebugFile()
+            }
+        #endif
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -212,6 +283,32 @@ enum KeychainCookieStorage {
         return data
     }
 
+    #if DEBUG
+        private static func loadArchiveDataFromDebugFile() -> Data? {
+            guard let fileURL = self.debugCookieFileURL else {
+                self.logger.error("Debug cookie file storage is unavailable")
+                self.writeCoordinator.seedPersistedArchive(nil)
+                return nil
+            }
+
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                Self.logger.info("No debug cookies file found")
+                self.writeCoordinator.seedPersistedArchive(nil)
+                return nil
+            }
+
+            guard let data = try? Data(contentsOf: fileURL) else {
+                Self.logger.error("Failed to load debug cookies file")
+                self.writeCoordinator.seedPersistedArchive(nil)
+                return nil
+            }
+
+            self.writeCoordinator.seedPersistedArchive(data)
+            Self.logger.info("Loaded cookies from debug file storage")
+            return data
+        }
+    #endif
+
     /// Decodes cookies from a serialized archive created by `makeArchiveData(from:)`.
     static func decodeCookies(from archiveData: Data) -> [HTTPCookie] {
         guard let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
@@ -239,12 +336,12 @@ enum KeychainCookieStorage {
         }
 
         if !cookies.isEmpty {
-            Self.logger.info("Loaded \(cookies.count) auth cookies from Keychain")
+            Self.logger.info("Loaded \(cookies.count) auth cookies from cookie backup storage")
         }
         return cookies
     }
 
-    /// Retrieves YouTube auth cookies from the Keychain.
+    /// Retrieves YouTube auth cookies from the active cookie backup store.
     /// Returns the cookies if found, nil otherwise.
     static func loadCookies() -> [HTTPCookie]? {
         guard let archiveData = loadArchiveData() else { return nil }
@@ -252,8 +349,20 @@ enum KeychainCookieStorage {
         return cookies.isEmpty ? nil : cookies
     }
 
-    /// Deletes cookies from the Keychain.
+    /// Deletes cookies from the active cookie backup store.
     static func deleteCookies() {
+        #if DEBUG
+            if self.usesDebugFileStorage {
+                self.deleteDebugCookieFile()
+                return
+            }
+
+            // When explicitly testing the Keychain path in DEBUG, also clear
+            // the default debug file so switching backends cannot resurrect a
+            // session the developer just signed out from.
+            self.deleteDebugCookieFile()
+        #endif
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -269,6 +378,27 @@ enum KeychainCookieStorage {
             Self.logger.error("Failed to delete cookies from Keychain: \(status)")
         }
     }
+
+    #if DEBUG
+        private static func deleteDebugCookieFile() {
+            guard let fileURL = self.debugCookieFileURL else {
+                self.logger.error("Debug cookie file storage is unavailable")
+                self.writeCoordinator.seedPersistedArchive(nil)
+                return
+            }
+
+            do {
+                if FileManager.default.fileExists(atPath: fileURL.path) {
+                    try FileManager.default.removeItem(at: fileURL)
+                    Self.logger.info("Deleted cookies from debug file storage")
+                }
+            } catch {
+                Self.logger.warning("Failed to delete debug cookies file: \(error.localizedDescription)")
+            }
+
+            self.writeCoordinator.seedPersistedArchive(nil)
+        }
+    #endif
 }
 
 // MARK: - LegacyCookieMigration

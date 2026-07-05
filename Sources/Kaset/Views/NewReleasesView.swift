@@ -146,4 +146,5 @@ struct NewReleasesView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     NewReleasesView(viewModel: NewReleasesViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
 }

@@ -170,14 +170,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // toggle; disabled when nothing is playing. A disliked track also reads
         // "Like" — clicking replaces the dislike with a like, matching the player
         // bar (the dock has no dislike affordance).
-        let isLiked = self.playerService?.currentTrackLikeStatus == .like
+        let canMutateAccount = self.playerService?.canPerformAccountMutation == true
+        let isLiked = canMutateAccount && self.playerService?.currentTrackLikeStatus == .like
         let likeItem = NSMenuItem(
             title: isLiked ? String(localized: "Unlike") : String(localized: "Like"),
             action: #selector(self.dockMenuToggleLike),
             keyEquivalent: ""
         )
         likeItem.target = self
-        likeItem.isEnabled = self.playerService?.currentTrack != nil
+        likeItem.isEnabled = self.playerService?.currentTrack != nil && canMutateAccount
         menu.addItem(likeItem)
 
         return menu

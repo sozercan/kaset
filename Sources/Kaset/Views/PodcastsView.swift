@@ -245,6 +245,7 @@ private struct PodcastEpisodeCard: View {
 struct PodcastShowView: View {
     let show: PodcastShow
     let client: any YTMusicClientProtocol
+    @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
@@ -360,24 +361,26 @@ struct PodcastShowView: View {
                         .compatGlassProminentButton()
                     }
 
-                    // Add to Library button
-                    Button {
-                        Task {
-                            await self.toggleSubscription()
+                    if self.authService.hasPersonalAccount {
+                        // Add to Library button
+                        Button {
+                            Task {
+                                await self.toggleSubscription()
+                            }
+                        } label: {
+                            if self.isSubscribing {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label(
+                                    self.isSubscribed ? String(localized: "In Library") : String(localized: "Add to Library"),
+                                    systemImage: self.isSubscribed ? "checkmark" : "plus"
+                                )
+                            }
                         }
-                    } label: {
-                        if self.isSubscribing {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Label(
-                                self.isSubscribed ? String(localized: "In Library") : String(localized: "Add to Library"),
-                                systemImage: self.isSubscribed ? "checkmark" : "plus"
-                            )
-                        }
+                        .buttonStyle(.bordered)
+                        .disabled(self.isSubscribing)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(self.isSubscribing)
                 }
             }
         }

@@ -72,6 +72,11 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.id == Self.uploadedSongsBrowseID
     }
 
+    /// Whether continuations for this playlist require the user's account.
+    var requiresPersonalAccountForContinuations: Bool {
+        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
+    }
+
     /// Display string for track count.
     var trackCountDisplay: String {
         guard let count = trackCount else { return "" }
@@ -189,6 +194,11 @@ struct PlaylistDetail: Identifiable {
     /// Whether this detail represents the user's uploaded songs browse surface.
     var isUploadedSongs: Bool {
         self.id == Playlist.uploadedSongsBrowseID
+    }
+
+    /// Whether continuations for this detail require the user's account.
+    var requiresPersonalAccountForContinuations: Bool {
+        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
     }
 
     init(playlist: Playlist, tracks: [Song], duration: String? = nil) {

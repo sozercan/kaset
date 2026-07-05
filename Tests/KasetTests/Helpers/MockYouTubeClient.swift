@@ -44,6 +44,13 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeFeedContinuation != nil
     }
 
+    func resetSessionStateForAccountSwitch() {
+        self.homeFeed = YouTubeFeed(videos: self.homeFeed.videos, continuation: nil)
+        self.homeFeedContinuation = nil
+        self.homeContinuationPages = []
+        self.searchContinuation = nil
+    }
+
     /// Optional queue of continuation pages, consumed front-to-back by
     /// `getHomeFeedContinuation()`. Takes precedence over the single-page
     /// `homeFeedContinuation` when non-empty. Lets tests exercise multi-page
@@ -215,17 +222,21 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var watchLaterRemovals: [String] = []
     private(set) var lastDestination: YouTubeDestination?
     private(set) var lastFeedContinuation: String?
+    private(set) var destinationFeedCallCount = 0
+    private(set) var shortsCallCount = 0
 
     var shorts: [YouTubeVideo] = []
 
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
         if let error { throw error }
+        self.destinationFeedCallCount += 1
         self.lastDestination = destination
         return self.destinationFeed
     }
 
     func getShorts() async throws -> [YouTubeVideo] {
         if let error { throw error }
+        self.shortsCallCount += 1
         return self.shorts
     }
 
@@ -233,6 +244,10 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         if let error { throw error }
         self.lastFeedContinuation = continuation
         return self.feedContinuation
+    }
+
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        try await self.getFeedContinuation(continuation: continuation)
     }
 
     func getSubscriptionsFeed() async throws -> YouTubeFeed {

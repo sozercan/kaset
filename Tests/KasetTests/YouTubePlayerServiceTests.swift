@@ -20,7 +20,7 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     private(set) var prepareCount = 0
     private(set) var cancelPendingLoadCount = 0
 
-    func prepare(webKitManager _: WebKitManager, playerService _: YouTubePlayerService) {
+    func prepare(webKitManager _: WebKitManager, playerService _: YouTubePlayerService, usesCookieFreeDataStore _: Bool) {
         self.prepareCount += 1
     }
 

@@ -73,6 +73,62 @@ struct PlaylistPlaybackActionsTests {
         #expect(songs.first?.isExplicit == true)
     }
 
+    @Test("Playlist playback continuation auth uses loaded ownership")
+    func playlistPlaybackContinuationAuthUsesLoadedOwnership() async {
+        let routePlaylist = TestFixtures.makePlaylist(
+            id: "VL-owned-playlist",
+            title: "Owned Playlist",
+            canDelete: false
+        )
+        let loadedPlaylist = TestFixtures.makePlaylist(
+            id: routePlaylist.id,
+            title: routePlaylist.title,
+            canDelete: true
+        )
+        let initial = Song(id: "initial", title: "Initial", artists: [], videoId: "initial")
+        let continuation = Song(id: "continuation", title: "Continuation", artists: [], videoId: "continuation")
+        self.mockClient.playlistDetails[routePlaylist.id] = PlaylistDetail(
+            playlist: loadedPlaylist,
+            tracks: [initial],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[routePlaylist.id] = [[continuation]]
+        let playerService = PlayerService()
+
+        PlaylistPlaybackActions.playPlaylist(
+            routePlaylist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(2, in: playerService)
+
+        #expect(self.mockClient.getPlaylistContinuationRequiresAuthFlags == [true])
+    }
+
+    @Test("Pending playlist playback is discarded after guest privacy boundary")
+    func pendingPlaylistPlaybackDiscardedAfterGuestPrivacyBoundary() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-delayed-playlist", title: "Delayed Playlist")
+        self.mockClient.getPlaylistDelay = .milliseconds(150)
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [Song(id: "initial", title: "Initial", artists: [], videoId: "initial")],
+            duration: nil
+        )
+        let playerService = PlayerService()
+
+        PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        try? await Task.sleep(for: .milliseconds(30))
+        playerService.clearPlaybackForGuestStartup()
+        try? await Task.sleep(for: .milliseconds(250))
+
+        #expect(playerService.queue.isEmpty)
+        #expect(playerService.currentTrack == nil)
+    }
+
     @Test("Playlist playback starts before continuation loading completes")
     func playlistPlaybackStartsBeforeContinuationLoadingCompletes() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")

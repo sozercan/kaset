@@ -19,6 +19,9 @@ final class YouTubeWatchWebView {
     static let shared = YouTubeWatchWebView()
 
     private(set) var webView: WKWebView?
+    weak var webKitManager: WebKitManager?
+    private weak var currentContainer: NSView?
+    private var usesCookieFreeDataStore: Bool?
     var currentVideoId: String?
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
@@ -40,17 +43,26 @@ final class YouTubeWatchWebView {
     /// Get or create the watch WebView.
     func getWebView(
         webKitManager: WebKitManager,
-        playerService: YouTubePlayerService
+        playerService: YouTubePlayerService,
+        usesCookieFreeDataStore: Bool = false
     ) -> WKWebView {
-        if let existing = webView {
+        if let existing = webView, self.usesCookieFreeDataStore == usesCookieFreeDataStore {
             return existing
+        }
+        let previousContainer = self.currentContainer
+        if self.webView != nil {
+            self.logger.info("Recreating YouTube watch WebView for auth data-store boundary")
+            self.tearDown()
         }
 
         self.logger.info("Creating YouTube watch WebView")
+        self.usesCookieFreeDataStore = usesCookieFreeDataStore
 
         self.coordinator = Coordinator(playerService: playerService)
 
-        let configuration = webKitManager.createWebViewConfiguration()
+        let configuration = webKitManager.createWebViewConfiguration(
+            websiteDataStore: usesCookieFreeDataStore ? .nonPersistent() : nil
+        )
         configuration.userContentController.add(self.coordinator!, name: "youtubePlayer")
         self.installUserScripts(
             on: configuration.userContentController,
@@ -60,6 +72,8 @@ final class YouTubeWatchWebView {
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
         newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
+        self.webKitManager = webKitManager
+        webKitManager.registerExtensionHostWebView(newWebView, role: .youtubeWatch)
 
         // Kill the white flash between page navigations.
         newWebView.underPageBackgroundColor = .black
@@ -69,12 +83,18 @@ final class YouTubeWatchWebView {
         #endif
 
         self.webView = newWebView
+        if let previousContainer {
+            self.ensureInHierarchy(container: previousContainer)
+        }
         return newWebView
     }
 
     /// Ensures the WebView fills the given container (reparenting if needed).
     func ensureInHierarchy(container: NSView) {
-        guard let webView, webView.superview !== container else { return }
+        guard let webView else { return }
+        self.currentContainer = container
+        self.webKitManager?.extensionHostWebViewDidBecomeActive(webView)
+        guard webView.superview !== container else { return }
         webView.removeFromSuperview()
         container.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = true
@@ -157,6 +177,11 @@ final class YouTubeWatchWebView {
         webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
         webView.loadHTMLString("", baseURL: nil)
         webView.removeFromSuperview()
+        self.webKitManager?.extensionHostWebViewDidDeactivate(role: .youtubeWatch)
+        self.webView = nil
+        self.coordinator = nil
+        self.currentContainer = nil
+        self.usesCookieFreeDataStore = nil
     }
 
     // MARK: - User Scripts
@@ -251,7 +276,29 @@ final class YouTubeWatchWebView {
             }
         }
 
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+        ) {
+            guard navigationAction.targetFrame?.isMainFrame == true else {
+                decisionHandler(.allow)
+                return
+            }
+
+            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
+            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidStartNavigation(webView)
+        }
+
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
+            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
             DiagnosticsLogger.player.info(
                 "YouTube watch WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )
@@ -275,6 +322,14 @@ final class YouTubeWatchWebView {
                 """,
                 completionHandler: nil
             )
+        }
+
+        func webView(_ webView: WKWebView, didFail _: WKNavigation!, withError _: Error) {
+            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError _: Error) {
+            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
         }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

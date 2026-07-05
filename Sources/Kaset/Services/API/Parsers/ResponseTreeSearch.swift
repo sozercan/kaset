@@ -43,6 +43,32 @@ enum ResponseTreeSearch {
         return false
     }
 
+    static func containsAny(keys: Set<String>, text: String? = nil, in value: Any) -> Bool {
+        if let dictionary = value as? [String: Any] {
+            for key in keys where dictionary[key] != nil {
+                return true
+            }
+
+            for child in dictionary.values where self.containsAny(keys: keys, text: text, in: child) {
+                return true
+            }
+            return false
+        }
+
+        if let array = value as? [Any] {
+            for child in array where self.containsAny(keys: keys, text: text, in: child) {
+                return true
+            }
+            return false
+        }
+
+        if let text, let string = value as? String {
+            return string.localizedCaseInsensitiveContains(text)
+        }
+
+        return false
+    }
+
     static func containsText(_ text: String, in value: Any) -> Bool {
         if let string = value as? String {
             return string.localizedCaseInsensitiveContains(text)

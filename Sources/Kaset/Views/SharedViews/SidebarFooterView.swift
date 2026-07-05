@@ -10,11 +10,11 @@ struct SidebarFooterView: View {
             Divider()
                 .opacity(0.3)
 
+            SidebarProfileView()
+
             SourceToggleView()
                 .padding(.horizontal, 12)
-                .padding(.top, 8)
-
-            SidebarProfileView()
+                .padding(.bottom, 8)
         }
     }
 }

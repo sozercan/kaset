@@ -25,6 +25,7 @@ final class SongLikeStatusManager {
     static let shared = SongLikeStatusManager()
 
     private static let primaryAccountID = "primary"
+    static let guestAccountID = "guest"
 
     /// Cache of account ID to (video ID to like status).
     private var statusCacheByAccount: [String: [String: LikeStatus]] = [:]
@@ -220,6 +221,26 @@ final class SongLikeStatusManager {
         self.setStatus(status, for: videoId, accountID: self.activeAccountID)
     }
 
+    /// Updates the cache with the same known status for multiple songs.
+    ///
+    /// This is used by bulk API response normalization paths (for example Liked
+    /// Music loads) so a large response mutates the per-account cache once
+    /// instead of repeatedly copying it for each track.
+    /// - Parameters:
+    ///   - status: The like status to cache.
+    ///   - videoIds: The video IDs to update.
+    ///   - accountID: Optional account scope override.
+    func setStatus(_ status: LikeStatus, for videoIds: some Sequence<String>, accountID: String? = nil) {
+        let resolvedAccountID = accountID.map(Self.resolvedAccountID) ?? self.activeAccountID
+        var cache = self.statusCacheByAccount[resolvedAccountID] ?? [:]
+
+        for videoId in videoIds {
+            cache[videoId] = status
+        }
+
+        self.statusCacheByAccount[resolvedAccountID] = cache
+    }
+
     /// Clears all cached statuses.
     func clearCache() {
         self.statusCacheByAccount.removeAll()
@@ -235,9 +256,7 @@ final class SongLikeStatusManager {
     }
 
     private func setStatus(_ status: LikeStatus, for videoId: String, accountID: String) {
-        var cache = self.statusCacheByAccount[accountID] ?? [:]
-        cache[videoId] = status
-        self.statusCacheByAccount[accountID] = cache
+        self.statusCacheByAccount[accountID, default: [:]][videoId] = status
     }
 
     private func restoreStatus(_ status: LikeStatus?, for videoId: String, accountID: String) {
@@ -249,13 +268,11 @@ final class SongLikeStatusManager {
     }
 
     private func removeStatus(for videoId: String, accountID: String) {
-        guard var cache = self.statusCacheByAccount[accountID] else { return }
+        guard self.statusCacheByAccount[accountID] != nil else { return }
 
-        cache.removeValue(forKey: videoId)
-        if cache.isEmpty {
+        self.statusCacheByAccount[accountID]?.removeValue(forKey: videoId)
+        if self.statusCacheByAccount[accountID]?.isEmpty == true {
             self.statusCacheByAccount.removeValue(forKey: accountID)
-        } else {
-            self.statusCacheByAccount[accountID] = cache
         }
     }
 

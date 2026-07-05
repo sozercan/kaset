@@ -8,6 +8,8 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         false
     }
 
+    func resetSessionStateForAccountSwitch() {}
+
     func getHomeFeed() async throws -> YouTubeFeed {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
     }
@@ -154,6 +156,10 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
     }
 
     func getFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
+        .empty
+    }
+
+    func getPrivateFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
         .empty
     }
 

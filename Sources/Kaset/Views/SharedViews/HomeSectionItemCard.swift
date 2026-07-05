@@ -8,6 +8,7 @@ struct HomeSectionItemCard: View {
     let rank: Int?
     let playAction: (() -> Void)?
     let action: () -> Void
+    @Environment(AuthService.self) private var authService
 
     /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
@@ -135,7 +136,7 @@ struct HomeSectionItemCard: View {
         .overlay(alignment: .topTrailing) {
             // Favorite heart in the corner for songs
             if case let .song(song) = self.item {
-                LikeButton(song: song, isRowHovered: self.isHovering)
+                LikeButton(song: song, isRowHovered: self.isHovering, allowsActions: self.authService.hasPersonalAccount)
                     .padding(6)
             }
         }
@@ -352,4 +353,6 @@ private struct SongCoverPlayOverlay: View {
         }
     }
     .padding()
+    .environment(AuthService())
+    .environment(SongLikeStatusManager.shared)
 }

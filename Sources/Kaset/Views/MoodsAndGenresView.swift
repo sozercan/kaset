@@ -155,4 +155,5 @@ struct MoodsAndGenresView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     MoodsAndGenresView(viewModel: MoodsAndGenresViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
 }

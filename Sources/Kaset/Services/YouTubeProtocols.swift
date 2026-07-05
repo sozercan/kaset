@@ -9,6 +9,9 @@ import Foundation
 /// (songs, albums, artists). Enables dependency injection and mocking.
 @MainActor
 protocol YouTubeClientProtocol: Sendable {
+    /// Clears client-held pagination/session state when auth/account mode changes.
+    func resetSessionStateForAccountSwitch()
+
     // MARK: Home feed
 
     /// Fetches the recommended home feed (`FEwhat_to_watch`).
@@ -77,8 +80,11 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches Shorts for the dedicated Shorts surface.
     func getShorts() async throws -> [YouTubeVideo]
 
-    /// Fetches the next page of any browse feed by continuation token.
+    /// Fetches the next page of any public browse feed by continuation token.
     func getFeedContinuation(continuation: String) async throws -> YouTubeFeed
+
+    /// Fetches the next page of an account-scoped browse feed by continuation token.
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed
 
     // MARK: Subscriptions & Library
 

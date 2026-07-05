@@ -259,6 +259,14 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
     var historyFeed = YouTubeFeed.empty
     var userPlaylists: [YouTubePlaylist] = []
 
+    func resetSessionStateForAccountSwitch() {
+        self.homeFeed = YouTubeFeed(videos: self.homeFeed.videos, continuation: nil)
+        self.homeBundle = YouTubeHomeBundle(feed: YouTubeFeed(videos: self.homeBundle.feed.videos, continuation: nil), chips: self.homeBundle.chips, shelves: self.homeBundle.shelves)
+        self.homeFeedContinuation = nil
+        self.hasMoreHomeFeed = false
+        self.searchContinuation = nil
+    }
+
     private(set) var historyCallCount = 0
     private(set) var subscriptionsFeedCallCount = 0
     private(set) var subscribedChannelsCallCount = 0
@@ -366,6 +374,10 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
     func getFeedContinuation(continuation _: String) async throws -> YouTubeFeed {
         try await self.waitIfNeeded()
         return self.feedContinuation
+    }
+
+    func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed {
+        try await self.getFeedContinuation(continuation: continuation)
     }
 
     func getSubscriptionsFeed() async throws -> YouTubeFeed {

@@ -36,6 +36,7 @@ final class YouTubeViewModelStore {
 
     /// Resets account-scoped state after an account switch.
     func resetForAccountChange() {
+        self.navigationPath = NavigationPath()
         // Cancel outgoing in-flight work before discarding the models: their
         // unstructured single-flight tasks intentionally survive SwiftUI task
         // cancellation, so account changes must explicitly stop them before the
@@ -55,5 +56,15 @@ final class YouTubeViewModelStore {
         self.subscriptions = YouTubeSubscriptionsViewModel(client: self.client)
         self.history = YouTubeHistoryViewModel(client: self.client)
         self.playlists = YouTubePlaylistsViewModel(client: self.client)
+    }
+
+    /// Refreshes public guest-safe YouTube surfaces after sign-out.
+    ///
+    /// Signed-in-only surfaces (subscriptions, history, playlists) are reset
+    /// above and hidden in guest mode, so only public feeds should fetch here.
+    func refreshGuestContent() async {
+        await self.home.refresh()
+        await self.explore.refresh()
+        await self.shorts.refresh()
     }
 }

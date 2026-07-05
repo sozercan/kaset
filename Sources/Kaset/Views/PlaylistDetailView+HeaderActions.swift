@@ -110,7 +110,7 @@ extension PlaylistDetailView {
 
     @ViewBuilder
     private func sidebarButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
-        if let sidebarItem = SidebarPinnedItem.from(detail) {
+        if self.hasPersonalAccount, let sidebarItem = SidebarPinnedItem.from(detail) {
             let isPinnedToSidebar = self.sidebarPinnedItemsManager?.isPinned(sidebarItem) ?? false
             Button {
                 self.sidebarPinnedItemsManager?.toggle(sidebarItem)
@@ -133,7 +133,7 @@ extension PlaylistDetailView {
 
     @ViewBuilder
     private func libraryButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
-        if !detail.isUploadedSongs {
+        if !detail.isUploadedSongs, self.hasPersonalAccount {
             let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
             let libraryTitle = currentlyInLibrary
                 ? String(localized: "Added to Library")

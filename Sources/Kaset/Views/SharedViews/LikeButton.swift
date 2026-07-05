@@ -15,38 +15,47 @@ import SwiftUI
 struct LikeButton: View {
     let song: Song
     let isRowHovered: Bool
+    var allowsActions = true
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
-        let isLiked = self.likeStatusManager.isLiked(self.song)
-        Button {
-            HapticService.success()
-            if isLiked {
-                SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
-            } else {
-                SongActionsHelper.likeSong(self.song, likeStatusManager: self.likeStatusManager)
+        let isLiked = self.allowsActions && self.likeStatusManager.isLiked(self.song)
+        if self.allowsActions {
+            Button {
+                guard self.allowsActions else { return }
+                HapticService.success()
+                if isLiked {
+                    SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
+                } else {
+                    SongActionsHelper.likeSong(self.song, likeStatusManager: self.likeStatusManager)
+                }
+            } label: {
+                Image(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    .font(.system(size: 13))
+                    .foregroundStyle(isLiked ? .red : .secondary)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
-        } label: {
-            Image(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup")
-                .font(.system(size: 13))
-                .foregroundStyle(isLiked ? .red : .secondary)
+            .buttonStyle(.borderless)
+            .disabled(!self.allowsActions)
+            .opacity(isLiked || self.isRowHovered ? 1 : 0)
+            .animation(.easeInOut(duration: 0.12), value: isLiked)
+            .animation(.easeInOut(duration: 0.12), value: self.isRowHovered)
+            .accessibilityLabel(Text(
+                isLiked
+                    ? String(localized: "Unlike")
+                    : String(localized: "Like")
+            ))
+            .help(
+                isLiked
+                    ? String(localized: "Unlike")
+                    : String(localized: "Like")
+            )
+        } else {
+            Color.clear
                 .frame(width: 22, height: 22)
-                .contentShape(Rectangle())
+                .accessibilityHidden(true)
         }
-        .buttonStyle(.borderless)
-        .opacity(isLiked || self.isRowHovered ? 1 : 0)
-        .animation(.easeInOut(duration: 0.12), value: isLiked)
-        .animation(.easeInOut(duration: 0.12), value: self.isRowHovered)
-        .accessibilityLabel(Text(
-            isLiked
-                ? String(localized: "Unlike")
-                : String(localized: "Like")
-        ))
-        .help(
-            isLiked
-                ? String(localized: "Unlike")
-                : String(localized: "Like")
-        )
     }
 }
 

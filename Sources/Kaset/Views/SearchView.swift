@@ -8,6 +8,7 @@ struct SearchView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(AuthService.self) private var authService
     @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
@@ -401,7 +402,7 @@ struct SearchView: View {
 
                     // Favorite toggle for songs
                     if case let .song(song) = item {
-                        LikeButton(song: song, isRowHovered: isHovered)
+                        LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
                     }
 
                     // Play indicator for songs
@@ -446,24 +447,32 @@ struct SearchView: View {
             Label("Play", systemImage: "play.fill")
         }
 
-        Divider()
+        if self.authService.hasPersonalAccount {
+            Divider()
 
-        FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
+            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
-        Divider()
+            Divider()
 
-        LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+        }
 
         Divider()
 
         StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
-        Divider()
+        if self.authService.hasPersonalAccount {
+            Divider()
 
-        Button {
-            SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-        } label: {
-            Label("Add to Library", systemImage: "plus.circle")
+            Button {
+                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
+            }
+
+            Divider()
+
+            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
         }
 
         Divider()
@@ -473,10 +482,6 @@ struct SearchView: View {
         Divider()
 
         AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-        Divider()
-
-        AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
 
         Divider()
 
@@ -576,19 +581,21 @@ struct SearchView: View {
 
     @ViewBuilder
     private func playlistContextMenu(_ playlist: Playlist) -> some View {
-        Button {
-            Task {
-                await SongActionsHelper.addPlaylistToLibrary(
-                    playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
+        if self.authService.hasPersonalAccount {
+            Button {
+                Task {
+                    await SongActionsHelper.addPlaylistToLibrary(
+                        playlist,
+                        client: self.viewModel.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
+                }
+            } label: {
+                Label("Add to Library", systemImage: "plus.circle")
             }
-        } label: {
-            Label("Add to Library", systemImage: "plus.circle")
-        }
 
-        Divider()
+            Divider()
+        }
 
         FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
 

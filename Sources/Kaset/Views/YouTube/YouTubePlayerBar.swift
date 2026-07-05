@@ -18,6 +18,7 @@ struct YouTubePlayerBar: View {
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
 
+    @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @Environment(YouTubeViewModelStore.self) private var youtubeStore: YouTubeViewModelStore?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -161,50 +162,56 @@ struct YouTubePlayerBar: View {
                 .frame(width: 129, height: 29, alignment: .leading)
             }
 
-            HStack(spacing: 6) {
-                PlayerBarIconButton(
-                    action: {
-                        Task {
-                            await self.youtubePlayer.toggleLike()
+            if self.hasPersonalAccount {
+                HStack(spacing: 6) {
+                    PlayerBarIconButton(
+                        action: {
+                            Task {
+                                await self.youtubePlayer.toggleLike()
+                            }
+                        },
+                        isSelected: self.youtubePlayer.currentRating == .like,
+                        accessibilityID: AccessibilityID.YouTubeContent.watchLikeButton,
+                        accessibilityLabel: String(localized: "Like"),
+                        icon: {
+                            Image(systemName: self.youtubePlayer.currentRating == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.system(size: 16, weight: .regular))
+                                .frame(width: 10, height: 16)
+                                .foregroundStyle(self.youtubePlayer.currentRating == .like ? Self.brandAccent : .primary)
+                                .contentTransition(.symbolEffect(.replace))
                         }
-                    },
-                    isSelected: self.youtubePlayer.currentRating == .like,
-                    accessibilityID: AccessibilityID.YouTubeContent.watchLikeButton,
-                    accessibilityLabel: String(localized: "Like"),
-                    icon: {
-                        Image(systemName: self.youtubePlayer.currentRating == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
-                            .font(.system(size: 16, weight: .regular))
-                            .frame(width: 10, height: 16)
-                            .foregroundStyle(self.youtubePlayer.currentRating == .like ? Self.brandAccent : .primary)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                )
-                .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .like)
-                .disabled(self.youtubePlayer.currentVideo == nil)
+                    )
+                    .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .like)
+                    .disabled(self.youtubePlayer.currentVideo == nil)
 
-                PlayerBarIconButton(
-                    action: {
-                        Task {
-                            await self.youtubePlayer.toggleDislike()
+                    PlayerBarIconButton(
+                        action: {
+                            Task {
+                                await self.youtubePlayer.toggleDislike()
+                            }
+                        },
+                        isSelected: self.youtubePlayer.currentRating == .dislike,
+                        accessibilityID: AccessibilityID.YouTubeContent.watchDislikeButton,
+                        accessibilityLabel: String(localized: "Dislike"),
+                        icon: {
+                            Image(systemName: self.youtubePlayer.currentRating == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                .font(.system(size: 16, weight: .regular))
+                                .frame(width: 10, height: 16)
+                                .foregroundStyle(self.youtubePlayer.currentRating == .dislike ? Self.brandAccent : .primary)
+                                .contentTransition(.symbolEffect(.replace))
                         }
-                    },
-                    isSelected: self.youtubePlayer.currentRating == .dislike,
-                    accessibilityID: AccessibilityID.YouTubeContent.watchDislikeButton,
-                    accessibilityLabel: String(localized: "Dislike"),
-                    icon: {
-                        Image(systemName: self.youtubePlayer.currentRating == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                            .font(.system(size: 16, weight: .regular))
-                            .frame(width: 10, height: 16)
-                            .foregroundStyle(self.youtubePlayer.currentRating == .dislike ? Self.brandAccent : .primary)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                )
-                .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .dislike)
-                .disabled(self.youtubePlayer.currentVideo == nil)
+                    )
+                    .symbolEffect(.bounce, value: self.youtubePlayer.currentRating == .dislike)
+                    .disabled(self.youtubePlayer.currentVideo == nil)
+                }
             }
         }
         .padding(.leading, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
     }
 
     private var currentVideoGlowSources: [URL] {
@@ -352,25 +359,27 @@ struct YouTubePlayerBar: View {
             )
             .disabled(self.youtubePlayer.currentVideo == nil)
 
-            PlayerBarIconButton(
-                action: {
-                    Task {
-                        await self.youtubePlayer.toggleWatchLater()
+            if self.hasPersonalAccount {
+                PlayerBarIconButton(
+                    action: {
+                        Task {
+                            await self.youtubePlayer.toggleWatchLater()
+                        }
+                    },
+                    isSelected: self.youtubePlayer.isInWatchLater,
+                    accessibilityID: AccessibilityID.YouTubeContent.watchLaterButton,
+                    accessibilityLabel: String(localized: "Add to Watch Later"),
+                    icon: {
+                        Image(systemName: self.youtubePlayer.isInWatchLater ? "clock.fill" : "clock")
+                            .font(.system(size: 15, weight: .regular))
+                            .frame(width: 16, height: 16)
+                            .foregroundStyle(self.youtubePlayer.isInWatchLater ? Self.brandAccent : .primary)
+                            .contentTransition(.symbolEffect(.replace))
                     }
-                },
-                isSelected: self.youtubePlayer.isInWatchLater,
-                accessibilityID: AccessibilityID.YouTubeContent.watchLaterButton,
-                accessibilityLabel: String(localized: "Add to Watch Later"),
-                icon: {
-                    Image(systemName: self.youtubePlayer.isInWatchLater ? "clock.fill" : "clock")
-                        .font(.system(size: 15, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(self.youtubePlayer.isInWatchLater ? Self.brandAccent : .primary)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-            )
-            .symbolEffect(.bounce, value: self.youtubePlayer.isInWatchLater)
-            .disabled(self.youtubePlayer.currentVideo == nil)
+                )
+                .symbolEffect(.bounce, value: self.youtubePlayer.isInWatchLater)
+                .disabled(self.youtubePlayer.currentVideo == nil)
+            }
 
             PlayerBarIconButton(
                 action: {

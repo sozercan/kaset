@@ -58,7 +58,7 @@ enum SearchSuggestionsParser {
         }
 
         // Combine all text runs into the full suggestion
-        let queryText = runs.compactMap { $0["text"] as? String }.joined()
+        let queryText = ParsingHelpers.joinedRunText(runs)
 
         guard !queryText.isEmpty else {
             return nil

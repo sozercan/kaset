@@ -1,4 +1,4 @@
-# 24. Smart Shuffle (tri-state shuffle with interleaved recommendations)
+# 25. Smart Shuffle (tri-state shuffle with interleaved recommendations)
 
 Date: 2026-06-28
 

@@ -82,8 +82,8 @@ final class AccountSwitcherUITests: KasetUITestCase {
         XCTAssertTrue(header.waitForExistence(timeout: 5), "Account switcher should show Switch Account header")
     }
 
-    /// Verifies tapping profile does NOT open popover when only one account exists.
-    func testTappingProfileDoesNotOpenPopoverWhenSingleAccount() {
+    /// Verifies tapping profile opens the account switcher even with one account so Guest Mode is available.
+    func testTappingProfileOpensGuestModePopoverWhenSingleAccount() {
         self.launchWithMockAccounts(accountCount: 1)
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
@@ -94,12 +94,14 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         profileButton.click()
 
-        // Short wait to see if popover appears (it shouldn't)
         let popover = app.popovers.firstMatch
-        XCTAssertFalse(
-            popover.waitForExistence(timeout: 2),
-            "Account switcher popover should NOT appear with single account"
+        XCTAssertTrue(
+            popover.waitForExistence(timeout: 15),
+            "Account switcher popover should appear with single account so Guest Mode can be selected"
         )
+
+        let header = popover.staticTexts["Switch Account"]
+        XCTAssertTrue(header.waitForExistence(timeout: 5), "Popover should show the account switcher")
     }
 
     /// Verifies popover shows header with "Switch Account" title.

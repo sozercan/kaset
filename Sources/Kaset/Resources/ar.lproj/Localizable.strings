@@ -1,7 +1,6 @@
 "Artist" = "فنان";
 "Subscribe %@" = "اشترك %@";
 "%lld songs" = "%lld أغنية";
-"A native YouTube Music experience for macOS" = "تجربة YouTube Music أصلية لنظام macOS";
 "About" = "حول";
 "Access your playlists and liked songs" = "الوصول إلى قوائم التشغيل والأغاني المفضلة";
 "Account" = "الحساب";
@@ -228,7 +227,6 @@
 "Shuffle" = "خلط";
 "Shuffle Off" = "إيقاف الخلط";
 "Shuffle On" = "تشغيل الخلط";
-"Sign in to access your YouTube Music library" = "سجّل الدخول للوصول إلى مكتبة YouTube Music الخاصة بك";
 "Sign in to YouTube Music" = "تسجيل الدخول إلى YouTube Music";
 "Sign in with Google" = "تسجيل الدخول باستخدام Google";
 "Sign Out" = "تسجيل الخروج";

@@ -72,7 +72,8 @@ enum TestFixtures {
     static func makePlaylist(
         id: String = "VL-test-playlist",
         title: String = "Test Playlist",
-        author: Artist? = Artist.inline(name: "Test User", namespace: "playlist-author")
+        author: Artist? = Artist.inline(name: "Test User", namespace: "playlist-author"),
+        canDelete: Bool = false
     ) -> Playlist {
         Playlist(
             id: id,
@@ -80,7 +81,8 @@ enum TestFixtures {
             description: "A test playlist",
             thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
             trackCount: 25,
-            author: author
+            author: author,
+            canDelete: canDelete
         )
     }
 

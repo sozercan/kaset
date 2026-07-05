@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import SwiftUI
 
 // MARK: - MainWindow
@@ -35,6 +37,9 @@ struct MainWindow: View {
     /// Binding to the YouTube (video) experience's navigation selection.
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
 
+    /// Whether startup guest playback cleanup has completed.
+    @Binding var didCompleteStartupPlaybackCleanup: Bool
+
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
 
@@ -51,6 +56,8 @@ struct MainWindow: View {
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
+    @State private var contentResetID = UUID()
+    @State private var guestRefreshTask: Task<Void, Never>?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -74,11 +81,13 @@ struct MainWindow: View {
     init(
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        didCompleteStartupPlaybackCleanup: Binding<Bool>,
         client: any YTMusicClientProtocol,
         youtubeClient: any YouTubeClientProtocol
     ) {
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
+        self._didCompleteStartupPlaybackCleanup = didCompleteStartupPlaybackCleanup
         self.client = client
         self.youtubeClient = youtubeClient
         _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
@@ -110,9 +119,9 @@ struct MainWindow: View {
         ZStack(alignment: .bottomTrailing) {
             Group {
                 if self.authService.state.isInitializing {
-                    // Show loading while checking login status to avoid onboarding flash
+                    // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
-                } else if self.authService.state.isLoggedIn {
+                } else if self.authService.hasPersonalAccount {
                     // Skip the probe gate in UI test mode: existing test
                     // fixtures (e.g. `navigateToSidebarItem`) check
                     // sidebar element existence synchronously right after
@@ -127,8 +136,14 @@ struct MainWindow: View {
                         // correct state on first frame.
                         self.initializingView
                     }
+                } else if self.didCompleteStartupPlaybackCleanup {
+                    // Guest mode: public browsing/search/playback remains available
+                    // without login. Personal routes render sign-in prompts below.
+                    self.mainContent
                 } else {
-                    OnboardingView()
+                    // Hold restored account playback/queue metadata out of the
+                    // guest shell until startup cleanup has finished.
+                    self.initializingView
                 }
             }
             .onAppear {
@@ -224,6 +239,9 @@ struct MainWindow: View {
         }
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
+        }
+        .onChange(of: self.authService.isGuestModeEnabled) { _, isGuestModeEnabled in
+            self.handleGuestModeChange(isGuestModeEnabled: isGuestModeEnabled)
         }
         .onChange(of: self.authService.needsReauth) { _, needsReauth in
             if needsReauth {
@@ -338,13 +356,13 @@ struct MainWindow: View {
                 accountId: accountId
             )
         }
-        .task(id: self.authService.state.isLoggedIn) {
+        .task(id: self.authService.hasPersonalAccount) {
             // Run the podcasts availability probe whenever the user
             // becomes logged in (cold start with cached cookies, or
             // after an explicit sign-in). The result gates `mainContent`
             // via `didResolveFirstProbe`, so the sidebar paints with the
             // correct state on first frame — no flicker.
-            guard self.authService.state.isLoggedIn else { return }
+            guard self.authService.hasPersonalAccount else { return }
             // Brief delay so post-login cookies have a chance to settle
             // into the data store the API client reads from. On cold
             // start cookies are already there; this 200 ms is a small
@@ -401,6 +419,7 @@ struct MainWindow: View {
                     )
                 }
             }
+            .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
                 // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
@@ -443,6 +462,7 @@ struct MainWindow: View {
         // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
             && self.settings.appSource == .music
+            && self.hasPersonalAccount
     }
 
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
@@ -533,7 +553,9 @@ struct MainWindow: View {
             case .podcasts:
                 if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
             case .likedMusic:
-                if let vm = likedMusicViewModel {
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = likedMusicViewModel {
                     NavigationStack(path: self.$likedMusicNavigationPath) {
                         Group {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
@@ -558,12 +580,35 @@ struct MainWindow: View {
                     }
                 }
             case .library:
-                if let vm = libraryViewModel { LibraryView(viewModel: vm) }
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = libraryViewModel {
+                    LibraryView(viewModel: vm)
+                }
             case .history:
-                if let vm = historyViewModel { HistoryView(viewModel: vm) }
+                if self.requiresSignIn(item) {
+                    self.signInRequiredView(for: item)
+                } else if let vm = historyViewModel {
+                    HistoryView(viewModel: vm)
+                }
             }
         }
         .environment(self.libraryViewModel)
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
+    }
+
+    private func requiresSignIn(_ item: NavigationItem) -> Bool {
+        item.requiresSignIn && !self.hasPersonalAccount
+    }
+
+    private func signInRequiredView(for item: NavigationItem) -> some View {
+        SignInRequiredView(
+            title: String(localized: "Sign in to use \(item.displayName)"),
+            message: String(localized: "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections.")
+        )
     }
 
     private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
@@ -621,14 +666,45 @@ struct MainWindow: View {
             // Still checking login status, do nothing
             break
         case .loggedOut:
-            // Onboarding view handles login, no need to auto-show sheet
-            self.accountService.clearAccounts()
-            // Reset podcasts availability so the next sign-in re-gates
-            // the UI and re-probes the endpoint.
-            self.podcastsAvailability.reset()
+            let isReauthTransition = self.authService.needsReauth
+            let crossedSignOutBoundary = oldState.isLoggedIn && !isReauthTransition
+            let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing || isReauthTransition
+            if crossedSignOutBoundary {
+                self.playerService.clearPlaybackForSignOut()
+                self.youtubePlayerService.stop()
+            }
+            if shouldRefreshGuestContent {
+                self.client.resetSessionStateForAccountSwitch()
+                self.youtubeClient.resetSessionStateForAccountSwitch()
+                self.rebuildMusicViewModels()
+                self.youtubeStore.resetForAccountChange()
+                // Reset podcasts availability so the next sign-in re-gates
+                // the UI and re-probes the endpoint.
+                self.podcastsAvailability.reset()
+            }
+            if !isReauthTransition {
+                self.normalizeGuestSelections()
+                self.accountService.clearAccounts()
+            }
+            if shouldRefreshGuestContent {
+                self.scheduleGuestContentRefresh()
+            }
         case .loggingIn:
             self.showLoginSheet = true
         case .loggedIn:
+            self.guestRefreshTask?.cancel()
+            self.guestRefreshTask = nil
+            let shouldRefreshAuthenticatedContent = oldState == .loggingIn || oldState == .loggedOut
+            if shouldRefreshAuthenticatedContent {
+                // Replace any mounted guest/expired models so in-flight responses
+                // cannot populate the authenticated shell after login or reauth.
+                self.client.resetSessionStateForAccountSwitch()
+                self.youtubeClient.resetSessionStateForAccountSwitch()
+                self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
+                self.youtubeStore.resetForAccountChange()
+                self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+                self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            }
             self.showLoginSheet = false
             // Auto-present "What's New" — fetch from GitHub release notes
             if self.whatsNewToPresent == nil {
@@ -639,23 +715,94 @@ struct MainWindow: View {
             Task {
                 await self.accountService.fetchAccounts()
             }
-            // If we just completed login (transitioning from loggingIn), refresh content
-            // This handles the case where cookies weren't ready during initial load
-            if case .loggingIn = oldState {
+            // If we just completed login/reauth, refresh content. This handles
+            // the case where cookies were unavailable during initial load and
+            // preserved views that may currently hold auth-expired state.
+            if shouldRefreshAuthenticatedContent {
                 Task {
                     // Brief delay to ensure cookies are fully propagated in WebKit
                     try? await Task.sleep(for: .milliseconds(500))
-
-                    // Parallel initial data fetch for ~40% faster app launch.
-                    // The podcasts probe is driven separately by the
-                    // `.task(id: state.isLoggedIn)` UI gate below.
-                    await withTaskGroup(of: Void.self) { group in
-                        group.addTask { await self.homeViewModel?.refresh() }
-                        group.addTask { await self.exploreViewModel?.refresh() }
-                        group.addTask { await self.libraryViewModel?.load() }
-                    }
+                    await self.refreshAuthenticatedContent()
                 }
             }
+        }
+    }
+
+    private func handleGuestModeChange(isGuestModeEnabled: Bool) {
+        guard self.authService.state.isLoggedIn else { return }
+        self.guestRefreshTask?.cancel()
+        self.guestRefreshTask = nil
+        self.youtubeStore.resetForAccountChange()
+        self.podcastsAvailability.reset()
+
+        if isGuestModeEnabled {
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.rebuildMusicViewModels()
+            self.playerService.clearPlaybackForGuestStartup()
+            self.youtubePlayerService.stop()
+            self.normalizeGuestSelections()
+            self.scheduleGuestContentRefresh()
+        } else {
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
+            self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            Task { @MainActor in
+                await self.accountService.fetchAccounts()
+                await self.refreshAuthenticatedContent()
+            }
+        }
+    }
+
+    private func rebuildMusicViewModels(accountId: String? = nil) {
+        self.homeViewModel = HomeViewModel(client: self.client)
+        self.exploreViewModel = ExploreViewModel(client: self.client)
+        self.searchViewModel = SearchViewModel(client: self.client)
+        self.chartsViewModel = ChartsViewModel(client: self.client)
+        self.moodsAndGenresViewModel = MoodsAndGenresViewModel(client: self.client)
+        self.newReleasesViewModel = NewReleasesViewModel(client: self.client)
+        let podcastsViewModel = PodcastsViewModel(client: self.client)
+        podcastsViewModel.configure(availabilityService: self.podcastsAvailability, accountId: accountId)
+        self.podcastsViewModel = podcastsViewModel
+        self.likedMusicViewModel = PlaylistDetailViewModel(
+            playlist: LikedMusicPlaylist.playlist,
+            client: self.client
+        )
+        self.libraryViewModel = LibraryViewModel(client: self.client)
+        self.historyViewModel = HistoryViewModel(client: self.client)
+        self.likedMusicNavigationPath = NavigationPath()
+        self.contentResetID = UUID()
+    }
+
+    private func scheduleGuestContentRefresh() {
+        self.guestRefreshTask?.cancel()
+        self.guestRefreshTask = Task { @MainActor in
+            await self.refreshGuestContent()
+            if !Task.isCancelled {
+                self.guestRefreshTask = nil
+            }
+        }
+    }
+
+    private func normalizeGuestSelections() {
+        if self.navigationSelection?.requiresSignIn == true {
+            self.navigationSelection = .home
+        }
+        if self.youtubeNavigationSelection?.requiresSignIn == true {
+            self.youtubeNavigationSelection = .home
+        }
+        self.selectedSidebarPinnedItem = nil
+    }
+
+    private func refreshAuthenticatedContent() async {
+        // Parallel initial data fetch for ~40% faster app launch. The podcasts
+        // probe is driven separately by the `.task(id: hasPersonalAccount)` UI gate.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.homeViewModel?.refresh() }
+            group.addTask { await self.exploreViewModel?.refresh() }
+            group.addTask { await self.libraryViewModel?.load() }
         }
     }
 
@@ -682,6 +829,24 @@ struct MainWindow: View {
             whatsNew: whatsNew,
             requestedVersion: currentVersion
         )
+    }
+
+    /// Refreshes only public guest-safe surfaces after sign-out so prior
+    /// account-personalized content is not left visible in the guest shell.
+    private func refreshGuestContent() async {
+        // These view models are main-actor-bound observable UI state. Keep the
+        // refresh calls on the main actor instead of spawning task-group child
+        // tasks that capture `self` and mutate UI state off actor.
+        await self.homeViewModel?.refresh()
+        await self.exploreViewModel?.refresh()
+        await self.chartsViewModel?.refresh()
+        await self.moodsAndGenresViewModel?.refresh()
+        await self.newReleasesViewModel?.refresh()
+        await self.youtubeStore.refreshGuestContent()
+        self.podcastsAvailability.activateAccount(nil)
+        if self.podcastsAvailability.availability != .unavailable {
+            await self.podcastsViewModel?.refresh()
+        }
     }
 
     /// Refreshes all content when switching accounts.
@@ -779,6 +944,15 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
             "clock.arrow.circlepath"
         }
     }
+
+    var requiresSignIn: Bool {
+        switch self {
+        case .home, .explore, .search, .charts, .moodsAndGenres, .newReleases, .podcasts:
+            false
+        case .likedMusic, .library, .history:
+            true
+        }
+    }
 }
 
 #Preview {
@@ -790,6 +964,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     MainWindow(
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
+        didCompleteStartupPlaybackCleanup: .constant(true),
         client: ytMusicClient,
         youtubeClient: YouTubeClient(authService: authService)
     )

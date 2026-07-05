@@ -556,7 +556,7 @@ with a computed `shuffleEnabled: Bool { mode != .off }` shim so existing readers
 (WebQueueSync, UI, scripting) are unchanged. Binary controls (`⌘S`, menu,
 mini-player, AppleScript, AI) only toggle on↔off; only the player-bar control
 cycles `off → on → smart → off`, and it skips `smart` when the feature is
-disabled in Settings. See [ADR-0024](adr/0024-smart-shuffle.md) for the rationale.
+disabled in Settings. See [ADR-0025](adr/0025-smart-shuffle.md) for the rationale.
 
 ### Rolling window
 

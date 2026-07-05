@@ -130,7 +130,7 @@ enum SearchResponseParser {
         if let subtitleData = data["subtitle"] as? [String: Any],
            let subtitleRuns = subtitleData["runs"] as? [[String: Any]]
         {
-            subtitle = subtitleRuns.compactMap { $0["text"] as? String }.joined()
+            subtitle = ParsingHelpers.joinedRunText(subtitleRuns)
         }
 
         let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
