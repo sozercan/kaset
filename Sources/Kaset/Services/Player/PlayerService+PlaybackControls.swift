@@ -496,6 +496,8 @@ extension PlayerService {
 
         switch newMode {
         case .off:
+            // If the current track is a Smart Shuffle suggestion, `stripSuggestedEntries()` keeps it
+            // above and restore appends non-snapshot entries so playback stays anchored to it.
             self.restoreQueueOrderBeforeShuffle(recordUndo: true)
         case .on:
             // From .off: shuffle and snapshot original order.

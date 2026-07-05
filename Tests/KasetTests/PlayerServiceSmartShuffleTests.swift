@@ -114,6 +114,28 @@ struct PlayerServiceSmartShuffleTests {
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
+    @Test("turning Smart Shuffle off while a suggestion is playing keeps the current entry")
+    func turningSmartOffKeepsCurrentSuggestedEntry() {
+        let originals = TestFixtures.makeSongs(count: 3).map { QueueEntry(id: UUID(), song: $0) }
+        let suggestion = QueueEntry(
+            id: UUID(),
+            song: TestFixtures.makeSong(id: "rec-current"),
+            source: .suggested
+        )
+        self.playerService.setQueue(entries: originals + [suggestion])
+        self.playerService.currentIndex = originals.count
+        self.playerService.currentTrack = suggestion.song
+        self.playerService.queueOrderBeforeShuffle = originals
+        self.playerService.shuffleMode = .smart
+
+        self.playerService.setShuffleMode(.off)
+
+        #expect(self.playerService.shuffleMode == .off)
+        #expect(self.playerService.currentTrack?.videoId == "rec-current")
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-2", "rec-current"])
+        #expect(self.playerService.currentIndex == 3)
+    }
+
     @Test("advancing near the end of a smart queue tops up with fresh suggestions")
     func smartTopUp() async {
         // Force lazy top-up: a small look-ahead window (min 5) with one slot per original means
