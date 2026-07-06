@@ -400,10 +400,10 @@ struct ScriptCommandsTests {
 
             #expect(tracks[1]["name"] as? String == "Song 2")
             #expect(tracks[1]["artist"] as? String == "Artist 2")
-            #expect(tracks[1]["album"] as? String == "")
+            #expect((tracks[1]["album"] as? String)?.isEmpty == true)
             #expect(tracks[1]["duration"] as? Double == 180)
             #expect(tracks[1]["videoId"] as? String == "vid-2")
-            #expect(tracks[1]["artworkURL"] as? String == "")
+            #expect((tracks[1]["artworkURL"] as? String)?.isEmpty == true)
         } else {
             Issue.record("Failed to parse JSON response")
         }
@@ -479,5 +479,3 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 }
-
-

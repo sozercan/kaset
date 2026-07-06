@@ -498,4 +498,3 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         return nil
     }
 }
-
