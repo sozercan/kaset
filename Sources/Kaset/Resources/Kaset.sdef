@@ -57,10 +57,6 @@
             <result type="text" description="JSON string with player state."/>
         </command>
 
-        <command name="get lyrics" code="Kastgtly" description="Get lyrics for the current track as JSON.">
-            <cocoa class="KasetGetLyricsCommand"/>
-            <result type="text" description="JSON string with lyrics, timed lines (if available), and currentLineIndex."/>
-        </command>
 
         <command name="like track" code="Kastlike" description="Like or unlike the current track.">
             <cocoa class="KasetLikeTrackCommand"/>
