@@ -351,9 +351,9 @@ struct ScriptCommandsTests {
     }
 
     @Test("GetPlayQueue returns valid JSON with tracks in queue")
-    func getPlayQueueReturnsTracksInQueue() {
+    func getPlayQueueReturnsTracksInQueue() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(
                 id: "song-1",
                 title: "Song 1",
@@ -372,8 +372,7 @@ struct ScriptCommandsTests {
                 thumbnailURL: nil,
                 videoId: "vid-2"
             ),
-        ]
-        playerService.currentIndex = 1
+        ], startingAt: 1)
         PlayerService.shared = playerService
 
         let command = GetPlayQueueCommand()
@@ -441,11 +440,11 @@ struct ScriptCommandsTests {
     }
 
     @Test("PlayTrackAtIndex sets error for out of bounds index")
-    func playTrackAtIndexSetsErrorForOutOfBounds() {
+    func playTrackAtIndexSetsErrorForOutOfBounds() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
-        ]
+        ], startingAt: 0)
         PlayerService.shared = playerService
 
         let invalidIndices = [0, -1, 2, 5]
@@ -462,12 +461,12 @@ struct ScriptCommandsTests {
     }
 
     @Test("PlayTrackAtIndex executes successfully when within bounds")
-    func playTrackAtIndexSucceedsWithinBounds() {
+    func playTrackAtIndexSucceedsWithinBounds() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
             Song(id: "s2", title: "Song 2", artists: [], videoId: "v2"),
-        ]
+        ], startingAt: 0)
         PlayerService.shared = playerService
 
         let command = PlayTrackAtIndexCommand()
