@@ -314,4 +314,170 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
     }
+
+    // MARK: - GetPlayQueueCommand Tests
+
+    @Test("GetPlayQueue returns error JSON when PlayerService is nil")
+    func getPlayQueueReturnsErrorWhenNil() {
+        PlayerService.shared = nil
+
+        let command = GetPlayQueueCommand()
+        let result = command.performDefaultImplementation() as? String
+
+        #expect(result?.contains("error") == true)
+        #expect(result?.contains("Player not available") == true)
+    }
+
+    @Test("GetPlayQueue returns valid JSON with empty queue")
+    func getPlayQueueReturnsValidJSONWithEmptyQueue() {
+        let playerService = PlayerService()
+        PlayerService.shared = playerService
+
+        let command = GetPlayQueueCommand()
+        let result = command.performDefaultImplementation() as? String
+
+        #expect(result != nil)
+
+        if let jsonData = result?.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        {
+            #expect(json["currentIndex"] as? Int == 0)
+            #expect((json["tracks"] as? [[String: Any]])?.isEmpty == true)
+        } else {
+            Issue.record("Failed to parse JSON response")
+        }
+
+        PlayerService.shared = nil
+    }
+
+    @Test("GetPlayQueue returns valid JSON with tracks in queue")
+    func getPlayQueueReturnsTracksInQueue() {
+        let playerService = PlayerService()
+        playerService.queue = [
+            Song(
+                id: "song-1",
+                title: "Song 1",
+                artists: [Artist(id: "art-1", name: "Artist 1")],
+                album: Album(id: "alb-1", title: "Album 1", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil),
+                duration: 120,
+                thumbnailURL: URL(string: "https://example.com/song1.jpg"),
+                videoId: "vid-1"
+            ),
+            Song(
+                id: "song-2",
+                title: "Song 2",
+                artists: [Artist(id: "art-2", name: "Artist 2")],
+                album: nil,
+                duration: 180,
+                thumbnailURL: nil,
+                videoId: "vid-2"
+            ),
+        ]
+        playerService.currentIndex = 1
+        PlayerService.shared = playerService
+
+        let command = GetPlayQueueCommand()
+        let result = command.performDefaultImplementation() as? String
+
+        #expect(result != nil)
+
+        if let jsonData = result?.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        {
+            #expect(json["currentIndex"] as? Int == 1)
+            guard let tracks = json["tracks"] as? [[String: Any]] else {
+                Issue.record("Missing tracks array")
+                return
+            }
+
+            #expect(tracks.count == 2)
+            #expect(tracks[0]["name"] as? String == "Song 1")
+            #expect(tracks[0]["artist"] as? String == "Artist 1")
+            #expect(tracks[0]["album"] as? String == "Album 1")
+            #expect(tracks[0]["duration"] as? Double == 120)
+            #expect(tracks[0]["videoId"] as? String == "vid-1")
+            #expect(tracks[0]["artworkURL"] as? String == "https://example.com/song1.jpg")
+
+            #expect(tracks[1]["name"] as? String == "Song 2")
+            #expect(tracks[1]["artist"] as? String == "Artist 2")
+            #expect(tracks[1]["album"] as? String == "")
+            #expect(tracks[1]["duration"] as? Double == 180)
+            #expect(tracks[1]["videoId"] as? String == "vid-2")
+            #expect(tracks[1]["artworkURL"] as? String == "")
+        } else {
+            Issue.record("Failed to parse JSON response")
+        }
+
+        PlayerService.shared = nil
+    }
+
+    // MARK: - PlayTrackAtIndexCommand Tests
+
+    @Test("PlayTrackAtIndex sets error when PlayerService is nil")
+    func playTrackAtIndexSetsErrorWhenNil() {
+        PlayerService.shared = nil
+
+        let command = PlayTrackAtIndexCommand()
+        command.directParameter = 1 as NSNumber
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == -1728)
+        #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
+    }
+
+    @Test("PlayTrackAtIndex sets error for invalid parameter type")
+    func playTrackAtIndexSetsErrorForInvalidParameter() {
+        let playerService = PlayerService()
+        PlayerService.shared = playerService
+
+        let command = PlayTrackAtIndexCommand()
+        command.directParameter = "first" as NSString
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == errAECoercionFail)
+        #expect(command.scriptErrorString?.contains("Track index must be an integer") == true)
+
+        PlayerService.shared = nil
+    }
+
+    @Test("PlayTrackAtIndex sets error for out of bounds index")
+    func playTrackAtIndexSetsErrorForOutOfBounds() {
+        let playerService = PlayerService()
+        playerService.queue = [
+            Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
+        ]
+        PlayerService.shared = playerService
+
+        let invalidIndices = [0, -1, 2, 5]
+        for index in invalidIndices {
+            let command = PlayTrackAtIndexCommand()
+            command.directParameter = index as NSNumber
+            _ = command.performDefaultImplementation()
+
+            #expect(command.scriptErrorNumber == -1728)
+            #expect(command.scriptErrorString?.contains("Index out of bounds") == true)
+        }
+
+        PlayerService.shared = nil
+    }
+
+    @Test("PlayTrackAtIndex executes successfully when within bounds")
+    func playTrackAtIndexSucceedsWithinBounds() {
+        let playerService = PlayerService()
+        playerService.queue = [
+            Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
+            Song(id: "s2", title: "Song 2", artists: [], videoId: "v2"),
+        ]
+        PlayerService.shared = playerService
+
+        let command = PlayTrackAtIndexCommand()
+        command.directParameter = 2 as NSNumber // Play 2nd track (1-based index)
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == 0)
+
+        PlayerService.shared = nil
+    }
 }
+
+

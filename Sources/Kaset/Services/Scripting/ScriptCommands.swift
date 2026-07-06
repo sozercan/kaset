@@ -285,6 +285,88 @@ final class GetPlayerInfoCommand: NSScriptCommand {
     }
 }
 
+// MARK: - GetLyricsCommand
+
+/// GetLyrics command: returns lyrics for the current track as JSON.
+///
+/// Response shape:
+/// ```json
+/// {
+///   "plainText": "...",
+///   "hasTimedLyrics": true,
+///   "currentLineIndex": 4,
+///   "lines": [
+///     { "text": "...", "startMs": 0, "endMs": 3200 },
+///     ...
+///   ]
+/// }
+/// ```
+/// Returns `{}` when no track is playing or lyrics have not yet been loaded.
+@objc(KasetGetLyricsCommand)
+final class GetLyricsCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        let result = MainActor.assumeIsolated { () -> String in
+            guard let playerService = getPlayerService() else {
+                logger.error("GetLyrics command failed: PlayerService.shared is nil")
+                return "{\"error\": \"Player not available\"}"
+            }
+
+            logger.info("Executing getLyrics command")
+
+            guard let lyrics = playerService.currentLyrics, lyrics.isAvailable else {
+                return "{}"
+            }
+
+            let progressMs = Int(playerService.progress * 1000)
+
+            var info: [String: Any] = [
+                "plainText": lyrics.text,
+                "hasTimedLyrics": lyrics.hasTimedLyrics,
+            ]
+
+            if let timedLines = lyrics.timedLines, !timedLines.isEmpty {
+                // Compute the active line index (last line whose startMs ≤ progressMs)
+                var activeIndex = 0
+                for (index, line) in timedLines.enumerated() {
+                    if line.startMs <= progressMs {
+                        activeIndex = index
+                    } else {
+                        break
+                    }
+                }
+
+                info["currentLineIndex"] = activeIndex
+                info["lines"] = timedLines.map { line -> [String: Any] in
+                    var entry: [String: Any] = [
+                        "text": line.text,
+                        "startMs": line.startMs,
+                    ]
+                    if let endMs = line.endMs {
+                        entry["endMs"] = endMs
+                    }
+                    return entry
+                }
+            }
+
+            if let data = try? JSONSerialization.data(withJSONObject: info, options: [.sortedKeys]),
+               let json = String(data: data, encoding: .utf8)
+            {
+                return json
+            }
+
+            logger.error("GetLyrics command failed: JSON serialization error")
+            return "{}"
+        }
+
+        if result.contains("\"error\"") {
+            scriptErrorNumber = errPlayerNotAvailable
+            scriptErrorString = playerNotAvailableMessage
+        }
+
+        return result
+    }
+}
+
 // MARK: - LikeTrackCommand
 
 /// LikeTrack command: like/unlike the current track.
@@ -326,3 +408,94 @@ final class DislikeTrackCommand: NSScriptCommand {
         return nil
     }
 }
+
+// MARK: - GetPlayQueueCommand
+
+/// GetPlayQueue command: returns the current playback queue and active index as JSON.
+/// This is a synchronous operation that returns immediately.
+@objc(KasetGetPlayQueueCommand)
+final class GetPlayQueueCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        let result = MainActor.assumeIsolated { () -> String in
+            guard let playerService = getPlayerService() else {
+                logger.error("GetPlayQueue command failed: PlayerService.shared is nil")
+                return "{\"error\": \"Player not available\"}"
+            }
+
+            logger.info("Executing getPlayQueue command")
+
+            let tracks = playerService.queue.map { track -> [String: Any] in
+                [
+                    "name": track.title,
+                    "artist": track.artistsDisplay,
+                    "album": track.album?.title ?? "",
+                    "duration": track.duration ?? 0,
+                    "videoId": track.videoId,
+                    "artworkURL": track.thumbnailURL?.absoluteString ?? "",
+                ]
+            }
+
+            let info: [String: Any] = [
+                "currentIndex": playerService.currentIndex,
+                "tracks": tracks,
+            ]
+
+            if let data = try? JSONSerialization.data(withJSONObject: info, options: [.sortedKeys]),
+               let json = String(data: data, encoding: .utf8)
+            {
+                return json
+            }
+
+            logger.error("GetPlayQueue command failed: JSON serialization error")
+            return "{}"
+        }
+
+        if result.contains("\"error\"") {
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+        }
+
+        return result
+    }
+}
+
+// MARK: - PlayTrackAtIndexCommand
+
+/// PlayTrackAtIndex command: plays a specific track from the queue by its 1-based index.
+@objc(KasetPlayTrackAtIndexCommand)
+final class PlayTrackAtIndexCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let indexValue = self.directParameter as? Int else {
+            logger.error("PlayTrackAtIndex command failed: invalid index parameter")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = "Track index must be an integer."
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("PlayTrackAtIndex command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+
+        let queueCount = MainActor.assumeIsolated { playerService.queue.count }
+
+        // Convert 1-based AppleScript index to 0-based Swift index
+        let zeroBasedIndex = indexValue - 1
+
+        guard zeroBasedIndex >= 0, zeroBasedIndex < queueCount else {
+            logger.error("PlayTrackAtIndex command failed: index \(indexValue) out of bounds (1..\(queueCount))")
+            self.scriptErrorNumber = -1728 // errAENoSuchObject
+            self.scriptErrorString = "Index out of bounds. The queue contains \(queueCount) tracks."
+            return nil
+        }
+
+        logger.info("Executing playTrackAtIndex command with index: \(indexValue)")
+        Task { @MainActor in
+            await playerService.playFromQueue(at: zeroBasedIndex)
+        }
+        return nil
+    }
+}
+

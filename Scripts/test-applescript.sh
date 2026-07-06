@@ -74,6 +74,14 @@ echo "13. Testing 'dislike track'..."
 osascript -e 'tell application "Kaset" to dislike track' && echo "   ✅ OK" || echo "   ❌ Failed"
 echo ""
 
+echo "14. Testing 'get play queue'..."
+osascript -e 'tell application "Kaset" to get play queue' || echo "   ❌ Failed"
+echo ""
+
+echo "15. Testing 'play track at index 2'..."
+osascript -e 'tell application "Kaset" to play track at index 2' && echo "   ✅ OK" || echo "   ❌ Failed"
+echo ""
+
 echo "========================================="
 echo "Final Player State:"
 echo "========================================="
