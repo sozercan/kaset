@@ -128,8 +128,8 @@ struct HomeSectionItemCard: View {
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
             // Play overlay on hover: decorative for songs (the whole card plays),
-            // interactive for playlists/albums so the thumbnail plays directly
-            // while the title below keeps navigating into the content.
+            // interactive for playlists/albums so the play button plays directly
+            // while the rest of the card keeps navigating into the content.
             if self.isHovering {
                 self.playOverlay
             }
