@@ -127,15 +127,33 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.currentQueueEntryID == entryIDs[0])
     }
 
-    @Test("Remove songs by video ID clamps current index after removing current song")
-    func removeFromQueueVideoIDsClampsCurrentIndexAfterRemovingCurrentSong() async {
+    @Test("Remove songs by video ID preserves the currently playing song")
+    func removeFromQueueVideoIDsPreservesCurrentSong() async {
         let songs = TestFixtures.makeSongs(count: 4)
         await self.playerService.playQueue(songs, startingAt: 2)
+        let currentEntryID = self.playerService.currentQueueEntryID
 
         self.playerService.removeFromQueue(videoIds: Set(["video-1", "video-2", "video-3"]))
 
-        #expect(self.playerService.queue.map(\.videoId) == ["video-0"])
-        #expect(self.playerService.currentIndex == 0)
+        // video-2 is playing, so it survives even though its ID is in the set; the others go.
+        #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-2"])
+        #expect(self.playerService.currentQueueEntryID == currentEntryID)
+        #expect(self.playerService.queue[safe: self.playerService.currentIndex]?.videoId == "video-2")
+    }
+
+    @Test("Remove songs by video ID keeps the current entry but drops its other duplicates")
+    func removeFromQueueVideoIDsKeepsCurrentEntryDropsOtherDuplicates() async throws {
+        let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")
+        let otherSong = TestFixtures.makeSong(id: "other", title: "Other Song")
+        await self.playerService.playQueue([duplicateSong, otherSong, duplicateSong, duplicateSong], startingAt: 2)
+        let currentEntryID = try #require(self.playerService.currentQueueEntryID)
+
+        self.playerService.removeFromQueue(videoIds: Set(["dup"]))
+
+        // Only the currently playing "dup" entry remains; the other "dup" entries are removed.
+        #expect(self.playerService.queue.map(\.videoId) == ["other", "dup"])
+        #expect(self.playerService.currentQueueEntryID == currentEntryID)
+        #expect(self.playerService.queue[safe: self.playerService.currentIndex]?.videoId == "dup")
     }
 
     @Test("Remove duplicate queue entries keeps first occurrence and realigns current track")
