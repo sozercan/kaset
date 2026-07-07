@@ -383,7 +383,7 @@ struct ScriptCommandsTests {
         if let jsonData = result?.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
         {
-            #expect(json["currentIndex"] as? Int == 1)
+            #expect(json["currentIndex"] as? Int == 2)
             guard let tracks = json["tracks"] as? [[String: Any]] else {
                 Issue.record("Missing tracks array")
                 return

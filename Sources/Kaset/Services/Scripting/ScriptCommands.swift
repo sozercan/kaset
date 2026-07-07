@@ -276,7 +276,7 @@ final class GetPlayerInfoCommand: NSScriptCommand {
         }
 
         // Set error if player wasn't available (check by looking at result)
-        if result.contains("\"error\"") {
+        if result.hasPrefix("{\"error\"") {
             scriptErrorNumber = errPlayerNotAvailable
             scriptErrorString = playerNotAvailableMessage
         }
@@ -354,7 +354,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
             }
 
             let info: [String: Any] = [
-                "currentIndex": playerService.currentIndex,
+                "currentIndex": tracks.isEmpty ? 0 : playerService.currentIndex + 1,
                 "tracks": tracks,
             ]
 
@@ -368,7 +368,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
             return "{}"
         }
 
-        if result.contains("\"error\"") {
+        if result.hasPrefix("{\"error\"") {
             self.scriptErrorNumber = errPlayerNotAvailable
             self.scriptErrorString = playerNotAvailableMessage
         }

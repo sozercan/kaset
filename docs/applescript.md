@@ -18,6 +18,8 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | `like track` | Like current track |
 | `dislike track` | Dislike current track |
 | `get player info` | Get player state as JSON |
+| `get play queue` | Get the current playing queue as JSON |
+| `play track at index N` | Play a specific track from the queue by its index (1-based index) |
 
 ## Examples
 
@@ -63,6 +65,52 @@ Returns JSON with the current player state:
 }
 ```
 
+### Get Play Queue
+
+```applescript
+tell application "Kaset"
+    get play queue
+end tell
+```
+
+Returns JSON with the current playing queue:
+
+```json
+{
+  "currentIndex": 2,
+  "tracks": [
+    {
+      "name": "Song 1",
+      "artist": "Artist 1",
+      "album": "Album 1",
+      "duration": 120,
+      "videoId": "vid-1",
+      "artworkURL": "https://..."
+    },
+    {
+      "name": "Song 2",
+      "artist": "Artist 2",
+      "album": "",
+      "duration": 180,
+      "videoId": "vid-2",
+      "artworkURL": ""
+    }
+  ]
+}
+```
+
+*Note: `currentIndex` is a 1-based index pointing to the active song in the `tracks` array. It will be `0` if the queue is empty.*
+
+### Play Specific Track from Queue
+
+```applescript
+tell application "Kaset"
+    play track at index 2
+end tell
+```
+
+*Note: The track index is 1-based, following AppleScript list indexing conventions. If the index is out of bounds, the command will raise an error.*
+
 ## Shell Usage
 
 ```bash
@@ -83,6 +131,12 @@ osascript -e 'tell application "Kaset" to get player info'
 
 # Parse with jq
 osascript -e 'tell application "Kaset" to get player info' | jq '.currentTrack.name'
+
+# Get play queue as JSON
+osascript -e 'tell application "Kaset" to get play queue'
+
+# Play track at index 2 (1-based index)
+osascript -e 'tell application "Kaset" to play track at index 2'
 ```
 
 ## Error Handling
