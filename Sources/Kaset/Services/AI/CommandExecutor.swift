@@ -61,7 +61,7 @@ struct CommandExecutor {
 
     private let logger = DiagnosticsLogger.ai
 
-    func execute(_ request: Request) async -> Outcome {
+    func execute(_ request: Request) async -> Outcome { // swiftlint:disable:this cyclomatic_complexity
         switch request {
         case .pause:
             HapticService.playback()
@@ -442,7 +442,13 @@ struct CommandExecutor {
         }
     }
 
-    private func resolveArtistMix(artistName: String) async -> (playlistId: String, startVideoId: String?, name: String)? {
+    private struct ArtistMix {
+        let playlistId: String
+        let startVideoId: String?
+        let name: String
+    }
+
+    private func resolveArtistMix(artistName: String) async -> ArtistMix? {
         do {
             let response = try await self.client.searchArtists(query: artistName)
             guard let artist = response.artists.first else {
@@ -456,7 +462,7 @@ struct CommandExecutor {
                 return nil
             }
 
-            return (playlistId, detail.mixVideoId, artist.name)
+            return ArtistMix(playlistId: playlistId, startVideoId: detail.mixVideoId, name: artist.name)
         } catch {
             self.logger.error("Artist mix resolution failed: \(error.localizedDescription)")
             return nil
