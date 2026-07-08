@@ -275,7 +275,7 @@ final class YouTubePlayerService {
             playerService: self,
             usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
         )
-        if let startAt, startAt > 0 {
+        if let startAt, startAt >= 0 {
             self.playbackController.reloadVideo(videoId: video.videoId, resumeAt: startAt)
         } else {
             self.playbackController.loadVideo(videoId: video.videoId)

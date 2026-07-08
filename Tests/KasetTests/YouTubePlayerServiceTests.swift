@@ -825,6 +825,16 @@ struct YouTubePlayerServiceTests {
         #expect(self.controller.seeks.isEmpty)
     }
 
+    @Test("Play can start at an explicit zero seek position")
+    func playWithZeroStartPositionDefersSeekUntilLoad() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "chaptered"), startAt: 0)
+
+        #expect(self.controller.loadedVideoIds.isEmpty)
+        #expect(self.controller.reloadedVideoIds == ["chaptered"])
+        #expect(self.controller.reloadResumeSeconds == [0])
+        #expect(self.controller.seeks.isEmpty)
+    }
+
     @Test("Skipping while floating keeps the surface in the window")
     func skipWhileFloatingStaysFloating() async {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))

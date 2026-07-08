@@ -233,7 +233,7 @@ final class YouTubeWatchWebView {
     nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
         let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
         var script = "window.__kasetTargetVolume = \(clamped);"
-        if let pendingSeek, pendingSeek.isFinite, pendingSeek > 0 {
+        if let pendingSeek, pendingSeek.isFinite, pendingSeek >= 0 {
             script += " window.__kasetPendingSeek = \(pendingSeek);"
         }
         return script

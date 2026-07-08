@@ -51,15 +51,17 @@ struct YouTubeWatchScriptTests {
             .contains("__kasetTargetVolume = 0.0"))
     }
 
-    @Test("Bootstrap carries a pending resume-seek only when present and positive")
+    @Test("Bootstrap carries a pending resume-seek when present")
     func bootstrapCarriesPendingSeek() {
         #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: 42.5)
             .contains("__kasetPendingSeek = 42.5"))
+        #expect(YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: 0)
+            .contains("__kasetPendingSeek = 0.0"))
         // No seek pending → no marker injected.
         #expect(!YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: nil)
             .contains("__kasetPendingSeek"))
-        // Zero/negative is not a resume position.
-        #expect(!YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: 0)
+        // Negative is not a valid seek position.
+        #expect(!YouTubeWatchWebView.pageBootstrapScript(targetVolume: 1, pendingSeek: -1)
             .contains("__kasetPendingSeek"))
     }
 
