@@ -42,10 +42,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     let webExtensionController = WKWebExtensionController()
 
     /// Required cookie name for authentication.
-    static let authCookieName = "__Secure-3PAPISID"
+    nonisolated static let authCookieName = "__Secure-3PAPISID"
 
     /// Fallback cookie name (non-secure version).
-    static let fallbackAuthCookieName = "SAPISID"
+    nonisolated static let fallbackAuthCookieName = "SAPISID"
 
     /// Custom user agent to appear as Safari to avoid "browser not supported" errors.
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
@@ -434,26 +434,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Uses proper domain matching: exact match or cookie domain with leading dot matches subdomains.
     func getCookies(for domain: String) async -> [HTTPCookie] {
         let allCookies = await getAllCookies()
-        let normalizedDomain = domain.lowercased()
-        return allCookies.filter { cookie in
-            let cookieDomain = cookie.domain.lowercased()
-            // Exact match
-            if cookieDomain == normalizedDomain {
-                return true
-            }
-            // Cookie domain with leading dot matches the domain and all subdomains
-            // e.g., ".youtube.com" matches "music.youtube.com" and "youtube.com"
-            if cookieDomain.hasPrefix(".") {
-                let withoutDot = String(cookieDomain.dropFirst())
-                return normalizedDomain == withoutDot || normalizedDomain.hasSuffix("." + withoutDot)
-            }
-            // Request domain is a subdomain of cookie domain
-            // e.g., cookie for "youtube.com" should match "music.youtube.com"
-            if normalizedDomain.hasSuffix("." + cookieDomain) {
-                return true
-            }
-            return false
-        }
+        return Self.cookies(allCookies, matching: domain)
     }
 
     /// Builds a Cookie header string for the given domain.

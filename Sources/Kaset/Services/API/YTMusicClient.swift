@@ -1032,13 +1032,25 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         let albumSections = detail.orderedSections.compactMap {
-            if case let .albums(albums) = $0.content { albums } else { nil }
+            if case let .albums(albums) = $0.content {
+                albums
+            } else {
+                nil
+            }
         }
         let playlistSections = detail.orderedSections.compactMap {
-            if case let .playlists(playlists) = $0.content { playlists } else { nil }
+            if case let .playlists(playlists) = $0.content {
+                playlists
+            } else {
+                nil
+            }
         }
         let artistSections = detail.orderedSections.compactMap {
-            if case let .artists(artists) = $0.content { artists } else { nil }
+            if case let .artists(artists) = $0.content {
+                artists
+            } else {
+                nil
+            }
         }
         let artistCount = artistSections.reduce(0) { $0 + $1.count }
         let playlistCount = playlistSections.reduce(0) { $0 + $1.count }
@@ -1735,17 +1747,17 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Builds authentication headers for API requests.
     private func buildAuthHeaders() async throws -> [String: String] {
-        // Log available cookies for debugging auth issues
-        let allCookies = await webKitManager.getAllCookies()
-        let youtubeCookies = await webKitManager.getCookies(for: "youtube.com")
-        self.logger.debug("Building auth headers - total cookies: \(allCookies.count), youtube.com cookies: \(youtubeCookies.count)")
+        // Snapshot cookies once per request; deriving the cookie header and SAPISID from
+        // the same snapshot avoids repeated WebKit cookie-store enumerations during API fanout.
+        let authMaterial = await webKitManager.authMaterial(for: "youtube.com")
+        self.logger.debug("Building auth headers - total cookies: \(authMaterial.totalCookieCount), youtube.com cookies: \(authMaterial.domainCookieCount)")
 
-        guard let cookieHeader = await webKitManager.cookieHeader(for: "youtube.com") else {
+        guard let cookieHeader = authMaterial.cookieHeader else {
             self.logger.error("No cookies found for youtube.com domain")
             throw YTMusicError.notAuthenticated
         }
 
-        guard let sapisid = await webKitManager.getSAPISID() else {
+        guard let sapisid = authMaterial.sapisid else {
             self.logger.error("SAPISID cookie not found or expired")
             throw YTMusicError.authExpired
         }
