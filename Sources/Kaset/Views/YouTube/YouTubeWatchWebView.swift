@@ -174,7 +174,7 @@ final class YouTubeWatchWebView {
         self.logger.info("Tearing down YouTube watch WebView")
         self.loadGeneration += 1
         self.currentVideoId = nil
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
+        webView.evaluateJavaScript("window.__kasetStopYTExtraction?.(); document.querySelector('video')?.pause()") { _, _ in }
         webView.loadHTMLString("", baseURL: nil)
         webView.removeFromSuperview()
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .youtubeWatch)

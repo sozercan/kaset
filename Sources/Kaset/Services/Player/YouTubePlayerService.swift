@@ -1,4 +1,5 @@
 // swiftlint:disable file_length
+import AppKit
 import Foundation
 import Observation
 
@@ -332,7 +333,9 @@ final class YouTubePlayerService {
     /// Toggles play/pause.
     func playPause() {
         if !self.isPlaying {
-            if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
+            if self.reloadPendingPausedIdentitySwitchForUserResume() {
+                return
+            }
             self.playbackWillStart?()
         } else {
             self.deferInFlightIdentityReloadIfNeeded()
@@ -343,7 +346,9 @@ final class YouTubePlayerService {
 
     /// Resumes playback.
     func resume() {
-        if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
+        if self.reloadPendingPausedIdentitySwitchForUserResume() {
+            return
+        }
         self.playbackWillStart?()
         self.playbackController.play()
     }
@@ -600,27 +605,54 @@ final class YouTubePlayerService {
     /// or quality loading. Retries briefly since the player response, like the
     /// captions module, isn't ready the instant playback starts.
     func refreshStoryboardSpec() async {
-        let videoId = self.currentVideo?.videoId
+        guard let videoId = self.currentVideo?.videoId,
+              self.beginStoryboardSpecRefreshIfNeeded(videoId: videoId)
+        else { return }
+
+        await self.fetchStoryboardSpec(for: videoId)
+    }
+
+    /// Starts the cosmetic storyboard refresh from a synchronous playback-state
+    /// update only when a task is actually needed. This avoids allocating a new
+    /// `Task` every 1 Hz progress tick once a fetch is in-flight or already
+    /// resolved for the current video.
+    @discardableResult
+    func startStoryboardSpecRefreshIfNeeded() -> Bool {
+        guard let videoId = self.currentVideo?.videoId,
+              self.beginStoryboardSpecRefreshIfNeeded(videoId: videoId)
+        else { return false }
+
+        Task {
+            await self.fetchStoryboardSpec(for: videoId)
+        }
+        return true
+    }
+
+    private func beginStoryboardSpecRefreshIfNeeded(videoId: String) -> Bool {
         // Already resolved this exact video (got a spec, or confirmed it has
         // none after a full retry) — nothing to do. The trigger only calls this
         // for real content, never during a preroll ad, so a resolved `nil` here
         // is a genuine "no storyboard" and is safe to cache as a negative result
         // instead of re-fetching on every 1 Hz playback update.
         if self.storyboardFetchVideoId == videoId {
-            return
+            return false
         }
         if self.storyboardFetchInFlightVideoId == videoId {
-            return
+            return false
         }
         self.storyboardFetchInFlightVideoId = videoId
+        // Drop any spec from a previous video before awaiting the refetch.
+        self.storyboardSpec = nil
+        self.storyboardFetchVideoId = nil
+        return true
+    }
+
+    private func fetchStoryboardSpec(for videoId: String) async {
         defer {
             if self.storyboardFetchInFlightVideoId == videoId {
                 self.storyboardFetchInFlightVideoId = nil
             }
         }
-        // Drop any spec from a previous video before awaiting the refetch.
-        self.storyboardSpec = nil
-        self.storyboardFetchVideoId = nil
 
         for attempt in 0 ..< 3 {
             let spec = await self.playbackController.storyboardSpec(expectedVideoId: videoId)
@@ -810,20 +842,24 @@ final class YouTubePlayerService {
             }
         }
 
-        // Storyboard color drives the ambient backdrop, so only fetch it when
-        // the feature is on and real content (not a preroll ad) is playing.
+        // Storyboard color drives the `.live` ambient backdrop, so only fetch it
+        // when that style is actually active and real content (not a preroll ad)
+        // is playing.
         // Not gated on the one-shot playback-options branch above, so it also
         // fires when the user enables ambient mid-playback or when content
-        // starts after an ad. `refreshStoryboardSpec` is self-guarding, so
-        // calling it on each qualifying update is cheap.
+        // starts after an ad. `startStoryboardSpecRefreshIfNeeded` is
+        // synchronously guarded, so the 1 Hz playback tick does not allocate a
+        // new Task once a fetch is in-flight or already resolved.
         if update.isPlaying,
            !update.isAd,
            self.currentVideo != nil,
-           SettingsManager.shared.ambientBackdropEnabled
+           AmbientVideoBackdrop.effectiveStyle(
+               requestedStyle: SettingsManager.shared.resolvedAmbientStyle,
+               reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+               lowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled
+           ) == .live
         {
-            Task {
-                await self.refreshStoryboardSpec()
-            }
+            self.startStoryboardSpecRefreshIfNeeded()
         }
 
         // Track SPA drift: if the page moved to a different video, follow it

@@ -45,16 +45,23 @@ struct AmbientVideoBackdrop: View {
     /// video's colors can never show through while a new load is in flight —
     /// regardless of how the async fetches interleave.
     @State private var loadedVideoId: String?
+    @State private var lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    /// Slow ambient drift does not need display-link cadence. Eight samples per
+    /// second keeps the large blurred blobs moving smoothly enough while cutting
+    /// steady-state invalidations substantially compared with `.animation`.
+    nonisolated static let animatedTimelineInterval: TimeInterval = 1.0 / 8.0
+
     // MARK: Body
 
     var body: some View {
+        let style = self.effectiveStyle
         Group {
-            if self.style == .off {
+            if style == .off {
                 Color.clear
             } else if self.reduceTransparency {
                 // Reduce Transparency: flatten to a near-solid low tint, no glow.
@@ -67,7 +74,10 @@ struct AmbientVideoBackdrop: View {
             }
         }
         .animation(.easeInOut(duration: 0.6), value: self.palette)
-        .animation(.easeInOut(duration: 0.5), value: self.style)
+        .animation(.easeInOut(duration: 0.5), value: style)
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.NSProcessInfoPowerStateDidChange)) { _ in
+            self.lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
         .task(id: self.loadKey) {
             await self.load()
         }
@@ -76,7 +86,32 @@ struct AmbientVideoBackdrop: View {
     /// Re-runs the loader when the video, style, or storyboard availability
     /// changes (the spec arrives a beat after playback starts).
     private var loadKey: String {
-        "\(self.videoId ?? "-")|\(self.style.rawValue)|\(self.storyboardSpec != nil)"
+        let style = self.effectiveStyle
+        let hasStoryboardSpec = style == .live && self.storyboardSpec != nil
+        return "\(self.videoId ?? "-")|\(style.rawValue)|\(hasStoryboardSpec)"
+    }
+
+    /// Style actually rendered after energy/accessibility downgrades. `.live`
+    /// is the only style that fetches storyboard sheets and continuously
+    /// cross-fades with playback; under Low Power Mode or Reduce Motion, prefer
+    /// the static thumbnail-derived `.soft` glow instead.
+    private var effectiveStyle: AmbientBackdropStyle {
+        Self.effectiveStyle(
+            requestedStyle: self.style,
+            reduceMotion: self.reduceMotion,
+            lowPowerModeEnabled: self.lowPowerModeEnabled
+        )
+    }
+
+    nonisolated static func effectiveStyle(
+        requestedStyle style: AmbientBackdropStyle,
+        reduceMotion: Bool,
+        lowPowerModeEnabled: Bool
+    ) -> AmbientBackdropStyle {
+        if style == .live, reduceMotion || lowPowerModeEnabled {
+            return .soft
+        }
+        return style
     }
 
     // MARK: Ambient composition
@@ -86,10 +121,11 @@ struct AmbientVideoBackdrop: View {
     /// drift) so it reads as a calm version of the same glow.
     private var ambientContent: some View {
         GeometryReader { geo in
-            if self.style == .soft || self.reduceMotion {
+            let style = self.effectiveStyle
+            if style == .soft || self.reduceMotion {
                 self.auroraLayer(size: geo.size, time: nil)
             } else {
-                TimelineView(.animation) { timeline in
+                TimelineView(.periodic(from: .now, by: Self.animatedTimelineInterval)) { timeline in
                     self.auroraLayer(
                         size: geo.size,
                         time: timeline.date.timeIntervalSinceReferenceDate
@@ -105,7 +141,7 @@ struct AmbientVideoBackdrop: View {
     private func auroraLayer(size: CGSize, time: TimeInterval?) -> some View {
         let frames = self.renderFrames
         // `.soft` is the calm style: same colors, dimmer than the drifting glow.
-        let intensity: Double = self.style == .soft ? 0.7 : 1.0
+        let intensity: Double = self.effectiveStyle == .soft ? 0.7 : 1.0
         // Under Reduce Motion, collapse `.live` to a single static frame: the
         // blobs already stop drifting (time: nil) and the colors must not
         // cross-fade as playback advances either.
@@ -149,7 +185,7 @@ struct AmbientVideoBackdrop: View {
 
     /// The swatch set(s) feeding the aurora for the current style.
     private var renderFrames: [[Color]] {
-        switch self.style {
+        switch self.effectiveStyle {
         case .live where self.colorsAreCurrent && !self.frameSwatches.isEmpty:
             self.frameSwatches
         default:
@@ -238,7 +274,8 @@ struct AmbientVideoBackdrop: View {
     // MARK: Loading
 
     private func load() async {
-        guard self.style != .off else { return }
+        let style = self.effectiveStyle
+        guard style != .off else { return }
 
         // Resolve thumbnail colors, then publish — assigning defaults on
         // failure too, so a new video whose thumbnail is missing/fails can't
@@ -252,7 +289,9 @@ struct AmbientVideoBackdrop: View {
         } else {
             nil
         }
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
         let isNewVideo = self.loadedVideoId != self.videoId
         self.palette = resolved?.palette ?? .default
         self.thumbnailSwatches = resolved?.swatches ?? []
@@ -267,7 +306,7 @@ struct AmbientVideoBackdrop: View {
         // than a prior video's colors.
         self.loadedVideoId = self.videoId
 
-        guard self.style == .live else {
+        guard style == .live else {
             self.frameSwatches = []
             return
         }
@@ -280,7 +319,9 @@ struct AmbientVideoBackdrop: View {
            let sets = await Self.loadStoryboardSwatches(sheet: sheet),
            !sets.isEmpty
         {
-            if Task.isCancelled { return }
+            if Task.isCancelled {
+                return
+            }
             self.frameSwatches = sets
             return
         }
@@ -293,7 +334,9 @@ struct AmbientVideoBackdrop: View {
                 sets.append(swatches)
             }
         }
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
         self.frameSwatches = sets
     }
 
