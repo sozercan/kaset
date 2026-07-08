@@ -23,7 +23,9 @@ actor ImageCache {
     /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
     /// small downsampled image.
     private var inFlight: [NSString: Task<NSImage?, Never>] = [:]
+    private var rawDataInFlight: [String: Task<Data?, Never>] = [:]
     private let fileManager = FileManager.default
+    private let session: URLSession
     private let diskCacheURL: URL
     private let maxDiskCacheSize: Int64
     private let diskEvictionWriteThreshold: Int
@@ -38,7 +40,8 @@ actor ImageCache {
         initialEstimatedDiskCacheSize: Int64? = nil,
         diskEvictionWriteThreshold: Int = ImageCache.defaultDiskEvictionWriteThreshold,
         startsEvictionTask: Bool = true,
-        monitorsMemoryPressure: Bool = true
+        monitorsMemoryPressure: Bool = true,
+        session: URLSession = .shared
     ) {
         self.memoryCache.countLimit = 200
         self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
@@ -53,6 +56,7 @@ actor ImageCache {
         self.maxDiskCacheSize = maxDiskCacheSize
         self.diskEvictionWriteThreshold = max(1, diskEvictionWriteThreshold)
         self.estimatedDiskCacheSize = initialEstimatedDiskCacheSize
+        self.session = session
         try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
 
         // Set up memory pressure monitoring.
@@ -125,18 +129,13 @@ actor ImageCache {
                 return diskImage
             }
 
-            // Cold miss: download once, decode, and cache the raw bytes.
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                guard Self.isSuccessfulResponse(response) else { return nil }
-                guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
-                let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
-                self.saveToDisk(url: url, data: data)
-                return image
-            } catch {
-                return nil
-            }
+            // Cold miss: download raw bytes once per URL, then decode independently per target size.
+            guard let data = await self.rawImageData(for: url),
+                  let image = Self.createImage(from: data, targetSize: targetSize)
+            else { return nil }
+            let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
+            self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
+            return image
         }
 
         self.inFlight[memoryKey] = task
@@ -155,6 +154,30 @@ actor ImageCache {
     private static func isSuccessfulResponse(_ response: URLResponse) -> Bool {
         guard let httpResponse = response as? HTTPURLResponse else { return true }
         return (200 ..< 300).contains(httpResponse.statusCode)
+    }
+
+    private func rawImageData(for url: URL) async -> Data? {
+        let key = self.cacheKey(for: url)
+        if let existing = self.rawDataInFlight[key] {
+            return await existing.value
+        }
+
+        let task = Task<Data?, Never> { [session] in
+            do {
+                let (data, response) = try await session.data(from: url)
+                guard Self.isSuccessfulResponse(response) else { return nil }
+                return data
+            } catch {
+                return nil
+            }
+        }
+        self.rawDataInFlight[key] = task
+        let data = await task.value
+        self.rawDataInFlight.removeValue(forKey: key)
+        if let data {
+            self.saveToDisk(url: url, data: data)
+        }
+        return data
     }
 
     private static func uniqued(_ urls: [URL]) -> [URL] {
@@ -241,6 +264,7 @@ actor ImageCache {
     func clearMemoryCache() {
         self.memoryCache.removeAllObjects()
         self.inFlight.removeAll()
+        self.rawDataInFlight.removeAll()
     }
 
     /// Clears both memory and disk caches.
