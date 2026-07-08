@@ -32,6 +32,9 @@ final class PlaylistDetailViewModel {
     /// The loaded playlist detail.
     private(set) var playlistDetail: PlaylistDetail?
 
+    /// Current live search query for Liked Music tracks.
+    var likedMusicSearchQuery = ""
+
     /// Whether more tracks are available to load.
     private(set) var hasMore: Bool = false
 
@@ -71,6 +74,43 @@ final class PlaylistDetailViewModel {
         for liveSyncTask in self.liveSyncTasks.values {
             liveSyncTask.task.cancel()
         }
+    }
+
+    var hasActiveLikedMusicSearch: Bool {
+        self.isLikedMusicPlaylist && !self.normalizedLikedMusicSearchQuery.isEmpty
+    }
+
+    var normalizedLikedMusicSearchQuery: String {
+        self.likedMusicSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func clearLikedMusicSearch() {
+        self.likedMusicSearchQuery = ""
+    }
+
+    func visibleTracks(for detail: PlaylistDetail) -> [Song] {
+        guard self.hasActiveLikedMusicSearch else {
+            return detail.tracks
+        }
+
+        let query = self.normalizedLikedMusicSearchQuery
+        return detail.tracks.filter { self.song($0, matches: query) }
+    }
+
+    private func song(_ song: Song, matches query: String) -> Bool {
+        let searchableText = [
+            song.title,
+            song.artistsDisplay,
+            song.album?.title,
+            song.videoId,
+        ]
+        .compactMap(\.self)
+        .joined(separator: " ")
+
+        return searchableText.range(
+            of: query,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) != nil
     }
 
     /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").

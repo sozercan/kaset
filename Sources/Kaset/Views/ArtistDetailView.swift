@@ -43,7 +43,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
         .accentBackground(from: self.viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
         .navigationTitle(self.artist.name)
-        .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
                 PlayerBar()
@@ -132,7 +131,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         // padding above, while horizontal shelves pass `contentInset` so their
         // tracks reach the under-sidebar band and slide under the floating glass
         // on macOS 26. The accent backdrop (ignores safe area) refracts through.
-        .topFade(style: .contentMask)
     }
 
     private func headerView(_ detail: ArtistDetail) -> some View {

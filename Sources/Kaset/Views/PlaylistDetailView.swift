@@ -28,6 +28,8 @@ struct PlaylistDetailView: View {
     @State private var isRefining: Bool = false
     /// Error message from refine operation.
     @State private var refineError: String?
+    /// Whether the liked music search field is focused.
+    @FocusState private var isLikedMusicSearchFocused: Bool
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
@@ -75,7 +77,6 @@ struct PlaylistDetailView: View {
             from: self.viewModel.playlistDetail?.thumbnailURL?.highQualityThumbnailURL
         )
         .navigationTitle(self.playlist.title)
-        .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -118,35 +119,91 @@ struct PlaylistDetailView: View {
 
     // MARK: - Views
 
+    /// Scroll anchor for the top of the Liked Music list, used to return focus to
+    /// the pinned search field when active-search results shrink.
+    private static let likedMusicScrollTopID = "likedMusicScrollTop"
+
     private func contentView(_ detail: PlaylistDetail) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Header
-                self.headerView(detail)
+        let isLikedMusicPlaylist = LikedMusicPlaylist.matches(id: self.playlist.id)
+        let fallbackAlbum = Album(
+            id: detail.id,
+            title: detail.title,
+            artists: detail.author.map { [$0] },
+            thumbnailURL: detail.thumbnailURL,
+            year: nil,
+            trackCount: detail.trackCount ?? detail.tracks.count
+        )
+        let visibleTracks = self.viewModel.visibleTracks(for: detail)
 
-                Divider()
+        return ScrollViewReader { proxy in
+            ScrollView {
+                if isLikedMusicPlaylist {
+                    LazyVStack(alignment: .leading, spacing: 16, pinnedViews: [.sectionHeaders]) {
+                        self.headerView(detail)
+                            .id(Self.likedMusicScrollTopID)
 
-                // Tracks
-                let fallbackAlbum = Album(
-                    id: detail.id,
-                    title: detail.title,
-                    artists: detail.author.map { [$0] },
-                    thumbnailURL: detail.thumbnailURL,
-                    year: nil,
-                    trackCount: detail.trackCount ?? detail.tracks.count
-                )
-                self.tracksView(
-                    detail.tracks, isAlbum: detail.isAlbum, author: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
+                        Section {
+                            self.tracksView(
+                                visibleTracks,
+                                allTracks: detail.tracks,
+                                isAlbum: detail.isAlbum,
+                                author: detail.author?.name,
+                                fallbackAlbum: fallbackAlbum
+                            )
+                        } header: {
+                            self.likedMusicSearchField
+                        }
+                    }
+                    .padding(.vertical, 16)
+                } else {
+                    VStack(alignment: .leading, spacing: 24) {
+                        self.headerView(detail)
+
+                        Divider()
+
+                        self.tracksView(
+                            visibleTracks,
+                            allTracks: detail.tracks,
+                            isAlbum: detail.isAlbum,
+                            author: detail.author?.name,
+                            fallbackAlbum: fallbackAlbum
+                        )
+                    }
+                    .padding(.vertical, 24)
+                }
             }
-            .padding(.vertical, 24)
+            // Inset the resting content while the scroll view stays edge-to-edge so
+            // content extends under the floating glass sidebar; the accent backdrop
+            // (which ignores the safe area) refracts through it.
+            .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
+            // When an active search shrinks the visible results, the scroll offset
+            // can end up past the (now shorter) content, which strands and unpins
+            // the sticky search field and drops its focus. Returning to the top
+            // keeps the field pinned, focused, and the results in view.
+            .onChange(of: visibleTracks.count) { oldCount, newCount in
+                guard isLikedMusicPlaylist,
+                      self.viewModel.hasActiveLikedMusicSearch,
+                      newCount < oldCount
+                else { return }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    proxy.scrollTo(Self.likedMusicScrollTopID, anchor: .top)
+                }
+            }
         }
-        // Inset the resting content while the scroll view stays edge-to-edge so
-        // content extends under the floating glass sidebar; the accent backdrop
-        // (which ignores the safe area) refracts through it.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
-        .topFade(style: .contentMask)
+    }
+
+    private var likedMusicSearchField: some View {
+        LikedMusicSearchField(
+            text: self.$viewModel.likedMusicSearchQuery,
+            isFocused: self.$isLikedMusicSearchFocused,
+            isActive: self.viewModel.hasActiveLikedMusicSearch,
+            style: .liquidGlass
+        ) {
+            self.viewModel.clearLikedMusicSearch()
+            self.isLikedMusicSearchFocused = true
+        }
+        .padding(.bottom, 8)
+        .background(.clear)
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
@@ -240,26 +297,40 @@ struct PlaylistDetailView: View {
     }
 
     private func tracksView(
-        _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
+        _ tracks: [Song],
+        allTracks: [Song]? = nil,
+        isAlbum: Bool,
+        author: String?,
+        fallbackAlbum: Album? = nil
     ) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
-                self.trackRow(
-                    track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-                .onAppear {
-                    // Load more when reaching the last few items
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
-                        Task { await self.viewModel.loadMore() }
+            if tracks.isEmpty, self.viewModel.hasActiveLikedMusicSearch {
+                LikedMusicSearchEmptyState(hasMore: self.viewModel.hasMore)
+            } else {
+                ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+                    self.trackRow(
+                        track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
+                        fallbackAlbum: fallbackAlbum
+                    )
+                    .onAppear {
+                        // Load more when reaching the last few items.
+                        let paginationTracks = allTracks ?? tracks
+                        if index >= tracks.count - 3, self.viewModel.hasMore {
+                            Task { await self.viewModel.loadMore() }
+                        } else if let originalIndex = paginationTracks.firstIndex(where: { $0.videoId == track.videoId }),
+                                  originalIndex >= paginationTracks.count - 3,
+                                  self.viewModel.hasMore
+                        {
+                            Task { await self.viewModel.loadMore() }
+                        }
                     }
-                }
 
-                if index < tracks.count - 1 {
-                    Divider()
-                        // For albums: 28 (index) + 12 (spacing)
-                        // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
-                        .padding(.leading, isAlbum ? 40 : 96)
+                    if index < tracks.count - 1 {
+                        Divider()
+                            // For albums: 28 (index) + 12 (spacing)
+                            // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
+                            .padding(.leading, isAlbum ? 40 : 96)
+                    }
                 }
             }
 
@@ -269,9 +340,14 @@ struct PlaylistDetailView: View {
                     Spacer()
                     ProgressView()
                         .controlSize(.small)
-                        .padding()
+                    if self.viewModel.hasActiveLikedMusicSearch {
+                        Text(String(localized: "Searching more liked songs..."))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                 }
+                .padding()
             }
         }
     }
@@ -710,124 +786,6 @@ struct PlaylistDetailView: View {
 
         self.partialChanges = nil
         self.isRefining = false
-    }
-}
-
-// MARK: - PlaylistTrackRow
-
-@available(macOS 26.0, *)
-private struct PlaylistTrackRow<Menu: View>: View {
-    let track: Song
-    let index: Int
-    let isAlbum: Bool
-    let subtitle: String?
-    let allowsLikeActions: Bool
-    let onPlay: () -> Void
-    @ViewBuilder let menu: () -> Menu
-
-    @State private var isHovered: Bool = false
-    @Environment(PlayerService.self) private var playerService
-
-    var body: some View {
-        let isCurrent = self.playerService.currentTrack?.videoId == self.track.videoId
-
-        Button(action: self.onPlay) {
-            HStack(spacing: 12) {
-                Group {
-                    if isCurrent {
-                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
-                    } else {
-                        Text("\(self.index + 1)")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 28, alignment: .trailing)
-
-                if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(.quaternary)
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(.rect(cornerRadius: 4))
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(self.track.title)
-                            .font(.system(size: 14))
-                            .foregroundStyle(isCurrent ? .red : .primary)
-                            .lineLimit(1)
-                        if self.track.isExplicit == true {
-                            ExplicitBadge()
-                        }
-                    }
-                    if let subtitle = self.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
-
-                Text(self.track.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 45, alignment: .trailing)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-            .opacity(self.track.isPlayable ? 1 : 0.5)
-        }
-        .buttonStyle(.interactiveRow(cornerRadius: 6))
-        .disabled(!self.track.isPlayable)
-        .onHover { hovering in self.isHovered = hovering }
-        .contextMenu { self.menu() }
-    }
-}
-
-// MARK: - HoverUnderlineNavigationLink
-
-private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
-    let value: Value
-    let title: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        NavigationLink(value: self.value) {
-            Text(self.title)
-                .font(.subheadline)
-                .underline(self.isHovering)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            self.isHovering = hovering
-        }
-    }
-}
-
-// MARK: - HeaderArtistLinkLabel
-
-private struct HeaderArtistLinkLabel: View {
-    let name: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Text(self.name)
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(self.isHovering ? .primary : .secondary)
-            .animation(.easeInOut(duration: 0.15), value: self.isHovering)
-            .onHover { hovering in
-                self.isHovering = hovering
-            }
     }
 }
 

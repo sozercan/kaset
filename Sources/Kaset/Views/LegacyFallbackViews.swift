@@ -16,6 +16,7 @@ struct SimplePlaylistDetailView: View {
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @FocusState private var isLikedMusicSearchFocused: Bool
 
     init(
         playlist: Playlist,
@@ -77,7 +78,19 @@ struct SimplePlaylistDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 self.headerView(detail)
-                self.trackList(detail.tracks)
+                let visibleTracks = self.viewModel.visibleTracks(for: detail)
+                if LikedMusicPlaylist.matches(id: self.playlist.id) {
+                    LikedMusicSearchField(
+                        text: self.$viewModel.likedMusicSearchQuery,
+                        isFocused: self.$isLikedMusicSearchFocused,
+                        isActive: self.viewModel.hasActiveLikedMusicSearch,
+                        style: .fallback
+                    ) {
+                        self.viewModel.clearLikedMusicSearch()
+                        self.isLikedMusicSearchFocused = true
+                    }
+                }
+                self.trackList(visibleTracks, allTracks: detail.tracks)
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -133,52 +146,62 @@ struct SimplePlaylistDetailView: View {
         }
     }
 
-    private func trackList(_ tracks: [Song]) -> some View {
+    private func trackList(_ tracks: [Song], allTracks: [Song]? = nil) -> some View {
         VStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
-                Button {
-                    Task { await self.playFromIndex(index, tracks: tracks) }
-                } label: {
-                    HStack(spacing: 12) {
-                        Text("\(index + 1)")
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28, alignment: .trailing)
-                        AsyncImage(url: track.thumbnailURL) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Color.secondary.opacity(0.15)
-                        }
-                        .frame(width: 36, height: 36)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+            if tracks.isEmpty, self.viewModel.hasActiveLikedMusicSearch {
+                LikedMusicSearchEmptyState(hasMore: self.viewModel.hasMore, iconSize: 32)
+            } else {
+                ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+                    Button {
+                        Task { await self.playFromIndex(index, tracks: tracks) }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text("\(index + 1)")
+                                .font(.callout.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, alignment: .trailing)
+                            AsyncImage(url: track.thumbnailURL) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Color.secondary.opacity(0.15)
+                            }
+                            .frame(width: 36, height: 36)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title).lineLimit(1)
-                            Text(track.artistsDisplay)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(track.title).lineLimit(1)
+                                Text(track.artistsDisplay)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            if let dur = track.duration {
+                                Text(self.formatDuration(dur))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        Spacer()
-                        if let dur = track.duration {
-                            Text(self.formatDuration(dur))
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!track.isPlayable)
+                    .opacity(track.isPlayable ? 1 : 0.5)
+                    .onAppear {
+                        let paginationTracks = allTracks ?? tracks
+                        if index >= tracks.count - 3, self.viewModel.hasMore {
+                            Task { await self.viewModel.loadMore() }
+                        } else if let originalIndex = paginationTracks.firstIndex(where: { $0.videoId == track.videoId }),
+                                  originalIndex >= paginationTracks.count - 3,
+                                  self.viewModel.hasMore
+                        {
+                            Task { await self.viewModel.loadMore() }
                         }
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .contentShape(Rectangle())
+                    Divider().opacity(0.2)
                 }
-                .buttonStyle(.plain)
-                .disabled(!track.isPlayable)
-                .opacity(track.isPlayable ? 1 : 0.5)
-                .onAppear {
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
-                        Task { await self.viewModel.loadMore() }
-                    }
-                }
-                Divider().opacity(0.2)
             }
 
             if self.viewModel.loadingState == .loadingMore {
