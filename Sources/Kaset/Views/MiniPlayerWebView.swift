@@ -258,9 +258,13 @@ final class SingletonPlayerWebView {
     /// See `beginBackgroundMediaControlReassertion()`.
     var mediaControlReassertTimer: Timer?
 
-    /// Tracks if lyrics high-frequency polling should be active
-    /// Used to restore polling after full-page navigation
+    /// Tracks if lyrics line-boundary polling should be active.
+    /// Used to restore polling after full-page navigation.
     var isLyricsPollActive = false
+
+    /// Last synced-lyrics line ranges supplied by the visible lyrics panel.
+    /// Used by the reload fallback so polling does not restart with an empty range list.
+    private var lastLyricsLineRanges: [[String: Int]] = []
 
     private init() {
         self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
@@ -341,10 +345,18 @@ final class SingletonPlayerWebView {
         // updateDisplayMode(.video) handles the initial injection perfectly.
     }
 
-    /// Starts high frequency polling for synced lyrics
-    func startLyricsPoll() {
+    /// Starts low-frequency line-boundary polling for synced lyrics.
+    func startLyricsPoll(lineRanges: [[String: Int]]) {
         self.isLyricsPollActive = true
-        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+        self.lastLyricsLineRanges = lineRanges
+        let jsonData = (try? JSONSerialization.data(withJSONObject: lineRanges)) ?? Data("[]".utf8)
+        let lineRangesJSON = String(data: jsonData, encoding: .utf8) ?? "[]"
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(\(lineRangesJSON)); }")
+    }
+
+    /// Backward-compatible fallback used after page reloads before the lyrics view re-supplies line boundaries.
+    func startLyricsPoll() {
+        self.startLyricsPoll(lineRanges: self.lastLyricsLineRanges)
     }
 
     /// Stops high frequency polling for synced lyrics
@@ -593,8 +605,8 @@ final class SingletonPlayerWebView {
                 }
             case "AIRPLAY_STATUS":
                 self.handleAirPlayStatusUpdate(body: body)
-            case "LYRICS_TIME":
-                self.handleLyricsTimeUpdate(body: body)
+            case "LYRICS_LINE":
+                self.handleLyricsLineUpdate(body: body)
             case "PLAYBACK_AUDIO_QUALITY_STATS":
                 Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
             case "STATE_UPDATE":
@@ -621,11 +633,17 @@ final class SingletonPlayerWebView {
             }
         }
 
-        private func handleLyricsTimeUpdate(body: [String: Any]) {
-            guard let time = body["time"] as? Double else { return }
+        private func handleLyricsLineUpdate(body: [String: Any]) {
+            let lineIndex = body["lineIndex"] as? Int ?? -1
+            let normalizedLineIndex = lineIndex >= 0 ? lineIndex : nil
+            let displayTimeMs = body["timeMs"] as? Int
 
             Task { @MainActor in
-                self.playerService.currentTimeMs = Int(time * 1000)
+                guard self.playerService.currentLyricsLineIndex != normalizedLineIndex ||
+                    self.playerService.currentLyricsDisplayTimeMs != displayTimeMs
+                else { return }
+                self.playerService.currentLyricsLineIndex = normalizedLineIndex
+                self.playerService.currentLyricsDisplayTimeMs = displayTimeMs
             }
         }
 

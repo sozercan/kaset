@@ -595,7 +595,8 @@ extension PlayerService {
         self.currentTrack = nil
         self.pendingPlayVideoId = nil
         self.progress = 0
-        self.currentTimeMs = 0
+        self.currentLyricsLineIndex = nil
+        self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
         self.showMiniPlayer = false
         self.isMiniPlayerVisible = false
