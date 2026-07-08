@@ -98,9 +98,11 @@ The bottom Liquid Glass bar adapts to the active source. In YouTube mode
 - Actions: like/dislike, Watch Later, AirPlay (video picker), closed
   captions menu (player tracks + Off), quality menu, full view, and picture in
   picture (pop out / pop in; hidden in fullscreen). When chapters are available,
-  their break points are drawn directly into the progress bar; hovering or
-  dragging near a break temporarily shows the chapter name/time in the player
-  metadata title area, and release-near-chapter scrubs snap to that chapter.
+  their break points are drawn directly into the progress bar as Liquid
+  Glass-style seams with a material fallback; hovering or dragging near a break
+  highlights it as a small glass bead, temporarily shows the chapter name/time
+  in the player metadata title area, and release-near-chapter scrubs snap to
+  that chapter.
 - No shuffle/repeat/lyrics/queue — those are music concepts. Chapters use a
   horizontal scroller with chevron paging controls on the watch page.
 

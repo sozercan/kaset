@@ -122,9 +122,10 @@ struct PlayerBarProgressLane: View {
                 }
 
                 ForEach(self.markers) { marker in
-                    self.markerView(marker, isHighlighted: marker.id == previewMarker?.id)
+                    let isHighlighted = marker.id == previewMarker?.id
+                    self.markerView(marker, isHighlighted: isHighlighted)
                         .offset(
-                            x: self.markerX(marker, trackWidth: width),
+                            x: self.markerX(marker, trackWidth: width, isHighlighted: isHighlighted),
                             y: -3
                         )
                         .opacity(self.isLive || self.isLoading ? 0 : 1)
@@ -204,24 +205,47 @@ struct PlayerBarProgressLane: View {
         self.onMarkerPreviewChange(marker)
     }
 
-    private func markerX(_ marker: PlayerBarProgressMarker, trackWidth: CGFloat) -> CGFloat {
+    private func markerX(_ marker: PlayerBarProgressMarker, trackWidth: CGFloat, isHighlighted: Bool) -> CGFloat {
         // Marker and thumb offsets are inside the visual-track ZStack. Gesture
         // locations subtract `hitOutset` because the gesture is attached after
         // padding expands the hit target; visual offsets do not include it.
-        min(max(0, trackWidth * CGFloat(marker.fraction) - 2), max(0, trackWidth - 4))
+        let markerWidth = self.markerWidth(isHighlighted: isHighlighted)
+        return min(
+            max(0, trackWidth * CGFloat(marker.fraction) - markerWidth / 2),
+            max(0, trackWidth - markerWidth)
+        )
     }
 
     private func markerView(_: PlayerBarProgressMarker, isHighlighted: Bool) -> some View {
-        ZStack {
-            Capsule()
-                .fill(self.markerHaloColor)
-                .frame(width: isHighlighted ? 6 : 5, height: PlayerBarSliderVisuals.trackThickness + 8)
+        Capsule()
+            .fill(self.markerFallbackFill(isHighlighted: isHighlighted))
+            .frame(
+                width: self.markerWidth(isHighlighted: isHighlighted),
+                height: self.markerHeight(isHighlighted: isHighlighted)
+            )
+            .compatGlass(
+                interactive: isHighlighted,
+                tint: self.markerGlassTint(isHighlighted: isHighlighted),
+                in: .capsule
+            )
+            .overlay {
+                Capsule()
+                    .strokeBorder(self.markerRimColor(isHighlighted: isHighlighted), lineWidth: 0.6)
+            }
+            .shadow(
+                color: self.markerShadowColor(isHighlighted: isHighlighted),
+                radius: isHighlighted ? 5 : 1.5,
+                y: isHighlighted ? 2 : 0.5
+            )
+            .animation(PlayerBarSliderVisuals.thumbAnimation, value: isHighlighted)
+    }
 
-            Capsule()
-                .fill(isHighlighted ? self.accent : self.markerColor)
-                .frame(width: isHighlighted ? 3 : 2, height: PlayerBarSliderVisuals.trackThickness + 5)
-        }
-        .animation(PlayerBarSliderVisuals.thumbAnimation, value: isHighlighted)
+    private func markerWidth(isHighlighted: Bool) -> CGFloat {
+        isHighlighted ? 8 : 4
+    }
+
+    private func markerHeight(isHighlighted: Bool) -> CGFloat {
+        PlayerBarSliderVisuals.trackThickness + (isHighlighted ? 10 : 7)
     }
 
     private func snappedFraction(_ fraction: Double, width: CGFloat) -> Double {
@@ -258,12 +282,32 @@ struct PlayerBarProgressLane: View {
         PlayerBarSliderVisuals.loadingThumbColor(colorScheme: self.colorScheme)
     }
 
-    private var markerColor: Color {
-        self.colorScheme == .dark ? .white.opacity(0.88) : .black.opacity(0.48)
+    private func markerGlassTint(isHighlighted: Bool) -> Color {
+        if isHighlighted {
+            return self.accent.opacity(self.colorScheme == .dark ? 0.48 : 0.34)
+        }
+        return self.colorScheme == .dark ? .white.opacity(0.10) : .black.opacity(0.06)
     }
 
-    private var markerHaloColor: Color {
-        self.colorScheme == .dark ? .black.opacity(0.55) : .white.opacity(0.9)
+    private func markerFallbackFill(isHighlighted: Bool) -> Color {
+        if isHighlighted {
+            return self.accent.opacity(self.colorScheme == .dark ? 0.50 : 0.34)
+        }
+        return self.colorScheme == .dark ? .white.opacity(0.20) : .black.opacity(0.14)
+    }
+
+    private func markerRimColor(isHighlighted: Bool) -> Color {
+        if isHighlighted {
+            return self.colorScheme == .dark ? .white.opacity(0.42) : .white.opacity(0.72)
+        }
+        return self.colorScheme == .dark ? .white.opacity(0.26) : .white.opacity(0.58)
+    }
+
+    private func markerShadowColor(isHighlighted: Bool) -> Color {
+        if isHighlighted {
+            return self.accent.opacity(self.colorScheme == .dark ? 0.36 : 0.22)
+        }
+        return .black.opacity(self.colorScheme == .dark ? 0.18 : 0.08)
     }
 }
 
