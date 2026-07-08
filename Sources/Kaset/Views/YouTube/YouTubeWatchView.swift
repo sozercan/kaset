@@ -355,6 +355,7 @@ struct YouTubeWatchView: View {
                         .accessibilityLabel(
                             String(localized: "Jump to chapter: \(chapter.title)")
                         )
+                        .disabled(!self.canSeekToChapter(chapter))
                     }
                 }
                 .padding(.vertical, 2)
@@ -364,11 +365,24 @@ struct YouTubeWatchView: View {
     }
 
     private func seekToChapter(_ chapter: YouTubeChapter) {
+        guard self.canSeekToChapter(chapter) else { return }
         if self.youtubePlayer.currentVideo?.videoId != self.video.videoId {
             self.startOrAdoptPlayback(startAt: chapter.startTime)
             return
         }
         self.youtubePlayer.seek(to: chapter.startTime)
+    }
+
+    private func canSeekToChapter(_ chapter: YouTubeChapter) -> Bool {
+        if let chapterVideoId = chapter.videoId, chapterVideoId != self.video.videoId {
+            return false
+        }
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
+            return true
+        }
+        return self.youtubePlayer.duration > 0
+            && !self.youtubePlayer.isPlaybackLoading
+            && !self.youtubePlayer.isShowingAd
     }
 
     private func isActiveChapter(_ chapter: YouTubeChapter) -> Bool {

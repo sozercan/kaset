@@ -160,14 +160,16 @@ struct PlayerBarProgressLane: View {
                         self.onScrub(fraction)
                     }
                     .onEnded { value in
+                        defer {
+                            self.dragFraction = nil
+                            self.updatePreviewMarker(nil)
+                            self.isDragging = false
+                        }
                         guard self.canSeek, width > 0 else { return }
                         let x = value.location.x - PlayerBarSliderVisuals.hitOutset
                         let fraction = Double(min(max(0, x / width), 1))
                         let targetFraction = self.snappedFraction(fraction, width: width)
                         self.onScrub(targetFraction)
-                        self.dragFraction = nil
-                        self.updatePreviewMarker(nil)
-                        self.isDragging = false
                         self.onCommit()
                     }
             )
