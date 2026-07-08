@@ -71,6 +71,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
     var onGetLibraryContent: (@MainActor () -> Void)?
     var onGetPodcasts: (@MainActor () -> Void)?
+    var beforeGetHomeReturn: (@MainActor () async -> Void)?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
@@ -261,8 +262,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getHomeCalled = true
         self.getHomeCallCount += 1
         self._homeContinuationIndex = 0
+        let response = self.homeResponse
+        await self.beforeGetHomeReturn?()
         if let error = shouldThrowError { throw error }
-        return self.homeResponse
+        return response
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
@@ -1033,6 +1036,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
             self.libraryContentResponseContinuations.removeFirst().resume()
         }
         self.onGetLibraryContent = nil
+        self.beforeGetHomeReturn = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
         self.getLikedSongsContinuationCalled = false

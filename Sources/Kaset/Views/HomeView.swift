@@ -94,6 +94,10 @@ struct HomeView: View {
                             await self.prefetchImagesAsync(for: section)
                         }
                 }
+
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    self.loadMoreControl
+                }
             }
             // The ScrollView fills the detail column edge-to-edge so shelves
             // scroll under the floating glass sidebar; each shelf restores a
@@ -102,6 +106,23 @@ struct HomeView: View {
             .padding(.vertical, 20)
         }
         .accessibilityIdentifier(AccessibilityID.Home.scrollView)
+    }
+
+    @ViewBuilder
+    private var loadMoreControl: some View {
+        if self.viewModel.loadingState == .loadingMore {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity)
+        } else {
+            Button {
+                Task { await self.viewModel.loadMore() }
+            } label: {
+                Label("Load More", systemImage: "arrow.down.circle")
+            }
+            .buttonStyle(.borderless)
+            .frame(maxWidth: .infinity)
+        }
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
@@ -289,13 +310,13 @@ struct HomeView: View {
         // Early exit if task is cancelled
         guard !Task.isCancelled else { return }
 
-        let urls = section.items.prefix(10).compactMap { $0.thumbnailURL?.highQualityThumbnailURL }
+        let urls = section.items.prefix(6).compactMap { $0.thumbnailURL?.highQualityThumbnailURL }
         guard !urls.isEmpty else { return }
 
         await ImageCache.shared.prefetch(
             urls: urls,
             targetSize: Self.thumbnailDisplaySize,
-            maxConcurrent: 4
+            maxConcurrent: 2
         )
     }
 

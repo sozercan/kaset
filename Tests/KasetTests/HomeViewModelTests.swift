@@ -37,6 +37,46 @@ struct HomeViewModelTests {
         #expect(self.viewModel.sections[1].title == "Recommended")
     }
 
+    @Test("Initial home load does not drain continuations in the background")
+    func initialLoadDoesNotDrainContinuationsInBackground() async {
+        self.mockClient.homeResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.homeContinuationSections = [
+            [TestFixtures.makeHomeSection(title: "Continuation 1")],
+            [TestFixtures.makeHomeSection(title: "Continuation 2")],
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.map(\.title) == ["Initial"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getHomeContinuationCallCount == 0)
+    }
+
+    @Test("Load more fetches one home continuation per demand")
+    func loadMoreFetchesOneHomeContinuationPerDemand() async {
+        self.mockClient.homeResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.homeContinuationSections = [
+            [TestFixtures.makeHomeSection(title: "Continuation 1")],
+            [TestFixtures.makeHomeSection(title: "Continuation 2")],
+        ]
+
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getHomeContinuationCallCount == 1)
+
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1", "Continuation 2"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getHomeContinuationCallCount == 2)
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
@@ -73,6 +113,35 @@ struct HomeViewModelTests {
         await self.viewModel.refresh()
 
         #expect(self.viewModel.sections.count == 3)
+        #expect(self.mockClient.getHomeCallCount == 2)
+    }
+
+    @Test("Refresh replaces an in-flight home load")
+    func refreshReplacesInFlightHomeLoad() async {
+        let firstLoadGate = AsyncGate()
+        self.mockClient.homeResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.beforeGetHomeReturn = { [mockClient = self.mockClient] in
+            if mockClient.getHomeCallCount == 1 {
+                await firstLoadGate.wait()
+            }
+        }
+
+        let firstLoad = Task { await self.viewModel.load() }
+        while self.mockClient.getHomeCallCount == 0 {
+            await Task.yield()
+        }
+
+        self.mockClient.homeResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Refreshed")])
+        let refresh = Task { await self.viewModel.refresh() }
+        await Task.yield()
+        #expect(self.mockClient.getHomeCallCount == 1)
+
+        await firstLoadGate.open()
+        await refresh.value
+        await firstLoad.value
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.map(\.title) == ["Refreshed"])
         #expect(self.mockClient.getHomeCallCount == 2)
     }
 }
