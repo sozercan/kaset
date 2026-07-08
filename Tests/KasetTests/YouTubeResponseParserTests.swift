@@ -349,7 +349,7 @@ struct WatchNextParserTests {
                         "content": [
                             "macroMarkersListRenderer": [
                                 "contents": [
-                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro", includesExplicitStart: false)],
                                 ],
                             ],
                         ],
@@ -419,19 +419,26 @@ struct WatchNextParserTests {
         startMs: Int,
         endMs: Int,
         imageName: String,
-        videoId: String = "video-1"
+        videoId: String = "video-1",
+        includesExplicitStart: Bool = true
     ) -> [String: Any] {
-        [
+        var renderer: [String: Any] = [
             "title": ["runs": [["text": title]]],
             "timeDescription": ["simpleText": self.timeText(seconds: startMs / 1000)],
             "thumbnail": self.thumbnail(imageName: imageName),
-            "onTap": [
-                "watchEndpoint": [
-                    "videoId": videoId,
-                    "startTimeSeconds": startMs / 1000,
-                ],
+        ]
+
+        renderer["onTap"] = [
+            "watchEndpoint": includesExplicitStart ? [
+                "videoId": videoId,
+                "startTimeSeconds": startMs / 1000,
+            ] : [
+                "videoId": videoId,
             ],
-            "repeatButton": [
+        ]
+
+        if includesExplicitStart {
+            renderer["repeatButton"] = [
                 "toggleButtonRenderer": [
                     "defaultServiceEndpoint": [
                         "repeatChapterCommand": [
@@ -440,8 +447,10 @@ struct WatchNextParserTests {
                         ],
                     ],
                 ],
-            ],
-        ]
+            ]
+        }
+
+        return renderer
     }
 
     private static func thumbnail(imageName: String) -> [String: Any] {

@@ -235,8 +235,10 @@ enum WatchNextParser {
         if let fallbackVideoId, let endpointVideoId, endpointVideoId != fallbackVideoId {
             return nil
         }
+        let timeText = YouTubeItemParser.text(from: renderer["timeDescription"])
         let startMillis = self.intValue(from: repeatCommand?["startTimeMs"])
             ?? self.intValue(from: watchEndpoint?["startTimeSeconds"]).map { $0 * 1000 }
+            ?? timeText.flatMap(self.milliseconds(fromTimeText:))
 
         guard let startMillis else { return nil }
 
@@ -245,9 +247,24 @@ enum WatchNextParser {
             title: title,
             startTime: TimeInterval(startMillis) / 1000,
             endTime: self.intValue(from: repeatCommand?["endTimeMs"]).map { TimeInterval($0) / 1000 },
-            timeText: YouTubeItemParser.text(from: renderer["timeDescription"]),
+            timeText: timeText,
             thumbnailURL: YouTubeItemParser.thumbnailURL(fromThumbnail: renderer["thumbnail"])
         )
+    }
+
+    private static func milliseconds(fromTimeText text: String) -> Int? {
+        let parts = text.split(separator: ":")
+        guard parts.count == 2 || parts.count == 3 else { return nil }
+        let values = parts.compactMap { Int($0) }
+        guard values.count == parts.count else { return nil }
+
+        let seconds: Int
+        if values.count == 3 {
+            seconds = values[0] * 3600 + values[1] * 60 + values[2]
+        } else {
+            seconds = values[0] * 60 + values[1]
+        }
+        return seconds * 1000
     }
 
     private static func watchEndpoint(from renderer: [String: Any]) -> [String: Any]? {
