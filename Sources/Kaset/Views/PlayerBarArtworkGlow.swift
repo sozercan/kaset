@@ -119,7 +119,9 @@ struct PlayerBarArtworkGlow: View {
 
     private static func loadFirstAvailableImage(from sources: [URL], targetSize: CGSize?) async -> NSImage? {
         for source in sources {
-            if Task.isCancelled { return nil }
+            if Task.isCancelled {
+                return nil
+            }
             if let image = await ImageCache.shared.image(for: source, targetSize: targetSize) {
                 return image
             }

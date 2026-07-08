@@ -215,7 +215,9 @@ private struct EQStatusRow: View {
     }
 
     private var showsSettingsLink: Bool {
-        if case .permissionNeeded = self.status { return true }
+        if case .permissionNeeded = self.status {
+            return true
+        }
         return false
     }
 }

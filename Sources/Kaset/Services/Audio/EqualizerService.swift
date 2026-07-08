@@ -275,7 +275,9 @@ final class EqualizerService {
             ))
         }
         guard self.settings.isEnabled else { return .off }
-        if self.engine.isRunning { return .active }
+        if self.engine.isRunning {
+            return .active
+        }
         if let failure = self.lastFailure {
             if failure.isPermissionLikely {
                 return .permissionNeeded(message: failure.userFacingMessage)

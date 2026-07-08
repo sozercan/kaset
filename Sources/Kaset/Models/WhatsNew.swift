@@ -63,9 +63,15 @@ extension WhatsNew {
         // MARK: Comparable
 
         static func < (lhs: Version, rhs: Version) -> Bool {
-            if lhs.major != rhs.major { return lhs.major < rhs.major }
-            if lhs.minor != rhs.minor { return lhs.minor < rhs.minor }
-            if lhs.patch != rhs.patch { return lhs.patch < rhs.patch }
+            if lhs.major != rhs.major {
+                return lhs.major < rhs.major
+            }
+            if lhs.minor != rhs.minor {
+                return lhs.minor < rhs.minor
+            }
+            if lhs.patch != rhs.patch {
+                return lhs.patch < rhs.patch
+            }
             return self.compareSuffix(lhs.suffix, rhs.suffix)
         }
 
@@ -77,8 +83,12 @@ extension WhatsNew {
 
         private static func compareSuffix(_ lhs: String, _ rhs: String) -> Bool {
             guard lhs != rhs else { return false }
-            if lhs.isEmpty { return false }
-            if rhs.isEmpty { return true }
+            if lhs.isEmpty {
+                return false
+            }
+            if rhs.isEmpty {
+                return true
+            }
             return lhs.compare(rhs, options: [.numeric]) == .orderedAscending
         }
     }

@@ -267,9 +267,12 @@ extension SingletonPlayerWebView {
                 const boundaryDelay = nextBoundaryMs === null
                     ? null
                     : nextBoundaryMs - timeMs + 1;
+                const minBoundaryDelay = v && (v.paused || v.playbackRate === 0)
+                    ? LYRICS_MIN_POLL_INTERVAL_MS
+                    : 0;
                 const delay = boundaryDelay === null
                     ? LYRICS_MAX_POLL_INTERVAL_MS
-                    : Math.max(0, Math.min(LYRICS_MAX_POLL_INTERVAL_MS, boundaryDelay));
+                    : Math.max(minBoundaryDelay, Math.min(LYRICS_MAX_POLL_INTERVAL_MS, boundaryDelay));
                 lyricsPollTimeoutId = setTimeout(() => {
                     lyricsPollTimeoutId = null;
                     const nextBucket = sendLyricsLineUpdate(false);

@@ -537,21 +537,33 @@ struct MainWindow: View {
         Group {
             switch item {
             case .home:
-                if let vm = homeViewModel { HomeView(viewModel: vm) }
+                if let vm = homeViewModel {
+                    HomeView(viewModel: vm)
+                }
             case .explore:
-                if let vm = exploreViewModel { ExploreView(viewModel: vm) }
+                if let vm = exploreViewModel {
+                    ExploreView(viewModel: vm)
+                }
             case .search:
                 if let vm = searchViewModel {
                     SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
                 }
             case .charts:
-                if let vm = chartsViewModel { ChartsView(viewModel: vm) }
+                if let vm = chartsViewModel {
+                    ChartsView(viewModel: vm)
+                }
             case .moodsAndGenres:
-                if let vm = moodsAndGenresViewModel { MoodsAndGenresView(viewModel: vm) }
+                if let vm = moodsAndGenresViewModel {
+                    MoodsAndGenresView(viewModel: vm)
+                }
             case .newReleases:
-                if let vm = newReleasesViewModel { NewReleasesView(viewModel: vm) }
+                if let vm = newReleasesViewModel {
+                    NewReleasesView(viewModel: vm)
+                }
             case .podcasts:
-                if let vm = podcastsViewModel { PodcastsView(viewModel: vm) }
+                if let vm = podcastsViewModel {
+                    PodcastsView(viewModel: vm)
+                }
             case .likedMusic:
                 if self.requiresSignIn(item) {
                     self.signInRequiredView(for: item)

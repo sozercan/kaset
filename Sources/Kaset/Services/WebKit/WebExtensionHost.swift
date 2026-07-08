@@ -252,9 +252,15 @@ enum WebExtensionHostedWebViewRole: String {
 
         func windowState(for _: WKWebExtensionContext) -> WKWebExtension.WindowState {
             guard let nsWindow = self.representativeNSWindow else { return .normal }
-            if nsWindow.styleMask.contains(.fullScreen) { return .fullscreen }
-            if nsWindow.isMiniaturized { return .minimized }
-            if nsWindow.isZoomed { return .maximized }
+            if nsWindow.styleMask.contains(.fullScreen) {
+                return .fullscreen
+            }
+            if nsWindow.isMiniaturized {
+                return .minimized
+            }
+            if nsWindow.isZoomed {
+                return .maximized
+            }
             return .normal
         }
 

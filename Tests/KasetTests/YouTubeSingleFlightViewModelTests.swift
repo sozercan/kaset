@@ -224,7 +224,9 @@ struct YouTubeSingleFlightViewModelTests {
 
     private func waitUntil(_ condition: @autoclosure () -> Bool, _ description: String) async {
         for _ in 0 ..< 1000 {
-            if condition() { return }
+            if condition() {
+                return
+            }
             await Task.yield()
         }
         Issue.record("Timed out waiting for \(description)")
@@ -347,14 +349,18 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         self.channelCallCount += 1
         try await self.waitIfNeeded()
-        if let channelDetail { return channelDetail }
+        if let channelDetail {
+            return channelDetail
+        }
         return YouTubeChannelDetail(channel: YouTubeChannel(channelId: channelId, name: "Mock Channel"), videos: [])
     }
 
     func getPlaylist(playlistId: String) async throws -> YouTubePlaylistDetail {
         self.playlistCallCount += 1
         try await self.waitIfNeeded()
-        if let playlistDetail { return playlistDetail }
+        if let playlistDetail {
+            return playlistDetail
+        }
         return YouTubePlaylistDetail(playlist: YouTubePlaylist(playlistId: playlistId, title: "Mock Playlist"), videos: [])
     }
 

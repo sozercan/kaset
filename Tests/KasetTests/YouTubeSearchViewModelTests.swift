@@ -292,7 +292,9 @@ struct YouTubeSearchViewModelTests {
 
     private func waitUntil(_ condition: @autoclosure () -> Bool) async {
         for _ in 0 ..< 1000 {
-            if condition() { return }
+            if condition() {
+                return
+            }
             await Task.yield()
         }
         Issue.record("Timed out waiting for condition")

@@ -113,7 +113,9 @@ final class YouTubeWatchViewModel {
                 self.createCommentParams = params
             }
         } catch {
-            if error is CancellationError { return }
+            if error is CancellationError {
+                return
+            }
             self.logger.error("Failed to load comments: \(error.localizedDescription)")
             self.commentsContinuation = nil
         }
@@ -177,7 +179,9 @@ final class YouTubeWatchViewModel {
             // Reply pages can echo the parent; drop it.
             self.repliesByComment[comment.id] = page.comments.filter { $0.id != comment.id }
         } catch {
-            if error is CancellationError { return }
+            if error is CancellationError {
+                return
+            }
             self.logger.error("Failed to load replies: \(error.localizedDescription)")
         }
     }

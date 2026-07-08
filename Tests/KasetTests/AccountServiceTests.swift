@@ -924,7 +924,9 @@ struct AccountServiceTests {
         count: Int
     ) async {
         for _ in 0 ..< 1000 {
-            if mockWebKit.switchSessionIdentityCompletedBrandIds.count >= count { return }
+            if mockWebKit.switchSessionIdentityCompletedBrandIds.count >= count {
+                return
+            }
             await Task.yield()
         }
         Issue.record("Timed out waiting for switch session identity completions")
@@ -983,7 +985,9 @@ private actor AsyncReleaseGate {
     private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
 
     func wait() async {
-        if self.released { return }
+        if self.released {
+            return
+        }
         let id = UUID()
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in

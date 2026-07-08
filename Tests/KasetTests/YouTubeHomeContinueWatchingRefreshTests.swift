@@ -42,7 +42,9 @@ struct YouTubeHomeContinueWatchingRefreshTests {
     /// under load, bounded (~2s) so a genuine bug still fails fast.
     private func waitForCondition(_ condition: () -> Bool) async {
         for _ in 0 ..< 200 {
-            if condition() { return }
+            if condition() {
+                return
+            }
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -537,7 +539,9 @@ private actor RefreshTestGate {
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func wait() async {
-        if self.isOpen { return }
+        if self.isOpen {
+            return
+        }
         await withCheckedContinuation { continuation in
             self.waiters.append(continuation)
         }

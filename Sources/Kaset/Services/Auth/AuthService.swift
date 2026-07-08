@@ -14,7 +14,9 @@ final class AuthService: AuthServiceProtocol {
         case loggedIn(sapisid: String)
 
         var isLoggedIn: Bool {
-            if case .loggedIn = self { return true }
+            if case .loggedIn = self {
+                return true
+            }
             return false
         }
 
@@ -42,9 +44,15 @@ final class AuthService: AuthServiceProtocol {
     /// Reauth prompts keep the existing account-cookie playback store so active
     /// playback is not torn down while the user re-authenticates.
     var shouldUseCookieFreePlaybackDataStore: Bool {
-        if self.isGuestModeEnabled { return true }
-        if self.state == .loggedOut, !self.needsReauth { return true }
-        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut, !self.needsReauth { return true }
+        if self.isGuestModeEnabled {
+            return true
+        }
+        if self.state == .loggedOut, !self.needsReauth {
+            return true
+        }
+        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut, !self.needsReauth {
+            return true
+        }
         return false
     }
 
@@ -53,9 +61,15 @@ final class AuthService: AuthServiceProtocol {
     /// open; that flow should still preserve guest-owned queues if cancelled.
     var shouldPersistGuestPlaybackState: Bool {
         guard !self.needsReauth else { return false }
-        if self.isGuestModeEnabled { return true }
-        if self.state == .loggedOut { return true }
-        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut { return true }
+        if self.isGuestModeEnabled {
+            return true
+        }
+        if self.state == .loggedOut {
+            return true
+        }
+        if self.state == .loggingIn, self.stateBeforeLogin == .loggedOut {
+            return true
+        }
         return false
     }
 

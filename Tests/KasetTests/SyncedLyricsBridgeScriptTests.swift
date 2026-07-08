@@ -105,14 +105,15 @@ struct SyncedLyricsBridgeScriptTests {
         #expect(lyricsDelay == 101)
     }
 
-    @Test("Lyrics bridge allows sub-50ms boundary scheduling for very short ranges")
-    func bridgeAllowsSub50msBoundaryScheduling() throws {
+    @Test("Lyrics bridge allows sub-50ms boundary scheduling while playing")
+    func bridgeAllowsSub50msBoundarySchedulingWhilePlaying() throws {
         let context = try #require(JSContext())
         try self.evaluate(Self.fixtureScript, in: context)
         try self.evaluate(SingletonPlayerWebView.observerScript, in: context)
 
         try self.evaluate(
             """
+            video.paused = false;
             video.currentTime = 1.09;
             window.startLyricsPoll([
                 { startMs: 1100, endMs: 1120 }
@@ -123,6 +124,27 @@ struct SyncedLyricsBridgeScriptTests {
 
         let lyricsDelay = context.evaluateScript("timeoutCalls[timeoutCalls.length - 1].milliseconds")?.toInt32() ?? -1
         #expect(lyricsDelay == 11)
+    }
+
+    @Test("Lyrics bridge clamps paused near-boundary scheduling to the minimum interval")
+    func bridgeClampsPausedNearBoundarySchedulingToMinimumInterval() throws {
+        let context = try #require(JSContext())
+        try self.evaluate(Self.fixtureScript, in: context)
+        try self.evaluate(SingletonPlayerWebView.observerScript, in: context)
+
+        try self.evaluate(
+            """
+            video.paused = true;
+            video.currentTime = 1.09;
+            window.startLyricsPoll([
+                { startMs: 1100, endMs: 1120 }
+            ]);
+            """,
+            in: context
+        )
+
+        let lyricsDelay = context.evaluateScript("timeoutCalls[timeoutCalls.length - 1].milliseconds")?.toInt32() ?? -1
+        #expect(lyricsDelay == 50)
     }
 
     @Test("Lyrics bridge reschedules when line ranges are replaced")

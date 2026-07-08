@@ -1285,8 +1285,11 @@ func probeSigninSwitchReal(nextURLString: String) async {
         return
     }
     // Normalize protocol-relative URLs.
-    if signin.hasPrefix("//") { signin = "https:" + signin }
-    else if signin.hasPrefix("/") { signin = "https://www.youtube.com" + signin }
+    if signin.hasPrefix("//") {
+        signin = "https:" + signin
+    } else if signin.hasPrefix("/") {
+        signin = "https://www.youtube.com" + signin
+    }
 
     // Rewrite only the `next` param.
     guard var comps = URLComponents(string: signin) else {

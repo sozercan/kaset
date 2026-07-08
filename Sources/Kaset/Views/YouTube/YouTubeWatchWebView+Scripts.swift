@@ -195,7 +195,11 @@ extension YouTubeWatchWebView {
                 disableAutonav();
                 const video = videoEl();
                 if (!video) { return false; }
-                if (video.__kasetAttached) { return true; }
+                if (video.__kasetAttached) {
+                    applyPendingSeek(video);
+                    sendUpdate(true);
+                    return true;
+                }
                 video.__kasetAttached = true;
                 attachRetryCount = 0;
 
