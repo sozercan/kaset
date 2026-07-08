@@ -126,11 +126,12 @@ final class PlaylistDetailViewModel {
             await fullLoadTask.value
             return
         }
+        let generation = self.loadGeneration
         let task = Task { @MainActor in
             var consecutiveStalls = 0
-            while self.hasMore, consecutiveStalls < 8 {
+            while self.isCurrentLoadGeneration(generation), self.hasMore, consecutiveStalls < 8 {
                 let before = self.playlistDetail?.tracks.count ?? 0
-                _ = await self.loadMoreBatch()
+                _ = await self.loadMoreBatch(generation: generation)
                 if (self.playlistDetail?.tracks.count ?? 0) > before {
                     consecutiveStalls = 0
                 } else {
@@ -141,7 +142,9 @@ final class PlaylistDetailViewModel {
         }
         self.fullLoadTask = task
         await task.value
-        self.fullLoadTask = nil
+        if self.isCurrentLoadGeneration(generation) {
+            self.fullLoadTask = nil
+        }
     }
 
     /// Loads the playlist details including tracks.
@@ -153,6 +156,7 @@ final class PlaylistDetailViewModel {
         guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore && self.remainingTracksTask == nil) else { return }
 
         self.cancelRemainingTracksTask()
+        self.cancelFullLoadTask()
         self.loadGeneration += 1
         let generation = self.loadGeneration
         self.removedLikedMusicVideoIDs = []
@@ -260,7 +264,6 @@ final class PlaylistDetailViewModel {
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
             self.replaceLoadedTrackVideoIds(with: detail.tracks)
-            self.startRemainingTracksTaskIfNeeded(generation: generation)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return }
 
@@ -472,7 +475,9 @@ final class PlaylistDetailViewModel {
 
     private func shouldLoadFullPlaylist(_ detail: PlaylistDetail) -> Bool {
         guard !detail.isAlbum else { return false }
-        if self.isLikedMusicPlaylist { return true }
+        if self.isLikedMusicPlaylist {
+            return true
+        }
 
         let reportedTrackCount = max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
         if reportedTrackCount > Self.fullPlaylistLoadTrackThreshold {
@@ -581,6 +586,11 @@ final class PlaylistDetailViewModel {
     private func cancelRemainingTracksTask() {
         self.remainingTracksTask?.task.cancel()
         self.remainingTracksTask = nil
+    }
+
+    private func cancelFullLoadTask() {
+        self.fullLoadTask?.cancel()
+        self.fullLoadTask = nil
     }
 
     private func isCurrentLoadGeneration(_ generation: Int?) -> Bool {
