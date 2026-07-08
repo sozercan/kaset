@@ -1993,6 +1993,7 @@ final class YTMusicAPIKeyResolver {
     private let environment: @Sendable (String) -> String?
     private let webClientURL: URL
     private var cachedAPIKey: String?
+    private var inFlightResolve: Task<String, any Error>?
 
     init(
         session: URLSession = .shared,
@@ -2017,8 +2018,29 @@ final class YTMusicAPIKeyResolver {
             return trimmed
         }
 
+        if let inFlightResolve {
+            return try await inFlightResolve.value
+        }
+
+        let task = Task { [session, webClientURL] in
+            try await Self.fetchAPIKey(session: session, webClientURL: webClientURL)
+        }
+        self.inFlightResolve = task
+
         do {
-            var request = URLRequest(url: self.webClientURL)
+            let apiKey = try await task.value
+            self.cachedAPIKey = apiKey
+            self.inFlightResolve = nil
+            return apiKey
+        } catch {
+            self.inFlightResolve = nil
+            throw error
+        }
+    }
+
+    private static func fetchAPIKey(session: URLSession, webClientURL: URL) async throws -> String {
+        do {
+            var request = URLRequest(url: webClientURL)
             request.setValue(APISessionConfiguration.userAgent, forHTTPHeaderField: "User-Agent")
             // The Innertube API key is public and needs no authentication. Do NOT send the user's
             // cookie jar for this fetch: a stale/partial consent cookie lands the request on the EU
@@ -2027,7 +2049,7 @@ final class YTMusicAPIKeyResolver {
             // bypasses the consent wall and returns the real web client page.
             request.httpShouldHandleCookies = false
             request.setValue("SOCS=CAI", forHTTPHeaderField: "Cookie")
-            let (data, response) = try await self.session.data(for: request)
+            let (data, response) = try await session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse,
                !(200 ... 399).contains(httpResponse.statusCode)
             {
@@ -2043,7 +2065,6 @@ final class YTMusicAPIKeyResolver {
                 throw YTMusicError.parseError(message: "Could not resolve YouTube Music API configuration")
             }
 
-            self.cachedAPIKey = apiKey
             return apiKey
         } catch let error as YTMusicError {
             throw error

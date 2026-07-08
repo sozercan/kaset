@@ -312,6 +312,53 @@ struct YTMusicAPIKeyResolverTests {
         #expect(requestCount == 1)
     }
 
+    @Test("Concurrent cold resolves share one web client fetch")
+    @MainActor
+    func concurrentColdResolvesShareOneWebClientFetch() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#
+        let firstRequestGate = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var requestCount = 0
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            requestCount += 1
+            if requestCount == 1 {
+                _ = firstRequestGate.wait(timeout: .now() + 5)
+            }
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data(html.utf8))
+        }
+        defer {
+            firstRequestGate.signal()
+            MockURLProtocol.reset(session: session)
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        async let first = resolver.resolve()
+        while requestCount == 0 {
+            await Task.yield()
+        }
+        async let second = resolver.resolve()
+        async let third = resolver.resolve()
+
+        firstRequestGate.signal()
+        let results = try await [first, second, third]
+
+        #expect(results == ["mock-token", "mock-token", "mock-token"])
+        #expect(requestCount == 1)
+    }
+
     @Test("API key fetch is cookieless and sends consent cookie")
     @MainActor
     func apiKeyFetchIsCookielessAndSendsConsentCookie() async throws {
