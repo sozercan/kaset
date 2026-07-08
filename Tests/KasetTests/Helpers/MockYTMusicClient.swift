@@ -178,6 +178,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getExploreContinuationCallCount = 0
     private(set) var getChartsCalled = false
     private(set) var getChartsCallCount = 0
+    private(set) var getChartsContinuationCallCount = 0
+    private(set) var getMoodsAndGenresContinuationCallCount = 0
+    private(set) var getNewReleasesContinuationCallCount = 0
     private(set) var searchCalled = false
     private(set) var searchQueries: [String] = []
     private(set) var completedSearchEndpoints: [SearchEndpoint] = []
@@ -329,6 +332,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getChartsContinuation() async throws -> [HomeSection]? {
+        self.getChartsContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
         guard self._chartsContinuationIndex < self.chartsContinuationSections.count else {
             return nil
@@ -345,6 +349,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
+        self.getMoodsAndGenresContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
         guard self._moodsAndGenresContinuationIndex < self.moodsAndGenresContinuationSections.count else {
             return nil
@@ -361,6 +366,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        self.getNewReleasesContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
         guard self._newReleasesContinuationIndex < self.newReleasesContinuationSections.count else {
             return nil
@@ -1015,6 +1021,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._exploreContinuationIndex = 0
         self.getChartsCalled = false
         self.getChartsCallCount = 0
+        self.getChartsContinuationCallCount = 0
+        self.getMoodsAndGenresContinuationCallCount = 0
+        self.getNewReleasesContinuationCallCount = 0
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0

@@ -56,6 +56,43 @@ struct ExploreViewModelTests {
         #expect(self.viewModel.sections.map(\.title) == ["Public explore"])
     }
 
+    @Test("Initial load does not drain explore continuations")
+    func initialLoadDoesNotDrainExploreContinuations() async {
+        self.mockClient.exploreResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.exploreContinuationSections = [[TestFixtures.makeHomeSection(title: "Continuation")]]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getExploreContinuationCallCount == 0)
+    }
+
+    @Test("Load more appends one filtered explore continuation per demand")
+    func loadMoreAppendsOneFilteredExploreContinuationPerDemand() async {
+        self.mockClient.exploreResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.exploreContinuationSections = [
+            [
+                TestFixtures.makeHomeSection(title: "Charts"),
+                TestFixtures.makeHomeSection(title: "Continuation 1"),
+            ],
+            [TestFixtures.makeHomeSection(title: "Continuation 2")],
+        ]
+
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getExploreContinuationCallCount == 1)
+
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1", "Continuation 2"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getExploreContinuationCallCount == 2)
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))

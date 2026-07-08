@@ -86,36 +86,41 @@ struct ChartsViewModelTests {
 
     // MARK: - Continuation Tests
 
-    @Test("Load triggers background continuation loading")
-    func loadTriggersBackgroundContinuation() async {
-        let initialSections = [TestFixtures.makeHomeSection(title: "Initial")]
-        let continuationSections = [TestFixtures.makeHomeSection(title: "More Charts")]
-
-        self.mockClient.chartsResponse = HomeResponse(sections: initialSections)
-        self.mockClient.chartsContinuationSections = [continuationSections]
+    @Test("Initial load does not drain chart continuations")
+    func initialLoadDoesNotDrainChartContinuations() async {
+        self.mockClient.chartsResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.chartsContinuationSections = [[TestFixtures.makeHomeSection(title: "More Charts")]]
 
         await self.viewModel.load()
 
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
-
-        #expect(self.viewModel.sections.count == 2)
-        #expect(self.viewModel.sections[1].title == "More Charts")
+        #expect(self.viewModel.sections.map(\.title) == ["Initial"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getChartsContinuationCallCount == 0)
     }
 
-    @Test("hasMoreSections updates after continuations")
-    func hasMoreSectionsUpdatesAfterContinuations() async {
-        let initialSections = [TestFixtures.makeHomeSection(title: "Initial")]
+    @Test("Load more appends one charts continuation per demand")
+    func loadMoreAppendsOneChartsContinuationPerDemand() async {
+        self.mockClient.chartsResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
+        self.mockClient.chartsContinuationSections = [
+            [TestFixtures.makeHomeSection(title: "More Charts")],
+        ]
 
-        self.mockClient.chartsResponse = HomeResponse(sections: initialSections)
-        // No continuation sections
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "More Charts"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getChartsContinuationCallCount == 1)
+    }
+
+    @Test("hasMoreSections is false without chart continuations")
+    func hasMoreSectionsIsFalseWithoutChartContinuations() async {
+        self.mockClient.chartsResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
 
         await self.viewModel.load()
 
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
-
         #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getChartsContinuationCallCount == 0)
     }
 
     // MARK: - Refresh Tests
@@ -148,9 +153,8 @@ struct ChartsViewModelTests {
         ]
 
         await self.viewModel.load()
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.viewModel.loadMore()
 
-        // After load, hasMoreSections should be false (continuations exhausted)
         #expect(self.viewModel.hasMoreSections == false)
 
         // Reset continuation for refresh
