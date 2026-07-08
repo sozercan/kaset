@@ -19,6 +19,7 @@ struct MainWindow: View {
         static let commandBarTopPadding: CGFloat = 72
     }
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -26,7 +27,6 @@ struct MainWindow: View {
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
-    @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -39,6 +39,9 @@ struct MainWindow: View {
 
     /// Whether startup guest playback cleanup has completed.
     @Binding var didCompleteStartupPlaybackCleanup: Bool
+
+    /// App-level request flag used by menu commands and sidebar rows to open search.
+    @Binding private var showSearchOverlayRequest: Bool
 
     /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
@@ -54,6 +57,16 @@ struct MainWindow: View {
 
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
+    @State private var isSearchOverlayPresented = false
+    @State private var isSearchOverlaySearching = false
+    /// Draft text shown in the overlay input, kept separate from the result view
+    /// models so typing/opening the overlay never churns their search state.
+    @State private var searchOverlayDraftQuery = ""
+    /// Identifies the in-flight overlay submission so a stale completion cannot
+    /// close a newer overlay session.
+    @State private var activeSearchOverlayRunID: UUID?
+    @State private var musicSearchHistory = SearchHistoryStore(source: .music)
+    @State private var youtubeSearchHistory = SearchHistoryStore(source: .youtube)
     @State private var whatsNewToPresent: PresentedWhatsNew?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
     @State private var contentResetID = UUID()
@@ -82,12 +95,14 @@ struct MainWindow: View {
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
         didCompleteStartupPlaybackCleanup: Binding<Bool>,
+        showSearchOverlayRequest: Binding<Bool>,
         client: any YTMusicClientProtocol,
         youtubeClient: any YouTubeClientProtocol
     ) {
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
         self._didCompleteStartupPlaybackCleanup = didCompleteStartupPlaybackCleanup
+        self._showSearchOverlayRequest = showSearchOverlayRequest
         self.client = client
         self.youtubeClient = youtubeClient
         _youtubeStore = State(initialValue: YouTubeViewModelStore(client: youtubeClient))
@@ -106,11 +121,6 @@ struct MainWindow: View {
         )
         _libraryViewModel = State(initialValue: LibraryViewModel(client: client))
         _historyViewModel = State(initialValue: HistoryViewModel(client: client))
-    }
-
-    /// Access to the app delegate for persistent WebView.
-    private var appDelegate: AppDelegate? {
-        NSApplication.shared.delegate as? AppDelegate
     }
 
     var body: some View {
@@ -148,6 +158,7 @@ struct MainWindow: View {
             }
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
+                self.presentSearchOverlayForUITestIfRequested()
             }
             .task {
                 DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
@@ -167,6 +178,8 @@ struct MainWindow: View {
                         transaction.animation = nil
                     }
             }
+
+            self.searchOverlayLayer
         }
         .sheet(isPresented: self.$showLoginSheet) {
             LoginSheet()
@@ -214,6 +227,13 @@ struct MainWindow: View {
                 self.showCommandBar.wrappedValue = false
             }
         }
+        .onChange(of: self.showSearchOverlayRequest) { _, newValue in
+            if newValue {
+                self.presentSearchOverlay()
+                self.showSearchOverlayRequest = false
+            }
+        }
+        .modifier(MusicSearchOverlayCompletionObserver(loadingState: self.searchViewModel?.loadingState, onChange: self.handleMusicSearchLoadingStateChange))
         .onChange(of: self.usesLegacyMacOS15UI) { _, usesLegacyUI in
             if usesLegacyUI {
                 self.isCommandBarPresented = false
@@ -526,7 +546,6 @@ struct MainWindow: View {
                 playerService: self.playerService,
                 isPresented: self.$isCommandBarPresented,
                 navigationSelection: self.$navigationSelection,
-                searchFocusTrigger: self.searchFocusTrigger,
                 searchViewModel: self.searchViewModel
             )
         }
@@ -542,7 +561,7 @@ struct MainWindow: View {
                 if let vm = exploreViewModel { ExploreView(viewModel: vm) }
             case .search:
                 if let vm = searchViewModel {
-                    SearchView(viewModel: vm, focusTrigger: self.searchFocusTrigger)
+                    SearchView(viewModel: vm, showsSearchBar: false)
                 }
             case .charts:
                 if let vm = chartsViewModel { ChartsView(viewModel: vm) }
@@ -848,7 +867,20 @@ struct MainWindow: View {
             await self.podcastsViewModel?.refresh()
         }
     }
+}
 
+// MARK: - App Delegate
+
+extension MainWindow {
+    /// Access to the app delegate for persistent WebView.
+    private var appDelegate: AppDelegate? {
+        NSApplication.shared.delegate as? AppDelegate
+    }
+}
+
+// MARK: - Content Refresh
+
+extension MainWindow {
     /// Refreshes all content when switching accounts.
     ///
     /// This method is called when the user switches between their primary account
@@ -873,6 +905,194 @@ struct MainWindow: View {
             group.addTask { await self.likedMusicViewModel?.refresh() }
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
+        }
+    }
+}
+
+// MARK: - Search Overlay
+
+extension MainWindow {
+    /// Floating search overlay: a translucent backdrop (fade in/out) behind a
+    /// glass search window (scale + blur in/out), pinned near the top.
+    @ViewBuilder
+    private var searchOverlayLayer: some View {
+        if self.isSearchOverlayPresented {
+            ZStack {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(self.colorScheme == .dark ? Color.black.opacity(0.25) : Color.clear)
+                    .opacity(0.8)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .transition(.opacity)
+                    .accessibilityIdentifier(AccessibilityID.SearchOverlay.backdrop)
+                    .onTapGesture { self.dismissSearchOverlay() }
+
+                VStack(spacing: 0) {
+                    SearchOverlayView(
+                        query: self.$searchOverlayDraftQuery,
+                        hint: self.searchOverlayHint,
+                        placeholder: String(localized: "Search"),
+                        isSearching: self.isSearchOverlaySearching,
+                        history: self.activeSearchHistory.items,
+                        onSubmit: self.runSearchOverlayQuery,
+                        onSelectHistory: self.selectSearchOverlayHistory,
+                        onRemoveHistory: self.removeSearchOverlayHistory,
+                        dismiss: self.dismissSearchOverlay
+                    )
+                    .transition(.searchOverlayWindow)
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, Self.Layout.commandBarTopPadding)
+            }
+        }
+    }
+
+    private var activeSearchHistory: SearchHistoryStore {
+        self.settings.appSource == .video ? self.youtubeSearchHistory : self.musicSearchHistory
+    }
+
+    private var searchOverlayHint: String {
+        self.settings.appSource == .video
+            ? String(localized: "Search videos, channels, and playlists")
+            : String(localized: "Search by track title, album, or artist")
+    }
+
+    private func presentSearchOverlayForUITestIfRequested() {
+        guard UITestConfig.shouldOpenSearchOverlay else { return }
+        self.presentSearchOverlay()
+    }
+
+    /// Music completion lives on the always-present window (not inside the
+    /// conditional overlay subtree) so a `.loaded`/`.error` transition can never
+    /// be missed while the overlay is being inserted or removed.
+    private func handleMusicSearchLoadingStateChange(_ state: LoadingState?) {
+        guard self.isSearchOverlaySearching,
+              self.settings.appSource == .music,
+              self.activeSearchOverlayRunID != nil,
+              let state
+        else { return }
+        switch state {
+        case .loaded, .error:
+            self.finishSearchOverlay()
+        case .idle, .loading, .loadingMore:
+            break
+        }
+    }
+
+    private func presentSearchOverlay() {
+        self.isSearchOverlaySearching = false
+        self.activeSearchOverlayRunID = nil
+        // Keep the draft only when the user is already looking at this source's
+        // search results; otherwise open with an empty field.
+        switch self.settings.appSource {
+        case .music:
+            self.searchOverlayDraftQuery = self.navigationSelection == .search
+                ? (self.searchViewModel?.query ?? "")
+                : ""
+        case .video:
+            self.searchOverlayDraftQuery = self.youtubeNavigationSelection == .search
+                ? self.youtubeStore.search.query
+                : ""
+        }
+        if UITestConfig.isUITestMode,
+           let mockQuery = UITestConfig.environmentValue(for: UITestConfig.mockSearchOverlayQueryKey)
+        {
+            self.searchOverlayDraftQuery = mockQuery
+        }
+        withAnimation(.easeInOut(duration: 0.22)) {
+            self.isSearchOverlayPresented = true
+        }
+    }
+
+    private func dismissSearchOverlay() {
+        self.isSearchOverlaySearching = false
+        self.activeSearchOverlayRunID = nil
+        withAnimation(.easeInOut(duration: 0.22)) {
+            self.isSearchOverlayPresented = false
+        }
+    }
+
+    /// Runs the current overlay query for the active source. Records history and
+    /// shows the shimmer until results resolve, then reveals the results page.
+    private func runSearchOverlayQuery() {
+        let query = self.searchOverlayDraftQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+
+        let runID = UUID()
+        self.activeSearchOverlayRunID = runID
+        self.isSearchOverlaySearching = true
+
+        switch self.settings.appSource {
+        case .music:
+            guard let vm = self.searchViewModel else { return }
+            self.musicSearchHistory.record(query)
+            vm.searchImmediately(query: query, filter: .all)
+            // Fallback for a repeat query whose loaded state won't change (so the
+            // window-level loadingState observer wouldn't fire).
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(60))
+                guard self.activeSearchOverlayRunID == runID, self.isSearchOverlaySearching else { return }
+                switch self.searchViewModel?.loadingState {
+                case .loaded, .error:
+                    self.finishSearchOverlay()
+                default:
+                    break
+                }
+            }
+        case .video:
+            let vm = self.youtubeStore.search
+            self.youtubeSearchHistory.record(query)
+            vm.query = query
+            Task { @MainActor in
+                await vm.search()
+                guard self.activeSearchOverlayRunID == runID else { return }
+                self.finishSearchOverlay()
+            }
+        }
+    }
+
+    private func selectSearchOverlayHistory(_ query: String) {
+        self.searchOverlayDraftQuery = query
+        self.runSearchOverlayQuery()
+    }
+
+    private func removeSearchOverlayHistory(_ query: String) {
+        switch self.settings.appSource {
+        case .music: self.musicSearchHistory.remove(query)
+        case .video: self.youtubeSearchHistory.remove(query)
+        }
+    }
+
+    private func finishSearchOverlay() {
+        guard self.isSearchOverlaySearching else { return }
+        self.isSearchOverlaySearching = false
+        self.activeSearchOverlayRunID = nil
+        switch self.settings.appSource {
+        case .music: self.navigationSelection = .search
+        case .video: self.youtubeNavigationSelection = .search
+        }
+        withAnimation(.easeInOut(duration: 0.22)) {
+            self.isSearchOverlayPresented = false
+        }
+    }
+}
+
+// MARK: - MusicSearchOverlayCompletionObserver
+
+/// Observes the Music search view model's loading state on the always-present
+/// window so the search overlay's completion is never missed while the overlay
+/// subtree is being inserted or removed. Extracted into a modifier to keep
+/// `MainWindow.body` within the type-checker's budget.
+private struct MusicSearchOverlayCompletionObserver: ViewModifier {
+    let loadingState: LoadingState?
+    let onChange: (LoadingState?) -> Void
+
+    func body(content: Content) -> some View {
+        content.onChange(of: self.loadingState) { _, newValue in
+            self.onChange(newValue)
         }
     }
 }
@@ -965,6 +1185,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
         didCompleteStartupPlaybackCleanup: .constant(true),
+        showSearchOverlayRequest: .constant(false),
         client: ytMusicClient,
         youtubeClient: YouTubeClient(authService: authService)
     )

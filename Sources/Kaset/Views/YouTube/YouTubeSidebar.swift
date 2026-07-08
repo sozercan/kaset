@@ -9,13 +9,14 @@ import SwiftUI
 /// shared footer (source toggle + profile) at the bottom.
 struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
+    @Environment(\.showSearchOverlay) private var showSearchOverlay
     @Environment(AuthService.self) private var authService
 
     var body: some View {
         List {
             // Main navigation
             Section {
-                self.row(for: .search)
+                self.searchRow
                 self.row(for: .home)
                 if self.hasPersonalAccount {
                     self.row(for: .subscriptions)
@@ -49,6 +50,19 @@ struct YouTubeSidebar: View {
 
     private var hasPersonalAccount: Bool {
         self.authService.hasPersonalAccount
+    }
+
+    /// The Search row opens the floating search overlay instead of navigating to a page.
+    private var searchRow: some View {
+        KasetSidebarRow(
+            title: YouTubeNavigationItem.search.displayName,
+            systemImage: YouTubeNavigationItem.search.icon,
+            isSelected: self.selection == .search
+        ) {
+            HapticService.navigation()
+            self.showSearchOverlay.wrappedValue = true
+        }
+        .accessibilityIdentifier(AccessibilityID.YouTubeSidebar.item(for: .search))
     }
 
     private func row(for item: YouTubeNavigationItem) -> some View {

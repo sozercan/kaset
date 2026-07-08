@@ -30,7 +30,6 @@ struct CommandBarView: View {
         playerService: PlayerService,
         isPresented: Binding<Bool>,
         navigationSelection: Binding<NavigationItem?>,
-        searchFocusTrigger: Binding<Bool>,
         searchViewModel: SearchViewModel? = nil
     ) {
         self.client = client
@@ -48,10 +47,6 @@ struct CommandBarView: View {
                     searchViewModel.searchImmediately()
                 }
                 isPresented.wrappedValue = false
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(100))
-                    searchFocusTrigger.wrappedValue = true
-                }
             },
             dismissAction: {
                 isPresented.wrappedValue = false
@@ -273,7 +268,6 @@ private struct SuggestionChip: View {
 #Preview {
     @Previewable @State var isPresented = true
     @Previewable @State var navigationSelection: NavigationItem?
-    @Previewable @State var searchFocusTrigger = false
     let playerService = PlayerService()
     let authService = AuthService()
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
@@ -281,8 +275,7 @@ private struct SuggestionChip: View {
         client: client,
         playerService: playerService,
         isPresented: $isPresented,
-        navigationSelection: $navigationSelection,
-        searchFocusTrigger: $searchFocusTrigger
+        navigationSelection: $navigationSelection
     )
     .padding(40)
     .frame(width: 600, height: 300)

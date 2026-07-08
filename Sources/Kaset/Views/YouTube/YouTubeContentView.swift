@@ -138,7 +138,7 @@ struct YouTubeContentView: View {
         case .home:
             YouTubeHomeView(viewModel: self.store.home)
         case .search:
-            YouTubeSearchView(viewModel: self.store.search)
+            YouTubeSearchView(viewModel: self.store.search, showsSearchBar: false)
         case .explore:
             YouTubeExploreView(viewModel: self.store.explore)
         case .shorts:

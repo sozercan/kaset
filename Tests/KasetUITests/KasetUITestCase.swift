@@ -1,3 +1,4 @@
+import AppKit
 @preconcurrency import XCTest
 
 // MARK: - TestAccessibilityID
@@ -26,6 +27,26 @@ enum TestAccessibilityID {
 
         static func suggestion(index: Int) -> String {
             "searchView.suggestion.\(index)"
+        }
+
+        static func resultRow(index: Int) -> String {
+            "searchView.result.\(index)"
+        }
+    }
+
+    enum SearchOverlay {
+        static let backdrop = "searchOverlay.backdrop"
+        static let window = "searchOverlay.window"
+        static let input = "searchOverlay.input"
+        static let returnHint = "searchOverlay.returnHint"
+        static let historyList = "searchOverlay.historyList"
+
+        static func historyRow(index: Int) -> String {
+            "searchOverlay.history.\(index)"
+        }
+
+        static func removeHistoryButton(index: Int) -> String {
+            "searchOverlay.removeHistoryButton.\(index)"
         }
     }
 
@@ -118,8 +139,9 @@ struct MockFavoriteItem {
 
 /// Base class for Kaset UI tests.
 /// Provides common setup, launch configuration, and helper methods.
-@MainActor
 class KasetUITestCase: XCTestCase {
+    private static let appBundleIdentifier = "com.sertacozercan.Kaset"
+
     /// The application under test.
     var app: XCUIApplication!
 
@@ -131,34 +153,72 @@ class KasetUITestCase: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance pointing to installed Kaset.app
-        let appURL = URL(fileURLWithPath: "/Applications/Kaset.app")
-        if FileManager.default.fileExists(atPath: appURL.path) {
-            self.app = XCUIApplication(url: appURL)
-        } else {
-            self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
+        // Create new app instance. Prefer the freshly-built local app bundle;
+        // fall back to /Applications only when the local bundle is unavailable.
+        let explicitAppPath = ProcessInfo.processInfo.environment["KASET_UI_TEST_APP_PATH"]
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let localBuildPath = repositoryRoot
+            .appendingPathComponent(".build/app/Kaset.app")
+            .path
+        let preferredAppPath = explicitAppPath ?? localBuildPath
+        let appURL = FileManager.default.fileExists(atPath: preferredAppPath)
+            ? URL(fileURLWithPath: preferredAppPath)
+            : URL(fileURLWithPath: "/Applications/Kaset.app")
+        Self.terminateRunningKaset()
+
+        let bundleIdentifier = Self.appBundleIdentifier
+        let configuredApp = MainActor.assumeIsolated {
+            let application = if FileManager.default.fileExists(atPath: appURL.path) {
+                XCUIApplication(url: appURL)
+            } else {
+                XCUIApplication(bundleIdentifier: bundleIdentifier)
+            }
+
+            // Add UI test mode arguments
+            application.launchArguments.append("-UITestMode")
+            application.launchArguments.append("-SkipAuth")
+
+            // Also set via environment (more reliable with XCUIApplication(url:))
+            application.launchEnvironment["UI_TEST_MODE"] = "1"
+            application.launchEnvironment["SKIP_AUTH"] = "1"
+
+            // Disable animations for faster, more reliable tests
+            application.launchArguments.append("-UIAnimationsDisabled")
+
+            return application
         }
-
-        // Add UI test mode arguments
-        self.app.launchArguments.append("-UITestMode")
-        self.app.launchArguments.append("-SkipAuth")
-
-        // Also set via environment (more reliable with XCUIApplication(url:))
-        self.app.launchEnvironment["UI_TEST_MODE"] = "1"
-        self.app.launchEnvironment["SKIP_AUTH"] = "1"
-
-        // Disable animations for faster, more reliable tests
-        self.app.launchArguments.append("-UIAnimationsDisabled")
+        self.app = configuredApp
     }
 
     override func tearDownWithError() throws {
+        let application = self.app
         self.app = nil
+        MainActor.assumeIsolated {
+            application?.terminate()
+        }
         try super.tearDownWithError()
+    }
+
+    private static func terminateRunningKaset() {
+        for runningApp in NSRunningApplication.runningApplications(withBundleIdentifier: self.appBundleIdentifier) {
+            runningApp.terminate()
+            let deadline = Date().addingTimeInterval(3)
+            while !runningApp.isTerminated, Date() < deadline {
+                RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            }
+            if !runningApp.isTerminated {
+                runningApp.forceTerminate()
+            }
+        }
     }
 
     // MARK: - Launch Helpers
 
     /// Launches the app with mock home sections.
+    @MainActor
     func launchWithMockHome(sectionCount: Int = 3, itemsPerSection: Int = 5) {
         let sections = (0 ..< sectionCount).map { sectionIndex in
             [
@@ -186,6 +246,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with mock search results.
+    @MainActor
     func launchWithMockSearch(songCount: Int = 5) {
         let songs = (0 ..< songCount).map { index in
             [
@@ -206,6 +267,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with mock library playlists.
+    @MainActor
     func launchWithMockLibrary(playlistCount: Int = 3) {
         let playlists = (0 ..< playlistCount).map { index in
             [
@@ -225,6 +287,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with a mock current track (player has something playing).
+    @MainActor
     func launchWithMockPlayer(isPlaying: Bool = true, hasVideo: Bool = false) {
         let track: [String: Any] = [
             "id": "current-track",
@@ -247,12 +310,14 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with a mock current track that has video available.
+    @MainActor
     func launchWithMockPlayerWithVideo(isPlaying: Bool = true) {
         self.launchWithMockPlayer(isPlaying: isPlaying, hasVideo: true)
     }
 
     /// Launches the app with mock favorites.
     /// - Parameter items: Array of favorite item configurations.
+    @MainActor
     func launchWithMockFavorites(_ items: [MockFavoriteItem]) {
         let favorites = items.map { item -> [String: Any] in
             var dict: [String: Any] = [
@@ -317,6 +382,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with mock player state and mock favorites.
+    @MainActor
     func launchWithMockPlayerAndFavorites(
         isPlaying: Bool = true,
         hasVideo: Bool = false,
@@ -402,6 +468,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Launches the app with default configuration (logged in, no specific mock data).
+    @MainActor
     func launchDefault() {
         self.app.launch()
     }
@@ -410,10 +477,11 @@ class KasetUITestCase: XCTestCase {
 
     /// Waits for an element to exist with a timeout.
     @discardableResult
+    @MainActor
     func waitForElement(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let predicate = NSPredicate(format: "exists == true")
@@ -429,10 +497,11 @@ class KasetUITestCase: XCTestCase {
 
     /// Waits for an element to be hittable (visible and interactable).
     @discardableResult
+    @MainActor
     func waitForHittable(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let predicate = NSPredicate(format: "isHittable == true")
@@ -448,11 +517,12 @@ class KasetUITestCase: XCTestCase {
 
     /// Waits for element count to match expected value.
     @discardableResult
+    @MainActor
     func waitForElementCount(
         _ query: XCUIElementQuery,
         count: Int,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let predicate = NSPredicate(format: "count == \(count)")
@@ -472,10 +542,11 @@ class KasetUITestCase: XCTestCase {
 
     /// Waits for an element to disappear with a timeout.
     @discardableResult
+    @MainActor
     func waitForElementToDisappear(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let predicate = NSPredicate(format: "exists == false")
@@ -492,6 +563,7 @@ class KasetUITestCase: XCTestCase {
     // MARK: - Navigation Helpers
 
     /// Navigates to a sidebar item by accessibility identifier.
+    @MainActor
     func navigateToSidebarItem(_ accessibilityID: String) {
         // Find by accessibility identifier first, fall back to label
         var sidebarItem = self.app.buttons[accessibilityID].firstMatch
@@ -517,6 +589,7 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Navigates to a sidebar item by label text.
+    @MainActor
     func navigateToSidebarItemByLabel(_ label: String) {
         // Wait for sidebar to be ready with extended timeout for UI test startup
         let sidebarItem = self.app.staticTexts[label].firstMatch
@@ -538,26 +611,31 @@ class KasetUITestCase: XCTestCase {
     }
 
     /// Navigates to Home via sidebar.
+    @MainActor
     func navigateToHome() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
     }
 
     /// Navigates to Search via sidebar.
+    @MainActor
     func navigateToSearch() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
     }
 
     /// Navigates to Explore via sidebar.
+    @MainActor
     func navigateToExplore() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
     }
 
     /// Navigates to Library via sidebar.
+    @MainActor
     func navigateToLibrary() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
     }
 
     /// Navigates to Liked Music via sidebar.
+    @MainActor
     func navigateToLikedMusic() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
     }

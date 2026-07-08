@@ -9,6 +9,7 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    @Environment(\.showSearchOverlay) private var showSearchOverlay
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
@@ -17,7 +18,7 @@ struct Sidebar: View {
         List {
             // Main navigation
             Section {
-                self.navigationRow(.search)
+                self.searchRow
                     .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
 
                 self.navigationRow(.home)
@@ -93,6 +94,18 @@ struct Sidebar: View {
         }
 
         return nil
+    }
+
+    /// The Search row opens the floating search overlay instead of navigating to a page.
+    private var searchRow: some View {
+        KasetSidebarRow(
+            title: NavigationItem.search.displayName,
+            systemImage: NavigationItem.search.icon,
+            isSelected: self.currentSidebarSelection == .navigation(.search)
+        ) {
+            HapticService.navigation()
+            self.showSearchOverlay.wrappedValue = true
+        }
     }
 
     private func navigationRow(_ item: NavigationItem) -> some View {

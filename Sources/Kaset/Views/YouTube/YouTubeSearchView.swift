@@ -5,6 +5,12 @@ import SwiftUI
 /// YouTube search: query field, result-kind filter, and mixed result list.
 struct YouTubeSearchView: View {
     @Bindable var viewModel: YouTubeSearchViewModel
+
+    /// Whether the in-page search field is shown. When false the view is a
+    /// results-only page (the search overlay owns the input); the filter picker
+    /// stays visible.
+    var showsSearchBar: Bool = true
+
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
@@ -44,37 +50,39 @@ struct YouTubeSearchView: View {
 
     private var searchHeader: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
+            if self.showsSearchBar {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
 
-                TextField(
-                    String(localized: "Search YouTube"),
-                    text: self.$viewModel.query
-                )
-                .textFieldStyle(.plain)
-                .focused(self.$isSearchFieldFocused)
-                .onSubmit {
-                    Task {
-                        await self.viewModel.search()
+                    TextField(
+                        String(localized: "Search YouTube"),
+                        text: self.$viewModel.query
+                    )
+                    .textFieldStyle(.plain)
+                    .focused(self.$isSearchFieldFocused)
+                    .onSubmit {
+                        Task {
+                            await self.viewModel.search()
+                        }
+                    }
+                    .accessibilityIdentifier(AccessibilityID.YouTubeContent.searchField)
+
+                    if !self.viewModel.query.isEmpty {
+                        Button {
+                            self.viewModel.query = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "Clear search"))
                     }
                 }
-                .accessibilityIdentifier(AccessibilityID.YouTubeContent.searchField)
-
-                if !self.viewModel.query.isEmpty {
-                    Button {
-                        self.viewModel.query = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "Clear search"))
-                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.quaternary.opacity(0.5), in: Capsule())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.quaternary.opacity(0.5), in: Capsule())
 
             Picker(String(localized: "Filter"), selection: self.$viewModel.selectedFilter) {
                 ForEach(YouTubeSearchFilter.allCases) { filter in
