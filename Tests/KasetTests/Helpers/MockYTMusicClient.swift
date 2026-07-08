@@ -175,6 +175,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getExploreCalled = false
     private(set) var getExploreCallCount = 0
     private(set) var getHistoryCallCount = 0
+    private(set) var getHistoryContinuationCallCount = 0
     private(set) var getExploreContinuationCalled = false
     private(set) var getExploreContinuationCallCount = 0
     private(set) var getChartsCalled = false
@@ -388,6 +389,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getHistoryContinuation() async throws -> [HomeSection]? {
+        self.getHistoryContinuationCallCount += 1
         if let error = shouldThrowError { throw error }
         guard self._historyContinuationIndex < self.historyContinuationSections.count else {
             return nil
@@ -1027,6 +1029,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getChartsContinuationCallCount = 0
         self.getMoodsAndGenresContinuationCallCount = 0
         self.getNewReleasesContinuationCallCount = 0
+        self.getHistoryContinuationCallCount = 0
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0

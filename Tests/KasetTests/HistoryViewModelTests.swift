@@ -16,23 +16,6 @@ struct HistoryViewModelTests {
         HistoryViewModel.playbackRefreshRetryDelay = .seconds(2)
     }
 
-    private func waitForBackgroundLoading(
-        timeout: Duration = .seconds(3),
-        until condition: @escaping () -> Bool
-    ) async {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-
-        while clock.now < deadline {
-            if condition() {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(25))
-        }
-
-        Issue.record("Timed out waiting for background history loading")
-    }
-
     private func waitForHistoryRefresh(
         timeout: Duration = .seconds(3),
         until condition: @escaping () -> Bool
@@ -72,6 +55,42 @@ struct HistoryViewModelTests {
         #expect(self.viewModel.sections[1].title == "Yesterday")
     }
 
+    @Test("Initial load does not drain history continuations")
+    func initialLoadDoesNotDrainHistoryContinuations() async {
+        let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
+        let paginatedSection = TestFixtures.makeHomeSection(id: "yesterday", title: "Yesterday")
+        self.mockClient.historyResponse = HomeResponse(sections: [initialSection])
+        self.mockClient.historyContinuationSections = [[paginatedSection]]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Today"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getHistoryContinuationCallCount == 0)
+    }
+
+    @Test("Load more appends one history continuation per demand")
+    func loadMoreAppendsOneHistoryContinuationPerDemand() async {
+        let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
+        let yesterdaySection = TestFixtures.makeHomeSection(id: "yesterday", title: "Yesterday")
+        let olderSection = TestFixtures.makeHomeSection(id: "older", title: "Older")
+        self.mockClient.historyResponse = HomeResponse(sections: [initialSection])
+        self.mockClient.historyContinuationSections = [[yesterdaySection], [olderSection]]
+
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getHistoryContinuationCallCount == 1)
+
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday", "Older"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getHistoryContinuationCallCount == 2)
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
@@ -107,35 +126,34 @@ struct HistoryViewModelTests {
         self.mockClient.historyContinuationSections = [[paginatedSection]]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading {
-            self.viewModel.sections.map(\.title) == ["Today", "Yesterday"] &&
-                self.viewModel.hasMoreSections == false
-        }
+        await self.viewModel.loadMore()
 
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
         #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getHistoryContinuationCallCount == 1)
 
         let changed = await self.viewModel.refresh()
 
         #expect(changed == false)
         #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.hasMoreSections == true)
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
+        #expect(self.mockClient.getHistoryContinuationCallCount == 1)
     }
 
-    @Test("Refresh restarts background pagination after history cursor rewind")
-    func refreshRestartsBackgroundPaginationAfterCursorRewind() async {
+    @Test("Load more after unchanged refresh skips preserved cursor pages")
+    func loadMoreAfterUnchangedRefreshSkipsPreservedCursorPages() async {
         let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
-        let paginatedSection = TestFixtures.makeHomeSection(id: "yesterday", title: "Yesterday")
+        let yesterdaySection = TestFixtures.makeHomeSection(id: "yesterday", title: "Yesterday")
+        let olderSection = TestFixtures.makeHomeSection(id: "older", title: "Older")
         self.mockClient.historyResponse = HomeResponse(sections: [initialSection])
-        self.mockClient.historyContinuationSections = [[paginatedSection]]
+        self.mockClient.historyContinuationSections = [[yesterdaySection], [olderSection]]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading {
-            self.viewModel.sections.map(\.title) == ["Today", "Yesterday"] &&
-                self.viewModel.hasMoreSections == false
-        }
+        await self.viewModel.loadMore()
 
-        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
+        #expect(self.viewModel.hasMoreSections == true)
 
         let changed = await self.viewModel.refresh()
 
@@ -143,13 +161,11 @@ struct HistoryViewModelTests {
         #expect(self.viewModel.hasMoreSections == true)
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
 
-        await self.waitForBackgroundLoading {
-            self.viewModel.hasMoreSections == false &&
-                self.viewModel.sections.map(\.title) == ["Today", "Yesterday"]
-        }
+        await self.viewModel.loadMore()
 
+        #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday", "Older"])
         #expect(self.viewModel.hasMoreSections == false)
-        #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
+        #expect(self.mockClient.getHistoryContinuationCallCount == 3)
     }
 
     @Test("Empty history retry leaves loading state loaded")
