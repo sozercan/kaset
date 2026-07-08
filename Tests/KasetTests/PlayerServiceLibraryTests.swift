@@ -82,7 +82,7 @@ struct PlayerServiceLibraryTests {
 
     @Test("likeCurrentTrack reverts on API failure")
     func likeCurrentTrackRevertsOnFailure() async {
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
@@ -207,7 +207,7 @@ struct PlayerServiceLibraryTests {
 
     @Test("dislikeCurrentTrack reverts on API failure")
     func dislikeCurrentTrackRevertsOnFailure() async {
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
