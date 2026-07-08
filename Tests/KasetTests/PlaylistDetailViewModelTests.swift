@@ -192,6 +192,125 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.hasMore == false)
     }
 
+    @Test("Liked Music search filters loaded tracks by title artist album and video ID")
+    func likedMusicSearchFiltersLoadedTracks() async {
+        let albumMatchedSong = Song(
+            id: "album-match",
+            title: "Quiet Track",
+            artists: [Artist(id: "artist-quiet", name: "Quiet Artist")],
+            album: TestFixtures.makeAlbum(id: "album-synth", title: "Neon Nights"),
+            videoId: "album-match"
+        )
+        let tracks = [
+            TestFixtures.makeSong(id: "title-match", title: "Blue Horizon", artistName: "Ocean Band"),
+            TestFixtures.makeSong(id: "artist-match", title: "Morning", artistName: "Blue Choir"),
+            albumMatchedSong,
+            TestFixtures.makeSong(id: "video-special-123", title: "Hidden", artistName: "Other Artist"),
+            TestFixtures.makeSong(id: "no-match", title: "Sunrise", artistName: "Warm Band"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: tracks.count)
+
+        await likedMusicViewModel.load()
+        guard let detail = likedMusicViewModel.playlistDetail else {
+            Issue.record("Expected Liked Music detail")
+            return
+        }
+
+        likedMusicViewModel.likedMusicSearchQuery = " blue "
+        #expect(likedMusicViewModel.visibleTracks(for: detail).map(\.videoId) == ["title-match", "artist-match"])
+
+        likedMusicViewModel.likedMusicSearchQuery = "neon"
+        #expect(likedMusicViewModel.visibleTracks(for: detail).map(\.videoId) == ["album-match"])
+
+        likedMusicViewModel.likedMusicSearchQuery = "SPECIAL-123"
+        #expect(likedMusicViewModel.visibleTracks(for: detail).map(\.videoId) == ["video-special-123"])
+    }
+
+    @Test("Liked Music blank search keeps all loaded tracks visible")
+    func likedMusicBlankSearchKeepsAllTracksVisible() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
+            TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: 2)
+
+        await likedMusicViewModel.load()
+        likedMusicViewModel.likedMusicSearchQuery = "   "
+
+        guard let detail = likedMusicViewModel.playlistDetail else {
+            Issue.record("Expected Liked Music detail")
+            return
+        }
+        #expect(likedMusicViewModel.hasActiveLikedMusicSearch == false)
+        #expect(likedMusicViewModel.visibleTracks(for: detail).map(\.videoId) == ["liked-1", "liked-2"])
+    }
+
+    @Test("Liked Music search results update as continuation batches load")
+    func likedMusicSearchResultsUpdateAsContinuationBatchesLoad() async {
+        let initialTracks = [
+            TestFixtures.makeSong(id: "liked-1", title: "Calm Intro"),
+            TestFixtures.makeSong(id: "liked-2", title: "Soft Verse"),
+        ]
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks, trackCount: 4)
+        self.mockClient.playlistContinuationDelay = .milliseconds(80)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
+            [
+                TestFixtures.makeSong(id: "liked-3", title: "Live Search Match"),
+                TestFixtures.makeSong(id: "liked-4", title: "Finale"),
+            ],
+        ]
+
+        likedMusicViewModel.likedMusicSearchQuery = "search match"
+        await likedMusicViewModel.load()
+
+        guard let partialDetail = likedMusicViewModel.playlistDetail else {
+            Issue.record("Expected initial Liked Music detail before continuation finishes")
+            return
+        }
+        #expect(likedMusicViewModel.visibleTracks(for: partialDetail).isEmpty)
+
+        await self.waitUntil(
+            likedMusicViewModel.playlistDetail?.tracks.count == 4,
+            description: "Liked Music search continuation result"
+        )
+
+        guard let finalDetail = likedMusicViewModel.playlistDetail else {
+            Issue.record("Expected final Liked Music detail")
+            return
+        }
+        #expect(likedMusicViewModel.visibleTracks(for: finalDetail).map(\.videoId) == ["liked-3"])
+        #expect(likedMusicViewModel.hasMore == false)
+    }
+
+    @Test("Non Liked Music playlist ignores liked music search query")
+    func nonLikedMusicPlaylistIgnoresLikedMusicSearchQuery() async {
+        let playlistDetail = TestFixtures.makePlaylistDetail(
+            playlist: TestFixtures.makePlaylist(id: "VL-test-playlist"),
+            trackCount: 2
+        )
+        self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+
+        await self.viewModel.load()
+        self.viewModel.likedMusicSearchQuery = "no-result"
+
+        guard let detail = self.viewModel.playlistDetail else {
+            Issue.record("Expected playlist detail")
+            return
+        }
+        #expect(self.viewModel.hasActiveLikedMusicSearch == false)
+        #expect(self.viewModel.visibleTracks(for: detail).count == 2)
+    }
+
+    @Test("Clear Liked Music search resets query")
+    func clearLikedMusicSearchResetsQuery() {
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        likedMusicViewModel.likedMusicSearchQuery = "blue"
+
+        likedMusicViewModel.clearLikedMusicSearch()
+
+        #expect(likedMusicViewModel.likedMusicSearchQuery.isEmpty)
+    }
+
     @Test("Large playlist load fetches every continuation")
     func largePlaylistLoadFetchesEveryContinuation() async {
         let playlist = Playlist(

@@ -192,6 +192,9 @@ enum AccessibilityID {
         static let scrollView = "likedMusicView.scrollView"
         static let loadingIndicator = "likedMusicView.loading"
         static let emptyState = "likedMusicView.emptyState"
+        static let searchField = "likedMusicView.searchField"
+        static let clearSearchButton = "likedMusicView.clearSearchButton"
+        static let searchEmptyState = "likedMusicView.searchEmptyState"
 
         static func songRow(index: Int) -> String {
             "likedMusicView.song.\(index)"
