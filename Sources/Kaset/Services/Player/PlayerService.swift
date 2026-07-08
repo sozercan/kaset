@@ -300,8 +300,35 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
 
-    /// Task handle for the background queue metadata enrichment service.
-    var enrichmentTask: Task<Void, Never>?
+    /// Task handle for the one-shot queue metadata enrichment pass, if one is scheduled or running.
+    @ObservationIgnored var enrichmentTask: Task<Void, Never>?
+
+    /// Delay used to coalesce queue mutations before the one-shot metadata enrichment pass runs.
+    @ObservationIgnored var queueEnrichmentInitialDelay: Duration = .seconds(2)
+
+    /// Delay used before retrying entries that remain incomplete after a scheduled enrichment pass.
+    @ObservationIgnored var queueEnrichmentRetryDelay: Duration = .seconds(30)
+
+    /// Maximum scheduled enrichment attempts per stable queue entry before waiting for another queue event.
+    static let maxQueueEnrichmentAttempts = 3
+
+    /// Scheduled enrichment attempts by stable queue entry identity.
+    @ObservationIgnored var queueEnrichmentAttemptsByEntryID: [UUID: Int] = [:]
+
+    /// Monotonic token used to prevent stale scheduled enrichment tasks from clearing a newer task.
+    @ObservationIgnored var queueEnrichmentGeneration = 0
+
+    /// True while the one-shot enrichment pass is actively fetching metadata.
+    @ObservationIgnored var isQueueEnrichmentRunning = false
+
+    /// Generation of the currently running enrichment pass, if any.
+    @ObservationIgnored var queueEnrichmentRunningGeneration: Int?
+
+    /// Set when an external queue mutation happens while enrichment is running.
+    @ObservationIgnored var queueEnrichmentNeedsReschedule = false
+
+    /// Suppresses scheduler churn for queue writes that are produced by the enrichment pass itself.
+    @ObservationIgnored var isApplyingQueueEnrichmentResult = false
 
     // MARK: - Initialization
 
@@ -368,7 +395,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
 
-        // Start queue metadata enrichment service
+        // Queue metadata enrichment is event/one-shot driven; this only schedules if restored
+        // state already needs enrichment and a client is available.
         self.startQueueEnrichmentService()
     }
 
@@ -481,6 +509,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     func setQueue(entries: [QueueEntry]) {
         self.queueStorage = entries
         self.synchronizeCurrentQueueEntryID()
+        self.queueDidChangeForEnrichment()
     }
 
     func synchronizeCurrentQueueEntryID() {
@@ -548,6 +577,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the YTMusicClient for API calls (dependency injection).
     func setYTMusicClient(_ client: any YTMusicClientProtocol) {
         self.ytMusicClient = client
+        self.resetQueueEnrichmentAttemptState()
+        self.scheduleQueueEnrichmentIfNeeded()
     }
 
     /// Sets the AuthService used to guard account-scoped mutations.
