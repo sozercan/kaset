@@ -592,6 +592,37 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.shouldAutoloadPendingVideo == true)
     }
 
+    @Test("Repeated unchanged queue persistence skips redundant UserDefaults writes")
+    func repeatedUnchangedQueuePersistenceSkipsWrites() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+        let firstWriteCount = self.playerService.queuePersistenceWriteCountForTesting
+
+        self.playerService.saveQueueForPersistence()
+        self.playerService.saveQueueForPersistence()
+
+        #expect(firstWriteCount == 1)
+        #expect(self.playerService.queuePersistenceWriteCountForTesting == firstWriteCount)
+    }
+
+    @Test("Unchanged queue persistence writes again when backing defaults are missing")
+    func unchangedQueuePersistenceWritesWhenBackingDefaultsAreMissing() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.saveQueueForPersistence()
+        let firstWriteCount = self.playerService.queuePersistenceWriteCountForTesting
+
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.queue")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+        self.playerService.saveQueueForPersistence()
+
+        #expect(firstWriteCount == 1)
+        #expect(self.playerService.queuePersistenceWriteCountForTesting == firstWriteCount + 1)
+        #expect(UserDefaults.standard.data(forKey: "kaset.saved.playbackSession") != nil)
+    }
+
     @Test("Clear saved queue removes persistence data")
     func clearSavedQueue() async {
         // Arrange

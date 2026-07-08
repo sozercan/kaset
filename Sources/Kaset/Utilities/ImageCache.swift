@@ -30,9 +30,7 @@ actor ImageCache {
     private var estimatedDiskCacheSize: Int64?
     private var writesSinceDiskEvictionCheck = 0
     private var diskEvictionTask: Task<Void, Never>?
-    #if DEBUG
-        private(set) var diskCacheSizeScanCountForTesting = 0
-    #endif
+    private(set) var diskCacheSizeScanCountForTesting = 0
 
     init(
         diskCacheURL: URL? = nil,
@@ -261,9 +259,7 @@ actor ImageCache {
     }
 
     private func scanDiskCacheSize() -> Int64 {
-        #if DEBUG
-            self.diskCacheSizeScanCountForTesting += 1
-        #endif
+        self.diskCacheSizeScanCountForTesting += 1
         var totalSize: Int64 = 0
         guard let enumerator = fileManager.enumerator(
             at: diskCacheURL,
@@ -407,9 +403,7 @@ actor ImageCache {
     }
 
     private func cachedFilesForEviction() -> [CachedFileInfo]? {
-        #if DEBUG
-            self.diskCacheSizeScanCountForTesting += 1
-        #endif
+        self.diskCacheSizeScanCountForTesting += 1
         guard let files = try? fileManager.contentsOfDirectory(
             at: diskCacheURL,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
@@ -425,26 +419,24 @@ actor ImageCache {
         }
     }
 
-    #if DEBUG
-        func saveToDiskForTesting(url: URL, data: Data) {
-            self.saveToDisk(url: url, data: data)
-        }
+    func saveToDiskForTesting(url: URL, data: Data) {
+        self.saveToDisk(url: url, data: data)
+    }
 
-        func estimatedDiskCacheSizeForTesting() -> Int64? {
-            self.estimatedDiskCacheSize
-        }
+    func estimatedDiskCacheSizeForTesting() -> Int64? {
+        self.estimatedDiskCacheSize
+    }
 
-        func evictDiskCacheIfNeededForTesting(force: Bool = false) async {
-            await self.evictDiskCacheIfNeeded(force: force)
-        }
+    func evictDiskCacheIfNeededForTesting(force: Bool = false) async {
+        await self.evictDiskCacheIfNeeded(force: force)
+    }
 
-        func waitForScheduledDiskEvictionForTesting() async {
-            guard let task = self.diskEvictionTask else { return }
-            await task.value
-        }
+    func waitForScheduledDiskEvictionForTesting() async {
+        guard let task = self.diskEvictionTask else { return }
+        await task.value
+    }
 
-        func diskCachePathForTesting(url: URL) -> URL {
-            self.diskCachePath(for: url)
-        }
-    #endif
+    func diskCachePathForTesting(url: URL) -> URL {
+        self.diskCachePath(for: url)
+    }
 }

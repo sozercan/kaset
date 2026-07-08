@@ -304,6 +304,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
 
+    /// Last playback-session signature written in this process, used to skip redundant UserDefaults writes.
+    @ObservationIgnored var lastSavedPlaybackSessionSignature: Int?
+
+    @ObservationIgnored var queuePersistenceWriteCountForTesting = 0
+
     /// Task handle for the one-shot queue metadata enrichment pass, if one is scheduled or running.
     @ObservationIgnored var enrichmentTask: Task<Void, Never>?
 
