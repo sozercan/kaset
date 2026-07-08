@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - MainWindow
 
 /// Main application window with sidebar navigation and player bar.
-struct MainWindow: View {
+struct MainWindow: View { // swiftlint:disable:this type_body_length
     private struct PresentedWhatsNew: Identifiable {
         let whatsNew: WhatsNew
         let requestedVersion: WhatsNew.Version
