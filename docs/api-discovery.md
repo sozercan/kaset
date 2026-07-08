@@ -76,7 +76,7 @@ Forced signed-out API Explorer probes confirmed these public surfaces:
 | Music bulk queue metadata | `music/get_queue` | HTTP 200; `playlistPanelVideoRenderer` metadata returned |
 | Public Music browse | `FEmusic_home`, `FEmusic_explore`, `FEmusic_charts`, `FEmusic_moods_and_genres`, `FEmusic_new_releases`, `FEmusic_podcasts` | HTTP 200 public content |
 | Lyrics browse | `MPLYt...` from `next` | HTTP 200 when lyrics are public |
-| YouTube search/watch-next | `--youtube search`, `--youtube next` | HTTP 200 public results / related videos |
+| YouTube search/watch-next | `--youtube search`, `--youtube next` | HTTP 200 public results / related videos; chapter markers are present in `next` for videos that expose chapters |
 
 Personal surfaces and mutations remain sign-in-only. Gate or hide UI for:
 
@@ -1205,6 +1205,50 @@ swift run api-explorer --youtube browse FEhistory
 swift run api-explorer --youtube action search '{"query":"swift concurrency"}'
 swift run api-explorer --youtube action next '{"videoId":"VIDEO_ID"}'
 ```
+
+#### YouTube chapter markers (verified 2026-07-07)
+
+Regular YouTube chapter data is exposed by the WEB `next` watch-page response,
+not by the `player` endpoint. `api-explorer` now summarizes both known chapter
+shapes when they appear:
+
+```bash
+swift run api-explorer --youtube --guest action next '{"videoId":"u2rYp8AMuSg"}'
+```
+
+Observed chapter paths:
+
+```text
+playerOverlays.playerOverlayRenderer.decoratedPlayerBarRenderer
+  .decoratedPlayerBarRenderer.playerBar.multiMarkersPlayerBarRenderer
+  .markersMap[].value.chapters[].chapterRenderer
+
+engagementPanels[].engagementPanelSectionListRenderer.content
+  .macroMarkersListRenderer.contents[].macroMarkersListItemRenderer
+
+engagementPanels[].engagementPanelSectionListRenderer.content
+  .structuredDescriptionContentRenderer.items[]
+  .horizontalCardListRenderer.cards[].macroMarkersListItemRenderer
+```
+
+Field notes:
+
+- `chapterRenderer` is the best watch-page source for navigation markers.
+  It includes `timeRangeStartMillis`, `title.simpleText`, and chapter
+  thumbnails.
+- `macroMarkersListItemRenderer` appears in the chapters panel and may be
+  duplicated in the structured description or search result metadata. It adds
+  `onTap.watchEndpoint.startTimeSeconds`, `timeDescription`, and repeat-chapter
+  commands whose `startTimeMs` / `endTimeMs` can provide chapter bounds.
+- Videos without chapters may still expose heatmap markers through
+  `macroMarkersListEntity.markersList`; do not treat heatmap markers as
+  chapters.
+- Auth was not required for the verified chapter response: both `--guest` and
+  signed-in `--youtube action next` returned the same chapter marker counts for
+  the test video.
+- `--youtube action player '{"videoId":"..."}'` returned metadata/captions and
+  streaming/player state, but no `chapterRenderer` or
+  `macroMarkersListItemRenderer` chapter data in the verified probes.
 
 Prefer the destination feeds documented in [youtube.md](youtube.md) for Explore; YouTube's old `FEtrending` feed is no longer a reliable target.
 

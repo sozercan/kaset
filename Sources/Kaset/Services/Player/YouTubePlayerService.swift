@@ -166,6 +166,10 @@ final class YouTubePlayerService {
     /// Up-next candidates for skip-forward (related videos from the watch page).
     private(set) var upNext: [YouTubeVideo] = []
 
+    /// Navigation chapters for the current video, loaded from the watch page's
+    /// companion `next` response.
+    private(set) var chapters: [YouTubeChapter] = []
+
     /// Videos played earlier this session, for skip-backward.
     private var history: [YouTubeVideo] = []
 
@@ -332,7 +336,9 @@ final class YouTubePlayerService {
     /// Toggles play/pause.
     func playPause() {
         if !self.isPlaying {
-            if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
+            if self.reloadPendingPausedIdentitySwitchForUserResume() {
+                return
+            }
             self.playbackWillStart?()
         } else {
             self.deferInFlightIdentityReloadIfNeeded()
@@ -343,7 +349,9 @@ final class YouTubePlayerService {
 
     /// Resumes playback.
     func resume() {
-        if self.reloadPendingPausedIdentitySwitchForUserResume() { return }
+        if self.reloadPendingPausedIdentitySwitchForUserResume() {
+            return
+        }
         self.playbackWillStart?()
         self.playbackController.play()
     }
@@ -460,6 +468,15 @@ final class YouTubePlayerService {
         self.upNext = videos.filter { $0.videoId != currentId && !$0.isShort }
     }
 
+    /// Supplies chapter navigation markers for the current video.
+    func setChapters(_ chapters: [YouTubeChapter]) {
+        guard let currentId = self.currentVideo?.videoId else {
+            self.chapters = []
+            return
+        }
+        self.chapters = chapters.filter { $0.videoId == nil || $0.videoId == currentId }
+    }
+
     /// Skips to the next video (first up-next candidate; fetched lazily
     /// when none are known, e.g. when playing in the floating window).
     func skipForward() async {
@@ -533,6 +550,7 @@ final class YouTubePlayerService {
         self.duration = 0
         self.currentRating = .none
         self.isInWatchLater = false
+        self.chapters = []
         self.captionTracks = []
         self.activeCaptionLanguageCode = nil
         self.qualityLevels = []

@@ -523,6 +523,250 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
     return output
 }
 
+// MARK: - ChapterProbeItem
+
+private struct ChapterProbeItem: Hashable {
+    let videoId: String?
+    let title: String
+    let startMillis: Int?
+    let endMillis: Int?
+    let timeText: String?
+    let hasThumbnail: Bool
+}
+
+private func textValue(from value: Any?) -> String? {
+    if let string = value as? String {
+        return string.isEmpty ? nil : string
+    }
+
+    guard let dictionary = value as? [String: Any] else {
+        return nil
+    }
+
+    if let simpleText = dictionary["simpleText"] as? String, !simpleText.isEmpty {
+        return simpleText
+    }
+
+    if let content = dictionary["content"] as? String, !content.isEmpty {
+        return content
+    }
+
+    if let runs = dictionary["runs"] as? [[String: Any]] {
+        let text = runs.compactMap { $0["text"] as? String }.joined()
+        return text.isEmpty ? nil : text
+    }
+
+    return nil
+}
+
+private func intValue(from value: Any?) -> Int? {
+    switch value {
+    case let int as Int:
+        int
+    case let double as Double:
+        Int(double)
+    case let number as NSNumber:
+        Int(number.int64Value)
+    case let string as String:
+        Int(string)
+    default:
+        nil
+    }
+}
+
+private func formatMillis(_ millis: Int?) -> String {
+    guard let millis else { return "?:??" }
+
+    let totalSeconds = max(0, millis / 1000)
+    let hours = totalSeconds / 3600
+    let minutes = (totalSeconds % 3600) / 60
+    let seconds = totalSeconds % 60
+
+    if hours > 0 {
+        return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+    }
+    return String(format: "%d:%02d", minutes, seconds)
+}
+
+private func findRepeatChapterCommand(in value: Any?) -> [String: Any]? {
+    if let dictionary = value as? [String: Any] {
+        if let command = dictionary["repeatChapterCommand"] as? [String: Any] {
+            return command
+        }
+
+        for nestedValue in dictionary.values {
+            if let command = findRepeatChapterCommand(in: nestedValue) {
+                return command
+            }
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            if let command = findRepeatChapterCommand(in: item) {
+                return command
+            }
+        }
+    }
+
+    return nil
+}
+
+private func watchEndpoint(from renderer: [String: Any]) -> [String: Any]? {
+    guard let onTap = renderer["onTap"] as? [String: Any],
+          let watchEndpoint = onTap["watchEndpoint"] as? [String: Any]
+    else {
+        return nil
+    }
+
+    return watchEndpoint
+}
+
+private func chapterProbeItem(fromChapterRenderer renderer: [String: Any]) -> ChapterProbeItem? {
+    guard let title = textValue(from: renderer["title"]) else {
+        return nil
+    }
+
+    return ChapterProbeItem(
+        videoId: nil,
+        title: title,
+        startMillis: intValue(from: renderer["timeRangeStartMillis"]),
+        endMillis: nil,
+        timeText: nil,
+        hasThumbnail: renderer["thumbnail"] != nil
+    )
+}
+
+private func chapterProbeItem(fromMacroMarkerRenderer renderer: [String: Any]) -> ChapterProbeItem? {
+    guard let title = textValue(from: renderer["title"]) else {
+        return nil
+    }
+
+    let repeatCommand = findRepeatChapterCommand(in: renderer["repeatButton"])
+    let endpoint = watchEndpoint(from: renderer)
+    let startMillis = intValue(from: repeatCommand?["startTimeMs"])
+        ?? intValue(from: endpoint?["startTimeSeconds"]).map { $0 * 1000 }
+
+    return ChapterProbeItem(
+        videoId: endpoint?["videoId"] as? String,
+        title: title,
+        startMillis: startMillis,
+        endMillis: intValue(from: repeatCommand?["endTimeMs"]),
+        timeText: textValue(from: renderer["timeDescription"]),
+        hasThumbnail: renderer["thumbnail"] != nil
+    )
+}
+
+private func collectChapterProbeItems(
+    in value: Any,
+    chapterRenderers: inout [ChapterProbeItem],
+    macroMarkerItems: inout [ChapterProbeItem]
+) {
+    if let dictionary = value as? [String: Any] {
+        if let renderer = dictionary["chapterRenderer"] as? [String: Any],
+           let item = chapterProbeItem(fromChapterRenderer: renderer)
+        {
+            chapterRenderers.append(item)
+        }
+
+        if let renderer = dictionary["macroMarkersListItemRenderer"] as? [String: Any],
+           let item = chapterProbeItem(fromMacroMarkerRenderer: renderer)
+        {
+            macroMarkerItems.append(item)
+        }
+
+        for nestedValue in dictionary.values {
+            collectChapterProbeItems(
+                in: nestedValue,
+                chapterRenderers: &chapterRenderers,
+                macroMarkerItems: &macroMarkerItems
+            )
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            collectChapterProbeItems(
+                in: item,
+                chapterRenderers: &chapterRenderers,
+                macroMarkerItems: &macroMarkerItems
+            )
+        }
+    }
+}
+
+private func deduplicatedChapterItems(_ items: [ChapterProbeItem]) -> [ChapterProbeItem] {
+    var seen: Set<String> = []
+    var result: [ChapterProbeItem] = []
+
+    for item in items {
+        let key = "\(item.videoId ?? "")|\(item.startMillis ?? -1)|\(item.title)"
+        guard seen.insert(key).inserted else { continue }
+        result.append(item)
+    }
+
+    return result.sorted { lhs, rhs in
+        switch (lhs.startMillis, rhs.startMillis) {
+        case let (left?, right?):
+            if left != right {
+                return left < right
+            }
+            return lhs.title < rhs.title
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        case (nil, nil):
+            return lhs.title < rhs.title
+        }
+    }
+}
+
+private func chapterProbeSummary(_ data: [String: Any], limit: Int = 8) -> String {
+    var chapterRenderers: [ChapterProbeItem] = []
+    var macroMarkerItems: [ChapterProbeItem] = []
+    collectChapterProbeItems(
+        in: data,
+        chapterRenderers: &chapterRenderers,
+        macroMarkerItems: &macroMarkerItems
+    )
+
+    let uniqueChapterRenderers = deduplicatedChapterItems(chapterRenderers)
+    let uniqueMacroMarkerItems = deduplicatedChapterItems(macroMarkerItems)
+    guard !uniqueChapterRenderers.isEmpty || !uniqueMacroMarkerItems.isEmpty else {
+        return ""
+    }
+
+    var output = "\n🎬 Chapter markers:\n"
+    if !uniqueChapterRenderers.isEmpty {
+        output += "  • playerOverlays chapterRenderer: \(uniqueChapterRenderers.count) unique chapter(s)"
+        if chapterRenderers.count != uniqueChapterRenderers.count {
+            output += " (\(chapterRenderers.count) raw)"
+        }
+        output += "\n"
+        output += "    Path: playerOverlays…multiMarkersPlayerBarRenderer.markersMap[].value.chapters[]\n"
+    }
+
+    if !uniqueMacroMarkerItems.isEmpty {
+        output += "  • macroMarkersListItemRenderer: \(uniqueMacroMarkerItems.count) unique chapter(s)"
+        if macroMarkerItems.count != uniqueMacroMarkerItems.count {
+            output += " (\(macroMarkerItems.count) raw; often duplicated in chapters panel + structured description/search preview)"
+        }
+        output += "\n"
+    }
+
+    let preferredItems = uniqueChapterRenderers.isEmpty ? uniqueMacroMarkerItems : uniqueChapterRenderers
+    let multipleVideoIds = Set(preferredItems.compactMap(\.videoId)).count > 1
+    for (index, item) in preferredItems.prefix(limit).enumerated() {
+        let start = item.timeText ?? formatMillis(item.startMillis)
+        let endSuffix = item.endMillis.map { "–\(formatMillis($0))" } ?? ""
+        let thumbnailSuffix = item.hasThumbnail ? " · thumbnail" : ""
+        let videoSuffix = multipleVideoIds ? " · videoId \(item.videoId ?? "unknown")" : ""
+        output += "    \(index + 1). \(start)\(endSuffix) — \(item.title)\(thumbnailSuffix)\(videoSuffix)\n"
+    }
+    if preferredItems.count > limit {
+        output += "    … and \(preferredItems.count - limit) more\n"
+    }
+
+    return output
+}
+
 func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     var output = ""
 
@@ -606,6 +850,8 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     if let playlistSummary = playlistBrowseSummary(data) {
         output += playlistSummary
     }
+
+    output += chapterProbeSummary(data)
 
     output += rendererHistogram(data)
 
@@ -1285,8 +1531,11 @@ func probeSigninSwitchReal(nextURLString: String) async {
         return
     }
     // Normalize protocol-relative URLs.
-    if signin.hasPrefix("//") { signin = "https:" + signin }
-    else if signin.hasPrefix("/") { signin = "https://www.youtube.com" + signin }
+    if signin.hasPrefix("//") {
+        signin = "https:" + signin
+    } else if signin.hasPrefix("/") {
+        signin = "https://www.youtube.com" + signin
+    }
 
     // Rewrite only the `next` param.
     guard var comps = URLComponents(string: signin) else {

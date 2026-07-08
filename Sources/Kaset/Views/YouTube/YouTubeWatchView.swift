@@ -9,7 +9,7 @@ import SwiftUI
 /// this view owns it. Navigating away while playing hands the surface off
 /// to the floating window (`YouTubeVideoWindowController`).
 struct YouTubeWatchView: View {
-    private static let brandAccent = PackageResourceLookup.brandAccent
+    fileprivate static let brandAccent = PackageResourceLookup.brandAccent
 
     let video: YouTubeVideo
 
@@ -58,11 +58,17 @@ struct YouTubeWatchView: View {
             VStack(alignment: .leading, spacing: 16) {
                 self.videoSurface
 
-                // Below the video: title/metadata + comments down the left,
-                // the related rail down the right.
+                // Below the video: title/metadata + chapters/comments down the
+                // left, the related rail down the right.
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
                         self.metadataSection
+
+                        if !self.viewModel.data.chapters.isEmpty {
+                            Divider()
+
+                            self.chaptersSection
+                        }
 
                         Divider()
 
@@ -103,6 +109,7 @@ struct YouTubeWatchView: View {
                 // buttons can skip between videos.
                 if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
                     self.youtubePlayer.setUpNext(self.viewModel.data.related)
+                    self.youtubePlayer.setChapters(self.viewModel.data.chapters)
                 }
             }
             .onDisappear {
@@ -227,6 +234,8 @@ struct YouTubeWatchView: View {
         } else {
             self.youtubePlayer.play(video: self.video, usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore)
         }
+        self.youtubePlayer.setUpNext(self.viewModel.data.related)
+        self.youtubePlayer.setChapters(self.viewModel.data.chapters)
         self.youtubePlayer.activeInlineVideoId = self.video.videoId
     }
 
@@ -315,6 +324,61 @@ struct YouTubeWatchView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
+    }
+
+    // MARK: - Chapters
+
+    private var chaptersSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Chapters", comment: "Video chapters section header")
+                .font(.title3.bold())
+
+            CarouselShelf(
+                accessibilityLabel: String(localized: "Video chapters"),
+                pageFraction: 0.82,
+                showsControls: true,
+                controlVerticalAlignment: .center,
+                contentInset: 0
+            ) {
+                LazyHStack(alignment: .top, spacing: 10) {
+                    ForEach(self.viewModel.data.chapters) { chapter in
+                        Button {
+                            self.seekToChapter(chapter)
+                        } label: {
+                            ChapterCard(chapter: chapter, isActive: self.isActiveChapter(chapter))
+                        }
+                        .buttonStyle(.interactiveRow)
+                        .accessibilityLabel(
+                            String(localized: "Jump to chapter: \(chapter.title)")
+                        )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
+    }
+
+    private func seekToChapter(_ chapter: YouTubeChapter) {
+        if self.youtubePlayer.currentVideo?.videoId != self.video.videoId {
+            self.startOrAdoptPlayback()
+        }
+        self.youtubePlayer.seek(to: chapter.startTime)
+    }
+
+    private func isActiveChapter(_ chapter: YouTubeChapter) -> Bool {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else { return false }
+        let currentTime = self.youtubePlayer.progress
+        guard currentTime >= chapter.startTime else { return false }
+        if let endTime = chapter.endTime {
+            return currentTime < endTime
+        }
+        guard let index = self.viewModel.data.chapters.firstIndex(where: { $0.id == chapter.id }) else {
+            return false
+        }
+        let nextIndex = self.viewModel.data.chapters.index(after: index)
+        guard nextIndex < self.viewModel.data.chapters.endIndex else { return true }
+        return currentTime < self.viewModel.data.chapters[nextIndex].startTime
     }
 
     // MARK: - Related Column
@@ -662,6 +726,68 @@ private struct CommentRow: View {
     }
 }
 
+// MARK: - ChapterCard
+
+private struct ChapterCard: View {
+    let chapter: YouTubeChapter
+    let isActive: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            self.thumbnail
+                .frame(width: 160, height: 90)
+                .clipShape(.rect(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(self.chapter.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Text(self.chapter.timeText ?? Self.formatTime(self.chapter.startTime))
+                    .font(.caption)
+                    .foregroundStyle(self.isActive ? YouTubeWatchView.brandAccent : .secondary)
+            }
+        }
+        .padding(8)
+        .frame(width: 176, alignment: .leading)
+        .background(self.isActive ? YouTubeWatchView.brandAccent.opacity(0.14) : Color.secondary.opacity(0.08), in: .rect(cornerRadius: 12))
+        .contentShape(.rect(cornerRadius: 10))
+    }
+
+    private var thumbnail: some View {
+        CachedAsyncImage(
+            url: self.chapter.thumbnailURL,
+            targetSize: CGSize(width: 192, height: 108)
+        ) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Rectangle()
+                .fill(.quaternary)
+                .overlay {
+                    Image(systemName: "text.append")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+        }
+    }
+
+    private static func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(seconds.rounded(.down)))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
 // MARK: - RelatedVideoRow
 
 /// Compact related-rail row sized for the right column.
@@ -706,6 +832,7 @@ private struct RelatedVideoRow: View {
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"
+    static let chaptersSection = "youtubeContent.chaptersSection"
     static let commentsSection = "youtubeContent.commentsSection"
     static let commentField = "youtubeContent.commentField"
     static let commentPostButton = "youtubeContent.commentPostButton"
