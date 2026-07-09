@@ -11,9 +11,11 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var homeChips: [YouTubeHomeChip] = []
     var homeShelves: [YouTubeHomeSection] = []
     /// Topic feeds keyed by chip continuation; `getHomeTopicFeed` returns the
-    /// match (or `.empty`). Set `homeTopicError` to make one continuation throw.
+    /// match (or `.empty`). Configure one or more continuation-specific errors
+    /// to exercise partial and batch-wide failures.
     var homeTopicFeeds: [String: YouTubeFeed] = [:]
     var homeTopicError: (continuation: String, error: Error)?
+    var homeTopicErrors: [String: Error] = [:]
     var searchResponse = YouTubeSearchResponse.empty
     var searchResponsesByRequest: [String: YouTubeSearchResponse] = [:]
     var searchContinuation: YouTubeSearchResponse?
@@ -132,6 +134,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.requestedTopicContinuations.append(continuation)
         if let beforeTopicReturn {
             await beforeTopicReturn(continuation)
+        }
+        if let error = self.homeTopicErrors[continuation] {
+            throw error
         }
         if let homeTopicError, homeTopicError.continuation == continuation {
             throw homeTopicError.error

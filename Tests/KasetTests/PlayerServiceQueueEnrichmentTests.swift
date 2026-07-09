@@ -88,6 +88,74 @@ struct PlayerServiceQueueEnrichmentTests {
         #expect(playerService.identifySongsNeedingEnrichment().isEmpty)
     }
 
+    @Test("Successful incomplete enrichment responses keep bounded retry identity")
+    func successfulIncompleteResponsesKeepBoundedRetryIdentity() async {
+        let playerService = PlayerService()
+        let mockClient = MockYTMusicClient()
+        let entryID = UUID()
+        playerService.queueEnrichmentInitialDelay = .milliseconds(5)
+        playerService.queueEnrichmentRetryDelay = .milliseconds(5)
+        mockClient.songResponses["still-incomplete"] = Song(
+            id: "still-incomplete",
+            title: "Known Title",
+            artists: [Artist(id: "known-artist", name: "Known Artist")],
+            videoId: "still-incomplete"
+        )
+
+        playerService.setYTMusicClient(mockClient)
+        playerService.setQueue(entries: [
+            QueueEntry(id: entryID, song: Self.incompleteSong(videoId: "still-incomplete")),
+        ])
+
+        await Self.waitUntil(timeout: .seconds(2)) {
+            playerService.enrichmentTask == nil &&
+                mockClient.getSongVideoIds.count == PlayerService.maxQueueEnrichmentAttempts
+        }
+        try? await Task.sleep(for: .milliseconds(25))
+
+        #expect(playerService.queueEntryIDs == [entryID])
+        #expect(playerService.queueEnrichmentAttemptsByEntryID[entryID] == PlayerService.maxQueueEnrichmentAttempts)
+        #expect(mockClient.getSongVideoIds.count == PlayerService.maxQueueEnrichmentAttempts)
+        #expect(!playerService.identifySongsNeedingEnrichment().isEmpty)
+    }
+
+    @Test("Client replacement invalidates a running enrichment response")
+    func clientReplacementInvalidatesRunningResponse() async {
+        let playerService = PlayerService()
+        let oldClient = MockYTMusicClient()
+        let newClient = MockYTMusicClient()
+        playerService.queueEnrichmentInitialDelay = .milliseconds(5)
+        oldClient.getSongDelay = .milliseconds(100)
+        oldClient.songResponses["shared-video"] = TestFixtures.makeSong(
+            id: "shared-video",
+            title: "Stale Metadata",
+            artistName: "Old Account"
+        )
+        newClient.songResponses["shared-video"] = TestFixtures.makeSong(
+            id: "shared-video",
+            title: "Fresh Metadata",
+            artistName: "New Account"
+        )
+
+        playerService.setYTMusicClient(oldClient)
+        playerService.setQueue([Self.incompleteSong(videoId: "shared-video")])
+        await Self.waitUntil {
+            oldClient.getSongVideoIds == ["shared-video"] && playerService.isQueueEnrichmentRunning
+        }
+
+        playerService.setYTMusicClient(newClient)
+
+        await Self.waitUntil(timeout: .seconds(2)) {
+            playerService.enrichmentTask == nil && playerService.queue.first?.title == "Fresh Metadata"
+        }
+        try? await Task.sleep(for: .milliseconds(125))
+
+        #expect(oldClient.getSongVideoIds == ["shared-video"])
+        #expect(newClient.getSongVideoIds == ["shared-video"])
+        #expect(playerService.queue.first?.title == "Fresh Metadata")
+        #expect(playerService.queue.first?.artists.first?.name == "New Account")
+    }
+
     @Test("Queue enrichment can reschedule after canceling a running pass")
     func reschedulesAfterRunningPassCancellation() async {
         let playerService = PlayerService()

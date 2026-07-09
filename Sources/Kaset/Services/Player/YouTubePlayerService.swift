@@ -617,19 +617,6 @@ final class YouTubePlayerService {
         }
     }
 
-    /// Fetches the storyboard spec for the ambient backdrop, keyed to its video
-    /// so a previous video's spec never leaks forward. Kept separate from
-    /// `refreshPlaybackOptions` so this cosmetic-only data never delays caption
-    /// or quality loading. Retries briefly since the player response, like the
-    /// captions module, isn't ready the instant playback starts.
-    func refreshStoryboardSpec() async {
-        guard let videoId = self.currentVideo?.videoId,
-              self.beginStoryboardSpecRefreshIfNeeded(videoId: videoId)
-        else { return }
-
-        await self.fetchStoryboardSpec(for: videoId)
-    }
-
     /// Starts the cosmetic storyboard refresh from a synchronous playback-state
     /// update only when a task is actually needed. This avoids allocating a new
     /// `Task` every 1 Hz progress tick once a fetch is in-flight or already

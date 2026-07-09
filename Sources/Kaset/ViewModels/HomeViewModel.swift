@@ -25,6 +25,18 @@ final class HomeViewModel {
     /// Whether the initial Home request is in flight.
     private var isLoadingHome = false
 
+    /// Shared refresh operation so concurrent callers join the same wait-and-reload
+    /// sequence even when the API response completes without suspending.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+
+    /// Whether the current refresh cycle has issued its Home request. A refresh
+    /// arriving after this point represents newer state and needs one follow-up.
+    @ObservationIgnored private var refreshRequestIssued = false
+
+    /// Coalesces any number of refreshes that arrive during one issued request
+    /// into a single follow-up cycle using the latest client/account state.
+    @ObservationIgnored private var refreshNeedsFollowUp = false
+
     /// Waiters that should resume once the current initial Home request finishes.
     @ObservationIgnored private var loadWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -40,7 +52,7 @@ final class HomeViewModel {
 
     /// Loads home content with fast initial load.
     func load() async {
-        guard !self.isLoadingHome else { return }
+        guard !self.isLoadingHome, !self.isLoadingMoreSections else { return }
         await self.performLoad()
     }
 
@@ -117,12 +129,43 @@ final class HomeViewModel {
 
     /// Refreshes home content.
     func refresh() async {
+        if let refreshTask = self.refreshTask {
+            if self.refreshRequestIssued {
+                self.refreshNeedsFollowUp = true
+            }
+            await refreshTask.value
+            return
+        }
+
+        let refreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runRefreshLoop()
+        }
+        self.refreshTask = refreshTask
+        await refreshTask.value
+    }
+
+    private func runRefreshLoop() async {
+        defer {
+            self.refreshTask = nil
+            self.refreshRequestIssued = false
+            self.refreshNeedsFollowUp = false
+        }
+
+        repeat {
+            self.refreshRequestIssued = false
+            self.refreshNeedsFollowUp = false
+            await self.performRefreshCycle()
+        } while self.refreshNeedsFollowUp
+    }
+
+    private func performRefreshCycle() async {
         await self.waitForInFlightLoad()
         await self.waitForInFlightContinuation()
-
         self.sections = []
         self.hasMoreSections = true
         self.isLoadingMoreSections = false
+        self.refreshRequestIssued = true
         await self.performLoad()
     }
 

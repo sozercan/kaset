@@ -32,13 +32,11 @@ extension PlayerService {
     /// Re-arms bounded retry state after an external queue/client event.
     func resetQueueEnrichmentAttemptState() {
         self.queueEnrichmentAttemptsByEntryID.removeAll()
-
-        // If a previous retry backoff is merely sleeping, replace it with the new external event's
-        // normal coalescing delay. Running fetches are left to finish/cancel through their generation guard.
-        guard !self.isQueueEnrichmentRunning, self.enrichmentTask != nil else { return }
-        self.queueEnrichmentGeneration += 1
-        self.enrichmentTask?.cancel()
-        self.enrichmentTask = nil
+        // Queue replacements and client/account switches invalidate both sleeping
+        // retries and active fetches. The cancelled pass checks cancellation before
+        // applying its response, while the generation bump prevents it from clearing
+        // a replacement task scheduled by the external event.
+        self.stopQueueEnrichmentService()
     }
 
     /// Schedules a single delayed enrichment pass when the queue has incomplete metadata.

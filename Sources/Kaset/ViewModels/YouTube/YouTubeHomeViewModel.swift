@@ -445,16 +445,17 @@ final class YouTubeHomeViewModel {
         let result = await self.topicSections(for: batch)
         guard generation == self.loadGeneration else { return .stale }
 
-        if preserveOnFailure, result.hadFailure {
-            // A deferred topic fetch may fail transiently. Put the whole batch
-            // back so the footer stays available for retry instead of silently
-            // burning through every pending chip while auto-loading.
-            self.pendingTopicChips.insert(contentsOf: batch, at: 0)
-            self.hasMoreTopicRails = true
-            return .failed
+        if preserveOnFailure, !result.failedChips.isEmpty {
+            // Retry only failed chips, after untouched queued chips. Successful
+            // rails stay published and a permanently bad continuation cannot
+            // keep otherwise valid later topics behind the same batch forever.
+            self.pendingTopicChips.append(contentsOf: result.failedChips)
         }
+        self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
 
-        guard !result.sections.isEmpty else { return .empty }
+        guard !result.sections.isEmpty else {
+            return preserveOnFailure && !result.failedChips.isEmpty ? .failed : .empty
+        }
 
         self.sections.append(contentsOf: result.sections)
         if !gridReady, self.loadingState == .loading {
@@ -477,18 +478,19 @@ final class YouTubeHomeViewModel {
         }
 
         var sections: [YouTubeHomeSection] = []
-        var hadFailure = false
-        for outcome in slots.compactMap(\.self) {
+        var failedChips: [YouTubeHomeChip] = []
+        for (index, outcome) in slots.enumerated() {
+            guard let outcome else { continue }
             switch outcome {
             case let .section(section):
                 sections.append(section)
             case .empty:
                 break
             case .failed:
-                hadFailure = true
+                failedChips.append(chips[index])
             }
         }
-        return TopicBatchFetchResult(sections: sections, hadFailure: hadFailure)
+        return TopicBatchFetchResult(sections: sections, failedChips: failedChips)
     }
 
     /// Forces a fresh reload (e.g. after account switches).
@@ -806,7 +808,7 @@ final class YouTubeHomeViewModel {
 
     private struct TopicBatchFetchResult {
         let sections: [YouTubeHomeSection]
-        let hadFailure: Bool
+        let failedChips: [YouTubeHomeChip]
     }
 
     private enum TopicBatchLoadOutcome {
