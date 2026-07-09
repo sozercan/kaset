@@ -49,6 +49,23 @@ struct YouTubeSubscriptionsViewModelTests {
         #expect(sut.hasMoreVideos == false)
     }
 
+    @Test("LoadMore advances pagination trigger for duplicate-only pages")
+    func loadMoreAdvancesPaginationTriggerForDuplicateOnlyPage() async {
+        let client = MockYouTubeClient()
+        let duplicate = MockYouTubeClient.makeVideo(videoId: "video-0")
+        client.subscriptionsFeed = YouTubeFeed(videos: [duplicate], continuation: "token-1")
+        client.feedContinuation = YouTubeFeed(videos: [duplicate], continuation: "token-2")
+        let sut = YouTubeSubscriptionsViewModel(client: client)
+        await sut.load()
+        let triggerAfterLoad = sut.paginationTrigger
+
+        await sut.loadMore()
+
+        #expect(sut.videos.map(\.videoId) == ["video-0"])
+        #expect(sut.hasMoreVideos)
+        #expect(sut.paginationTrigger > triggerAfterLoad)
+    }
+
     @Test("Feed failure surfaces an error even if the rail succeeds")
     func feedFailureSurfacesError() async {
         let client = MockYouTubeClient()
@@ -84,6 +101,23 @@ struct YouTubeHistoryViewModelTests {
         #expect(sut.loadingState == .loaded)
         #expect(sut.videos.count == 3)
         #expect(sut.hasMoreVideos == false)
+    }
+
+    @Test("LoadMore advances pagination trigger for duplicate-only pages")
+    func loadMoreAdvancesPaginationTriggerForDuplicateOnlyPage() async {
+        let client = MockYouTubeClient()
+        let duplicate = MockYouTubeClient.makeVideo(videoId: "video-0")
+        client.historyFeed = YouTubeFeed(videos: [duplicate], continuation: "token-1")
+        client.feedContinuation = YouTubeFeed(videos: [duplicate], continuation: "token-2")
+        let sut = YouTubeHistoryViewModel(client: client)
+        await sut.load()
+        let triggerAfterLoad = sut.paginationTrigger
+
+        await sut.loadMore()
+
+        #expect(sut.videos.map(\.videoId) == ["video-0"])
+        #expect(sut.hasMoreVideos)
+        #expect(sut.paginationTrigger > triggerAfterLoad)
     }
 }
 

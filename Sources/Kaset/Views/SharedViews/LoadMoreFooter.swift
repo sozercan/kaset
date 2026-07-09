@@ -5,9 +5,10 @@ struct LoadMoreFooter: View {
     let title: LocalizedStringResource
     let loadingTitle: LocalizedStringResource
     var autoLoad: Bool = false
+    var autoLoadTrigger = 0
     let action: @MainActor () async -> Void
 
-    @State private var didAutoLoadForCurrentAppearance = false
+    @State private var lastAutoLoadTrigger: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +32,7 @@ struct LoadMoreFooter: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, DetailContentLayout.horizontalInset)
         .padding(.vertical, 12)
-        .task {
+        .task(id: self.autoLoadTrigger) {
             await self.autoLoadIfNeeded()
         }
         .onChange(of: self.isLoading) { _, isLoading in
@@ -39,7 +40,7 @@ struct LoadMoreFooter: View {
             Task { await self.autoLoadIfNeeded() }
         }
         .onDisappear {
-            self.didAutoLoadForCurrentAppearance = false
+            self.lastAutoLoadTrigger = nil
         }
     }
 
@@ -47,10 +48,10 @@ struct LoadMoreFooter: View {
     private func autoLoadIfNeeded() async {
         guard self.autoLoad,
               !self.isLoading,
-              !self.didAutoLoadForCurrentAppearance
+              self.lastAutoLoadTrigger != self.autoLoadTrigger
         else { return }
 
-        self.didAutoLoadForCurrentAppearance = true
+        self.lastAutoLoadTrigger = self.autoLoadTrigger
         await self.action()
     }
 }

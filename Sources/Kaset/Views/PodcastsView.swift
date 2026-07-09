@@ -81,7 +81,8 @@ struct PodcastsView: View {
                         isLoading: self.viewModel.loadingState == .loadingMore,
                         title: "Load More",
                         loadingTitle: "Loading more...",
-                        autoLoad: true
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
                     ) {
                         await self.viewModel.loadMore()
                     }

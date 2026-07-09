@@ -167,7 +167,8 @@ struct HistoryView: View {
                         isLoading: self.viewModel.loadingState == .loadingMore || self.viewModel.isRefreshingHistory,
                         title: "Load More History",
                         loadingTitle: "Loading more history...",
-                        autoLoad: true
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
                     ) {
                         await self.viewModel.loadMore()
                     }

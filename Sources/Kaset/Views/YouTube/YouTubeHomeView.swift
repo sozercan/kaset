@@ -151,7 +151,7 @@ struct YouTubeHomeView: View {
                     ProgressView()
                         .controlSize(.small)
                         .gridCellColumns(1)
-                        .task {
+                        .task(id: self.viewModel.videos.count) {
                             await self.viewModel.loadMore()
                         }
                 }
