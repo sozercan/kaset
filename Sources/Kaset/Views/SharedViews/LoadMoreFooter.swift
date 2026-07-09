@@ -4,10 +4,13 @@ struct LoadMoreFooter: View {
     let isLoading: Bool
     let title: LocalizedStringResource
     let loadingTitle: LocalizedStringResource
+    var autoLoad: Bool = false
     let action: @MainActor () async -> Void
 
+    @State private var didAutoLoadForCurrentAppearance = false
+
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if self.isLoading {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -28,5 +31,22 @@ struct LoadMoreFooter: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, DetailContentLayout.horizontalInset)
         .padding(.vertical, 12)
+        .task {
+            await self.autoLoadIfNeeded()
+        }
+        .onDisappear {
+            self.didAutoLoadForCurrentAppearance = false
+        }
+    }
+
+    @MainActor
+    private func autoLoadIfNeeded() async {
+        guard self.autoLoad,
+              !self.isLoading,
+              !self.didAutoLoadForCurrentAppearance
+        else { return }
+
+        self.didAutoLoadForCurrentAppearance = true
+        await self.action()
     }
 }

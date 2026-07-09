@@ -166,7 +166,8 @@ struct HistoryView: View {
                     LoadMoreFooter(
                         isLoading: self.viewModel.loadingState == .loadingMore,
                         title: "Load More History",
-                        loadingTitle: "Loading more history..."
+                        loadingTitle: "Loading more history...",
+                        autoLoad: true
                     ) {
                         await self.viewModel.loadMore()
                     }

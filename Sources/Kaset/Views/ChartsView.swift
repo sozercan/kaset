@@ -75,7 +75,8 @@ struct ChartsView: View {
                     LoadMoreFooter(
                         isLoading: self.viewModel.loadingState == .loadingMore,
                         title: "Load More",
-                        loadingTitle: "Loading more..."
+                        loadingTitle: "Loading more...",
+                        autoLoad: true
                     ) {
                         await self.viewModel.loadMore()
                     }

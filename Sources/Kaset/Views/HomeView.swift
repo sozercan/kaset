@@ -108,20 +108,14 @@ struct HomeView: View {
         .accessibilityIdentifier(AccessibilityID.Home.scrollView)
     }
 
-    @ViewBuilder
     private var loadMoreControl: some View {
-        if self.viewModel.loadingState == .loadingMore {
-            ProgressView()
-                .controlSize(.small)
-                .frame(maxWidth: .infinity)
-        } else {
-            Button {
-                Task { await self.viewModel.loadMore() }
-            } label: {
-                Label("Load More", systemImage: "arrow.down.circle")
-            }
-            .buttonStyle(.borderless)
-            .frame(maxWidth: .infinity)
+        LoadMoreFooter(
+            isLoading: self.viewModel.loadingState == .loadingMore,
+            title: "Load More",
+            loadingTitle: "Loading more...",
+            autoLoad: true
+        ) {
+            await self.viewModel.loadMore()
         }
     }
 
