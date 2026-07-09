@@ -290,6 +290,85 @@ struct YouTubeHomeViewModelTests {
         #expect(self.sut.hasMoreTopicRails == false)
     }
 
+    @Test("Deferred topic auto-load skips empty batches")
+    func deferredTopicAutoLoadSkipsEmptyBatches() async {
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        self.mockClient.homeChips = (0 ..< 6).map { index in
+            YouTubeHomeChip(title: "Topic \(index)", continuation: "tok-\(index)")
+        }
+        self.mockClient.homeTopicFeeds = [
+            "tok-0": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+            "tok-1": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+            "tok-2": .empty,
+            "tok-3": .empty,
+            "tok-4": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+            "tok-5": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil),
+        ]
+
+        await self.sut.load()
+        await self.sut.loadMoreTopicRails()
+
+        #expect(Set(self.mockClient.requestedTopicContinuations) == Set([
+            "tok-0",
+            "tok-1",
+            "tok-2",
+            "tok-3",
+            "tok-4",
+            "tok-5",
+        ]))
+        #expect(self.mockClient.requestedTopicContinuations.count == 6)
+        #expect(self.sut.sections.filter { $0.kind == .topic }.map(\.title) == [
+            "Topic 0",
+            "Topic 1",
+            "Topic 4",
+            "Topic 5",
+        ])
+        #expect(self.sut.hasMoreTopicRails == false)
+    }
+
+    @Test("Deferred topic auto-load preserves failed batch for retry")
+    func deferredTopicAutoLoadPreservesFailedBatchForRetry() async {
+        self.mockClient.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        self.mockClient.homeChips = (0 ..< 6).map { index in
+            YouTubeHomeChip(title: "Topic \(index)", continuation: "tok-\(index)")
+        }
+        self.mockClient.homeTopicFeeds = Dictionary(uniqueKeysWithValues: (0 ..< 6).map { index in
+            ("tok-\(index)", YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil))
+        })
+        self.mockClient.homeTopicError = (
+            continuation: "tok-2",
+            error: YTMusicError.networkError(underlying: URLError(.timedOut))
+        )
+
+        await self.sut.load()
+        await self.sut.loadMoreTopicRails()
+
+        #expect(Set(self.mockClient.requestedTopicContinuations) == Set(["tok-0", "tok-1", "tok-2", "tok-3"]))
+        #expect(self.mockClient.requestedTopicContinuations.count == 4)
+        #expect(self.sut.sections.filter { $0.kind == .topic }.map(\.title) == ["Topic 0", "Topic 1"])
+        #expect(self.sut.hasMoreTopicRails)
+
+        self.mockClient.homeTopicError = nil
+        await self.sut.loadMoreTopicRails()
+
+        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-2" }.count == 2)
+        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-3" }.count == 2)
+        #expect(self.mockClient.requestedTopicContinuations.contains("tok-4") == false)
+        #expect(self.sut.sections.filter { $0.kind == .topic }.map(\.title) == [
+            "Topic 0",
+            "Topic 1",
+            "Topic 2",
+            "Topic 3",
+        ])
+        #expect(self.sut.hasMoreTopicRails)
+    }
+
     @Test("Empty first topic batch walks queued chips before falling back")
     func emptyFirstTopicBatchWalksQueuedChips() async {
         self.mockClient.homeFeed = .empty

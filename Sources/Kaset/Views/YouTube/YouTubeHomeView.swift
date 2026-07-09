@@ -80,7 +80,9 @@ struct YouTubeHomeView: View {
                     LoadMoreFooter(
                         isLoading: self.viewModel.isLoadingTopicRails,
                         title: "Load more topics",
-                        loadingTitle: "Loading topics..."
+                        loadingTitle: "Loading topics...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
                     ) {
                         await self.viewModel.loadMoreTopicRails()
                     }
