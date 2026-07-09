@@ -39,13 +39,9 @@ final class SidebarUITests: KasetUITestCase {
 
         navigateToSearch()
 
-        // Verify Search view is displayed
-        let navigationTitle = app.staticTexts["Search"]
-        XCTAssertTrue(waitForElement(navigationTitle), "Search navigation title should be visible")
-
-        // Search field should be present
-        let searchField = app.textFields.firstMatch
-        XCTAssertTrue(searchField.exists, "Search field should exist")
+        // Verify Search overlay is displayed
+        let searchField = app.textFields[TestAccessibilityID.SearchOverlay.input]
+        XCTAssertTrue(waitForElement(searchField), "Search overlay input should be visible")
     }
 
     func testNavigateToExplore() {
@@ -83,10 +79,12 @@ final class SidebarUITests: KasetUITestCase {
     func testNavigationPersistsAfterSwitching() {
         launchDefault()
 
-        // Navigate to Search
+        // Open Search overlay
         navigateToSearch()
-        let searchTitle = app.staticTexts["Search"]
-        XCTAssertTrue(waitForElement(searchTitle))
+        let searchField = app.textFields[TestAccessibilityID.SearchOverlay.input]
+        XCTAssertTrue(waitForElement(searchField))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(waitForElementToDisappear(searchField))
 
         // Navigate to Explore
         navigateToExplore()
