@@ -167,6 +167,10 @@ final class YouTubePlayerService {
     /// Up-next candidates for skip-forward (related videos from the watch page).
     private(set) var upNext: [YouTubeVideo] = []
 
+    /// Navigation chapters for the current video, loaded from the watch page's
+    /// companion `next` response.
+    private(set) var chapters: [YouTubeChapter] = []
+
     /// Videos played earlier this session, for skip-backward.
     private var history: [YouTubeVideo] = []
 
@@ -248,7 +252,7 @@ final class YouTubePlayerService {
     // MARK: - Commands
 
     /// Starts playback of a video, docked inline.
-    func play(video: YouTubeVideo, usesCookieFreeDataStore: Bool = false) {
+    func play(video: YouTubeVideo, usesCookieFreeDataStore: Bool = false, startAt: Double? = nil) {
         self.logger.info("YouTubePlayer: play video")
         self.usesCookieFreePlaybackDataStore = usesCookieFreeDataStore
         self.playbackWillStart?()
@@ -272,7 +276,11 @@ final class YouTubePlayerService {
             playerService: self,
             usesCookieFreeDataStore: self.usesCookieFreePlaybackDataStore
         )
-        self.playbackController.loadVideo(videoId: video.videoId)
+        if let startAt, startAt >= 0 {
+            self.playbackController.reloadVideo(videoId: video.videoId, resumeAt: startAt)
+        } else {
+            self.playbackController.loadVideo(videoId: video.videoId)
+        }
     }
 
     /// Re-points the current video under the WebView session's current
@@ -465,6 +473,15 @@ final class YouTubePlayerService {
         self.upNext = videos.filter { $0.videoId != currentId && !$0.isShort }
     }
 
+    /// Supplies chapter navigation markers for the current video.
+    func setChapters(_ chapters: [YouTubeChapter]) {
+        guard let currentId = self.currentVideo?.videoId else {
+            self.chapters = []
+            return
+        }
+        self.chapters = chapters.filter { $0.videoId == nil || $0.videoId == currentId }
+    }
+
     /// Skips to the next video (first up-next candidate; fetched lazily
     /// when none are known, e.g. when playing in the floating window).
     func skipForward() async {
@@ -538,6 +555,7 @@ final class YouTubePlayerService {
         self.duration = 0
         self.currentRating = .none
         self.isInWatchLater = false
+        self.chapters = []
         self.captionTracks = []
         self.activeCaptionLanguageCode = nil
         self.qualityLevels = []

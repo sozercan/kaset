@@ -72,6 +72,26 @@ struct YouTubeHomeBundle {
     let shelves: [YouTubeHomeSection]
 }
 
+// MARK: - YouTubeChapter
+
+/// A navigation chapter exposed by YouTube's watch-next `next` response.
+struct YouTubeChapter: Identifiable, Hashable {
+    /// The video this chapter belongs to, when the renderer includes it.
+    let videoId: String?
+    let title: String
+    /// Chapter start time in seconds.
+    let startTime: TimeInterval
+    /// Chapter end time in seconds, when YouTube exposes chapter bounds.
+    let endTime: TimeInterval?
+    /// Display-ready time text from YouTube, e.g. "3:17".
+    let timeText: String?
+    let thumbnailURL: URL?
+
+    var id: String {
+        "\(self.videoId ?? "")-\(Int((self.startTime * 1000).rounded()))-\(self.title)"
+    }
+}
+
 // MARK: - YouTubeSearchResponse
 
 /// Results of a YouTube search, split by result kind.
@@ -146,11 +166,33 @@ struct WatchNextData {
     let publishedText: String?
     let channel: YouTubeChannel?
     let related: [YouTubeVideo]
+    /// Navigation chapters for the current video, when YouTube exposes them.
+    let chapters: [YouTubeChapter]
     /// Whether the signed-in user is subscribed to the video's channel
     /// (nil when the page did not expose a subscribe button).
     var isSubscribed: Bool?
     /// Continuation token for the video's comments section.
     var commentsContinuation: String?
+
+    init(
+        videoTitle: String?,
+        viewCountText: String?,
+        publishedText: String?,
+        channel: YouTubeChannel?,
+        related: [YouTubeVideo],
+        chapters: [YouTubeChapter] = [],
+        isSubscribed: Bool? = nil,
+        commentsContinuation: String? = nil
+    ) {
+        self.videoTitle = videoTitle
+        self.viewCountText = viewCountText
+        self.publishedText = publishedText
+        self.channel = channel
+        self.related = related
+        self.chapters = chapters
+        self.isSubscribed = isSubscribed
+        self.commentsContinuation = commentsContinuation
+    }
 
     static let empty = WatchNextData(
         videoTitle: nil,

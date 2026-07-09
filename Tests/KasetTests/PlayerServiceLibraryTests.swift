@@ -85,7 +85,7 @@ struct PlayerServiceLibraryTests {
         let accountID = "like-failure-\(UUID().uuidString)"
         SongLikeStatusManager.shared.setActiveAccountID(accountID)
         defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "like-failure-video")
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "like-failure-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
@@ -252,7 +252,7 @@ struct PlayerServiceLibraryTests {
         let accountID = "dislike-failure-\(UUID().uuidString)"
         SongLikeStatusManager.shared.setActiveAccountID(accountID)
         defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "dislike-failure-video")
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "dislike-failure-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 

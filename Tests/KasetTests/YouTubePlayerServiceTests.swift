@@ -801,6 +801,44 @@ struct YouTubePlayerServiceTests {
         #expect(self.sut.upNext.map(\.videoId) == ["keeper"])
     }
 
+    @Test("Chapter markers filter to the current video")
+    func chapterMarkersFilter() {
+        self.sut.setChapters([
+            YouTubeChapter(videoId: nil, title: "No current", startTime: 1, endTime: nil, timeText: nil, thumbnailURL: nil),
+        ])
+        #expect(self.sut.chapters.isEmpty)
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "current"))
+
+        self.sut.setChapters([
+            YouTubeChapter(videoId: "current", title: "Matching", startTime: 10, endTime: nil, timeText: "0:10", thumbnailURL: nil),
+            YouTubeChapter(videoId: "other", title: "Other", startTime: 20, endTime: nil, timeText: "0:20", thumbnailURL: nil),
+            YouTubeChapter(videoId: nil, title: "Implicit", startTime: 30, endTime: nil, timeText: "0:30", thumbnailURL: nil),
+        ])
+
+        #expect(self.sut.chapters.map(\.title) == ["Matching", "Implicit"])
+    }
+
+    @Test("Play can start at a deferred seek position")
+    func playWithStartPositionDefersSeekUntilLoad() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "chaptered"), startAt: 42)
+
+        #expect(self.controller.loadedVideoIds.isEmpty)
+        #expect(self.controller.reloadedVideoIds == ["chaptered"])
+        #expect(self.controller.reloadResumeSeconds == [42])
+        #expect(self.controller.seeks.isEmpty)
+    }
+
+    @Test("Play can start at an explicit zero seek position")
+    func playWithZeroStartPositionDefersSeekUntilLoad() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "chaptered"), startAt: 0)
+
+        #expect(self.controller.loadedVideoIds.isEmpty)
+        #expect(self.controller.reloadedVideoIds == ["chaptered"])
+        #expect(self.controller.reloadResumeSeconds == [0])
+        #expect(self.controller.seeks.isEmpty)
+    }
+
     @Test("Skipping while floating keeps the surface in the window")
     func skipWhileFloatingStaysFloating() async {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))
