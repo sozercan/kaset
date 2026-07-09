@@ -294,11 +294,14 @@ final class HistoryViewModel {
 
     private func cancelInFlightContinuation() async {
         guard let continuationTask else { return }
+        let taskID = self.continuationTaskID
         self.loadGeneration += 1
-        self.continuationTask = nil
-        self.continuationTaskID = nil
         continuationTask.cancel()
         await continuationTask.value
+        if self.continuationTaskID == taskID {
+            self.continuationTask = nil
+            self.continuationTaskID = nil
+        }
         self.isLoadingMoreSections = false
         if self.loadingState == .loadingMore {
             self.loadingState = .loaded
