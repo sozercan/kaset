@@ -76,6 +76,9 @@ final class SearchViewModel {
     var selectedFilter: SearchFilter = .all {
         didSet {
             guard oldValue != self.selectedFilter, !self.query.isEmpty else { return }
+            // A batched overlay submit sets query + filter together and starts its
+            // own search; skip the reactive search this setter would otherwise run.
+            guard !self.suppressFilterSearch else { return }
 
             // If we've previously searched this query, perform a filtered search
             // to get the best results for the selected filter. If no prior
@@ -157,6 +160,9 @@ final class SearchViewModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var suggestionsTask: Task<Void, Never>?
     @ObservationIgnored private var suppressedSuggestionsQuery: String?
+    /// While true, `selectedFilter.didSet` skips its reactive search. Used by the
+    /// overlay submit path, which sets query + filter and starts a single search.
+    @ObservationIgnored private var suppressFilterSearch = false
     // swiftformat:enable modifierOrder
 
     private struct SearchAllAttempt {
@@ -276,6 +282,20 @@ final class SearchViewModel {
         }
     }
 
+    /// Submits a query and filter as one intentional operation (used by the
+    /// search overlay). Sets both without triggering the `selectedFilter`
+    /// reactive search, then starts exactly one immediate search.
+    func searchImmediately(query submittedQuery: String, filter: SearchFilter = .all) {
+        let trimmed = submittedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.suppressFilterSearch = true
+        defer { self.suppressFilterSearch = false }
+        self.selectedFilter = filter
+        self.query = trimmed
+
+        self.searchImmediately()
+    }
+
     /// Performs a search with the current filter (no debounce, called when filter changes).
     private func searchWithFilter() {
         self.searchTask?.cancel()
@@ -365,7 +385,7 @@ final class SearchViewModel {
 
     /// Performs the broadest search for the All filter by combining the mixed search response
     /// with the dedicated result-type searches.
-    private func searchAll(query: String, filter: SearchFilter) async throws -> SearchResponse {
+    private func searchAll(query: String, filter _: SearchFilter) async throws -> SearchResponse {
         async let mixedResults = self.attemptSearch(label: "mixed search") {
             try await self.client.search(query: query)
         }
@@ -389,13 +409,6 @@ final class SearchViewModel {
         }
 
         let mixedAttempt = await mixedResults
-        if let mixedResponse = mixedAttempt.response,
-           !mixedResponse.isEmpty,
-           self.isCurrentSearch(query: query, filter: filter)
-        {
-            self.publishSearchResults(mixedResponse, query: query, filter: filter)
-        }
-
         let attempts = await [
             mixedAttempt,
             songResults,

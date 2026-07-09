@@ -16,25 +16,39 @@ struct SearchView: View {
     /// External trigger for focusing the search field (from keyboard shortcut).
     @Binding var focusTrigger: Bool
 
+    /// Whether the in-page search bar is shown. When false the view is a
+    /// results-only page (the search overlay owns the input).
+    let showsSearchBar: Bool
+
     @FocusState private var isSearchFieldFocused: Bool
 
     /// Index of currently selected suggestion for keyboard navigation.
     @State private var selectedSuggestionIndex: Int = -1
 
     /// Initializes SearchView with optional focus trigger binding.
-    init(viewModel: SearchViewModel, focusTrigger: Binding<Bool> = .constant(false)) {
+    init(
+        viewModel: SearchViewModel,
+        focusTrigger: Binding<Bool> = .constant(false),
+        showsSearchBar: Bool = true
+    ) {
         _viewModel = State(initialValue: viewModel)
         _focusTrigger = focusTrigger
+        self.showsSearchBar = showsSearchBar
     }
 
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
             VStack(spacing: 0) {
-                // Search bar
-                self.searchBar
-                    .zIndex(1)
+                if self.showsSearchBar {
+                    // Search bar
+                    self.searchBar
+                        .zIndex(1)
 
-                Divider()
+                    Divider()
+                } else if self.viewModel.shouldShowFilters {
+                    self.resultsFilterBar
+                    Divider()
+                }
 
                 // Content
                 self.contentView
@@ -52,11 +66,15 @@ struct SearchView: View {
                 .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
-            self.isSearchFieldFocused = true
+            if self.showsSearchBar {
+                self.isSearchFieldFocused = true
+            }
         }
         .onChange(of: self.focusTrigger) { _, newValue in
             if newValue {
-                self.isSearchFieldFocused = true
+                if self.showsSearchBar {
+                    self.isSearchFieldFocused = true
+                }
                 self.focusTrigger = false
             }
         }
@@ -232,6 +250,12 @@ struct SearchView: View {
         .buttonStyle(.chip(isSelected: self.viewModel.selectedFilter == filter))
     }
 
+    private var resultsFilterBar: some View {
+        self.filterChips
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+    }
+
     // MARK: - Content
 
     @ViewBuilder
@@ -247,9 +271,9 @@ struct SearchView: View {
             switch self.viewModel.loadingState {
             case .idle:
                 self.emptyStateView
-            case .loading, .loadingMore:
+            case .loading:
                 LoadingView(String(localized: "Searching..."))
-            case .loaded:
+            case .loaded, .loadingMore:
                 if self.viewModel.filteredItems.isEmpty {
                     self.noResultsView
                 } else {
@@ -300,8 +324,8 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(self.viewModel.filteredItems) { item in
-                    self.resultRow(item)
+                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
+                    self.resultRow(item, index: index)
                     Divider()
                         .padding(.leading, 72)
                 }
@@ -347,7 +371,7 @@ struct SearchView: View {
         }
     }
 
-    private func resultRow(_ item: SearchResultItem) -> some View {
+    private func resultRow(_ item: SearchResultItem, index: Int) -> some View {
         HoverObservingRow { isHovered in
             Button {
                 self.handleItemTap(item)
@@ -417,6 +441,7 @@ struct SearchView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.interactiveRow(cornerRadius: 6))
+            .accessibilityIdentifier(AccessibilityID.Search.resultRow(index: index))
         }
         .contextMenu {
             self.contextMenuItems(for: item)

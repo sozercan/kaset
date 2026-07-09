@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 
 extension EnvironmentValues {
-    @Entry var searchFocusTrigger: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
     @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
 }
 
 extension EnvironmentValues {
     @Entry var showCommandBar: Binding<Bool> = .constant(false)
+}
+
+extension EnvironmentValues {
+    @Entry var showSearchOverlay: Binding<Bool> = .constant(false)
 }
 
 extension EnvironmentValues {
@@ -49,9 +49,6 @@ struct KasetApp: App {
     @State private var settings = SettingsManager.shared
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
 
-    /// Triggers search field focus when set to true.
-    @State private var searchFocusTrigger = false
-
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
 
@@ -60,6 +57,9 @@ struct KasetApp: App {
 
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
+
+    /// Whether the search overlay is visible.
+    @State private var showSearchOverlay = false
 
     /// Whether the "What's New" sheet should be shown.
     @State private var showWhatsNew = false
@@ -165,6 +165,7 @@ struct KasetApp: App {
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
                     didCompleteStartupPlaybackCleanup: self.$didCompleteStartupPlaybackCleanup,
+                    showSearchOverlayRequest: self.$showSearchOverlay,
                     client: self.sharedClient,
                     youtubeClient: self.sharedYouTubeClient
                 )
@@ -182,9 +183,9 @@ struct KasetApp: App {
                 .environment(self.syncedLyricsService)
                 .environment(self.equalizerService)
                 .environment(self.podcastsAvailabilityService)
-                .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                 .environment(\.navigationSelection, self.$navigationSelection)
                 .environment(\.showCommandBar, self.$showCommandBar)
+                .environment(\.showSearchOverlay, self.$showSearchOverlay)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                 .onAppear {
@@ -431,18 +432,9 @@ struct KasetApp: App {
 
                 Divider()
 
-                // Search - ⌘F
+                // Search - Command-F opens the floating search overlay for the active source.
                 Button("Search") {
-                    if self.settings.appSource == .video {
-                        self.youtubeNavigationSelection = .search
-                        return
-                    }
-                    self.navigationSelection = .search
-                    // Trigger focus after a brief delay to allow view to appear
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(100))
-                        self.searchFocusTrigger = true
-                    }
+                    self.showSearchOverlay = true
                 }
                 .keyboardShortcut("f", modifiers: .command)
 

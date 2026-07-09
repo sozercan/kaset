@@ -256,8 +256,8 @@ struct SearchViewModelTests {
         #expect(self.mockClient.searchQueries.count == 7)
     }
 
-    @Test("All filter publishes mixed results before category searches complete")
-    func allFilterPublishesMixedResultsBeforeCategorySearchesComplete() async {
+    @Test("All filter waits for final merged results before publishing")
+    func allFilterWaitsForFinalMergedResultsBeforePublishing() async {
         let categoryGate = AsyncGate()
         let mixedSong = TestFixtures.makeSong(id: "mixed-song", title: "Mixed Song")
         let categorySong = TestFixtures.makeSong(id: "category-song", title: "Category Song")
@@ -290,17 +290,17 @@ struct SearchViewModelTests {
         self.viewModel.searchImmediately()
 
         await self.waitUntil(
-            self.viewModel.results.songs.map(\.id) == ["mixed-song"] && self.viewModel.loadingState == .loaded,
-            description: "mixed results first paint"
+            self.mockClient.completedSearchEndpoints == [.mixed],
+            description: "mixed search to complete while categories are gated"
         )
-        #expect(self.viewModel.results.albums.isEmpty)
+        #expect(self.viewModel.results.isEmpty)
+        #expect(self.viewModel.loadingState == .loading)
         #expect(self.viewModel.shouldShowFilters == false)
-        #expect(self.mockClient.completedSearchEndpoints == [.mixed])
 
         await categoryGate.open()
         await self.waitUntil(
             self.viewModel.results.songs.map(\.id).contains("category-song") && self.viewModel.results.albums.count == 1,
-            description: "category-enriched all-filter results"
+            description: "final merged all-filter results"
         )
 
         #expect(self.viewModel.results.songs.map(\.id) == ["mixed-song", "category-song"])
@@ -334,9 +334,10 @@ struct SearchViewModelTests {
         self.viewModel.selectedFilter = .all
         self.viewModel.searchImmediately()
         await self.waitUntil(
-            self.viewModel.results.songs.map(\.id) == ["old-mixed"],
-            description: "old mixed first paint"
+            self.mockClient.completedSearchEndpoints == [.mixed],
+            description: "old mixed request to complete while old categories are gated"
         )
+        #expect(self.viewModel.results.isEmpty)
 
         self.mockClient.mixedSearchResponse = SearchResponse(
             songs: [TestFixtures.makeSong(id: "new-mixed", title: "New Mixed")],

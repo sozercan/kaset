@@ -138,6 +138,24 @@ enum AccessibilityID {
         }
     }
 
+    // MARK: - Search Overlay
+
+    enum SearchOverlay {
+        static let backdrop = "searchOverlay.backdrop"
+        static let window = "searchOverlay.window"
+        static let input = "searchOverlay.input"
+        static let returnHint = "searchOverlay.returnHint"
+        static let historyList = "searchOverlay.historyList"
+
+        static func historyRow(index: Int) -> String {
+            "searchOverlay.history.\(index)"
+        }
+
+        static func removeHistoryButton(index: Int) -> String {
+            "searchOverlay.removeHistoryButton.\(index)"
+        }
+    }
+
     // MARK: - LibraryView
 
     enum Library {

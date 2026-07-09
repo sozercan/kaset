@@ -11,6 +11,9 @@ enum UITestConfig {
     /// When present, skip auth and assume logged in.
     static let skipAuthArgument = "-SkipAuth"
 
+    /// When present, opens the search overlay as soon as the main window appears.
+    static let openSearchOverlayArgument = "-OpenSearchOverlay"
+
     // MARK: - Environment Keys
 
     /// JSON-encoded mock home sections data.
@@ -51,6 +54,15 @@ enum UITestConfig {
     /// Podcasts discovery surface. Used to UI-test sidebar visibility.
     static let mockPodcastsRegionUnavailableKey = "MOCK_PODCASTS_REGION_UNAVAILABLE"
 
+    /// JSON-encoded search history items for UI tests.
+    static let mockSearchHistoryKey = "MOCK_SEARCH_HISTORY"
+
+    /// Initial search overlay query for UI tests.
+    static let mockSearchOverlayQueryKey = "MOCK_SEARCH_OVERLAY_QUERY"
+
+    /// When true, open the search overlay after launch in UI tests.
+    static let openSearchOverlayKey = "OPEN_SEARCH_OVERLAY"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.
@@ -80,5 +92,11 @@ enum UITestConfig {
     /// Returns environment value for given key.
     static func environmentValue(for key: String) -> String? {
         ProcessInfo.processInfo.environment[key]
+    }
+
+    /// Returns true when UI tests should open the search overlay after launch.
+    static var shouldOpenSearchOverlay: Bool {
+        CommandLine.arguments.contains(openSearchOverlayArgument)
+            || ProcessInfo.processInfo.environment[openSearchOverlayKey] == "1"
     }
 }

@@ -75,10 +75,12 @@ final class HomeViewUITests: KasetUITestCase {
 
         navigateToHome()
 
-        // Navigate to Search
+        // Open Search overlay
         navigateToSearch()
-        let searchTitle = app.staticTexts["Search"]
-        XCTAssertTrue(waitForElement(searchTitle))
+        let searchField = app.textFields[TestAccessibilityID.SearchOverlay.input]
+        XCTAssertTrue(waitForElement(searchField))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(waitForElementToDisappear(searchField))
 
         // Navigate back to Home
         navigateToHome()

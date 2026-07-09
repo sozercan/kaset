@@ -209,9 +209,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
             return
         }
 
-        // Get initial profile state by checking accessibility label
-        let initialLabel = profileButton.label
-
         profileButton.click()
 
         let popover = app.popovers.firstMatch
