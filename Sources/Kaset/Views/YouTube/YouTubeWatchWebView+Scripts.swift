@@ -195,12 +195,17 @@ extension YouTubeWatchWebView {
                 disableAutonav();
                 const video = videoEl();
                 if (!video) { return false; }
+                const videoId = currentVideoId();
                 if (video.__kasetAttached) {
                     applyPendingSeek(video);
-                    sendUpdate(true);
+                    if (videoId && video.__kasetAttachedVideoId !== videoId) {
+                        video.__kasetAttachedVideoId = videoId;
+                        sendUpdate(true);
+                    }
                     return true;
                 }
                 video.__kasetAttached = true;
+                video.__kasetAttachedVideoId = videoId || '';
                 attachRetryCount = 0;
 
                 ['play', 'playing'].forEach(function(evt) {

@@ -126,6 +126,35 @@ struct YouTubeWatchScriptTests {
         #expect(context.evaluateScript("postedMessages[0].isPlaying").toBool() == false)
     }
 
+    @Test("Rediscovered attached video only posts when video identity changes")
+    func rediscoveredAttachedVideoPostsOnlyWhenIdentityChanges() throws {
+        let context = try self.makeObserverContext(paused: true)
+        try self.evaluate(YouTubeWatchWebView.observerScript, in: context)
+
+        try self.evaluate(
+            """
+            postedMessages = [];
+            mutationCallbacks[0]();
+            timeoutCalls[0].callback();
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("postedMessages.length").toInt32() == 0)
+
+        try self.evaluate(
+            """
+            moviePlayer.getVideoData = function() { return { video_id: 'def456', title: 'Next Video' }; };
+            mutationCallbacks[0]();
+            timeoutCalls[1].callback();
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("postedMessages.length").toInt32() == 1)
+        #expect(context.evaluateScript("postedMessages[0].videoId").toString() == "def456")
+    }
+
     @Test("Extraction observer re-marks the video chain after attribute-only marker loss")
     func extractionObserverRepairsAttributeMarkerLoss() throws {
         let context = try self.makeExtractionContext()
