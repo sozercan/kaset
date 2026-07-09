@@ -356,8 +356,8 @@ struct YouTubeHomeViewModelTests {
 
         await self.sut.loadMoreTopicRails()
 
-        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-2" }.count == 1)
-        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-3" }.count == 1)
+        #expect(self.mockClient.requestedTopicContinuations.count(where: { $0 == "tok-2" }) == 1)
+        #expect(self.mockClient.requestedTopicContinuations.count(where: { $0 == "tok-3" }) == 1)
         #expect(self.mockClient.requestedTopicContinuations.contains("tok-4"))
         #expect(self.mockClient.requestedTopicContinuations.contains("tok-5"))
         #expect(self.sut.sections.filter { $0.kind == .topic }.map(\.title) == [
@@ -372,8 +372,8 @@ struct YouTubeHomeViewModelTests {
         self.mockClient.homeTopicError = nil
         await self.sut.loadMoreTopicRails()
 
-        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-2" }.count == 2)
-        #expect(self.mockClient.requestedTopicContinuations.filter { $0 == "tok-3" }.count == 1)
+        #expect(self.mockClient.requestedTopicContinuations.count(where: { $0 == "tok-2" }) == 2)
+        #expect(self.mockClient.requestedTopicContinuations.count(where: { $0 == "tok-3" }) == 1)
         #expect(self.sut.sections.filter { $0.kind == .topic }.map(\.title) == [
             "Topic 0",
             "Topic 1",
