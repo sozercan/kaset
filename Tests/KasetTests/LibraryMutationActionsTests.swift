@@ -39,6 +39,43 @@ struct LibraryMutationActionsTests {
         ])
     }
 
+    @Test("Remove song from playlist delegates to client and removes it from the loaded list")
+    func removeSongFromPlaylistDelegatesToClient() async {
+        let song = Song(id: "song-1", title: "Song 1", artists: [], videoId: "song-1", playlistSetVideoId: "set-1")
+        let playlist = Playlist(
+            id: "VL-test-playlist", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 1, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: [song], duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+
+        await LibraryMutationActions.removeSongFromPlaylist(song, from: viewModel, client: self.mockClient)
+
+        #expect(self.mockClient.removeSongFromPlaylistCalls == [
+            MockYTMusicClient.RemoveSongFromPlaylistCall(videoId: "song-1", setVideoId: "set-1", playlistId: "VL-test-playlist"),
+        ])
+        #expect(viewModel.playlistDetail?.tracks.isEmpty == true)
+    }
+
+    @Test("Remove song from playlist rolls back the optimistic removal when the API call fails")
+    func removeSongFromPlaylistRollsBackOnFailure() async {
+        let song = Song(id: "song-1", title: "Song 1", artists: [], videoId: "song-1", playlistSetVideoId: "set-1")
+        let playlist = Playlist(
+            id: "VL-test-playlist", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 1, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: [song], duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
+
+        await LibraryMutationActions.removeSongFromPlaylist(song, from: viewModel, client: self.mockClient)
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["song-1"])
+        #expect(viewModel.playlistDetail?.trackCount == 1)
+    }
+
     @Test("Subscribe to artist applies optimistic library state while request is in flight")
     func subscribeToArtistAppliesOptimisticState() async throws {
         let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-123", name: "Test Artist")

@@ -451,7 +451,27 @@ struct PlaylistDetailView: View {
                     Label("Go to Album", systemImage: "square.stack")
                 }
             }
+
+            if self.canRemoveTrack(track) {
+                Divider()
+
+                Button(role: .destructive) {
+                    Task {
+                        await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+                    }
+                } label: {
+                    Label("Remove from Playlist", systemImage: "minus.circle")
+                }
+            }
         }
+    }
+
+    /// Whether `track` can be removed from the currently loaded playlist: the user must
+    /// own the playlist (not an album, not the uploaded-songs surface), and the track
+    /// must carry the playlist-item identifier a removal call requires.
+    private func canRemoveTrack(_ track: Song) -> Bool {
+        guard let detail = self.viewModel.playlistDetail else { return false }
+        return detail.canDelete && !detail.isAlbum && !detail.isUploadedSongs && track.playlistSetVideoId != nil
     }
 
     private func playTrackInQueue(

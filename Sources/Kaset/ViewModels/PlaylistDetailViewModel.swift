@@ -480,6 +480,39 @@ final class PlaylistDetailViewModel {
         await self.load(restartingInFlightLoad: true)
     }
 
+    /// Optimistically removes the track matching `setVideoId` from the loaded list, ahead
+    /// of the API call actually removing it. Returns the removed song and its original
+    /// index so a failed removal can be undone via `reinsertTrack(_:at:)`.
+    @discardableResult
+    func removeTrackOptimistically(setVideoId: String) -> (song: Song, index: Int)? {
+        guard let detail = self.playlistDetail,
+              let index = detail.tracks.firstIndex(where: { $0.playlistSetVideoId == setVideoId })
+        else { return nil }
+
+        var tracks = detail.tracks
+        let removedSong = tracks.remove(at: index)
+        self.replacePlaylistDetail(self.updatedPlaylistDetail(
+            from: detail,
+            tracks: tracks,
+            trackCount: detail.trackCount.map { max(0, $0 - 1) }
+        ))
+        return (removedSong, index)
+    }
+
+    /// Reinserts a track at its original index, undoing an optimistic removal after the
+    /// API call to actually remove it failed.
+    func reinsertTrack(_ song: Song, at index: Int) {
+        guard let detail = self.playlistDetail else { return }
+
+        var tracks = detail.tracks
+        tracks.insert(song, at: min(index, tracks.count))
+        self.replacePlaylistDetail(self.updatedPlaylistDetail(
+            from: detail,
+            tracks: tracks,
+            trackCount: detail.trackCount.map { $0 + 1 }
+        ))
+    }
+
     private func cancelFullLoadTask() {
         self.fullLoadTask?.cancel()
         self.fullLoadTask = nil

@@ -354,6 +354,16 @@ enum ParsingHelpers {
         return nil
     }
 
+    /// Extracts the playlist-item-specific `setVideoId`, required to remove the correct
+    /// occurrence of a track from a playlist (the same song can appear more than once).
+    /// Only present on playlist track rows, not search results or other song contexts.
+    static func extractPlaylistSetVideoId(from data: [String: Any]) -> String? {
+        guard let playlistItemData = data["playlistItemData"] as? [String: Any] else {
+            return nil
+        }
+        return playlistItemData["playlistSetVideoId"] as? String
+    }
+
     /// Extracts the YouTube Music video type from watch endpoint metadata.
     static func extractMusicVideoType(from data: [String: Any]) -> MusicVideoType? {
         if let endpoint = data["navigationEndpoint"] as? [String: Any],

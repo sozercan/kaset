@@ -87,6 +87,53 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 10)
     }
 
+    // MARK: - Track Removal Tests
+
+    @Test("Remove track optimistically removes the matching track and updates track count")
+    func removeTrackOptimisticallyRemovesMatch() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+        ]
+        let playlist = Playlist(
+            id: "VL-removal-test", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 3, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: songs, duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+
+        let removed = viewModel.removeTrackOptimistically(setVideoId: "set-b")
+
+        #expect(removed?.song.videoId == "b")
+        #expect(removed?.index == 1)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 2)
+    }
+
+    @Test("Reinsert track restores it at its original index and track count")
+    func reinsertTrackRestoresOriginalPosition() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+        ]
+        let playlist = Playlist(
+            id: "VL-reinsert-test", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 3, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: songs, duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        let removed = try #require(viewModel.removeTrackOptimistically(setVideoId: "set-b"))
+
+        viewModel.reinsertTrack(removed.song, at: removed.index)
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 3)
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
