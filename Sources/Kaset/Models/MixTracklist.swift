@@ -139,6 +139,10 @@ struct MixTracklist: Hashable {
     /// so a chapter count alone would misclassify ordinary chaptered videos as mixes.
     static let minParsedArtistRatio = 0.5
 
+    /// Minimum item duration (seconds) worth looking up a tracklist for. Short tracks are never
+    /// mixes, so the fetch is skipped below this threshold.
+    static let minMixDuration: TimeInterval = 600
+
     /// Whether this tracklist has enough entries — and enough parseable artist/title
     /// entries — to be treated as a mix.
     var isMix: Bool {

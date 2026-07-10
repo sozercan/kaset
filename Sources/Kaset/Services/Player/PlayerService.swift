@@ -68,7 +68,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var state: PlaybackState = .idle
 
     /// Currently playing track.
-    var currentTrack: Song?
+    var currentTrack: Song? {
+        didSet {
+            self.nowPlayingTracklistProvider?.update(track: self.currentTrack, duration: self.duration)
+        }
+    }
 
     /// Artist-page episode backing the current playback, when applicable.
     var currentEpisode: ArtistEpisode?
@@ -89,7 +93,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var currentLyricsDisplayTimeMs: Int?
 
     /// Total duration of current track in seconds.
-    var duration: TimeInterval = 0
+    var duration: TimeInterval = 0 {
+        didSet {
+            self.nowPlayingTracklistProvider?.update(track: self.currentTrack, duration: self.duration)
+        }
+    }
 
     /// Current volume (0.0 - 1.0).
     var volume: Double = 1.0
@@ -251,6 +259,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
     var authService: AuthService?
+
+    /// Drives sub-track (mix) segmentation for the current item. Held only to notify it of
+    /// track/duration changes; readers observe it directly via the environment.
+    private(set) var nowPlayingTracklistProvider: NowPlayingTracklistProvider?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
@@ -596,6 +608,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the AuthService used to guard account-scoped mutations.
     func setAuthService(_ authService: AuthService) {
         self.authService = authService
+    }
+
+    /// Injects the provider that tracks sub-track segmentation for the current item, and primes it
+    /// with the current track so segments resolve even if playback started before wiring.
+    func setNowPlayingTracklistProvider(_ provider: NowPlayingTracklistProvider) {
+        self.nowPlayingTracklistProvider = provider
+        provider.update(track: self.currentTrack, duration: self.duration)
     }
 
     /// Account-backed library/rating mutations should be no-ops in guest mode.

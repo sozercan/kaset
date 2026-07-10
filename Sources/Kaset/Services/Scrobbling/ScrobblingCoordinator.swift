@@ -18,9 +18,10 @@ final class ScrobblingCoordinator {
     /// The offline scrobble queue.
     let queue: ScrobbleQueue
 
-    /// Parser for mix tracklists (chapters + description). Optional because
-    /// it requires a YouTubeClient, which may not be available in all contexts.
-    private let mixTracklistParser: MixTracklistParser?
+    /// Provider that owns the current item's sub-track breakdown. Optional because it requires a
+    /// YouTubeClient, which may not be available in all contexts. Read-only here: the coordinator
+    /// consumes the tracklist for per-sub-track scrobbling but never fetches it.
+    private let nowPlayingTracklistProvider: NowPlayingTracklistProvider?
 
     // MARK: - Tracking State
 
@@ -41,27 +42,26 @@ final class ScrobblingCoordinator {
 
     // MARK: - Mix-Mode State
 
-    /// Tracklist for the current mix, if one was found. When non-nil,
-    /// the coordinator operates in mix-mode (per-sub-track scrobbling).
-    private var mixTracklist: MixTracklist?
+    /// Tracklist for the current mix, if one was found. When non-nil, the coordinator operates in
+    /// mix-mode (per-sub-track scrobbling). Sourced from the shared provider — the coordinator does
+    /// not fetch it, so mix detection runs even when scrobbling is idle.
+    private var mixTracklist: MixTracklist? {
+        self.nowPlayingTracklistProvider?.tracklist
+    }
+
+    /// Snapshot of the tracked item's tracklist, captured while it is the current video. Finalize and
+    /// per-sub-track handling read this rather than the live provider: `PlayerService.currentTrack`'s
+    /// synchronous `didSet` resets the provider to the *incoming* video the instant a track changes,
+    /// which is before this coordinator's Observation-driven poll finalizes the *outgoing* one. Reading
+    /// the live provider during finalize would therefore see the wrong video and skip the outgoing
+    /// track's final scrobble check.
+    private var trackedMixTracklist: MixTracklist?
 
     /// The sub-track currently being tracked within the mix.
     private var currentMixEntry: MixTrackEntry?
 
     /// Play-time state machine for the current mix sub-track. Nil between entries.
     private var mixEntryTracker: PlaybackScrobbleTracker?
-
-    /// In-flight tracklist parse for the current track. Cancelled on track changes and shutdown.
-    private var mixParseTask: Task<Void, Never>?
-
-    /// Monotonic token preventing a cancelled/stale parse from clearing or applying newer work.
-    private var mixParseGeneration = 0
-
-    /// Whether a tracklist fetch has already been attempted for the current track.
-    /// The fetch is gated on the track duration, which for YouTube playback is not yet
-    /// known at track-start — so the attempt is retried from the poll loop until duration
-    /// is available, then latched here to run exactly once per track.
-    private var mixParseAttempted = false
 
     // swiftformat:disable modifierOrder
     /// Queue flush task, cancelled in deinit.
@@ -88,19 +88,19 @@ final class ScrobblingCoordinator {
     ///   - settingsManager: Settings manager for threshold configuration.
     ///   - services: Scrobbling service backends to fan out scrobbles to.
     ///   - queue: Persistent scrobble queue (injectable for testing).
-    ///   - mixTracklistParser: Parser for mix video tracklists (optional).
+    ///   - nowPlayingTracklistProvider: Shared source of the current item's sub-track breakdown (optional).
     init(
         playerService: PlayerService,
         settingsManager: SettingsManager = .shared,
         services: [any ScrobbleServiceProtocol],
         queue: ScrobbleQueue = ScrobbleQueue(),
-        mixTracklistParser: MixTracklistParser? = nil
+        nowPlayingTracklistProvider: NowPlayingTracklistProvider? = nil
     ) {
         self.playerService = playerService
         self.settingsManager = settingsManager
         self.services = services
         self.queue = queue
-        self.mixTracklistParser = mixTracklistParser
+        self.nowPlayingTracklistProvider = nowPlayingTracklistProvider
     }
 
     /// Note: Do not reference main actor properties here. All cleanup should be done in stopMonitoring().
@@ -147,8 +147,6 @@ final class ScrobblingCoordinator {
         self.flushTaskGeneration += 1
         self.flushTask?.cancel()
         self.flushTask = nil
-        self.cancelMixTracklistFetch()
-        self.mixParseAttempted = false
         self.nowPlayingTasks.forEach { $0.cancel() }
         self.nowPlayingTasks.removeAll()
         self.isMonitoring = false
@@ -241,14 +239,14 @@ final class ScrobblingCoordinator {
                 self.startTrackingNewTrack(track)
             }
 
-            // Lazily attempt the mix-tracklist fetch — duration is often unknown at track-start,
-            // so this retries each poll (poll re-runs on duration changes) until it can run once.
-            if self.mixTracklist == nil {
-                self.attemptMixTracklistFetch(for: track)
+            // Cache the tracklist while we're on the tracked video, then drive mix-mode from that
+            // snapshot. This keeps finalization of the outgoing track correct even after the provider
+            // has already reset to the next video (see `trackedMixTracklist`). The guard never
+            // overwrites a cached tracklist with nil, so a late-arriving fetch latches once.
+            if track.videoId == self.currentTrackVideoId, let live = self.mixTracklist {
+                self.trackedMixTracklist = live
             }
-
-            // If a mix tracklist is available, switch to mix-mode scrobbling
-            if let tracklist = self.mixTracklist {
+            if let tracklist = self.trackedMixTracklist {
                 self.handleMixPlayback(track: track, tracklist: tracklist, progress: progress, isPlaying: isPlaying)
                 return
             }
@@ -261,10 +259,12 @@ final class ScrobblingCoordinator {
                 self.sendNowPlaying(track)
             }
 
-            // Check scrobble threshold. Deferred while a mix parse is in flight so a slow
-            // tracklist fetch can't let the whole mix scrobble once as one track and again
-            // per sub-track after the tracklist arrives.
-            if self.trackTracker?.hasScrobbled == false, duration > 0, self.mixParseTask == nil {
+            // Check scrobble threshold. Deferred while the provider's tracklist parse is in
+            // flight so a slow fetch can't let the whole mix scrobble once as one track and
+            // again per sub-track after the tracklist arrives.
+            if self.trackTracker?.hasScrobbled == false, duration > 0,
+               self.nowPlayingTracklistProvider?.isParsing != true
+            {
                 self.checkScrobbleThreshold(track: track, duration: duration)
             }
         } else if self.currentTrackVideoId != nil {
@@ -285,64 +285,20 @@ final class ScrobblingCoordinator {
             initialProgress: self.playerService.progress
         )
 
-        // Reset mix-mode state for the new track
-        self.mixTracklist = nil
+        // Reset mix-entry tracking for the new track. The tracklist snapshot starts empty and is
+        // (re)captured from the provider on subsequent polls, once the async fetch for this video
+        // resolves.
         self.currentMixEntry = nil
         self.mixEntryTracker = nil
-        self.mixParseAttempted = false
+        self.trackedMixTracklist = nil
 
         self.logger.debug("Started tracking: \(track.title) by \(track.artistsDisplay)")
-
-        // The mix-tracklist fetch is gated on duration, which is often not yet known here
-        // (YouTube reports it a beat after the track object appears). The poll loop retries
-        // `attemptMixTracklistFetch(for:)` until duration is available.
-    }
-
-    /// Attempts to fetch a mix tracklist for the track, once duration is known to exceed the
-    /// mix threshold. Retried from the poll loop while `mixParseAttempted` is false, then latched
-    /// so it runs at most once per track. When a tracklist is found, the coordinator switches to
-    /// mix-mode on the next poll.
-    private func attemptMixTracklistFetch(for track: Song) {
-        guard let parser = self.mixTracklistParser, self.mixParseTask == nil, !self.mixParseAttempted else { return }
-
-        // Duration isn't reliably available at track-start; wait until it crosses the mix threshold.
-        let duration = track.duration ?? self.playerService.duration
-        guard duration > 600 else { return }
-
-        self.mixParseAttempted = true
-        self.mixParseGeneration += 1
-        let generation = self.mixParseGeneration
-        let videoId = track.videoId
-        self.mixParseTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let tracklist = await parser.parseTracklist(videoId: videoId)
-
-            // A track change may have cancelled this request and started another. Only the task
-            // owning the current generation may clear the in-flight slot or publish its result.
-            guard self.mixParseGeneration == generation else { return }
-            self.mixParseTask = nil
-            guard !Task.isCancelled, self.currentTrackVideoId == videoId else { return }
-            if let tracklist, tracklist.isMix {
-                self.mixTracklist = tracklist
-                self.logger.info("Mix tracklist loaded: \(tracklist.entries.count) sub-tracks for \(track.title)")
-                // Mix-mode takes over from here: once mixTracklist is set the poll routes to
-                // handleMixPlayback and the single-track tracker is no longer consulted.
-            }
-        }
-    }
-
-    private func cancelMixTracklistFetch() {
-        self.mixParseGeneration += 1
-        self.mixParseTask?.cancel()
-        self.mixParseTask = nil
     }
 
     private func finalizeCurrentTrack() {
-        // Never let a slow request for the previous video block or overwrite the next track.
-        self.cancelMixTracklistFetch()
-
-        // Finalize mix-mode sub-track if active
-        if self.mixTracklist != nil, let entry = self.currentMixEntry {
+        // Finalize mix-mode sub-track if active. Uses the snapshot, not the live provider, which has
+        // already been reset to the incoming video by the time this runs on a track change.
+        if self.trackedMixTracklist != nil, let entry = self.currentMixEntry {
             self.finalizeMixEntry(entry, song: self.trackedSong)
         }
 
@@ -350,7 +306,7 @@ final class ScrobblingCoordinator {
         guard self.currentTrackVideoId != nil else { return }
 
         // Final threshold check before discarding accumulated play time (single-track mode only)
-        if self.mixTracklist == nil, self.trackTracker?.hasScrobbled == false, let song = self.trackedSong {
+        if self.trackedMixTracklist == nil, self.trackTracker?.hasScrobbled == false, let song = self.trackedSong {
             let duration = song.duration ?? self.playerService.duration
             if duration > 0 {
                 self.checkScrobbleThreshold(track: song, duration: duration)
@@ -366,11 +322,10 @@ final class ScrobblingCoordinator {
         self.trackedSong = nil
         self.trackTracker = nil
 
-        // Reset mix-mode state
-        self.mixTracklist = nil
+        // Reset mix-entry tracking. The tracklist is the provider's, keyed on video id.
         self.currentMixEntry = nil
         self.mixEntryTracker = nil
-        self.mixParseAttempted = false
+        self.trackedMixTracklist = nil
     }
 
     // MARK: - Scrobble Threshold
