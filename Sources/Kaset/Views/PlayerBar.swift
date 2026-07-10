@@ -19,6 +19,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @Environment(\.playerBarNavigationAction) private var navigationAction
     @Environment(\.playerBarCurrentAlbumID) private var currentRouteAlbumID
     @Environment(\.playerBarCurrentArtistID) private var currentRouteArtistID
+    @Environment(NowPlayingTracklistProvider.self) private var tracklistProvider: NowPlayingTracklistProvider?
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
@@ -429,6 +430,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     remainingText: self.isSeeking
                         ? "-\(self.formatTime(max(0, self.playerService.duration - self.seekValue * self.playerService.duration)))"
                         : self.formattedRemaining,
+                    segments: self.progressSegments,
                     isLive: self.playerService.isCurrentItemLive,
                     canSeek: self.canSeek,
                     isLoading: self.isProgressLoading,
@@ -441,12 +443,41 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     }
                 )
                 .padding(.top, 18)
+                // Keeps the segment tooltip above the transport buttons; the tooltip
+                // itself is non-hit-testable so the buttons stay clickable.
+                .zIndex(1)
             }
 
             self.progressActionButtons
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Sub-track segments for the seek bar, derived from the now-playing tracklist.
+    /// Empty for regular songs and live streams, which renders the standard single-track lane.
+    private var progressSegments: [PlayerBarProgressSegment] {
+        guard let tracklist = self.tracklistProvider?.tracklist,
+              self.playerService.duration > 0,
+              !self.playerService.isCurrentItemLive
+        else { return [] }
+
+        let duration = self.playerService.duration
+        let entries = tracklist.entries
+        let count = entries.count
+        return entries.enumerated().map { index, entry in
+            let end = entry.endTime ?? duration
+            return PlayerBarProgressSegment(
+                id: entry.id.uuidString,
+                start: entry.startTime / duration,
+                end: end / duration,
+                index: index,
+                count: count,
+                title: entry.title,
+                subtitle: entry.artist,
+                rangeText: "\(self.formatTime(entry.startTime)) – \(self.formatTime(end))"
+            )
+        }
     }
 
     private var progressActionButtons: some View {
