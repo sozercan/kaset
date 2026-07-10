@@ -256,7 +256,9 @@ private final class AsyncSignal {
     }
 
     func wait() async {
-        if self.isSignalled { return }
+        if self.isSignalled {
+            return
+        }
 
         await withCheckedContinuation { continuation in
             if self.isSignalled {

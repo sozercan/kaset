@@ -82,7 +82,10 @@ struct PlayerServiceLibraryTests {
 
     @Test("likeCurrentTrack reverts on API failure")
     func likeCurrentTrackRevertsOnFailure() async {
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        let accountID = "like-failure-\(UUID().uuidString)"
+        SongLikeStatusManager.shared.setActiveAccountID(accountID)
+        defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "like-failure-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
@@ -96,41 +99,22 @@ struct PlayerServiceLibraryTests {
         #expect(reverted)
     }
 
-    @Test("likeCurrentTrack ignores old-account failure after new account status loads")
-    func likeCurrentTrackIgnoresOldAccountFailureAfterNewAccountStatusLoads() async {
-        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+    @Test("likeCurrentTrack rolls back to visible status when manager cache is stale")
+    func likeCurrentTrackRollsBackToVisibleStatusWhenManagerCacheIsStale() async {
+        let accountID = "stale-like-cache-\(UUID().uuidString)"
+        SongLikeStatusManager.shared.setActiveAccountID(accountID)
+        defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
+        let song = TestFixtures.makeSong(id: "stale-like-cache-video")
+        self.playerService.currentTrack = song
         self.playerService.currentTrackLikeStatus = .indifferent
-        SongLikeStatusManager.shared.setActiveAccountID("old-account")
+        SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
         self.playerService.likeCurrentTrack()
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        SongLikeStatusManager.shared.setActiveAccountID("new-account")
-        SongLikeStatusManager.shared.setStatus(.dislike, for: "test-video")
-        self.playerService.currentTrackLikeStatus = .dislike
-
-        try? await Task.sleep(for: .milliseconds(100))
-
-        #expect(self.playerService.currentTrackLikeStatus == .dislike)
-    }
-
-    @Test("likeCurrentTrack ignores old-account failure when new account status is unknown")
-    func likeCurrentTrackIgnoresOldAccountFailureWhenNewAccountStatusUnknown() async {
-        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
-        self.playerService.currentTrackLikeStatus = .indifferent
-        SongLikeStatusManager.shared.setActiveAccountID("old-account")
-
-        self.playerService.likeCurrentTrack()
-        #expect(self.playerService.currentTrackLikeStatus == .like)
-
-        SongLikeStatusManager.shared.setActiveAccountID("new-account")
-        self.playerService.currentTrackLikeStatus = .indifferent
-
-        try? await Task.sleep(for: .milliseconds(100))
-
-        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("likeCurrentTrack ignores stale completion after current track changes")
@@ -168,6 +152,27 @@ struct PlayerServiceLibraryTests {
 
         #expect(self.mockClient.rateSongRatings.first == .indifferent)
         #expect(replacementClient.rateSongCalled == false)
+    }
+
+    @Test("likeCurrentTrack clears optimistic status when active account changes before completion")
+    func likeCurrentTrackClearsOptimisticStatusWhenActiveAccountChangesBeforeCompletion() async {
+        self.mockClient.rateSongDelay = .milliseconds(50)
+        let originalAccountID = "account-switch-original-\(UUID().uuidString)"
+        let switchedAccountID = "account-switch-new-\(UUID().uuidString)"
+        SongLikeStatusManager.shared.setActiveAccountID(originalAccountID)
+        defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
+        var song = TestFixtures.makeSong(id: "account-switch-video")
+        song.likeStatus = .like
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.likeCurrentTrack()
+        #expect(self.playerService.currentTrackLikeStatus == .like)
+
+        SongLikeStatusManager.shared.setActiveAccountID(switchedAccountID)
+
+        let reverted = await self.waitUntilLikeStatus(.indifferent)
+        #expect(reverted)
     }
 
     @Test("likeCurrentTrack is ignored while signed out")
@@ -244,7 +249,10 @@ struct PlayerServiceLibraryTests {
 
     @Test("dislikeCurrentTrack reverts on API failure")
     func dislikeCurrentTrackRevertsOnFailure() async {
-        self.playerService.currentTrack = TestFixtures.makeSong(id: "test-video")
+        let accountID = "dislike-failure-\(UUID().uuidString)"
+        SongLikeStatusManager.shared.setActiveAccountID(accountID)
+        defer { SongLikeStatusManager.shared.setActiveAccountID(nil) }
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "dislike-failure-video-\(UUID().uuidString)")
         self.playerService.currentTrackLikeStatus = .indifferent
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 

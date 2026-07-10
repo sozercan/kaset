@@ -14,6 +14,9 @@ final class YouTubeHistoryViewModel {
     /// Continuation token for the next page.
     private var continuation: String?
 
+    /// Changes whenever pagination advances, even if the page adds no visible videos.
+    private(set) var paginationTrigger = 0
+
     var hasMoreVideos: Bool {
         self.continuation != nil
     }
@@ -62,6 +65,7 @@ final class YouTubeHistoryViewModel {
             guard runID == self.loadGeneration else { return }
             self.videos = feed.videos
             self.continuation = feed.continuation
+            self.paginationTrigger += 1
             self.loadingState = .loaded
         } catch {
             guard runID == self.loadGeneration else { return }
@@ -81,6 +85,7 @@ final class YouTubeHistoryViewModel {
         self.loadingState = .idle
         self.videos = []
         self.continuation = nil
+        self.paginationTrigger += 1
         await self.load()
     }
 
@@ -99,6 +104,7 @@ final class YouTubeHistoryViewModel {
             let existing = Set(self.videos.map(\.videoId))
             self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
             self.continuation = feed.continuation
+            self.paginationTrigger += 1
             self.loadingState = .loaded
         } catch {
             // A cancelled page load is not an error; allow retrying.

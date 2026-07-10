@@ -75,6 +75,18 @@ struct PodcastsView: View {
                 ForEach(self.viewModel.sections) { section in
                     self.sectionView(section)
                 }
+
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.loadingState == .loadingMore,
+                        title: "Load More",
+                        loadingTitle: "Loading more...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMore()
+                    }
+                }
             }
             // Edge-to-edge so shelves slide under the glass sidebar; resting
             // inset is restored per-shelf via contentInset.
@@ -140,7 +152,7 @@ private struct PodcastShowCard: View {
         Button(action: self.action) {
             VStack(alignment: .leading, spacing: 8) {
                 // Thumbnail
-                CachedAsyncImage(url: self.show.thumbnailURL) { image in
+                CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 160, height: 160)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -183,7 +195,7 @@ private struct PodcastEpisodeCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Thumbnail with play indicator
                 ZStack(alignment: .bottomTrailing) {
-                    CachedAsyncImage(url: self.episode.thumbnailURL) { image in
+                    CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 200, height: 112)) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -305,7 +317,11 @@ struct PodcastShowView: View {
             String(localized: "Subscription Error"),
             isPresented: Binding(
                 get: { self.subscriptionError != nil },
-                set: { if !$0 { self.subscriptionError = nil } }
+                set: {
+                    if !$0 {
+                        self.subscriptionError = nil
+                    }
+                }
             )
         ) {
             Button(String(localized: "OK")) { self.subscriptionError = nil }
@@ -317,7 +333,7 @@ struct PodcastShowView: View {
     private var headerView: some View {
         HStack(alignment: .top, spacing: 20) {
             // Artwork
-            CachedAsyncImage(url: self.show.thumbnailURL) { image in
+            CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -513,7 +529,7 @@ struct PodcastEpisodeRow: View {
         Button(action: self.action) {
             HStack(alignment: .top, spacing: 12) {
                 // Thumbnail
-                CachedAsyncImage(url: self.episode.thumbnailURL) { image in
+                CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 80, height: 80)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)

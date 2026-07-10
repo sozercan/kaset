@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// Bridges PlayerService to scrobbling backends.
-/// Polls PlayerService at 500ms intervals (matching NotificationService pattern),
-/// tracks accumulated play time, and triggers scrobbles when thresholds are met.
+/// Observes PlayerService playback mutations, tracks accumulated play time,
+/// and triggers scrobbles when thresholds are met.
 @MainActor
 @Observable
 final class ScrobblingCoordinator {
@@ -51,11 +51,11 @@ final class ScrobblingCoordinator {
     private var hasSentNowPlaying = false
 
     // swiftformat:disable modifierOrder
-    /// Polling task, cancelled in deinit.
-    private var pollingTask: Task<Void, Never>?
-
     /// Queue flush task, cancelled in deinit.
     private var flushTask: Task<Void, Never>?
+
+    /// Monotonic token that prevents stale flush tasks from clearing newer scheduled work.
+    private var flushTaskGeneration = 0
 
     /// Now-playing tasks, cancelled in stopMonitoring/deinit.
     private var nowPlayingTasks: [Task<Void, Never>] = []
@@ -63,6 +63,9 @@ final class ScrobblingCoordinator {
 
     /// Whether the coordinator is actively monitoring.
     private(set) var isMonitoring = false
+
+    /// Monotonic token used to ignore one-shot Observation callbacks armed before a stop/start cycle.
+    private var monitoringGeneration = 0
 
     // MARK: - Init
 
@@ -112,16 +115,20 @@ final class ScrobblingCoordinator {
     func startMonitoring() {
         guard !self.isMonitoring else { return }
         self.isMonitoring = true
+        self.monitoringGeneration += 1
+        let generation = self.monitoringGeneration
         self.logger.info("Scrobbling coordinator started monitoring")
 
-        self.startPolling()
-        self.startQueueFlush()
+        self.observePlayerStateChanges(generation: generation)
+        self.observeMonitoringEligibilityChanges(generation: generation)
+        self.pollPlayerState()
+        self.scheduleQueueFlushIfNeeded()
     }
 
     /// Stops monitoring and cancels all tasks.
     func stopMonitoring() {
-        self.pollingTask?.cancel()
-        self.pollingTask = nil
+        self.monitoringGeneration += 1
+        self.flushTaskGeneration += 1
         self.flushTask?.cancel()
         self.flushTask = nil
         self.nowPlayingTasks.forEach { $0.cancel() }
@@ -137,21 +144,56 @@ final class ScrobblingCoordinator {
         }
     }
 
-    // MARK: - Polling
+    // MARK: - Observation
 
-    private func startPolling() {
-        self.pollingTask?.cancel()
-        self.pollingTask = Task { @MainActor [weak self] in
-            guard let self else { return }
+    /// Re-arms Observation tracking for playback fields that affect scrobbling.
+    ///
+    /// Progress updates already arrive from the playback WebView while media is playing, so observing those
+    /// mutations avoids an independent app-lifetime 500 ms timer when the app is idle or scrobbling is disabled.
+    private func observePlayerStateChanges(generation: Int) {
+        guard self.isMonitoring(generation: generation) else { return }
 
-            while !Task.isCancelled {
+        withObservationTracking {
+            _ = self.playerService.currentTrack?.videoId
+            _ = self.playerService.currentTrack?.title
+            _ = self.playerService.currentTrack?.artistsDisplay
+            _ = self.playerService.isPlaying
+            _ = self.playerService.progress
+            _ = self.playerService.duration
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, self.isMonitoring(generation: generation) else { return }
                 self.pollPlayerState()
-                try? await Task.sleep(for: .milliseconds(500))
+                self.observePlayerStateChanges(generation: generation)
             }
         }
     }
 
-    /// Core polling logic — called every 500ms.
+    /// Re-arms Observation tracking for service auth/enablement. When no service is eligible, playback
+    /// observation remains cheap and `pollPlayerState()` returns immediately; queue flushes are unscheduled.
+    private func observeMonitoringEligibilityChanges(generation: Int) {
+        guard self.isMonitoring(generation: generation) else { return }
+
+        withObservationTracking {
+            for service in self.services {
+                _ = self.settingsManager.isServiceEnabled(service.serviceName)
+                _ = service.authState
+            }
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, self.isMonitoring(generation: generation) else { return }
+                self.pollPlayerState()
+                self.scheduleQueueFlushIfNeeded()
+                self.observeMonitoringEligibilityChanges(generation: generation)
+            }
+        }
+    }
+
+    private func isMonitoring(generation: Int) -> Bool {
+        self.isMonitoring && self.monitoringGeneration == generation
+    }
+
+    /// Core scrobbling logic — driven by observed playback mutations instead of a periodic timer.
     private func pollPlayerState() {
         // Skip if no service is both enabled and connected
         guard self.hasAnyEnabledConnectedService else { return }
@@ -261,7 +303,7 @@ final class ScrobblingCoordinator {
         let progressDelta = progress - self.lastProgress
 
         // Only count positive, small deltas (< 2s wall clock) to ignore seeks
-        // A normal 500ms poll should show ~0.5s of progress
+        // A normal playback progress update should show ~1s or less of progress.
         if progressDelta > 0, progressDelta < 2.0, wallClockDelta < 2.0 {
             self.accumulatedPlayTime += progressDelta
         }
@@ -294,6 +336,7 @@ final class ScrobblingCoordinator {
 
             let scrobbleTrack = ScrobbleTrack(from: track, timestamp: startTime)
             self.queue.enqueue(scrobbleTrack)
+            self.scheduleQueueFlushIfNeeded()
             self.logger.info("Scrobble threshold met for: \(track.title) (accumulated: \(String(format: "%.1f", self.accumulatedPlayTime))s)")
         }
     }
@@ -329,18 +372,42 @@ final class ScrobblingCoordinator {
 
     // MARK: - Queue Flush
 
-    private func startQueueFlush() {
-        self.flushTask?.cancel()
-        self.flushTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
-
-                guard !Task.isCancelled else { return }
-                await self.flushQueue()
-            }
+    private func scheduleQueueFlushIfNeeded(after delay: Duration = .seconds(30)) {
+        guard self.isMonitoring,
+              self.hasAnyEnabledConnectedService,
+              !self.queue.isEmpty
+        else {
+            self.flushTaskGeneration += 1
+            self.flushTask?.cancel()
+            self.flushTask = nil
+            return
         }
+
+        guard self.flushTask == nil || self.flushTask?.isCancelled == true else { return }
+
+        self.flushTaskGeneration += 1
+        let generation = self.flushTaskGeneration
+        self.flushTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                guard let self, self.flushTaskGeneration == generation else { return }
+                self.flushTask = nil
+                return
+            }
+
+            guard let self, self.isMonitoring, self.flushTaskGeneration == generation else { return }
+            await self.flushQueue()
+            guard self.isMonitoring, self.flushTaskGeneration == generation else { return }
+            self.flushTask = nil
+            self.scheduleQueueFlushIfNeeded()
+        }
+    }
+
+    /// Exposed for focused tests; true only when there is pending queue work eligible for a one-shot flush.
+    var isQueueFlushScheduled: Bool {
+        guard let flushTask else { return false }
+        return !flushTask.isCancelled
     }
 
     /// Flushes pending scrobbles from the queue to all enabled services.

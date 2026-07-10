@@ -73,10 +73,14 @@ struct LyricsView: View {
     }
 
     private func updateLyricsPolling(for result: LyricResult) {
-        if case .synced = result {
-            SingletonPlayerWebView.shared.startLyricsPoll()
+        if case let .synced(synced) = result {
+            self.playerService.currentLyricsLineIndex = nil
+            self.playerService.currentLyricsDisplayTimeMs = nil
+            SingletonPlayerWebView.shared.startLyricsPoll(lineRanges: synced.bridgeLineRanges)
         } else {
             SingletonPlayerWebView.shared.stopLyricsPoll()
+            self.playerService.currentLyricsLineIndex = nil
+            self.playerService.currentLyricsDisplayTimeMs = nil
         }
     }
 
@@ -176,7 +180,8 @@ struct LyricsView: View {
 
             SyncedLyricsDisplayView(
                 lyrics: synced,
-                currentTimeMs: self.playerService.currentTimeMs,
+                currentLineIndex: self.playerService.currentLyricsLineIndex,
+                displayTimeMs: self.playerService.currentLyricsDisplayTimeMs,
                 onSeek: { timeMs in
                     Task { await self.playerService.seek(to: Double(timeMs) / 1000.0) }
                 }

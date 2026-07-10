@@ -65,7 +65,7 @@ struct YouTubeSubscriptionsView: View {
                         if self.viewModel.hasMoreVideos {
                             ProgressView()
                                 .controlSize(.small)
-                                .task {
+                                .task(id: self.viewModel.paginationTrigger) {
                                     await self.viewModel.loadMore()
                                 }
                         }
@@ -95,7 +95,7 @@ struct YouTubeSubscriptionsView: View {
                             VStack(spacing: 6) {
                                 CachedAsyncImage(
                                     url: channel.thumbnailURL,
-                                    targetSize: CGSize(width: 112, height: 112)
+                                    targetSize: CGSize(width: 56, height: 56)
                                 ) { image in
                                     image
                                         .resizable()

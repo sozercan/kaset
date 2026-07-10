@@ -6,7 +6,9 @@ actor AsyncGate {
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func wait() async {
-        if self.isOpen { return }
+        if self.isOpen {
+            return
+        }
         await withCheckedContinuation { continuation in
             self.waiters.append(continuation)
         }

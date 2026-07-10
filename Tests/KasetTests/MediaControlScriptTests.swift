@@ -2,6 +2,8 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
+// MARK: - MediaControlScriptTests
+
 /// Tests for singleton media-control script generation and scheduling.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -27,8 +29,8 @@ struct MediaControlScriptTests {
         #expect(windowPreference == "true")
     }
 
-    @Test("Bootstrap wrapper blocks seekforward/seekbackward registrations when nextPrev is enabled")
-    func bootstrapWrapperBlocksSeekHandlersInNextPrevMode() throws {
+    @Test("Bootstrap wrapper blocks YouTube-owned handlers when nextPrev is enabled")
+    func bootstrapWrapperBlocksYouTubeHandlersInNextPrevMode() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
@@ -37,12 +39,13 @@ struct MediaControlScriptTests {
             navigator.mediaSession.setActionHandler('seekforward', function() {});
             navigator.mediaSession.setActionHandler('seekbackward', function() {});
             navigator.mediaSession.setActionHandler('nexttrack', function() {});
+            navigator.mediaSession.setActionHandler('previoustrack', function() {});
             """,
             in: context
         )
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
-        #expect(calls == "seekforward:clear,seekbackward:clear,nexttrack:set")
+        #expect(calls == "seekforward:clear,seekbackward:clear")
     }
 
     @Test("Bootstrap wrapper clears seekforward/seekbackward when skip mode uses native handlers")
@@ -105,23 +108,30 @@ struct MediaControlScriptTests {
         #expect(clearCount == 1)
     }
 
-    @Test("Bootstrap wrapper preserves passed-through handler reference for nexttrack")
-    func bootstrapWrapperPreservesHandlerReference() throws {
+    @Test("Bootstrap wrapper allows Kaset-owned nexttrack install under flag")
+    func bootstrapWrapperAllowsKasetOwnedHandlerInstall() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
         self.evaluate(
             """
             window.__handlerInvoked = false;
-            navigator.mediaSession.setActionHandler('nexttrack', function() {
-                window.__handlerInvoked = true;
-            });
+            window.__kasetInstallingMediaControlHandlers = true;
+            try {
+                navigator.mediaSession.setActionHandler('nexttrack', function() {
+                    window.__handlerInvoked = true;
+                });
+            } finally {
+                window.__kasetInstallingMediaControlHandlers = false;
+            }
             mediaSessionHandlers.nexttrack();
             """,
             in: context
         )
 
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
         let invoked = context.evaluateScript("String(window.__handlerInvoked)")?.toString()
+        #expect(calls == "nexttrack:set")
         #expect(invoked == "true")
     }
 
@@ -131,11 +141,12 @@ struct MediaControlScriptTests {
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
         self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
-        self.evaluate("runNextAnimationFrame();", in: context)
         self.evaluate(
             """
             navigator.mediaSession.setActionHandler('seekforward', function() {});
             navigator.mediaSession.setActionHandler('seekbackward', function() {});
+            navigator.mediaSession.setActionHandler('nexttrack', function() {});
+            navigator.mediaSession.setActionHandler('previoustrack', function() {});
             """,
             in: context
         )
@@ -146,25 +157,51 @@ struct MediaControlScriptTests {
         let seekForwardSetCount = context.evaluateScript("""
             mediaSessionCalls.filter(function(c) { return c === 'seekforward:set'; }).length
         """)?.toInt32() ?? -1
+        let nextTrackSetCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'nexttrack:set'; }).length
+        """)?.toInt32() ?? -1
+        let previousTrackSetCount = context.evaluateScript("""
+            mediaSessionCalls.filter(function(c) { return c === 'previoustrack:set'; }).length
+        """)?.toInt32() ?? -1
         #expect(seekForwardClearCount > 0)
         #expect(seekForwardSetCount == 0)
+        #expect(nextTrackSetCount > 0)
+        #expect(previousTrackSetCount > 0)
     }
 
-    @Test("Override script keeps a single animation-frame loop active")
-    func overrideScriptKeepsSingleAnimationFrameLoop() throws {
+    @Test("Override script installs Kaset handlers through bootstrap wrapper")
+    func overrideScriptInstallsKasetHandlersThroughBootstrapWrapper() throws {
+        let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
+        self.evaluate("mediaSessionHandlers.nexttrack(); mediaSessionHandlers.previoustrack();", in: context)
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        let firstMessageType = context.evaluateScript("postedMessages[0].type")?.toString()
+        let secondMessageType = context.evaluateScript("postedMessages[1].type")?.toString()
+
+        #expect(calls.contains("nexttrack:set"))
+        #expect(calls.contains("previoustrack:set"))
+        #expect(firstMessageType == "REMOTE_NEXT")
+        #expect(secondMessageType == "REMOTE_PREVIOUS")
+    }
+
+    @Test("Override script uses event-driven reassertion without endless animation-frame loop")
+    func overrideScriptUsesEventDrivenReassertionWithoutEndlessAnimationFrameLoop() throws {
         let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
 
         self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
 
         let initialPendingCallbacks = context.evaluateScript("pendingRafCallbacks.length")?.toInt32() ?? -1
-        let nextTrackSetCount = context.evaluateScript("""
+        let initialNextTrackSetCount = context.evaluateScript("""
             mediaSessionCalls.filter(function(call) {
                 return call === 'nexttrack:set';
             }).length
         """)?.toInt32() ?? 0
 
-        #expect(initialPendingCallbacks == 1)
-        #expect(nextTrackSetCount > 0)
+        #expect(initialPendingCallbacks == 0)
+        #expect(initialNextTrackSetCount > 0)
 
         self.evaluate("""
             videoListeners.playing();
@@ -172,14 +209,18 @@ struct MediaControlScriptTests {
             videoListeners.loadeddata();
             videoListeners.canplay();
             videoListeners.seeked();
+            if (mutationCallback) { mutationCallback(); }
         """, in: context)
 
-        let callbacksAfterVideoEvents = context.evaluateScript("pendingRafCallbacks.length")?.toInt32() ?? -1
-        #expect(callbacksAfterVideoEvents == 1)
+        let callbacksAfterEvents = context.evaluateScript("pendingRafCallbacks.length")?.toInt32() ?? -1
+        let nextTrackSetCountAfterEvents = context.evaluateScript("""
+            mediaSessionCalls.filter(function(call) {
+                return call === 'nexttrack:set';
+            }).length
+        """)?.toInt32() ?? 0
 
-        self.evaluate("runNextAnimationFrame();", in: context)
-        let callbacksAfterFrameDrain = context.evaluateScript("pendingRafCallbacks.length")?.toInt32() ?? -1
-        #expect(callbacksAfterFrameDrain == 1)
+        #expect(callbacksAfterEvents == 0)
+        #expect(nextTrackSetCountAfterEvents > initialNextTrackSetCount)
     }
 
     @Test("Playback audio quality bootstrap script stores selected quality")
@@ -611,8 +652,10 @@ struct MediaControlScriptTests {
         #expect(pendingAfterDrain == 0)
         #expect(audioQualityCallCount == 2)
     }
+}
 
-    private func makeBootstrapWrapperContext() -> JSContext? {
+private extension MediaControlScriptTests {
+    func makeBootstrapWrapperContext() -> JSContext? {
         guard let context = JSContext() else { return nil }
 
         self.evaluate(
@@ -646,7 +689,7 @@ struct MediaControlScriptTests {
         return context
     }
 
-    private func evaluateBootstrapStateScript(in context: JSContext) {
+    func evaluateBootstrapStateScript(in context: JSContext) {
         self.evaluate(
             """
             var localStorageValues = {};
@@ -666,7 +709,7 @@ struct MediaControlScriptTests {
         )
     }
 
-    private func makeOverrideScriptContext(useNextPrev: Bool) -> JSContext? {
+    func makeOverrideScriptContext(useNextPrev: Bool) -> JSContext? {
         guard let context = JSContext() else { return nil }
 
         self.evaluate(
@@ -684,10 +727,12 @@ struct MediaControlScriptTests {
                 }
             }
             var mediaSessionCalls = [];
+            var mediaSessionHandlers = {};
             var navigator = {
                 mediaSession: {
                     setActionHandler: function(name, handler) {
                         mediaSessionCalls.push(name + ':' + (handler ? 'set' : 'clear'));
+                        mediaSessionHandlers[name] = handler;
                     }
                 }
             };
@@ -717,7 +762,9 @@ struct MediaControlScriptTests {
                     return null;
                 }
             };
+            var mutationCallback = null;
             function MutationObserver(callback) {
+                mutationCallback = callback;
                 this.callback = callback;
             }
             MutationObserver.prototype.observe = function() {};
@@ -740,7 +787,7 @@ struct MediaControlScriptTests {
         return context
     }
 
-    private func evaluate(_ script: String, in context: JSContext) {
+    func evaluate(_ script: String, in context: JSContext) {
         context.exception = nil
         _ = context.evaluateScript(script)
 

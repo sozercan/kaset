@@ -64,6 +64,7 @@ controls music while browsing YouTube), shared view components, and
 | User playlists | `browse` `FEplaylist_aggregation` |
 | Search | `search` (+`params` filters: videos `EgIQAQ==`, channels `EgIQAg==`, playlists `EgIQAw==`) |
 | Watch metadata + related | `next` |
+| Watch chapters | `next` (`playerOverlays…multiMarkersPlayerBarRenderer.markersMap[].value.chapters[]`) |
 | Like / unlike | `like/like`, `like/dislike`, `like/removelike` |
 | Subscribe | `subscription/subscribe` / `subscription/unsubscribe` |
 | Watch Later edit | `browse/edit_playlist` (playlistId `WL`) |
@@ -95,9 +96,15 @@ The bottom Liquid Glass bar adapts to the active source. In YouTube mode
 - Player bar transport buttons seek 30 seconds back/forward within the
   current video.
 - Actions: like/dislike, Watch Later, AirPlay (video picker), closed
-  captions menu (player tracks + Off), quality menu, full view, and
-  picture in picture (pop out / pop in; hidden in fullscreen).
-- No shuffle/repeat/lyrics/queue — those are music concepts.
+  captions menu (player tracks + Off), quality menu, full view, and picture in
+  picture (pop out / pop in; hidden in fullscreen). When chapters are available,
+  their break points are drawn directly into the progress bar as Liquid
+  Glass-style seams with a material fallback; hovering or dragging near a break
+  highlights it as a small glass bead, temporarily shows the chapter name/time
+  in the player metadata title area, and release-near-chapter scrubs snap to
+  that chapter.
+- No shuffle/repeat/lyrics/queue — those are music concepts. Chapters use a
+  horizontal scroller with chevron paging controls on the watch page.
 
 Every navigable YouTube view carries its own bar inset (pushed views
 don't inherit `safeAreaInset` — same rule as the music side).
@@ -178,8 +185,10 @@ from the regular grids, and routed to this surface.
 ### Watch Page
 
 Below the video, the layout is two-column: title/metadata/channel and
-the comments section down the left, the related rail down the right.
-Comments come from the watch page's `comment-item-section` continuation
+chapters/comments down the left, the related rail down the right.
+Chapters come from the watch page's `next` response (see Endpoints above), show
+as a horizontal scroller with chevron paging controls, and seek the active video
+natively. Comments come from the watch page's `comment-item-section` continuation
 (entity-payload mutations joined to comment view models, with a legacy
 `commentRenderer` fallback): paged reading, posting via
 `comment/create_comment`, like/dislike toggles via
@@ -217,3 +226,12 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
 - Reply posting and comment sorting controls are intentionally minimal; the
   current watch page supports loading top-level comments, posting a top-level
   comment, and optimistic like/dislike toggles.
+
+Chapter markers are available from the same `next` watch-page response for
+videos that expose chapters. The stable watch-page path observed on
+2026-07-07 is `playerOverlays…multiMarkersPlayerBarRenderer.markersMap[].value.chapters[]`
+with `chapterRenderer.timeRangeStartMillis`, `title.simpleText`, and
+thumbnails. The response can also contain `macroMarkersListItemRenderer` entries
+in the chapters panel or structured description; those are useful fallbacks but
+can be duplicated. Heatmap `macroMarkersListEntity.markersList` data is separate
+and should not be treated as chapters.

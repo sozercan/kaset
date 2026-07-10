@@ -6,15 +6,8 @@ import os
 @MainActor
 @Observable
 final class PlaylistDetailViewModel {
-    private static let fullPlaylistLoadTrackThreshold = 100
-
     private struct LiveSyncTask {
         let id: UUID
-        let task: Task<Void, Never>
-    }
-
-    private struct RemainingTracksTask {
-        let generation: Int
         let task: Task<Void, Never>
     }
 
@@ -45,9 +38,6 @@ final class PlaylistDetailViewModel {
     private var liveSyncTasks: [String: LiveSyncTask] = [:]
 
     @ObservationIgnored
-    private var remainingTracksTask: RemainingTracksTask?
-
-    @ObservationIgnored
     private var loadGeneration = 0
 
     @ObservationIgnored
@@ -67,7 +57,6 @@ final class PlaylistDetailViewModel {
     }
 
     deinit {
-        self.remainingTracksTask?.task.cancel()
         for liveSyncTask in self.liveSyncTasks.values {
             liveSyncTask.task.cancel()
         }
@@ -126,11 +115,12 @@ final class PlaylistDetailViewModel {
             await fullLoadTask.value
             return
         }
+        let generation = self.loadGeneration
         let task = Task { @MainActor in
             var consecutiveStalls = 0
-            while self.hasMore, consecutiveStalls < 8 {
+            while self.isCurrentLoadGeneration(generation), self.hasMore, consecutiveStalls < 8 {
                 let before = self.playlistDetail?.tracks.count ?? 0
-                _ = await self.loadMoreBatch()
+                _ = await self.loadMoreBatch(generation: generation)
                 if (self.playlistDetail?.tracks.count ?? 0) > before {
                     consecutiveStalls = 0
                 } else {
@@ -141,7 +131,9 @@ final class PlaylistDetailViewModel {
         }
         self.fullLoadTask = task
         await task.value
-        self.fullLoadTask = nil
+        if self.isCurrentLoadGeneration(generation) {
+            self.fullLoadTask = nil
+        }
     }
 
     /// Loads the playlist details including tracks.
@@ -150,9 +142,9 @@ final class PlaylistDetailViewModel {
     }
 
     private func load(restartingInFlightLoad: Bool) async {
-        guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore && self.remainingTracksTask == nil) else { return }
+        guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore) else { return }
 
-        self.cancelRemainingTracksTask()
+        self.cancelFullLoadTask()
         self.loadGeneration += 1
         let generation = self.loadGeneration
         self.removedLikedMusicVideoIDs = []
@@ -260,7 +252,6 @@ final class PlaylistDetailViewModel {
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
             self.replaceLoadedTrackVideoIds(with: detail.tracks)
-            self.startRemainingTracksTaskIfNeeded(generation: generation)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return }
 
@@ -277,8 +268,7 @@ final class PlaylistDetailViewModel {
 
     /// Loads more tracks via continuation.
     func loadMore() async {
-        guard self.remainingTracksTask == nil,
-              self.loadingState == .loaded,
+        guard self.loadingState == .loaded,
               self.hasMore,
               self.continuationToken != nil,
               self.playlistDetail != nil
@@ -295,63 +285,6 @@ final class PlaylistDetailViewModel {
                 }
             }
         }
-    }
-
-    private func startRemainingTracksTaskIfNeeded(generation: Int) {
-        guard let currentDetail = self.playlistDetail,
-              self.hasMore,
-              self.shouldLoadFullPlaylist(currentDetail)
-        else { return }
-
-        let client = self.client
-        let task = Task { [weak self, client] in
-            while !Task.isCancelled {
-                guard let batch = self?.nextRemainingTracksBatch(generation: generation) else { break }
-
-                do {
-                    let response = try await client.getPlaylistContinuation(
-                        token: batch.continuation,
-                        requiresAuth: batch.requiresAuth
-                    )
-                    guard self?.applyRemainingTracksResponse(response, batch: batch) == true else { break }
-                } catch is CancellationError {
-                    self?.restoreLoadedStateIfCurrent(generation: generation)
-                    break
-                } catch {
-                    self?.handleRemainingTracksError(error, generation: generation)
-                    break
-                }
-            }
-
-            self?.finishRemainingTracksTask(generation: generation)
-        }
-        self.remainingTracksTask = RemainingTracksTask(generation: generation, task: task)
-    }
-
-    private func nextRemainingTracksBatch(generation: Int) -> ContinuationDrainBatch? {
-        guard let currentDetail = self.playlistDetail,
-              self.hasMore,
-              self.shouldLoadFullPlaylist(currentDetail),
-              let continuationToken,
-              generation == self.loadGeneration,
-              !Task.isCancelled
-        else { return nil }
-
-        if self.loadingState == .loaded {
-            self.loadingState = .loadingMore
-        }
-
-        let initialTrackCount = currentDetail.tracks.count
-        let totalTrackCount = currentDetail.trackCount ?? self.playlist.trackCount ?? initialTrackCount
-        self.logger.info("Loading full playlist: \(initialTrackCount) loaded tracks, total: \(totalTrackCount)")
-
-        return ContinuationDrainBatch(
-            generation: generation,
-            continuation: continuationToken,
-            currentDetail: currentDetail,
-            isLikedMusicPlaylist: self.isLikedMusicPlaylist,
-            requiresAuth: currentDetail.requiresPersonalAccountForContinuations
-        )
     }
 
     private func applyRemainingTracksResponse(_ response: PlaylistContinuationResponse, batch: ContinuationDrainBatch) -> Bool {
@@ -452,36 +385,6 @@ final class PlaylistDetailViewModel {
         )
     }
 
-    private func restoreLoadedStateIfCurrent(generation: Int) {
-        guard generation == self.loadGeneration else { return }
-        self.logger.debug("Playlist continuation cancelled")
-        self.loadingState = .loaded
-    }
-
-    private func handleRemainingTracksError(_ error: any Error, generation: Int) {
-        guard generation == self.loadGeneration else { return }
-        self.logger.error("Failed to load more playlist tracks: \(error.localizedDescription)")
-        self.loadingState = .loaded
-    }
-
-    private func finishRemainingTracksTask(generation: Int) {
-        if self.remainingTracksTask?.generation == generation {
-            self.remainingTracksTask = nil
-        }
-    }
-
-    private func shouldLoadFullPlaylist(_ detail: PlaylistDetail) -> Bool {
-        guard !detail.isAlbum else { return false }
-        if self.isLikedMusicPlaylist { return true }
-
-        let reportedTrackCount = max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
-        if reportedTrackCount > Self.fullPlaylistLoadTrackThreshold {
-            return true
-        }
-
-        return detail.tracks.count >= Self.fullPlaylistLoadTrackThreshold
-    }
-
     /// Single-flight wrapper around one continuation fetch. Concurrent callers — the initial
     /// full-playlist load, the scroll-triggered `loadMore()`, `loadAllRemaining`, and repeated play
     /// triggers — coalesce onto the in-flight batch and receive its real result, instead of colliding
@@ -571,16 +474,15 @@ final class PlaylistDetailViewModel {
     /// Refreshes the playlist.
     func refresh() async {
         self.cancelAllLiveSyncTasks()
-        self.cancelRemainingTracksTask()
         self.replacePlaylistDetail(nil)
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
     }
 
-    private func cancelRemainingTracksTask() {
-        self.remainingTracksTask?.task.cancel()
-        self.remainingTracksTask = nil
+    private func cancelFullLoadTask() {
+        self.fullLoadTask?.cancel()
+        self.fullLoadTask = nil
     }
 
     private func isCurrentLoadGeneration(_ generation: Int?) -> Bool {

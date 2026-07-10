@@ -19,19 +19,32 @@ final class YouTubeHomeViewModel {
     /// Whether more feed pages are available.
     private(set) var hasMoreVideos = true
 
+    /// Whether more personalized topic rails are queued behind explicit user demand.
+    private(set) var hasMoreTopicRails = false
+
+    /// Whether an explicit topic-rail batch is currently loading.
+    private(set) var isLoadingTopicRails = false
+
     /// Video IDs already surfaced in titled shelf rails, excluded from the flat
     /// "For you" grid (including continuation pages) so a shelf video is never
     /// rendered twice.
     private var shelfVideoIDs: Set<String> = []
 
+    /// Personalized topic chips not fetched at cold start. Continuation tokens
+    /// are account-scoped and live only in this model; refresh/account switch
+    /// clears them before a new Home bundle repopulates the queue.
+    private var pendingTopicChips: [YouTubeHomeChip] = []
+
     /// Resume-progress band for the Continue Watching rail: started but not
     /// effectively finished. `nil`/0 = not started; ≥96 = finished.
     private static let continueWatchingRange = 1 ... 95
 
-    /// Cap on Continue Watching items and on topic rails shown at first paint.
+    /// Caps on Home rails. Topic rails keep the previous total cap for parity,
+    /// but cold start only browses the first batch; the rest load on demand.
     private static let continueWatchingCap = 20
     private static let guestFallbackRailCap = 20
     private static let topicRailCap = 8
+    private static let initialTopicRailBatchSize = 2
 
     /// Public destination rails used when signed-out Home returns YouTube's empty
     /// recommendation shell. These are browseable without a user account and keep
@@ -162,6 +175,9 @@ final class YouTubeHomeViewModel {
 
             try Task.checkCancellation()
             guard generation == self.loadGeneration else { return }
+            self.pendingTopicChips = []
+            self.hasMoreTopicRails = false
+            self.isLoadingTopicRails = false
 
             // `YouTubeFeedParser.parse` collects shelf videos into `feed.videos`
             // too, and the shelf rail surfaces them again — exclude shelf video
@@ -184,11 +200,12 @@ final class YouTubeHomeViewModel {
                 self.loadingState = .loaded
             }
 
-            // Publish the shelves immediately and start the topic rails now —
-            // do NOT block on the watch-history request (it can be slow/retrying
-            // and would otherwise delay the rails and keep an empty grid stuck on
-            // the skeleton). The Continue Watching rail is inserted at the front
-            // once history resolves.
+            // Publish the shelves immediately and start only the first topic
+            // batch now — do NOT block on the watch-history request (it can be
+            // slow/retrying and would otherwise delay the rails and keep an
+            // empty grid stuck on the skeleton). The Continue Watching rail is
+            // inserted at the front once history resolves; remaining topic chips
+            // stay queued for explicit demand instead of cold-launch fanout.
             if !shelves.isEmpty {
                 self.sections = shelves
                 if !gridReady {
@@ -196,9 +213,11 @@ final class YouTubeHomeViewModel {
                 }
             }
 
-            let chips = Array(bundle.chips.prefix(Self.topicRailCap))
+            let cappedChips = Array(bundle.chips.prefix(Self.topicRailCap))
+            let initialChips = Array(cappedChips.prefix(Self.initialTopicRailBatchSize))
+            self.pendingTopicChips = Array(cappedChips.dropFirst(initialChips.count))
 
-            let mayNeedGuestFallback = gridVideos.isEmpty && shelves.isEmpty && chips.isEmpty
+            let mayNeedGuestFallback = gridVideos.isEmpty && shelves.isEmpty
 
             // Stream the rails in as each resolves; the streamer is the single
             // writer of `sections` and prepends Continue Watching when its
@@ -209,7 +228,7 @@ final class YouTubeHomeViewModel {
             guard generation == self.loadGeneration else { return }
             self.isStreamingInitialRails = true
             await self.streamTopicRails(
-                chips: chips,
+                chips: initialChips,
                 shelves: shelves,
                 continueWatching: { [weak self] in
                     guard let self else { return nil }
@@ -226,23 +245,12 @@ final class YouTubeHomeViewModel {
                 self.isStreamingInitialRails = false
             }
 
-            // Empty grid: flip the initial-load skeleton to `.loaded` so the
-            // "No recommendations" placeholder can show. Only from `.loading` —
-            // if `loadMore()` started a continuation (empty first page with
-            // `hasMoreVideos`), don't clobber its `.loadingMore`.
-            try Task.checkCancellation()
-            guard generation == self.loadGeneration else { return }
-            if mayNeedGuestFallback, self.sections.isEmpty {
-                // Signed-out YouTube Home can legally return an empty recommendation
-                // shell. Only fall back after the Continue Watching attempt: an
-                // authenticated user can have an empty Home response while history
-                // is still the sole useful rail.
-                await self.loadGuestFallbackRails(generation: generation)
+            if try await self.settleInitialEmptyHomeIfNeeded(
+                mayNeedGuestFallback: mayNeedGuestFallback,
+                gridReady: gridReady,
+                generation: generation
+            ) {
                 return
-            }
-
-            if !gridReady, self.loadingState == .loading {
-                self.loadingState = .loaded
             }
 
             // A watch happened while Home was still loading or streaming its
@@ -267,6 +275,51 @@ final class YouTubeHomeViewModel {
             self.logger.error("Failed to load YouTube home feed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
+    }
+
+    private func settleInitialEmptyHomeIfNeeded(
+        mayNeedGuestFallback: Bool,
+        gridReady: Bool,
+        generation: Int
+    ) async throws -> Bool {
+        // Empty grid: flip the initial-load skeleton to `.loaded` so the
+        // "No recommendations" placeholder can show. Only from `.loading` —
+        // if `loadMore()` started a continuation (empty first page with
+        // `hasMoreVideos`), don't clobber its `.loadingMore`.
+        try Task.checkCancellation()
+        guard generation == self.loadGeneration else { return true }
+
+        self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
+        while mayNeedGuestFallback, self.sections.isEmpty, !self.pendingTopicChips.isEmpty {
+            // With an empty grid/shelf surface, topic rails are the only possible
+            // personalized content. Walk queued chips in small batches until one
+            // produces content or the capped chip set is exhausted, so the user
+            // never sees a premature empty state just because the first
+            // cold-start topic batch was empty.
+            await self.loadNextTopicRailBatch(
+                generation: generation,
+                gridReady: gridReady,
+                batchSize: Self.initialTopicRailBatchSize,
+                preserveOnFailure: false
+            )
+            try Task.checkCancellation()
+            guard generation == self.loadGeneration else { return true }
+        }
+
+        self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
+        if mayNeedGuestFallback, self.sections.isEmpty, self.pendingTopicChips.isEmpty {
+            // Signed-out YouTube Home can legally return an empty recommendation
+            // shell. Only fall back after the Continue Watching and capped
+            // topic-chip attempts: an authenticated user can have an empty Home
+            // response while history/topics are still the sole useful rails.
+            await self.loadGuestFallbackRails(generation: generation)
+            return true
+        }
+
+        if !gridReady, self.loadingState == .loading {
+            self.loadingState = .loaded
+        }
+        return false
     }
 
     private func loadGuestFallbackRails(generation: Int) async {
@@ -338,7 +391,9 @@ final class YouTubeHomeViewModel {
         func publish() {
             guard generation == self.loadGeneration else { return }
             var next: [YouTubeHomeSection] = []
-            if let continueWatchingRail { next.append(continueWatchingRail) }
+            if let continueWatchingRail {
+                next.append(continueWatchingRail)
+            }
             next.append(contentsOf: shelves)
             next.append(contentsOf: topicSlot.compactMap(\.self))
             self.sections = next
@@ -374,6 +429,70 @@ final class YouTubeHomeViewModel {
         }
     }
 
+    @discardableResult
+    private func loadNextTopicRailBatch(
+        generation: Int,
+        gridReady: Bool,
+        batchSize: Int,
+        preserveOnFailure: Bool
+    ) async -> TopicBatchLoadOutcome {
+        guard generation == self.loadGeneration, !self.pendingTopicChips.isEmpty else { return .stale }
+
+        let batch = Array(self.pendingTopicChips.prefix(batchSize))
+        self.pendingTopicChips.removeFirst(batch.count)
+        self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
+
+        let result = await self.topicSections(for: batch)
+        guard generation == self.loadGeneration else { return .stale }
+
+        if preserveOnFailure, !result.failedChips.isEmpty {
+            // Retry only failed chips, after untouched queued chips. Successful
+            // rails stay published and a permanently bad continuation cannot
+            // keep otherwise valid later topics behind the same batch forever.
+            self.pendingTopicChips.append(contentsOf: result.failedChips)
+        }
+        self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
+
+        guard !result.sections.isEmpty else {
+            return preserveOnFailure && !result.failedChips.isEmpty ? .failed : .empty
+        }
+
+        self.sections.append(contentsOf: result.sections)
+        if !gridReady, self.loadingState == .loading {
+            self.loadingState = .loaded
+        }
+        return .appended
+    }
+
+    private func topicSections(for chips: [YouTubeHomeChip]) async -> TopicBatchFetchResult {
+        var slots = [TopicFetchOutcome?](repeating: nil, count: chips.count)
+        await withTaskGroup(of: (Int, TopicFetchOutcome).self) { group in
+            for (index, chip) in chips.enumerated() {
+                group.addTask {
+                    await (index, self.topicFetchOutcome(for: chip))
+                }
+            }
+            for await (index, outcome) in group {
+                slots[index] = outcome
+            }
+        }
+
+        var sections: [YouTubeHomeSection] = []
+        var failedChips: [YouTubeHomeChip] = []
+        for (index, outcome) in slots.enumerated() {
+            guard let outcome else { continue }
+            switch outcome {
+            case let .section(section):
+                sections.append(section)
+            case .empty:
+                break
+            case .failed:
+                failedChips.append(chips[index])
+            }
+        }
+        return TopicBatchFetchResult(sections: sections, failedChips: failedChips)
+    }
+
     /// Forces a fresh reload (e.g. after account switches).
     func refresh() async {
         // Cancel and drop any in-flight load so `load()` starts a fresh one
@@ -400,6 +519,9 @@ final class YouTubeHomeViewModel {
         self.videos = []
         self.sections = []
         self.shelfVideoIDs = []
+        self.pendingTopicChips = []
+        self.hasMoreTopicRails = false
+        self.isLoadingTopicRails = false
         await self.load()
     }
 
@@ -416,6 +538,32 @@ final class YouTubeHomeViewModel {
         self.continueWatchingRefreshTask = nil
         self.pendingGeneration = nil
         self.inFlightRefreshGeneration = nil
+        self.pendingTopicChips = []
+        self.hasMoreTopicRails = false
+        self.isLoadingTopicRails = false
+    }
+
+    /// Loads the next queued personalized topic-rail batch on explicit user demand.
+    func loadMoreTopicRails() async {
+        guard self.hasMoreTopicRails, !self.isLoadingTopicRails, !self.isStreamingInitialRails else { return }
+
+        let generation = self.loadGeneration
+        self.isLoadingTopicRails = true
+        defer {
+            if generation == self.loadGeneration {
+                self.isLoadingTopicRails = false
+            }
+        }
+
+        var outcome: TopicBatchLoadOutcome = .empty
+        repeat {
+            outcome = await self.loadNextTopicRailBatch(
+                generation: generation,
+                gridReady: !self.videos.isEmpty,
+                batchSize: Self.initialTopicRailBatchSize,
+                preserveOnFailure: true
+            )
+        } while generation == self.loadGeneration && outcome == .empty && self.hasMoreTopicRails
     }
 
     /// Loads the next feed page when the user nears the end of the grid.
@@ -652,23 +800,56 @@ final class YouTubeHomeViewModel {
 
     // MARK: - Topic Rails
 
-    /// Browses a single chip token into a topic section, or `nil` on
-    /// failure / empty result.
-    private func topicSection(for chip: YouTubeHomeChip) async -> YouTubeHomeSection? {
+    private enum TopicFetchOutcome {
+        case section(YouTubeHomeSection)
+        case empty
+        case failed
+    }
+
+    private struct TopicBatchFetchResult {
+        let sections: [YouTubeHomeSection]
+        let failedChips: [YouTubeHomeChip]
+    }
+
+    private enum TopicBatchLoadOutcome {
+        case appended
+        case empty
+        case failed
+        case stale
+    }
+
+    /// Browses a single chip token into a topic section outcome, preserving the
+    /// distinction between a valid empty response and a transient fetch failure.
+    private func topicFetchOutcome(for chip: YouTubeHomeChip) async -> TopicFetchOutcome {
         do {
             let feed = try await self.client.getHomeTopicFeed(continuation: chip.continuation)
-            guard !feed.videos.isEmpty else { return nil }
-            return YouTubeHomeSection(
-                id: "topic-\(chip.title)",
-                title: chip.title,
-                videos: feed.videos,
-                kind: .topic
+            guard !feed.videos.isEmpty else { return .empty }
+            return .section(
+                YouTubeHomeSection(
+                    id: "topic-\(chip.title)",
+                    title: chip.title,
+                    videos: feed.videos,
+                    kind: .topic
+                )
             )
         } catch {
             if !(error is CancellationError) {
                 self.logger.error("Topic rail '\(chip.title)' unavailable: \(error.localizedDescription)")
             }
-            return nil
+            return .failed
+        }
+    }
+
+    /// Browses a single chip token into a topic section, or `nil` on failure /
+    /// empty result. Initial rail streaming keeps the older omit-on-failure
+    /// behaviour; deferred auto-loading uses `topicFetchOutcome(for:)` so
+    /// failures can remain retryable.
+    private func topicSection(for chip: YouTubeHomeChip) async -> YouTubeHomeSection? {
+        switch await self.topicFetchOutcome(for: chip) {
+        case let .section(section):
+            section
+        case .empty, .failed:
+            nil
         }
     }
 }

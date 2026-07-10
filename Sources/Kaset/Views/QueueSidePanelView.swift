@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import AppKit
 import SwiftUI
 
@@ -517,7 +519,9 @@ class DraggableTableView: NSTableView {
         case .changed:
             self.handleSwipeChanged(dx: dx, dy: dy)
         case .ended, .cancelled:
-            if self.handleSwipeEnded(event: event) { return }
+            if self.handleSwipeEnded(event: event) {
+                return
+            }
         default:
             if event.momentumPhase == .ended || event.momentumPhase == .cancelled {
                 self.horizontalSwipeAccumulator = 0
@@ -639,15 +643,21 @@ class DraggableTableView: NSTableView {
             }
         }
 
-        if CFAbsoluteTimeGetCurrent() < self.swipeRemoveCooldownUntil { return false }
+        if CFAbsoluteTimeGetCurrent() < self.swipeRemoveCooldownUntil {
+            return false
+        }
         guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
               abs(accH) > abs(accV)
         else { return false }
         guard let coord = coordinator else { return false }
         let row = self.swipeRemoveTargetRow >= 0 ? self.swipeRemoveTargetRow : rowAtEnd
         self.swipeRemoveTargetRow = -1
-        if row < 0 { return false }
-        if row == coord.currentIndex { return false }
+        if row < 0 {
+            return false
+        }
+        if row == coord.currentIndex {
+            return false
+        }
         guard coord.entries[safe: row] != nil else { return false }
         let slideDirection: CGFloat = accH > 0 ? 1 : -1
         self.swipeRemoveCooldownUntil = CFAbsoluteTimeGetCurrent() + Self.swipeRemoveCooldown
@@ -718,19 +728,17 @@ private struct QueueFooterIconButton: View {
     let action: () -> Void
 
     var body: some View {
-        Group {
-            Button {
-                guard self.isEnabled else { return }
-                self.action()
-            } label: {
-                Image(systemName: self.systemImage)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(self.tint)
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.plain)
-            .opacity(self.isEnabled ? 1 : 0.45)
+        Button {
+            guard self.isEnabled else { return }
+            self.action()
+        } label: {
+            Image(systemName: self.systemImage)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(self.tint)
+                .frame(width: 20, height: 20)
         }
+        .buttonStyle(.plain)
+        .opacity(self.isEnabled ? 1 : 0.45)
         .help(self.helpText)
         .accessibilityLabel(self.accessibilityLabel)
     }

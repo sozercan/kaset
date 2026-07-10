@@ -141,7 +141,7 @@ struct YouTubeSearchView: View {
                     ProgressView()
                         .controlSize(.small)
                         .frame(maxWidth: .infinity)
-                        .task {
+                        .task(id: self.viewModel.results.continuation) {
                             await self.viewModel.loadMore()
                         }
                 }

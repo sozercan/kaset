@@ -181,10 +181,14 @@ enum SongMetadataParser {
 
         switch iconType {
         case "LIBRARY_ADD", "BOOKMARK_BORDER":
-            if let token { result.feedbackTokens = FeedbackTokens(add: token, remove: nil) }
+            if let token {
+                result.feedbackTokens = FeedbackTokens(add: token, remove: nil)
+            }
         case "LIBRARY_REMOVE", "BOOKMARK":
             result.isInLibrary = true
-            if let token { result.feedbackTokens = FeedbackTokens(add: nil, remove: token) }
+            if let token {
+                result.feedbackTokens = FeedbackTokens(add: nil, remove: token)
+            }
         default:
             break
         }

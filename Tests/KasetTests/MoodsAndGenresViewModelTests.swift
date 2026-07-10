@@ -80,8 +80,8 @@ struct MoodsAndGenresViewModelTests {
 
     // MARK: - Background Continuation Tests
 
-    @Test("Load sets hasMore based on continuation availability")
-    func loadSetsHasMoreBasedOnContinuations() async {
+    @Test("Initial load does not drain continuations")
+    func initialLoadDoesNotDrainContinuations() async {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
@@ -91,10 +91,33 @@ struct MoodsAndGenresViewModelTests {
 
         await self.viewModel.load()
 
-        // After initial load, hasMore should reflect continuation availability
-        // Background loading may or may not have completed yet
-        #expect(self.viewModel.sections.count >= 1)
-        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.sections.map(\.title) == ["Initial"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getMoodsAndGenresContinuationCallCount == 0)
+    }
+
+    @Test("Load more appends one continuation per demand")
+    func loadMoreAppendsOneContinuationPerDemand() async {
+        self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
+            TestFixtures.makeHomeSection(title: "Initial"),
+        ])
+        self.mockClient.moodsAndGenresContinuationSections = [
+            [TestFixtures.makeHomeSection(title: "Continuation 1")],
+            [TestFixtures.makeHomeSection(title: "Continuation 2")],
+        ]
+
+        await self.viewModel.load()
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getMoodsAndGenresContinuationCallCount == 1)
+
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Initial", "Continuation 1", "Continuation 2"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getMoodsAndGenresContinuationCallCount == 2)
     }
 
     @Test("No continuations means no more sections after load")

@@ -233,29 +233,28 @@ struct LibraryView: View {
         return [.uploadedSongs(uploadedSongsPlaylist)]
     }
 
+    @ViewBuilder
     private var libraryGrid: some View {
-        Group {
-            if self.filteredItems.isEmpty {
-                self.emptyStateView
-            } else {
-                LazyVGrid(columns: [
-                    GridItem(.adaptive(minimum: self.libraryItemSize, maximum: 200), spacing: self.libraryItemSpacing),
-                ], spacing: 24) {
-                    ForEach(self.filteredItems) { item in
-                        switch item {
-                        case let .playlist(playlist):
-                            self.playlistCard(playlist)
-                        case let .uploadedSongs(playlist):
-                            self.uploadedSongsCard(playlist)
-                        case let .artist(artist):
-                            self.artistCard(artist)
-                        case let .podcast(show):
-                            self.podcastCard(show)
-                        }
+        if self.filteredItems.isEmpty {
+            self.emptyStateView
+        } else {
+            LazyVGrid(columns: [
+                GridItem(.adaptive(minimum: self.libraryItemSize, maximum: 200), spacing: self.libraryItemSpacing),
+            ], spacing: 24) {
+                ForEach(self.filteredItems) { item in
+                    switch item {
+                    case let .playlist(playlist):
+                        self.playlistCard(playlist)
+                    case let .uploadedSongs(playlist):
+                        self.uploadedSongsCard(playlist)
+                    case let .artist(artist):
+                        self.artistCard(artist)
+                    case let .podcast(show):
+                        self.podcastCard(show)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

@@ -365,7 +365,9 @@ struct CommandExecutor {
                     }
 
                     let songs = section.items.compactMap { item -> Song? in
-                        if case let .song(song) = item { return song }
+                        if case let .song(song) = item {
+                            return song
+                        }
                         return nil
                     }
                     if !songs.isEmpty {
@@ -394,7 +396,9 @@ struct CommandExecutor {
 
             for section in response.sections {
                 let songs = section.items.compactMap { item -> Song? in
-                    if case let .song(song) = item { return song }
+                    if case let .song(song) = item {
+                        return song
+                    }
                     return nil
                 }
                 if songs.count >= 5 {

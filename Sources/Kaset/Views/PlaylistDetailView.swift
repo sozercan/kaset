@@ -152,7 +152,7 @@ struct PlaylistDetailView: View {
     private func headerView(_ detail: PlaylistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -530,7 +530,9 @@ struct PlaylistDetailView: View {
     {
         tracks.map { song in
             var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
+                if artist.name == "Album" {
+                    return nil
+                }
                 var cleanName = artist.name
                 if cleanName.hasPrefix("Album, ") {
                     cleanName = String(cleanName.dropFirst(7))
@@ -745,7 +747,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
                 .frame(width: 28, alignment: .trailing)
 
                 if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL) { image in
+                    CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(.quaternary)

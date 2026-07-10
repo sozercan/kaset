@@ -256,7 +256,9 @@ private struct MarkdownContentView: View {
                     codeLines.append(lines[i])
                     i += 1
                 }
-                if i < lines.count { i += 1 } // skip closing ```
+                if i < lines.count {
+                    i += 1
+                } // skip closing ```
                 let code = codeLines.joined(separator: "\n")
                 result.append(AnyView(Self.codeBlock(code)))
             } else {

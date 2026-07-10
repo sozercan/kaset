@@ -316,33 +316,32 @@ struct SearchView: View {
     }
 
     /// Load more view that triggers pagination when visible.
+    @ViewBuilder
     private var loadMoreView: some View {
-        Group {
-            if self.viewModel.loadingState == .loadingMore {
-                HStack {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Loading more...", comment: "Shown while loading more search results")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-            } else {
-                Button {
-                    Task { await self.viewModel.loadMore() }
-                } label: {
-                    Text("Load More", comment: "Button to load more search results")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                }
-                .buttonStyle(.plain)
-                .onAppear {
-                    // Auto-load more when this view appears (infinite scroll)
-                    Task { await self.viewModel.loadMore() }
-                }
+        if self.viewModel.loadingState == .loadingMore {
+            HStack {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading more...", comment: "Shown while loading more search results")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+        } else {
+            Button {
+                Task { await self.viewModel.loadMore() }
+            } label: {
+                Text("Load More", comment: "Button to load more search results")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+            }
+            .buttonStyle(.plain)
+            .onAppear {
+                // Auto-load more when this view appears (infinite scroll)
+                Task { await self.viewModel.loadMore() }
             }
         }
     }
@@ -354,7 +353,7 @@ struct SearchView: View {
             } label: {
                 HStack(spacing: 12) {
                     // Thumbnail
-                    CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL) { image in
+                    CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 48, height: 48)) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -672,7 +671,9 @@ struct SearchView: View {
 
 extension SearchResultItem {
     var isArtist: Bool {
-        if case .artist = self { return true }
+        if case .artist = self {
+            return true
+        }
         return false
     }
 }

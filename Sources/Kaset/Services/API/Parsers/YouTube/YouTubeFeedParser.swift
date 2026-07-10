@@ -88,7 +88,9 @@ enum YouTubeFeedParser {
         for entry in chips {
             guard let chip = entry["chipCloudChipRenderer"] as? [String: Any] else { continue }
             // The default "All" chip is pre-selected and carries no token.
-            if chip["isSelected"] as? Bool == true { continue }
+            if chip["isSelected"] as? Bool == true {
+                continue
+            }
             guard let title = YouTubeItemParser.text(from: chip["text"]),
                   let continuation = (
                       (chip["navigationEndpoint"] as? [String: Any])?["continuationCommand"]

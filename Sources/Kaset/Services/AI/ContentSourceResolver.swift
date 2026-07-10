@@ -35,13 +35,27 @@ enum ContentSourceResolver {
         let wantsHits = queryLower.contains("hit") || queryLower.contains("best") ||
             queryLower.contains("greatest") || queryLower.contains("top")
 
-        if !intent.mood.isEmpty { parts.append(intent.mood) }
-        if !intent.genre.isEmpty { parts.append(intent.genre) }
-        if wantsHits { parts.append("hits") }
-        if !intent.artist.isEmpty { parts.append("by \(intent.artist)") }
-        if !intent.era.isEmpty { parts.append("from the \(intent.era)") }
-        if !intent.version.isEmpty { parts.append("(\(intent.version))") }
-        if !intent.activity.isEmpty { parts.append("for \(intent.activity)") }
+        if !intent.mood.isEmpty {
+            parts.append(intent.mood)
+        }
+        if !intent.genre.isEmpty {
+            parts.append(intent.genre)
+        }
+        if wantsHits {
+            parts.append("hits")
+        }
+        if !intent.artist.isEmpty {
+            parts.append("by \(intent.artist)")
+        }
+        if !intent.era.isEmpty {
+            parts.append("from the \(intent.era)")
+        }
+        if !intent.version.isEmpty {
+            parts.append("(\(intent.version))")
+        }
+        if !intent.activity.isEmpty {
+            parts.append("for \(intent.activity)")
+        }
 
         if parts.isEmpty {
             return intent.query
@@ -113,8 +127,12 @@ enum ContentSourceResolver {
             hasHits = true
         }
 
-        if !intent.genre.isEmpty { parts.append(intent.genre) }
-        if !intent.mood.isEmpty { parts.append(intent.mood) }
+        if !intent.genre.isEmpty {
+            parts.append(intent.genre)
+        }
+        if !intent.mood.isEmpty {
+            parts.append(intent.mood)
+        }
 
         return (parts, hasHits)
     }
@@ -134,8 +152,12 @@ enum ContentSourceResolver {
 
     private static func buildGenericQuery(from intent: MusicIntent) -> [String] {
         var parts: [String] = []
-        if !intent.genre.isEmpty { parts.append(intent.genre) }
-        if !intent.mood.isEmpty { parts.append(intent.mood) }
+        if !intent.genre.isEmpty {
+            parts.append(intent.genre)
+        }
+        if !intent.mood.isEmpty {
+            parts.append(intent.mood)
+        }
 
         if intent.genre.isEmpty, !intent.mood.isEmpty, intent.artist.isEmpty, intent.activity.isEmpty {
             parts.append("music")
@@ -178,13 +200,27 @@ enum ContentSourceResolver {
     private static func normalizeEra(_ era: String) -> String {
         let lowered = era.lowercased()
 
-        if lowered.contains("1960") { return "60s" }
-        if lowered.contains("1970") { return "70s" }
-        if lowered.contains("1980") { return "80s" }
-        if lowered.contains("1990") { return "90s" }
-        if lowered.contains("2000") { return "2000s" }
-        if lowered.contains("2010") { return "2010s" }
-        if lowered.contains("2020") { return "2020s" }
+        if lowered.contains("1960") {
+            return "60s"
+        }
+        if lowered.contains("1970") {
+            return "70s"
+        }
+        if lowered.contains("1980") {
+            return "80s"
+        }
+        if lowered.contains("1990") {
+            return "90s"
+        }
+        if lowered.contains("2000") {
+            return "2000s"
+        }
+        if lowered.contains("2010") {
+            return "2010s"
+        }
+        if lowered.contains("2020") {
+            return "2020s"
+        }
 
         return era
     }

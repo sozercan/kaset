@@ -134,40 +134,39 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .accessibilityHidden(true)
     }
 
+    @ViewBuilder
     private var keyboardShortcuts: some View {
-        Group {
-            Button("") {
-                Task { await self.playerService.playPause() }
-            }
-            .keyboardShortcut(.space, modifiers: [])
-            .opacity(0)
-
-            Button("") {
-                Task { await self.playerService.next() }
-            }
-            .keyboardShortcut(.rightArrow, modifiers: .command)
-            .disabled(self.playerService.currentEpisode != nil)
-            .opacity(0)
-
-            Button("") {
-                Task { await self.playerService.previous() }
-            }
-            .keyboardShortcut(.leftArrow, modifiers: .command)
-            .disabled(self.playerService.currentEpisode != nil)
-            .opacity(0)
-
-            Button("") {
-                Task { await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1)) }
-            }
-            .keyboardShortcut(.upArrow, modifiers: .command)
-            .opacity(0)
-
-            Button("") {
-                Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
-            }
-            .keyboardShortcut(.downArrow, modifiers: .command)
-            .opacity(0)
+        Button("") {
+            Task { await self.playerService.playPause() }
         }
+        .keyboardShortcut(.space, modifiers: [])
+        .opacity(0)
+
+        Button("") {
+            Task { await self.playerService.next() }
+        }
+        .keyboardShortcut(.rightArrow, modifiers: .command)
+        .disabled(self.playerService.currentEpisode != nil)
+        .opacity(0)
+
+        Button("") {
+            Task { await self.playerService.previous() }
+        }
+        .keyboardShortcut(.leftArrow, modifiers: .command)
+        .disabled(self.playerService.currentEpisode != nil)
+        .opacity(0)
+
+        Button("") {
+            Task { await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1)) }
+        }
+        .keyboardShortcut(.upArrow, modifiers: .command)
+        .opacity(0)
+
+        Button("") {
+            Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
+        }
+        .keyboardShortcut(.downArrow, modifiers: .command)
+        .opacity(0)
     }
 
     // MARK: - Song Info
@@ -234,7 +233,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             cornerRadius: 6,
             glowSources: self.artworkGlowSources(for: track),
             glowIdentity: self.artworkGlowIdentity(for: track),
-            glowTargetSize: CGSize(width: 320, height: 320),
+            glowTargetSize: CGSize(width: 64, height: 64),
             showsHoverOverlay: self.canOpenCurrentAlbum || self.showsCurrentAlbumHoverOnly,
             isLoading: self.isResolvingAlbum
         ) {

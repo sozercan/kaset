@@ -26,22 +26,17 @@ final class PodcastsViewModel {
     /// the right key. Updated by `configure` on account switches.
     private(set) var accountId: String?
     private let logger = DiagnosticsLogger.api
-    // swiftformat:disable modifierOrder
-    /// Task for background loading, cancelled in deinit.
-    /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
-    @ObservationIgnored private var backgroundLoadTask: Task<Void, Never>?
-    // swiftformat:enable modifierOrder
+    /// Whether a user-visible continuation load is currently in flight.
+    private var isLoadingMoreSections = false
 
-    /// Number of background continuations loaded.
-    private var continuationsLoaded = 0
+    /// Current explicit continuation request, cancelled on account switch.
+    @ObservationIgnored private var continuationTask: Task<Void, Never>?
+    @ObservationIgnored private var continuationTaskID: UUID?
 
     /// Incremented whenever foreground load results should no longer be
     /// allowed to mutate this view model (account switch, refresh, or a
     /// newer load).
     private var loadGeneration = 0
-
-    /// Maximum continuations to load in background.
-    private static let maxContinuations = 4
 
     init(
         client: any YTMusicClientProtocol,
@@ -70,13 +65,11 @@ final class PodcastsViewModel {
         }
     }
 
-    deinit {
-        self.backgroundLoadTask?.cancel()
-    }
-
     /// Loads podcasts content with fast initial load.
     func load() async {
-        guard self.loadingState != .loading else { return }
+        guard self.loadingState != .loading,
+              self.loadingState != .loadingMore
+        else { return }
 
         self.loadGeneration += 1
         let loadGeneration = self.loadGeneration
@@ -95,7 +88,6 @@ final class PodcastsViewModel {
             self.sections = sections
             self.hasMoreSections = self.client.hasMorePodcastsSections
             self.loadingState = .loaded
-            self.continuationsLoaded = 0
             let sectionCount = self.sections.count
             self.logger.info("Podcasts content loaded: \(sectionCount) sections")
 
@@ -106,10 +98,6 @@ final class PodcastsViewModel {
                 self.availabilityService?.markUnavailable(for: loadAccountId)
             } else {
                 self.availabilityService?.markAvailable(for: loadAccountId)
-                // Only continue progressive loading when there's real
-                // content; an empty payload means there's nothing to
-                // continue and the tab is about to disappear anyway.
-                self.startBackgroundLoading()
             }
         } catch is CancellationError {
             guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else { return }
@@ -143,78 +131,100 @@ final class PodcastsViewModel {
         }
     }
 
-    /// Loads more sections in the background progressively.
-    private func startBackgroundLoading() {
-        self.backgroundLoadTask?.cancel()
-        let backgroundGeneration = self.loadGeneration
-        let backgroundAccountId = self.accountId
-        self.backgroundLoadTask = Task { [weak self] in
+    /// Loads one additional podcast continuation page on explicit user demand.
+    func loadMore() async {
+        guard self.hasMoreSections,
+              self.continuationTask == nil,
+              self.loadingState == .loaded
+        else { return }
+
+        let generation = self.loadGeneration
+        let accountId = self.accountId
+        let taskID = UUID()
+        let task = Task { @MainActor [weak self] in
             guard let self else { return }
-
-            // Brief delay to let the UI settle
-            try? await Task.sleep(for: .milliseconds(300))
-
-            guard !Task.isCancelled else { return }
-
-            await self.loadMoreSections(generation: backgroundGeneration, accountId: backgroundAccountId)
+            await self.performLoadMore(generation: generation, accountId: accountId, taskID: taskID)
         }
+        self.continuationTask = task
+        self.continuationTaskID = taskID
+        defer { self.clearContinuationTaskIfCurrent(taskID) }
+        await task.value
     }
 
-    /// Loads additional sections from continuations progressively.
-    private func loadMoreSections(generation: Int, accountId: String?) async {
-        while self.hasMoreSections, self.continuationsLoaded < Self.maxContinuations {
-            guard self.loadingState == .loaded,
-                  self.isCurrentLoad(generation: generation, accountId: accountId),
-                  !Task.isCancelled
-            else { break }
+    private func performLoadMore(generation: Int, accountId: String?, taskID: UUID) async {
+        guard self.isCurrentLoad(generation: generation, accountId: accountId),
+              !Task.isCancelled
+        else { return }
 
-            do {
-                let additionalSections = try await client.getPodcastsContinuation()
-                guard self.isCurrentLoad(generation: generation, accountId: accountId),
-                      !Task.isCancelled
-                else { break }
-
-                if let additionalSections {
-                    self.sections.append(contentsOf: additionalSections)
-                    self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMorePodcastsSections
-                    let continuationNum = self.continuationsLoaded
-                    self.logger.info("Background loaded \(additionalSections.count) more podcast sections (continuation \(continuationNum))")
-                } else {
-                    self.hasMoreSections = false
-                    break
+        self.isLoadingMoreSections = true
+        self.loadingState = .loadingMore
+        defer {
+            if self.isCurrentLoad(generation: generation, accountId: accountId) {
+                self.isLoadingMoreSections = false
+                self.clearContinuationTaskIfCurrent(taskID)
+                if self.loadingState == .loadingMore {
+                    self.loadingState = .loaded
                 }
-            } catch is CancellationError {
-                self.logger.debug("Background loading cancelled")
-                break
-            } catch {
-                self.logger.warning("Background section load failed: \(error.localizedDescription)")
-                break
             }
         }
 
-        let totalCount = self.sections.count
-        self.logger.info("Background section loading completed, total sections: \(totalCount)")
+        do {
+            if let additionalSections = try await self.client.getPodcastsContinuation() {
+                guard self.isCurrentLoad(generation: generation, accountId: accountId) else { return }
+                self.sections.append(contentsOf: additionalSections)
+                self.hasMoreSections = self.client.hasMorePodcastsSections
+                self.logger.info("Loaded \(additionalSections.count) more podcast sections on demand")
+            } else {
+                guard self.isCurrentLoad(generation: generation, accountId: accountId) else { return }
+                self.hasMoreSections = false
+            }
+        } catch is CancellationError {
+            self.logger.debug("Podcast continuation load cancelled")
+        } catch {
+            self.logger.warning("Podcast continuation load failed: \(error.localizedDescription)")
+        }
     }
 
     /// Refreshes podcasts content.
     func refresh() async {
-        self.backgroundLoadTask?.cancel()
+        await self.cancelInFlightContinuation()
         self.loadGeneration += 1
         self.sections = []
         self.hasMoreSections = true
-        self.continuationsLoaded = 0
+        self.isLoadingMoreSections = false
         self.loadingState = .idle
         await self.load()
     }
 
     private func resetContentForAccountSwitch() {
-        self.backgroundLoadTask?.cancel()
+        self.continuationTask?.cancel()
+        self.continuationTask = nil
+        self.continuationTaskID = nil
+        self.client.resetSessionStateForAccountSwitch()
         self.loadGeneration += 1
         self.sections = []
         self.hasMoreSections = true
-        self.continuationsLoaded = 0
+        self.isLoadingMoreSections = false
         self.loadingState = .idle
+    }
+
+    private func cancelInFlightContinuation() async {
+        guard let continuationTask else { return }
+        let taskID = self.continuationTaskID
+        self.loadGeneration += 1
+        continuationTask.cancel()
+        await continuationTask.value
+        if self.continuationTaskID == taskID {
+            self.continuationTask = nil
+            self.continuationTaskID = nil
+        }
+        self.isLoadingMoreSections = false
+    }
+
+    private func clearContinuationTaskIfCurrent(_ taskID: UUID) {
+        guard self.continuationTaskID == taskID else { return }
+        self.continuationTask = nil
+        self.continuationTaskID = nil
     }
 
     private func isCurrentLoad(generation: Int, accountId: String?) -> Bool {

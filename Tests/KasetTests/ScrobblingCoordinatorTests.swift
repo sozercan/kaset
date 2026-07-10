@@ -263,6 +263,64 @@ struct ScrobblingCoordinatorTests {
         #expect(decoded.id == track.id)
     }
 
+    @Test("Queue flush is not scheduled without an eligible service")
+    func queueFlushDormantWithoutEligibleService() throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let queue = ScrobbleQueue(directory: dir)
+        queue.enqueue(self.makeTrack(title: "Queued"))
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .disconnected
+
+        let playerService = PlayerService()
+        let settings = SettingsManager.shared
+        settings.setServiceEnabled("Mock", true)
+        defer { settings.setServiceEnabled("Mock", false) }
+
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+
+        coordinator.startMonitoring()
+        defer { coordinator.stopMonitoring() }
+
+        #expect(!coordinator.isQueueFlushScheduled)
+    }
+
+    @Test("Queue flush is one-shot scheduled only when service is eligible and queue has work")
+    func queueFlushScheduledForEligiblePendingQueue() throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let queue = ScrobbleQueue(directory: dir)
+        queue.enqueue(self.makeTrack(title: "Queued"))
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .connected(username: "testuser")
+
+        let playerService = PlayerService()
+        let settings = SettingsManager.shared
+        settings.setServiceEnabled("Mock", true)
+        defer { settings.setServiceEnabled("Mock", false) }
+
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+
+        coordinator.startMonitoring()
+        defer { coordinator.stopMonitoring() }
+
+        #expect(coordinator.isQueueFlushScheduled)
+    }
+
     // MARK: - Fix #1: Only accepted tracks removed from queue
 
     @Test("FlushQueue only marks accepted tracks as completed, rejected stay in queue")

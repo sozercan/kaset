@@ -77,7 +77,9 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                             shelfTitle: shelfTitle,
                             buckets: &buckets
                         )
-                        if shelfKind == nil { shelfKind = kind }
+                        if shelfKind == nil {
+                            shelfKind = kind
+                        }
 
                         switch kind {
                         case .albums:

@@ -90,8 +90,12 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
         self.selectedQuality = level
     }
 
-    func storyboardSpec(expectedVideoId _: String?) async -> String? {
-        nil
+    var storyboardSpecResponse: String?
+    private(set) var storyboardSpecRequests: [String?] = []
+
+    func storyboardSpec(expectedVideoId: String?) async -> String? {
+        self.storyboardSpecRequests.append(expectedVideoId)
+        return self.storyboardSpecResponse
     }
 
     func tearDown() {
@@ -797,6 +801,44 @@ struct YouTubePlayerServiceTests {
         #expect(self.sut.upNext.map(\.videoId) == ["keeper"])
     }
 
+    @Test("Chapter markers filter to the current video")
+    func chapterMarkersFilter() {
+        self.sut.setChapters([
+            YouTubeChapter(videoId: nil, title: "No current", startTime: 1, endTime: nil, timeText: nil, thumbnailURL: nil),
+        ])
+        #expect(self.sut.chapters.isEmpty)
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "current"))
+
+        self.sut.setChapters([
+            YouTubeChapter(videoId: "current", title: "Matching", startTime: 10, endTime: nil, timeText: "0:10", thumbnailURL: nil),
+            YouTubeChapter(videoId: "other", title: "Other", startTime: 20, endTime: nil, timeText: "0:20", thumbnailURL: nil),
+            YouTubeChapter(videoId: nil, title: "Implicit", startTime: 30, endTime: nil, timeText: "0:30", thumbnailURL: nil),
+        ])
+
+        #expect(self.sut.chapters.map(\.title) == ["Matching", "Implicit"])
+    }
+
+    @Test("Play can start at a deferred seek position")
+    func playWithStartPositionDefersSeekUntilLoad() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "chaptered"), startAt: 42)
+
+        #expect(self.controller.loadedVideoIds.isEmpty)
+        #expect(self.controller.reloadedVideoIds == ["chaptered"])
+        #expect(self.controller.reloadResumeSeconds == [42])
+        #expect(self.controller.seeks.isEmpty)
+    }
+
+    @Test("Play can start at an explicit zero seek position")
+    func playWithZeroStartPositionDefersSeekUntilLoad() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "chaptered"), startAt: 0)
+
+        #expect(self.controller.loadedVideoIds.isEmpty)
+        #expect(self.controller.reloadedVideoIds == ["chaptered"])
+        #expect(self.controller.reloadResumeSeconds == [0])
+        #expect(self.controller.seeks.isEmpty)
+    }
+
     @Test("Skipping while floating keeps the surface in the window")
     func skipWhileFloatingStaysFloating() async {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "first"))
@@ -892,6 +934,51 @@ struct YouTubePlayerServiceTests {
 
         self.sut.consumePopInRequest()
         #expect(self.sut.popInRequest == nil)
+    }
+
+    @Test("Storyboard refresh task starts once while in-flight and once resolved")
+    func storyboardRefreshTaskStartIsGuarded() async throws {
+        self.controller.storyboardSpecResponse = "mock-storyboard-spec"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        #expect(self.sut.startStoryboardSpecRefreshIfNeeded())
+        #expect(!self.sut.startStoryboardSpecRefreshIfNeeded())
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(self.controller.storyboardSpecRequests == ["abc"])
+        #expect(self.sut.storyboardSpec == "mock-storyboard-spec")
+        #expect(!self.sut.startStoryboardSpecRefreshIfNeeded())
+    }
+
+    @Test("Playback tick skips storyboard refresh unless live ambient is active")
+    func playbackTickSkipsStoryboardRefreshForSteadyAmbient() async throws {
+        let settings = SettingsManager.shared
+        let originalEnabled = settings.ambientBackdropEnabled
+        let originalStyle = settings.ambientBackdropStyle
+        defer {
+            settings.ambientBackdropEnabled = originalEnabled
+            settings.ambientBackdropStyle = originalStyle
+        }
+
+        settings.ambientBackdropEnabled = true
+        settings.ambientBackdropStyle = .soft
+        self.controller.storyboardSpecResponse = "mock-storyboard-spec"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 60,
+            videoId: "abc",
+            title: nil,
+            isAd: false
+        ))
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(self.controller.storyboardSpecRequests.isEmpty)
+        #expect(self.sut.storyboardSpec == nil)
     }
 
     @Test("Stop resets everything and tears down the WebView")

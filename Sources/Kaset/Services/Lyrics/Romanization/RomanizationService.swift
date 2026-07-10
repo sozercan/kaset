@@ -15,8 +15,12 @@ final class RomanizationService {
 
     /// Romanizes a single line of text. Returns nil if the text is already Latin or romanization produced no change.
     func romanize(_ text: String) -> String? {
-        if ScriptDetector.isLatinOnly(text) { return nil }
-        if let cached = self.cache[text] { return cached }
+        if ScriptDetector.isLatinOnly(text) {
+            return nil
+        }
+        if let cached = self.cache[text] {
+            return cached
+        }
 
         let result: String? = switch ScriptDetector.dominantScript(text) {
         case .japanese: JapaneseRomanizer.romanize(text)

@@ -7,10 +7,14 @@ import Testing
 struct PlayerServiceSmartShuffleTests {
     var playerService: PlayerService
     var mockClient: MockYTMusicClient
+    let persistenceNamespace: String
 
     init() {
+        self.persistenceNamespace = "PlayerServiceSmartShuffleTests-\(UUID().uuidString)"
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
+        self.playerService.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        self.playerService.clearSavedQueue()
         self.playerService.setYTMusicClient(self.mockClient)
         self.playerService.confirmPlaybackStarted()
     }
@@ -231,6 +235,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.queue.map(\.videoId) == ["video-before", "rec-current", "video-after"])
         #expect(restored.queueEntries.map(\.source) == [.queued, .suggested, .queued])
@@ -255,6 +260,7 @@ struct PlayerServiceSmartShuffleTests {
         // suggestions. They are regenerated from live playback context, never persisted. (No client
         // is attached and we assert synchronously, so no top-up can run before the checks.)
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.queueEntries.allSatisfy { $0.source == .queued })
         #expect(Set(restored.queue.map(\.videoId)) == originalIds)
@@ -342,7 +348,9 @@ struct PlayerServiceSmartShuffleTests {
             TestFixtures.makeSong(id: "video-4"),
             TestFixtures.makeSong(id: "video-5"),
         ])
-        if let loadGeneration { await self.playerService.endQueueLoading(loadGeneration) }
+        if let loadGeneration {
+            await self.playerService.endQueueLoading(loadGeneration)
+        }
 
         let videoIds = self.playerService.queue.map(\.videoId)
         let suggested = self.playerService.queueEntries.filter { $0.source == .suggested }.map(\.song.videoId)
@@ -364,7 +372,9 @@ struct PlayerServiceSmartShuffleTests {
             TestFixtures.makeSong(id: "video-1"),
             TestFixtures.makeSong(id: "video-2"),
         ])
-        if let loadGeneration { await self.playerService.endQueueLoading(loadGeneration) }
+        if let loadGeneration {
+            await self.playerService.endQueueLoading(loadGeneration)
+        }
 
         #expect(self.playerService.queue.map(\.videoId) == ["video-0", "video-1", "video-1", "video-2"])
     }
@@ -377,7 +387,9 @@ struct PlayerServiceSmartShuffleTests {
 
         let remaining = (4 ..< 24).map { TestFixtures.makeSong(id: "video-\($0)") }
         self.playerService.appendOriginalTracks(remaining)
-        if let loadGeneration { await self.playerService.endQueueLoading(loadGeneration) }
+        if let loadGeneration {
+            await self.playerService.endQueueLoading(loadGeneration)
+        }
 
         let originalOrder = (0 ..< 24).map { "video-\($0)" }
         #expect(Set(self.playerService.queue.map(\.videoId)) == Set(originalOrder))
@@ -392,7 +404,9 @@ struct PlayerServiceSmartShuffleTests {
         let initial = TestFixtures.makeSongs(count: 4)
         let loadGeneration = await self.playerService.playQueue(initial, startingAt: 0, deferringSmartShuffleFill: true)
         self.playerService.appendOriginalTracks((4 ..< 8).map { TestFixtures.makeSong(id: "video-\($0)") })
-        if let loadGeneration { await self.playerService.endQueueLoading(loadGeneration) }
+        if let loadGeneration {
+            await self.playerService.endQueueLoading(loadGeneration)
+        }
 
         #expect(self.playerService.queue.map(\.videoId) == (0 ..< 8).map { "video-\($0)" })
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })

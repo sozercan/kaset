@@ -18,30 +18,25 @@ final class NewReleasesViewModel {
     /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
-    // swiftformat:disable modifierOrder
-    /// Task for background loading, cancelled in deinit.
-    /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
-    @ObservationIgnored private var backgroundLoadTask: Task<Void, Never>?
-    // swiftformat:enable modifierOrder
+    /// Whether a user-visible continuation load is currently in flight.
+    private var isLoadingMoreSections = false
 
-    /// Number of background continuations loaded.
-    private var continuationsLoaded = 0
+    /// Waiters that should resume once the current continuation request finishes.
+    @ObservationIgnored private var continuationWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Maximum continuations to load in background.
-    private static let maxContinuations = 4
+    /// Monotonic token used to discard stale continuation results after refreshes.
+    private var loadGeneration = 0
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
-    }
-
-    deinit {
-        self.backgroundLoadTask?.cancel()
     }
 
     /// Loads new releases content with fast initial load.
     func load() async {
         guard self.loadingState != .loading else { return }
 
+        self.loadGeneration += 1
+        let generation = self.loadGeneration
         self.loadingState = .loading
         self.logger.info("Loading new releases content")
 
@@ -50,72 +45,77 @@ final class NewReleasesViewModel {
             self.sections = response.sections
             self.hasMoreSections = self.client.hasMoreNewReleasesSections
             self.loadingState = .loaded
-            self.continuationsLoaded = 0
             let sectionCount = self.sections.count
             self.logger.info("New releases content loaded: \(sectionCount) sections")
-
-            // Start background loading of additional sections
-            self.startBackgroundLoading()
         } catch is CancellationError {
+            guard generation == self.loadGeneration else { return }
             // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("New releases load cancelled")
             self.loadingState = .idle
         } catch {
+            guard generation == self.loadGeneration else { return }
             self.logger.error("Failed to load new releases: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }
     }
 
-    /// Loads more sections in the background progressively.
-    private func startBackgroundLoading() {
-        self.backgroundLoadTask?.cancel()
-        self.backgroundLoadTask = Task { [weak self] in
-            guard let self else { return }
+    /// Loads one additional continuation page on explicit user demand.
+    func loadMore() async {
+        guard self.hasMoreSections,
+              !self.isLoadingMoreSections,
+              self.loadingState == .loaded
+        else { return }
 
-            // Brief delay to let the UI settle
-            try? await Task.sleep(for: .milliseconds(300))
-
-            guard !Task.isCancelled else { return }
-
-            await self.loadMoreSections()
-        }
-    }
-
-    /// Loads additional sections from continuations progressively.
-    private func loadMoreSections() async {
-        while self.hasMoreSections, self.continuationsLoaded < Self.maxContinuations {
-            guard self.loadingState == .loaded else { break }
-
-            do {
-                if let additionalSections = try await client.getNewReleasesContinuation() {
-                    self.sections.append(contentsOf: additionalSections)
-                    self.continuationsLoaded += 1
-                    self.hasMoreSections = self.client.hasMoreNewReleasesSections
-                    let continuationNum = self.continuationsLoaded
-                    self.logger.info("Background loaded \(additionalSections.count) more sections (continuation \(continuationNum))")
-                } else {
-                    self.hasMoreSections = false
-                    break
-                }
-            } catch is CancellationError {
-                self.logger.debug("Background loading cancelled")
-                break
-            } catch {
-                self.logger.warning("Background section load failed: \(error.localizedDescription)")
-                break
+        let generation = self.loadGeneration
+        self.isLoadingMoreSections = true
+        self.loadingState = .loadingMore
+        defer {
+            self.isLoadingMoreSections = false
+            if self.loadingState == .loadingMore {
+                self.loadingState = .loaded
             }
+            self.resumeContinuationWaiters()
         }
 
-        let totalCount = self.sections.count
-        self.logger.info("Background section loading completed, total sections: \(totalCount)")
+        do {
+            if let additionalSections = try await client.getNewReleasesContinuation() {
+                guard generation == self.loadGeneration else { return }
+                let sectionsToAppend = additionalSections
+                self.sections.append(contentsOf: sectionsToAppend)
+                self.hasMoreSections = self.client.hasMoreNewReleasesSections
+                self.logger.info("Loaded \(sectionsToAppend.count) more new releases sections on demand")
+            } else {
+                guard generation == self.loadGeneration else { return }
+                self.hasMoreSections = false
+            }
+        } catch is CancellationError {
+            self.logger.debug("New releases continuation load cancelled")
+        } catch {
+            self.logger.warning("New releases continuation load failed: \(error.localizedDescription)")
+        }
     }
 
     /// Refreshes new releases content.
     func refresh() async {
-        self.backgroundLoadTask?.cancel()
+        await self.waitForInFlightContinuation()
         self.sections = []
         self.hasMoreSections = true
-        self.continuationsLoaded = 0
+        self.isLoadingMoreSections = false
         await self.load()
+    }
+
+    private func waitForInFlightContinuation() async {
+        guard self.isLoadingMoreSections else { return }
+        await withCheckedContinuation { continuation in
+            self.continuationWaiters.append(continuation)
+        }
+    }
+
+    private func resumeContinuationWaiters() {
+        let waiters = self.continuationWaiters
+        self.continuationWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
     }
 }

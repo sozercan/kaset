@@ -51,7 +51,7 @@ struct ChannelRowView: View {
         HStack(spacing: 12) {
             CachedAsyncImage(
                 url: self.channel.thumbnailURL,
-                targetSize: CGSize(width: 96, height: 96)
+                targetSize: CGSize(width: 48, height: 48)
             ) { image in
                 image
                     .resizable()

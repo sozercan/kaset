@@ -143,7 +143,9 @@ extension PlayerService {
             let entries = self.queueEntries
             let upcomingStart = min(self.currentIndex + 1, entries.count)
             let suggestionsAhead = entries[upcomingStart...].count(where: { $0.source == .suggested })
-            if suggestionsAhead >= target { break }
+            if suggestionsAhead >= target {
+                break
+            }
             guard let slot = Self.nextSuggestionSlot(
                 in: entries,
                 afterIndex: self.currentIndex,
@@ -164,7 +166,9 @@ extension PlayerService {
                 // aborting the whole fill on the nearest gap.
                 transientlyFailedSeeds.insert(seedEntry.song.videoId)
                 radioErrorBudget -= 1
-                if radioErrorBudget <= 0 { break }
+                if radioErrorBudget <= 0 {
+                    break
+                }
                 continue
             }
 

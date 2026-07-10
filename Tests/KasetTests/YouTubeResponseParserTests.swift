@@ -266,6 +266,205 @@ struct WatchNextParserTests {
         #expect(firstRelated.channelName == "Plingoro")
         #expect(firstRelated.lengthText == "17:10")
     }
+
+    @Test("Parses canonical player-overlay chapter renderers")
+    func parsesPlayerOverlayChapters() throws {
+        let watchNext = WatchNextParser.parse(Self.chapterRendererResponse())
+
+        #expect(watchNext.chapters.count == 2)
+
+        let first = try #require(watchNext.chapters.first)
+        #expect(first.videoId == "video-1")
+        #expect(first.title == "Introduction")
+        #expect(first.startTime == 0)
+        #expect(first.endTime == nil)
+        #expect(first.timeText == nil)
+        #expect(first.thumbnailURL?.absoluteString == "https://example.com/intro-336.jpg")
+
+        let second = watchNext.chapters[1]
+        #expect(second.title == "Single-threaded code")
+        #expect(second.startTime == 197)
+    }
+
+    @Test("Falls back to deduplicated macro marker chapter cards")
+    func parsesMacroMarkerFallbackChapters() throws {
+        let chapters = WatchNextParser.chapters(of: Self.macroMarkerOnlyResponse())
+
+        #expect(chapters.count == 2)
+
+        let first = try #require(chapters.first)
+        #expect(first.videoId == "video-1")
+        #expect(first.title == "Introduction")
+        #expect(first.startTime == 0)
+        #expect(first.endTime == 197)
+        #expect(first.timeText == "0:00")
+        #expect(first.thumbnailURL?.absoluteString == "https://example.com/intro-336.jpg")
+
+        let second = chapters[1]
+        #expect(second.title == "Single-threaded code")
+        #expect(second.startTime == 197)
+        #expect(second.endTime == 360)
+    }
+
+    @Test("Ignores heatmap replay markers when chapters are absent")
+    func ignoresHeatmapMarkers() {
+        let chapters = WatchNextParser.chapters(of: Self.heatmapOnlyResponse())
+
+        #expect(chapters.isEmpty)
+    }
+
+    private static func chapterRendererResponse() -> [String: Any] {
+        [
+            "currentVideoEndpoint": [
+                "watchEndpoint": ["videoId": "video-1"],
+            ],
+            "playerOverlays": [
+                "playerOverlayRenderer": [
+                    "decoratedPlayerBarRenderer": [
+                        "decoratedPlayerBarRenderer": [
+                            "playerBar": [
+                                "multiMarkersPlayerBarRenderer": [
+                                    "markersMap": [
+                                        [
+                                            "key": "DESCRIPTION_CHAPTERS",
+                                            "value": [
+                                                "chapters": [
+                                                    ["chapterRenderer": self.chapterRenderer(title: "Introduction", startMs: 0, imageName: "intro")],
+                                                    ["chapterRenderer": self.chapterRenderer(title: "Single-threaded code", startMs: 197_000, imageName: "single")],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            // This duplicate fallback shape should be ignored when canonical
+            // chapterRenderer data exists.
+            "engagementPanels": [
+                [
+                    "engagementPanelSectionListRenderer": [
+                        "content": [
+                            "macroMarkersListRenderer": [
+                                "contents": [
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro", includesExplicitStart: false)],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func macroMarkerOnlyResponse() -> [String: Any] {
+        [
+            "currentVideoEndpoint": [
+                "watchEndpoint": ["videoId": "video-1"],
+            ],
+            "engagementPanels": [
+                [
+                    "engagementPanelSectionListRenderer": [
+                        "content": [
+                            "macroMarkersListRenderer": [
+                                "contents": [
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Other video chapter", startMs: 45000, endMs: 90000, imageName: "other", videoId: "other-video")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Single-threaded code", startMs: 197_000, endMs: 360_000, imageName: "single")],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func heatmapOnlyResponse() -> [String: Any] {
+        [
+            "frameworkUpdates": [
+                "entityBatchUpdate": [
+                    "mutations": [
+                        [
+                            "payload": [
+                                "macroMarkersListEntity": [
+                                    "markersList": [
+                                        "markerType": "MARKER_TYPE_HEATMAP",
+                                        "markers": [
+                                            ["startMillis": "0", "durationMillis": "1000", "intensityScoreNormalized": 1],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func chapterRenderer(title: String, startMs: Int, imageName: String) -> [String: Any] {
+        [
+            "timeRangeStartMillis": startMs,
+            "title": ["simpleText": title],
+            "thumbnail": self.thumbnail(imageName: imageName),
+        ]
+    }
+
+    private static func macroMarkerRenderer(
+        title: String,
+        startMs: Int,
+        endMs: Int,
+        imageName: String,
+        videoId: String = "video-1",
+        includesExplicitStart: Bool = true
+    ) -> [String: Any] {
+        var renderer: [String: Any] = [
+            "title": ["runs": [["text": title]]],
+            "timeDescription": ["simpleText": self.timeText(seconds: startMs / 1000)],
+            "thumbnail": self.thumbnail(imageName: imageName),
+        ]
+
+        renderer["onTap"] = [
+            "watchEndpoint": includesExplicitStart ? [
+                "videoId": videoId,
+                "startTimeSeconds": startMs / 1000,
+            ] : [
+                "videoId": videoId,
+            ],
+        ]
+
+        if includesExplicitStart {
+            renderer["repeatButton"] = [
+                "toggleButtonRenderer": [
+                    "defaultServiceEndpoint": [
+                        "repeatChapterCommand": [
+                            "startTimeMs": "\(startMs)",
+                            "endTimeMs": "\(endMs)",
+                        ],
+                    ],
+                ],
+            ]
+        }
+
+        return renderer
+    }
+
+    private static func thumbnail(imageName: String) -> [String: Any] {
+        [
+            "thumbnails": [
+                ["url": "https://example.com/\(imageName)-168.jpg", "width": 168, "height": 94],
+                ["url": "https://example.com/\(imageName)-336.jpg", "width": 336, "height": 188],
+            ],
+        ]
+    }
+
+    private static func timeText(seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
 }
 
 // MARK: - ChannelPageParserTests

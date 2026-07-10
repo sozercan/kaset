@@ -174,7 +174,7 @@ final class YouTubeWatchWebView {
         self.logger.info("Tearing down YouTube watch WebView")
         self.loadGeneration += 1
         self.currentVideoId = nil
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
+        webView.evaluateJavaScript("window.__kasetStopYTExtraction?.(); document.querySelector('video')?.pause()") { _, _ in }
         webView.loadHTMLString("", baseURL: nil)
         webView.removeFromSuperview()
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .youtubeWatch)
@@ -233,7 +233,7 @@ final class YouTubeWatchWebView {
     nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
         let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
         var script = "window.__kasetTargetVolume = \(clamped);"
-        if let pendingSeek, pendingSeek.isFinite, pendingSeek > 0 {
+        if let pendingSeek, pendingSeek.isFinite, pendingSeek >= 0 {
             script += " window.__kasetPendingSeek = \(pendingSeek);"
         }
         return script

@@ -344,7 +344,9 @@ final class YouTubeClient: YouTubeClientProtocol {
                 for short in feed.shorts where seen.insert(short.videoId).inserted {
                     collected.append(short)
                 }
-                if collected.count >= 30 { break }
+                if collected.count >= 30 {
+                    break
+                }
             } catch {
                 self.logger.debug("Shorts fallback destination failed: \(destination.rawValue, privacy: .public) — \(error.localizedDescription, privacy: .public)")
             }
@@ -519,12 +521,17 @@ final class YouTubeClient: YouTubeClientProtocol {
 
     /// Builds authentication headers with the YouTube (not music) origin.
     private func buildAuthHeaders() async throws -> [String: String] {
-        guard let cookieHeader = await webKitManager.cookieHeader(for: "youtube.com") else {
+        // Snapshot cookies once per request; deriving the cookie header and SAPISID from
+        // the same snapshot avoids repeated WebKit cookie-store enumerations during API fanout.
+        let authMaterial = await webKitManager.authMaterial(for: "youtube.com")
+        self.logger.debug("Building YouTube auth headers - total cookies: \(authMaterial.totalCookieCount), youtube.com cookies: \(authMaterial.domainCookieCount)")
+
+        guard let cookieHeader = authMaterial.cookieHeader else {
             self.logger.error("No cookies found for youtube.com domain")
             throw YTMusicError.notAuthenticated
         }
 
-        guard let sapisid = await webKitManager.getSAPISID() else {
+        guard let sapisid = authMaterial.sapisid else {
             self.logger.error("SAPISID cookie not found or expired")
             throw YTMusicError.authExpired
         }

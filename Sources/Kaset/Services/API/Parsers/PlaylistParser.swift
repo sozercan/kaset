@@ -1106,7 +1106,9 @@ enum PlaylistParser {
                         tracks.append(contentsOf: self.findTracksRecursively(in: item, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
                     }
                 }
-                if !tracks.isEmpty { break }
+                if !tracks.isEmpty {
+                    break
+                }
             }
         }
 
@@ -1374,9 +1376,15 @@ enum PlaylistParser {
             Self.extractText(from: data["subtitle"] as? [String: Any]),
         ].compactMap(\.self).joined(separator: " ").uppercased()
 
-        if possibleText.contains("PRIVATE") { return .private }
-        if possibleText.contains("UNLISTED") { return .unlisted }
-        if possibleText.contains("PUBLIC") { return .public }
+        if possibleText.contains("PRIVATE") {
+            return .private
+        }
+        if possibleText.contains("UNLISTED") {
+            return .unlisted
+        }
+        if possibleText.contains("PUBLIC") {
+            return .public
+        }
         return nil
     }
 

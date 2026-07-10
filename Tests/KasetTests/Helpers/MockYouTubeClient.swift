@@ -11,9 +11,11 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var homeChips: [YouTubeHomeChip] = []
     var homeShelves: [YouTubeHomeSection] = []
     /// Topic feeds keyed by chip continuation; `getHomeTopicFeed` returns the
-    /// match (or `.empty`). Set `homeTopicError` to make one continuation throw.
+    /// match (or `.empty`). Configure one or more continuation-specific errors
+    /// to exercise partial and batch-wide failures.
     var homeTopicFeeds: [String: YouTubeFeed] = [:]
     var homeTopicError: (continuation: String, error: Error)?
+    var homeTopicErrors: [String: Error] = [:]
     var searchResponse = YouTubeSearchResponse.empty
     var searchResponsesByRequest: [String: YouTubeSearchResponse] = [:]
     var searchContinuation: YouTubeSearchResponse?
@@ -60,13 +62,17 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     // MARK: - YouTubeClientProtocol
 
     func getHomeFeed() async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.homeFeedCallCount += 1
         return self.homeFeed
     }
 
     func getHomeBundle() async throws -> YouTubeHomeBundle {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         // One call stands in for the single coalesced fetch: count it like a
         // home-feed fetch so call-count assertions read naturally, and assemble
         // the bundle from the same fixtures the individual getters use.
@@ -84,7 +90,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var beforeContinuationReturn: (@Sendable () async -> Void)?
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         if let beforeContinuationReturn {
             await beforeContinuationReturn()
         }
@@ -100,13 +108,17 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var requestedTopicContinuations: [String] = []
 
     func getHomeChips() async throws -> [YouTubeHomeChip] {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.homeChipsCallCount += 1
         return self.homeChips
     }
 
     func getHomeShelves() async throws -> [YouTubeHomeSection] {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         return self.homeShelves
     }
 
@@ -116,10 +128,15 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var beforeTopicReturn: (@Sendable (String) async -> Void)?
 
     func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.requestedTopicContinuations.append(continuation)
         if let beforeTopicReturn {
             await beforeTopicReturn(continuation)
+        }
+        if let error = self.homeTopicErrors[continuation] {
+            throw error
         }
         if let homeTopicError, homeTopicError.continuation == continuation {
             throw homeTopicError.error
@@ -132,7 +149,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var beforeSearchReturn: (@Sendable (String, YouTubeSearchFilter) async -> Void)?
 
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.searchCallCount += 1
         self.lastSearchQuery = query
         self.lastSearchFilter = filter
@@ -153,7 +172,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     func getSearchContinuation(continuation _: String) async throws -> YouTubeSearchResponse? {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         let response = self.searchContinuation
         if let beforeSearchContinuationReturn {
             await beforeSearchContinuationReturn()
@@ -165,7 +186,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     func getWatchNext(videoId _: String) async throws -> WatchNextData {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         return self.watchNextData
     }
 
@@ -174,26 +197,36 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var lastCommentsContinuation: String?
 
     func getComments(continuation: String) async throws -> YouTubeCommentsPage {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.lastCommentsContinuation = continuation
         return self.commentsPage
     }
 
     func postComment(text: String, createCommentParams: String) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.postedComments.append((text, createCommentParams))
     }
 
     private(set) var performedCommentActions: [String] = []
 
     func performCommentAction(_ action: String) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.performedCommentActions.append(action)
     }
 
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
-        if let error { throw error }
-        if let channelDetail { return channelDetail }
+        if let error {
+            throw error
+        }
+        if let channelDetail {
+            return channelDetail
+        }
         return YouTubeChannelDetail(
             channel: YouTubeChannel(channelId: channelId, name: "Mock Channel"),
             videos: []
@@ -201,8 +234,12 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     func getPlaylist(playlistId: String) async throws -> YouTubePlaylistDetail {
-        if let error { throw error }
-        if let playlistDetail { return playlistDetail }
+        if let error {
+            throw error
+        }
+        if let playlistDetail {
+            return playlistDetail
+        }
         return YouTubePlaylistDetail(
             playlist: YouTubePlaylist(playlistId: playlistId, title: "Mock Playlist"),
             videos: []
@@ -228,20 +265,26 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var shorts: [YouTubeVideo] = []
 
     func getDestinationFeed(_ destination: YouTubeDestination) async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.destinationFeedCallCount += 1
         self.lastDestination = destination
         return self.destinationFeed
     }
 
     func getShorts() async throws -> [YouTubeVideo] {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.shortsCallCount += 1
         return self.shorts
     }
 
     func getFeedContinuation(continuation: String) async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.lastFeedContinuation = continuation
         return self.feedContinuation
     }
@@ -251,12 +294,16 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         return self.subscriptionsFeed
     }
 
     func getSubscribedChannels() async throws -> [YouTubeChannel] {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         return self.subscribedChannels
     }
 
@@ -282,7 +329,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var historyForceRefreshFeed: YouTubeFeed?
 
     func getHistory(forceRefresh: Bool) async throws -> YouTubeFeed {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.getHistoryCallCount += 1
         if forceRefresh {
             self.getHistoryForceRefreshCount += 1
@@ -300,27 +349,37 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     func getUserPlaylists() async throws -> [YouTubePlaylist] {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         return self.userPlaylists
     }
 
     func rateVideo(videoId: String, rating: YouTubeRating) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.ratedVideos.append((videoId, rating))
     }
 
     func setSubscribed(_ subscribed: Bool, channelId: String) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.subscriptionChanges.append((channelId, subscribed))
     }
 
     func addToWatchLater(videoId: String) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.watchLaterAdds.append(videoId)
     }
 
     func removeFromWatchLater(videoId: String) async throws {
-        if let error { throw error }
+        if let error {
+            throw error
+        }
         self.watchLaterRemovals.append(videoId)
     }
 

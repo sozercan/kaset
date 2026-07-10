@@ -363,12 +363,37 @@ final class SearchViewModel {
         self.loadingState = .loaded
     }
 
-    /// Performs the broadest search for the All filter by combining the mixed search response
-    /// with the dedicated result-type searches.
+    /// Performs the All-filter search. The mixed search response usually already contains
+    /// representative results for every visible category, so keep the common path to a single
+    /// request. Dedicated category searches are only used as a fallback when mixed search returns
+    /// nothing (or fails with a non-auth transient error), avoiding seven-request fanout per query.
     private func searchAll(query: String, filter: SearchFilter) async throws -> SearchResponse {
-        async let mixedResults = self.attemptSearch(label: "mixed search") {
+        let mixedAttempt = await self.attemptSearch(label: "mixed search") {
             try await self.client.search(query: query)
         }
+
+        if let authError = mixedAttempt.error.flatMap(Self.authenticationError) {
+            throw authError
+        }
+
+        if let mixedResponse = mixedAttempt.response, !mixedResponse.isEmpty {
+            return mixedResponse
+        }
+
+        guard self.isCurrentSearch(query: query, filter: filter) else {
+            throw CancellationError()
+        }
+
+        return try await self.searchAllCategoryFallback(
+            query: query,
+            mixedError: mixedAttempt.error
+        )
+    }
+
+    /// Runs dedicated category searches only when the mixed All response cannot paint useful
+    /// results. This preserves empty-mixed fallback quality without paying the network/WebKit
+    /// authentication cost on every ordinary All search.
+    private func searchAllCategoryFallback(query: String, mixedError: (any Error)?) async throws -> SearchResponse {
         async let songResults = self.attemptSearch(label: "songs search") {
             try await self.client.searchSongsWithPagination(query: query)
         }
@@ -388,16 +413,7 @@ final class SearchViewModel {
             try await self.client.searchPodcasts(query: query)
         }
 
-        let mixedAttempt = await mixedResults
-        if let mixedResponse = mixedAttempt.response,
-           !mixedResponse.isEmpty,
-           self.isCurrentSearch(query: query, filter: filter)
-        {
-            self.publishSearchResults(mixedResponse, query: query, filter: filter)
-        }
-
         let attempts = await [
-            mixedAttempt,
             songResults,
             albumResults,
             artistResults,
@@ -406,13 +422,13 @@ final class SearchViewModel {
             podcastResults,
         ]
 
-        if let authError = attempts.compactMap(\.error).first(where: Self.isAuthenticationError) {
+        if let authError = attempts.compactMap(\.error).compactMap(Self.authenticationError).first {
             throw authError
         }
 
         let responses = attempts.compactMap(\.response)
         guard !responses.isEmpty else {
-            throw attempts.compactMap(\.error).first ?? YTMusicError.unknown(message: "All-filter search failed")
+            throw attempts.compactMap(\.error).first ?? mixedError ?? YTMusicError.unknown(message: "All-filter search failed")
         }
 
         return Self.mergeSearchResponses(responses)
@@ -433,8 +449,12 @@ final class SearchViewModel {
     }
 
     private static func isAuthenticationError(_ error: any Error) -> Bool {
-        guard let ytError = error as? YTMusicError else { return false }
-        return ytError.requiresReauth
+        self.authenticationError(error) != nil
+    }
+
+    private static func authenticationError(_ error: (any Error)?) -> YTMusicError? {
+        guard let ytError = error as? YTMusicError, ytError.requiresReauth else { return nil }
+        return ytError
     }
 
     /// Combines multiple search responses while keeping the first occurrence of each item.

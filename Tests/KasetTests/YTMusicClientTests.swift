@@ -281,10 +281,10 @@ struct YTMusicAPIKeyResolverTests {
     func fetchesAndCachesAPIKeyFromHTML() async throws {
         let session = MockURLProtocol.makeMockSession()
         let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#
-        nonisolated(unsafe) var requestCount = 0
+        let requestCount = LockedCounter()
 
         MockURLProtocol.setRequestHandler(for: session) { request in
-            requestCount += 1
+            requestCount.increment()
             guard let url = request.url,
                   let response = HTTPURLResponse(
                       url: url,
@@ -309,7 +309,53 @@ struct YTMusicAPIKeyResolverTests {
 
         #expect(first == "mock-token")
         #expect(second == "mock-token")
-        #expect(requestCount == 1)
+        #expect(requestCount.count == 1)
+    }
+
+    @Test("Concurrent cold resolves share one web client fetch")
+    @MainActor
+    func concurrentColdResolvesShareOneWebClientFetch() async throws {
+        let session = MockURLProtocol.makeMockSession()
+        let html = #"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#
+        let firstRequestGate = DispatchSemaphore(value: 0)
+        let requestCount = LockedCounter()
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            if requestCount.increment() == 1 {
+                _ = firstRequestGate.wait(timeout: .now() + 5)
+            }
+            guard let url = request.url,
+                  let response = HTTPURLResponse(
+                      url: url,
+                      statusCode: 200,
+                      httpVersion: nil,
+                      headerFields: ["Content-Type": "text/html"]
+                  )
+            else {
+                throw URLError(.badURL)
+            }
+
+            return (response, Data(html.utf8))
+        }
+        defer {
+            firstRequestGate.signal()
+            MockURLProtocol.reset(session: session)
+        }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })
+
+        async let first = resolver.resolve()
+        while requestCount.isEmpty {
+            await Task.yield()
+        }
+        async let second = resolver.resolve()
+        async let third = resolver.resolve()
+
+        firstRequestGate.signal()
+        let results = try await [first, second, third]
+
+        #expect(results == ["mock-token", "mock-token", "mock-token"])
+        #expect(requestCount.count == 1)
     }
 
     @Test("API key fetch is cookieless and sends consent cookie")
@@ -433,8 +479,8 @@ struct YTMusicClientContinuationResetTests {
     @Test("Stale home continuation cannot repopulate page cursor after reset")
     func staleHomeContinuationCannotRepopulatePageCursorAfterReset() async throws {
         let session = MockURLProtocol.makeMockSession()
-        nonisolated(unsafe) var requestCount = 0
-        nonisolated(unsafe) var continuationRequestCount = 0
+        let requestCount = LockedCounter()
+        let continuationRequestCount = LockedCounter()
 
         MockURLProtocol.setRequestHandler(for: session) { request in
             guard let url = request.url else { throw URLError(.badURL) }
@@ -451,10 +497,10 @@ struct YTMusicClientContinuationResetTests {
                 return (response, Data(#"ytcfg.set({"INNERTUBE_API_KEY":"mock-token"});"#.utf8))
             }
 
-            requestCount += 1
+            let currentRequestCount = requestCount.increment()
             let payload: [String: Any]
-            if requestCount == 2 {
-                continuationRequestCount += 1
+            if currentRequestCount == 2 {
+                continuationRequestCount.increment()
                 Thread.sleep(forTimeInterval: 0.15)
                 payload = Self.homeContinuationPayload(nextCursor: "page-2")
             } else {
@@ -487,7 +533,7 @@ struct YTMusicClientContinuationResetTests {
 
         #expect(staleResult == nil)
         #expect(secondResult == nil)
-        #expect(continuationRequestCount == 1)
+        #expect(continuationRequestCount.count == 1)
     }
 
     // swiftlint:disable:next modifier_order

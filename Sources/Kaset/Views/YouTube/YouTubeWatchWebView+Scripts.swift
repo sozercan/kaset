@@ -5,16 +5,26 @@ import Foundation
 extension YouTubeWatchWebView {
     /// Observer script for youtube.com watch pages.
     ///
-    /// Posts `STATE_UPDATE` (1 Hz + media events) and `VIDEO_ENDED` to the
-    /// `youtubePlayer` bridge. Also enforces the Kaset-managed volume target
-    /// the same way the music observer does.
+    /// Posts event-driven `STATE_UPDATE` and `VIDEO_ENDED` messages to the
+    /// `youtubePlayer` bridge. Progress updates are driven by media events, with
+    /// forced final updates on pause/seek/end, so paused pages do not keep a 1 Hz
+    /// bridge loop alive. Also enforces the Kaset-managed volume target the same
+    /// way the music observer does.
     static var observerScript: String {
         """
         (function() {
             'use strict';
 
             const bridge = window.webkit.messageHandlers.youtubePlayer;
+            const UPDATE_THROTTLE_MS = 1000;
+            const MAX_ATTACH_RETRIES = 20;
             let lastVideoId = '';
+            let lastUpdateTime = 0;
+            let trailingUpdateTimeoutId = null;
+            let attachRetryCount = 0;
+            let attachRetryTimeoutId = null;
+            let attachDebounceTimeoutId = null;
+            let videoObserver = null;
 
             function moviePlayer() {
                 return document.getElementById('movie_player');
@@ -48,11 +58,36 @@ extension YouTubeWatchWebView {
                 return !!(player && player.classList && player.classList.contains('ad-showing'));
             }
 
-            function sendUpdate() {
+            function clearTrailingUpdate() {
+                if (trailingUpdateTimeoutId) {
+                    clearTimeout(trailingUpdateTimeoutId);
+                    trailingUpdateTimeoutId = null;
+                }
+            }
+
+            function sendUpdate(force) {
                 try {
                     const video = videoEl();
                     if (!video) { return; }
                     applyPendingSeek(video);
+
+                    if (force) {
+                        clearTrailingUpdate();
+                    } else {
+                        const now = Date.now();
+                        const elapsed = now - lastUpdateTime;
+                        if (elapsed < UPDATE_THROTTLE_MS) {
+                            if (!trailingUpdateTimeoutId && !video.paused && !video.ended) {
+                                trailingUpdateTimeoutId = setTimeout(function() {
+                                    trailingUpdateTimeoutId = null;
+                                    sendUpdate(true);
+                                }, UPDATE_THROTTLE_MS - elapsed);
+                            }
+                            return;
+                        }
+                    }
+                    lastUpdateTime = Date.now();
+
                     const videoId = currentVideoId();
                     if (videoId !== '') { lastVideoId = videoId; }
                     bridge.postMessage({
@@ -97,10 +132,10 @@ extension YouTubeWatchWebView {
 
             // Apply a pending resume-seek from a session-identity-switch reload.
             // The <video> is created by the player JS after navigation and may
-            // not be seekable immediately, so this is called from both attach()
-            // and the 1s sendUpdate tick and retries until metadata is ready.
-            // Scoped to this document: window.__kasetPendingSeek is re-injected
-            // per page load, so it cannot leak into a later video.
+            // not be seekable immediately, so this is called from attach() and
+            // media readiness/progress events until metadata is ready. Scoped to
+            // this document: window.__kasetPendingSeek is re-injected per page
+            // load, so it cannot leak into a later video.
             function applyPendingSeek(video) {
                 const target = window.__kasetPendingSeek;
                 if (typeof target !== 'number') { return; }
@@ -132,31 +167,99 @@ extension YouTubeWatchWebView {
                 } catch (e) {}
             }
 
-            function attach() {
+            function handlePlaybackStarted() {
+                const video = videoEl();
+                if (video) { enforceVolume(video); }
+                sendUpdate(true);
+            }
+
+            function handlePlaybackStopped() {
+                sendUpdate(true);
+            }
+
+            function handleTimelineUpdate() {
                 const video = videoEl();
                 if (!video) { return; }
-                if (video.__kasetAttached) { return; }
-                video.__kasetAttached = true;
+                applyPendingSeek(video);
+                if (!video.paused && !video.ended) {
+                    sendUpdate(false);
+                }
+            }
 
-                ['play', 'playing', 'pause', 'seeked', 'loadedmetadata'].forEach(function(evt) {
-                    video.addEventListener(evt, sendUpdate);
+            function handleEnded() {
+                sendUpdate(true);
+                sendEnded();
+            }
+
+            function attach() {
+                disableAutonav();
+                const video = videoEl();
+                if (!video) { return false; }
+                const videoId = currentVideoId();
+                if (video.__kasetAttached) {
+                    applyPendingSeek(video);
+                    if (videoId && video.__kasetAttachedVideoId !== videoId) {
+                        video.__kasetAttachedVideoId = videoId;
+                        sendUpdate(true);
+                    }
+                    return true;
+                }
+                video.__kasetAttached = true;
+                video.__kasetAttachedVideoId = videoId || '';
+                attachRetryCount = 0;
+
+                ['play', 'playing'].forEach(function(evt) {
+                    video.addEventListener(evt, handlePlaybackStarted);
                 });
-                video.addEventListener('ended', sendEnded);
+                ['pause', 'seeked', 'loadedmetadata', 'durationchange', 'canplay', 'waiting'].forEach(function(evt) {
+                    video.addEventListener(evt, handlePlaybackStopped);
+                });
+                video.addEventListener('timeupdate', handleTimelineUpdate);
+                video.addEventListener('ended', handleEnded);
                 video.addEventListener('volumechange', function() {
                     enforceVolume(video);
                 });
 
-                disableAutonav();
                 enforceVolume(video);
                 applyPendingSeek(video);
-                sendUpdate();
+                sendUpdate(true);
+                return true;
             }
 
-            // Re-attach periodically: YouTube swaps <video> elements across
-            // SPA navigations and ad transitions.
-            setInterval(attach, 2000);
-            setInterval(sendUpdate, 1000);
-            attach();
+            function scheduleAttach() {
+                if (attachDebounceTimeoutId) { return; }
+                attachDebounceTimeoutId = setTimeout(function() {
+                    attachDebounceTimeoutId = null;
+                    attach();
+                }, 100);
+            }
+
+            function installVideoObserver() {
+                if (videoObserver || typeof MutationObserver !== 'function') { return false; }
+                const root = document.documentElement || document.body;
+                if (!root) { return false; }
+                videoObserver = new MutationObserver(scheduleAttach);
+                videoObserver.observe(root, { childList: true, subtree: true });
+                return true;
+            }
+
+            function attachWithBoundedRetry() {
+                if (attach()) { return; }
+                if (!installVideoObserver() && attachRetryCount < MAX_ATTACH_RETRIES && !attachRetryTimeoutId) {
+                    attachRetryCount += 1;
+                    attachRetryTimeoutId = setTimeout(function() {
+                        attachRetryTimeoutId = null;
+                        attachWithBoundedRetry();
+                    }, 500);
+                }
+            }
+
+            installVideoObserver();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', attachWithBoundedRetry);
+            } else {
+                attachWithBoundedRetry();
+            }
         })();
         """
     }
@@ -186,15 +289,18 @@ extension YouTubeWatchWebView {
     /// Same ancestor-chain visibility approach as the music video mode
     /// (`SingletonPlayerWebView+VideoMode`), targeting the watch-page DOM.
     /// Defines `window.__kasetExtractVideo()` and runs it; `didFinish` calls
-    /// it again for cached/fast loads.
+    /// it again for cached/fast loads. Enforcement uses bounded RAF bursts plus
+    /// a DOM observer so steady state does not keep a per-frame loop alive.
     static var extractionScript: String {
         """
         (function() {
             'use strict';
 
             const styleId = 'kaset-yt-video-style';
+            const MAX_ENFORCEMENT_FRAMES = 12;
+            const MUTATION_ENFORCEMENT_FRAMES = 6;
 
-            window.__kasetExtractVideo = function() {
+            function ensureStyle() {
                 let style = document.getElementById(styleId);
                 if (!style) {
                     style = document.createElement('style');
@@ -268,31 +374,141 @@ extension YouTubeWatchWebView {
                         visibility: visible !important;
                     }
                 `;
+            }
 
-                const markAncestors = function() {
-                    const video = document.querySelector('#movie_player video') || document.querySelector('video');
-                    if (!video) { return; }
+            function extractionState() {
+                if (!window.__kasetYTExtraction) {
+                    window.__kasetYTExtraction = {
+                        active: false,
+                        observer: null,
+                        markedObserver: null,
+                        markedElements: [],
+                        rafScheduled: false,
+                        rafHandle: null,
+                        remainingFrames: 0
+                    };
+                }
+                return window.__kasetYTExtraction;
+            }
 
-                    document.querySelectorAll('.kaset-visible').forEach(function(el) {
+            function clearMarkers() {
+                document.querySelectorAll('.kaset-visible').forEach(function(el) {
+                    el.classList.remove('kaset-visible');
+                });
+            }
+
+            function stopExtraction() {
+                const state = extractionState();
+                state.active = false;
+                window.__kasetYTVideoActive = false;
+                state.remainingFrames = 0;
+                if (state.observer) {
+                    state.observer.disconnect();
+                    state.observer = null;
+                }
+                if (state.markedObserver) {
+                    state.markedObserver.disconnect();
+                    state.markedObserver = null;
+                }
+                state.markedElements = [];
+                if (state.rafHandle !== null && typeof cancelAnimationFrame === 'function') {
+                    cancelAnimationFrame(state.rafHandle);
+                }
+                state.rafScheduled = false;
+                state.rafHandle = null;
+                clearMarkers();
+            }
+
+            function markAncestors() {
+                const state = extractionState();
+                if (!window.__kasetYTVideoActive) { return false; }
+                const video = document.querySelector('#movie_player video') || document.querySelector('video');
+                if (!video) { return false; }
+
+                const visibleChain = [];
+                let current = video;
+                while (current && current !== document.documentElement) {
+                    visibleChain.push(current);
+                    current = current.parentElement;
+                }
+
+                document.querySelectorAll('.kaset-visible').forEach(function(el) {
+                    if (visibleChain.indexOf(el) === -1) {
                         el.classList.remove('kaset-visible');
+                    }
+                });
+                visibleChain.forEach(function(el) {
+                    el.classList.add('kaset-visible');
+                });
+                state.markedElements = visibleChain;
+                reobserveMarkedElements();
+                return true;
+            }
+
+            function reobserveMarkedElements() {
+                const state = extractionState();
+                if (!state.markedObserver) { return; }
+                state.markedObserver.disconnect();
+                state.markedElements.forEach(function(el) {
+                    state.markedObserver.observe(el, {
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'hidden']
                     });
+                });
+            }
 
-                    let current = video;
-                    while (current && current !== document.documentElement) {
-                        current.classList.add('kaset-visible');
-                        current = current.parentElement;
+            function runEnforcementFrame() {
+                const state = extractionState();
+                state.rafScheduled = false;
+                state.rafHandle = null;
+                if (!state.active || !window.__kasetYTVideoActive) { return; }
+                markAncestors();
+                state.remainingFrames -= 1;
+                if (state.remainingFrames > 0) {
+                    scheduleEnforcement(0);
+                }
+            }
+
+            function scheduleEnforcement(frameCount) {
+                const state = extractionState();
+                if (!state.active || !window.__kasetYTVideoActive) { return; }
+                state.remainingFrames = Math.max(state.remainingFrames, frameCount);
+                if (state.rafScheduled) { return; }
+                state.rafScheduled = true;
+                state.rafHandle = requestAnimationFrame(runEnforcementFrame);
+            }
+
+            function installObserver() {
+                const state = extractionState();
+                if (state.observer || typeof MutationObserver !== 'function') { return; }
+                const root = document.documentElement || document.body;
+                if (!root) { return; }
+                state.observer = new MutationObserver(function() {
+                    if (state.active && window.__kasetYTVideoActive) {
+                        scheduleEnforcement(MUTATION_ENFORCEMENT_FRAMES);
                     }
-                };
-
-                const enforce = function() {
-                    markAncestors();
-                    if (window.__kasetYTVideoActive) {
-                        requestAnimationFrame(enforce);
+                });
+                state.observer.observe(root, { childList: true, subtree: true });
+                state.markedObserver = new MutationObserver(function() {
+                    if (state.active && window.__kasetYTVideoActive) {
+                        scheduleEnforcement(1);
                     }
-                };
+                });
+                reobserveMarkedElements();
+            }
 
+            window.__kasetStopYTExtraction = stopExtraction;
+
+            window.__kasetExtractVideo = function() {
+                if (window.__kasetYTExtraction && window.__kasetYTExtraction.active) {
+                    stopExtraction();
+                }
+                ensureStyle();
+                const state = extractionState();
+                state.active = true;
                 window.__kasetYTVideoActive = true;
-                requestAnimationFrame(enforce);
+                installObserver();
+                scheduleEnforcement(MAX_ENFORCEMENT_FRAMES);
                 return { success: true };
             };
 

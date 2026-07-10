@@ -42,15 +42,56 @@ struct SyncedLyrics: Equatable {
 
     func lineStatuses(at timeMs: Int) -> [LineStatus] {
         self.lines.map { line in
-            if line.timeInMs > timeMs { return .upcoming }
+            if line.timeInMs > timeMs {
+                return .upcoming
+            }
             // If the time passed the start time + duration, it's previous
-            if timeMs - line.timeInMs >= line.duration, line.duration > 0 { return .previous }
+            if timeMs - line.timeInMs >= line.duration, line.duration > 0 {
+                return .previous
+            }
             return .current
         }
     }
 
     func currentLineIndex(at timeMs: Int) -> Int? {
         self.lineStatuses(at: timeMs).lastIndex(of: .current)
+    }
+
+    /// Returns the display-update bucket for a playback timestamp.
+    ///
+    /// The synced lyrics UI only changes when the current line changes (or no line is active), so
+    /// WebView bridge traffic can be coalesced to this value instead of publishing raw 10 Hz time.
+    func displayBucket(at timeMs: Int) -> Int {
+        let ranges = self.bridgeLineRanges
+        guard !ranges.isEmpty else { return -1 }
+
+        for (index, range) in ranges.enumerated() {
+            let startMs = range["startMs"] ?? 0
+            let endMs = range["endMs"] ?? Int.max
+            if timeMs >= startMs, timeMs < endMs {
+                return index
+            }
+            if timeMs < startMs {
+                return -(index + 1)
+            }
+        }
+
+        return -(ranges.count + 1)
+    }
+
+    /// Compact line timing ranges passed to the playback WebView for line-boundary bridge updates.
+    var bridgeLineRanges: [[String: Int]] {
+        self.lines.indices.map { index in
+            let line = self.lines[index]
+            let nextStartMs = self.lines.indices.contains(index + 1) ? self.lines[index + 1].timeInMs : Int.max
+            let naturalEndMs = if line.duration > 0 {
+                line.timeInMs + line.duration
+            } else {
+                Int.max
+            }
+            let endMs = min(naturalEndMs, nextStartMs)
+            return ["startMs": line.timeInMs, "endMs": endMs]
+        }
     }
 }
 

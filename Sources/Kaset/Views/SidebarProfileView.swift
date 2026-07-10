@@ -215,7 +215,7 @@ struct SidebarProfileView: View {
     @ViewBuilder
     private func avatarView(for account: UserAccount) -> some View {
         if let thumbnailURL = account.thumbnailURL {
-            CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 64, height: 64)) { image in
+            CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 32, height: 32)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
