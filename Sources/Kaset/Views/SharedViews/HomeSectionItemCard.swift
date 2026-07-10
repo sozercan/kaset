@@ -37,6 +37,9 @@ struct HomeSectionItemCard: View {
                 .accessibilityAction(named: Text("Play \(self.item.title)")) {
                     self.playAction?()
                 }
+        } else if case let .song(song) = self.item {
+            self.cardContent
+                .draggable(song)
         } else {
             self.cardContent
         }

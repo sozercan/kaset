@@ -182,7 +182,7 @@ struct HistoryView: View {
     // MARK: - Song Row
 
     private func songRow(_ song: Song, allSongs: [Song], index: Int) -> some View {
-        HoverObservingRow { isHovered in
+        HoverObservingRow(song: song) { isHovered in
             Button {
                 Task {
                     await self.playerService.playQueue(allSongs, startingAt: index)

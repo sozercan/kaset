@@ -328,7 +328,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     /// Song row for top songs section - fetches all songs and plays as queue.
     private func topSongRow(_ song: Song, index: Int) -> some View {
-        HoverObservingRow { isHovered in
+        HoverObservingRow(song: song) { isHovered in
             Button {
                 // Fetch all songs and play as queue starting from the selected song
                 Task {

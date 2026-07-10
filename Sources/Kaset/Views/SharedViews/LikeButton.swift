@@ -64,10 +64,20 @@ struct LikeButton: View {
 /// Wraps a row's body and provides per-row hover state via closure.
 /// Use to drive `LikeButton.isRowHovered` and any other hover-only chrome.
 struct HoverObservingRow<Content: View>: View {
+    /// When set, the row acts as a drag source for this song (e.g. to drop onto a sidebar playlist).
+    var song: Song?
     @ViewBuilder let content: (Bool) -> Content
     @State private var isHovered: Bool = false
 
     var body: some View {
+        if let song = self.song {
+            self.hoverContent.draggable(song)
+        } else {
+            self.hoverContent
+        }
+    }
+
+    private var hoverContent: some View {
         self.content(self.isHovered)
             .onHover { hovering in self.isHovered = hovering }
     }

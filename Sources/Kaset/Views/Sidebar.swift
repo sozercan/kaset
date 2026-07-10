@@ -9,9 +9,12 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    let client: any YTMusicClientProtocol
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+
+    @State private var dropTargetPlaylistId: String?
 
     var body: some View {
         List {
@@ -122,12 +125,42 @@ struct Sidebar: View {
     }
 
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
-        KasetSidebarRow(
+        let isPlaylist = if case .playlist = item.itemType {
+            true
+        } else {
+            false
+        }
+
+        return KasetSidebarRow(
             title: item.title,
             systemImage: item.systemImage,
             isSelected: self.currentSidebarSelection == .pinned(item)
         ) {
             self.selectPinnedItem(item)
+        }
+        .dropDestination(for: Song.self) { droppedSongs, _ in
+            guard isPlaylist else { return false }
+            for song in droppedSongs {
+                Task {
+                    do {
+                        try await self.client.addSongToPlaylist(
+                            videoId: song.videoId,
+                            playlistId: item.contentId,
+                            allowDuplicate: false
+                        )
+                        SongActionsHelper.invalidateLibraryResponseCaches()
+                        HapticService.success()
+                        DiagnosticsLogger.api.info("Drag-drop: added '\(song.title)' to playlist '\(item.title)'")
+                    } catch {
+                        DiagnosticsLogger.api.error("Drag-drop: failed to add '\(song.title)' to playlist '\(item.title)': \(error.localizedDescription)")
+                        HapticService.error()
+                    }
+                }
+            }
+            return true
+        } isTargeted: { targeted in
+            guard isPlaylist else { return }
+            self.dropTargetPlaylistId = targeted ? item.contentId : (self.dropTargetPlaylistId == item.contentId ? nil : self.dropTargetPlaylistId)
         }
         .contextMenu {
             Button {
@@ -169,9 +202,15 @@ struct Sidebar: View {
 }
 
 #Preview {
-    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
+    let authService = AuthService()
+    let client: any YTMusicClientProtocol = if UITestConfig.isUITestMode {
+        MockUITestYTMusicClient()
+    } else {
+        YTMusicClient(authService: authService, webKitManager: .shared)
+    }
+    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil), client: client)
         .frame(width: 220)
-        .environment(AuthService())
+        .environment(authService)
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }
