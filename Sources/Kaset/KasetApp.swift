@@ -135,11 +135,13 @@ struct KasetApp: App {
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
-        // Create scrobbling coordinator
+        // Create scrobbling coordinator with mix tracklist parser
         let lastFMService = LastFMService(credentialStore: KeychainCredentialStore())
+        let mixTracklistParser = MixTracklistParser(youTubeClient: youtubeClient)
         let scrobblingCoordinator = ScrobblingCoordinator(
             playerService: player,
-            services: [lastFMService]
+            services: [lastFMService],
+            mixTracklistParser: mixTracklistParser
         )
         scrobblingCoordinator.restoreAuthState()
         scrobblingCoordinator.startMonitoring()
