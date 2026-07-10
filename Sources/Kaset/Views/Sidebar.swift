@@ -15,6 +15,7 @@ struct Sidebar: View {
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
 
     @State private var dropTargetPlaylistId: String?
+    @State private var dropFeedbackPlaylistId: String?
 
     var body: some View {
         List {
@@ -124,20 +125,49 @@ struct Sidebar: View {
         HapticService.navigation()
     }
 
+    /// Briefly shows a green checkmark badge on the playlist row to confirm
+    /// a successful drag-and-drop.
+    private func flashDropFeedback(for playlistId: String) {
+        self.dropFeedbackPlaylistId = playlistId
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            if self.dropFeedbackPlaylistId == playlistId {
+                self.dropFeedbackPlaylistId = nil
+            }
+        }
+    }
+
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
         let isPlaylist = if case .playlist = item.itemType {
             true
         } else {
             false
         }
+        let isDropTargeted = self.dropTargetPlaylistId == item.contentId
+        let showDropFeedback = self.dropFeedbackPlaylistId == item.contentId
 
         return KasetSidebarRow(
             title: item.title,
             systemImage: item.systemImage,
-            isSelected: self.currentSidebarSelection == .pinned(item)
+            isSelected: self.currentSidebarSelection == .pinned(item),
+            isDropTargeted: isPlaylist && isDropTargeted
         ) {
             self.selectPinnedItem(item)
         }
+        .overlay(alignment: .topTrailing) {
+            if isPlaylist, showDropFeedback {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .compatGlass(tint: .green, in: Circle())
+                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                    .padding(6)
+                    .transition(.scale(scale: 0.4, anchor: .topTrailing).combined(with: .opacity))
+                    .accessibilityHidden(true)
+            }
+        }
+        .animation(AppAnimation.bouncy, value: showDropFeedback)
         .dropDestination(for: Song.self) { droppedSongs, _ in
             guard isPlaylist else { return false }
             for song in droppedSongs {
@@ -151,6 +181,7 @@ struct Sidebar: View {
                         SongActionsHelper.invalidateLibraryResponseCaches()
                         HapticService.success()
                         DiagnosticsLogger.api.info("Drag-drop: added '\(song.title)' to playlist '\(item.title)'")
+                        self.flashDropFeedback(for: item.contentId)
                     } catch {
                         DiagnosticsLogger.api.error("Drag-drop: failed to add '\(song.title)' to playlist '\(item.title)': \(error.localizedDescription)")
                         HapticService.error()
