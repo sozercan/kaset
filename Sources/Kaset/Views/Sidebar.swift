@@ -13,6 +13,11 @@ struct Sidebar: View {
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
+
+    /// Drop key for the Collection "Liked Music" row, distinct from the pinned LM
+    /// playlist row so only the hovered row highlights.
+    private static let likedMusicNavDropKey = "collection-liked-music"
 
     @State private var dropTargetPlaylistId: String?
     @State private var dropFeedbackPlaylistId: String?
@@ -54,7 +59,7 @@ struct Sidebar: View {
                     self.navigationRow(.library)
                         .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
 
-                    self.navigationRow(.likedMusic)
+                    self.likedMusicNavigationRow
                         .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
 
                     self.navigationRow(.history)
@@ -99,14 +104,37 @@ struct Sidebar: View {
         return nil
     }
 
-    private func navigationRow(_ item: NavigationItem) -> some View {
+    private func navigationRow(_ item: NavigationItem, isDropTargeted: Bool = false) -> some View {
         KasetSidebarRow(
             title: item.displayName,
             systemImage: item.icon,
-            isSelected: self.currentSidebarSelection == .navigation(item)
+            isSelected: self.currentSidebarSelection == .navigation(item),
+            isDropTargeted: isDropTargeted
         ) {
             self.selectNavigationItem(item)
         }
+    }
+
+    /// The Collection "Liked Music" row also accepts song drops: Liked Music is the LM
+    /// auto-playlist, where membership means "liked", so drops rate the song instead of
+    /// editing a playlist.
+    private var likedMusicNavigationRow: some View {
+        self.navigationRow(.likedMusic, isDropTargeted: self.dropTargetPlaylistId == Self.likedMusicNavDropKey)
+            .overlay(alignment: .trailing) {
+                self.dropSuccessBadge(show: self.dropFeedbackPlaylistId == Self.likedMusicNavDropKey)
+            }
+            .animation(AppAnimation.bouncy, value: self.dropFeedbackPlaylistId == Self.likedMusicNavDropKey)
+            .dropDestination(for: Song.self) { droppedSongs, _ in
+                self.handleDroppedSongs(
+                    droppedSongs,
+                    playlistId: LikedMusicPlaylist.id,
+                    playlistTitle: NavigationItem.likedMusic.displayName,
+                    feedbackKey: Self.likedMusicNavDropKey
+                )
+                return true
+            } isTargeted: { targeted in
+                self.updateDropTarget(key: Self.likedMusicNavDropKey, targeted: targeted)
+            }
     }
 
     private func selectNavigationItem(_ item: NavigationItem) {
@@ -123,6 +151,67 @@ struct Sidebar: View {
         self.selection = nil
         self.pinnedSelection = item
         HapticService.navigation()
+    }
+
+    /// Adds each dropped song to the target playlist. Dropping onto Liked Music (the LM
+    /// auto-playlist) likes the song instead — `edit_playlist` doesn't apply to LM, and
+    /// `SongLikeStatusManager` broadcasts the change so like buttons update everywhere.
+    private func handleDroppedSongs(
+        _ songs: [Song],
+        playlistId: String,
+        playlistTitle: String,
+        feedbackKey: String
+    ) {
+        for song in songs {
+            Task {
+                if playlistId == LikedMusicPlaylist.id {
+                    let status = await self.likeStatusManager.like(song, client: self.client)
+                    if status == .like {
+                        HapticService.success()
+                        DiagnosticsLogger.api.info("Drag-drop: liked '\(song.title)'")
+                        self.flashDropFeedback(for: feedbackKey)
+                    } else {
+                        DiagnosticsLogger.api.error("Drag-drop: failed to like '\(song.title)'")
+                        HapticService.error()
+                    }
+                    return
+                }
+
+                do {
+                    try await self.client.addSongToPlaylist(
+                        videoId: song.videoId,
+                        playlistId: playlistId,
+                        allowDuplicate: false
+                    )
+                    SongActionsHelper.invalidateLibraryResponseCaches()
+                    HapticService.success()
+                    DiagnosticsLogger.api.info("Drag-drop: added '\(song.title)' to playlist '\(playlistTitle)'")
+                    self.flashDropFeedback(for: feedbackKey)
+                } catch {
+                    DiagnosticsLogger.api.error("Drag-drop: failed to add '\(song.title)' to playlist '\(playlistTitle)': \(error.localizedDescription)")
+                    HapticService.error()
+                }
+            }
+        }
+    }
+
+    private func updateDropTarget(key: String, targeted: Bool) {
+        self.dropTargetPlaylistId = targeted ? key : (self.dropTargetPlaylistId == key ? nil : self.dropTargetPlaylistId)
+    }
+
+    @ViewBuilder
+    private func dropSuccessBadge(show: Bool) -> some View {
+        if show {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .compatGlass(tint: .green, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                .padding(.trailing, 6)
+                .transition(.scale(scale: 0.4, anchor: .trailing).combined(with: .opacity))
+                .accessibilityHidden(true)
+        }
     }
 
     /// Briefly shows a green checkmark badge on the playlist row to confirm
@@ -154,44 +243,22 @@ struct Sidebar: View {
         ) {
             self.selectPinnedItem(item)
         }
-        .overlay(alignment: .topTrailing) {
-            if isPlaylist, showDropFeedback {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 22, height: 22)
-                    .compatGlass(tint: .green, in: Circle())
-                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
-                    .padding(6)
-                    .transition(.scale(scale: 0.4, anchor: .topTrailing).combined(with: .opacity))
-                    .accessibilityHidden(true)
-            }
+        .overlay(alignment: .trailing) {
+            self.dropSuccessBadge(show: isPlaylist && showDropFeedback)
         }
         .animation(AppAnimation.bouncy, value: showDropFeedback)
         .dropDestination(for: Song.self) { droppedSongs, _ in
             guard isPlaylist else { return false }
-            for song in droppedSongs {
-                Task {
-                    do {
-                        try await self.client.addSongToPlaylist(
-                            videoId: song.videoId,
-                            playlistId: item.contentId,
-                            allowDuplicate: false
-                        )
-                        SongActionsHelper.invalidateLibraryResponseCaches()
-                        HapticService.success()
-                        DiagnosticsLogger.api.info("Drag-drop: added '\(song.title)' to playlist '\(item.title)'")
-                        self.flashDropFeedback(for: item.contentId)
-                    } catch {
-                        DiagnosticsLogger.api.error("Drag-drop: failed to add '\(song.title)' to playlist '\(item.title)': \(error.localizedDescription)")
-                        HapticService.error()
-                    }
-                }
-            }
+            self.handleDroppedSongs(
+                droppedSongs,
+                playlistId: item.contentId,
+                playlistTitle: item.title,
+                feedbackKey: item.contentId
+            )
             return true
         } isTargeted: { targeted in
             guard isPlaylist else { return }
-            self.dropTargetPlaylistId = targeted ? item.contentId : (self.dropTargetPlaylistId == item.contentId ? nil : self.dropTargetPlaylistId)
+            self.updateDropTarget(key: item.contentId, targeted: targeted)
         }
         .contextMenu {
             Button {
