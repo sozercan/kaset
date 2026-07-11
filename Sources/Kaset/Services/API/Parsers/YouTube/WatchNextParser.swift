@@ -78,13 +78,14 @@ enum WatchNextParser {
         var chapterRenderers: [YouTubeChapter] = []
         self.collectChapterRenderers(in: data, videoId: videoId, chapters: &chapterRenderers)
         let canonical = self.deduplicateChapters(chapterRenderers)
-        if !canonical.isEmpty {
-            return canonical
-        }
 
         var macroMarkers: [YouTubeChapter] = []
         self.collectMacroMarkerRenderers(in: data, fallbackVideoId: videoId, chapters: &macroMarkers)
-        return self.deduplicateChapters(macroMarkers)
+        let deduplicatedMacroMarkers = self.deduplicateChapters(macroMarkers)
+        guard !canonical.isEmpty else {
+            return deduplicatedMacroMarkers
+        }
+        return self.mergingEndTimes(in: canonical, from: deduplicatedMacroMarkers)
     }
 
     /// The continuation token for the watch page's comments section
@@ -313,12 +314,18 @@ enum WatchNextParser {
     }
 
     private static func deduplicateChapters(_ chapters: [YouTubeChapter]) -> [YouTubeChapter] {
-        var seen: Set<String> = []
+        var indexByKey: [String: Int] = [:]
         var result: [YouTubeChapter] = []
 
         for chapter in chapters {
-            let key = "\(chapter.videoId ?? "")|\(Int((chapter.startTime * 1000).rounded()))|\(chapter.title)"
-            guard seen.insert(key).inserted else { continue }
+            let key = self.chapterKey(chapter)
+            if let index = indexByKey[key] {
+                if result[index].endTime == nil, chapter.endTime != nil {
+                    result[index] = self.mergingEndTime(in: result[index], from: chapter)
+                }
+                continue
+            }
+            indexByKey[key] = result.count
             result.append(chapter)
         }
 
@@ -328,6 +335,39 @@ enum WatchNextParser {
             }
             return lhs.title < rhs.title
         }
+    }
+
+    private static func mergingEndTimes(
+        in chapters: [YouTubeChapter],
+        from boundedChapters: [YouTubeChapter]
+    ) -> [YouTubeChapter] {
+        let boundsByKey = Dictionary(uniqueKeysWithValues: boundedChapters.map {
+            (self.chapterKey($0), $0)
+        })
+        return chapters.map { chapter in
+            guard chapter.endTime == nil, let boundedChapter = boundsByKey[self.chapterKey(chapter)] else {
+                return chapter
+            }
+            return self.mergingEndTime(in: chapter, from: boundedChapter)
+        }
+    }
+
+    private static func mergingEndTime(
+        in chapter: YouTubeChapter,
+        from boundedChapter: YouTubeChapter
+    ) -> YouTubeChapter {
+        YouTubeChapter(
+            videoId: chapter.videoId,
+            title: chapter.title,
+            startTime: chapter.startTime,
+            endTime: boundedChapter.endTime,
+            timeText: chapter.timeText,
+            thumbnailURL: chapter.thumbnailURL
+        )
+    }
+
+    private static func chapterKey(_ chapter: YouTubeChapter) -> String {
+        "\(chapter.videoId ?? "")|\(Int((chapter.startTime * 1000).rounded()))|\(chapter.title)"
     }
 
     // MARK: - Private

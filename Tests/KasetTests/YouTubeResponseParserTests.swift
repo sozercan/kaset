@@ -267,7 +267,7 @@ struct WatchNextParserTests {
         #expect(firstRelated.lengthText == "17:10")
     }
 
-    @Test("Parses canonical player-overlay chapter renderers")
+    @Test("Parses canonical chapters and merges macro-marker end bounds")
     func parsesPlayerOverlayChapters() throws {
         let watchNext = WatchNextParser.parse(Self.chapterRendererResponse())
 
@@ -277,13 +277,14 @@ struct WatchNextParserTests {
         #expect(first.videoId == "video-1")
         #expect(first.title == "Introduction")
         #expect(first.startTime == 0)
-        #expect(first.endTime == nil)
+        #expect(first.endTime == 197)
         #expect(first.timeText == nil)
         #expect(first.thumbnailURL?.absoluteString == "https://example.com/intro-336.jpg")
 
         let second = watchNext.chapters[1]
         #expect(second.title == "Single-threaded code")
         #expect(second.startTime == 197)
+        #expect(second.endTime == 360)
     }
 
     @Test("Falls back to deduplicated macro marker chapter cards")
@@ -341,15 +342,16 @@ struct WatchNextParserTests {
                     ],
                 ],
             ],
-            // This duplicate fallback shape should be ignored when canonical
-            // chapterRenderer data exists.
+            // Matching macro markers provide end bounds that the canonical
+            // chapterRenderer timeline omits.
             "engagementPanels": [
                 [
                     "engagementPanelSectionListRenderer": [
                         "content": [
                             "macroMarkersListRenderer": [
                                 "contents": [
-                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro", includesExplicitStart: false)],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Single-threaded code", startMs: 197_000, endMs: 360_000, imageName: "single")],
                                 ],
                             ],
                         ],
