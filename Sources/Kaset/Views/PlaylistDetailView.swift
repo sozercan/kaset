@@ -135,8 +135,10 @@ struct PlaylistDetailView: View {
                     year: nil,
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
+                self.trackSortMenu(detail)
+
                 self.tracksView(
-                    detail.tracks, isAlbum: detail.isAlbum, author: detail.author?.name,
+                    self.viewModel.displayedTracks, isAlbum: detail.isAlbum, author: detail.author?.name,
                     fallbackAlbum: fallbackAlbum
                 )
             }
@@ -490,7 +492,7 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
-        let initiallyLoadedCount = cleanedTracks.count
+        let alreadyQueuedVideoIds = Set(cleanedTracks.map(\.videoId))
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
@@ -505,11 +507,13 @@ struct PlaylistDetailView: View {
             // such as removing a track keep the same load generation, so loading continues.)
             guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
 
+            // Diffed by videoId (not index) so a re-sort while pagination was still in flight
+            // can't duplicate or drop tracks the fixed-count prefix would have assumed unchanged.
             let fullTracks = self.playableTracks(
-                self.viewModel.playlistDetail?.tracks ?? [],
+                self.viewModel.displayedTracks,
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
-            let remaining = Array(fullTracks.dropFirst(initiallyLoadedCount))
+            let remaining = fullTracks.filter { !alreadyQueuedVideoIds.contains($0.videoId) }
             self.playerService.appendOriginalTracks(remaining)
             await self.playerService.endQueueLoading(loadGeneration)
         }

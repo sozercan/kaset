@@ -16,7 +16,7 @@ extension PlaylistDetailView {
     func headerButtons(_ detail: PlaylistDetail) -> some View {
         let fallbackAlbum = self.makeFallbackAlbum(from: detail)
         let playableTracks = self.playableTracks(
-            detail.tracks,
+            self.viewModel.displayedTracks,
             fallbackArtist: detail.author?.name,
             fallbackAlbum: fallbackAlbum
         )
@@ -68,7 +68,7 @@ extension PlaylistDetailView {
     ) -> some View {
         Button {
             self.playAll(
-                detail.tracks, fallbackArtist: detail.author?.name,
+                self.viewModel.displayedTracks, fallbackArtist: detail.author?.name,
                 fallbackAlbum: fallbackAlbum
             )
         } label: {

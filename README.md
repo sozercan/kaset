@@ -26,7 +26,7 @@ A native macOS client for YouTube Music and YouTube, built with Swift and SwiftU
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 🧭 **Explore** — Discover new releases, charts, and moods & genres
 - 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
-- 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
+- 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, sort playlist tracks by title, artist, or duration, and delete your own playlists
 - 🕓 **History** — Revisit recently played tracks
 - 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
 - 🌍 **Localized** — Available in English, French, Korean, Indonesian, Turkish, and Arabic

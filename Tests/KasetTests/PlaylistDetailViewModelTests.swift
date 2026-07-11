@@ -1140,4 +1140,81 @@ struct PlaylistDetailViewModelTests {
         #expect(viewModel.playlistDetail?.author?.subtitle == "123 subscribers")
         #expect(viewModel.playlistDetail?.author?.profileKind == .profile)
     }
+
+    // MARK: - Sort Tests
+
+    private func makeSortTestViewModel() async -> PlaylistDetailViewModel {
+        let tracks = [
+            TestFixtures.makeSong(id: "1", title: "Banana", artistName: "Bob", duration: 200),
+            TestFixtures.makeSong(id: "2", title: "Apple", artistName: "Amy", duration: 100),
+            TestFixtures.makeSong(id: "3", title: "Cherry", artistName: "Amy", duration: nil),
+        ]
+        let playlist = TestFixtures.makePlaylist(id: "VL-sort-test")
+        let mockClient = MockYTMusicClient()
+        mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: tracks,
+            duration: nil
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: mockClient)
+        await viewModel.load()
+        return viewModel
+    }
+
+    @Test("Custom sort keeps original playlist order")
+    func customSortKeepsOriginalOrder() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        #expect(viewModel.sortOption == .custom)
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["1", "2", "3"])
+    }
+
+    @Test("Title sort orders ascending then toggles descending")
+    func titleSortTogglesDirection() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        viewModel.selectSort(.title)
+        #expect(viewModel.sortOption == .title)
+        #expect(viewModel.sortAscending == true)
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["2", "1", "3"])
+
+        viewModel.selectSort(.title)
+        #expect(viewModel.sortAscending == false)
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["3", "1", "2"])
+    }
+
+    @Test("Artist sort breaks ties by title")
+    func artistSortBreaksTiesByTitle() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        viewModel.selectSort(.artist)
+
+        // Amy (2 tracks) sorts before Bob; her tracks break the tie by title (Apple < Cherry).
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["2", "3", "1"])
+    }
+
+    @Test("Duration sort keeps nil durations last regardless of direction")
+    func durationSortKeepsNilDurationsLast() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        viewModel.selectSort(.duration)
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["2", "1", "3"])
+
+        viewModel.selectSort(.duration)
+        #expect(viewModel.sortAscending == false)
+        #expect(viewModel.displayedTracks.map(\.videoId) == ["1", "2", "3"])
+    }
+
+    @Test("Selecting a different sort option resets to ascending")
+    func selectingNewSortOptionResetsAscending() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        viewModel.selectSort(.title)
+        viewModel.selectSort(.title)
+        #expect(viewModel.sortAscending == false)
+
+        viewModel.selectSort(.duration)
+        #expect(viewModel.sortOption == .duration)
+        #expect(viewModel.sortAscending == true)
+    }
 }

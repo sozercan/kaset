@@ -2,6 +2,18 @@ import Foundation
 import Observation
 import os
 
+// MARK: - PlaylistTrackSortOption
+
+/// Session-only sort options for the playlist detail track list.
+enum PlaylistTrackSortOption: CaseIterable {
+    case custom
+    case title
+    case artist
+    case duration
+}
+
+// MARK: - PlaylistDetailViewModel
+
 /// View model for the PlaylistDetailView.
 @MainActor
 @Observable
@@ -27,6 +39,28 @@ final class PlaylistDetailViewModel {
 
     /// Whether more tracks are available to load.
     private(set) var hasMore: Bool = false
+
+    /// Current track sort option (session-only, not persisted).
+    private(set) var sortOption: PlaylistTrackSortOption = .custom
+
+    /// Current sort direction; ignored when `sortOption` is `.custom`.
+    private(set) var sortAscending: Bool = true
+
+    /// The playlist tracks in the currently selected sort order.
+    var displayedTracks: [Song] {
+        guard let tracks = self.playlistDetail?.tracks else { return [] }
+
+        switch self.sortOption {
+        case .custom:
+            return tracks
+        case .title:
+            return self.sortedByStandardCompare(tracks) { $0.title }
+        case .artist:
+            return self.sortedByStandardCompare(tracks, tieBreaker: { $0.title }, key: { $0.artistsDisplay })
+        case .duration:
+            return self.sortedByDuration(tracks)
+        }
+    }
 
     private let playlist: Playlist
     /// The API client (exposed for add to library action).
@@ -478,6 +512,45 @@ final class PlaylistDetailViewModel {
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
+    }
+
+    /// Selects a track sort option. Selecting the already-active option toggles the sort
+    /// direction; selecting a different option resets to ascending.
+    func selectSort(_ option: PlaylistTrackSortOption) {
+        if self.sortOption == option {
+            self.sortAscending.toggle()
+        } else {
+            self.sortOption = option
+            self.sortAscending = true
+        }
+    }
+
+    private func sortedByStandardCompare(
+        _ tracks: [Song],
+        tieBreaker: ((Song) -> String)? = nil,
+        key: (Song) -> String
+    ) -> [Song] {
+        tracks.sorted { lhs, rhs in
+            var result = key(lhs).localizedStandardCompare(key(rhs))
+            if result == .orderedSame, let tieBreaker {
+                result = tieBreaker(lhs).localizedStandardCompare(tieBreaker(rhs))
+            }
+            guard result != .orderedSame else { return false }
+            return self.sortAscending ? result == .orderedAscending : result == .orderedDescending
+        }
+    }
+
+    private func sortedByDuration(_ tracks: [Song]) -> [Song] {
+        tracks.sorted { lhs, rhs in
+            switch (lhs.duration, rhs.duration) {
+            case let (lhsDuration?, rhsDuration?):
+                self.sortAscending ? lhsDuration < rhsDuration : lhsDuration > rhsDuration
+            case (nil, nil), (nil, _):
+                false
+            case (_, nil):
+                true
+            }
+        }
     }
 
     private func cancelFullLoadTask() {
