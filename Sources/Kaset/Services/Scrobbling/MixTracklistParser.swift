@@ -109,13 +109,25 @@ final class MixTracklistParser {
     /// leading list numbering, and separator punctuation) becomes the artist/title label.
     /// Because descriptions often contain unrelated timestamps (premiere times, social
     /// links), only the longest run of consecutive lines with strictly increasing start
-    /// times is kept — a real tracklist is monotonic, stray mentions are not.
+    /// times is kept — a real tracklist is a monotonic block, stray mentions scattered
+    /// across prose are not. Blank lines don't break a block (some tracklists space
+    /// their entries); any other non-timestamped line does.
     static func descriptionEntries(from description: String) -> [MixTrackEntry] {
-        let timestampRegex = /(?:(\d{1,2}):)?(\d{1,2}):([0-5]\d)(?![\d:])/
-        var candidates: [(startTime: TimeInterval, label: String)] = []
+        struct Candidate {
+            let startTime: TimeInterval
+            let label: String
+            let block: Int
+        }
 
-        for rawLine in description.split(whereSeparator: \.isNewline) {
+        let timestampRegex = /(?:(\d{1,2}):)?(\d{1,2}):([0-5]\d)(?![\d:])/
+        var candidates: [Candidate] = []
+        var block = 0
+
+        for rawLine in description.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             let line = String(rawLine)
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                continue
+            }
             // Swift Regex has no lookbehind; reject matches glued to preceding digits/colons or
             // trailing letters ("3:45pm") manually, and skip past invalid H:MM:SS minutes so a
             // bogus first match doesn't drop a line that also carries the real timestamp.
@@ -132,10 +144,16 @@ final class MixTracklistParser {
                     return false
                 }
                 return true
-            }) else { continue }
+            }) else {
+                block += 1
+                continue
+            }
             let match = matches[matchIndex]
             let hours = match.output.1.flatMap { Int($0) } ?? 0
-            guard let minutes = Int(match.output.2), let seconds = Int(match.output.3) else { continue }
+            guard let minutes = Int(match.output.2), let seconds = Int(match.output.3) else {
+                block += 1
+                continue
+            }
 
             // When an earlier candidate was rejected, the text before the accepted match still
             // contains that bogus fragment — keep only the suffix so it can't leak into the label.
@@ -144,8 +162,15 @@ final class MixTracklistParser {
                 from: line,
                 includePrefix: matchIndex == matches.startIndex
             )
-            guard !label.isEmpty else { continue }
-            candidates.append((TimeInterval(hours * 3600 + minutes * 60 + seconds), label))
+            guard !label.isEmpty else {
+                block += 1
+                continue
+            }
+            candidates.append(Candidate(
+                startTime: TimeInterval(hours * 3600 + minutes * 60 + seconds),
+                label: label,
+                block: block
+            ))
         }
 
         guard !candidates.isEmpty else { return [] }
@@ -154,7 +179,9 @@ final class MixTracklistParser {
         var bestCount = 1
         var runStart = 0
         for index in 1 ..< candidates.count {
-            if candidates[index].startTime <= candidates[index - 1].startTime {
+            if candidates[index].block != candidates[index - 1].block
+                || candidates[index].startTime <= candidates[index - 1].startTime
+            {
                 runStart = index
             }
             if index - runStart + 1 > bestCount {

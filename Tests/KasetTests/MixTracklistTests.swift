@@ -252,6 +252,36 @@ struct MixTracklistTests {
     }
 
     @MainActor
+    @Test("Timestamps scattered across prose sections do not stitch into a tracklist")
+    func descriptionEntriesRequireContiguousLines() {
+        let description = """
+        Show starts 0:30 - doors open early
+        Thanks to everyone who joined the premiere chat.
+        Highlight at 5:00 - special guest appearance
+        Full VOD stays up all week for members.
+        Ends around 10:00 - afterparty on discord
+        """
+        let entries = MixTracklistParser.descriptionEntries(from: description)
+
+        #expect(entries.count == 1)
+    }
+
+    @MainActor
+    @Test("Blank lines between tracklist entries do not break the block")
+    func descriptionEntriesAllowBlankLinesWithinTracklist() {
+        let description = """
+        00:00 A - One
+
+        01:00 B - Two
+
+        02:00 C - Three
+        """
+        let entries = MixTracklistParser.descriptionEntries(from: description)
+
+        #expect(entries.map(\.title) == ["One", "Two", "Three"])
+    }
+
+    @MainActor
     @Test("Description without timestamped lines yields no entries")
     func descriptionEntriesEmptyWithoutTimestamps() {
         let entries = MixTracklistParser.descriptionEntries(from: "Just a regular description.\nNo tracklist here.")
