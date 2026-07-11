@@ -438,7 +438,7 @@ struct EqualizerServiceTests {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
 
-        try? await Task.sleep(for: .milliseconds(400))
+        await service.awaitPendingPersistence()
 
         let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
         #expect(revived.settings.isEnabled == true)
