@@ -288,9 +288,7 @@ extension PlayerService {
             "Ignoring stale in-queue metadata for \(normalizedObservedVideoId); keeping protected queue target \(protectedVideoId)"
         )
         self.keepQueueSongVisible(currentQueueSong, thumbnailUrl: thumbnailUrl)
-        Task {
-            await self.play(song: currentQueueSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
-        }
+        self.scheduleQueueNavigationRecovery(for: currentQueueSong)
         return true
     }
 
@@ -299,7 +297,6 @@ extension PlayerService {
         expectedCurrentVideoId: String
     ) -> Bool {
         guard self.repeatMode == .all,
-              !self.shuffleEnabled,
               self.expectedQueueIndexAfterCurrentTrack() == 0,
               let currentQueueSong = self.queue[safe: self.currentIndex],
               let firstQueueSong = self.queue.first

@@ -568,6 +568,11 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             }
         }
 
+        guard let urlToLoad = Self.youtubeMusicWatchURL(videoId: videoId) else {
+            self.logger.error("Unable to construct YouTube Music watch URL")
+            return
+        }
+
         if videoId != previousVideoId {
             self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
         }
@@ -594,7 +599,6 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         // OLD <video>: the navigation tears it down anyway, and the pause event would emit a
         // stale STATE_UPDATE from the outgoing page that can be mis-reconciled against a restored
         // session before the new document loads.
-        let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
         let skipPrenavPause = (strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId)
         if skipPrenavPause {
             webView.evaluateJavaScript("window.__kasetTargetVolume = \(currentVolume);", completionHandler: nil)
@@ -616,6 +620,15 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             webView.evaluateJavaScript(prepareScript, completionHandler: nil)
             self.navigateViaRouter(videoId: videoId, fallbackURL: urlToLoad, generation: generation)
         }
+    }
+
+    nonisolated static func youtubeMusicWatchURL(videoId: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "music.youtube.com"
+        components.path = "/watch"
+        components.queryItems = [URLQueryItem(name: "v", value: videoId)]
+        return components.url
     }
 
     nonisolated static func javaScriptStringLiteral(_ value: String) -> String {

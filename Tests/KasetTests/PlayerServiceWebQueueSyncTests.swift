@@ -139,6 +139,7 @@ struct PlayerServiceWebQueueSyncTests {
             thumbnailUrl: "",
             videoId: "v2"
         )
+        let recoveryGeneration = self.playerService.queueNavigationRecoveryGeneration
 
         // Stale old-song metadata can still arrive after the intended video was
         // briefly confirmed. It must not be treated as a legitimate native
@@ -149,10 +150,22 @@ struct PlayerServiceWebQueueSyncTests {
             thumbnailUrl: "",
             videoId: "v1"
         )
+        await Task.yield()
+        #expect(self.playerService.queueNavigationRecoveryTask != nil)
+        #expect(self.playerService.queueNavigationRecoveryVideoId == "v2")
+        self.playerService.updateTrackMetadata(
+            title: "Song 1",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
 
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
         #expect(self.playerService.pendingPlayVideoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryVideoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryGeneration == recoveryGeneration + 1)
+        self.playerService.clearQueueNavigationRecovery()
     }
 
     @Test("Expired unconfirmed manual next protection allows later in-queue movement")
@@ -754,6 +767,23 @@ struct PlayerServiceWebQueueSyncTests {
         ]
 
         await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.cycleRepeatMode()
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.currentTrack?.title == "Song 1")
+    }
+
+    @Test("Shuffled track end still wraps when repeat all already reports the first queue song")
+    func shuffledTrackEndWrapsToStartWhenRepeatAllReportsWrappedSong() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.shuffleMode = .on
         self.playerService.cycleRepeatMode()
         await self.playerService.handleTrackEnded(observedVideoId: "v1")
 

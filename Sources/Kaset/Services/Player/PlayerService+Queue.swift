@@ -809,6 +809,13 @@ extension PlayerService {
             self.removeSavedPlaybackSession()
             return
         }
+        defer {
+            if shouldSyncWebQueue {
+                // Queue synchronization follows the live queue, including ephemeral
+                // Smart Shuffle entries, even when the persisted payload is unchanged.
+                self.syncWebQueue()
+            }
+        }
 
         do {
             let encoder = JSONEncoder()
@@ -855,11 +862,6 @@ extension PlayerService {
             self.queuePersistenceWriteCountForTesting += 1
             self.restoredPlaybackSessionOwnerScope = ownerScope
             self.logger.info("Saved playback session with \(persistedQueue.count) songs at index \(safeIndex)")
-
-            if shouldSyncWebQueue {
-                // Re-sync the web queue in case the queue order or next song changed
-                self.syncWebQueue()
-            }
         } catch {
             self.logger.error("Failed to save playback session: \(error.localizedDescription)")
         }

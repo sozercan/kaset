@@ -1,3 +1,4 @@
+import Foundation
 import JavaScriptCore
 import Testing
 import WebKit
@@ -81,6 +82,18 @@ struct PlaybackObserverIdentityTests {
         #expect(occurrenceAdvance.contains("mediaGeneration += 1"))
         #expect(!occurrenceAdvance.contains("mediaVideoId"))
         #expect(!occurrenceAdvance.contains("sendUpdate"))
+    }
+
+    @Test("YouTube Music watch URLs encode video IDs as query values")
+    func youtubeMusicWatchURLPercentEncodesVideoId() throws {
+        let videoId = "video&id=unexpected value"
+        let url = try #require(SingletonPlayerWebView.youtubeMusicWatchURL(videoId: videoId))
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+
+        #expect(components.scheme == "https")
+        #expect(components.host == "music.youtube.com")
+        #expect(components.path == "/watch")
+        #expect(components.queryItems == [URLQueryItem(name: "v", value: videoId)])
     }
 
     @Test("A stale WebView cannot start the current document navigation gate")
