@@ -313,6 +313,44 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.mixContinuationFetchWaiters.isEmpty)
     }
 
+    @Test("Clearing the queue invalidates in-flight native continuation maintenance")
+    func clearQueueInvalidatesNativeContinuationMaintenance() async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        let staleSong = Song(
+            id: "stale",
+            title: "Stale continuation",
+            artists: [],
+            duration: 220,
+            videoId: "stale-video"
+        )
+        mockClient.mixQueueContinuationGate = continuationGate
+        mockClient.mixQueueContinuationResults = [
+            RadioQueueResult(songs: [staleSong], continuationToken: nil),
+        ]
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.mixContinuationToken = "test-continuation"
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+
+        let confirmed = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
+        #expect(confirmed)
+        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+        let cancelledMaintenance = self.playerService.nativeQueueMaintenanceTask
+
+        self.playerService.clearQueueEntirely()
+        await continuationGate.open()
+        await cancelledMaintenance?.value
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(!self.playerService.queue.contains { $0.videoId == "stale-video" })
+        #expect(self.playerService.nativeQueueMaintenanceTask == nil)
+    }
+
     private static func waitUntilNativeQueueMaintenanceStarts(mockClient: MockYTMusicClient) async {
         let clock = ContinuousClock()
         let deadline = clock.now + .seconds(1)

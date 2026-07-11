@@ -191,6 +191,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var pendingNativeQueueAdvanceGeneration: Int = 0
     var nativeQueueMaintenanceGeneration: Int = 0
     var nativeQueueMaintenanceTask: Task<Void, Never>?
+    var isApplyingNativeQueueMaintenanceQueueMutation = false
 
     var pendingNativeQueueAdvanceVideoId: String? {
         self.pendingNativeQueueAdvance?.targetVideoId
@@ -547,6 +548,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
+        if !self.isApplyingNativeQueueMaintenanceQueueMutation {
+            self.clearNativeQueueMaintenance()
+        }
         let pendingGeneration = self.pendingNativeQueueAdvance?.generation
         self.queueStorage = entries
         self.synchronizeCurrentQueueEntryID()

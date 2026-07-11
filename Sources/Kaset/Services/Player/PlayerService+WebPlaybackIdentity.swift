@@ -251,24 +251,26 @@ extension PlayerService {
         self.nativeQueueMaintenanceTask?.cancel()
         self.nativeQueueMaintenanceTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.fetchMoreMixSongsIfNeeded {
-                !Task.isCancelled && self.nativeQueueMaintenanceGeneration == generation
-            }
-            guard !Task.isCancelled,
-                  self.nativeQueueMaintenanceGeneration == generation
-            else { return }
-            await self.fillSmartShuffleWindow()
-            guard !Task.isCancelled,
-                  self.nativeQueueMaintenanceGeneration == generation
-            else { return }
-            self.saveQueueForPersistence(syncWebQueue: false)
-            if self.nativeQueueMaintenanceGeneration == generation {
-                self.nativeQueueMaintenanceTask = nil
+            await NativeQueueMaintenanceContext.$isApplyingQueueMutation.withValue(true) {
+                await self.fetchMoreMixSongsIfNeeded {
+                    !Task.isCancelled && self.nativeQueueMaintenanceGeneration == generation
+                }
+                guard !Task.isCancelled,
+                      self.nativeQueueMaintenanceGeneration == generation
+                else { return }
+                await self.fillSmartShuffleWindow()
+                guard !Task.isCancelled,
+                      self.nativeQueueMaintenanceGeneration == generation
+                else { return }
+                self.saveQueueForPersistence(syncWebQueue: false)
+                if self.nativeQueueMaintenanceGeneration == generation {
+                    self.nativeQueueMaintenanceTask = nil
+                }
             }
         }
     }
 
-    private func clearNativeQueueMaintenance() {
+    func clearNativeQueueMaintenance() {
         self.nativeQueueMaintenanceGeneration &+= 1
         self.nativeQueueMaintenanceTask?.cancel()
         self.nativeQueueMaintenanceTask = nil
