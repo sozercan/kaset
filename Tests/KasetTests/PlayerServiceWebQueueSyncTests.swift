@@ -2,24 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@MainActor
-private extension PlayerService {
-    var expectedQueueIndexForTesting: Int? {
-        guard !self.queue.isEmpty else { return nil }
-        if self.repeatMode == .one {
-            return self.currentIndex
-        }
-        guard !self.shuffleEnabled else { return nil }
-        if self.currentIndex < self.queue.count - 1 {
-            return self.currentIndex + 1
-        }
-        if self.repeatMode == .all {
-            return 0
-        }
-        return nil
-    }
-}
-
 // MARK: - PlayerServiceWebQueueSyncTests
 
 /// Web queue sync, next/previous stack, repeat-one, metadata drift, and radio-related PlayerService tests.
@@ -253,7 +235,7 @@ struct PlayerServiceWebQueueSyncTests {
 
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.injectedWebQueueVideoId == nil)
-        #expect(self.playerService.expectedQueueIndexForTesting == 2)
+        #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 2)
     }
 
     @Test("Saving an empty queue clears web queue injection state")

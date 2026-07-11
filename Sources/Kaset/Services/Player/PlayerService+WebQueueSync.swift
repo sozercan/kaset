@@ -315,7 +315,6 @@ extension PlayerService {
 
     private func keepQueueSongVisible(_ song: Song, thumbnailUrl: String) {
         let intendedThumbnailURL = URL(string: thumbnailUrl) ?? song.thumbnailURL
-        let fb = song.feedbackTokens
         self.currentTrack = Song(
             id: song.id,
             title: song.title,
@@ -328,7 +327,7 @@ extension PlayerService {
             musicVideoType: song.musicVideoType,
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
-            feedbackTokens: fb
+            feedbackTokens: song.feedbackTokens
         )
     }
 
