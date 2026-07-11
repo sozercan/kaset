@@ -62,6 +62,23 @@ enum WebPlaybackIdentityTransition {
         return mediaGeneration >= lastAcceptedMediaGeneration
     }
 
+    static func shouldAcceptEndedOccurrence(
+        observerEpoch: Double,
+        lastHandledObserverEpoch: Double?,
+        mediaGeneration: Int,
+        lastHandledMediaGeneration: Int?
+    ) -> Bool {
+        guard let lastHandledObserverEpoch else { return true }
+        if observerEpoch < lastHandledObserverEpoch {
+            return false
+        }
+        if observerEpoch > lastHandledObserverEpoch {
+            return true
+        }
+        guard let lastHandledMediaGeneration else { return true }
+        return mediaGeneration > lastHandledMediaGeneration
+    }
+
     static func shouldHandleDeferredIdentitylessObservation(
         isDeferred: Bool,
         observedVideoId: String?,
@@ -810,6 +827,8 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         private var lastAcceptedObservedVideoId: String?
         private var lastAcceptedObserverEpoch: Double?
         private var lastAcceptedMediaGeneration: Int?
+        private var lastHandledEndedObserverEpoch: Double?
+        private var lastHandledEndedMediaGeneration: Int?
         private var lastAcceptedQueueEntryID: UUID?
         private var hasAcceptedQueueEntryBaseline = false
         private var documentGeneration = 0
@@ -844,7 +863,15 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             switch type {
             case "TRACK_ENDED":
                 guard (body["mediaIdentityUncertain"] as? Bool) != true else { return }
+                let observerEpoch = body["observerEpoch"] as? Double ?? 0
+                let mediaGeneration = body["mediaGeneration"] as? Int ?? 0
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
+                    guard coordinator.consumeTrackEndedOccurrence(
+                        observerEpoch: observerEpoch,
+                        mediaGeneration: mediaGeneration
+                    ) else {
+                        return
+                    }
                     await coordinator.playerService.handleTrackEnded(
                         observedVideoId: observedVideoId,
                         shouldContinue: {
@@ -936,6 +963,23 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         private func isCurrentDocument(_ generation: Int) -> Bool {
             SingletonPlayerWebView.shared.coordinator === self
                 && generation == self.documentGeneration
+        }
+
+        private func consumeTrackEndedOccurrence(
+            observerEpoch: Double,
+            mediaGeneration: Int
+        ) -> Bool {
+            guard WebPlaybackIdentityTransition.shouldAcceptEndedOccurrence(
+                observerEpoch: observerEpoch,
+                lastHandledObserverEpoch: self.lastHandledEndedObserverEpoch,
+                mediaGeneration: mediaGeneration,
+                lastHandledMediaGeneration: self.lastHandledEndedMediaGeneration
+            ) else {
+                return false
+            }
+            self.lastHandledEndedObserverEpoch = observerEpoch
+            self.lastHandledEndedMediaGeneration = mediaGeneration
+            return true
         }
 
         private static func observedVideoId(from body: [String: Any]) -> String? {
@@ -1348,8 +1392,8 @@ private extension SingletonPlayerWebView.Coordinator {
         messageGeneration: Int
     ) async {
         let isPlaying = body["isPlaying"] as? Bool ?? false
-        let progress = body["progress"] as? Int ?? 0
-        let duration = body["duration"] as? Int ?? 0
+        let progress = (body["progress"] as? NSNumber)?.doubleValue ?? 0
+        let duration = (body["duration"] as? NSNumber)?.doubleValue ?? 0
         let title = body["title"] as? String ?? ""
         let artist = body["artist"] as? String ?? ""
         let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
@@ -1443,8 +1487,8 @@ private extension SingletonPlayerWebView.Coordinator {
 
         self.playerService.updatePlaybackState(
             isPlaying: isPlaying,
-            progress: Double(progress),
-            duration: Double(duration),
+            progress: progress,
+            duration: duration,
             observedVideoId: mediaVideoId
         )
         self.lastAcceptedObserverEpoch = observerEpoch

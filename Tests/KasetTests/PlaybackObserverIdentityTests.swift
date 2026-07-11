@@ -38,6 +38,31 @@ struct PlaybackObserverIdentityTests {
         )?.toBool() == false)
     }
 
+    @Test("Playback timing stays bound to the media element with DOM fallback")
+    func mediaTimingPrefersVideoElement() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(SingletonPlayerWebView.mediaTimingFunctionJS)
+        context.evaluateScript(
+            """
+            const laggingProgressBar = {
+                getAttribute: (name) => name === 'value' ? '179' : '180'
+            };
+            """
+        )
+
+        let mediaTiming = context.evaluateScript(
+            "__kasetMediaTiming({ currentTime: 1.25, duration: 200 }, laggingProgressBar)"
+        )
+        #expect(mediaTiming?.objectForKeyedSubscript("progress")?.toDouble() == 1.25)
+        #expect(mediaTiming?.objectForKeyedSubscript("duration")?.toDouble() == 200)
+
+        let fallbackTiming = context.evaluateScript(
+            "__kasetMediaTiming({ currentTime: NaN, duration: Infinity }, laggingProgressBar)"
+        )
+        #expect(fallbackTiming?.objectForKeyedSubscript("progress")?.toDouble() == 179)
+        #expect(fallbackTiming?.objectForKeyedSubscript("duration")?.toDouble() == 180)
+    }
+
     @Test("A stale WebView cannot start the current document navigation gate")
     func staleWebViewNavigationStartIsIgnored() {
         let staleWebView = WKWebView()

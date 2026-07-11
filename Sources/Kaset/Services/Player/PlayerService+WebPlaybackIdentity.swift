@@ -240,17 +240,32 @@ extension PlayerService {
         )
     }
 
-    func awaitNativeQueueMaintenanceIfNeeded() async {
-        let task = self.nativeQueueMaintenanceTask
-        await task?.value
+    func awaitNativeQueueMaintenanceIfNeeded(generation: Int) async {
+        guard generation == self.nativeQueueMaintenanceGeneration,
+              self.nativeQueueMaintenanceTask != nil
+        else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            guard generation == self.nativeQueueMaintenanceGeneration,
+                  self.nativeQueueMaintenanceTask != nil
+            else {
+                continuation.resume()
+                return
+            }
+            self.nativeQueueMaintenanceWaiters[generation, default: []].append(continuation)
+        }
     }
 
     private func scheduleNativeQueueMaintenance() {
+        let previousGeneration = self.nativeQueueMaintenanceGeneration
         self.nativeQueueMaintenanceGeneration &+= 1
         let generation = self.nativeQueueMaintenanceGeneration
         self.nativeQueueMaintenanceTask?.cancel()
+        self.resumeNativeQueueMaintenanceWaiters(generation: previousGeneration)
         self.nativeQueueMaintenanceTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.finishNativeQueueMaintenance(generation: generation) }
             await NativeQueueMaintenanceContext.$isApplyingQueueMutation.withValue(true) {
                 await self.fetchMoreMixSongsIfNeeded {
                     !Task.isCancelled && self.nativeQueueMaintenanceGeneration == generation
@@ -263,17 +278,30 @@ extension PlayerService {
                       self.nativeQueueMaintenanceGeneration == generation
                 else { return }
                 self.saveQueueForPersistence(syncWebQueue: false)
-                if self.nativeQueueMaintenanceGeneration == generation {
-                    self.nativeQueueMaintenanceTask = nil
-                }
             }
         }
     }
 
     func clearNativeQueueMaintenance() {
+        let previousGeneration = self.nativeQueueMaintenanceGeneration
         self.nativeQueueMaintenanceGeneration &+= 1
         self.nativeQueueMaintenanceTask?.cancel()
         self.nativeQueueMaintenanceTask = nil
+        self.resumeNativeQueueMaintenanceWaiters(generation: previousGeneration)
+    }
+
+    private func finishNativeQueueMaintenance(generation: Int) {
+        if self.nativeQueueMaintenanceGeneration == generation {
+            self.nativeQueueMaintenanceTask = nil
+        }
+        self.resumeNativeQueueMaintenanceWaiters(generation: generation)
+    }
+
+    private func resumeNativeQueueMaintenanceWaiters(generation: Int) {
+        let waiters = self.nativeQueueMaintenanceWaiters.removeValue(forKey: generation) ?? []
+        for waiter in waiters {
+            waiter.resume()
+        }
     }
 
     private func normalizedWebPlaybackVideoId(_ videoId: String?) -> String? {

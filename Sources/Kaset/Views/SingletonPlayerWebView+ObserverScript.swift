@@ -30,6 +30,24 @@ extension SingletonPlayerWebView {
         """
     }
 
+    nonisolated static var mediaTimingFunctionJS: String {
+        """
+        function __kasetMediaTiming(video, progressBar) {
+            const rawDOMProgress = progressBar
+                ? Number(progressBar.getAttribute('value') || 0) : 0;
+            const rawDOMDuration = progressBar
+                ? Number(progressBar.getAttribute('aria-valuemax') || 0) : 0;
+            const domProgress = Number.isFinite(rawDOMProgress) ? rawDOMProgress : 0;
+            const domDuration = Number.isFinite(rawDOMDuration) ? rawDOMDuration : 0;
+            const progress = video && Number.isFinite(video.currentTime)
+                ? video.currentTime : domProgress;
+            const duration = video && Number.isFinite(video.duration) && video.duration > 0
+                ? video.duration : domDuration;
+            return { progress, duration };
+        }
+        """
+    }
+
     /// Observer script for playback state.
     nonisolated static var observerScript: String {
         """
@@ -41,6 +59,7 @@ extension SingletonPlayerWebView {
             const documentID = Number(window.__kasetDocumentID || 0);
             \(autoplayRecoveryFunctionJS)
             \(mediaIdentityBindingDecisionFunctionJS)
+            \(mediaTimingFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
@@ -499,6 +518,7 @@ extension SingletonPlayerWebView {
                     const isPlaying = video ? !video.paused : false;
 
                     const progressBar = document.querySelector('#progress-bar');
+                    const mediaTiming = __kasetMediaTiming(video, progressBar);
 
                     // Extract track metadata
                     const titleEl = document.querySelector('.ytmusic-player-bar.title');
@@ -603,8 +623,8 @@ extension SingletonPlayerWebView {
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
                         isPlaying: isPlaying,
-                        progress: progressBar ? parseInt(progressBar.getAttribute('value') || '0') : 0,
-                        duration: progressBar ? parseInt(progressBar.getAttribute('aria-valuemax') || '0') : 0,
+                        progress: mediaTiming.progress,
+                        duration: mediaTiming.duration,
                         title: title,
                         artist: artist,
                         videoId: videoId,

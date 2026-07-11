@@ -13,6 +13,16 @@ struct PlaybackMediaGenerationCase {
     let expected: Bool
 }
 
+// MARK: - PlaybackEndedOccurrenceCase
+
+struct PlaybackEndedOccurrenceCase {
+    let epoch: Double
+    let lastEpoch: Double?
+    let generation: Int
+    let lastGeneration: Int?
+    let expected: Bool
+}
+
 extension PlayerServiceWebQueueSyncTests {
     // MARK: - Web Playback Identity Reconciliation
 
@@ -308,6 +318,26 @@ extension PlayerServiceWebQueueSyncTests {
             lastAcceptedObserverEpoch: testCase.lastEpoch,
             mediaGeneration: testCase.generation,
             lastAcceptedMediaGeneration: testCase.lastGeneration
+        ) == testCase.expected)
+    }
+
+    @Test(
+        "Ended occurrences are consumed once per observer epoch and media generation",
+        arguments: [
+            PlaybackEndedOccurrenceCase(epoch: 10, lastEpoch: nil, generation: 4, lastGeneration: nil, expected: true),
+            PlaybackEndedOccurrenceCase(epoch: 10, lastEpoch: 10, generation: 4, lastGeneration: 4, expected: false),
+            PlaybackEndedOccurrenceCase(epoch: 10, lastEpoch: 10, generation: 3, lastGeneration: 4, expected: false),
+            PlaybackEndedOccurrenceCase(epoch: 10, lastEpoch: 10, generation: 5, lastGeneration: 4, expected: true),
+            PlaybackEndedOccurrenceCase(epoch: 11, lastEpoch: 10, generation: 0, lastGeneration: 4, expected: true),
+            PlaybackEndedOccurrenceCase(epoch: 9, lastEpoch: 10, generation: 8, lastGeneration: 4, expected: false),
+        ]
+    )
+    func endedOccurrenceGate(testCase: PlaybackEndedOccurrenceCase) {
+        #expect(WebPlaybackIdentityTransition.shouldAcceptEndedOccurrence(
+            observerEpoch: testCase.epoch,
+            lastHandledObserverEpoch: testCase.lastEpoch,
+            mediaGeneration: testCase.generation,
+            lastHandledMediaGeneration: testCase.lastGeneration
         ) == testCase.expected)
     }
 

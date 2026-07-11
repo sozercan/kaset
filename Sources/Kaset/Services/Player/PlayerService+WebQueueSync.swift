@@ -670,8 +670,14 @@ extension PlayerService {
     ) async {
         guard shouldContinue() else { return }
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
-        await self.awaitNativeQueueMaintenanceIfNeeded()
-        guard shouldContinue() else { return }
+        while !self.queue.isEmpty,
+              self.expectedQueueIndexAfterCurrentTrack() == nil,
+              self.nativeQueueMaintenanceTask != nil
+        {
+            let maintenanceGeneration = self.nativeQueueMaintenanceGeneration
+            await self.awaitNativeQueueMaintenanceIfNeeded(generation: maintenanceGeneration)
+            guard shouldContinue() else { return }
+        }
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
             if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {

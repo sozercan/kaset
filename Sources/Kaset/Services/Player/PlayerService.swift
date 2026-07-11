@@ -2,6 +2,12 @@ import Foundation
 import Observation
 import os
 
+// MARK: - NativeQueueMaintenanceContext
+
+enum NativeQueueMaintenanceContext {
+    @TaskLocal static var isApplyingQueueMutation = false
+}
+
 // MARK: - PlayerService
 
 /// Controls music playback via a hidden WKWebView.
@@ -191,7 +197,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var pendingNativeQueueAdvanceGeneration: Int = 0
     var nativeQueueMaintenanceGeneration: Int = 0
     var nativeQueueMaintenanceTask: Task<Void, Never>?
-    var isApplyingNativeQueueMaintenanceQueueMutation = false
+    @ObservationIgnored var nativeQueueMaintenanceWaiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
 
     var pendingNativeQueueAdvanceVideoId: String? {
         self.pendingNativeQueueAdvance?.targetVideoId
@@ -548,7 +554,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
-        if !self.isApplyingNativeQueueMaintenanceQueueMutation {
+        if !NativeQueueMaintenanceContext.isApplyingQueueMutation {
             self.clearNativeQueueMaintenance()
         }
         let pendingGeneration = self.pendingNativeQueueAdvance?.generation

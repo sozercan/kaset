@@ -332,9 +332,11 @@ extension PlayerServiceWebQueueSyncTests {
         mockClient.mixQueueContinuationResults = [
             RadioQueueResult(songs: [staleSong], continuationToken: nil),
         ]
+        let previousWebVideoId = SingletonPlayerWebView.shared.currentVideoId
+        defer { SingletonPlayerWebView.shared.currentVideoId = previousWebVideoId }
         self.playerService.setYTMusicClient(mockClient)
         await self.playerService.playQueue(songs, startingAt: 0)
-        self.playerService.mixContinuationToken = "test-continuation"
+        self.playerService[keyPath: \.mixContinuationToken] = "test-continuation"
         self.playerService.beginPendingNativeQueueAdvance(to: 1)
 
         let confirmed = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
@@ -349,6 +351,77 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queue.isEmpty)
         #expect(!self.playerService.queue.contains { $0.videoId == "stale-video" })
         #expect(self.playerService.nativeQueueMaintenanceTask == nil)
+    }
+
+    @Test("A materialized successor advances before native maintenance completes")
+    func materializedSuccessorDoesNotWaitForNativeMaintenance() async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 1, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], duration: 220, videoId: "v3"),
+        ]
+        mockClient.mixQueueContinuationGate = continuationGate
+        let previousWebVideoId = SingletonPlayerWebView.shared.currentVideoId
+        defer { SingletonPlayerWebView.shared.currentVideoId = previousWebVideoId }
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService[keyPath: \.mixContinuationToken] = "test-continuation"
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        _ = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
+        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.nativeQueueMaintenanceTask != nil)
+
+        let endedTask = Task { @MainActor in
+            await self.playerService.handleTrackEnded(observedVideoId: "v2")
+        }
+        await Self.waitUntilCurrentIndex(2, playerService: self.playerService)
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+
+        await continuationGate.open()
+        await endedTask.value
+    }
+
+    @Test("A successor inserted while waiting cancels the maintenance wait")
+    func insertedSuccessorUnblocksTrackEndMaintenanceWait() async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 1, videoId: "v2"),
+        ]
+        let successor = Song(id: "3", title: "Song 3", artists: [], duration: 220, videoId: "v3")
+        mockClient.mixQueueContinuationGate = continuationGate
+        let previousWebVideoId = SingletonPlayerWebView.shared.currentVideoId
+        defer { SingletonPlayerWebView.shared.currentVideoId = previousWebVideoId }
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService[keyPath: \.mixContinuationToken] = "test-continuation"
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        _ = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
+        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+
+        let endedTask = Task { @MainActor in
+            await self.playerService.handleTrackEnded(observedVideoId: "v2")
+        }
+        let maintenanceGeneration = self.playerService.nativeQueueMaintenanceGeneration
+        await Self.waitUntilNativeQueueMaintenanceWaiterIsRegistered(
+            generation: maintenanceGeneration,
+            playerService: self.playerService
+        )
+        #expect(self.playerService.nativeQueueMaintenanceWaiters[maintenanceGeneration]?.count == 1)
+
+        self.playerService.appendToQueue([successor])
+        await Self.waitUntilCurrentIndex(2, playerService: self.playerService)
+
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+        await continuationGate.open()
+        await endedTask.value
     }
 
     private static func waitUntilNativeQueueMaintenanceStarts(mockClient: MockYTMusicClient) async {
@@ -367,6 +440,31 @@ extension PlayerServiceWebQueueSyncTests {
         let deadline = clock.now + .seconds(1)
         while clock.now < deadline {
             if playerService.mixContinuationFetchWaiters.count == 1 {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private static func waitUntilCurrentIndex(_ index: Int, playerService: PlayerService) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if playerService.currentIndex == index {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private static func waitUntilNativeQueueMaintenanceWaiterIsRegistered(
+        generation: Int,
+        playerService: PlayerService
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if playerService.nativeQueueMaintenanceWaiters[generation]?.count == 1 {
                 return
             }
             try? await Task.sleep(for: .milliseconds(10))
