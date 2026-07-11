@@ -115,12 +115,7 @@ struct PlayerServiceWebQueueSyncTests {
         // YouTube can emit stale metadata for the previous video while Kaset's
         // manual navigation load is still in flight. Multiple stale frames must
         // not be allowed to realign the native queue back to the old song.
-        self.playerService.updateTrackMetadata(
-            title: "Song 1",
-            artist: "",
-            thumbnailUrl: "",
-            videoId: "v1"
-        )
+        let recoveryGeneration = self.playerService.queueNavigationRecoveryGeneration
         self.playerService.updateTrackMetadata(
             title: "Song 1",
             artist: "",
@@ -128,9 +123,19 @@ struct PlayerServiceWebQueueSyncTests {
             videoId: "v1"
         )
 
+        self.playerService.updateTrackMetadata(
+            title: "Song 1",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+
+        #expect(self.playerService.queueNavigationRecoveryVideoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryGeneration == recoveryGeneration + 1)
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
         #expect(self.playerService.pendingPlayVideoId == "v2")
+        self.playerService.clearQueueNavigationRecovery()
     }
 
     @Test("Stale metadata after manual next confirmation cannot realign backward")

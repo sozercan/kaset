@@ -684,6 +684,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// in-flight protection if WebView never confirms the requested video.
     var protectedQueueNavigationStartedAt: ContinuousClock.Instant?
 
+    /// Coalesces stale-metadata correction loads while the intended queue target
+    /// is still awaiting WebView confirmation.
+    var queueNavigationRecoveryGeneration: Int = 0
+    var queueNavigationRecoveryVideoId: String?
+    var queueNavigationRecoveryTask: Task<Void, Never>?
+
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     var videoWindowOpenedAt: ContinuousClock.Instant?
 

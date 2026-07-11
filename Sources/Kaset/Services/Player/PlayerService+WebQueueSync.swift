@@ -370,6 +370,7 @@ extension PlayerService {
     ) -> Bool {
         if self.clearExpiredQueueNavigationProtectionIfNeeded() {
             self.isKasetInitiatedPlayback = false
+            self.clearQueueNavigationRecovery()
         }
 
         guard self.isKasetInitiatedPlayback, !self.queue.isEmpty else {
@@ -378,6 +379,7 @@ extension PlayerService {
 
         guard let intendedSong = self.queue[safe: self.currentIndex] else {
             self.isKasetInitiatedPlayback = false
+            self.clearQueueNavigationRecovery()
             return false
         }
 
@@ -385,6 +387,7 @@ extension PlayerService {
         if matchesObservedVideo, self.shouldKeepQueueMetadata(title: title, artist: artist, song: intendedSong) {
             self.confirmQueueNavigationTarget(intendedSong.videoId)
             self.isKasetInitiatedPlayback = false
+            self.clearQueueNavigationRecovery()
             self.logger.debug(
                 "Confirmed intended videoId \(intendedSong.videoId) with incomplete metadata '\(title)'; keeping queue metadata"
             )
@@ -400,6 +403,7 @@ extension PlayerService {
         ) {
             self.confirmQueueNavigationTarget(intendedSong.videoId)
             self.isKasetInitiatedPlayback = false
+            self.clearQueueNavigationRecovery()
             self.logger.debug("Confirmed Kaset-initiated playback for '\(intendedSong.title)'")
             return false
         }
@@ -417,9 +421,7 @@ extension PlayerService {
         // for the previous/native queue item while our manual navigation load is
         // still in flight; dropping the guard here lets a later stale frame
         // realign `currentIndex` backward through `handleUnexpectedQueueDriftIfNeeded`.
-        Task {
-            await self.play(song: intendedSong, webLoadStrategy: .forceFullPageWhenSameVideoId)
-        }
+        self.scheduleQueueNavigationRecovery(for: intendedSong)
         return true
     }
 
@@ -767,15 +769,6 @@ extension PlayerService {
                 reason: "continuation produced no next queue entry"
             )
         }
-    }
-
-    func finishPlaybackAfterFailedQueueAdvance(reason: String) async {
-        self.mixContinuationToken = nil
-        self.mixContinuationRequiresAuth = false
-        self.shouldSuppressAutoplayAfterQueueEnd = true
-        self.markPlaybackEnded()
-        self.logger.info("Ending playback after failed queue advance: \(reason)")
-        await self.pause()
     }
 
     // swiftlint:enable cyclomatic_complexity

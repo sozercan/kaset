@@ -84,6 +84,7 @@ extension PlayerService {
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
+        self.clearQueueNavigationRecovery()
         self.clearWebQueueInjectionState()
         // An explicit Kaset load supersedes (rather than participates in) a
         // native queue advance. The native-only path never calls `play`.
@@ -131,11 +132,15 @@ extension PlayerService {
     func play(
         song: Song,
         webLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy,
-        episode: ArtistEpisode? = nil
+        episode: ArtistEpisode? = nil,
+        isQueueNavigationRecovery: Bool = false
     ) async {
         self.logger.info("Playing song: \(song.title)")
         self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
+        if !isQueueNavigationRecovery {
+            self.clearQueueNavigationRecovery()
+        }
         self.clearWebQueueInjectionState()
         // An explicit Kaset load supersedes (rather than participates in) a
         // native queue advance. `advanceQueueStateForNativeNavigation` does not
