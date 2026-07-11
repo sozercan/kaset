@@ -451,17 +451,19 @@ struct PlaylistDetailView: View {
                     Label("Go to Album", systemImage: "square.stack")
                 }
             }
+        }
 
-            if self.canRemoveTrack(track) {
+        if self.canRemoveTrack(track) {
+            if track.isPlayable {
                 Divider()
+            }
 
-                Button(role: .destructive) {
-                    Task {
-                        await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
-                    }
-                } label: {
-                    Label("Remove from Playlist", systemImage: "minus.circle")
+            Button(role: .destructive) {
+                Task {
+                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
                 }
+            } label: {
+                Label("Remove from Playlist", systemImage: "minus.circle")
             }
         }
     }
