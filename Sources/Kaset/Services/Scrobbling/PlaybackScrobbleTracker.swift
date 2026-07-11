@@ -51,13 +51,14 @@ struct PlaybackScrobbleTracker {
     /// Records a progress observation. Counts only small positive deltas that also fall within a
     /// small wall-clock window, so seeks and suspend/resume gaps can't inflate play time. Pausing
     /// (isPlaying == false) drops the wall-clock baseline so the paused span isn't counted on resume.
-    mutating func accumulate(progress: TimeInterval, isPlaying: Bool, now: Date) {
+    @discardableResult
+    mutating func accumulate(progress: TimeInterval, isPlaying: Bool, now: Date) -> TimeInterval {
         defer {
             self.lastProgress = progress
             self.lastProgressTime = isPlaying ? now : nil
         }
 
-        guard isPlaying, let lastTime = self.lastProgressTime else { return }
+        guard isPlaying, let lastTime = self.lastProgressTime else { return 0 }
 
         let wallClockDelta = now.timeIntervalSince(lastTime)
         let progressDelta = progress - self.lastProgress
@@ -65,23 +66,42 @@ struct PlaybackScrobbleTracker {
         // A normal playback tick advances ~1s or less; anything larger is a seek or a gap.
         if progressDelta > 0, progressDelta < 2.0, wallClockDelta < 2.0 {
             self.accumulatedPlayTime += progressDelta
+            return progressDelta
         }
+        return 0
     }
 
     /// Whether accumulated play time has reached the scrobble threshold for the given duration.
     /// Pure — the coordinator calls this each poll with the item's current best-known duration
     /// (which for whole tracks may only become available after playback starts).
     func meetsThreshold(duration: TimeInterval?, thresholds: Thresholds) -> Bool {
+        Self.meetsThreshold(
+            accumulatedPlayTime: self.accumulatedPlayTime,
+            duration: duration,
+            thresholds: thresholds
+        )
+    }
+
+    static func meetsThreshold(
+        accumulatedPlayTime: TimeInterval,
+        duration: TimeInterval?,
+        thresholds: Thresholds
+    ) -> Bool {
         let duration = duration ?? 0
 
         if duration <= 0 {
-            return thresholds.allowsUnknownDuration && self.accumulatedPlayTime >= thresholds.minSeconds
+            return thresholds.allowsUnknownDuration && accumulatedPlayTime >= thresholds.minSeconds
         }
 
         guard duration >= thresholds.minScrobbleDuration else { return false }
 
-        return self.accumulatedPlayTime >= duration * thresholds.percent
-            || self.accumulatedPlayTime >= thresholds.minSeconds
+        return accumulatedPlayTime >= duration * thresholds.percent
+            || accumulatedPlayTime >= thresholds.minSeconds
+    }
+
+    /// Adds already-verified playback (for example, samples captured while mix metadata loaded).
+    mutating func creditVerifiedPlayTime(_ duration: TimeInterval) {
+        self.accumulatedPlayTime += max(0, duration)
     }
 
     /// Latches the scrobbled flag once the coordinator has enqueued the scrobble.
@@ -89,16 +109,20 @@ struct PlaybackScrobbleTracker {
         self.hasScrobbled = true
     }
 
+    /// Clears a provisional latch after final duration data makes the earlier threshold invalid.
+    mutating func clearScrobbledLatch() {
+        self.hasScrobbled = false
+    }
+
     /// Latches the now-playing flag once the coordinator has sent the update.
     mutating func markNowPlayingSent() {
         self.hasSentNowPlaying = true
     }
 
-    /// Resets accumulation and both latches after a seek within the same item, so the threshold
-    /// clock restarts. Preserves `startTime` and `lastProgress`.
+    /// Resets accumulation after a seek within the same play, so skipped time cannot satisfy the
+    /// threshold. Preserves latches, `startTime`, and `lastProgress`; a confirmed replay must use
+    /// a fresh tracker so it receives a new timestamp and can scrobble independently.
     mutating func resetForSeek() {
         self.accumulatedPlayTime = 0
-        self.hasScrobbled = false
-        self.hasSentNowPlaying = false
     }
 }

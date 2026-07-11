@@ -141,7 +141,7 @@ struct PlaybackScrobbleTrackerTests {
         #expect(tracker.hasSentNowPlaying)
     }
 
-    @Test("resetForSeek clears accumulation and latches but preserves startTime and lastProgress")
+    @Test("resetForSeek clears accumulation but preserves latches, startTime, and lastProgress")
     func resetForSeek() {
         var tracker = self.makeTracker()
         tracker.accumulate(progress: 0, isPlaying: true, now: self.epoch)
@@ -151,8 +151,8 @@ struct PlaybackScrobbleTrackerTests {
 
         tracker.resetForSeek()
         #expect(tracker.accumulatedPlayTime == 0)
-        #expect(!tracker.hasScrobbled)
-        #expect(!tracker.hasSentNowPlaying)
+        #expect(tracker.hasScrobbled)
+        #expect(tracker.hasSentNowPlaying)
         #expect(tracker.startTime == self.epoch)
         #expect(tracker.lastProgress == 1)
     }

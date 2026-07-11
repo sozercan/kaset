@@ -662,7 +662,8 @@ final class SingletonPlayerWebView {
                 self.playerService.updatePlaybackState(
                     isPlaying: isPlaying,
                     progress: Double(progress),
-                    duration: Double(duration)
+                    duration: Double(duration),
+                    observedVideoId: observedVideoId
                 )
 
                 // Update video availability

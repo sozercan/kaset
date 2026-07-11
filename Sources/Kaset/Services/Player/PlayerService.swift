@@ -91,6 +91,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Total duration of current track in seconds.
     var duration: TimeInterval = 0
 
+    /// Video ID carried by the latest playback-state bridge update. This gives consumers
+    /// provenance for `progress`/`duration`, which can otherwise remain stale across track changes.
+    private(set) var playbackStateVideoId: String?
+
+    /// Monotonic identity for playback-state bridge observations. Consumers use this to distinguish
+    /// a fresh same-video sample from progress/duration left behind by an earlier metadata identity.
+    private(set) var playbackStateObservationSequence = 0
+
+    func setPlaybackStateVideoId(_ videoId: String?) {
+        self.playbackStateVideoId = videoId
+    }
+
+    func recordPlaybackStateObservation(videoId: String?) {
+        self.playbackStateObservationSequence &+= 1
+        self.playbackStateVideoId = videoId
+    }
+
     /// Current volume (0.0 - 1.0).
     var volume: Double = 1.0
 

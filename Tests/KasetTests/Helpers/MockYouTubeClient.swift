@@ -186,6 +186,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     private(set) var getWatchNextCallCount = 0
+    private(set) var getWatchNextCompletionCount = 0
     private(set) var requestedWatchNextVideoIds: [String] = []
 
     /// Awaited inside `getWatchNext` before it returns, so a test can hold one mix parse open
@@ -202,6 +203,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
             await beforeWatchNextReturn(videoId)
         }
         try Task.checkCancellation()
+        self.getWatchNextCompletionCount += 1
         return self.watchNextData
     }
 

@@ -52,7 +52,8 @@ final class MixTracklistParser {
             // Convert chapters to MixTrackEntry, computing endTime from the next chapter's startTime
             let entries = chapters.enumerated().map { index, chapter -> MixTrackEntry in
                 let endTime: TimeInterval? = if index + 1 < chapters.count {
-                    chapters[index + 1].startTime
+                    chapter.endTime.map { min($0, chapters[index + 1].startTime) }
+                        ?? chapters[index + 1].startTime
                 } else {
                     // The final chapter has no following start time, but macro-marker data may
                     // still carry its explicit bound. Keep it so short closing tracks can qualify

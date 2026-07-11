@@ -595,6 +595,7 @@ extension PlayerService {
         self.currentTrack = nil
         self.pendingPlayVideoId = nil
         self.progress = 0
+        self.setPlaybackStateVideoId(nil)
         self.currentLyricsLineIndex = nil
         self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
@@ -632,6 +633,7 @@ extension PlayerService {
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
+        self.setPlaybackStateVideoId(nil)
     }
 
     /// Show the AirPlay picker for selecting audio output devices.
