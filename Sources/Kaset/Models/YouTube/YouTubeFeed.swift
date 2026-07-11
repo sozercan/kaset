@@ -168,6 +168,8 @@ struct WatchNextData {
     let related: [YouTubeVideo]
     /// Navigation chapters for the current video, when YouTube exposes them.
     let chapters: [YouTubeChapter]
+    /// Plain-text video description, when the watch page exposes it.
+    let descriptionText: String?
     /// Whether the signed-in user is subscribed to the video's channel
     /// (nil when the page did not expose a subscribe button).
     var isSubscribed: Bool?
@@ -181,6 +183,7 @@ struct WatchNextData {
         channel: YouTubeChannel?,
         related: [YouTubeVideo],
         chapters: [YouTubeChapter] = [],
+        descriptionText: String? = nil,
         isSubscribed: Bool? = nil,
         commentsContinuation: String? = nil
     ) {
@@ -190,6 +193,7 @@ struct WatchNextData {
         self.channel = channel
         self.related = related
         self.chapters = chapters
+        self.descriptionText = descriptionText
         self.isSubscribed = isSubscribed
         self.commentsContinuation = commentsContinuation
     }

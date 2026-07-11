@@ -265,6 +265,52 @@ struct WatchNextParserTests {
         #expect(firstRelated.videoId == "pAMZjmDGFRQ")
         #expect(firstRelated.channelName == "Plingoro")
         #expect(firstRelated.lengthText == "17:10")
+
+        let description = try #require(watchNext.descriptionText)
+        #expect(description.hasPrefix("The official video for"))
+    }
+
+    @Test("Falls back to the engagement panel description when secondary info omits it")
+    func parsesEngagementPanelDescription() {
+        let watchNext = WatchNextParser.parse(Self.engagementPanelOnlyResponse())
+
+        #expect(watchNext.descriptionText == "Tracklist:\n00:00 A - One")
+    }
+
+    @Test("An empty secondary-info description still falls back to the engagement panel")
+    func emptySecondaryDescriptionFallsBackToPanel() {
+        var data = Self.engagementPanelOnlyResponse()
+        data["contents"] = ["twoColumnWatchNextResults": ["results": ["results": ["contents": [
+            ["videoSecondaryInfoRenderer": ["attributedDescription": ["content": ""]]],
+        ]]]]]
+
+        let watchNext = WatchNextParser.parse(data)
+
+        #expect(watchNext.descriptionText == "Tracklist:\n00:00 A - One")
+    }
+
+    private static func engagementPanelOnlyResponse() -> [String: Any] {
+        [
+            "engagementPanels": [
+                [
+                    "engagementPanelSectionListRenderer": [
+                        "content": [
+                            "structuredDescriptionContentRenderer": [
+                                "items": [
+                                    [
+                                        "expandableVideoDescriptionBodyRenderer": [
+                                            "attributedDescriptionBodyText": [
+                                                "content": "Tracklist:\n00:00 A - One",
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
     }
 
     @Test("Parses canonical chapters and merges macro-marker end bounds")
