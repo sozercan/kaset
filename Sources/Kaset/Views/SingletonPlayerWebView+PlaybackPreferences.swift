@@ -125,7 +125,7 @@ extension SingletonPlayerWebView {
         (function() {
             const observerEpoch = (window.performance && performance.timeOrigin)
                 ? performance.timeOrigin : Date.now();
-            const documentToken = Number(window.__kasetDocumentToken || 0);
+            const documentID = Number(window.__kasetDocumentID || 0);
             if (typeof window.__kasetUseNextPrev !== 'boolean') {
                 try {
                     window.__kasetUseNextPrev =
@@ -156,11 +156,11 @@ extension SingletonPlayerWebView {
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_NEXT', observerEpoch: observerEpoch, documentToken: documentToken });
+                                .postMessage({ type: 'REMOTE_NEXT', observerEpoch: observerEpoch, documentID: documentID });
                         });
                         ms.setActionHandler('previoustrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_PREVIOUS', observerEpoch: observerEpoch, documentToken: documentToken });
+                                .postMessage({ type: 'REMOTE_PREVIOUS', observerEpoch: observerEpoch, documentID: documentID });
                         });
                     });
                 } catch (e) {}

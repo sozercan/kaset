@@ -17,7 +17,7 @@ struct QueueEntry: Identifiable, Hashable {
 
 // MARK: - PendingNativeQueueAdvance
 
-struct PendingNativeQueueAdvance: Equatable, Sendable {
+struct PendingNativeQueueAdvance: Equatable {
     let sourceEntryID: UUID?
     let sourceVideoId: String
     let targetEntryID: UUID

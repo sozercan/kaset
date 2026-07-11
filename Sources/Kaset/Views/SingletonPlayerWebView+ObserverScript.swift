@@ -38,7 +38,7 @@ extension SingletonPlayerWebView {
             const bridge = window.webkit.messageHandlers.singletonPlayer;
             const observerEpoch = (window.performance && performance.timeOrigin)
                 ? performance.timeOrigin : Date.now();
-            const documentToken = Number(window.__kasetDocumentToken || 0);
+            const documentID = Number(window.__kasetDocumentID || 0);
             \(autoplayRecoveryFunctionJS)
             \(mediaIdentityBindingDecisionFunctionJS)
             let lastTitle = '';
@@ -141,7 +141,7 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentToken: documentToken,
+                            documentID: documentID,
                             isConnected: isWireless,
                             wasConnected: wasConnected,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -155,7 +155,7 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentToken: documentToken,
+                            documentID: documentID,
                             isConnected: true,
                             wasConnected: false,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -165,7 +165,7 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentToken: documentToken,
+                            documentID: documentID,
                             isConnected: false,
                             wasConnected: true,
                             wasRequested: true
@@ -349,7 +349,7 @@ extension SingletonPlayerWebView {
                 bridge.postMessage({
                     type: 'LYRICS_LINE',
                     observerEpoch: observerEpoch,
-                            documentToken: documentToken,
+                            documentID: documentID,
                     lineIndex: bucket.lineIndex,
                     bucket: bucket.bucket,
                     timeMs: timeMs
@@ -458,22 +458,15 @@ extension SingletonPlayerWebView {
             }
 
             function sendTrackEnded() {
-                const logicalVideoId = currentVideoId();
-                let endedVideoId = mediaVideoId || lastVideoId || logicalVideoId;
-                if (mediaIdentityUncertain) {
-                    if (logicalVideoId
-                        && logicalVideoId !== mediaIdentityTransitionFromVideoId) {
-                        endedVideoId = logicalVideoId;
-                    } else if (lastVideoId
-                        && lastVideoId !== mediaIdentityTransitionFromVideoId) {
-                        endedVideoId = lastVideoId;
-                    }
-                }
+                const endedVideoId = mediaIdentityUncertain
+                    ? '' : (mediaVideoId || lastVideoId || currentVideoId());
                 bridge.postMessage({
                     type: 'TRACK_ENDED',
                     observerEpoch: observerEpoch,
-                            documentToken: documentToken,
-                    videoId: endedVideoId
+                    documentID: documentID,
+                    videoId: endedVideoId,
+                    mediaGeneration: mediaGeneration,
+                    mediaIdentityUncertain: mediaIdentityUncertain
                 });
             }
 
@@ -618,7 +611,7 @@ extension SingletonPlayerWebView {
                         mediaVideoId: mediaVideoId,
                         mediaGeneration: mediaGeneration,
                         observerEpoch: observerEpoch,
-                            documentToken: documentToken,
+                            documentID: documentID,
                         thumbnailUrl: thumbnailUrl,
                         trackChanged: trackChanged,
                         likeStatus: likeStatus,

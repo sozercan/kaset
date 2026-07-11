@@ -72,7 +72,7 @@ extension SingletonPlayerWebView {
             const bridge = window.webkit && window.webkit.messageHandlers
                 && window.webkit.messageHandlers.singletonPlayer;
             const injectionAttemptId = \(attemptGeneration);
-            const documentToken = Number(window.__kasetDocumentToken || 0);
+            const documentID = Number(window.__kasetDocumentID || 0);
             const startedAt = Date.now();
             let menuObserver = null;
             let menuWaitTimerId = null;
@@ -128,7 +128,7 @@ extension SingletonPlayerWebView {
                             type: 'QUEUE_INJECTION_RESULT',
                             videoId: reportedVideoId || targetVideoId,
                             attemptGeneration: injectionAttemptId,
-                            documentToken: documentToken,
+                            documentID: documentID,
                             success: !!success,
                             reason: reason || ''
                         });

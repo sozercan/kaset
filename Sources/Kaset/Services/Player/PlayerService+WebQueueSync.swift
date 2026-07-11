@@ -336,6 +336,7 @@ extension PlayerService {
 
     private func keepQueueSongVisible(_ song: Song, thumbnailUrl: String) {
         let intendedThumbnailURL = URL(string: thumbnailUrl) ?? song.thumbnailURL
+        let fb = song.feedbackTokens
         self.currentTrack = Song(
             id: song.id,
             title: song.title,
@@ -348,7 +349,7 @@ extension PlayerService {
             musicVideoType: song.musicVideoType,
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
-            feedbackTokens: song.feedbackTokens
+            feedbackTokens: fb
         )
     }
 
@@ -673,6 +674,7 @@ extension PlayerService {
     /// Handles a natural track completion reported directly by the WebView.
     func handleTrackEnded(observedVideoId: String?) async {
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
+        await self.awaitNativeQueueMaintenanceIfNeeded()
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
             if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {

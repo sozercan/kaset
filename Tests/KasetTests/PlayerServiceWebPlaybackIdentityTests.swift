@@ -4,7 +4,7 @@ import Testing
 
 // MARK: - PlaybackMediaGenerationCase
 
-struct PlaybackMediaGenerationCase: Sendable {
+struct PlaybackMediaGenerationCase {
     let queueEntryChanged: Bool
     let epoch: Double
     let lastEpoch: Double?

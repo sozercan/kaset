@@ -8,6 +8,8 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
+    typealias TrackFB = FeedbackTokens
+
     /// Shared instance for AppleScript access.
     ///
     /// **Safety Invariant:** This property is set exactly once during app initialization
@@ -187,6 +189,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var pendingNativeQueueAdvance: PendingNativeQueueAdvance?
 
     var pendingNativeQueueAdvanceGeneration: Int = 0
+    var nativeQueueMaintenanceGeneration: Int = 0
+    var nativeQueueMaintenanceTask: Task<Void, Never>?
 
     var pendingNativeQueueAdvanceVideoId: String? {
         self.pendingNativeQueueAdvance?.targetVideoId
@@ -228,7 +232,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var currentTrackInLibrary: Bool = false
 
     /// Feedback tokens for the current track (used for library add/remove).
-    var currentTrackFeedbackTokens: FeedbackTokens?
+    var currentTrackFeedbackTokens: TrackFB?
 
     /// Whether the lyrics panel is visible.
     var showLyrics: Bool = false {

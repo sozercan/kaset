@@ -308,8 +308,8 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
     private var loadGeneration = 0
-    private var documentTokenGeneration = 0
-    var pendingDocumentToken: Int?
+    private var documentIDGeneration = 0
+    var pendingDocumentID: Int?
     var activeDocumentNavigation: WKNavigation?
     var isDocumentNavigationInProgress = false
 
@@ -467,7 +467,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         guard let webView else { return }
         self.logger.info("Tearing down singleton music WebView")
         self.loadGeneration += 1
-        self.pendingDocumentToken = nil
+        self.pendingDocumentID = nil
         self.activeDocumentNavigation = nil
         self.isDocumentNavigationInProgress = false
         self.currentVideoId = nil
@@ -644,7 +644,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
     nonisolated static func pageBootstrapScript(
         shouldBlockAutoplay: Bool,
         targetVolume: Double,
-        documentToken: Int = 0
+        documentID: Int = 0
     ) -> String {
         let clampedVolume = if targetVolume.isFinite {
             min(max(targetVolume, 0), 1)
@@ -655,7 +655,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         return """
             \(Self.autoplayIntentScript(shouldBlockAutoplay: shouldBlockAutoplay))
             window.__kasetTargetVolume = \(clampedVolume);
-            window.__kasetDocumentToken = \(documentToken);
+            window.__kasetDocumentID = \(documentID);
         """
     }
 
@@ -665,9 +665,9 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         targetVolume: Double
     ) {
         contentController.removeAllUserScripts()
-        self.documentTokenGeneration &+= 1
-        let documentToken = self.documentTokenGeneration
-        self.pendingDocumentToken = documentToken
+        self.documentIDGeneration &+= 1
+        let documentID = self.documentIDGeneration
+        self.pendingDocumentID = documentID
 
         // Autoplay intent must exist before media lifecycle events like `canplay`.
         // `didFinish` is too late on fast or cached player loads.
@@ -675,7 +675,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             source: Self.pageBootstrapScript(
                 shouldBlockAutoplay: shouldBlockAutoplay,
                 targetVolume: targetVolume,
-                documentToken: documentToken
+                documentID: documentID
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -747,7 +747,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         private var lastAcceptedQueueEntryID: UUID?
         private var hasAcceptedQueueEntryBaseline = false
         private var documentGeneration = 0
-        private var activeDocumentToken: Int?
+        private var activeDocumentID: Int?
         private var playbackBridgeTask: Task<Void, Never>?
 
         init(playerService: PlayerService) {
@@ -762,8 +762,8 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             else { return }
 
             if Self.isDocumentScopedMessage(type) {
-                guard let activeDocumentToken = self.activeDocumentToken,
-                      body["documentToken"] as? Int == activeDocumentToken
+                guard let activeDocumentID = self.activeDocumentID,
+                      body["documentID"] as? Int == activeDocumentID
                 else {
                     return
                 }
@@ -774,18 +774,17 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
 
             switch type {
             case "TRACK_ENDED":
+                guard (body["mediaIdentityUncertain"] as? Bool) != true else { return }
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
                     await coordinator.playerService.handleTrackEnded(observedVideoId: observedVideoId)
                 }
             case "REMOTE_NEXT":
-                Task { @MainActor in
-                    guard self.isCurrentDocument(messageGeneration) else { return }
-                    await self.playerService.next()
+                self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
+                    await coordinator.playerService.next()
                 }
             case "REMOTE_PREVIOUS":
-                Task { @MainActor in
-                    guard self.isCurrentDocument(messageGeneration) else { return }
-                    await self.playerService.previous()
+                self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
+                    await coordinator.playerService.previous()
                 }
             case "AIRPLAY_STATUS":
                 self.handleAirPlayStatusUpdate(body: body, messageGeneration: messageGeneration)
@@ -794,11 +793,12 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             case "PLAYBACK_AUDIO_QUALITY_STATS":
                 Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
             case "QUEUE_INJECTION_RESULT":
-                self.handleQueueInjectionResult(
-                    body: body,
-                    observedVideoId: observedVideoId,
-                    messageGeneration: messageGeneration
-                )
+                self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
+                    coordinator.handleQueueInjectionResult(
+                        body: body,
+                        observedVideoId: observedVideoId
+                    )
+                }
             case "STATE_UPDATE":
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
                     await coordinator.handleStateUpdate(
@@ -878,23 +878,19 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
 
         private func handleQueueInjectionResult(
             body: [String: Any],
-            observedVideoId: String?,
-            messageGeneration: Int
+            observedVideoId: String?
         ) {
             guard let observedVideoId else { return }
             let success = body["success"] as? Bool ?? false
             let reason = body["reason"] as? String
             guard let attemptGeneration = body["attemptGeneration"] as? Int else { return }
 
-            Task { @MainActor in
-                guard self.isCurrentDocument(messageGeneration) else { return }
-                self.playerService.handleWebQueueInjectionResult(
-                    videoId: observedVideoId,
-                    attemptGeneration: attemptGeneration,
-                    success: success,
-                    reason: reason
-                )
-            }
+            self.playerService.handleWebQueueInjectionResult(
+                videoId: observedVideoId,
+                attemptGeneration: attemptGeneration,
+                success: success,
+                reason: reason
+            )
         }
 
         private static let allowedAudioQualityStatsKeys: Set<String> = [
@@ -1122,7 +1118,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             }
             self.playbackBridgeTask?.cancel()
             self.playbackBridgeTask = nil
-            self.activeDocumentToken = SingletonPlayerWebView.shared.pendingDocumentToken
+            self.activeDocumentID = SingletonPlayerWebView.shared.pendingDocumentID
             self.documentGeneration &+= 1
         }
 

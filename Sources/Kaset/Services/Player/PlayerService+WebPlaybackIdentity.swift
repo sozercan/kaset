@@ -31,10 +31,6 @@ extension PlayerService {
         let authoritativeVideoId = normalizedMediaVideoId
         let expectedVideoId = self.expectedPlaybackVideoId
         let videoIdMismatch = authoritativeVideoId.map { $0 != expectedVideoId } ?? false
-        let titleMismatchWithoutVideoId = self.repeatMode == .one
-            && authoritativeVideoId == nil
-            && !title.isEmpty
-            && title != self.currentTrack?.title
         let hasObservedMetadata = authoritativeVideoId != nil || !title.isEmpty
         let thumbnailMetadataChanged = !thumbnailUrl.isEmpty
             && thumbnailUrl != self.currentTrack?.thumbnailURL?.absoluteString
@@ -48,7 +44,6 @@ extension PlayerService {
         let shouldReconcileMetadata = identitiesCoherent
             && (bridgeTrackChanged
                 || videoIdMismatch
-                || titleMismatchWithoutVideoId
                 || textualMetadataChanged)
         if hasObservedMetadata, videoIdMismatch || shouldReconcileMetadata {
             self.updateTrackMetadata(
@@ -156,6 +151,7 @@ extension PlayerService {
     func clearPendingNativeQueueAdvance() {
         self.pendingNativeQueueAdvanceGeneration &+= 1
         self.pendingNativeQueueAdvance = nil
+        self.clearNativeQueueMaintenance()
     }
 
     @discardableResult
@@ -174,9 +170,7 @@ extension PlayerService {
         SingletonPlayerWebView.shared.currentVideoId = videoId
         self.logger.info("Confirmed native queue advance to \(videoId)")
 
-        await self.fetchMoreMixSongsIfNeeded()
-        await self.fillSmartShuffleWindow()
-        self.saveQueueForPersistence(syncWebQueue: false)
+        self.scheduleNativeQueueMaintenance()
         return true
     }
 
@@ -244,6 +238,38 @@ extension PlayerService {
             at: targetIndex,
             webLoadStrategy: .forceFullPageWhenSameVideoId
         )
+    }
+
+    func awaitNativeQueueMaintenanceIfNeeded() async {
+        let task = self.nativeQueueMaintenanceTask
+        await task?.value
+    }
+
+    private func scheduleNativeQueueMaintenance() {
+        self.nativeQueueMaintenanceGeneration &+= 1
+        let generation = self.nativeQueueMaintenanceGeneration
+        self.nativeQueueMaintenanceTask?.cancel()
+        self.nativeQueueMaintenanceTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.fetchMoreMixSongsIfNeeded()
+            guard !Task.isCancelled,
+                  self.nativeQueueMaintenanceGeneration == generation
+            else { return }
+            await self.fillSmartShuffleWindow()
+            guard !Task.isCancelled,
+                  self.nativeQueueMaintenanceGeneration == generation
+            else { return }
+            self.saveQueueForPersistence(syncWebQueue: false)
+            if self.nativeQueueMaintenanceGeneration == generation {
+                self.nativeQueueMaintenanceTask = nil
+            }
+        }
+    }
+
+    private func clearNativeQueueMaintenance() {
+        self.nativeQueueMaintenanceGeneration &+= 1
+        self.nativeQueueMaintenanceTask?.cancel()
+        self.nativeQueueMaintenanceTask = nil
     }
 
     private func normalizedWebPlaybackVideoId(_ videoId: String?) -> String? {
