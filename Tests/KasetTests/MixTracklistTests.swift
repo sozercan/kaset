@@ -99,6 +99,74 @@ struct MixTracklistTests {
         #expect(tracklist?.entries.last?.duration == 90)
     }
 
+    @MainActor
+    @Test("Chapter parser caches non-mix results until invalidated")
+    func cachesNoTracklistResult() async {
+        let chapters = ["Setup", "Demo", "Questions"].enumerated().map { index, title in
+            YouTubeChapter(
+                videoId: "regular",
+                title: title,
+                startTime: TimeInterval(index) * 60,
+                endTime: TimeInterval(index + 1) * 60,
+                timeText: nil,
+                thumbnailURL: nil
+            )
+        }
+        let mockYouTube = MockYouTubeClient()
+        mockYouTube.watchNextData = WatchNextData(
+            videoTitle: "Regular Video",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            chapters: chapters
+        )
+        let parser = MixTracklistParser(youTubeClient: mockYouTube)
+
+        let first = await parser.parseTracklist(videoId: "regular")
+        let second = await parser.parseTracklist(videoId: "regular")
+        #expect(first == nil)
+        #expect(second == nil)
+        #expect(mockYouTube.getWatchNextCallCount == 1)
+
+        parser.invalidate(videoId: "regular")
+        _ = await parser.parseTracklist(videoId: "regular")
+        #expect(mockYouTube.getWatchNextCallCount == 2)
+
+        parser.invalidateAll()
+        _ = await parser.parseTracklist(videoId: "regular")
+        #expect(mockYouTube.getWatchNextCallCount == 3)
+    }
+
+    @MainActor
+    @Test("Chapter parser does not cache transient request failures")
+    func transientFailureRemainsRetryable() async {
+        let mockYouTube = MockYouTubeClient()
+        mockYouTube.error = URLError(.timedOut)
+        let parser = MixTracklistParser(youTubeClient: mockYouTube)
+
+        let first = await parser.parseTracklist(videoId: "mix")
+        #expect(first == nil)
+
+        mockYouTube.error = nil
+        mockYouTube.watchNextData = WatchNextData(
+            videoTitle: "Mix",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            chapters: [
+                YouTubeChapter(videoId: "mix", title: "A - One", startTime: 0, endTime: 60, timeText: nil, thumbnailURL: nil),
+                YouTubeChapter(videoId: "mix", title: "B - Two", startTime: 60, endTime: 120, timeText: nil, thumbnailURL: nil),
+                YouTubeChapter(videoId: "mix", title: "C - Three", startTime: 120, endTime: 180, timeText: nil, thumbnailURL: nil),
+            ]
+        )
+
+        let retried = await parser.parseTracklist(videoId: "mix")
+        #expect(retried?.entries.count == 3)
+        #expect(mockYouTube.getWatchNextCallCount == 2)
+    }
+
     // MARK: - isMix Threshold
 
     @Test("Three or more entries is a mix; fewer is not")

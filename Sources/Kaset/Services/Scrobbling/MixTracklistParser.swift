@@ -12,8 +12,19 @@ import os
 /// return chapter data (confirmed via API exploration, 2026-07-10).
 @MainActor
 final class MixTracklistParser {
+    private enum CacheEntry {
+        case tracklist(MixTracklist)
+        case noTracklist
+    }
+
+    private enum ChapterParseResult {
+        case tracklist(MixTracklist)
+        case noTracklist
+        case failed
+    }
+
     private let youTubeClient: any YouTubeClientProtocol
-    private var cache: [String: MixTracklist] = [:]
+    private var cache: [String: CacheEntry] = [:]
     private let logger = DiagnosticsLogger.scrobbling
 
     init(youTubeClient: any YouTubeClientProtocol) {
@@ -24,14 +35,24 @@ final class MixTracklistParser {
     /// Results are cached by video ID for the lifetime of this parser instance.
     func parseTracklist(videoId: String) async -> MixTracklist? {
         if let cached = self.cache[videoId] {
-            return cached
+            return switch cached {
+            case let .tracklist(tracklist):
+                tracklist
+            case .noTracklist:
+                nil
+            }
         }
 
         // Tier 1: YouTube chapters via the regular YouTube next endpoint
-        if let tracklist = await self.parseFromChapters(videoId: videoId) {
-            self.cache[videoId] = tracklist
+        switch await self.parseFromChapters(videoId: videoId) {
+        case let .tracklist(tracklist):
+            self.cache[videoId] = .tracklist(tracklist)
             self.logger.info("Mix tracklist parsed from chapters: \(tracklist.entries.count) entries for \(videoId)")
             return tracklist
+        case .noTracklist:
+            self.cache[videoId] = .noTracklist
+        case .failed:
+            break
         }
 
         // Tier 2 (not yet implemented): description parsing. Would extract description text from
@@ -44,7 +65,7 @@ final class MixTracklistParser {
     // MARK: - Tier 1: Chapter Extraction
 
     /// Extract tracklist from YouTube chapters via `YouTubeClient.getWatchNext`.
-    private func parseFromChapters(videoId: String) async -> MixTracklist? {
+    private func parseFromChapters(videoId: String) async -> ChapterParseResult {
         do {
             let watchNextData = try await self.youTubeClient.getWatchNext(videoId: videoId)
             let chapters = watchNextData.chapters
@@ -70,11 +91,11 @@ final class MixTracklistParser {
 
             // A handful of chapters (intro/outro) isn't a real tracklist — MixTracklist.isMix decides.
             let tracklist = MixTracklist(videoId: videoId, entries: entries, source: .chapters)
-            guard tracklist.isMix else { return nil }
-            return tracklist
+            guard tracklist.isMix else { return .noTracklist }
+            return .tracklist(tracklist)
         } catch {
             self.logger.debug("Chapter extraction failed for \(videoId): \(error.localizedDescription)")
-            return nil
+            return .failed
         }
     }
 
