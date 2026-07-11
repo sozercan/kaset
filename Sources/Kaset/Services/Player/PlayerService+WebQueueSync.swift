@@ -756,7 +756,20 @@ extension PlayerService {
 
         self.logger.info("Track ended in WebView, advancing native queue immediately")
         guard shouldContinue() else { return }
+        let previousEntryID = self.currentQueueEntryID
+        let previousIndex = self.currentIndex
         await self.next()
+        guard shouldContinue() else { return }
+        if self.currentQueueEntryID == previousEntryID,
+           self.currentIndex == previousIndex
+        {
+            self.mixContinuationToken = nil
+            self.mixContinuationRequiresAuth = false
+            self.shouldSuppressAutoplayAfterQueueEnd = true
+            self.markPlaybackEnded()
+            self.logger.info("Continuation produced no next queue entry; ending playback")
+            await self.pause()
+        }
     }
 
     // swiftlint:enable cyclomatic_complexity

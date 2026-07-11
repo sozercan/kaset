@@ -33,6 +33,24 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
     }
 
+    @Test("Empty mix continuation ends playback at the queue boundary")
+    func emptyMixContinuationEndsPlayback() async {
+        let mockClient = MockYTMusicClient()
+        mockClient.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.playerService.setYTMusicClient(mockClient)
+        let song = TestFixtures.makeSong(id: "last-song")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.mixContinuationToken = "empty-continuation"
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: song.videoId)
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
     @Test("Radio queue replacement preserves the current playback occurrence ID")
     func radioQueueReplacementPreservesCurrentEntryID() async {
         let seed = Song(id: "seed", title: "Seed", artists: [], duration: 180, videoId: "seed-video")
