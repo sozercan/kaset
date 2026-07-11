@@ -3,6 +3,34 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Cancelled next discards a delayed radio queue response")
+    func cancelledNextDiscardsDelayedRadioQueue() async {
+        let mockClient = MockYTMusicClient()
+        let radioGate = AsyncGate()
+        let seed = TestFixtures.makeSong(id: "radio-seed", title: "Radio Seed")
+        mockClient.getRadioQueueGate = radioGate
+        mockClient.radioQueueSongs[seed.videoId] = [
+            seed,
+            TestFixtures.makeSong(id: "stale-radio", title: "Stale Radio"),
+        ]
+        self.playerService.setYTMusicClient(mockClient)
+        self.playerService.currentTrack = seed
+        self.playerService.pendingPlayVideoId = seed.videoId
+        self.playerService.state = .playing
+
+        let nextTask = Task { @MainActor in
+            await self.playerService.next()
+        }
+        await Self.waitUntilRadioQueueStarts(mockClient: mockClient)
+        #expect(mockClient.getRadioQueueCalled)
+        nextTask.cancel()
+        await radioGate.open()
+        await nextTask.value
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+    }
+
     @Test("Plain shuffle exposes the next materialized queue entry for native injection")
     func plainShuffleHasDeterministicNextEntry() async {
         await self.playerService.playQueue(TestFixtures.makeSongs(count: 4), startingAt: 0)
@@ -17,6 +45,17 @@ extension PlayerServiceWebQueueSyncTests {
         self.playerService.setShuffleMode(.smart)
 
         #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
+    }
+
+    private static func waitUntilRadioQueueStarts(mockClient: MockYTMusicClient) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if mockClient.getRadioQueueCalled {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     @Test("Materialized shuffle ends at its last entry when repeat is off")

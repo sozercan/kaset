@@ -238,8 +238,10 @@ extension PlayerService {
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
-            guard requestGeneration == self.playbackRequestGeneration else {
-                self.logger.info("Discarding stale radio queue after privacy boundary")
+            guard !Task.isCancelled,
+                  requestGeneration == self.playbackRequestGeneration
+            else {
+                self.logger.info("Discarding stale or cancelled radio queue")
                 return
             }
             guard !radioSongs.isEmpty else {
