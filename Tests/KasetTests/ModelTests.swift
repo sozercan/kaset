@@ -357,6 +357,59 @@ struct ModelTests {
         #expect(playlist == nil)
     }
 
+    // MARK: - SidebarPinnedItem Tests
+
+    @Test("SidebarPinnedItem rejects song drops for non-owned playlists")
+    func sidebarPinnedItemRejectsDropsForFollowedPlaylist() {
+        let playlist = Playlist(
+            id: "PL_followed",
+            title: "Followed Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 5,
+            canDelete: false
+        )
+
+        let item = SidebarPinnedItem.from(playlist)
+        #expect(!item.acceptsSongDrops)
+    }
+
+    @Test("SidebarPinnedItem accepts song drops for owned playlists")
+    func sidebarPinnedItemAcceptsDropsForOwnedPlaylist() {
+        let playlist = Playlist(
+            id: "PL_owned",
+            title: "My Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 5,
+            canDelete: true
+        )
+
+        let item = SidebarPinnedItem.from(playlist)
+        #expect(item.acceptsSongDrops)
+    }
+
+    @Test("SidebarPinnedItem accepts song drops for Liked Music regardless of canDelete")
+    func sidebarPinnedItemAcceptsDropsForLikedMusic() {
+        let item = SidebarPinnedItem.from(LikedMusicPlaylist.playlist)
+        #expect(item.acceptsSongDrops)
+    }
+
+    @Test("SidebarPinnedItem rejects song drops for albums")
+    func sidebarPinnedItemRejectsDropsForAlbum() {
+        let album = Album(
+            id: "OLAK5abc",
+            title: "Test Album",
+            artists: nil,
+            thumbnailURL: nil,
+            year: nil,
+            trackCount: 10
+        )
+
+        let item = SidebarPinnedItem.from(album)
+        #expect(!item.acceptsSongDrops)
+    }
+
     // MARK: - PlaylistDetail Tests
 
     @Test("Creates PlaylistDetail from Playlist")

@@ -227,11 +227,7 @@ struct Sidebar: View {
     }
 
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
-        let isPlaylist = if case .playlist = item.itemType {
-            true
-        } else {
-            false
-        }
+        let isDropEligible = item.acceptsSongDrops
         let isDropTargeted = self.dropTargetPlaylistId == item.contentId
         let showDropFeedback = self.dropFeedbackPlaylistId == item.contentId
 
@@ -239,16 +235,16 @@ struct Sidebar: View {
             title: item.title,
             systemImage: item.systemImage,
             isSelected: self.currentSidebarSelection == .pinned(item),
-            isDropTargeted: isPlaylist && isDropTargeted
+            isDropTargeted: isDropEligible && isDropTargeted
         ) {
             self.selectPinnedItem(item)
         }
         .overlay(alignment: .trailing) {
-            self.dropSuccessBadge(show: isPlaylist && showDropFeedback)
+            self.dropSuccessBadge(show: isDropEligible && showDropFeedback)
         }
         .animation(AppAnimation.bouncy, value: showDropFeedback)
         .dropDestination(for: Song.self) { droppedSongs, _ in
-            guard isPlaylist else { return false }
+            guard isDropEligible else { return false }
             self.handleDroppedSongs(
                 droppedSongs,
                 playlistId: item.contentId,
@@ -257,7 +253,7 @@ struct Sidebar: View {
             )
             return true
         } isTargeted: { targeted in
-            guard isPlaylist else { return }
+            guard isDropEligible else { return }
             self.updateDropTarget(key: item.contentId, targeted: targeted)
         }
         .contextMenu {
