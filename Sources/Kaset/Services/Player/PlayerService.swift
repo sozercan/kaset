@@ -702,6 +702,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// is still awaiting WebView confirmation.
     var queueNavigationRecoveryGeneration: Int = 0
     var queueNavigationRecoveryVideoId: String?
+    var queueNavigationRecoveryLoadTask: Task<Void, Never>?
     var queueNavigationRecoveryTask: Task<Void, Never>?
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
