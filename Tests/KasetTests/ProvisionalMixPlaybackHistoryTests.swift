@@ -139,7 +139,7 @@ struct ProvisionalMixPlaybackHistoryTests {
             thresholds: .init(percent: 0.5, minSeconds: 240)
         )
 
-        #expect(scrobbles.filter { $0.title == "One" }.count == 1)
+        #expect(scrobbles.count(where: { $0.title == "One" }) == 1)
     }
 
     @Test("A new near-start replay keeps its own provisional latch")
@@ -175,7 +175,7 @@ struct ProvisionalMixPlaybackHistoryTests {
             thresholds: .init(percent: 0.01, minSeconds: 240)
         )
 
-        #expect(scrobbles.filter { $0.title == "One" }.count == 2)
+        #expect(scrobbles.count(where: { $0.title == "One" }) == 2)
     }
 
     @Test("Discontinuity markers alone are not playback")

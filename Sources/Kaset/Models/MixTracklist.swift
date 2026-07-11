@@ -5,7 +5,7 @@ import Foundation
 /// A single sub-track within a long mix video (e.g., a DJ set or compilation).
 /// Each entry maps a time range within the video to an artist and title,
 /// enabling per-sub-track scrobbling instead of scrobbling the entire mix as one track.
-struct MixTrackEntry: Identifiable, Hashable, Sendable {
+struct MixTrackEntry: Identifiable, Hashable {
     let id: UUID
     /// Start time in seconds from the beginning of the video.
     let startTime: TimeInterval
@@ -19,7 +19,7 @@ struct MixTrackEntry: Identifiable, Hashable, Sendable {
     /// Where this entry was parsed from.
     let source: Source
 
-    enum Source: String, Hashable, Sendable {
+    enum Source: String, Hashable {
         case chapters
         case description
     }
@@ -87,7 +87,7 @@ struct MixTrackEntry: Identifiable, Hashable, Sendable {
 /// A parsed tracklist for a long mix video, containing sub-tracks with timestamps.
 /// Used by `ScrobblingCoordinator` to scrobble individual tracks within a mix
 /// instead of scrobbling the entire video as a single entry.
-struct MixTracklist: Hashable, Sendable {
+struct MixTracklist: Hashable {
     /// The YouTube video ID this tracklist belongs to.
     let videoId: String
     /// Sub-tracks sorted by start time.

@@ -22,7 +22,7 @@ extension ScrobblingCoordinator {
         case mix
     }
 
-    enum DeferredMixParseOutcome: Sendable {
+    enum DeferredMixParseOutcome {
         case parsed(MixTracklist?)
         case timedOut
     }
