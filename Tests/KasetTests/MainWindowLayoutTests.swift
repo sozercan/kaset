@@ -31,4 +31,11 @@ struct MainWindowLayoutTests {
         #expect(MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: MainWindowLayout.autosaveName))
         #expect(!MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: ""))
     }
+
+    @Test("Persistent player mounts for authenticated preload or guest playback")
+    func persistentPlayerMountingPolicy() {
+        #expect(MainWindow.shouldMountPersistentPlayer(isLoggedIn: true, pendingVideoId: nil))
+        #expect(MainWindow.shouldMountPersistentPlayer(isLoggedIn: false, pendingVideoId: "public-video"))
+        #expect(!MainWindow.shouldMountPersistentPlayer(isLoggedIn: false, pendingVideoId: nil))
+    }
 }

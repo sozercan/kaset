@@ -19,6 +19,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         static let commandBarTopPadding: CGFloat = 72
     }
 
+    static func shouldMountPersistentPlayer(isLoggedIn: Bool, pendingVideoId: String?) -> Bool {
+        isLoggedIn || pendingVideoId != nil
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -155,10 +159,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: Login check complete")
             }
 
-            // Persistent WebView - always present once logged in.
+            // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if self.authService.state.isLoggedIn {
+            if Self.shouldMountPersistentPlayer(
+                isLoggedIn: self.authService.state.isLoggedIn,
+                pendingVideoId: self.playerService.pendingPlayVideoId
+            ) {
                 PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
