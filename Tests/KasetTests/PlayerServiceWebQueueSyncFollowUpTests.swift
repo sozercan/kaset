@@ -3,6 +3,22 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Plain shuffle exposes the next materialized queue entry for native injection")
+    func plainShuffleHasDeterministicNextEntry() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 4), startingAt: 0)
+        self.playerService.setShuffleMode(.on)
+
+        #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
+    }
+
+    @Test("Smart shuffle exposes the next materialized queue entry for native injection")
+    func smartShuffleHasDeterministicNextEntry() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 4), startingAt: 0)
+        self.playerService.setShuffleMode(.smart)
+
+        #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
+    }
+
     @Test("Radio queue replacement preserves the current playback occurrence ID")
     func radioQueueReplacementPreservesCurrentEntryID() async {
         let seed = Song(id: "seed", title: "Seed", artists: [], duration: 180, videoId: "seed-video")

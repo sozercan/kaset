@@ -298,6 +298,12 @@ struct MiniPlayerWebView: NSViewRepresentable {
 /// - Observer script (SingletonPlayerWebView+ObserverScript.swift)
 @MainActor
 final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
+    private struct PendingRouterNavigation {
+        let videoId: String
+        let fallbackURL: URL
+        let generation: Int
+    }
+
     static let shared = SingletonPlayerWebView()
 
     private(set) var webView: WKWebView?
@@ -308,6 +314,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
     private var loadGeneration = 0
+    private var pendingRouterNavigation: PendingRouterNavigation?
     private var documentIDGeneration = 0
     var pendingDocumentID: Int?
     var activeDocumentNavigation: WKNavigation?
@@ -467,6 +474,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         guard let webView else { return }
         self.logger.info("Tearing down singleton music WebView")
         self.loadGeneration += 1
+        self.pendingRouterNavigation = nil
         self.pendingDocumentID = nil
         self.activeDocumentNavigation = nil
         self.isDocumentNavigationInProgress = false
@@ -544,6 +552,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         self.currentVideoId = videoId
         self.loadGeneration &+= 1
         let generation = self.loadGeneration
+        self.pendingRouterNavigation = nil
 
         // Get current volume from PlayerService via coordinator
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
@@ -600,6 +609,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
         let host = webView.url?.host ?? ""
         guard host == "music.youtube.com" || host == "www.music.youtube.com" else {
             self.logger.debug("Router unavailable (host: \(host, privacy: .public)); falling back to full load")
+            self.pendingRouterNavigation = nil
             webView.load(URLRequest(url: fallbackURL))
             return
         }
@@ -624,10 +634,59 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             let didNavigate = result as? Bool ?? false
             if didNavigate {
                 self.logger.info("Router navigation started for video: \(videoId)")
+                self.pendingRouterNavigation = PendingRouterNavigation(
+                    videoId: videoId,
+                    fallbackURL: fallbackURL,
+                    generation: generation
+                )
+                self.scheduleRouterNavigationFallback(
+                    videoId: videoId,
+                    fallbackURL: fallbackURL,
+                    generation: generation
+                )
             } else {
                 self.logger.info("Router navigation failed for video: \(videoId), using full load")
+                self.pendingRouterNavigation = nil
                 webView.load(URLRequest(url: fallbackURL))
             }
+        }
+    }
+
+    func confirmRouterNavigationIfNeeded(videoId: String?) {
+        guard let videoId,
+              let pendingRouterNavigation = self.pendingRouterNavigation,
+              pendingRouterNavigation.videoId == videoId,
+              pendingRouterNavigation.generation == self.loadGeneration
+        else {
+            return
+        }
+
+        self.pendingRouterNavigation = nil
+        self.logger.debug("Router navigation confirmed for video: \(videoId)")
+    }
+
+    private func scheduleRouterNavigationFallback(
+        videoId: String,
+        fallbackURL: URL,
+        generation: Int
+    ) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self,
+                  let pendingRouterNavigation = self.pendingRouterNavigation,
+                  pendingRouterNavigation.videoId == videoId,
+                  pendingRouterNavigation.fallbackURL == fallbackURL,
+                  pendingRouterNavigation.generation == generation,
+                  self.loadGeneration == generation,
+                  self.currentVideoId == videoId,
+                  let webView = self.webView
+            else {
+                return
+            }
+
+            self.pendingRouterNavigation = nil
+            self.logger.warning("Router navigation to \(videoId) was not media-confirmed; using full load")
+            webView.load(URLRequest(url: fallbackURL))
         }
     }
 
@@ -776,7 +835,12 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
             case "TRACK_ENDED":
                 guard (body["mediaIdentityUncertain"] as? Bool) != true else { return }
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
-                    await coordinator.playerService.handleTrackEnded(observedVideoId: observedVideoId)
+                    await coordinator.playerService.handleTrackEnded(
+                        observedVideoId: observedVideoId,
+                        shouldContinue: {
+                            !Task.isCancelled && coordinator.isCurrentDocument(messageGeneration)
+                        }
+                    )
                 }
             case "REMOTE_NEXT":
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
@@ -1247,6 +1311,7 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
 }
 
 private extension SingletonPlayerWebView.Coordinator {
+    // swiftlint:disable:next function_body_length
     private func handleStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
@@ -1274,6 +1339,8 @@ private extension SingletonPlayerWebView.Coordinator {
         ) else {
             return
         }
+
+        SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: mediaVideoId)
 
         let shouldContinuePendingAdvance = await self.playerService
             .reconcilePendingNativeQueueAdvanceObservation(videoId: mediaVideoId)

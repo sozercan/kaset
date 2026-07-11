@@ -3,6 +3,29 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Track-ended processing stops when its document generation is invalidated")
+    func staleTrackEndedGenerationStopsBeforeQueueMutation() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        var validationCount = 0
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            shouldContinue: {
+                validationCount += 1
+                return validationCount == 1
+            }
+        )
+
+        #expect(validationCount >= 2)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+    }
+
     @Test("Injected track end keeps the outgoing song visible until expected media confirmation")
     func injectedTrackEndWaitsForExpectedMediaConfirmation() async {
         let songs = [

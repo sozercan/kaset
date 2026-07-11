@@ -252,7 +252,6 @@ extension PlayerService {
         if self.repeatMode == .one {
             return self.currentIndex
         }
-        guard !self.shuffleEnabled else { return nil }
         if self.currentIndex < self.queue.count - 1 {
             return self.currentIndex + 1
         }
@@ -671,10 +670,16 @@ extension PlayerService {
         }
     }
 
+    // swiftlint:disable cyclomatic_complexity
     /// Handles a natural track completion reported directly by the WebView.
-    func handleTrackEnded(observedVideoId: String?) async {
+    func handleTrackEnded(
+        observedVideoId: String?,
+        shouldContinue: @MainActor () -> Bool = { true }
+    ) async {
+        guard shouldContinue() else { return }
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
         await self.awaitNativeQueueMaintenanceIfNeeded()
+        guard shouldContinue() else { return }
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
             if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {
@@ -760,8 +765,11 @@ extension PlayerService {
         }
 
         self.logger.info("Track ended in WebView, advancing native queue immediately")
+        guard shouldContinue() else { return }
         await self.next()
     }
+
+    // swiftlint:enable cyclomatic_complexity
 
     /// Updates track metadata and enforces Kaset's queue when YouTube tries to diverge.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {

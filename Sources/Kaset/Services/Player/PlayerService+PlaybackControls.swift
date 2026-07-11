@@ -389,7 +389,8 @@ extension PlayerService {
     }
 
     /// Skips to next track.
-    func next() async {
+    func next() async { // swiftlint:disable:this cyclomatic_complexity
+        guard !Task.isCancelled else { return }
         self.logger.debug("Skipping to next track")
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.setAutoplayBlocked(false)
@@ -403,6 +404,7 @@ extension PlayerService {
             } else if self.mixContinuationToken != nil {
                 let previousCount = self.queue.count
                 await self.fetchMoreMixSongsIfNeeded()
+                guard !Task.isCancelled else { return }
                 if self.queue.count > previousCount {
                     targetIndex = self.currentIndex + 1
                 }
@@ -411,8 +413,11 @@ extension PlayerService {
             guard let targetIndex else { return }
             self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
             await self.loadQueueSongForNavigation(at: targetIndex)
+            guard !Task.isCancelled else { return }
             await self.fetchMoreMixSongsIfNeeded()
+            guard !Task.isCancelled else { return }
             await self.fillSmartShuffleWindow()
+            guard !Task.isCancelled else { return }
             self.saveQueueForPersistence(syncWebQueue: false)
             return
         }
@@ -426,11 +431,15 @@ extension PlayerService {
 
         if let currentTrack = self.currentTrack {
             await self.fetchAndApplyRadioQueue(for: currentTrack.videoId)
+            guard !Task.isCancelled else { return }
             if self.queue.indices.contains(self.currentIndex + 1) {
                 self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
                 await self.loadQueueSongForNavigation(at: self.currentIndex + 1)
+                guard !Task.isCancelled else { return }
                 await self.fetchMoreMixSongsIfNeeded()
+                guard !Task.isCancelled else { return }
                 await self.fillSmartShuffleWindow()
+                guard !Task.isCancelled else { return }
                 self.saveQueueForPersistence(syncWebQueue: false)
             } else {
                 self.logger.debug("Ignoring next without a Kaset queue")

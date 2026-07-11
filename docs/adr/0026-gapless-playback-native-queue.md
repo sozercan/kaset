@@ -47,8 +47,8 @@ track into YouTube Music's native **Up Next** queue ahead of time.
 - Before dispatch, the menu endpoint's source video ID must still match Kaset's
   current queue song. The page preserves rendered queue-row occurrences, accepts an already aligned queue without clicking again, otherwise requires a
   post-click queue change, and reports success only when the expected target becomes
-  the actual next row (whether or not the current row is rendered). Stale, duplicate,
-  malformed, or unconfirmed clicks fail closed.
+  the row immediately after the rendered selected source row. If that current row is
+  absent, stale, duplicated, malformed, or otherwise unconfirmed, the attempt fails closed.
 - Swift tracks queue injection as two separate states:
   - `pendingWebQueueInjectionVideoId`: an injection attempt has started but the
     WebView has not confirmed it;
