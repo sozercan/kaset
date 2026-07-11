@@ -270,49 +270,6 @@ struct WatchNextParserTests {
         #expect(description.hasPrefix("The official video for"))
     }
 
-    @Test("Falls back to the engagement panel description when secondary info omits it")
-    func parsesEngagementPanelDescription() {
-        let watchNext = WatchNextParser.parse(Self.engagementPanelOnlyResponse())
-
-        #expect(watchNext.descriptionText == "Tracklist:\n00:00 A - One")
-    }
-
-    @Test("An empty secondary-info description still falls back to the engagement panel")
-    func emptySecondaryDescriptionFallsBackToPanel() {
-        var data = Self.engagementPanelOnlyResponse()
-        data["contents"] = ["twoColumnWatchNextResults": ["results": ["results": ["contents": [
-            ["videoSecondaryInfoRenderer": ["attributedDescription": ["content": ""]]],
-        ]]]]]
-
-        let watchNext = WatchNextParser.parse(data)
-
-        #expect(watchNext.descriptionText == "Tracklist:\n00:00 A - One")
-    }
-
-    private static func engagementPanelOnlyResponse() -> [String: Any] {
-        [
-            "engagementPanels": [
-                [
-                    "engagementPanelSectionListRenderer": [
-                        "content": [
-                            "structuredDescriptionContentRenderer": [
-                                "items": [
-                                    [
-                                        "expandableVideoDescriptionBodyRenderer": [
-                                            "attributedDescriptionBodyText": [
-                                                "content": "Tracklist:\n00:00 A - One",
-                                            ],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ]
-    }
-
     @Test("Parses canonical chapters and merges macro-marker end bounds")
     func parsesPlayerOverlayChapters() throws {
         let watchNext = WatchNextParser.parse(Self.chapterRendererResponse())
@@ -358,6 +315,49 @@ struct WatchNextParserTests {
         let chapters = WatchNextParser.chapters(of: Self.heatmapOnlyResponse())
 
         #expect(chapters.isEmpty)
+    }
+
+    @Test("Parses the structured watch-page description")
+    func parsesDescriptionText() {
+        let description = "00:00 - Artist A - Track One\n03:15 - Artist B - Track Two"
+        let parsed = WatchNextParser.parse(Self.descriptionResponse(description))
+
+        #expect(parsed.descriptionText == description)
+    }
+
+    @Test("Falls back to the secondary-info description")
+    func parsesSecondaryInfoDescription() {
+        let parsed = WatchNextParser.parse(Self.secondaryInfoDescriptionResponse("Secondary description"))
+
+        #expect(parsed.descriptionText == "Secondary description")
+    }
+
+    @Test("Prefers the structured description over secondary info")
+    func structuredDescriptionTakesPriority() {
+        var response = Self.descriptionResponse("Structured description")
+        response["contents"] = Self.secondaryInfoDescriptionResponse("Secondary description")["contents"]
+
+        let parsed = WatchNextParser.parse(response)
+
+        #expect(parsed.descriptionText == "Structured description")
+    }
+
+    @Test("Parses the runs-based watch-page description")
+    func parsesRunsDescriptionText() {
+        let parsed = WatchNextParser.parse([
+            "engagementPanels": [
+                [
+                    "descriptionBodyText": [
+                        "runs": [
+                            ["text": "00:00 Artist A - Track One\n"],
+                            ["text": "03:00 Artist B - Track Two"],
+                        ],
+                    ],
+                ],
+            ],
+        ])
+
+        #expect(parsed.descriptionText == "00:00 Artist A - Track One\n03:00 Artist B - Track Two")
     }
 
     private static func chapterRendererResponse() -> [String: Any] {
@@ -443,6 +443,48 @@ struct WatchNextParserTests {
                                         "markerType": "MARKER_TYPE_HEATMAP",
                                         "markers": [
                                             ["startMillis": "0", "durationMillis": "1000", "intensityScoreNormalized": 1],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func secondaryInfoDescriptionResponse(_ description: String) -> [String: Any] {
+        [
+            "contents": [
+                "twoColumnWatchNextResults": [
+                    "results": [
+                        "results": [
+                            "contents": [
+                                [
+                                    "videoSecondaryInfoRenderer": [
+                                        "attributedDescription": ["content": description],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func descriptionResponse(_ description: String) -> [String: Any] {
+        [
+            "engagementPanels": [
+                [
+                    "engagementPanelSectionListRenderer": [
+                        "content": [
+                            "structuredDescriptionContentRenderer": [
+                                "items": [
+                                    [
+                                        "expandableVideoDescriptionBodyRenderer": [
+                                            "attributedDescriptionBodyText": ["content": description],
                                         ],
                                     ],
                                 ],

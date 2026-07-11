@@ -13,7 +13,7 @@ enum WatchNextParser {
         var publishedText: String?
         var channel: YouTubeChannel?
         var isSubscribed: Bool?
-        var descriptionText: String?
+        var secondaryDescriptionText: String?
 
         let primaryContents = (
             (results?["results"] as? [String: Any])?["results"] as? [String: Any]
@@ -30,9 +30,9 @@ enum WatchNextParser {
 
             if let secondaryInfo = content["videoSecondaryInfoRenderer"] as? [String: Any] {
                 if let content = (secondaryInfo["attributedDescription"] as? [String: Any])?["content"]
-                    as? String, !content.isEmpty
+                    as? String, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 {
-                    descriptionText = content
+                    secondaryDescriptionText = content
                 }
                 if let owner = (secondaryInfo["owner"] as? [String: Any])?["videoOwnerRenderer"]
                     as? [String: Any]
@@ -67,7 +67,7 @@ enum WatchNextParser {
             channel: channel,
             related: YouTubeFeedParser.deduplicate(related),
             chapters: chapters,
-            descriptionText: descriptionText ?? Self.engagementPanelDescription(of: data),
+            descriptionText: Self.descriptionText(of: data) ?? secondaryDescriptionText,
             isSubscribed: isSubscribed,
             commentsContinuation: Self.commentsContinuation(of: data)
         )
@@ -95,37 +95,10 @@ enum WatchNextParser {
         return self.mergingEndTimes(in: canonical, from: deduplicatedMacroMarkers)
     }
 
-    /// Description text from the structured-description engagement panel.
-    /// Guest watch-next responses carry the same text in both
-    /// `videoSecondaryInfoRenderer.attributedDescription` and this panel
-    /// (confirmed via API exploration, 2026-07-11); the panel is the fallback
-    /// for layouts that omit the secondary-info copy.
-    static func engagementPanelDescription(of data: [String: Any]) -> String? {
+    /// Full watch-page description carried by the structured-description engagement panel.
+    static func descriptionText(of data: [String: Any]) -> String? {
         guard let panels = data["engagementPanels"] as? [Any] else { return nil }
-        return self.findDescriptionBodyContent(in: panels)
-    }
-
-    private static func findDescriptionBodyContent(in value: Any) -> String? {
-        if let dict = value as? [String: Any] {
-            if let body = dict["expandableVideoDescriptionBodyRenderer"] as? [String: Any],
-               let text = body["attributedDescriptionBodyText"] as? [String: Any],
-               let content = text["content"] as? String
-            {
-                return content
-            }
-            for nested in dict.values {
-                if let content = Self.findDescriptionBodyContent(in: nested) {
-                    return content
-                }
-            }
-        } else if let array = value as? [Any] {
-            for element in array {
-                if let content = Self.findDescriptionBodyContent(in: element) {
-                    return content
-                }
-            }
-        }
-        return nil
+        return self.findDescriptionText(in: panels)
     }
 
     /// The continuation token for the watch page's comments section
@@ -150,6 +123,35 @@ enum WatchNextParser {
             for element in array {
                 if let token = Self.findCommentsSectionToken(in: element) {
                     return token
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func findDescriptionText(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            if let attributed = dict["attributedDescriptionBodyText"] as? [String: Any],
+               let content = attributed["content"] as? String,
+               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                return content
+            }
+            if let descriptionBody = dict["descriptionBodyText"] as? [String: Any],
+               let content = YouTubeItemParser.text(from: descriptionBody),
+               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                return content
+            }
+            for nested in dict.values {
+                if let description = self.findDescriptionText(in: nested) {
+                    return description
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let description = self.findDescriptionText(in: element) {
+                    return description
                 }
             }
         }

@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - MixTracklistTests
+
 @Suite(.tags(.model))
 struct MixTracklistTests {
     // MARK: - Artist/Title Parsing
@@ -166,207 +168,12 @@ struct MixTracklistTests {
         #expect(retried?.entries.count == 3)
         #expect(mockYouTube.getWatchNextCallCount == 2)
     }
+}
 
-    // MARK: - Description Timestamp Parsing
+// MARK: - MixTracklistModelBehaviorTests
 
-    @MainActor
-    @Test("Description tracklist lines parse into chained entries")
-    func descriptionEntriesParseTracklist() {
-        let description = """
-        Enjoy the vibes everyone!
-
-        Tracklist:
-        00:00 511Lazuli - Doors
-        01:10 ALISON - Subtract
-        06:15 Decisive Koala - Release
-
-        A mix of the best chillwave.
-        """
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.count == 3)
-        #expect(entries[0].artist == "511Lazuli")
-        #expect(entries[0].title == "Doors")
-        #expect(entries[0].startTime == 0)
-        #expect(entries[0].endTime == 70)
-        #expect(entries[1].endTime == 375)
-        #expect(entries[2].startTime == 375)
-        #expect(entries[2].endTime == nil)
-        #expect(entries.allSatisfy { $0.source == .description })
-    }
-
-    @MainActor
-    @Test("Description timestamp formats are recognized", arguments: [
-        "0:00 A - One\n1:02:03 B - Two\n2:00:00 C - Three",
-        "A - One 0:00\nB - Two 1:02:03\nC - Three 2:00:00",
-        "[0:00] A - One\n[1:02:03] B - Two\n[2:00:00] C - Three",
-        "(0:00) A - One\n(1:02:03) B - Two\n(2:00:00) C - Three",
-        "1. A - One 0:00\n2. B - Two 1:02:03\n3. C - Three 2:00:00",
-    ])
-    func descriptionEntriesRecognizeCommonFormats(description: String) {
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.map(\.startTime) == [0, 3723, 7200])
-        #expect(entries.map(\.artist) == ["A", "B", "C"])
-        #expect(entries.map(\.title) == ["One", "Two", "Three"])
-    }
-
-    @MainActor
-    @Test("Stray timestamps outside the monotonic tracklist run are ignored")
-    func descriptionEntriesKeepLongestMonotonicRun() {
-        let description = """
-        Premiere started at 12:00 sharp!
-        00:00 A - One
-        03:20 B - Two
-        07:45 C - Three
-        10:00 D - Four
-        Rebroadcast at 9:30 next week.
-        """
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.map(\.title) == ["One", "Two", "Three", "Four"])
-        #expect(entries.first?.startTime == 0)
-    }
-
-    @MainActor
-    @Test("Clock times glued to letters are not tracklist timestamps")
-    func descriptionEntriesRejectClockTimes() {
-        let entries = MixTracklistParser.descriptionEntries(from: "Premiere at 3:45pm")
-        #expect(entries.isEmpty)
-    }
-
-    @MainActor
-    @Test("An invalid H:MM:SS timestamp does not hide a later valid one on the same line")
-    func descriptionEntriesSkipInvalidTimestampWithinLine() {
-        let description = """
-        1:75:00 typo then 0:00 A - One
-        1:00 B - Two
-        2:00 C - Three
-        """
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.count == 3)
-        #expect(entries.first?.startTime == 0)
-        #expect(entries.first?.artist == "A")
-        #expect(entries.first?.title == "One")
-    }
-
-    @MainActor
-    @Test("Timestamps scattered across prose sections do not stitch into a tracklist")
-    func descriptionEntriesRequireContiguousLines() {
-        let description = """
-        Show starts 0:30 - doors open early
-        Thanks to everyone who joined the premiere chat.
-        Highlight at 5:00 - special guest appearance
-        Full VOD stays up all week for members.
-        Ends around 10:00 - afterparty on discord
-        """
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.count == 1)
-    }
-
-    @MainActor
-    @Test("Blank lines between tracklist entries do not break the block")
-    func descriptionEntriesAllowBlankLinesWithinTracklist() {
-        let description = """
-        00:00 A - One
-
-        01:00 B - Two
-
-        02:00 C - Three
-        """
-        let entries = MixTracklistParser.descriptionEntries(from: description)
-
-        #expect(entries.map(\.title) == ["One", "Two", "Three"])
-    }
-
-    @MainActor
-    @Test("Description without timestamped lines yields no entries")
-    func descriptionEntriesEmptyWithoutTimestamps() {
-        let entries = MixTracklistParser.descriptionEntries(from: "Just a regular description.\nNo tracklist here.")
-        #expect(entries.isEmpty)
-    }
-
-    // MARK: - Tier 2: Description Fallback
-
-    @MainActor
-    @Test("Parser falls back to description timestamps when chapters are absent")
-    func descriptionFallbackParsesTracklist() async {
-        let mockYouTube = MockYouTubeClient()
-        mockYouTube.watchNextData = WatchNextData(
-            videoTitle: "Mix",
-            viewCountText: nil,
-            publishedText: nil,
-            channel: nil,
-            related: [],
-            chapters: [],
-            descriptionText: """
-            Tracklist:
-            00:00 A - One
-            10:00 B - Two
-            20:00 C - Three
-            """
-        )
-        let parser = MixTracklistParser(youTubeClient: mockYouTube)
-
-        let tracklist = await parser.parseTracklist(videoId: "mix")
-
-        #expect(tracklist?.source == .description)
-        #expect(tracklist?.entries.count == 3)
-        #expect(tracklist?.entries.first?.artist == "A")
-
-        _ = await parser.parseTracklist(videoId: "mix")
-        #expect(mockYouTube.getWatchNextCallCount == 1)
-    }
-
-    @MainActor
-    @Test("Qualifying chapters win over a description tracklist")
-    func chaptersTakePriorityOverDescription() async {
-        let mockYouTube = MockYouTubeClient()
-        mockYouTube.watchNextData = WatchNextData(
-            videoTitle: "Mix",
-            viewCountText: nil,
-            publishedText: nil,
-            channel: nil,
-            related: [],
-            chapters: [
-                YouTubeChapter(videoId: "mix", title: "A - One", startTime: 0, endTime: 60, timeText: nil, thumbnailURL: nil),
-                YouTubeChapter(videoId: "mix", title: "B - Two", startTime: 60, endTime: 120, timeText: nil, thumbnailURL: nil),
-                YouTubeChapter(videoId: "mix", title: "C - Three", startTime: 120, endTime: 180, timeText: nil, thumbnailURL: nil),
-            ],
-            descriptionText: "00:00 X - Other\n01:00 Y - Other\n02:00 Z - Other"
-        )
-
-        let tracklist = await MixTracklistParser(youTubeClient: mockYouTube).parseTracklist(videoId: "mix")
-
-        #expect(tracklist?.source == .chapters)
-        #expect(tracklist?.entries.first?.artist == "A")
-    }
-
-    @MainActor
-    @Test("Title-only description timestamps stay non-mix and cache the miss")
-    func titleOnlyDescriptionCachesMiss() async {
-        let mockYouTube = MockYouTubeClient()
-        mockYouTube.watchNextData = WatchNextData(
-            videoTitle: "Podcast",
-            viewCountText: nil,
-            publishedText: nil,
-            channel: nil,
-            related: [],
-            chapters: [],
-            descriptionText: "00:00 Welcome\n10:00 Interview\n50:00 Wrap up"
-        )
-        let parser = MixTracklistParser(youTubeClient: mockYouTube)
-
-        let first = await parser.parseTracklist(videoId: "podcast")
-        let second = await parser.parseTracklist(videoId: "podcast")
-
-        #expect(first == nil)
-        #expect(second == nil)
-        #expect(mockYouTube.getWatchNextCallCount == 1)
-    }
-
+@Suite(.tags(.model))
+struct MixTracklistModelBehaviorTests {
     // MARK: - isMix Threshold
 
     @Test("Three or more entries is a mix; fewer is not")
@@ -432,6 +239,27 @@ struct MixTracklistTests {
             )
         }
         #expect(!MixTracklist(videoId: "v", entries: entries, source: .description).isMix)
+    }
+
+    @Test("An explicit description tracklist signal permits title-only entries")
+    func explicitDescriptionTracklistSignalAllowsTitleOnlyEntries() {
+        let entries = ["Intro", "First Song", "Finale"].enumerated().map { index, title in
+            MixTrackEntry(
+                startTime: TimeInterval(index) * 60,
+                endTime: TimeInterval(index + 1) * 60,
+                title: title,
+                artist: nil,
+                source: .description
+            )
+        }
+        let list = MixTracklist(
+            videoId: "v",
+            entries: entries,
+            source: .description,
+            hasExplicitTracklistSignal: true
+        )
+        #expect(list.entries.count == 3)
+        #expect(list.isMix)
     }
 
     @Test("Structured description labels can establish a song mix")

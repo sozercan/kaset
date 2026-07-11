@@ -94,13 +94,27 @@ struct MixTracklist: Hashable {
     let entries: [MixTrackEntry]
     /// Where the tracklist was parsed from.
     let source: MixTrackEntry.Source
+    /// Whether an explicit Tracklist/Setlist heading established description-list intent.
+    let hasExplicitTracklistSignal: Bool
 
-    init(videoId: String, entries: [MixTrackEntry], source: MixTrackEntry.Source) {
+    init(
+        videoId: String,
+        entries: [MixTrackEntry],
+        source: MixTrackEntry.Source,
+        hasExplicitTracklistSignal: Bool = false
+    ) {
         self.videoId = videoId
+        let preservesHeadedDescriptionTitles = source == .description && hasExplicitTracklistSignal
         self.entries = entries
-            .filter { !$0.title.isEmpty && ($0.artist != nil || !Self.isGenericNavigationTitle($0.title)) }
+            .filter {
+                !$0.title.isEmpty
+                    && ($0.artist != nil
+                        || preservesHeadedDescriptionTitles
+                        || !Self.isGenericNavigationTitle($0.title))
+            }
             .sorted { $0.startTime < $1.startTime }
         self.source = source
+        self.hasExplicitTracklistSignal = hasExplicitTracklistSignal
     }
 
     /// Greatest timestamp established by the tracklist itself. This is a lower bound for the
@@ -177,6 +191,9 @@ struct MixTracklist: Hashable {
     /// Whether this tracklist has enough entries and a sufficiently strong artist/title signal.
     var isMix: Bool {
         guard self.entries.count >= Self.minEntryCount else { return false }
+        if self.source == .description, self.hasExplicitTracklistSignal {
+            return true
+        }
         let parsedArtistCount = self.entries.count { $0.artist != nil }
         return parsedArtistCount * 2 >= self.entries.count
     }

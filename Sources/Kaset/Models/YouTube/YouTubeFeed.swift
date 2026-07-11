@@ -168,7 +168,7 @@ struct WatchNextData {
     let related: [YouTubeVideo]
     /// Navigation chapters for the current video, when YouTube exposes them.
     let chapters: [YouTubeChapter]
-    /// Plain-text video description, when the watch page exposes it.
+    /// Full watch-page description text, from the structured panel or secondary-info fallback.
     let descriptionText: String?
     /// Whether the signed-in user is subscribed to the video's channel
     /// (nil when the page did not expose a subscribe button).
