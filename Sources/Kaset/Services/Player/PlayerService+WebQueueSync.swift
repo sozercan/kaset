@@ -763,13 +763,19 @@ extension PlayerService {
         if self.currentQueueEntryID == previousEntryID,
            self.currentIndex == previousIndex
         {
-            self.mixContinuationToken = nil
-            self.mixContinuationRequiresAuth = false
-            self.shouldSuppressAutoplayAfterQueueEnd = true
-            self.markPlaybackEnded()
-            self.logger.info("Continuation produced no next queue entry; ending playback")
-            await self.pause()
+            await self.finishPlaybackAfterFailedQueueAdvance(
+                reason: "continuation produced no next queue entry"
+            )
         }
+    }
+
+    func finishPlaybackAfterFailedQueueAdvance(reason: String) async {
+        self.mixContinuationToken = nil
+        self.mixContinuationRequiresAuth = false
+        self.shouldSuppressAutoplayAfterQueueEnd = true
+        self.markPlaybackEnded()
+        self.logger.info("Ending playback after failed queue advance: \(reason)")
+        await self.pause()
     }
 
     // swiftlint:enable cyclomatic_complexity

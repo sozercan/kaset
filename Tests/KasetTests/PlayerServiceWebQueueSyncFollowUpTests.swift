@@ -405,6 +405,25 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
     }
 
+    @Test("Manual seek ends playback when an empty continuation produces no successor")
+    func manualSeekWithEmptyContinuationEndsPlayback() async {
+        let mockClient = MockYTMusicClient()
+        mockClient.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.playerService.setYTMusicClient(mockClient)
+        let song = TestFixtures.makeSong(id: "last-song")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.mixContinuationToken = "empty-continuation"
+        self.playerService.state = .playing
+        self.playerService.duration = song.duration ?? 180
+
+        await self.playerService.seek(to: self.playerService.duration)
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
     @Test("Manual seek within end-threshold still advances queue")
     func manualSeekWithinEndThresholdAdvancesQueue() async {
         let songs = [

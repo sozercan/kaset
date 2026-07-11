@@ -21,7 +21,16 @@ extension PlayerService {
             SingletonPlayerWebView.shared.seekAndPause(to: self.duration)
             self.clearWebQueueInjectionState()
             self.clearPendingNativeQueueAdvance()
+            let previousEntryID = self.currentQueueEntryID
+            let previousIndex = self.currentIndex
             await self.next()
+            if self.currentQueueEntryID == previousEntryID,
+               self.currentIndex == previousIndex
+            {
+                await self.finishPlaybackAfterFailedQueueAdvance(
+                    reason: "manual seek continuation produced no next queue entry"
+                )
+            }
             return
         }
 
