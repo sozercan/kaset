@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 
@@ -233,66 +232,26 @@ struct AddToPlaylistContextMenu: View {
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
 
-        let alert = NSAlert()
-        alert.messageText = "Create Playlist"
-        alert.informativeText = "Create a private playlist and add \"\(self.song.title)\" to it."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-        let titleField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        titleField.placeholderString = "Playlist name"
-        alert.accessoryView = titleField
-        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
-            let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !title.isEmpty else {
-                self.loadState = .failed("Playlist Name Required")
-                return
+        SongActionsHelper.presentCreatePlaylistDialog(
+            informativeText: "Create a private playlist and add \"\(self.song.title)\" to it.",
+            request: SongActionsHelper.PlaylistCreationRequest(
+                client: self.client,
+                videoIds: [self.song.videoId],
+                thumbnailURL: self.song.thumbnailURL
+            ),
+            onWillCreate: { self.isCreatingPlaylist = true },
+            completion: { result in
+                switch result {
+                case .success:
+                    Task {
+                        self.isCreatingPlaylist = false
+                        await self.loadPlaylists(forceRefresh: true)
+                    }
+                case let .failure(failure):
+                    self.isCreatingPlaylist = false
+                    self.loadState = .failed(failure.message)
+                }
             }
-            Task { await self.createPlaylist(title: title) }
-        }
-
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-            alert.beginSheetModal(for: window, completionHandler: handleResponse)
-        } else {
-            handleResponse(alert.runModal())
-        }
-    }
-
-    private func createPlaylist(title: String) async {
-        guard !title.isEmpty, !self.isCreatingPlaylist else { return }
-        self.isCreatingPlaylist = true
-        defer { self.isCreatingPlaylist = false }
-        do {
-            let playlistId = try await self.client.createPlaylist(
-                title: title,
-                description: nil,
-                privacyStatus: .private,
-                videoIds: [self.song.videoId]
-            )
-            let playlist = Playlist(
-                id: playlistId,
-                title: title,
-                description: nil,
-                thumbnailURL: self.song.thumbnailURL,
-                trackCount: 1
-            )
-
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
-
-            // Library browse responses can lag briefly behind a successful playlist creation.
-            // Refresh in the background, but keep the optimistic playlist visible if the
-            // cache/backend still returns a stale snapshot.
-            try? await Task.sleep(for: .milliseconds(500))
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
-            SongActionsHelper.invalidateLibraryResponseCaches()
-
-            await self.loadPlaylists(forceRefresh: true)
-        } catch {
-            self.loadState = .failed("Unable to Create Playlist")
-            DiagnosticsLogger.ui.error("Failed to create playlist: \(error.localizedDescription)")
-        }
+        )
     }
 }

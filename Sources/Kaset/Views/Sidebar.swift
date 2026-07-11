@@ -9,9 +9,12 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    let client: any YTMusicClientProtocol
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @State private var isCreatingPlaylist = false
+    @State private var isHoveringPlaylistsHeader = false
 
     var body: some View {
         List {
@@ -58,14 +61,16 @@ struct Sidebar: View {
                 }
             }
 
-            if self.hasPersonalAccount, self.sidebarPinnedItemsManager.isVisible {
-                Section(String(localized: "Playlists")) {
+            if self.hasPersonalAccount {
+                Section {
                     ForEach(self.sidebarPinnedItemsManager.items) { item in
                         self.sidebarPinnedRow(item)
                     }
                     .onMove { source, destination in
                         self.sidebarPinnedItemsManager.move(from: source, to: destination)
                     }
+                } header: {
+                    self.playlistsSectionHeader
                 }
             }
         }
@@ -121,6 +126,58 @@ struct Sidebar: View {
         HapticService.navigation()
     }
 
+    private var playlistsSectionHeader: some View {
+        HStack {
+            Text(String(localized: "Playlists"))
+
+            Spacer()
+
+            if self.isCreatingPlaylist {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(.trailing, 8)
+            } else {
+                Button {
+                    self.presentCreatePlaylistDialog()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .opacity(self.isHoveringPlaylistsHeader ? 1 : 0)
+                .padding(.trailing, 8)
+                .help(String(localized: "Create Playlist"))
+                .accessibilityLabel(String(localized: "Create Playlist"))
+            }
+        }
+        .onHover { hovering in
+            withAnimation(AppAnimation.quick) {
+                self.isHoveringPlaylistsHeader = hovering
+            }
+        }
+    }
+
+    private func presentCreatePlaylistDialog() {
+        guard !self.isCreatingPlaylist else { return }
+
+        SongActionsHelper.presentCreatePlaylistDialog(
+            informativeText: "Create a new playlist.",
+            request: SongActionsHelper.PlaylistCreationRequest(client: self.client, videoIds: []),
+            onWillCreate: { self.isCreatingPlaylist = true },
+            completion: { result in
+                self.isCreatingPlaylist = false
+                switch result {
+                case let .success(playlist):
+                    let pinnedItem = SidebarPinnedItem.from(playlist)
+                    self.sidebarPinnedItemsManager.add(pinnedItem)
+                    self.selectPinnedItem(pinnedItem)
+                case let .failure(failure):
+                    DiagnosticsLogger.ui.error("Failed to create playlist from sidebar: \(failure.message)")
+                }
+            }
+        )
+    }
+
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
         KasetSidebarRow(
             title: item.title,
@@ -169,9 +226,11 @@ struct Sidebar: View {
 }
 
 #Preview {
-    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
+    let authService = AuthService()
+    let client = YTMusicClient(authService: authService, webKitManager: .shared)
+    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil), client: client)
         .frame(width: 220)
-        .environment(AuthService())
+        .environment(authService)
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }
