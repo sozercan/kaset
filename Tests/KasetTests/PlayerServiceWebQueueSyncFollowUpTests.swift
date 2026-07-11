@@ -3,6 +3,81 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Radio queue replacement preserves the current playback occurrence ID")
+    func radioQueueReplacementPreservesCurrentEntryID() async {
+        let seed = Song(id: "seed", title: "Seed", artists: [], duration: 180, videoId: "seed-video")
+        let suggestion = Song(id: "next", title: "Next", artists: [], duration: 200, videoId: "next-video")
+        let mockClient = MockYTMusicClient()
+        mockClient.radioQueueSongs[seed.videoId] = [seed, suggestion]
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([seed], startingAt: 0)
+        let originalEntryID = self.playerService.currentQueueEntryID
+
+        await self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
+
+        #expect(self.playerService.currentQueueEntryID == originalEntryID)
+        #expect(self.playerService.queue.map(\.videoId) == ["seed-video", "next-video"])
+    }
+
+    @Test("Web queue injection waits for full-page navigation to settle")
+    func webQueueInjectionWaitsForDocumentNavigation() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let previousNavigationState = SingletonPlayerWebView.shared.isDocumentNavigationInProgress
+        defer { SingletonPlayerWebView.shared.isDocumentNavigationInProgress = previousNavigationState }
+        SingletonPlayerWebView.shared.isDocumentNavigationInProgress = true
+        let generation = self.playerService.webQueueInjectionGeneration
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.webQueueInjectionGeneration == generation)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+    }
+
+    @Test("Native queue injection skips duplicate consecutive video IDs")
+    func nativeQueueInjectionSkipsDuplicateVideoIDs() async {
+        let duplicate = Song(
+            id: "duplicate",
+            title: "Duplicate",
+            artists: [],
+            duration: 180,
+            videoId: "same-video"
+        )
+        await self.playerService.playQueue([duplicate, duplicate], startingAt: 0)
+        self.playerService.state = .playing
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+    }
+
+    @Test("Metadata-only updates keep a confirmed native queue injection")
+    func metadataOnlyUpdateKeepsNativeQueueInjection() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.injectedWebQueueVideoId = "v2"
+
+        self.playerService.updateTrackMetadata(
+            title: "Updated Song 1",
+            artist: "Updated Artist",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.injectedWebQueueVideoId == "v2")
+    }
+
     // MARK: - Play From Queue Tests
 
     @Test("Play from queue valid index")

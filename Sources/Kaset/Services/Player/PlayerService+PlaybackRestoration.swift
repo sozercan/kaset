@@ -6,6 +6,41 @@ import Foundation
 extension PlayerService {
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
+        self.applyPlaybackStateObservation(
+            isPlaying: isPlaying,
+            progress: progress,
+            duration: duration
+        )
+    }
+
+    /// Updates playback state from an identity-bearing WebView observation.
+    /// State from an earlier/out-of-order video must not overwrite the current
+    /// queue target's progress, duration, or near-end flag.
+    func updatePlaybackState(
+        isPlaying: Bool,
+        progress: Double,
+        duration: Double,
+        observedVideoId: String?
+    ) {
+        guard self.observedPlaybackMatchesCurrentTarget(videoId: observedVideoId) else {
+            self.logger.debug(
+                "Ignoring playback state for stale video \(observedVideoId ?? "unknown")"
+            )
+            return
+        }
+
+        self.applyPlaybackStateObservation(
+            isPlaying: isPlaying,
+            progress: progress,
+            duration: duration
+        )
+    }
+
+    private func applyPlaybackStateObservation(
+        isPlaying: Bool,
+        progress: Double,
+        duration: Double
+    ) {
         let previousProgress = self.progress
 
         if self.isPendingRestoredLoadDeferred {

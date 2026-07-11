@@ -250,7 +250,10 @@ extension PlayerService {
 
             self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
-            let entries = newQueue.map { QueueEntry(id: UUID(), song: $0) }
+            let currentEntryID = self.currentQueueEntryID ?? UUID()
+            let entries = newQueue.enumerated().map { index, song in
+                QueueEntry(id: index == 0 ? currentEntryID : UUID(), song: song)
+            }
             if self.shuffleEnabled {
                 self.materializeShuffleQueue(
                     entries: entries,

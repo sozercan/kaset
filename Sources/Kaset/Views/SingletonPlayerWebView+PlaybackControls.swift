@@ -257,8 +257,20 @@ extension SingletonPlayerWebView {
 
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
-        self.seek(to: 0)
-        self.play()
+        guard let webView else { return }
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) return 'no-video';
+                video.currentTime = 0;
+                if (typeof window.__kasetAdvanceMediaGeneration === 'function') {
+                    window.__kasetAdvanceMediaGeneration();
+                }
+                video.play();
+                return 'restarted';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Set volume (0.0 - 1.0).

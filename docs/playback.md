@@ -451,9 +451,13 @@ func userContentController(_:, didReceive message: WKScriptMessage) {
 ### Queue Authority
 
 Kaset treats its own queue as the source of truth whenever one exists:
-- `handleTrackEnded(observedVideoId:)` advances the native queue immediately
+- `handleTrackEnded(observedVideoId:)` keeps the outgoing queue entry visible until
+  the expected native next media identity is confirmed
 - `updateTrackMetadata(...)` accepts `videoId`-only transitions even if the DOM
   metadata is temporarily blank or stale
+- Playback progress/duration is accepted only when the observer's media-bound
+  video ID and generation match the active queue entry; logical metadata changes
+  cannot assign the outgoing media element's near-end state to the next song
 - If YouTube advances to an unexpected track near the end of a song, Kaset
   replays the expected queue track instead of inheriting YouTube autoplay
 - At the end of a non-repeating queue, Kaset marks playback ended rather than
@@ -466,20 +470,32 @@ Kaset treats its own queue as the source of truth whenever one exists:
 For gapless-style transitions, Kaset mirrors the current expected next song into
 YouTube Music's native **Up Next** queue:
 
-1. `syncWebQueue()` runs only when playback is stable (`.playing` or `.paused`).
-   It does not click menu items while router navigation is loading.
-2. `SingletonPlayerWebView.injectNextSong(videoId:)` opens the player-bar menu,
-   positively identifies **Play next**, and arms a click-scoped payload swap.
-3. The page reports `QUEUE_INJECTION_RESULT` back to Swift.
+1. `syncWebQueue()` runs only when playback is stable (`.playing` or `.paused`)
+   and no main-document navigation is in progress.
+2. `SingletonPlayerWebView.injectNextSong(videoId:afterVideoId:)` opens the player-bar menu,
+   waits for the action menu to mount, positively identifies **Play next**, temporarily
+   replaces that item's `queueAddEndpoint` target, invokes its native click path, and
+   immediately restores the endpoint. The source video in the menu endpoint must still
+   match Kaset's current queue song.
+3. The script preserves rendered queue-row occurrences, accepts an already aligned queue without another click, otherwise requires the
+   queue to change after the click, and reports success only when the target is the actual
+   next row. This avoids false confirmation from later duplicate video IDs.
 4. Swift promotes `pendingWebQueueInjectionVideoId` to `injectedWebQueueVideoId`
-   only if the result still matches the currently expected next queue entry.
-5. Any deterministic navigation, queue replacement, empty queue persistence, or
+   only if that readback result still matches the currently expected next entry.
+5. At natural end, Kaset waits for the media-bound observer to report the same target
+   before moving its visible queue pointer. Unexpected media, a bounded timeout, or
+   changed source/target queue adjacency triggers deterministic navigation to the
+   current expected next entry.
+6. Any deterministic navigation, queue replacement, empty queue persistence, or
    stale result clears both Swift-side and page-side injection state.
 
 Important invariants:
 
 - A pending injection is not trusted for playback decisions.
-- A confirmed injection is consumed when natural track-end auto-advance uses it.
+- Injection dispatch never mutates unrelated JSON payloads and fails closed when
+  the source track changes or queue readback does not confirm the expected insertion.
+- Queue readback confirmation authorizes a native handoff attempt; actual queue state
+  advances only after media-bound target confirmation.
 - Duplicate video IDs are handled by clearing the consumed marker so the next
   queue entry can be injected again.
 - If injection fails, times out, or becomes stale, Kaset prioritizes correctness

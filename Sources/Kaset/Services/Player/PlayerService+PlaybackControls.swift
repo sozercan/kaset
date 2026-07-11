@@ -9,7 +9,7 @@ extension PlayerService {
 
     /// Whether the persistent player should navigate to the pending video immediately.
     var shouldAutoloadPendingVideo: Bool {
-        !self.isPendingRestoredLoadDeferred
+        !self.isPendingRestoredLoadDeferred && self.pendingNativeQueueAdvanceVideoId == nil
     }
 
     /// Toggles between popup and side panel queue display modes.
@@ -85,6 +85,9 @@ extension PlayerService {
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
         self.clearWebQueueInjectionState()
+        // An explicit Kaset load supersedes (rather than participates in) a
+        // native queue advance. The native-only path never calls `play`.
+        self.clearPendingNativeQueueAdvance()
         self.currentEpisode = nil
         self.state = .loading
         self.songNearingEnd = false
@@ -134,6 +137,10 @@ extension PlayerService {
         self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
         self.clearWebQueueInjectionState()
+        // An explicit Kaset load supersedes (rather than participates in) a
+        // native queue advance. `advanceQueueStateForNativeNavigation` does not
+        // call this method while YouTube Music owns the transition.
+        self.clearPendingNativeQueueAdvance()
         self.currentEpisode = episode
         // Brief `.loading` until the observer reports playback; in-place restarts may flash loading briefly.
         self.state = .loading
@@ -473,17 +480,24 @@ extension PlayerService {
     }
 
     /// Navigates to a queue song through Kaset's deterministic load path.
-    private func loadQueueSongForNavigation(at index: Int) async {
+    func loadQueueSongForNavigation(
+        at index: Int,
+        webLoadStrategy strategyOverride: SingletonPlayerWebView.VideoLoadStrategy? = nil
+    ) async {
         guard let song = self.queue[safe: index] else { return }
         self.currentIndex = index
         self.progress = 0
         self.duration = song.duration ?? 0
         self.protectQueueNavigationTarget(song.videoId)
-        await self.play(song: song)
+        let strategy: SingletonPlayerWebView.VideoLoadStrategy = strategyOverride
+            ?? (SingletonPlayerWebView.shared.currentVideoId == song.videoId
+                ? .preferInPlaceWhenSameVideoId
+                : .standard)
+        await self.play(song: song, webLoadStrategy: strategy)
         self.saveQueueForPersistence()
     }
 
-    /// Updates Kaset's local queue pointer for native WebView queue navigation without forcing a page load.
+    /// Commits a media-confirmed native WebView queue transition without forcing a page load.
     func advanceQueueStateForNativeNavigation(to index: Int) {
         guard let song = self.queue[safe: index] else { return }
 
@@ -496,7 +510,7 @@ extension PlayerService {
         self.duration = song.duration ?? 0
         self.protectQueueNavigationTarget(song.videoId)
         self.state = .loading
-        self.isKasetInitiatedPlayback = true
+        self.isKasetInitiatedPlayback = false
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrackHasVideo = song.musicVideoType?.hasVideoContent ?? song.hasVideo ?? false
@@ -682,6 +696,7 @@ extension PlayerService {
         self.currentEpisode = nil
         self.currentTrack = nil
         self.pendingPlayVideoId = nil
+        self.clearPendingNativeQueueAdvance()
         self.progress = 0
         self.currentLyricsLineIndex = nil
         self.currentLyricsDisplayTimeMs = nil
@@ -718,6 +733,7 @@ extension PlayerService {
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentEpisode = nil
         self.currentTrack = nil
+        self.clearPendingNativeQueueAdvance()
         self.progress = 0
         self.duration = 0
     }

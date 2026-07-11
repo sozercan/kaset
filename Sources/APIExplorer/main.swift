@@ -866,15 +866,6 @@ private struct QueueProbeSong {
     let artists: String
 }
 
-private func textFromRuns(_ data: [String: Any]?) -> String? {
-    guard let data,
-          let runs = data["runs"] as? [[String: Any]]
-    else { return nil }
-
-    let text = runs.compactMap { $0["text"] as? String }.joined()
-    return text.isEmpty ? nil : text
-}
-
 private func playlistPanelRenderer(in data: [String: Any]) -> [String: Any]? {
     guard let contents = data["contents"] as? [String: Any],
           let watchNextRenderer = contents["singleColumnMusicWatchNextResultsRenderer"] as? [String: Any],
@@ -918,8 +909,8 @@ private func parseQueueProbeSongs(from data: [String: Any]) -> [QueueProbeSong] 
               let videoId = videoRenderer["videoId"] as? String
         else { return nil }
 
-        let title = textFromRuns(videoRenderer["title"] as? [String: Any]) ?? "Unknown"
-        let artists = textFromRuns(videoRenderer["longBylineText"] as? [String: Any]) ?? ""
+        let title = joinedRunsText(videoRenderer["title"] as? [String: Any]) ?? "Unknown"
+        let artists = joinedRunsText(videoRenderer["longBylineText"] as? [String: Any]) ?? ""
         return QueueProbeSong(videoId: videoId, title: title, artists: artists)
     }
 }

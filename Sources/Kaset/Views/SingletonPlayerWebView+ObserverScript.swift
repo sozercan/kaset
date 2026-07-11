@@ -16,16 +16,41 @@ extension SingletonPlayerWebView {
         """
     }
 
+    nonisolated static var mediaIdentityBindingDecisionFunctionJS: String {
+        """
+        function __kasetShouldBindMediaIdentity(
+            sourceChanged,
+            mediaTimeReset,
+            identityCorrectionEvidence
+        ) {
+            return sourceChanged
+                || mediaTimeReset
+                || identityCorrectionEvidence;
+        }
+        """
+    }
+
     /// Observer script for playback state.
     nonisolated static var observerScript: String {
         """
         (function() {
             'use strict';
             const bridge = window.webkit.messageHandlers.singletonPlayer;
+            const observerEpoch = (window.performance && performance.timeOrigin)
+                ? performance.timeOrigin : Date.now();
+            const documentToken = Number(window.__kasetDocumentToken || 0);
             \(autoplayRecoveryFunctionJS)
+            \(mediaIdentityBindingDecisionFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
+            let mediaVideoId = '';
+            let mediaSource = '';
+            let mediaGeneration = 0;
+            let lastMediaCurrentTime = 0;
+            let mediaIdentityUncertain = false;
+            let mediaIdentityTransitionFromVideoId = '';
+            let mediaIdentityIsInitialBinding = false;
             let isPollingActive = false;
             let pollIntervalId = null;
             let lastUpdateTime = 0;
@@ -74,11 +99,20 @@ extension SingletonPlayerWebView {
                     if (video.__kasetListenersAttached) return;
                     video.__kasetListenersAttached = true;
 
+                    // If metadata is already loaded, establish the current media
+                    // immediately. Otherwise the first `loadedmetadata` event owns
+                    // the initial bind and must not look like a second transition.
+                    if (video.readyState >= 1) {
+                        bindMediaIdentity(video, true, false);
+                    }
+
                     video.addEventListener('play', startPolling);
                     video.addEventListener('playing', startPolling);
                     // Enforce volume on playing event to catch all track changes
                     // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => {
+                        confirmMediaIdentityOnPlaying(video);
+                        bindMediaIdentity(video, false, false);
                         if (window.__kasetBlockAutoplay) {
                             try { video.pause(); } catch (_) {}
                             return;
@@ -106,6 +140,8 @@ extension SingletonPlayerWebView {
 
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
+                            observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                             isConnected: isWireless,
                             wasConnected: wasConnected,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -118,6 +154,8 @@ extension SingletonPlayerWebView {
                         window.__kasetAirPlayConnected = true;
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
+                            observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                             isConnected: true,
                             wasConnected: false,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -126,6 +164,8 @@ extension SingletonPlayerWebView {
                         window.__kasetAirPlayConnected = false;
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
+                            observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                             isConnected: false,
                             wasConnected: true,
                             wasRequested: true
@@ -144,9 +184,14 @@ extension SingletonPlayerWebView {
 
                     // Enforce volume at media lifecycle events where YouTube resets volume.
                     // YouTube's player often restores its stored volume at these points.
-                    video.addEventListener('loadedmetadata', () => enforceVolumeNow());
+                    video.addEventListener('loadedmetadata', () => {
+                        bindMediaIdentity(video, true, true);
+                        enforceVolumeNow();
+                        sendUpdate(true);
+                    });
                     video.addEventListener('loadeddata', () => enforceVolumeNow());
                     function recoverAutoplayIfNeeded() {
+                        bindMediaIdentity(video, false, false);
                         enforceVolumeNow();
                         if (window.__kasetBlockAutoplay) {
                             try { video.pause(); } catch (_) {}
@@ -226,6 +271,51 @@ extension SingletonPlayerWebView {
                 }
             }
 
+            function bindMediaIdentity(video, force, transitionEvidence) {
+                const videoId = currentVideoId();
+                const source = video.currentSrc || video.src || '';
+                const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+                if (!force && source === mediaSource) return;
+                const previousMediaVideoId = mediaVideoId;
+                const sourceChanged = source !== mediaSource;
+                mediaGeneration += 1;
+                mediaVideoId = videoId;
+                mediaSource = source;
+                lastMediaCurrentTime = currentTime;
+                mediaIdentityIsInitialBinding = !previousMediaVideoId;
+                mediaIdentityTransitionFromVideoId = previousMediaVideoId || videoId;
+                mediaIdentityUncertain = !videoId
+                    || mediaIdentityIsInitialBinding
+                    || ((sourceChanged || transitionEvidence)
+                        && videoId === previousMediaVideoId);
+                if (!mediaIdentityUncertain) {
+                    mediaIdentityTransitionFromVideoId = '';
+                    mediaIdentityIsInitialBinding = false;
+                }
+            }
+
+            function confirmMediaIdentityOnPlaying(video) {
+                if (!mediaIdentityUncertain) return;
+                const videoId = currentVideoId();
+                if (!videoId) return;
+                if (mediaIdentityIsInitialBinding || videoId !== mediaIdentityTransitionFromVideoId) {
+                    bindMediaIdentity(video, true, false);
+                }
+            }
+
+            window.__kasetAdvanceMediaGeneration = function() {
+                const video = document.querySelector('video');
+                if (!video) return false;
+                mediaGeneration += 1;
+                mediaVideoId = currentVideoId();
+                mediaSource = video.currentSrc || video.src || '';
+                mediaIdentityUncertain = !mediaVideoId;
+                mediaIdentityTransitionFromVideoId = '';
+                mediaIdentityIsInitialBinding = false;
+                sendUpdate(true);
+                return true;
+            };
+
             let lyricsPollTimeoutId = null;
             let lyricsPollActive = false;
             let lyricsLineRanges = [];
@@ -258,6 +348,8 @@ extension SingletonPlayerWebView {
                 lastLyricsBucket = bucket.bucket;
                 bridge.postMessage({
                     type: 'LYRICS_LINE',
+                    observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                     lineIndex: bucket.lineIndex,
                     bucket: bucket.bucket,
                     timeMs: timeMs
@@ -366,9 +458,21 @@ extension SingletonPlayerWebView {
             }
 
             function sendTrackEnded() {
-                const endedVideoId = lastVideoId || currentVideoId();
+                const logicalVideoId = currentVideoId();
+                let endedVideoId = mediaVideoId || lastVideoId || logicalVideoId;
+                if (mediaIdentityUncertain) {
+                    if (logicalVideoId
+                        && logicalVideoId !== mediaIdentityTransitionFromVideoId) {
+                        endedVideoId = logicalVideoId;
+                    } else if (lastVideoId
+                        && lastVideoId !== mediaIdentityTransitionFromVideoId) {
+                        endedVideoId = lastVideoId;
+                    }
+                }
                 bridge.postMessage({
                     type: 'TRACK_ENDED',
+                    observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                     videoId: endedVideoId
                 });
             }
@@ -419,6 +523,35 @@ extension SingletonPlayerWebView {
                     let title = titleEl ? titleEl.textContent.trim() : '';
                     let artist = artistEl ? artistEl.textContent.trim() : '';
                     const videoId = currentVideoId();
+                    if (video && videoId && videoId !== mediaVideoId) {
+                        const mediaTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+                        const source = video.currentSrc || video.src || '';
+                        const mediaTimeReset = mediaTime + 2 < lastMediaCurrentTime;
+                        const initialEmptyIdentityResolved = mediaIdentityUncertain
+                            && mediaIdentityIsInitialBinding
+                            && !mediaVideoId
+                            && !!videoId;
+                        const transitionIdentityResolved = mediaIdentityUncertain
+                            && !mediaIdentityIsInitialBinding
+                            && !!mediaIdentityTransitionFromVideoId
+                            && videoId !== mediaIdentityTransitionFromVideoId;
+                        const identityCorrectionEvidence = initialEmptyIdentityResolved
+                            || transitionIdentityResolved;
+                        if (__kasetShouldBindMediaIdentity(
+                            source !== mediaSource,
+                            mediaTimeReset,
+                            identityCorrectionEvidence
+                        )) {
+                            bindMediaIdentity(
+                                video,
+                                true,
+                                source !== mediaSource || mediaTimeReset
+                            );
+                        }
+                    }
+                    if (video && videoId && videoId === mediaVideoId) {
+                        lastMediaCurrentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+                    }
                     let thumbnailUrl = '';
 
                     // Prefer player API metadata when the DOM appears to be lagging behind the actual video.
@@ -482,6 +615,10 @@ extension SingletonPlayerWebView {
                         title: title,
                         artist: artist,
                         videoId: videoId,
+                        mediaVideoId: mediaVideoId,
+                        mediaGeneration: mediaGeneration,
+                        observerEpoch: observerEpoch,
+                            documentToken: documentToken,
                         thumbnailUrl: thumbnailUrl,
                         trackChanged: trackChanged,
                         likeStatus: likeStatus,

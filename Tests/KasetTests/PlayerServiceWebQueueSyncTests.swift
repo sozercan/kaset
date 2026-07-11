@@ -288,21 +288,42 @@ struct PlayerServiceWebQueueSyncTests {
         ]
         await self.playerService.playQueue(songs, startingAt: 0)
 
+        self.playerService.webQueueInjectionGeneration = 1
         self.playerService.pendingWebQueueInjectionVideoId = "v3"
-        self.playerService.handleWebQueueInjectionResult(videoId: "v3", success: true, reason: nil)
+        self.playerService.handleWebQueueInjectionResult(
+            videoId: "v3",
+            attemptGeneration: 1,
+            success: true,
+            reason: nil
+        )
         #expect(self.playerService.injectedWebQueueVideoId == nil)
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
 
         self.playerService.pendingWebQueueInjectionVideoId = "v2"
-        self.playerService.handleWebQueueInjectionResult(videoId: "v2", success: false, reason: "timeout")
+        self.playerService.handleWebQueueInjectionResult(
+            videoId: "v2",
+            attemptGeneration: 2,
+            success: false,
+            reason: "timeout"
+        )
         #expect(self.playerService.injectedWebQueueVideoId == nil)
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
 
-        self.playerService.handleWebQueueInjectionResult(videoId: "v2", success: true, reason: "stale")
+        self.playerService.handleWebQueueInjectionResult(
+            videoId: "v2",
+            attemptGeneration: 2,
+            success: true,
+            reason: "stale"
+        )
         #expect(self.playerService.injectedWebQueueVideoId == nil)
 
         self.playerService.pendingWebQueueInjectionVideoId = "v2"
-        self.playerService.handleWebQueueInjectionResult(videoId: "v2", success: true, reason: "swapped")
+        self.playerService.handleWebQueueInjectionResult(
+            videoId: "v2",
+            attemptGeneration: 3,
+            success: true,
+            reason: "queue-readback-confirmed"
+        )
         #expect(self.playerService.injectedWebQueueVideoId == "v2")
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
     }
@@ -766,27 +787,6 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
         #expect(self.playerService.currentTrack?.title == "Song 2")
-    }
-
-    @Test("Injected track end waits for WebView confirmation before injecting next-next")
-    func injectedTrackEndDefersNextNextInjectionUntilPlaybackConfirmation() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
-            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
-        ]
-
-        await self.playerService.playQueue(songs, startingAt: 0)
-        self.playerService.state = .playing
-        self.playerService.injectedWebQueueVideoId = "v2"
-
-        await self.playerService.handleTrackEnded(observedVideoId: "v1")
-
-        #expect(self.playerService.currentIndex == 1)
-        #expect(self.playerService.currentTrack?.videoId == "v2")
-        #expect(self.playerService.state == .loading)
-        #expect(self.playerService.injectedWebQueueVideoId == nil)
-        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
     }
 
     @Test("Stale track-ended events do not double-advance the queue")

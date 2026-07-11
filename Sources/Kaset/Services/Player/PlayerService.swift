@@ -180,6 +180,18 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// The video ID that needs to be played in the mini player.
     var pendingPlayVideoId: String?
 
+    /// Native YouTube Music queue advance waiting for media-bound confirmation.
+    /// The visible queue pointer remains on the outgoing entry until the expected
+    /// target media is observed. While pending, the persistent player must not
+    /// autoload the target through Kaset's deterministic navigation path.
+    var pendingNativeQueueAdvance: PendingNativeQueueAdvance?
+
+    var pendingNativeQueueAdvanceGeneration: Int = 0
+
+    var pendingNativeQueueAdvanceVideoId: String? {
+        self.pendingNativeQueueAdvance?.targetVideoId
+    }
+
     /// Whether the user has successfully interacted at least once this session.
     /// After first successful playback, we can auto-play without showing the popup.
     private(set) var hasUserInteractedThisSession: Bool = false
@@ -528,9 +540,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
+        let pendingGeneration = self.pendingNativeQueueAdvance?.generation
         self.queueStorage = entries
         self.synchronizeCurrentQueueEntryID()
         self.queueDidChangeForEnrichment()
+
+        if let pendingGeneration,
+           !self.isPendingNativeQueueAdvanceValid
+        {
+            Task {
+                await self.fallbackInvalidatedNativeQueueAdvance(
+                    generation: pendingGeneration,
+                    reason: "queue adjacency changed"
+                )
+            }
+        }
     }
 
     func synchronizeCurrentQueueEntryID() {
@@ -538,6 +562,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func clearWebQueueInjectionState() {
+        self.webQueueInjectionGeneration &+= 1
         SingletonPlayerWebView.shared.cancelQueueInjection()
         self.injectedWebQueueVideoId = nil
         self.pendingWebQueueInjectionVideoId = nil
@@ -635,8 +660,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Video ID currently being injected into YouTube Music's native "Up Next" queue.
     /// This is intentionally separate from ``injectedWebQueueVideoId`` so track-end logic
-    /// only trusts injections after the WebView script confirms the queue payload was swapped.
+    /// only trusts injections after the WebView script accepts the source-bound command.
     var pendingWebQueueInjectionVideoId: String?
+
+    /// Invalidates native queue-injection timeout tasks when an attempt completes
+    /// or a new playback context supersedes it.
+    var webQueueInjectionGeneration: Int = 0
 
     /// Video ID that Kaset just selected through deterministic queue navigation.
     /// WebView metadata can arrive out of order around manual/media-key skips; keep

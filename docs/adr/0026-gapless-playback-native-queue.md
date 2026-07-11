@@ -35,23 +35,39 @@ track into YouTube Music's native **Up Next** queue ahead of time.
   `watchEndpoint`; it falls back to a full `watch` URL only when the router is not
   available or rejects the command.
 - `PlayerService+WebQueueSync` calls `syncWebQueue()` only when playback is in a
-  stable state (`.playing` or `.paused`). It does not manipulate the player-bar DOM
-  during `.loading`/router navigation.
+  stable state (`.playing` or `.paused`) and no main-document navigation is in
+  progress. A navigation completion retries synchronization when playback had
+  already started before `WKNavigationDelegate.didFinish`.
 - `SingletonPlayerWebView+QueueInjection` opens the current player-bar menu,
-  positively identifies **Play next**, and uses a click-scoped `JSON.stringify`
-  interceptor to swap that command's `videoIds` payload to Kaset's expected next
-  video ID.
+  positively identifies **Play next**, temporarily replaces its native
+  `queueAddEndpoint` target, invokes the menu item's own click path, and restores the
+  endpoint immediately afterward. The script waits briefly for the player-bar action
+  menu to mount after SPA navigation instead of treating the first missing DOM node
+  as a permanent injection failure.
+- Before dispatch, the menu endpoint's source video ID must still match Kaset's
+  current queue song. The page preserves rendered queue-row occurrences, accepts an already aligned queue without clicking again, otherwise requires a
+  post-click queue change, and reports success only when the expected target becomes
+  the actual next row (whether or not the current row is rendered). Stale, duplicate,
+  malformed, or unconfirmed clicks fail closed.
 - Swift tracks queue injection as two separate states:
   - `pendingWebQueueInjectionVideoId`: an injection attempt has started but the
     WebView has not confirmed it;
-  - `injectedWebQueueVideoId`: the WebView reported that the **Play next** payload
-    was swapped for the currently expected next track.
-- `handleTrackEnded(observedVideoId:)` trusts native auto-advance only when the
-  confirmed injected video ID still matches the current expected next queue entry.
-  Otherwise Kaset falls back to deterministic queue advancement through
+  - `injectedWebQueueVideoId`: the WebView confirmed that the source-bound **Play
+    next** click inserted the currently expected next track.
+- `handleTrackEnded(observedVideoId:)` starts a bounded native handoff only when
+  the readback-confirmed injected video ID still matches the expected next entry.
+  The outgoing song remains visible until the media-bound observer reports that
+  exact target. A wrong video or a three-second timeout falls back through
   `play(song:)` / `loadVideo(videoId:)`.
-- Any deterministic navigation, queue replacement, empty queue persistence, or
-  stale result clears both Swift-side and page-side queue-injection state.
+- Radio-queue enrichment preserves the active queue-entry UUID so replacing API
+  metadata does not look like a new playback occurrence to the media-generation guard.
+- A queue edit during a pending native handoff revalidates source/target UUID
+  adjacency. If adjacency changes, Kaset deterministically loads the newly expected
+  next entry rather than the stale target.
+- Main-document completion/failure callbacks are matched to the latest `WKNavigation`
+  and current `WKWebView` before they clear the injection gate.
+- Any deterministic navigation, queue replacement, empty queue persistence, or stale
+  result clears both Swift-side and page-side queue-injection state.
 - Hidden preload and restored-session pages start with autoplay blocked. Explicit
   user actions such as Resume/Next/Previous unblock autoplay.
 
@@ -62,8 +78,8 @@ track into YouTube Music's native **Up Next** queue ahead of time.
 - Queue transitions can be handled by YouTube Music's own player without reloading
   the whole WebView page for every track.
 - Manual Next/Previous stay aligned with Kaset's queue through deterministic
-  navigation, while natural track-end handling can still use native web-player
-  transitions when confirmed safe.
+  navigation, while natural track-end handling uses native web-player transitions
+  only after both queue readback and actual media identity are confirmed.
 - Duplicate tracks, stale `ended` events, failed injection attempts, queue edits,
   repeat modes, and mix/smart-shuffle continuation boundaries have explicit guard
   paths and regression tests.
@@ -75,8 +91,9 @@ track into YouTube Music's native **Up Next** queue ahead of time.
 
 - The queue-injection path depends on YouTube Music DOM structure and command
   payload shape, especially the player-bar menu and **Play next** command.
-- The `JSON.stringify` interception is intentionally narrow and click-scoped, but
-  it is still more fragile than a public API would be.
+- The implementation uses YouTube Music's internal `queueAddEndpoint`, menu-click,
+  and queue-renderer contracts, which are more fragile than a public API would be.
+- Command dispatch no longer rewrites arbitrary YouTube Music JSON payloads.
 - Real-world gaplessness still depends on YouTube Music buffering, WebKit timing,
   network state, and YouTube's internal player behavior.
 - The code must carefully cancel stale page-side injection attempts when Swift
@@ -89,11 +106,14 @@ The implementation adds/updates regression coverage in:
 
 - `PlayerServiceWebQueueSyncTests`
 - `PlayerServiceWebQueueSyncFollowUpTests`
+- `PlaybackObserverIdentityTests`
+- `QueueInjectionScriptTests`
 - `PlayerServiceQueueTests`
 - `AutoplayRecoveryTests`
 - `PlayerServiceLibraryTests`
 
-The covered cases include confirmed vs pending queue injection, stale injection
-results, duplicate video IDs, empty/edited queues, manual Next/Previous, natural
-track-end advancement, repeat modes, restored playback seeks, autoplay blocking,
-and account-scoped like/dislike completion races.
+The covered cases include queue readback confirmation, stale injection results,
+duplicate video IDs, navigation races, native handoff confirmation/wrong-track/timeout
+fallbacks, active queue-entry identity preservation, empty/edited queues, manual
+Next/Previous, repeat modes, restored playback seeks, autoplay blocking, and
+account-scoped like/dislike completion races.
