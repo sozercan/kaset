@@ -15,7 +15,7 @@ extension SingletonPlayerWebView {
                 }
                 if (!window.__kasetBlockAutoplay) return 'autoplay-allowed';
                 window.__kasetAutoplayPending = false;
-                let ticks = 0;
+                var ticks = 0;
                 const timer = setInterval(function() {
                     if (!window.__kasetBlockAutoplay) {
                         clearInterval(timer);
