@@ -221,8 +221,7 @@ extension PlayerService {
     }
 
     var canAdvanceNativeQueueAfterTrackEnd: Bool {
-        self.shuffleEnabled
-            || self.repeatMode == .one
+        self.repeatMode == .one
             || self.currentIndex < self.queue.count - 1
             || self.repeatMode == .all
             || self.mixContinuationToken != nil

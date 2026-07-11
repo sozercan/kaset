@@ -200,7 +200,7 @@ struct QueueInjectionScriptTests {
         let context = try #require(self.makeContext(
             menuAvailableAfterLookup: 1,
             clickMode: "noInsert",
-            initialQueueVideoIds: ["wrong-next", "source-video", "target-video"]
+            initialQueueVideoIds: ["source-video", "wrong-next", "source-video", "target-video"]
         ))
 
         self.evaluate(
@@ -214,7 +214,7 @@ struct QueueInjectionScriptTests {
 
         #expect(context.evaluateScript("lastMessage.success")?.toBool() == false)
         #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-timeout")
-        #expect(context.evaluateScript("queueVideoIds[0]")?.toString() == "wrong-next")
+        #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "wrong-next")
     }
 
     @Test("Queue injection reports a native Play Next click exception")

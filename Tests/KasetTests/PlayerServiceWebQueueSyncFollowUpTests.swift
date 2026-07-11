@@ -19,6 +19,20 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
     }
 
+    @Test("Materialized shuffle ends at its last entry when repeat is off")
+    func materializedShuffleEndsAtLastEntry() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 2)
+        self.playerService.shuffleMode = .on
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: songs[2].videoId)
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
     @Test("Radio queue replacement preserves the current playback occurrence ID")
     func radioQueueReplacementPreservesCurrentEntryID() async {
         let seed = Song(id: "seed", title: "Seed", artists: [], duration: 180, videoId: "seed-video")
