@@ -48,6 +48,24 @@ extension SingletonPlayerWebView {
         """
     }
 
+    nonisolated static var endedReplayGenerationFunctionJS: String {
+        """
+        function __kasetShouldAdvanceEndedReplay(endedMediaGeneration, mediaGeneration) {
+            return endedMediaGeneration !== null
+                && endedMediaGeneration === mediaGeneration;
+        }
+        """
+    }
+
+    nonisolated static var mediaOccurrenceAdvanceFunctionJS: String {
+        """
+        window.__kasetAdvanceMediaOccurrenceGeneration = function() {
+            mediaGeneration += 1;
+            return true;
+        };
+        """
+    }
+
     /// Observer script for playback state.
     nonisolated static var observerScript: String {
         """
@@ -60,6 +78,8 @@ extension SingletonPlayerWebView {
             \(autoplayRecoveryFunctionJS)
             \(mediaIdentityBindingDecisionFunctionJS)
             \(mediaTimingFunctionJS)
+            \(endedReplayGenerationFunctionJS)
+            \(mediaOccurrenceAdvanceFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
@@ -70,6 +90,7 @@ extension SingletonPlayerWebView {
             let mediaIdentityUncertain = false;
             let mediaIdentityTransitionFromVideoId = '';
             let mediaIdentityIsInitialBinding = false;
+            let endedMediaGeneration = null;
             let isPollingActive = false;
             let pollIntervalId = null;
             let lastUpdateTime = 0;
@@ -125,8 +146,18 @@ extension SingletonPlayerWebView {
                         bindMediaIdentity(video, true, false);
                     }
 
-                    video.addEventListener('play', startPolling);
-                    video.addEventListener('playing', startPolling);
+                    function handlePlaybackStarted() {
+                        if (__kasetShouldAdvanceEndedReplay(
+                            endedMediaGeneration,
+                            mediaGeneration
+                        )) {
+                            window.__kasetAdvanceMediaOccurrenceGeneration();
+                        }
+                        endedMediaGeneration = null;
+                        startPolling();
+                    }
+                    video.addEventListener('play', handlePlaybackStarted);
+                    video.addEventListener('playing', handlePlaybackStarted);
                     // Enforce volume on playing event to catch all track changes
                     // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => {
@@ -142,6 +173,7 @@ extension SingletonPlayerWebView {
                     });
                     video.addEventListener('pause', stopPolling);
                     video.addEventListener('ended', () => {
+                        endedMediaGeneration = mediaGeneration;
                         sendTrackEnded();
                         stopPolling();
                     });

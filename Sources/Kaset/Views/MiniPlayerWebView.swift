@@ -901,10 +901,13 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
                     )
                 }
             case "STATE_UPDATE":
+                let mediaVideoId = Self.nonEmptyVideoId(body["mediaVideoId"])
+                SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: mediaVideoId)
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
                     await coordinator.handleStateUpdate(
                         body: body,
                         observedVideoId: observedVideoId,
+                        mediaVideoId: mediaVideoId,
                         messageGeneration: messageGeneration
                     )
                 }
@@ -1389,6 +1392,7 @@ private extension SingletonPlayerWebView.Coordinator {
     private func handleStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
+        mediaVideoId: String?,
         messageGeneration: Int
     ) async {
         let isPlaying = body["isPlaying"] as? Bool ?? false
@@ -1400,7 +1404,6 @@ private extension SingletonPlayerWebView.Coordinator {
         let trackChanged = body["trackChanged"] as? Bool ?? false
         let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
         let hasVideo = body["hasVideo"] as? Bool ?? false
-        let mediaVideoId = Self.nonEmptyVideoId(body["mediaVideoId"])
         let mediaGeneration = body["mediaGeneration"] as? Int ?? 0
         let observerEpoch = body["observerEpoch"] as? Double ?? 0
 
@@ -1413,8 +1416,6 @@ private extension SingletonPlayerWebView.Coordinator {
         ) else {
             return
         }
-
-        SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: mediaVideoId)
 
         let shouldContinuePendingAdvance = await self.playerService
             .reconcilePendingNativeQueueAdvanceObservation(videoId: mediaVideoId)

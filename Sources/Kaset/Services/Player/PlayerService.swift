@@ -558,6 +558,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         let pendingGeneration = self.pendingNativeQueueAdvance?.generation
         self.queueStorage = entries
         self.synchronizeCurrentQueueEntryID()
+        if NativeQueueMaintenanceContext.isApplyingQueueMutation {
+            self.resumeNativeQueueMaintenanceWaitersIfSuccessorMaterialized()
+        }
         self.queueDidChangeForEnrichment()
 
         if let pendingGeneration,

@@ -424,6 +424,49 @@ extension PlayerServiceWebQueueSyncTests {
         await endedTask.value
     }
 
+    @Test("Maintenance-owned successor insertion wakes track end before maintenance completes")
+    func maintenanceSuccessorInsertionWakesTrackEndImmediately() async {
+        let mutationGate = AsyncGate()
+        let completionGate = AsyncGate()
+        let current = Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1")
+        let successor = Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2")
+        let previousWebVideoId = SingletonPlayerWebView.shared.currentVideoId
+        defer { SingletonPlayerWebView.shared.currentVideoId = previousWebVideoId }
+        await self.playerService.playQueue([current], startingAt: 0)
+        self.playerService.nativeQueueMaintenanceGeneration &+= 1
+        let maintenanceGeneration = self.playerService.nativeQueueMaintenanceGeneration
+        var maintenanceCompleted = false
+        let maintenanceTask = Task { @MainActor in
+            await mutationGate.wait()
+            await NativeQueueMaintenanceContext.$isApplyingQueueMutation.withValue(true) {
+                self.playerService.setQueue([current, successor])
+                await completionGate.wait()
+            }
+            maintenanceCompleted = true
+        }
+        self.playerService.nativeQueueMaintenanceTask = maintenanceTask
+
+        let endedTask = Task { @MainActor in
+            await self.playerService.handleTrackEnded(observedVideoId: "v1")
+        }
+        await Self.waitUntilNativeQueueMaintenanceWaiterIsRegistered(
+            generation: maintenanceGeneration,
+            playerService: self.playerService
+        )
+        #expect(self.playerService.nativeQueueMaintenanceWaiters[maintenanceGeneration]?.count == 1)
+
+        await mutationGate.open()
+        await Self.waitUntilCurrentIndex(1, playerService: self.playerService)
+
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(!maintenanceCompleted)
+
+        await completionGate.open()
+        await maintenanceTask.value
+        self.playerService.clearNativeQueueMaintenance()
+        await endedTask.value
+    }
+
     private static func waitUntilNativeQueueMaintenanceStarts(mockClient: MockYTMusicClient) async {
         let clock = ContinuousClock()
         let deadline = clock.now + .seconds(1)

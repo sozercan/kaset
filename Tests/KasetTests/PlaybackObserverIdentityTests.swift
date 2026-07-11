@@ -63,6 +63,26 @@ struct PlaybackObserverIdentityTests {
         #expect(fallbackTiming?.objectForKeyedSubscript("duration")?.toDouble() == 180)
     }
 
+    @Test("A same-element replay advances the consumed ended generation")
+    func endedReplayGenerationGate() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(SingletonPlayerWebView.endedReplayGenerationFunctionJS)
+
+        #expect(context.evaluateScript("__kasetShouldAdvanceEndedReplay(4, 4)")?.toBool() == true)
+        #expect(context.evaluateScript("__kasetShouldAdvanceEndedReplay(4, 5)")?.toBool() == false)
+        #expect(context.evaluateScript("__kasetShouldAdvanceEndedReplay(null, 4)")?.toBool() == false)
+
+        let observerScript = SingletonPlayerWebView.observerScript
+        #expect(observerScript.contains("function handlePlaybackStarted()"))
+        #expect(observerScript.contains("video.addEventListener('play', handlePlaybackStarted)"))
+        #expect(observerScript.contains("video.addEventListener('playing', handlePlaybackStarted)"))
+
+        let occurrenceAdvance = SingletonPlayerWebView.mediaOccurrenceAdvanceFunctionJS
+        #expect(occurrenceAdvance.contains("mediaGeneration += 1"))
+        #expect(!occurrenceAdvance.contains("mediaVideoId"))
+        #expect(!occurrenceAdvance.contains("sendUpdate"))
+    }
+
     @Test("A stale WebView cannot start the current document navigation gate")
     func staleWebViewNavigationStartIsIgnored() {
         let staleWebView = WKWebView()

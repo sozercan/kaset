@@ -304,6 +304,11 @@ extension PlayerService {
         }
     }
 
+    func resumeNativeQueueMaintenanceWaitersIfSuccessorMaterialized() {
+        guard self.expectedQueueIndexAfterCurrentTrack() != nil else { return }
+        self.resumeNativeQueueMaintenanceWaiters(generation: self.nativeQueueMaintenanceGeneration)
+    }
+
     private func normalizedWebPlaybackVideoId(_ videoId: String?) -> String? {
         guard let videoId, !videoId.isEmpty else { return nil }
         return videoId
