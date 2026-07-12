@@ -58,6 +58,21 @@ extension PlayerServiceWebQueueSyncTests {
         }
     }
 
+    private static func waitUntilSongMetadataRefreshStarts(
+        videoId: String,
+        mockClient: MockYTMusicClient
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if mockClient.getSongVideoIds.contains(videoId) {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Timed out waiting for song metadata refresh for \(videoId)")
+    }
+
     @Test("Materialized shuffle ends at its last entry when repeat is off")
     func materializedShuffleEndsAtLastEntry() async {
         let songs = TestFixtures.makeSongs(count: 3)
@@ -690,7 +705,7 @@ extension PlayerServiceWebQueueSyncTests {
             thumbnailUrl: "",
             videoId: "v1"
         )
-        try? await Task.sleep(for: .milliseconds(50))
+        await Self.waitUntilSongMetadataRefreshStarts(videoId: "v1", mockClient: mockClient)
 
         #expect(mockClient.getSongVideoIds.contains("v1"))
         #expect(self.playerService.queue.map(\.videoId) == ["v1", "v2"])
