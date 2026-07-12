@@ -45,11 +45,11 @@ enum AlbumPlaybackActions {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) {
-        let requestGeneration = playerService.beginPlaybackRequest()
+        let requestGeneration = playerService.beginPendingPlaybackSelectionRequest()
         Task {
             do {
                 let response = try await client.getPlaylist(id: album.id)
-                guard playerService.isCurrentPlaybackRequest(requestGeneration) else {
+                guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
                     DiagnosticsLogger.ui.info("Discarding stale album playback request")
                     return
                 }

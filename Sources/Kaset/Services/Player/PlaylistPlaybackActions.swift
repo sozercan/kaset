@@ -13,16 +13,17 @@ enum PlaylistPlaybackActions {
     }
 
     /// Plays a playlist immediately, replacing the current queue.
+    @discardableResult
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         playerService: PlayerService
-    ) {
-        let requestGeneration = playerService.beginPlaybackRequest()
-        Task { @MainActor in
+    ) -> Task<Void, Never> {
+        let requestGeneration = playerService.beginPendingPlaybackSelectionRequest()
+        return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
-                guard playerService.isCurrentPlaybackRequest(requestGeneration) else {
+                guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
                     DiagnosticsLogger.ui.info("Discarding stale playlist playback request")
                     return
                 }
@@ -31,7 +32,7 @@ enum PlaylistPlaybackActions {
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
-                        guard playerService.isCurrentPlaybackRequest(requestGeneration) else {
+                        guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
                             DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request")
                             return
                         }
@@ -44,7 +45,7 @@ enum PlaylistPlaybackActions {
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
                     }
-                    guard playerService.isCurrentPlaybackRequest(requestGeneration) else {
+                    guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
                         DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback")
                         return
                     }

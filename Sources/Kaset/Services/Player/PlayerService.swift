@@ -319,6 +319,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var mixContinuationToken: String?
     var mixContinuationRequiresAuth = false
     var playbackRequestGeneration = 0
+    var pendingPlaybackSelectionGeneration = 0
     var playbackNavigationGeneration = 0
     var queueMutationGeneration = 0
 

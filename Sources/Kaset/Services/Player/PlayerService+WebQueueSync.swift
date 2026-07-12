@@ -463,7 +463,7 @@ extension PlayerService {
                 }
                 self.logger.info("YouTube autoplay detected, overriding with queue track")
                 Task {
-                    await self.next()
+                    _ = await self.performNextNavigation()
                 }
                 return true
             }
@@ -494,7 +494,7 @@ extension PlayerService {
             }
             self.logger.info("Near-end track change detected, advancing native queue to enforce playback order")
             Task {
-                await self.next()
+                _ = await self.performNextNavigation()
             }
             return true
         }

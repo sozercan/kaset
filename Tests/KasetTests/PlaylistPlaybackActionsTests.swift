@@ -227,6 +227,68 @@ struct PlaylistPlaybackActionsTests {
         #expect(playerService.currentTrack?.videoId == playlistSong.videoId)
     }
 
+    @Test("Manual Next supersedes a pending playlist request")
+    func manualNextSupersedesPendingPlaylistRequest() async {
+        let gate = AsyncGate()
+        let playlist = TestFixtures.makePlaylist(id: "VL-pending-next", title: "Pending")
+        let requestedSong = TestFixtures.makeSong(id: "requested-song")
+        let currentQueue = TestFixtures.makeSongs(count: 3)
+        self.mockClient.getPlaylistGate = gate
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [requestedSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        await playerService.playQueue(currentQueue, startingAt: 0)
+
+        let pendingTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.waitUntilPlaylistRequestStarts(id: playlist.id)
+
+        await playerService.next()
+        await gate.open()
+        await pendingTask.value
+
+        #expect(playerService.queue.map(\.videoId) == currentQueue.map(\.videoId))
+        #expect(playerService.currentIndex == 1)
+        #expect(playerService.currentTrack?.videoId == currentQueue[1].videoId)
+    }
+
+    @Test("Manual Previous supersedes a pending playlist request")
+    func manualPreviousSupersedesPendingPlaylistRequest() async {
+        let gate = AsyncGate()
+        let playlist = TestFixtures.makePlaylist(id: "VL-pending-previous", title: "Pending")
+        let requestedSong = TestFixtures.makeSong(id: "requested-song")
+        let currentQueue = TestFixtures.makeSongs(count: 3)
+        self.mockClient.getPlaylistGate = gate
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [requestedSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        await playerService.playQueue(currentQueue, startingAt: 1)
+
+        let pendingTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.waitUntilPlaylistRequestStarts(id: playlist.id)
+
+        await playerService.previous()
+        await gate.open()
+        await pendingTask.value
+
+        #expect(playerService.queue.map(\.videoId) == currentQueue.map(\.videoId))
+        #expect(playerService.currentIndex == 0)
+        #expect(playerService.currentTrack?.videoId == currentQueue[0].videoId)
+    }
+
     private func awaitQueueCount(_ expectedCount: Int, in playerService: PlayerService) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(1))
@@ -243,6 +305,18 @@ struct PlaylistPlaybackActionsTests {
         while self.mockClient.getMixQueueCallCount == 0 {
             guard clock.now < deadline else {
                 Issue.record("Timed out waiting for mix request")
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func waitUntilPlaylistRequestStarts(id: String) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while !self.mockClient.getPlaylistIds.contains(id) {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for playlist request")
                 return
             }
             try? await Task.sleep(for: .milliseconds(10))

@@ -82,6 +82,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var getHistoryGate: AsyncGate?
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
+    var getPlaylistGate: AsyncGate?
     var playlistContinuationDelay: Duration?
     var mixQueueDelay: Duration?
     var mixQueueGate: AsyncGate?
@@ -756,6 +757,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.getPlaylistCalled = true
         self.getPlaylistIds.append(id)
+        await self.getPlaylistGate?.wait()
         if let getPlaylistDelay {
             try? await Task.sleep(for: getPlaylistDelay)
         }
@@ -1243,6 +1245,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.rateSongDelay = nil
         self.getHistoryDelay = nil
         self.getHistoryGate = nil
+        self.getPlaylistGate = nil
         self.resetQueueFetchState()
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []

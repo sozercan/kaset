@@ -399,6 +399,7 @@ extension PlayerService {
 
     /// Skips to next track.
     func next() async {
+        self.invalidatePendingPlaybackSelectionRequests()
         _ = await self.performNextNavigation()
     }
 
@@ -513,6 +514,7 @@ extension PlayerService {
 
     /// Goes to previous track.
     func previous() async {
+        self.invalidatePendingPlaybackSelectionRequests()
         self.logger.debug("Going to previous track")
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.setAutoplayBlocked(false)

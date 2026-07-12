@@ -98,7 +98,7 @@ extension PlayerService {
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(playlistId: String, startVideoId: String?) async {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
-        let requestGeneration = self.beginPlaybackRequest()
+        let requestGeneration = self.beginPendingPlaybackSelectionRequest()
         let continuationRequiresAuth = self.authService?.hasPersonalAccount == true
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
@@ -116,7 +116,7 @@ extension PlayerService {
                 return
             }
 
-            guard self.isCurrentPlaybackRequest(requestGeneration) else {
+            guard self.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
                 self.logger.info("Discarding stale mix playback request")
                 return
             }
@@ -911,6 +911,7 @@ extension PlayerService {
 
     func invalidatePendingPlaybackRequests() {
         self.playbackRequestGeneration &+= 1
+        self.pendingPlaybackSelectionGeneration &+= 1
     }
 
     @discardableResult
@@ -921,6 +922,21 @@ extension PlayerService {
 
     func isCurrentPlaybackRequest(_ generation: Int) -> Bool {
         generation == self.playbackRequestGeneration
+    }
+
+    @discardableResult
+    func beginPendingPlaybackSelectionRequest() -> Int {
+        self.playbackRequestGeneration &+= 1
+        self.pendingPlaybackSelectionGeneration &+= 1
+        return self.pendingPlaybackSelectionGeneration
+    }
+
+    func invalidatePendingPlaybackSelectionRequests() {
+        self.pendingPlaybackSelectionGeneration &+= 1
+    }
+
+    func isCurrentPendingPlaybackSelectionRequest(_ generation: Int) -> Bool {
+        generation == self.pendingPlaybackSelectionGeneration
     }
 
     func beginPlaybackNavigation() {

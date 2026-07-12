@@ -15,6 +15,7 @@ struct PlaybackObserverIdentityTests {
         #expect(script.contains("mediaVideoId: mediaVideoId"))
         #expect(script.contains("mediaGeneration: mediaGeneration"))
         #expect(script.contains("observerEpoch: observerEpoch"))
+        #expect(script.contains("mediaIdentityCorrectionDeadline"))
         #expect(script.contains("window.__kasetAdvanceMediaGeneration"))
         #expect(script.contains("const mediaTimeReset = mediaTime + 2 < lastMediaCurrentTime"))
         #expect(script.contains("if (video.readyState >= 1)"))
@@ -24,6 +25,34 @@ struct PlaybackObserverIdentityTests {
         #expect(script.contains("initialEmptyIdentityResolved"))
         #expect(script.contains("mediaIdentityIsInitialBinding = !previousMediaVideoId && !videoId"))
         #expect(script.contains("observerEpoch: observerEpoch"))
+    }
+
+    @Test("Same-video metadata transitions keep a bounded correction window")
+    func sameVideoMetadataTransitionKeepsCorrectionWindow() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(SingletonPlayerWebView.mediaIdentityCorrectionWindowFunctionJS)
+
+        #expect(context.evaluateScript(
+            "__kasetShouldOpenMediaIdentityCorrectionWindow('v1', 'v1', true, false)"
+        )?.toBool() == true)
+        #expect(context.evaluateScript(
+            "__kasetShouldOpenMediaIdentityCorrectionWindow('v1', 'v1', false, false)"
+        )?.toBool() == false)
+        #expect(context.evaluateScript(
+            "__kasetShouldOpenMediaIdentityCorrectionWindow('v2', 'v1', true, true)"
+        )?.toBool() == false)
+        #expect(context.evaluateScript(
+            "__kasetIsMediaIdentityCorrectionWindowActive(6000, 5000)"
+        )?.toBool() == true)
+        #expect(context.evaluateScript(
+            "__kasetIsMediaIdentityCorrectionWindowActive(5000, 6000)"
+        )?.toBool() == false)
+        #expect(context.evaluateScript(
+            "__kasetShouldCommitMediaIdentityCorrection(5000, 6000)"
+        )?.toBool() == true)
+        #expect(context.evaluateScript(
+            "__kasetShouldCommitMediaIdentityCorrection(6000, 5000)"
+        )?.toBool() == false)
     }
 
     @Test("Uncertain media identity rebinds only with explicit correction evidence")

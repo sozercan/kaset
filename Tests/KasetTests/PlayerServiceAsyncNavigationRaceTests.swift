@@ -202,6 +202,30 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.state == .playing)
     }
 
+    @Test("No-op manual Next preserves an active radio bootstrap")
+    func noOpManualNextPreservesActiveRadioBootstrap() async {
+        let mockClient = MockYTMusicClient()
+        let radioGate = AsyncGate()
+        let seed = TestFixtures.makeSong(id: "seed")
+        let radioNext = TestFixtures.makeSong(id: "radio-next")
+        mockClient.getRadioQueueGate = radioGate
+        mockClient.radioQueueSongs[seed.videoId] = [seed, radioNext]
+        self.playerService.setYTMusicClient(mockClient)
+
+        let radioTask = Task { @MainActor in
+            await self.playerService.playWithRadio(song: seed)
+        }
+        await Self.waitUntilRadioQueueStartsForRace(mockClient: mockClient)
+
+        await self.playerService.next()
+        await radioGate.open()
+        await radioTask.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [seed.videoId, radioNext.videoId])
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+    }
+
     @Test("Delayed radio fetch cannot repopulate a queue the user cleared")
     func delayedRadioFetchDoesNotRepopulateClearedQueue() async {
         let mockClient = MockYTMusicClient()
