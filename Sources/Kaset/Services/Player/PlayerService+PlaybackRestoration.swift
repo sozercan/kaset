@@ -6,10 +6,11 @@ import Foundation
 extension PlayerService {
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
-        self.applyPlaybackStateObservation(
+        self.updatePlaybackState(
             isPlaying: isPlaying,
             progress: progress,
-            duration: duration
+            duration: duration,
+            observedVideoId: self.currentTrack?.videoId ?? self.pendingPlayVideoId
         )
     }
 
@@ -29,6 +30,7 @@ extension PlayerService {
             return
         }
 
+        self.recordPlaybackStateObservation(videoId: observedVideoId)
         self.applyPlaybackStateObservation(
             isPlaying: isPlaying,
             progress: progress,

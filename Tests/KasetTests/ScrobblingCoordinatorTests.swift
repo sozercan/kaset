@@ -18,6 +18,16 @@ struct ScrobblingCoordinatorTests {
         try? FileManager.default.removeItem(at: dir)
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: @MainActor () -> Bool
+    ) async {
+        let deadline = ContinuousClock.now + timeout
+        while !condition(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     private func makeTrack(
         title: String = "Test Song",
         artist: String = "Test Artist",
@@ -206,7 +216,7 @@ struct ScrobblingCoordinatorTests {
     @Test("Seek forward does not inflate play time")
     func seekForwardIgnored() {
         var accumulated: TimeInterval = 0
-        var lastProgress: TimeInterval = 10.0
+        let lastProgress: TimeInterval = 10.0
 
         // Seek from 10s to 100s (delta = 90s > 2s threshold → ignored)
         let newProgress: TimeInterval = 100.0
@@ -221,7 +231,7 @@ struct ScrobblingCoordinatorTests {
     @Test("Seek backward does not inflate play time")
     func seekBackwardIgnored() {
         var accumulated: TimeInterval = 0
-        var lastProgress: TimeInterval = 100.0
+        let lastProgress: TimeInterval = 100.0
 
         // Seek from 100s to 10s (negative delta → ignored)
         let newProgress: TimeInterval = 10.0
@@ -275,7 +285,7 @@ struct ScrobblingCoordinatorTests {
         mockService.authState = .disconnected
 
         let playerService = PlayerService()
-        let settings = SettingsManager.shared
+        let settings = MockScrobblingSettings()
         settings.setServiceEnabled("Mock", true)
         defer { settings.setServiceEnabled("Mock", false) }
 
@@ -304,7 +314,7 @@ struct ScrobblingCoordinatorTests {
         mockService.authState = .connected(username: "testuser")
 
         let playerService = PlayerService()
-        let settings = SettingsManager.shared
+        let settings = MockScrobblingSettings()
         settings.setServiceEnabled("Mock", true)
         defer { settings.setServiceEnabled("Mock", false) }
 
@@ -346,7 +356,7 @@ struct ScrobblingCoordinatorTests {
         ]
 
         let playerService = PlayerService()
-        let settings = SettingsManager.shared
+        let settings = MockScrobblingSettings()
         settings.setServiceEnabled("Mock", true)
 
         let coordinator = ScrobblingCoordinator(
@@ -382,7 +392,7 @@ struct ScrobblingCoordinatorTests {
         mockService.shouldThrowOnScrobble = CancellationError()
 
         let playerService = PlayerService()
-        let settings = SettingsManager.shared
+        let settings = MockScrobblingSettings()
         settings.setServiceEnabled("Mock", true)
 
         let coordinator = ScrobblingCoordinator(
@@ -458,6 +468,93 @@ struct ScrobblingCoordinatorTests {
 
         let isReplay = hasScrobbled && newProgress < lastProgress - threshold
         #expect(!isReplay, "Backward jump before scrobbling should not trigger replay (could be a seek)")
+    }
+
+    @Test("A regular-track replay replaces the tracker and can scrobble again")
+    func regularTrackReplayStartsFresh() async throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .connected(username: "testuser")
+        let settings = MockScrobblingSettings()
+        let originalPercent = settings.scrobblePercentThreshold
+        let originalMinSeconds = settings.scrobbleMinSeconds
+        settings.scrobblePercentThreshold = 0.01
+        settings.scrobbleMinSeconds = 240
+        settings.setServiceEnabled("Mock", true)
+        defer {
+            settings.scrobblePercentThreshold = originalPercent
+            settings.scrobbleMinSeconds = originalMinSeconds
+            settings.setServiceEnabled("Mock", false)
+        }
+
+        let playerService = PlayerService()
+        playerService.currentTrack = TestFixtures.makeSong(id: "song1", title: "Regular Song", duration: 100)
+        playerService.state = .playing
+        playerService.duration = 100
+        playerService.setPlaybackStateVideoId("song1")
+        let queue = ScrobbleQueue(directory: dir)
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+        coordinator.startMonitoring()
+        defer { coordinator.stopMonitoring() }
+
+        playerService.progress = 0.1
+        await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
+        playerService.progress = 1.1
+        await self.waitUntil { queue.count == 1 }
+        let firstTimestamp = queue.pendingTracks.first?.timestamp
+
+        playerService.progress = 50
+        try await Task.sleep(for: .milliseconds(20))
+        playerService.progress = 0.1
+        await self.waitUntil { mockService.nowPlayingTracks.count == 2 }
+        playerService.progress = 1.1
+        await self.waitUntil { queue.count == 2 }
+
+        #expect(queue.pendingTracks.last?.timestamp != firstTimestamp)
+    }
+
+    @Test("Stopping and restarting monitoring preserves the same regular play latch")
+    func monitoringRestartPreservesRegularPlay() async throws {
+        let dir = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(dir) }
+
+        let mockService = MockScrobbleService()
+        mockService.authState = .connected(username: "testuser")
+        let settings = MockScrobblingSettings(scrobblePercentThreshold: 0.01)
+        settings.setServiceEnabled("Mock", true)
+        let playerService = PlayerService()
+        playerService.currentTrack = TestFixtures.makeSong(id: "song1", title: "Regular Song", duration: 100)
+        playerService.state = .playing
+        playerService.duration = 100
+        playerService.setPlaybackStateVideoId("song1")
+        let queue = ScrobbleQueue(directory: dir)
+        let coordinator = ScrobblingCoordinator(
+            playerService: playerService,
+            settingsManager: settings,
+            services: [mockService],
+            queue: queue
+        )
+
+        coordinator.startMonitoring()
+        playerService.progress = 0.1
+        await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
+        playerService.progress = 1.1
+        await self.waitUntil { queue.count == 1 }
+
+        coordinator.stopMonitoring(finalizeCurrentTrack: false)
+        coordinator.startMonitoring()
+        defer { coordinator.stopMonitoring() }
+        playerService.progress = 2.1
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(queue.count == 1)
     }
 
     // MARK: - Fix: Title/artist-based track change detection

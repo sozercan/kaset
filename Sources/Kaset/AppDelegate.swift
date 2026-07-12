@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Reference to the PlayerService for dock menu actions.
     /// Set by KasetApp after initialization.
     weak var playerService: PlayerService?
+    weak var scrobblingCoordinator: ScrobblingCoordinator?
 
     /// Reference to the main window for reliable reopen behavior.
     /// Using strong reference to prevent deallocation when window is hidden.
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Tracks when the app is quitting so we can allow window closures.
     private var isTerminating = false
+    private var isPreparingTermination = false
 
     func applicationDidFinishLaunching(_: Notification) {
         DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
@@ -49,9 +51,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticsLogger.player.info("Application will terminate - saved queue for persistence")
     }
 
-    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+    func applicationShouldTerminate(_ application: NSApplication) -> NSApplication.TerminateReply {
         self.isTerminating = true
-        return .terminateNow
+        guard let scrobblingCoordinator else { return .terminateNow }
+        guard !self.isPreparingTermination else { return .terminateLater }
+
+        self.isPreparingTermination = true
+        Task { @MainActor in
+            await scrobblingCoordinator.prepareForTermination()
+            self.playerService?.saveQueueForPersistence()
+            application.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     /// Registers for system sleep and wake notifications to handle playback appropriately.
