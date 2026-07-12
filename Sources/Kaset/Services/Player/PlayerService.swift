@@ -552,7 +552,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
-        if !NativeQueueMaintenanceContext.isApplyingQueueMutation {
+        if !NativeQueueMaintenanceContext.isApplyingQueueMutation,
+           !self.isApplyingQueueEnrichmentResult
+        {
             self.clearNativeQueueMaintenance()
         }
         let pendingGeneration = self.pendingNativeQueueAdvance?.generation
