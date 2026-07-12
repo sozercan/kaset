@@ -570,6 +570,26 @@ struct PlayerServiceQueueTests {
         #expect(nextLaunchService.queue.isEmpty)
     }
 
+    @Test("Resume on an already-loaded restored session preserves the saved seek")
+    func resumeDeferredRestoredSessionAlreadyLoadedPreservesSeek() async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 1,
+            progress: 42,
+            duration: 240
+        )
+        SingletonPlayerWebView.shared.currentVideoId = songs[1].videoId
+
+        await self.playerService.resume()
+
+        #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
+        #expect(self.playerService.pendingRestoredSeek == 42)
+        #expect(self.playerService.isRestoringPlaybackSession == true)
+        #expect(self.playerService.shouldAutoResumeAfterRestoredLoad == true)
+        #expect(self.playerService.state == .loading)
+    }
+
     @Test("Resume on a restored session loads through the hidden persistent player")
     func resumeDeferredRestoredSession() async {
         // Arrange

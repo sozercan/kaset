@@ -66,6 +66,7 @@ extension PlayerService {
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async {
+        let requestGeneration = self.beginPlaybackRequest()
         self.logger.info("Playing with radio: \(song.title)")
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
@@ -78,7 +79,11 @@ extension PlayerService {
         self.setQueue([song])
         self.queueOrderBeforeShuffle = nil
         self.currentIndex = 0
-        await self.play(song: song)
+        await self.play(song: song, webLoadStrategy: .standard)
+        guard self.isCurrentPlaybackRequest(requestGeneration) else {
+            self.logger.info("Discarding stale radio playback request")
+            return
+        }
 
         // Fetch radio queue in background
         await self.fetchAndApplyRadioQueue(for: song.videoId)
@@ -93,7 +98,7 @@ extension PlayerService {
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(playlistId: String, startVideoId: String?) async {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
-        let requestGeneration = self.playbackRequestGeneration
+        let requestGeneration = self.beginPendingPlaybackSelectionRequest()
         let continuationRequiresAuth = self.authService?.hasPersonalAccount == true
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
@@ -111,8 +116,8 @@ extension PlayerService {
                 return
             }
 
-            guard requestGeneration == self.playbackRequestGeneration else {
-                self.logger.info("Discarding stale mix playback request after privacy boundary")
+            guard self.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
+                self.logger.info("Discarding stale mix playback request")
                 return
             }
 
@@ -148,18 +153,40 @@ extension PlayerService {
 
     /// Fetches more songs for the current mix when approaching the end of the queue.
     /// This enables "infinite mix" behavior like YouTube Music web.
-    func fetchMoreMixSongsIfNeeded() async {
+    func fetchMoreMixSongsIfNeeded(
+        shouldApplyResult: @MainActor () -> Bool = { true }
+    ) async {
         let songsRemaining = self.queue.count - self.currentIndex - 1
         self.logger.debug("Infinite mix check: \(songsRemaining) songs remaining, hasContinuation: \(self.mixContinuationToken != nil)")
 
+        if self.isFetchingMoreMixSongs {
+            let queueCountBeforeWait = self.queue.count
+            let continuationBeforeWait = self.mixContinuationToken
+            let queueMutationGenerationBeforeWait = self.queueMutationGeneration
+            await withCheckedContinuation { continuation in
+                self.mixContinuationFetchWaiters.append(continuation)
+            }
+            guard !Task.isCancelled,
+                  shouldApplyResult(),
+                  self.queue.count == queueCountBeforeWait,
+                  self.mixContinuationToken == continuationBeforeWait,
+                  self.queueMutationGeneration == queueMutationGenerationBeforeWait
+            else {
+                return
+            }
+            await self.fetchMoreMixSongsIfNeeded(shouldApplyResult: shouldApplyResult)
+            return
+        }
+
         // Only fetch if we have a continuation token and we're near the end
-        guard let token = mixContinuationToken,
-              !isFetchingMoreMixSongs,
+        guard let continuation = mixContinuationToken,
               !(self.mixContinuationRequiresAuth && self.authService?.hasPersonalAccount != true),
-              let client = ytMusicClient
+              let client = ytMusicClient,
+              shouldApplyResult()
         else {
             return
         }
+        let requestQueueMutationGeneration = self.queueMutationGeneration
 
         // Fetch more when we're within 10 songs of the end
         guard songsRemaining <= 10 else {
@@ -168,13 +195,16 @@ extension PlayerService {
 
         self.logger.info("Fetching more mix songs, \(songsRemaining) remaining in queue")
         self.isFetchingMoreMixSongs = true
+        defer { self.finishMixContinuationFetch() }
         let requestGeneration = self.playbackRequestGeneration
 
         do {
-            let result = try await client.getMixQueueContinuation(continuationToken: token)
-            guard requestGeneration == self.playbackRequestGeneration else {
-                self.logger.info("Discarding stale mix continuation after privacy boundary")
-                self.isFetchingMoreMixSongs = false
+            let result = try await client.getMixQueueContinuation(continuationToken: continuation)
+            guard !Task.isCancelled,
+                  requestGeneration == self.playbackRequestGeneration,
+                  shouldApplyResult()
+            else {
+                self.logger.info("Discarding stale or cancelled mix continuation")
                 return
             }
             self.logger.debug("Continuation returned \(result.songs.count) songs, hasNextToken: \(result.continuationToken != nil)")
@@ -182,6 +212,13 @@ extension PlayerService {
             // Filter out songs already in queue to avoid duplicates
             let existingIds = Set(queue.map(\.videoId))
             let newSongs = result.songs.filter { !existingIds.contains($0.videoId) }
+
+            guard self.mixContinuationToken == continuation,
+                  self.queueMutationGeneration == requestQueueMutationGeneration
+            else {
+                self.logger.info("Discarding mix continuation after its queue context changed")
+                return
+            }
 
             if !newSongs.isEmpty {
                 let updatedEntries = self.queueEntries + newSongs.map { QueueEntry(id: UUID(), song: $0) }
@@ -195,33 +232,48 @@ extension PlayerService {
         } catch {
             self.logger.warning("Failed to fetch more mix songs: \(error.localizedDescription)")
         }
+    }
 
+    private func finishMixContinuationFetch() {
         self.isFetchingMoreMixSongs = false
+        let waiters = self.mixContinuationFetchWaiters
+        self.mixContinuationFetchWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
     }
 
     /// Fetches radio queue and applies it, keeping the current song at the front.
-    func fetchAndApplyRadioQueue(for videoId: String) async {
-        let requestGeneration = self.playbackRequestGeneration
+    @discardableResult
+    func fetchAndApplyRadioQueue(for videoId: String) async -> RadioQueueFetchOutcome {
+        let sourceNavigationContext = self.playbackNavigationContext
+        let sourceQueueMutationGeneration = self.queueMutationGeneration
         guard let client = ytMusicClient else {
             self.logger.warning("No YTMusicClient available for fetching radio queue")
-            return
+            return .unavailable
         }
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
-            guard requestGeneration == self.playbackRequestGeneration else {
-                self.logger.info("Discarding stale radio queue after privacy boundary")
-                return
+            guard !Task.isCancelled,
+                  self.playbackNavigationContext == sourceNavigationContext
+            else {
+                self.logger.info("Discarding stale or cancelled radio queue")
+                return .superseded
+            }
+            guard self.queueMutationGeneration == sourceQueueMutationGeneration else {
+                self.logger.info("Discarding radio queue after a local queue edit")
+                return .queueMutated
             }
             guard !radioSongs.isEmpty else {
                 self.logger.info("No radio songs returned")
-                return
+                return .unavailable
             }
 
             // Only update if we're still playing the same song
             guard let currentSong = self.currentTrack, currentSong.videoId == videoId else {
                 self.logger.info("Track changed, discarding radio queue")
-                return
+                return .superseded
             }
 
             // Ensure the current song is at the front of the queue
@@ -250,7 +302,10 @@ extension PlayerService {
 
             self.clearForwardSkipNavigationStack()
             self.recordQueueStateForUndo()
-            let entries = newQueue.map { QueueEntry(id: UUID(), song: $0) }
+            let currentEntryID = self.currentQueueEntryID ?? UUID()
+            let entries = newQueue.enumerated().map { index, song in
+                QueueEntry(id: index == 0 ? currentEntryID : UUID(), song: song)
+            }
             if self.shuffleEnabled {
                 self.materializeShuffleQueue(
                     entries: entries,
@@ -265,13 +320,21 @@ extension PlayerService {
             }
             self.logger.info("Radio queue updated with \(newQueue.count) songs (current song at front)")
             self.saveQueueForPersistence()
+            return .applied
         } catch {
             self.logger.warning("Failed to fetch radio queue: \(error.localizedDescription)")
+            if Task.isCancelled || self.playbackNavigationContext != sourceNavigationContext {
+                return .superseded
+            }
+            return self.queueMutationGeneration != sourceQueueMutationGeneration
+                ? .queueMutated
+                : .unavailable
         }
     }
 
     /// Clears the entire queue and current track (for "Clear" in side panel). Records state for undo.
     func clearQueueEntirely() {
+        self.queueMutationGeneration &+= 1
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         self.mixContinuationToken = nil
@@ -285,6 +348,7 @@ extension PlayerService {
 
     /// Clears the playback queue except for the currently playing track.
     func clearQueue() {
+        self.queueMutationGeneration &+= 1
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         // Clear mix continuation since queue is being manually cleared
@@ -751,9 +815,10 @@ extension PlayerService {
     }
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
-    func saveQueueForPersistence() {
+    func saveQueueForPersistence(syncWebQueue shouldSyncWebQueue: Bool = true) {
         let queue = self.queue
         guard !queue.isEmpty else {
+            self.clearWebQueueInjectionState()
             if self.suppressNextEmptyQueuePersistence {
                 self.suppressNextEmptyQueuePersistence = false
                 self.logger.info("Skipped clearing saved playback session after guest-startup cleanup")
@@ -772,8 +837,16 @@ extension PlayerService {
         let persistedEntries = Self.stripSuggested(from: self.queueEntries, keepingCurrentID: currentID)
         let persistableQueue = persistedEntries.map(\.song)
         guard !persistableQueue.isEmpty else {
+            self.clearWebQueueInjectionState()
             self.removeSavedPlaybackSession()
             return
+        }
+        defer {
+            if shouldSyncWebQueue {
+                // Queue synchronization follows the live queue, including ephemeral
+                // Smart Shuffle entries, even when the persisted payload is unchanged.
+                self.syncWebQueue()
+            }
         }
 
         do {
@@ -838,6 +911,36 @@ extension PlayerService {
 
     func invalidatePendingPlaybackRequests() {
         self.playbackRequestGeneration &+= 1
+        self.pendingPlaybackSelectionGeneration &+= 1
+    }
+
+    @discardableResult
+    func beginPlaybackRequest() -> Int {
+        self.invalidatePendingPlaybackRequests()
+        return self.playbackRequestGeneration
+    }
+
+    func isCurrentPlaybackRequest(_ generation: Int) -> Bool {
+        generation == self.playbackRequestGeneration
+    }
+
+    @discardableResult
+    func beginPendingPlaybackSelectionRequest() -> Int {
+        self.playbackRequestGeneration &+= 1
+        self.pendingPlaybackSelectionGeneration &+= 1
+        return self.pendingPlaybackSelectionGeneration
+    }
+
+    func invalidatePendingPlaybackSelectionRequests() {
+        self.pendingPlaybackSelectionGeneration &+= 1
+    }
+
+    func isCurrentPendingPlaybackSelectionRequest(_ generation: Int) -> Bool {
+        generation == self.pendingPlaybackSelectionGeneration
+    }
+
+    func beginPlaybackNavigation() {
+        self.playbackNavigationGeneration &+= 1
     }
 
     /// Re-tags a restored/persisted playback session after crossing a playback

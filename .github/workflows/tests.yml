@@ -87,7 +87,7 @@ jobs:
         # (Xcode 26 + Sequoia) during XCTest discovery. The unit suite is
         # entirely Swift Testing; the only XCTest target is the manual
         # ParserPerformanceTests, which is invoked separately via xcodebuild.
-        run: swift test -q --skip KasetUITests --disable-xctest
+        run: swift test -q --skip KasetUITests --disable-xctest --no-parallel
 
   macos_ui_tests:
     name: macOS UI Tests (${{ matrix.os }})

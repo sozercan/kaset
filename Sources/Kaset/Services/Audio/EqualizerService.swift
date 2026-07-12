@@ -298,6 +298,11 @@ final class EqualizerService {
         }
     }
 
+    func awaitPendingPersistence() async {
+        let task = self.persistTask
+        await task?.value
+    }
+
     private func persist() {
         do {
             let data = try Self.encoder.encode(self.settings)

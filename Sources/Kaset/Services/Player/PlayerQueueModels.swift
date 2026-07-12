@@ -15,6 +15,42 @@ struct QueueEntry: Identifiable, Hashable {
     var source: Source = .queued
 }
 
+// MARK: - QueuePlaybackContext
+
+/// Identifies the queue occurrence and explicit playback generation that owns async navigation work.
+struct QueuePlaybackContext: Equatable {
+    let entryID: UUID?
+    let index: Int
+    let requestGeneration: Int
+    let navigationGeneration: Int
+}
+
+// MARK: - PlaybackNavigationContext
+
+struct PlaybackNavigationContext: Equatable {
+    let requestGeneration: Int
+    let navigationGeneration: Int
+}
+
+// MARK: - RadioQueueFetchOutcome
+
+enum RadioQueueFetchOutcome: Equatable {
+    case applied
+    case unavailable
+    case queueMutated
+    case superseded
+}
+
+// MARK: - PendingNativeQueueAdvance
+
+struct PendingNativeQueueAdvance: Equatable {
+    let sourceEntryID: UUID?
+    let sourceVideoId: String
+    let targetEntryID: UUID
+    let targetVideoId: String
+    let generation: Int
+}
+
 // MARK: - QueueState
 
 struct QueueState {

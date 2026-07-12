@@ -345,8 +345,7 @@ struct EqualizerServiceTests {
         service.setPreamp(-2)
         service.setGain(forBandAt: 1, to: 3.5)
 
-        // Persistence is debounced; wait past the debounce window.
-        try? await Task.sleep(for: .milliseconds(400))
+        await service.awaitPendingPersistence()
 
         // New service should load the same settings from the same suite.
         let mock = MockEqualizerAudioEngine()
@@ -438,7 +437,7 @@ struct EqualizerServiceTests {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
 
-        try? await Task.sleep(for: .milliseconds(400))
+        await service.awaitPendingPersistence()
 
         let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
         #expect(revived.settings.isEnabled == true)

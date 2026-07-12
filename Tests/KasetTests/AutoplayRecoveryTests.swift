@@ -132,20 +132,22 @@ struct AutoplayRecoveryJSTests {
 struct AutoplayIntentScriptTests {
     @Test("Sets the pending flag to true for a fresh navigation")
     func setsPendingTrue() {
-        let script = SingletonPlayerWebView.autoplayIntentScript(isRestoringPlaybackSession: false)
-        #expect(script == "window.__kasetAutoplayPending = true;")
+        let script = SingletonPlayerWebView.autoplayIntentScript(shouldBlockAutoplay: false)
+        #expect(script.contains("window.__kasetAutoplayPending = true;"))
+        #expect(script.contains("window.__kasetBlockAutoplay = false;"))
     }
 
     @Test("Sets the pending flag to false during a restored session")
     func clearsPendingForRestoredSession() {
-        let script = SingletonPlayerWebView.autoplayIntentScript(isRestoringPlaybackSession: true)
-        #expect(script == "window.__kasetAutoplayPending = false;")
+        let script = SingletonPlayerWebView.autoplayIntentScript(shouldBlockAutoplay: true)
+        #expect(script.contains("window.__kasetAutoplayPending = false;"))
+        #expect(script.contains("window.__kasetBlockAutoplay = true;"))
     }
 
     @Test("Page bootstrap seeds autoplay intent and target volume")
     func pageBootstrapSeedsIntentAndTargetVolume() {
         let script = SingletonPlayerWebView.pageBootstrapScript(
-            isRestoringPlaybackSession: false,
+            shouldBlockAutoplay: false,
             targetVolume: 0.42
         )
 
@@ -156,7 +158,7 @@ struct AutoplayIntentScriptTests {
     @Test("Page bootstrap clamps invalid target volume")
     func pageBootstrapClampsInvalidTargetVolume() {
         let script = SingletonPlayerWebView.pageBootstrapScript(
-            isRestoringPlaybackSession: false,
+            shouldBlockAutoplay: false,
             targetVolume: .infinity
         )
 

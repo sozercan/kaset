@@ -65,7 +65,7 @@ struct PlayerServiceQueueEnrichmentTests {
         let mockClient = MockYTMusicClient()
         playerService.queueEnrichmentInitialDelay = .milliseconds(5)
         playerService.queueEnrichmentRetryDelay = .milliseconds(50)
-        mockClient.shouldThrowError = NSError(domain: "Transient", code: 500)
+        mockClient.getSongErrors = [NSError(domain: "Transient", code: 500)]
         mockClient.songResponses["retry-me"] = TestFixtures.makeSong(
             id: "retry-me",
             title: "Recovered Song",
@@ -74,11 +74,6 @@ struct PlayerServiceQueueEnrichmentTests {
 
         playerService.setYTMusicClient(mockClient)
         playerService.setQueue([Self.incompleteSong(videoId: "retry-me")])
-
-        await Self.waitUntil {
-            mockClient.getSongVideoIds.count == 1 && playerService.enrichmentTask != nil
-        }
-        mockClient.shouldThrowError = nil
 
         await Self.waitUntil {
             playerService.enrichmentTask == nil && playerService.queue.first?.title == "Recovered Song"
@@ -275,6 +270,47 @@ struct PlayerServiceQueueEnrichmentTests {
         #expect(playerService.enrichmentTask == nil)
         try? await Task.sleep(for: .milliseconds(25))
         #expect(mockClient.getSongVideoIds.isEmpty)
+    }
+
+    @Test("Queue enrichment metadata writes preserve native queue maintenance")
+    func metadataWritesPreserveNativeQueueMaintenance() async {
+        let playerService = PlayerService()
+        let mockClient = MockYTMusicClient()
+        let currentEntryID = UUID()
+        let successorEntryID = UUID()
+        let current = Self.incompleteSong(videoId: "current")
+        let successor = TestFixtures.makeSong(id: "successor")
+        mockClient.songResponses[current.videoId] = TestFixtures.makeSong(
+            id: current.videoId,
+            title: "Enriched Current",
+            artistName: "Enriched Artist"
+        )
+        playerService.setYTMusicClient(mockClient)
+        playerService.setQueue(entries: [
+            QueueEntry(id: currentEntryID, song: current),
+            QueueEntry(id: successorEntryID, song: successor),
+        ])
+        playerService.stopQueueEnrichmentService()
+
+        let maintenanceGate = AsyncGate()
+        let maintenanceTask = Task { @MainActor in
+            await maintenanceGate.wait()
+        }
+        let maintenanceGeneration = playerService.nativeQueueMaintenanceGeneration
+        playerService.nativeQueueMaintenanceTask = maintenanceTask
+
+        await playerService.enrichQueueMetadata(
+            songsToEnrich: [(index: 0, videoId: current.videoId)]
+        )
+
+        #expect(playerService.queueEntryIDs == [currentEntryID, successorEntryID])
+        #expect(playerService.queue.first?.title == "Enriched Current")
+        #expect(playerService.nativeQueueMaintenanceGeneration == maintenanceGeneration)
+        #expect(playerService.nativeQueueMaintenanceTask != nil)
+
+        await maintenanceGate.open()
+        await maintenanceTask.value
+        playerService.clearNativeQueueMaintenance()
     }
 
     private static func incompleteSong(videoId: String) -> Song {

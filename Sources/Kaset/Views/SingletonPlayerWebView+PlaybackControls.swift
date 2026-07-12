@@ -3,6 +3,42 @@ import WebKit
 // MARK: - SingletonPlayerWebView Playback Controls Extension
 
 extension SingletonPlayerWebView {
+    /// Enables/disables startup autoplay blocking inside the observer script.
+    func setAutoplayBlocked(_ blocked: Bool) {
+        guard let webView else { return }
+        let script = """
+            (function() {
+                window.__kasetBlockAutoplay = \(blocked ? "true" : "false");
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
+                if (!window.__kasetBlockAutoplay) return 'autoplay-allowed';
+                window.__kasetAutoplayPending = false;
+                var ticks = 0;
+                const timer = setInterval(function() {
+                    if (!window.__kasetBlockAutoplay) {
+                        clearInterval(timer);
+                        if (window.__kasetAutoplayBlockTimer === timer) window.__kasetAutoplayBlockTimer = null;
+                        return;
+                    }
+                    const video = document.querySelector('video');
+                    if (video && !video.paused) {
+                        try { video.pause(); } catch (_) {}
+                    }
+                    ticks += 1;
+                    if (ticks >= 20) {
+                        clearInterval(timer);
+                        if (window.__kasetAutoplayBlockTimer === timer) window.__kasetAutoplayBlockTimer = null;
+                    }
+                }, 150);
+                window.__kasetAutoplayBlockTimer = timer;
+                return 'autoplay-blocked';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     struct PlaybackSnapshot {
         let progress: TimeInterval
         let duration: TimeInterval
@@ -124,6 +160,11 @@ extension SingletonPlayerWebView {
 
         let script = """
             (function() {
+                window.__kasetBlockAutoplay = false;
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
                 const video = document.querySelector('video');
                 if (video && video.paused) { video.play(); return 'played'; }
                 return 'already-playing';
@@ -216,8 +257,20 @@ extension SingletonPlayerWebView {
 
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
-        self.seek(to: 0)
-        self.play()
+        guard let webView else { return }
+        let script = """
+            (function() {
+                const video = document.querySelector('video');
+                if (!video) return 'no-video';
+                video.currentTime = 0;
+                if (typeof window.__kasetAdvanceMediaGeneration === 'function') {
+                    window.__kasetAdvanceMediaGeneration();
+                }
+                video.play();
+                return 'restarted';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Set volume (0.0 - 1.0).

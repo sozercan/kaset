@@ -10,19 +10,57 @@ extension PlayerService {
             isPlaying: isPlaying,
             progress: progress,
             duration: duration,
-            observedVideoId: self.currentTrack?.videoId
+            observedVideoId: self.currentTrack?.videoId ?? self.pendingPlayVideoId
         )
     }
 
-    /// Updates playback state with the video identity carried by the same WebView observation.
+    /// Updates playback state from an identity-bearing WebView observation.
+    /// State from an earlier/out-of-order video must not overwrite the current
+    /// queue target's progress, duration, or near-end flag.
     func updatePlaybackState(
         isPlaying: Bool,
         progress: Double,
         duration: Double,
         observedVideoId: String?
     ) {
-        let previousProgress = self.progress
+        // Preserve bridge-observation provenance for consumers such as mix
+        // scrobbling even when this sample is stale for PlayerService state.
         self.recordPlaybackStateObservation(videoId: observedVideoId)
+        guard self.observedPlaybackMatchesCurrentTarget(videoId: observedVideoId) else {
+            self.logger.debug(
+                "Ignoring playback state for stale video \(observedVideoId ?? "unknown")"
+            )
+            return
+        }
+
+        self.applyPlaybackStateObservation(
+            isPlaying: isPlaying,
+            progress: progress,
+            duration: duration
+        )
+    }
+
+    private func applyPlaybackStateObservation(
+        isPlaying: Bool,
+        progress: Double,
+        duration: Double
+    ) {
+        let previousProgress = self.progress
+
+        if self.isPendingRestoredLoadDeferred {
+            if self.pendingRestoredSeek == nil {
+                self.progress = progress
+            }
+            if duration > 0 {
+                self.duration = duration
+            }
+            self.state = .paused
+            if isPlaying, !self.hasIssuedAutoplayPauseDuringDeferredRestore {
+                self.hasIssuedAutoplayPauseDuringDeferredRestore = true
+                SingletonPlayerWebView.shared.pause()
+            }
+            return
+        }
 
         guard !self.isRestoringPlaybackSession else {
             self.reconcileRestoredPlaybackState(
@@ -53,6 +91,8 @@ extension PlayerService {
         guard let currentSong = queue[safe: currentIndex] else { return }
 
         self.clearRestoredPlaybackSessionState()
+        self.restoredPlaybackSessionGeneration &+= 1
+        let restoreGeneration = self.restoredPlaybackSessionGeneration
         self.clearForwardSkipNavigationStack()
         if let entrySources, entrySources.count == queue.count {
             self.setQueue(entries: zip(queue, entrySources).map { song, source in
@@ -68,6 +108,8 @@ extension PlayerService {
         self.showMiniPlayer = false
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
+        self.isAwaitingWebRestoredTrack = true
+        self.hasIssuedAutoplayPauseDuringDeferredRestore = false
 
         let resolvedDuration = max(duration, currentSong.duration ?? 0)
         let clampedProgress = self.clampedRestoredProgress(progress, duration: resolvedDuration)
@@ -99,9 +141,24 @@ extension PlayerService {
         }
 
         // At app launch the cache may be empty and the persisted song may lack likeStatus.
-        // Fetch metadata from the API to get the correct like status.
+        // Fetch immediately; the fetch only applies if this persisted song is still current.
         Task { [videoId = currentSong.videoId] in
             await self.fetchSongMetadata(videoId: videoId)
+        }
+
+        // Give YT Music a chance to restore its server-synced track first.
+        // If no track arrives from the web page in time, fall back to the persisted one.
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            guard self.restoredPlaybackSessionGeneration == restoreGeneration,
+                  self.isPendingRestoredLoadDeferred,
+                  self.isAwaitingWebRestoredTrack
+            else { return }
+            self.logger.info("No server-restored track observed; falling back to persisted session track")
+            self.pendingPlayVideoId = currentSong.videoId
+            self.currentTrack = currentSong
+            self.currentTrackHasVideo = currentSong.musicVideoType?.hasVideoContent ?? currentSong.hasVideo ?? false
+            self.isAwaitingWebRestoredTrack = false
         }
     }
 
@@ -110,8 +167,10 @@ extension PlayerService {
         self.pendingRestoredSeek = nil
         self.isPendingRestoredLoadDeferred = false
         self.shouldForcePendingRestoredLoad = false
+        self.restoredPlaybackSessionGeneration &+= 1
         self.isRestoringPlaybackSession = false
         self.shouldAutoResumeAfterRestoredLoad = false
+        self.isAwaitingWebRestoredTrack = false
     }
 
     /// Starts loading a restored session into the WebView without discarding the saved seek target.

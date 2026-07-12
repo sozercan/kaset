@@ -1,6 +1,7 @@
 import Foundation
 
 /// Playback actions for playlist-backed queues.
+@MainActor
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
@@ -12,17 +13,18 @@ enum PlaylistPlaybackActions {
     }
 
     /// Plays a playlist immediately, replacing the current queue.
+    @discardableResult
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         playerService: PlayerService
-    ) {
-        Task { @MainActor in
-            let requestGeneration = playerService.playbackRequestGeneration
+    ) -> Task<Void, Never> {
+        let requestGeneration = playerService.beginPendingPlaybackSelectionRequest()
+        return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
-                guard requestGeneration == playerService.playbackRequestGeneration else {
-                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after privacy boundary")
+                guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request")
                     return
                 }
                 var songs = response.detail.tracks
@@ -30,8 +32,8 @@ enum PlaylistPlaybackActions {
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
-                        guard requestGeneration == playerService.playbackRequestGeneration else {
-                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after privacy boundary")
+                        guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request")
                             return
                         }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
@@ -42,6 +44,10 @@ enum PlaylistPlaybackActions {
                         }
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
+                    }
+                    guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
+                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback")
+                        return
                     }
                 } else {
                     let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)

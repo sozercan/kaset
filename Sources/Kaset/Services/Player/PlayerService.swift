@@ -2,6 +2,12 @@ import Foundation
 import Observation
 import os
 
+// MARK: - NativeQueueMaintenanceContext
+
+enum NativeQueueMaintenanceContext {
+    @TaskLocal static var isApplyingQueueMutation = false
+}
+
 // MARK: - PlayerService
 
 /// Controls music playback via a hidden WKWebView.
@@ -176,6 +182,22 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     private(set) var currentQueueEntryID: UUID?
 
+    var queuePlaybackContext: QueuePlaybackContext {
+        QueuePlaybackContext(
+            entryID: self.currentQueueEntryID,
+            index: self.currentIndex,
+            requestGeneration: self.playbackRequestGeneration,
+            navigationGeneration: self.playbackNavigationGeneration
+        )
+    }
+
+    var playbackNavigationContext: PlaybackNavigationContext {
+        PlaybackNavigationContext(
+            requestGeneration: self.playbackRequestGeneration,
+            navigationGeneration: self.playbackNavigationGeneration
+        )
+    }
+
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
 
@@ -197,6 +219,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// The video ID that needs to be played in the mini player.
     var pendingPlayVideoId: String?
 
+    /// Native YouTube Music queue advance waiting for media-bound confirmation.
+    /// The visible queue pointer remains on the outgoing entry until the expected
+    /// target media is observed. While pending, the persistent player must not
+    /// autoload the target through Kaset's deterministic navigation path.
+    var pendingNativeQueueAdvance: PendingNativeQueueAdvance?
+
+    var pendingNativeQueueAdvanceGeneration: Int = 0
+    var nativeQueueMaintenanceGeneration: Int = 0
+    var nativeQueueMaintenanceTask: Task<Void, Never>?
+    @ObservationIgnored var nativeQueueMaintenanceWaiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
+
+    var pendingNativeQueueAdvanceVideoId: String? {
+        self.pendingNativeQueueAdvance?.targetVideoId
+    }
+
     /// Whether the user has successfully interacted at least once this session.
     /// After first successful playback, we can auto-play without showing the popup.
     private(set) var hasUserInteractedThisSession: Bool = false
@@ -216,6 +253,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Whether a restored load should automatically resume after seeking to the saved position.
     var shouldAutoResumeAfterRestoredLoad: Bool = false
+
+    /// Monotonic generation for deferred restored-session fallback tasks.
+    var restoredPlaybackSessionGeneration: Int = 0
+
+    /// Whether startup is waiting for YT Music to report its own server-restored track.
+    var isAwaitingWebRestoredTrack: Bool = false
+
+    /// Whether Kaset has already issued the one-shot defensive pause while a deferred restored session is awaiting web metadata.
+    var hasIssuedAutoplayPauseDuringDeferredRestore: Bool = false
 
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus = .indifferent
@@ -273,9 +319,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var mixContinuationToken: String?
     var mixContinuationRequiresAuth = false
     var playbackRequestGeneration = 0
+    var pendingPlaybackSelectionGeneration = 0
+    var playbackNavigationGeneration = 0
+    var queueMutationGeneration = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
+
+    /// Callers waiting for the current mix continuation request to release its single-flight slot.
+    @ObservationIgnored var mixContinuationFetchWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Smart Shuffle: videoIds suggested this session, for dedup across fills.
     var smartShuffleSeenSuggestionIds: Set<String> = []
@@ -536,13 +588,49 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
+        let queueStructureChanged = self.queueStorage.count != entries.count
+            || zip(self.queueStorage, entries).contains { existing, replacement in
+                existing.id != replacement.id
+                    || existing.song.videoId != replacement.song.videoId
+                    || existing.source != replacement.source
+            }
+        if queueStructureChanged {
+            self.queueMutationGeneration &+= 1
+        }
+        if !NativeQueueMaintenanceContext.isApplyingQueueMutation,
+           !self.isApplyingQueueEnrichmentResult
+        {
+            self.clearNativeQueueMaintenance()
+        }
+        let pendingGeneration = self.pendingNativeQueueAdvance?.generation
         self.queueStorage = entries
         self.synchronizeCurrentQueueEntryID()
+        if NativeQueueMaintenanceContext.isApplyingQueueMutation {
+            self.resumeNativeQueueMaintenanceWaitersIfSuccessorMaterialized()
+        }
         self.queueDidChangeForEnrichment()
+
+        if let pendingGeneration,
+           !self.isPendingNativeQueueAdvanceValid
+        {
+            Task {
+                await self.fallbackInvalidatedNativeQueueAdvance(
+                    generation: pendingGeneration,
+                    reason: "queue adjacency changed"
+                )
+            }
+        }
     }
 
     func synchronizeCurrentQueueEntryID() {
         self.currentQueueEntryID = self.queueStorage[safe: self.currentIndex]?.id
+    }
+
+    func clearWebQueueInjectionState() {
+        self.webQueueInjectionGeneration &+= 1
+        SingletonPlayerWebView.shared.cancelQueueInjection()
+        self.injectedWebQueueVideoId = nil
+        self.pendingWebQueueInjectionVideoId = nil
     }
 
     /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).
@@ -629,6 +717,40 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Flag to suppress YouTube autoplay after the native queue has finished.
     var shouldSuppressAutoplayAfterQueueEnd: Bool = false
+
+    /// Video ID of the song last confirmed as injected into YouTube Music's native "Up Next" queue.
+    /// Used to avoid duplicate injections and to detect when YouTube has auto-advanced
+    /// to the injected track (enabling gapless transition without calling `loadVideo`).
+    var injectedWebQueueVideoId: String?
+
+    /// Video ID currently being injected into YouTube Music's native "Up Next" queue.
+    /// This is intentionally separate from ``injectedWebQueueVideoId`` so track-end logic
+    /// only trusts injections after the WebView script accepts the source-bound command.
+    var pendingWebQueueInjectionVideoId: String?
+
+    /// Invalidates native queue-injection timeout tasks when an attempt completes
+    /// or a new playback context supersedes it.
+    var webQueueInjectionGeneration: Int = 0
+
+    /// Video ID that Kaset just selected through deterministic queue navigation.
+    /// WebView metadata can arrive out of order around manual/media-key skips; keep
+    /// this target protected briefly so stale in-queue rows cannot realign `currentIndex` backward.
+    var protectedQueueNavigationVideoId: String?
+
+    /// Instant when the protected queue target was first confirmed by WebView metadata.
+    /// `nil` means the target is still in flight and should remain protected.
+    var protectedQueueNavigationConfirmedAt: ContinuousClock.Instant?
+
+    /// Instant when the protected queue target was requested. Used to expire
+    /// in-flight protection if WebView never confirms the requested video.
+    var protectedQueueNavigationStartedAt: ContinuousClock.Instant?
+
+    /// Coalesces stale-metadata correction loads while the intended queue target
+    /// is still awaiting WebView confirmation.
+    var queueNavigationRecoveryGeneration: Int = 0
+    var queueNavigationRecoveryVideoId: String?
+    var queueNavigationRecoveryLoadTask: Task<Void, Never>?
+    var queueNavigationRecoveryTask: Task<Void, Never>?
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
     var videoWindowOpenedAt: ContinuousClock.Instant?
