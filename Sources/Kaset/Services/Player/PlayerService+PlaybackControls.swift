@@ -394,8 +394,15 @@ extension PlayerService {
     }
 
     /// Skips to next track.
-    func next() async { // swiftlint:disable:this cyclomatic_complexity
-        guard !Task.isCancelled else { return }
+    func next() async {
+        _ = await self.performNextNavigation()
+    }
+
+    /// Performs Next and reports whether Kaset accepted a concrete playback target.
+    /// Track-end callers use the result because a repeat-all restart can intentionally
+    /// keep the same queue entry ID and index.
+    func performNextNavigation() async -> Bool { // swiftlint:disable:this cyclomatic_complexity
+        guard !Task.isCancelled else { return false }
         self.logger.debug("Skipping to next track")
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.setAutoplayBlocked(false)
@@ -409,49 +416,51 @@ extension PlayerService {
             } else if self.mixContinuationToken != nil {
                 let previousCount = self.queue.count
                 await self.fetchMoreMixSongsIfNeeded()
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return false }
                 if self.queue.count > previousCount {
                     targetIndex = self.currentIndex + 1
                 }
             }
 
-            guard let targetIndex else { return }
+            guard let targetIndex else { return false }
             self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
-            await self.loadQueueSongForNavigation(at: targetIndex)
-            guard !Task.isCancelled else { return }
+            guard await self.loadQueueSongForNavigation(at: targetIndex) else { return false }
+            guard !Task.isCancelled else { return true }
             await self.fetchMoreMixSongsIfNeeded()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return true }
             await self.fillSmartShuffleWindow()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return true }
             self.saveQueueForPersistence(syncWebQueue: false)
-            return
+            return true
         }
 
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not let them fall through to YouTube Music's ambient next button.
         guard self.currentEpisode == nil else {
             self.logger.debug("Ignoring next for standalone artist episode playback")
-            return
+            return false
         }
 
         if let currentTrack = self.currentTrack {
             await self.fetchAndApplyRadioQueue(for: currentTrack.videoId)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return false }
             if self.queue.indices.contains(self.currentIndex + 1) {
                 self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
-                await self.loadQueueSongForNavigation(at: self.currentIndex + 1)
-                guard !Task.isCancelled else { return }
+                guard await self.loadQueueSongForNavigation(at: self.currentIndex + 1) else { return false }
+                guard !Task.isCancelled else { return true }
                 await self.fetchMoreMixSongsIfNeeded()
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return true }
                 await self.fillSmartShuffleWindow()
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return true }
                 self.saveQueueForPersistence(syncWebQueue: false)
+                return true
             } else {
                 self.logger.debug("Ignoring next without a Kaset queue")
             }
         } else if self.pendingPlayVideoId != nil {
             self.logger.debug("Ignoring next without a Kaset queue")
         }
+        return false
     }
 
     /// Goes to previous track.
@@ -494,11 +503,12 @@ extension PlayerService {
     }
 
     /// Navigates to a queue song through Kaset's deterministic load path.
+    @discardableResult
     func loadQueueSongForNavigation(
         at index: Int,
         webLoadStrategy strategyOverride: SingletonPlayerWebView.VideoLoadStrategy? = nil
-    ) async {
-        guard let song = self.queue[safe: index] else { return }
+    ) async -> Bool {
+        guard let song = self.queue[safe: index] else { return false }
         self.currentIndex = index
         self.progress = 0
         self.duration = song.duration ?? 0
@@ -509,6 +519,7 @@ extension PlayerService {
                 : .standard)
         await self.play(song: song, webLoadStrategy: strategy)
         self.saveQueueForPersistence()
+        return true
     }
 
     /// Commits a media-confirmed native WebView queue transition without forcing a page load.
@@ -523,7 +534,10 @@ extension PlayerService {
         self.progress = 0
         self.duration = song.duration ?? 0
         self.protectQueueNavigationTarget(song.videoId)
-        self.state = .loading
+        // The confirming media observation may already be paused. Starting from
+        // `.paused` lets the same observation promote to `.playing` when needed,
+        // while a non-playing observation cannot otherwise escape `.loading`.
+        self.state = .paused
         self.isKasetInitiatedPlayback = false
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false

@@ -64,6 +64,33 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(SingletonPlayerWebView.shared.currentVideoId == "v2")
     }
 
+    @Test("Paused media confirmation completes a native handoff as paused")
+    func pausedMediaConfirmationCompletesNativeHandoffAsPaused() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "v2"
+
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+        let shouldContinue = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(
+            videoId: "v2"
+        )
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 200,
+            observedVideoId: "v2"
+        )
+
+        #expect(shouldContinue)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.state == .paused)
+    }
+
     @Test("Duplicate ended events do not bypass a pending native handoff")
     func duplicateEndedEventDoesNotBypassPendingNativeHandoff() async {
         let songs = [

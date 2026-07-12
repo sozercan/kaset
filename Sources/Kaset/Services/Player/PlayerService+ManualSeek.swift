@@ -23,8 +23,10 @@ extension PlayerService {
             self.clearPendingNativeQueueAdvance()
             let previousEntryID = self.currentQueueEntryID
             let previousIndex = self.currentIndex
-            await self.next()
-            if self.currentQueueEntryID == previousEntryID,
+            let didAdvance = await self.performNextNavigation()
+            if !didAdvance,
+               !Task.isCancelled,
+               self.currentQueueEntryID == previousEntryID,
                self.currentIndex == previousIndex
             {
                 await self.finishPlaybackAfterFailedQueueAdvance(

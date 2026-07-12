@@ -760,13 +760,9 @@ extension PlayerService {
 
         self.logger.info("Track ended in WebView, advancing native queue immediately")
         guard shouldContinue() else { return }
-        let previousEntryID = self.currentQueueEntryID
-        let previousIndex = self.currentIndex
-        await self.next()
+        let didAdvance = await self.performNextNavigation()
         guard shouldContinue() else { return }
-        if self.currentQueueEntryID == previousEntryID,
-           self.currentIndex == previousIndex
-        {
+        if !didAdvance {
             await self.finishPlaybackAfterFailedQueueAdvance(
                 reason: "continuation produced no next queue entry"
             )
