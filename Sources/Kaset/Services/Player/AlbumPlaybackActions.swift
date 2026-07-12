@@ -45,9 +45,14 @@ enum AlbumPlaybackActions {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) {
+        let requestGeneration = playerService.beginPlaybackRequest()
         Task {
             do {
                 let response = try await client.getPlaylist(id: album.id)
+                guard playerService.isCurrentPlaybackRequest(requestGeneration) else {
+                    DiagnosticsLogger.ui.info("Discarding stale album playback request")
+                    return
+                }
                 let songs = QueueSongMetadata.albumSongs(
                     response.detail.tracks,
                     album: album,

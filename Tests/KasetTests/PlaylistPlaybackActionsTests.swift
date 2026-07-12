@@ -191,12 +191,60 @@ struct PlaylistPlaybackActionsTests {
         #expect(playerService.queue.map(\.videoId) == ["initial", "continuation"])
     }
 
+    @Test("A later playlist selection supersedes an earlier pending mix request")
+    func laterPlaylistSupersedesPendingMixRequest() async {
+        let mixGate = AsyncGate()
+        let mixSong = TestFixtures.makeSong(id: "mix-song")
+        let playlistSong = TestFixtures.makeSong(id: "playlist-song")
+        let playlist = TestFixtures.makePlaylist(id: "VL-latest", title: "Latest Playlist")
+        self.mockClient.mixQueueGate = mixGate
+        self.mockClient.mixQueueResult = RadioQueueResult(songs: [mixSong], continuationToken: nil)
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [playlistSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        playerService.setYTMusicClient(self.mockClient)
+
+        let mixTask = Task { @MainActor in
+            await playerService.playWithMix(playlistId: "RDEM-test", startVideoId: nil)
+        }
+        await self.waitUntilMixRequestStarts()
+
+        PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(1, in: playerService)
+        #expect(playerService.currentTrack?.videoId == playlistSong.videoId)
+
+        await mixGate.open()
+        await mixTask.value
+
+        #expect(playerService.queue.map(\.videoId) == [playlistSong.videoId])
+        #expect(playerService.currentTrack?.videoId == playlistSong.videoId)
+    }
+
     private func awaitQueueCount(_ expectedCount: Int, in playerService: PlayerService) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(1))
 
         while playerService.queue.count != expectedCount {
             guard clock.now < deadline else { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func waitUntilMixRequestStarts() async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while self.mockClient.getMixQueueCallCount == 0 {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for mix request")
+                return
+            }
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

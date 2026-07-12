@@ -658,13 +658,15 @@ extension PlayerService {
         }
     }
 
-    // swiftlint:disable cyclomatic_complexity
+    // swiftlint:disable cyclomatic_complexity function_body_length
     /// Handles a natural track completion reported directly by the WebView.
     func handleTrackEnded(
         observedVideoId: String?,
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         guard shouldContinue() else { return }
+        var endedNavigationContext = self.playbackNavigationContext
+        var endedEntryID = self.currentQueueEntryID
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
         while !self.queue.isEmpty,
               self.expectedQueueIndexAfterCurrentTrack() == nil,
@@ -672,7 +674,7 @@ extension PlayerService {
         {
             let maintenanceGeneration = self.nativeQueueMaintenanceGeneration
             await self.awaitNativeQueueMaintenanceIfNeeded(generation: maintenanceGeneration)
-            guard shouldContinue() else { return }
+            guard shouldContinue(), self.playbackNavigationContext == endedNavigationContext else { return }
         }
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
@@ -701,6 +703,8 @@ extension PlayerService {
                 }
                 return
             }
+            endedNavigationContext = self.playbackNavigationContext
+            endedEntryID = self.currentQueueEntryID
         }
         if let observedVideoId = self.normalizedObservedVideoId(observedVideoId) {
             let currentQueueVideoId = self.queue[safe: self.currentIndex]?.videoId
@@ -763,13 +767,17 @@ extension PlayerService {
         let didAdvance = await self.performNextNavigation()
         guard shouldContinue() else { return }
         if !didAdvance {
+            guard self.playbackNavigationContext == endedNavigationContext else { return }
+            if await self.advanceToMaterializedNextQueueSongIfAvailable(after: endedEntryID) {
+                return
+            }
             await self.finishPlaybackAfterFailedQueueAdvance(
                 reason: "continuation produced no next queue entry"
             )
         }
     }
 
-    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable cyclomatic_complexity function_body_length
 
     /// Updates track metadata and enforces Kaset's queue when YouTube tries to diverge.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {

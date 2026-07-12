@@ -165,6 +165,22 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     private(set) var currentQueueEntryID: UUID?
 
+    var queuePlaybackContext: QueuePlaybackContext {
+        QueuePlaybackContext(
+            entryID: self.currentQueueEntryID,
+            index: self.currentIndex,
+            requestGeneration: self.playbackRequestGeneration,
+            navigationGeneration: self.playbackNavigationGeneration
+        )
+    }
+
+    var playbackNavigationContext: PlaybackNavigationContext {
+        PlaybackNavigationContext(
+            requestGeneration: self.playbackRequestGeneration,
+            navigationGeneration: self.playbackNavigationGeneration
+        )
+    }
+
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
 
@@ -286,6 +302,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var mixContinuationToken: String?
     var mixContinuationRequiresAuth = false
     var playbackRequestGeneration = 0
+    var playbackNavigationGeneration = 0
+    var queueMutationGeneration = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
@@ -552,6 +570,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     func setQueue(entries: [QueueEntry]) {
+        let queueStructureChanged = self.queueStorage.count != entries.count
+            || zip(self.queueStorage, entries).contains { existing, replacement in
+                existing.id != replacement.id
+                    || existing.song.videoId != replacement.song.videoId
+                    || existing.source != replacement.source
+            }
+        if queueStructureChanged {
+            self.queueMutationGeneration &+= 1
+        }
         if !NativeQueueMaintenanceContext.isApplyingQueueMutation,
            !self.isApplyingQueueEnrichmentResult
         {

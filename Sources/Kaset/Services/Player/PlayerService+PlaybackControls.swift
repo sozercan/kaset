@@ -81,6 +81,8 @@ extension PlayerService {
 
     /// Plays a track by video ID.
     func play(videoId: String) async {
+        self.beginPlaybackRequest()
+        self.beginPlaybackNavigation()
         self.logger.debug("play() called with videoId: \(videoId)")
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
@@ -122,6 +124,7 @@ extension PlayerService {
 
     /// Plays a song.
     func play(song: Song) async {
+        self.beginPlaybackRequest()
         await self.play(song: song, webLoadStrategy: .standard)
     }
 
@@ -135,6 +138,7 @@ extension PlayerService {
         episode: ArtistEpisode? = nil,
         isQueueNavigationRecovery: Bool = false
     ) async {
+        self.beginPlaybackNavigation()
         self.logger.info("Playing song: \(song.title)")
         self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
@@ -414,9 +418,14 @@ extension PlayerService {
             } else if self.repeatMode == .all {
                 targetIndex = 0
             } else if self.mixContinuationToken != nil {
+                let sourceContext = self.queuePlaybackContext
                 let previousCount = self.queue.count
                 await self.fetchMoreMixSongsIfNeeded()
-                guard !Task.isCancelled else { return false }
+                guard !Task.isCancelled,
+                      self.queuePlaybackContext == sourceContext
+                else {
+                    return false
+                }
                 if self.queue.count > previousCount {
                     targetIndex = self.currentIndex + 1
                 }
@@ -442,11 +451,21 @@ extension PlayerService {
         }
 
         if let currentTrack = self.currentTrack {
-            await self.fetchAndApplyRadioQueue(for: currentTrack.videoId)
-            guard !Task.isCancelled else { return false }
-            if self.queue.indices.contains(self.currentIndex + 1) {
-                self.pushForwardSkipStackIfLeavingIndex(for: self.currentIndex + 1)
-                guard await self.loadQueueSongForNavigation(at: self.currentIndex + 1) else { return false }
+            let sourceGeneration = self.playbackRequestGeneration
+            let sourceVideoId = currentTrack.videoId
+            let sourceEntryID = self.currentQueueEntryID
+            let radioOutcome = await self.fetchAndApplyRadioQueue(for: sourceVideoId)
+            guard !Task.isCancelled,
+                  radioOutcome != .superseded,
+                  sourceGeneration == self.playbackRequestGeneration,
+                  self.currentTrack?.videoId == sourceVideoId
+            else {
+                return false
+            }
+            if await self.advanceToMaterializedNextQueueSongIfAvailable(
+                after: sourceEntryID,
+                currentEntryRepresentsSource: radioOutcome == .applied
+            ) {
                 guard !Task.isCancelled else { return true }
                 await self.fetchMoreMixSongsIfNeeded()
                 guard !Task.isCancelled else { return true }
@@ -461,6 +480,35 @@ extension PlayerService {
             self.logger.debug("Ignoring next without a Kaset queue")
         }
         return false
+    }
+
+    /// Advances using only the queue state already materialized in memory.
+    /// This is also used after async queue work is invalidated by a same-playback queue edit.
+    func advanceToMaterializedNextQueueSongIfAvailable(
+        after sourceEntryID: UUID?,
+        currentEntryRepresentsSource: Bool = false
+    ) async -> Bool {
+        guard !self.queue.isEmpty else { return false }
+
+        let sourceIndex = sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
+            ?? (currentEntryRepresentsSource && self.queue.indices.contains(self.currentIndex)
+                ? self.currentIndex
+                : nil)
+        let targetIndex: Int? = if let sourceIndex, sourceIndex < self.queue.count - 1 {
+            sourceIndex + 1
+        } else if sourceIndex != nil, self.repeatMode == .all {
+            0
+        } else if sourceIndex == nil {
+            self.queue.indices.contains(self.currentIndex)
+                ? self.currentIndex
+                : self.queue.indices.first
+        } else {
+            nil
+        }
+
+        guard let targetIndex else { return false }
+        self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
+        return await self.loadQueueSongForNavigation(at: targetIndex)
     }
 
     /// Goes to previous track.
@@ -526,6 +574,7 @@ extension PlayerService {
     func advanceQueueStateForNativeNavigation(to index: Int) {
         guard let song = self.queue[safe: index] else { return }
 
+        self.beginPlaybackNavigation()
         let trackChanged = self.currentTrack?.videoId != song.videoId
         self.currentIndex = index
         self.currentTrack = song

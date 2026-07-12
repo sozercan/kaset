@@ -18,6 +18,7 @@ extension PlayerService {
     /// thumbnail, then installs `currentEpisode` through the player so the UI
     /// can gate live behavior before metadata loading suspends.
     func playEpisode(_ episode: ArtistEpisode) async {
+        self.beginPlaybackRequest()
         self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
 
         // A standalone episode is a new playback context that replaces the queue: supersede any
