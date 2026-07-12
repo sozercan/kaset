@@ -121,6 +121,29 @@ enum PlaylistPlaybackActions {
         }
     }
 
+    /// Returns full-playlist tracks that were not already put in the initial queue.
+    /// Uses occurrence counts per video ID so authored duplicates remain intact while
+    /// user removals from the playlist do not shift a fragile numeric offset.
+    static func remainingTracks(after initialTracks: [Song], in fullTracks: [Song]) -> [Song] {
+        var unmatchedInitialCounts: [String: Int] = [:]
+        for track in initialTracks {
+            unmatchedInitialCounts[self.playlistOccurrenceIdentity(for: track), default: 0] += 1
+        }
+
+        return fullTracks.filter { track in
+            let identity = self.playlistOccurrenceIdentity(for: track)
+            guard let remainingCount = unmatchedInitialCounts[identity], remainingCount > 0 else {
+                return true
+            }
+            if remainingCount == 1 {
+                unmatchedInitialCounts.removeValue(forKey: identity)
+            } else {
+                unmatchedInitialCounts[identity] = remainingCount - 1
+            }
+            return false
+        }
+    }
+
     @MainActor
     static func appendContinuations(_ context: ContinuationContext) async {
         var nextContinuation = context.continuationToken
@@ -172,7 +195,15 @@ enum PlaylistPlaybackActions {
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
-            isExplicit: song.isExplicit
+            isExplicit: song.isExplicit,
+            playlistSetVideoId: song.playlistSetVideoId
         )
+    }
+
+    private static func playlistOccurrenceIdentity(for song: Song) -> String {
+        if let setVideoId = song.playlistSetVideoId, !setVideoId.isEmpty {
+            return "set:\(setVideoId)"
+        }
+        return "video:\(song.videoId)"
     }
 }
