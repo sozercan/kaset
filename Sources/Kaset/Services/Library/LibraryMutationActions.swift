@@ -27,30 +27,35 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Removes a song from the playlist currently loaded in `viewModel`. Removes it from
-    /// the loaded list optimistically, then rolls back if the API call fails.
+    /// Removes a song from the playlist currently loaded in `viewModel`, then reconciles
+    /// the successful server mutation into the current list and any in-flight loads.
     static func removeSongFromPlaylist(
         _ song: Song,
         from viewModel: PlaylistDetailViewModel,
         client: any YTMusicClientProtocol
     ) async {
-        guard let setVideoId = song.playlistSetVideoId,
-              let playlistId = viewModel.playlistDetail?.id
-        else {
+        guard let setVideoId = song.playlistSetVideoId else {
             DiagnosticsLogger.api.error("Cannot remove '\(song.title)' from playlist: missing setVideoId")
             HapticService.error()
             return
         }
-
-        guard let removed = viewModel.removeTrackOptimistically(setVideoId: setVideoId) else { return }
+        guard viewModel.reservePlaylistRemoval(setVideoId: setVideoId) else { return }
+        defer { viewModel.releasePlaylistRemoval(setVideoId: setVideoId) }
 
         do {
-            try await client.removeSongFromPlaylist(videoId: song.videoId, setVideoId: setVideoId, playlistId: playlistId)
-            self.invalidateResponseCaches()
+            try Task.checkCancellation()
+            try await client.removeSongFromPlaylist(
+                videoId: song.videoId,
+                setVideoId: setVideoId,
+                playlistId: viewModel.playlistID
+            )
+            Self.invalidateResponseCaches()
+            await viewModel.commitSuccessfulTrackRemoval(setVideoId: setVideoId)
             HapticService.success()
             DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+        } catch is CancellationError {
+            return
         } catch {
-            viewModel.reinsertTrack(removed.song, at: removed.index)
             HapticService.error()
             DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
         }

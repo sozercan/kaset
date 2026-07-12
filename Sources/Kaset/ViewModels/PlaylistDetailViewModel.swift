@@ -47,6 +47,14 @@ final class PlaylistDetailViewModel {
     private var countedRemovedLikedMusicVideoIDs: Set<String> = []
     private var insertedLikedMusicVideoIDs: Set<String> = []
 
+    /// Successful occurrence removals remain tombstoned for this view model's lifetime so
+    /// stale refreshes and continuation responses cannot restore them.
+    @ObservationIgnored
+    private var confirmedRemovedPlaylistSetVideoIDs: Set<String> = []
+
+    @ObservationIgnored
+    private var reservedPlaylistSetVideoIDs: Set<String> = []
+
     private var isLikedMusicPlaylist: Bool {
         LikedMusicPlaylist.matches(id: self.playlist.id)
     }
@@ -54,6 +62,10 @@ final class PlaylistDetailViewModel {
     init(playlist: Playlist, client: any YTMusicClientProtocol) {
         self.playlist = playlist
         self.client = client
+    }
+
+    var playlistID: String {
+        self.playlist.id
     }
 
     deinit {
@@ -245,6 +257,8 @@ final class PlaylistDetailViewModel {
                 detail = self.normalizeLikedMusicDetail(detail)
             }
 
+            detail = self.filterConfirmedPlaylistRemovals(from: detail)
+
             self.playlistDetail = detail
             self.continuationToken = self.hasMore ? nextContinuationToken : nil
             self.loadingState = .loaded
@@ -301,9 +315,13 @@ final class PlaylistDetailViewModel {
                 return song.videoId
             }
             : []
+        let playlistFilteredTracks = response.tracks.filter { track in
+            guard let setVideoId = track.playlistSetVideoId else { return true }
+            return !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
+        }
         let candidateTracks = batch.isLikedMusicPlaylist
-            ? response.tracks.filter { !self.removedLikedMusicVideoIDs.contains($0.videoId) }
-            : response.tracks
+            ? playlistFilteredTracks.filter { !self.removedLikedMusicVideoIDs.contains($0.videoId) }
+            : playlistFilteredTracks
         let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
         let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
         let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
@@ -472,45 +490,41 @@ final class PlaylistDetailViewModel {
     }
 
     /// Refreshes the playlist.
-    func refresh() async {
+    @discardableResult
+    func refresh() async -> Bool {
         self.cancelAllLiveSyncTasks()
         self.replacePlaylistDetail(nil)
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
+        return self.loadingState == .loaded && self.playlistDetail != nil
     }
 
-    /// Optimistically removes the track matching `setVideoId` from the loaded list, ahead
-    /// of the API call actually removing it. Returns the removed song and its original
-    /// index so a failed removal can be undone via `reinsertTrack(_:at:)`.
-    @discardableResult
-    func removeTrackOptimistically(setVideoId: String) -> (song: Song, index: Int)? {
-        guard let detail = self.playlistDetail,
-              let index = detail.tracks.firstIndex(where: { $0.playlistSetVideoId == setVideoId })
-        else { return nil }
-
-        var tracks = detail.tracks
-        let removedSong = tracks.remove(at: index)
-        self.replacePlaylistDetail(self.updatedPlaylistDetail(
-            from: detail,
-            tracks: tracks,
-            trackCount: detail.trackCount.map { max(0, $0 - 1) }
-        ))
-        return (removedSong, index)
+    func reservePlaylistRemoval(setVideoId: String) -> Bool {
+        guard !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId) else { return false }
+        return self.reservedPlaylistSetVideoIDs.insert(setVideoId).inserted
     }
 
-    /// Reinserts a track at its original index, undoing an optimistic removal after the
-    /// API call to actually remove it failed.
-    func reinsertTrack(_ song: Song, at index: Int) {
-        guard let detail = self.playlistDetail else { return }
+    func releasePlaylistRemoval(setVideoId: String) {
+        self.reservedPlaylistSetVideoIDs.remove(setVideoId)
+    }
 
-        var tracks = detail.tracks
-        tracks.insert(song, at: min(index, tracks.count))
-        self.replacePlaylistDetail(self.updatedPlaylistDetail(
-            from: detail,
-            tracks: tracks,
-            trackCount: detail.trackCount.map { $0 + 1 }
-        ))
+    /// Commits a successful server-side removal to the current list. If a concurrent refresh
+    /// paged the occurrence out, wait for any full drain before reconciling from the server.
+    func commitSuccessfulTrackRemoval(setVideoId: String) async {
+        self.confirmedRemovedPlaylistSetVideoIDs.insert(setVideoId)
+        if self.removeConfirmedPlaylistTrackIfLoaded(setVideoId: setVideoId) {
+            return
+        }
+
+        let activeFullLoadTask = self.fullLoadTask
+        await activeFullLoadTask?.value
+
+        if self.removeConfirmedPlaylistTrackIfLoaded(setVideoId: setVideoId) {
+            return
+        }
+
+        await self.refresh()
     }
 
     private func cancelFullLoadTask() {
@@ -533,6 +547,37 @@ final class PlaylistDetailViewModel {
             tracks: likedTracks,
             trackCount: resolvedTrackCount
         )
+    }
+
+    private func filterConfirmedPlaylistRemovals(from detail: PlaylistDetail) -> PlaylistDetail {
+        let filteredTracks = detail.tracks.filter { track in
+            guard let setVideoId = track.playlistSetVideoId else { return true }
+            return !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
+        }
+        let removedTrackCount = detail.tracks.count - filteredTracks.count
+        guard removedTrackCount > 0 else { return detail }
+
+        return self.updatedPlaylistDetail(
+            from: detail,
+            tracks: filteredTracks,
+            trackCount: detail.trackCount.map { max(filteredTracks.count, $0 - removedTrackCount) }
+        )
+    }
+
+    @discardableResult
+    private func removeConfirmedPlaylistTrackIfLoaded(setVideoId: String) -> Bool {
+        guard let detail = self.playlistDetail,
+              let index = detail.tracks.firstIndex(where: { $0.playlistSetVideoId == setVideoId })
+        else { return false }
+
+        var tracks = detail.tracks
+        tracks.remove(at: index)
+        self.replacePlaylistDetail(self.updatedPlaylistDetail(
+            from: detail,
+            tracks: tracks,
+            trackCount: detail.trackCount.map { max(0, $0 - 1) }
+        ))
+        return true
     }
 
     private func markSongsAsLiked(_ tracks: [Song], deduplicating: Bool = false) -> [Song] {
