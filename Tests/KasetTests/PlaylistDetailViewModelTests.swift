@@ -89,8 +89,8 @@ struct PlaylistDetailViewModelTests {
 
     // MARK: - Track Removal Tests
 
-    @Test("Successful track removal commit removes the matching track and updates track count")
-    func successfulTrackRemovalCommitRemovesMatch() async {
+    @Test("Optimistic track removal removes the matching track and confirms successfully")
+    func optimisticTrackRemovalRemovesMatch() async throws {
         let songs = [
             Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
             Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
@@ -104,32 +104,49 @@ struct PlaylistDetailViewModelTests {
         let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
         await viewModel.load()
 
-        await viewModel.commitSuccessfulTrackRemoval(setVideoId: "set-b")
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
 
         #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "c"])
         #expect(viewModel.playlistDetail?.trackCount == 2)
+        #expect(viewModel.isRemovingTrack)
+
+        viewModel.confirmTrackRemoval(removal)
+
+        #expect(!viewModel.isRemovingTrack)
     }
 
-    @Test("Playlist removal reservations deduplicate and can be released")
-    func playlistRemovalReservationsDeduplicate() {
-        #expect(self.viewModel.reservePlaylistRemoval(setVideoId: "set-a"))
-        #expect(!self.viewModel.reservePlaylistRemoval(setVideoId: "set-a"))
+    @Test("Only one optimistic playlist removal can be active")
+    func optimisticTrackRemovalIsSingleFlight() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+        ]
+        let playlist = Playlist(
+            id: "VL-single-flight-removal", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: songs, duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
 
-        self.viewModel.releasePlaylistRemoval(setVideoId: "set-a")
+        let firstRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
+        #expect(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b") == nil)
 
-        #expect(self.viewModel.reservePlaylistRemoval(setVideoId: "set-a"))
+        await viewModel.rollbackTrackRemoval(firstRemoval)
+
+        let secondRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
+        await viewModel.rollbackTrackRemoval(secondRemoval)
     }
 
-    @Test("Continuation tombstone decrements an off-page removal count once")
-    func continuationTombstoneAdjustsTrackCount() async {
+    @Test("Generation-mismatched rollback restores the full pre-removal snapshot")
+    func generationMismatchRollbackRestoresSnapshot() async throws {
         let songs = [
             Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
             Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
             Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
-            Song(id: "d", title: "D", artists: [], videoId: "d", playlistSetVideoId: "set-d"),
         ]
         let playlist = Playlist(
-            id: "VL-continuation-removal", title: "Test Playlist", description: nil,
+            id: "VL-async-rollback", title: "Test Playlist", description: nil,
             thumbnailURL: nil, trackCount: songs.count, canDelete: true
         )
         self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
@@ -137,42 +154,60 @@ struct PlaylistDetailViewModelTests {
             tracks: Array(songs.prefix(2)),
             duration: nil
         )
-        self.mockClient.playlistContinuationTracks[playlist.id] = [Array(songs.suffix(2))]
-        self.mockClient.playlistContinuationDelay = .milliseconds(250)
+        self.mockClient.playlistContinuationTracks[playlist.id] = [[songs[2]]]
+        self.mockClient.playlistContinuationDelay = .milliseconds(150)
         let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
         await viewModel.load()
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
 
-        let drainTask = Task { await viewModel.loadAllRemaining() }
+        let loadMoreTask = Task { await viewModel.loadMore() }
         await self.waitUntil(
-            self.mockClient.getPlaylistContinuationCallCount == 1,
-            description: "continuation request to start"
+            viewModel.loadingState == .loadingMore,
+            description: "continuation load to start"
+        )
+        loadMoreTask.cancel()
+        await loadMoreTask.value
+        await self.waitUntil(
+            viewModel.loadingState == .loaded,
+            description: "cancelled continuation to settle"
         )
 
-        let reconciledPlaylist = Playlist(
-            id: playlist.id, title: playlist.title, description: nil,
-            thumbnailURL: nil, trackCount: 3, canDelete: true
+        await viewModel.rollbackTrackRemoval(removal)
+
+        #expect(!viewModel.isRemovingTrack)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b"])
+        let nextRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
+        await viewModel.rollbackTrackRemoval(nextRemoval)
+    }
+
+    @Test("Track removal waiters resume only after the optimistic mutation finishes")
+    func trackRemovalWaitersResumeAfterCompletion() async throws {
+        let song = Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a")
+        let playlist = Playlist(
+            id: "VL-removal-waiter", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 1, canDelete: true
         )
-        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
-            playlist: reconciledPlaylist,
-            tracks: Array(songs.prefix(2)),
-            duration: nil
-        )
-        let commitTask = Task {
-            await viewModel.commitSuccessfulTrackRemoval(setVideoId: "set-d")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: [song], duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
+        var waiterFinished = false
+        let waiter = Task { @MainActor in
+            await viewModel.waitForTrackRemovalToFinish()
+            waiterFinished = true
         }
+        await Task.yield()
 
-        await drainTask.value
+        #expect(!waiterFinished)
 
-        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
-        #expect(viewModel.playlistDetail?.trackCount == 3)
+        viewModel.confirmTrackRemoval(removal)
+        await waiter.value
 
-        await commitTask.value
-        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
-        #expect(viewModel.playlistDetail?.trackCount == 3)
+        #expect(waiterFinished)
     }
 
     @Test("Stale refresh counts an off-page tombstone when its continuation arrives")
-    func staleRefreshCountsOffPageTombstoneOnContinuation() async {
+    func staleRefreshCountsOffPageTombstoneOnContinuation() async throws {
         let songs = [
             Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
             Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
@@ -190,7 +225,8 @@ struct PlaylistDetailViewModelTests {
         )
         let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
         await viewModel.load()
-        await viewModel.commitSuccessfulTrackRemoval(setVideoId: "set-d")
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-d"))
+        viewModel.confirmTrackRemoval(removal)
 
         self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
             playlist: playlist,

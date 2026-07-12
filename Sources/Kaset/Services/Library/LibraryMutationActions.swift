@@ -27,8 +27,8 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Removes a song from the playlist currently loaded in `viewModel`, then reconciles
-    /// the successful server mutation into the current list and any in-flight loads.
+    /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed
+    /// optimistically and restored if the server mutation fails.
     static func removeSongFromPlaylist(
         _ song: Song,
         from viewModel: PlaylistDetailViewModel,
@@ -39,8 +39,7 @@ enum LibraryMutationActions {
             HapticService.error()
             return
         }
-        guard viewModel.reservePlaylistRemoval(setVideoId: setVideoId) else { return }
-        defer { viewModel.releasePlaylistRemoval(setVideoId: setVideoId) }
+        guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
 
         do {
             try Task.checkCancellation()
@@ -50,12 +49,14 @@ enum LibraryMutationActions {
                 playlistId: viewModel.playlistID
             )
             Self.invalidateResponseCaches()
-            await viewModel.commitSuccessfulTrackRemoval(setVideoId: setVideoId)
+            viewModel.confirmTrackRemoval(removal)
             HapticService.success()
             DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
         } catch is CancellationError {
+            await viewModel.rollbackTrackRemoval(removal)
             return
         } catch {
+            await viewModel.rollbackTrackRemoval(removal)
             HapticService.error()
             DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
         }
