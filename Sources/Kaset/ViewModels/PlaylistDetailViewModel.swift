@@ -53,6 +53,9 @@ final class PlaylistDetailViewModel {
     private var confirmedRemovedPlaylistSetVideoIDs: Set<String> = []
 
     @ObservationIgnored
+    private var countedConfirmedRemovedPlaylistSetVideoIDs: Set<String> = []
+
+    @ObservationIgnored
     private var reservedPlaylistSetVideoIDs: Set<String> = []
 
     private var isLikedMusicPlaylist: Bool {
@@ -159,6 +162,7 @@ final class PlaylistDetailViewModel {
         self.cancelFullLoadTask()
         self.loadGeneration += 1
         let generation = self.loadGeneration
+        self.countedConfirmedRemovedPlaylistSetVideoIDs = []
         self.removedLikedMusicVideoIDs = []
         self.countedRemovedLikedMusicVideoIDs = []
         self.insertedLikedMusicVideoIDs = []
@@ -315,6 +319,14 @@ final class PlaylistDetailViewModel {
                 return song.videoId
             }
             : []
+        let skippedConfirmedPlaylistRemovalCount = response.tracks.reduce(into: 0) { count, track in
+            guard let setVideoId = track.playlistSetVideoId,
+                  self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId),
+                  self.countedConfirmedRemovedPlaylistSetVideoIDs.insert(setVideoId).inserted
+            else { return }
+            count += 1
+        }
+        let skippedRemovalCount = skippedRemovedVideoIDs.count + skippedConfirmedPlaylistRemovalCount
         let playlistFilteredTracks = response.tracks.filter { track in
             guard let setVideoId = track.playlistSetVideoId else { return true }
             return !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
@@ -340,7 +352,7 @@ final class PlaylistDetailViewModel {
                 return false
             }
 
-            self.applySkippedLikedMusicRemovalCount(skippedRemovedVideoIDs.count, to: latestDetail)
+            self.applySkippedRemovalCount(skippedRemovalCount, to: latestDetail)
             self.continuationToken = response.continuationToken
             self.hasMore = response.hasMore
             self.loadingState = .loaded
@@ -357,7 +369,7 @@ final class PlaylistDetailViewModel {
         var allTracks = latestDetail.tracks
         allTracks.reserveCapacity(latestDetail.tracks.count + normalizedNewTracks.count)
         allTracks.append(contentsOf: normalizedNewTracks)
-        let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovedVideoIDs.count)
+        let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovalCount)
         let preservedTrackCount = max(allTracks.count, adjustedTrackCount ?? 0)
         let updatedPlaylist = Playlist(
             id: latestDetail.id,
@@ -391,7 +403,7 @@ final class PlaylistDetailViewModel {
         return max(0, trackCount - skippedRemovalCount)
     }
 
-    private func applySkippedLikedMusicRemovalCount(_ skippedRemovalCount: Int, to detail: PlaylistDetail) {
+    private func applySkippedRemovalCount(_ skippedRemovalCount: Int, to detail: PlaylistDetail) {
         guard let adjustedTrackCount = self.adjustedTrackCount(detail.trackCount, skippedRemovalCount: skippedRemovalCount),
               adjustedTrackCount != detail.trackCount
         else { return }
@@ -520,6 +532,10 @@ final class PlaylistDetailViewModel {
         let activeFullLoadTask = self.fullLoadTask
         await activeFullLoadTask?.value
 
+        if self.countedConfirmedRemovedPlaylistSetVideoIDs.contains(setVideoId) {
+            return
+        }
+
         if self.removeConfirmedPlaylistTrackIfLoaded(setVideoId: setVideoId) {
             return
         }
@@ -550,11 +566,16 @@ final class PlaylistDetailViewModel {
     }
 
     private func filterConfirmedPlaylistRemovals(from detail: PlaylistDetail) -> PlaylistDetail {
+        var countedSetVideoIDs: Set<String> = []
         let filteredTracks = detail.tracks.filter { track in
-            guard let setVideoId = track.playlistSetVideoId else { return true }
-            return !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
+            guard let setVideoId = track.playlistSetVideoId,
+                  self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
+            else { return true }
+            countedSetVideoIDs.insert(setVideoId)
+            return false
         }
         let removedTrackCount = detail.tracks.count - filteredTracks.count
+        self.countedConfirmedRemovedPlaylistSetVideoIDs.formUnion(countedSetVideoIDs)
         guard removedTrackCount > 0 else { return detail }
 
         return self.updatedPlaylistDetail(
@@ -572,6 +593,7 @@ final class PlaylistDetailViewModel {
 
         var tracks = detail.tracks
         tracks.remove(at: index)
+        self.countedConfirmedRemovedPlaylistSetVideoIDs.insert(setVideoId)
         self.replacePlaylistDetail(self.updatedPlaylistDetail(
             from: detail,
             tracks: tracks,

@@ -88,6 +88,65 @@ struct ParsingHelpersTests {
         #expect(result == "https://example.com/image.jpg")
     }
 
+    // MARK: - Playlist Occurrence ID Extraction
+
+    @Test("Playlist occurrence ID prefers playlistItemData")
+    func extractPlaylistSetVideoIdFromPlaylistItemData() {
+        let data: [String: Any] = [
+            "playlistItemData": ["playlistSetVideoId": "set-direct"],
+            "menu": [
+                "playlistEditEndpoint": [
+                    "actions": [[
+                        "action": "ACTION_REMOVE_VIDEO",
+                        "setVideoId": "set-menu",
+                    ]],
+                ],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == "set-direct")
+    }
+
+    @Test("Playlist occurrence ID falls back to a nested remove endpoint")
+    func extractPlaylistSetVideoIdFromEditEndpoint() {
+        let data: [String: Any] = [
+            "menu": [
+                "menuRenderer": [
+                    "items": [[
+                        "menuServiceItemRenderer": [
+                            "serviceEndpoint": [
+                                "playlistEditEndpoint": [
+                                    "playlistId": "playlist-placeholder",
+                                    "actions": [[
+                                        "action": "ACTION_REMOVE_VIDEO",
+                                        "removedVideoId": "video-placeholder",
+                                        "setVideoId": "set-from-menu",
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == "set-from-menu")
+    }
+
+    @Test("Playlist occurrence ID does not treat removedVideoId as setVideoId")
+    func extractPlaylistSetVideoIdIgnoresRemovedVideoId() {
+        let data: [String: Any] = [
+            "playlistEditEndpoint": [
+                "actions": [[
+                    "action": "ACTION_REMOVE_VIDEO",
+                    "removedVideoId": "video-placeholder",
+                ]],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == nil)
+    }
+
     // MARK: - Thumbnail Extraction
 
     @Test("Extract thumbnails from musicThumbnailRenderer")

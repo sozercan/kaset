@@ -120,6 +120,94 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.reservePlaylistRemoval(setVideoId: "set-a"))
     }
 
+    @Test("Continuation tombstone decrements an off-page removal count once")
+    func continuationTombstoneAdjustsTrackCount() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+            Song(id: "d", title: "D", artists: [], videoId: "d", playlistSetVideoId: "set-d"),
+        ]
+        let playlist = Playlist(
+            id: "VL-continuation-removal", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: Array(songs.prefix(2)),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [Array(songs.suffix(2))]
+        self.mockClient.playlistContinuationDelay = .milliseconds(250)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+
+        let drainTask = Task { await viewModel.loadAllRemaining() }
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationCallCount == 1,
+            description: "continuation request to start"
+        )
+
+        let reconciledPlaylist = Playlist(
+            id: playlist.id, title: playlist.title, description: nil,
+            thumbnailURL: nil, trackCount: 3, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: reconciledPlaylist,
+            tracks: Array(songs.prefix(2)),
+            duration: nil
+        )
+        let commitTask = Task {
+            await viewModel.commitSuccessfulTrackRemoval(setVideoId: "set-d")
+        }
+
+        await drainTask.value
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 3)
+
+        await commitTask.value
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 3)
+    }
+
+    @Test("Stale refresh counts an off-page tombstone when its continuation arrives")
+    func staleRefreshCountsOffPageTombstoneOnContinuation() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+            Song(id: "d", title: "D", artists: [], videoId: "d", playlistSetVideoId: "set-d"),
+        ]
+        let playlist = Playlist(
+            id: "VL-stale-continuation-removal", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: songs,
+            duration: nil
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        await viewModel.commitSuccessfulTrackRemoval(setVideoId: "set-d")
+
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: Array(songs.prefix(2)),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [Array(songs.suffix(2))]
+
+        await viewModel.refresh()
+        #expect(viewModel.playlistDetail?.trackCount == 4)
+
+        await viewModel.loadMore()
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 3)
+    }
+
     @Test("Load error sets error state")
     func loadError() async {
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
