@@ -323,6 +323,46 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
     }
 
+    @Test("Cancelled replacement queue injections cannot click or report")
+    func cancelledReplacementAttemptDoesNotRunStaleTimers() throws {
+        let context = try #require(self.makeContext(menuAvailableAfterLookup: 100))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "stale-target",
+                afterVideoId: "source-video",
+                attemptGeneration: 1
+            ),
+            in: context
+        )
+        #expect(context.evaluateScript("window.__kasetQueueInjectionAttemptId")?.toInt32() == 1)
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "replacement-target",
+                afterVideoId: "source-video",
+                attemptGeneration: 2
+            ),
+            in: context
+        )
+        #expect(context.evaluateScript("window.__kasetQueueInjectionAttemptId")?.toInt32() == 2)
+
+        self.evaluate(
+            """
+            window.__kasetCancelQueueInjectionAttempt();
+            while (runNextTimer()) {}
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("messageCount")?.toInt32() == 0)
+        #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
+        #expect(context.evaluateScript("queueVideoIds.join(',')")?.toString() == "source-video,autoplay-video")
+        #expect(context.evaluateScript("timers.length")?.toInt32() == 0)
+        #expect(context.evaluateScript("window.__kasetQueueInjectionAttemptId === null")?.toBool() == true)
+        #expect(context.evaluateScript("window.__kasetCancelQueueInjectionAttempt === null")?.toBool() == true)
+    }
+
     // swiftlint:disable:next function_body_length
     private func makeContext(
         menuAvailableAfterLookup: Int,
