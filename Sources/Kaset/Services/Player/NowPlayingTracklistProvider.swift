@@ -28,6 +28,13 @@ final class NowPlayingTracklistProvider {
     /// Video id currently being tracked; a change resets the latch and clears the tracklist.
     private var currentVideoId: String?
 
+    /// Title/artist of the track currently being tracked, for change detection when videoId is
+    /// stale. `PlayerService.updateTrackMetadata` falls back to the previous videoId when YouTube's
+    /// observer hasn't reported a fresh one yet, so a real track change can arrive with an unchanged
+    /// `videoId` — only the title/artist reveal it.
+    private var currentTrackTitle: String?
+    private var currentTrackArtist: String?
+
     /// Video id a fetch has already been started for — latches the fetch to run at most once per
     /// video even though `update` is called repeatedly as duration settles.
     private var attemptedVideoId: String?
@@ -56,9 +63,16 @@ final class NowPlayingTracklistProvider {
             return
         }
 
-        if track.videoId != self.currentVideoId {
+        let videoIdChanged = track.videoId != self.currentVideoId
+        let metadataChanged = self.currentVideoId != nil
+            && !videoIdChanged
+            && (track.title != self.currentTrackTitle || track.artistsDisplay != self.currentTrackArtist)
+
+        if videoIdChanged || metadataChanged {
             self.reset(to: track.videoId)
         }
+        self.currentTrackTitle = track.title
+        self.currentTrackArtist = track.artistsDisplay
 
         // Duration isn't reliably available at track-start; wait until it crosses the mix threshold.
         let knownDuration = track.duration ?? duration

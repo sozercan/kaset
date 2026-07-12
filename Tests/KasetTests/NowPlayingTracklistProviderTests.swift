@@ -138,6 +138,26 @@ struct NowPlayingTracklistProviderTests {
         #expect(provider.tracklist == nil)
     }
 
+    /// Regression: `PlayerService.updateTrackMetadata` falls back to the previous videoId when
+    /// YouTube's observer hasn't reported a fresh one yet, so a real track change can arrive with an
+    /// unchanged `videoId` — only the title/artist reveal it. Without resetting on that signal, the
+    /// previous mix's tracklist stayed attached to the new song, so the seek bar kept showing the old
+    /// segments and any consumer scrobbling from it would credit the wrong sub-tracks.
+    @Test("A metadata change with a stale videoId resets the tracklist and re-arms the fetch")
+    func metadataChangeWithStaleVideoIdResetsTracklist() async {
+        let (provider, _) = self.makeProvider(chapters: self.makeMixChapters())
+        let mixA = TestFixtures.makeSong(id: "mix1", title: "Mix A", duration: 1800)
+        provider.update(track: mixA, duration: 1800)
+        await self.waitUntil { provider.tracklist != nil }
+        #expect(provider.tracklist != nil)
+
+        let mixB = TestFixtures.makeSong(id: "mix1", title: "Different Song", duration: 1800)
+        provider.update(track: mixB, duration: 1800)
+
+        #expect(provider.tracklist == nil, "stale tracklist from the previous song must not remain attached")
+        #expect(provider.isParsing, "a metadata-only change must re-arm the fetch latch even with a stale videoId")
+    }
+
     // MARK: - Driver Integration
 
     /// The provider is driven by PlayerService's `currentTrack`/`duration` observers, independent of
