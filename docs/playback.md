@@ -24,7 +24,10 @@ Our solution: A **singleton WebView** that keeps the YouTube Music app shell ali
 | `SingletonPlayerWebView+QueueInjection` | `SingletonPlayerWebView+QueueInjection.swift` | Click-scoped Play Next injection for YouTube Music's native Up Next queue |
 | `PersistentPlayerView` | `MiniPlayerWebView.swift` | SwiftUI wrapper for the WebView |
 | `PlayerService` | `PlayerService.swift` | Playback state and control |
+| `PlayerService+WebPlaybackIdentity` | `PlayerService+WebPlaybackIdentity.swift` | Media-bound identity, native handoff confirmation, and maintenance generations |
 | `PlayerService+WebQueueSync` | `PlayerService+WebQueueSync.swift` | Mirrors Kaset's expected next track into YouTube Music's native queue and reconciles WebView events |
+| `PlayerService+QueueNavigationRecovery` | `PlayerService+QueueNavigationRecovery.swift` | Coalesces bounded recovery loads when stale WebView metadata fights a deterministic queue target |
+| `SingletonPlayerWebView+NavigationState` | `SingletonPlayerWebView+NavigationState.swift` | Tracks the active document navigation and gates document-scoped bridge messages |
 | `AppDelegate` | `AppDelegate.swift` | Window lifecycle for background audio |
 
 ### Singleton Pattern
@@ -64,12 +67,16 @@ This sets:
 ### 2. WebView Preloads
 
 `MainWindow` keeps a hidden `PersistentPlayerView` mounted whenever the user is
-logged in, even before a track is requested. The hidden view creates the singleton
-WebView and preloads the YouTube Music home page so the app shell and router are
-ready for later playback.
+logged in, even before a track is requested. Signed-out users mount the same view
+on demand when public/guest playback creates a pending video. The hidden view
+creates the singleton WebView and preloads the YouTube Music home page so the app
+shell and router are ready for playback.
 
 ```swift
-if authService.state.isLoggedIn {
+if MainWindow.shouldMountPersistentPlayer(
+    isLoggedIn: authService.state.isLoggedIn,
+    pendingVideoId: playerService.pendingPlayVideoId
+) {
     PersistentPlayerView(videoId: playerService.pendingPlayVideoId, isExpanded: false)
         .frame(width: 1, height: 1)
         .opacity(0)
@@ -105,14 +112,18 @@ full-load a stale track over a newer request.
 The observer script continuously reports:
 - Playback state (`isPlaying`, `progress`, `duration`)
 - Track metadata (`title`, `artist`, `thumbnailUrl`)
-- The observed `videoId`
+- The logical player `videoId` plus the media-bound `mediaVideoId`
+- `observerEpoch` and `mediaGeneration`, which identify one concrete media occurrence
 - Whether the observer thinks the track changed
 - Like status and lightweight video availability
 - Sanitized audio-quality diagnostics via `PLAYBACK_AUDIO_QUALITY_STATS`
 
-Swift updates `PlayerService` from every `STATE_UPDATE`, then uses
-`PlayerService+WebQueueSync` to decide whether the reported track matches
-Kaset's queue or whether YouTube autoplay needs to be corrected.
+Progress and duration come from the `<video>` element so they remain bound to the
+reported media identity; the player-bar progress DOM is only a fallback. Swift
+filters each document-scoped `STATE_UPDATE` by document, epoch, media generation,
+and expected queue identity before applying it to `PlayerService`. It then uses
+`PlayerService+WebQueueSync` to decide whether the track matches Kaset's queue or
+whether YouTube autoplay needs to be corrected.
 
 ### 5. Track-End Handling
 
@@ -121,19 +132,32 @@ Natural track completion is handled by a dedicated bridge event:
 ```javascript
 bridge.postMessage({
     type: 'TRACK_ENDED',
-    videoId: lastVideoId || currentVideoId()
+    observerEpoch: observerEpoch,
+    documentID: documentID,
+    videoId: mediaIdentityUncertain ? '' : mediaVideoId,
+    mediaGeneration: mediaGeneration,
+    mediaIdentityUncertain: mediaIdentityUncertain
 });
 ```
 
-Swift validates that the ended `videoId` still matches the expected queue song
-before advancing. This prevents stale `ended` events from double-advancing the
-queue after Kaset has already loaded the next track.
+Swift consumes each `(observerEpoch, mediaGeneration)` ended occurrence once and
+validates that its media-bound `videoId` still matches the expected queue song.
+Duplicate or older events therefore cannot double-advance repeated queue entries.
+If an ended `<video>` element is replayed, the observer advances only the occurrence
+generation without prematurely rebinding its media identity.
 
 If Kaset previously confirmed that the expected next song was injected into
 YouTube Music's native **Up Next** queue, `handleTrackEnded(observedVideoId:)`
 lets YouTube Music auto-advance natively and only updates Kaset's queue pointer.
 If injection is missing, stale, or failed, Kaset falls back to deterministic
 `next()` / `play(song:)` navigation instead of trusting the web queue.
+
+Track-end processing waits for native queue maintenance only when no successor has
+been materialized yet. The wait is generation-scoped and wakes when maintenance
+finishes, is canceled/replaced, or either an external edit or maintenance itself
+inserts a usable successor. Queue replacements invalidate stale maintenance, while
+task-local ownership prevents maintenance's own mix/Smart Shuffle mutations from
+canceling their originating task.
 
 ## Track Changing
 

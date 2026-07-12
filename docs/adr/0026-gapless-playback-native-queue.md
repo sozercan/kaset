@@ -29,7 +29,8 @@ can safely keep YouTube Music's native queue aligned with Kaset's queue.
 Kaset keeps its local queue as the source of truth, but mirrors the next expected
 track into YouTube Music's native **Up Next** queue ahead of time.
 
-- `SingletonPlayerWebView` preloads the YouTube Music app shell after login so
+- `SingletonPlayerWebView` eagerly preloads the YouTube Music app shell after login,
+  and mounts on demand when signed-out public playback creates a pending video, so
   subsequent loads can prefer in-page router navigation over full page loads.
 - `loadVideo(videoId:)` first tries YouTube Music's internal SPA router with a
   `watchEndpoint`; it falls back to a full `watch` URL only when the router is not
@@ -59,6 +60,18 @@ track into YouTube Music's native **Up Next** queue ahead of time.
   The outgoing song remains visible until the media-bound observer reports that
   exact target. A wrong video or a three-second timeout falls back through
   `play(song:)` / `loadVideo(videoId:)`.
+- Document-scoped playback events carry an observer epoch and media generation.
+  Kaset consumes each ended media occurrence once, rejects duplicate/older events,
+  and advances the occurrence generation for a same-element replay without
+  prematurely rebinding media identity.
+- Playback progress and duration come from the media element associated with the
+  reported identity; the player-bar DOM is used only as a fallback when media
+  timing is unavailable.
+- Track end waits for native queue maintenance only when no successor is currently
+  materialized. Generation-scoped waiters resume on completion, invalidation, or
+  successor insertion. External queue replacements cancel stale maintenance,
+  while task-local ownership lets maintenance apply its own mix/Smart Shuffle
+  queue mutations without self-canceling.
 - Radio-queue enrichment preserves the active queue-entry UUID so replacing API
   metadata does not look like a new playback occurrence to the media-generation guard.
 - A queue edit during a pending native handoff revalidates source/target UUID
@@ -68,6 +81,8 @@ track into YouTube Music's native **Up Next** queue ahead of time.
   and current `WKWebView` before they clear the injection gate.
 - Any deterministic navigation, queue replacement, empty queue persistence, or stale
   result clears both Swift-side and page-side queue-injection state.
+- Web queue synchronization follows the live queue even when the persistence
+  signature is unchanged, which is required for ephemeral Smart Shuffle entries.
 - Hidden preload and restored-session pages start with autoplay blocked. Explicit
   user actions such as Resume/Next/Previous unblock autoplay.
 
