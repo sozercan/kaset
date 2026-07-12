@@ -135,10 +135,8 @@ struct PlaylistDetailView: View {
                     year: nil,
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
-                self.trackSortMenu(detail)
-
                 self.tracksView(
-                    self.viewModel.displayedTracks, isAlbum: detail.isAlbum, author: detail.author?.name,
+                    self.viewModel.displayedTrackRows, isAlbum: detail.isAlbum, author: detail.author?.name,
                     fallbackAlbum: fallbackAlbum
                 )
             }
@@ -191,7 +189,11 @@ struct PlaylistDetailView: View {
 
                 Spacer(minLength: 24)
 
-                self.headerButtons(detail)
+                HStack(spacing: 16) {
+                    self.headerButtons(detail)
+                    Spacer(minLength: 16)
+                    self.trackSortControl(detail)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -242,22 +244,23 @@ struct PlaylistDetailView: View {
     }
 
     private func tracksView(
-        _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
+        _ rows: [PlaylistDetailViewModel.IdentifiedTrack], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
     ) -> some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+        let tracks = rows.map(\.song)
+        return LazyVStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 self.trackRow(
-                    track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
+                    row.song, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
                     fallbackAlbum: fallbackAlbum
                 )
                 .onAppear {
                     // Load more when reaching the last few items
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
+                    if index >= rows.count - 3, self.viewModel.hasMore {
                         Task { await self.viewModel.loadMore() }
                     }
                 }
 
-                if index < tracks.count - 1 {
+                if index < rows.count - 1 {
                     Divider()
                         // For albums: 28 (index) + 12 (spacing)
                         // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)

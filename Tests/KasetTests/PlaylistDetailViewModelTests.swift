@@ -1217,4 +1217,41 @@ struct PlaylistDetailViewModelTests {
         #expect(viewModel.sortOption == .duration)
         #expect(viewModel.sortAscending == true)
     }
+
+    @Test("Row identities stay stable across sort changes so rows move instead of rebuilding")
+    func rowIdentitiesStableAcrossSort() async {
+        let viewModel = await self.makeSortTestViewModel()
+
+        let identityByVideoId = Dictionary(
+            uniqueKeysWithValues: viewModel.displayedTrackRows.map { ($0.song.videoId, $0.id) }
+        )
+
+        viewModel.selectSort(.title)
+
+        // Order changes, but each song keeps the same row identity so SwiftUI moves the row instead
+        // of swapping a slot's contents (which would reload artwork and like state).
+        #expect(viewModel.displayedTrackRows.map(\.song.videoId) == ["2", "1", "3"])
+        for row in viewModel.displayedTrackRows {
+            #expect(row.id == identityByVideoId[row.song.videoId])
+        }
+    }
+
+    @Test("Duplicate tracks receive distinct stable row identities")
+    func duplicateTracksGetDistinctIdentities() async {
+        let dup = TestFixtures.makeSong(id: "dup", title: "Same", artistName: "X", duration: 100)
+        let other = TestFixtures.makeSong(id: "other", title: "Other", artistName: "Y", duration: 200)
+        let playlist = TestFixtures.makePlaylist(id: "VL-dup-test")
+        let mockClient = MockYTMusicClient()
+        mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [dup, other, dup],
+            duration: nil
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: mockClient)
+        await viewModel.load()
+
+        let ids = viewModel.displayedTrackRows.map(\.id)
+        #expect(ids == ["dup#0", "other#0", "dup#1"])
+        #expect(Set(ids).count == 3, "duplicate tracks must still get unique row identities")
+    }
 }

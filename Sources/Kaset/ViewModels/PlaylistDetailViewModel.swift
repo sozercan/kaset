@@ -46,20 +46,41 @@ final class PlaylistDetailViewModel {
     /// Current sort direction; ignored when `sortOption` is `.custom`.
     private(set) var sortAscending: Bool = true
 
-    /// The playlist tracks in the currently selected sort order.
-    var displayedTracks: [Song] {
+    /// A playlist track paired with a stable identity that survives re-sorting, so the list moves
+    /// rows in place instead of rebuilding them — rebuilding reloads row artwork and like state.
+    struct IdentifiedTrack: Identifiable {
+        let id: String
+        let song: Song
+    }
+
+    /// Tracks in the selected sort order, each carrying a stable identity (song id + occurrence,
+    /// numbered in playlist order so duplicate tracks stay distinct). Reordering these only changes
+    /// their positions, so SwiftUI animates moves rather than swapping row contents.
+    var displayedTrackRows: [IdentifiedTrack] {
         guard let tracks = self.playlistDetail?.tracks else { return [] }
+
+        var occurrences: [String: Int] = [:]
+        let identified = tracks.map { song -> IdentifiedTrack in
+            let occurrence = occurrences[song.id, default: 0]
+            occurrences[song.id] = occurrence + 1
+            return IdentifiedTrack(id: "\(song.id)#\(occurrence)", song: song)
+        }
 
         switch self.sortOption {
         case .custom:
-            return tracks
+            return identified
         case .title:
-            return self.sortedByStandardCompare(tracks) { $0.title }
+            return self.sortedByStandardCompare(identified) { $0.song.title }
         case .artist:
-            return self.sortedByStandardCompare(tracks, tieBreaker: { $0.title }, key: { $0.artistsDisplay })
+            return self.sortedByStandardCompare(identified, tieBreaker: { $0.song.title }, key: { $0.song.artistsDisplay })
         case .duration:
-            return self.sortedByDuration(tracks)
+            return self.sortedByDuration(identified)
         }
+    }
+
+    /// The playlist tracks in the currently selected sort order.
+    var displayedTracks: [Song] {
+        self.displayedTrackRows.map(\.song)
     }
 
     private let playlist: Playlist
@@ -525,11 +546,11 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func sortedByStandardCompare(
-        _ tracks: [Song],
-        tieBreaker: ((Song) -> String)? = nil,
-        key: (Song) -> String
-    ) -> [Song] {
+    private func sortedByStandardCompare<Element>(
+        _ tracks: [Element],
+        tieBreaker: ((Element) -> String)? = nil,
+        key: (Element) -> String
+    ) -> [Element] {
         tracks.sorted { lhs, rhs in
             var result = key(lhs).localizedStandardCompare(key(rhs))
             if result == .orderedSame, let tieBreaker {
@@ -540,9 +561,9 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func sortedByDuration(_ tracks: [Song]) -> [Song] {
+    private func sortedByDuration(_ tracks: [IdentifiedTrack]) -> [IdentifiedTrack] {
         tracks.sorted { lhs, rhs in
-            switch (lhs.duration, rhs.duration) {
+            switch (lhs.song.duration, rhs.song.duration) {
             case let (lhsDuration?, rhsDuration?):
                 self.sortAscending ? lhsDuration < rhsDuration : lhsDuration > rhsDuration
             case (nil, nil), (nil, _):
