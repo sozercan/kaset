@@ -126,7 +126,32 @@ struct QueueInjectionScriptTests {
         self.runTimersUntilMessage(in: context, limit: 200)
 
         #expect(context.evaluateScript("lastMessage.success")?.toBool() == false)
-        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-timeout")
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-source-not-ready")
+        #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
+    }
+
+    @Test("Queue injection waits for the selected source row before clicking Play Next")
+    func waitsForSelectedSourceRowBeforeClick() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            refreshMenuSourceOnTimer: true,
+            initialQueueVideoIds: [],
+            queueCurrentIndex: 0
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context)
+
+        #expect(context.evaluateScript("menuLookupCount")?.toInt32() ?? 0 >= 2)
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == true)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-confirmed")
+        #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
     }
 
     @Test("Queue readback scans beyond the first forty rendered rows")

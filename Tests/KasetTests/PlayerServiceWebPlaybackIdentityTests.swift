@@ -26,6 +26,100 @@ struct PlaybackEndedOccurrenceCase {
 extension PlayerServiceWebQueueSyncTests {
     // MARK: - Web Playback Identity Reconciliation
 
+    @Test(
+        "Stale media state after manual Next is rejected before queue recovery",
+        arguments: [true, false]
+    )
+    func staleMediaStateAfterManualNextDoesNotScheduleRecovery(
+        establishAcceptedBaseline: Bool
+    ) async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        let singletonPlayer = SingletonPlayerWebView.shared
+        let previousCoordinator = singletonPlayer.coordinator
+        singletonPlayer.coordinator = coordinator
+        defer {
+            self.playerService.clearQueueNavigationRecovery()
+            if singletonPlayer.coordinator === coordinator {
+                singletonPlayer.coordinator = previousCoordinator
+            }
+        }
+
+        let staleSourceState: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 61.1),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+
+        if establishAcceptedBaseline {
+            // Exercise the common path after the outgoing occurrence has been accepted.
+            await coordinator.handleStateUpdate(
+                body: staleSourceState,
+                observedVideoId: "v1",
+                mediaVideoId: "v1",
+                observationReceivedAt: ContinuousClock.now,
+                messageGeneration: 0
+            )
+        }
+
+        await self.playerService.next()
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+        let navigationGeneration = self.playerService.playbackNavigationGeneration
+
+        // Model a stale frame received during the grace period but processed
+        // later because it sat behind the serialized Next operation.
+        let navigationStartedAt = ContinuousClock.now - .seconds(2)
+        self.playerService.protectedQueueNavigationStartedAt = navigationStartedAt
+        let staleObservationReceivedAt = navigationStartedAt + .milliseconds(100)
+
+        // The outgoing video can emit one final paused update after Next. Its
+        // unchanged media generation proves that it belongs to the prior queue
+        // occurrence, so it must not reach metadata reconciliation/recovery.
+        await coordinator.handleStateUpdate(
+            body: staleSourceState,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: staleObservationReceivedAt,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+        #expect(self.playerService.queueNavigationRecoveryLoadTask == nil)
+        #expect(self.playerService.playbackNavigationGeneration == navigationGeneration)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+
+        // The first outgoing frame gets a short navigation grace regardless of
+        // whether a baseline exists. A persistent mismatch must still reach the
+        // existing recovery path after that grace instead of being ignored forever.
+        await coordinator.handleStateUpdate(
+            body: staleSourceState,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: navigationStartedAt + .seconds(2),
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.queueNavigationRecoveryVideoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryLoadTask != nil)
+    }
+
     @Test("Mismatched Web video ID reconciles when bridge trackChanged is false")
     func mismatchedWebVideoIDReconcilesWithoutTrackChangedFlag() async {
         let songs = [

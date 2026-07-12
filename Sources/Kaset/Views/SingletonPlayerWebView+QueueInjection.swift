@@ -285,6 +285,20 @@ extension SingletonPlayerWebView {
                     return false;
                 }
                 const queueItemsBeforeClick = currentQueueItems();
+                const queueCurrentIndexBeforeClick = queueItemsBeforeClick.findIndex(item => item.isCurrent);
+                // With no rendered selected source, YouTube can take the queue endpoint's
+                // `onEmptyQueue` path and start the injected target immediately. Wait for
+                // the native queue model to confirm the source occurrence before clicking.
+                if (queueCurrentIndexBeforeClick < 0
+                    || queueItemsBeforeClick[queueCurrentIndexBeforeClick].videoId !== sourceVideoId) {
+                    dismissPlayerMenu();
+                    if (Date.now() - startedAt < 8000) {
+                        menuWaitTimerId = setTimeout(openPlayerBarMenuWhenReady, 100);
+                    } else {
+                        report(false, 'queue-source-not-ready');
+                    }
+                    return false;
+                }
                 if (hasExpectedNextOccurrence(queueItemsBeforeClick)) {
                     dismissPlayerMenu();
                     report(true, 'queue-readback-confirmed', targetVideoId);
@@ -383,8 +397,12 @@ extension SingletonPlayerWebView {
                     return;
                 }
 
+                // Opening an already-mounted menu can trigger both the mutation callback
+                // and the zero-delay fallback. Inspect each opening only once so retries
+                // remain bounded rather than multiplying timers.
+                let didInspectOpenMenu = false;
                 function tryDispatchFromMenu() {
-                    if (didReport || didDispatchCommand
+                    if (didReport || didDispatchCommand || didInspectOpenMenu
                         || window.__kasetQueueInjectionAttemptId !== injectionAttemptId) {
                         return;
                     }
@@ -392,6 +410,7 @@ extension SingletonPlayerWebView {
                         'ytmusic-menu-popup-renderer ytmusic-menu-service-item-renderer'
                     );
                     if (menuItems.length === 0) return;
+                    didInspectOpenMenu = true;
                     if (menuObserver) {
                         menuObserver.disconnect();
                         menuObserver = null;

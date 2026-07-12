@@ -836,6 +836,8 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        private static let queueNavigationObservationGrace: Duration = .seconds(1)
+
         let playerService: PlayerService
         private var lastAcceptedObservedVideoId: String?
         private var lastAcceptedObserverEpoch: Double?
@@ -915,12 +917,14 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
                 }
             case "STATE_UPDATE":
                 let mediaVideoId = Self.nonEmptyVideoId(body["mediaVideoId"])
+                let observationReceivedAt = ContinuousClock.now
                 SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: mediaVideoId)
                 self.enqueuePlaybackBridgeMessage(generation: messageGeneration) { coordinator in
                     await coordinator.handleStateUpdate(
                         body: body,
                         observedVideoId: observedVideoId,
                         mediaVideoId: mediaVideoId,
+                        observationReceivedAt: observationReceivedAt,
                         messageGeneration: messageGeneration
                     )
                 }
@@ -1400,12 +1404,13 @@ final class SingletonPlayerWebView { // swiftlint:disable:this type_body_length
     }
 }
 
-private extension SingletonPlayerWebView.Coordinator {
+extension SingletonPlayerWebView.Coordinator {
     // swiftlint:disable:next function_body_length
-    private func handleStateUpdate(
+    func handleStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
         mediaVideoId: String?,
+        observationReceivedAt: ContinuousClock.Instant,
         messageGeneration: Int
     ) async {
         let isPlaying = body["isPlaying"] as? Bool ?? false
@@ -1448,6 +1453,48 @@ private extension SingletonPlayerWebView.Coordinator {
                 progress: self.playerService.progress,
                 duration: self.playerService.duration
             )
+            return
+        }
+
+        let isWithinQueueNavigationObservationGrace = if let navigationStartedAt = self.playerService
+            .protectedQueueNavigationStartedAt
+        {
+            observationReceivedAt - navigationStartedAt < Self.queueNavigationObservationGrace
+        } else {
+            false
+        }
+
+        // A manual queue load can start before this coordinator accepts any media
+        // baseline (initial playback or coordinator recreation). Suppress the
+        // immediate outgoing frame, but keep the grace bounded so a persistent
+        // wrong-media observation can still trigger the existing recovery path.
+        if !self.hasAcceptedQueueEntryBaseline,
+           self.playerService.isKasetInitiatedPlayback,
+           mediaVideoId != nil,
+           !self.playerService.observedPlaybackMatchesCurrentTarget(videoId: mediaVideoId),
+           isWithinQueueNavigationObservationGrace
+        {
+            return
+        }
+
+        // A manual queue move changes the native occurrence immediately, while
+        // the outgoing media element can still emit one final paused/time update.
+        // Reject that old occurrence before metadata reconciliation can schedule
+        // a recovery load for the already-selected target.
+        let queueEntryIDBeforeReconciliation = self.playerService.currentQueueEntryID
+        let queueEntryChangedBeforeReconciliation = WebPlaybackIdentityTransition.didQueueEntryChange(
+            hasBaseline: self.hasAcceptedQueueEntryBaseline,
+            lastAcceptedQueueEntryID: self.lastAcceptedQueueEntryID,
+            currentQueueEntryID: queueEntryIDBeforeReconciliation
+        )
+        let shouldAcceptBeforeReconciliation = WebPlaybackIdentityTransition.shouldAcceptMediaState(
+            queueEntryChanged: queueEntryChangedBeforeReconciliation,
+            observerEpoch: observerEpoch,
+            lastAcceptedObserverEpoch: self.lastAcceptedObserverEpoch,
+            mediaGeneration: mediaGeneration,
+            lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
+        )
+        if !shouldAcceptBeforeReconciliation, isWithinQueueNavigationObservationGrace {
             return
         }
 
